@@ -146,10 +146,9 @@
 
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Grpc.AspNetCore.Server" />
         <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
-        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>

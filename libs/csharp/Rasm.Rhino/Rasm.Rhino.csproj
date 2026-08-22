@@ -20,16 +20,8 @@
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
     </ItemGroup>
 
-    <!-- rasm.organization.v1 and rasm.scene.v1 are the corpus-homed sources this boundary produces; ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
-        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/organization/v1/organization.proto"
-                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
-                  GrpcServices="None" />
-        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/scene/v1/scene.proto"
-                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
-                  GrpcServices="None" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Usings">

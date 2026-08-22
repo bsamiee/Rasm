@@ -1521,23 +1521,6 @@
         "resolved": "6.1.0",
         "contentHash": "L8yQ70Wd9p8hMJvnmpgyZfr2R6Q7S0/lPyEBI1tacJa5XzsoJSVtHdmfsMaHyufwk03hlUsBXgNerAs66kxHdA=="
       },
-      "Grpc.AspNetCore.Server": {
-        "type": "Transitive",
-        "resolved": "2.83.0",
-        "contentHash": "rWeSaXaSPIIerc82lhHKqmzlp/sgLnG+Zw1c3YEEVp/un+hJKPxJOXWuGUOS2cs3EvcZBZ2tliXsnAg5Mdk2Ew==",
-        "dependencies": {
-          "Grpc.Net.Common": "2.83.0"
-        }
-      },
-      "Grpc.AspNetCore.Server.ClientFactory": {
-        "type": "Transitive",
-        "resolved": "2.83.0",
-        "contentHash": "DrX1dE9WJNOsaKDQpD1gQaVE567jMNfhpBuG6P2NvGhirf2HZczfIJtd2d1L+steYh0YZ1q57Sa1ZHuufMPYBw==",
-        "dependencies": {
-          "Grpc.AspNetCore.Server": "2.83.0",
-          "Grpc.Net.ClientFactory": "2.83.0"
-        }
-      },
       "Grpc.Auth": {
         "type": "Transitive",
         "resolved": "2.71.0",
@@ -1554,15 +1537,6 @@
         "dependencies": {
           "Google.Protobuf": "3.31.1",
           "Grpc.Core.Api": "2.83.0"
-        }
-      },
-      "Grpc.Net.ClientFactory": {
-        "type": "Transitive",
-        "resolved": "2.83.0",
-        "contentHash": "j07orG5YnET3n5+TnczHCQsyWL3a4n/lJlIS88B3Zffylpp0RkcPzLv4ILAwKmOWOBvbBHiytPzAwJ8p7JomEQ==",
-        "dependencies": {
-          "Grpc.Net.Client": "2.83.0",
-          "Microsoft.Extensions.Http": "8.0.0"
         }
       },
       "HanumanInstitute.Validators": {
@@ -3102,9 +3076,9 @@
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Generator.Equals": "[4.0.2, )",
-          "Google.Protobuf": "[3.35.1, )",
-          "Grpc.AspNetCore": "[2.83.0, )",
+          "Google.Protobuf": "[3.36.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
+          "Grpc.AspNetCore.Server": "[2.83.0, )",
           "Grpc.AspNetCore.Web": "[2.83.0, )",
           "Grpc.Core.Api": "[2.83.0, )",
           "Grpc.Net.Client": "[2.83.0, )",
@@ -3213,8 +3187,8 @@
           "Generator.Equals": "[4.0.2, )",
           "GeneticSharp": "[3.1.4, )",
           "Google.OrTools": "[9.15.6755, )",
-          "Google.Protobuf": "[3.35.1, )",
-          "Grpc.AspNetCore": "[2.83.0, )",
+          "Google.Protobuf": "[3.36.0, )",
+          "Grpc.AspNetCore.Server": "[2.83.0, )",
           "Grpc.Core.Api": "[2.83.0, )",
           "Grpc.Net.Client": "[2.83.0, )",
           "Grpc.Net.Client.Web": "[2.83.0, )",
@@ -3270,7 +3244,7 @@
           "CloudNative.CloudEvents": "[2.9.0, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
-          "Google.Protobuf": "[3.35.1, )",
+          "Google.Protobuf": "[3.36.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.Extensions.Compliance.Abstractions": "[10.8.0, )",
@@ -4093,20 +4067,9 @@
       },
       "Google.Protobuf": {
         "type": "CentralTransitive",
-        "requested": "[3.35.1, )",
-        "resolved": "3.35.1",
-        "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
-      },
-      "Grpc.AspNetCore": {
-        "type": "CentralTransitive",
-        "requested": "[2.83.0, )",
-        "resolved": "2.83.0",
-        "contentHash": "PMoR+paO24EgBjBvfCqrmkurBH+RmfOIYThsUv6sGx6LUH0kxhzQkjtZ44mJxU0IwEw64dCzHhIjAM+CmORp3g==",
-        "dependencies": {
-          "Google.Protobuf": "3.31.1",
-          "Grpc.AspNetCore.Server.ClientFactory": "2.83.0",
-          "Grpc.Tools": "2.83.0"
-        }
+        "requested": "[3.36.0, )",
+        "resolved": "3.36.0",
+        "contentHash": "wDPg8sKlmA8we1bqnC9DYKwLog4PNJ4GYTWV9FkzlGvfs3kNCSt2x0Qe31SBOeBPS2JGEZ/lNfil/Bkwx18Ufg=="
       },
       "Grpc.AspNetCore.HealthChecks": {
         "type": "CentralTransitive",
@@ -4116,6 +4079,15 @@
         "dependencies": {
           "Grpc.AspNetCore.Server": "2.83.0",
           "Grpc.HealthCheck": "2.83.0"
+        }
+      },
+      "Grpc.AspNetCore.Server": {
+        "type": "CentralTransitive",
+        "requested": "[2.83.0, )",
+        "resolved": "2.83.0",
+        "contentHash": "rWeSaXaSPIIerc82lhHKqmzlp/sgLnG+Zw1c3YEEVp/un+hJKPxJOXWuGUOS2cs3EvcZBZ2tliXsnAg5Mdk2Ew==",
+        "dependencies": {
+          "Grpc.Net.Common": "2.83.0"
         }
       },
       "Grpc.AspNetCore.Web": {
@@ -4154,12 +4126,6 @@
         "dependencies": {
           "Grpc.Core.Api": "2.83.0"
         }
-      },
-      "Grpc.Tools": {
-        "type": "CentralTransitive",
-        "requested": "[2.83.0, )",
-        "resolved": "2.83.0",
-        "contentHash": "vK2Go/83W0v2Nn7tTP9fGrX4IjmOa93s3M0SZeFimU1vIIr2wL9yNJlIyK21y85SGm3++JncB8IF751cjoLHuQ=="
       },
       "HarfBuzzSharp.NativeAssets.Linux": {
         "type": "CentralTransitive",
@@ -5992,11 +5958,11 @@
       },
       "SSH.NET": {
         "type": "CentralTransitive",
-        "requested": "[2025.1.0, )",
-        "resolved": "2025.1.0",
-        "contentHash": "jrnbtf0ItVaXAe6jE8X/kSLa6uC+0C+7W1vepcnRQB/rD88qy4IxG7Lf1FIbWmkoc4iVXv0pKrz+Wc6J4ngmHw==",
+        "requested": "[2026.0.0, )",
+        "resolved": "2026.0.0",
+        "contentHash": "Yu9dirPq8l3oaat0+OQ7K0nUf5MmYltpia5UGqsApTG4zTPvBC1cxbNnC3NERij26dUST0A3Ef1QdHSn5ArbWQ==",
         "dependencies": {
-          "BouncyCastle.Cryptography": "2.6.2",
+          "BouncyCastle.Cryptography": "2.7.0",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
         }
       },

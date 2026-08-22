@@ -101,16 +101,11 @@
         <PackageReference Include="NATS.Net" />
     </ItemGroup>
 
-    <!-- rasm.compute.v1 is the corpus-homed suite source; this package compiles GrpcServices=Client while app roots compile the same file GrpcServices=Server, and ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Grpc.AspNetCore.Server" />
         <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="Grpc.Net.Client" />
-        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
-        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/compute/v1/compute.proto"
-                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
-                  GrpcServices="Client" />
     </ItemGroup>
 </Project>

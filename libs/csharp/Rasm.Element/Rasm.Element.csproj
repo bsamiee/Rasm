@@ -16,17 +16,12 @@
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
-    <!-- rasm.element.v1 is the corpus-homed source this seam mints; ProtoRoot pins the corpus root so the generated descriptor path matches the frozen snapshot every peer minter carries. -->
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
-        <Protobuf Include="$(MSBuildThisFileDirectory)../../../tests/contracts/rasm/element/v1/element.proto"
-                  ProtoRoot="$(MSBuildThisFileDirectory)../../../tests/contracts"
-                  GrpcServices="None" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">
