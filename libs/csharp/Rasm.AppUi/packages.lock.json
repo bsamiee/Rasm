@@ -3157,6 +3157,7 @@
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
@@ -3222,6 +3223,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
           "SharpGLTF.Core": "[1.0.6, )",
@@ -3238,6 +3240,14 @@
           "libtorch-cpu": "[2.10.0, )"
         }
       },
+      "rasm.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
+          "Google.Protobuf": "[3.36.0, )",
+          "Grpc.Core.Api": "[2.83.0, )"
+        }
+      },
       "rasm.element": {
         "type": "Project",
         "dependencies": {
@@ -3252,6 +3262,7 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "System.IO.Hashing": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -3298,6 +3309,7 @@
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
+          "Google.Protobuf": "[3.36.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Magick.NET-Q16-HDRI-AnyCPU": "[14.16.0, )",
@@ -3309,6 +3321,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Silk.NET.WebGPU": "[2.23.0, )",
           "Silk.NET.WebGPU.Extensions.WGPU": "[2.23.0, )",

@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
@@ -22,6 +23,7 @@
 
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Usings">

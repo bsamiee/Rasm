@@ -1709,6 +1709,14 @@
           "Wacton.Unicolour": "[8.0.0, )"
         }
       },
+      "rasm.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Csp.Contracts": "[1.0.0, )",
+          "Google.Protobuf": "[3.36.0, )",
+          "Grpc.Core.Api": "[2.83.0, )"
+        }
+      },
       "Apache.Avro": {
         "type": "CentralTransitive",
         "requested": "[1.12.1, )",

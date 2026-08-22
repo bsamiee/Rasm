@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Committed protoc and grpc_csharp_plugin emission of the rasm.contracts.&lt;family&gt;.v1 corpus — the one in-repo bindings assembly every C# wire consumer references by project; generation is its only author.</Description>
+        <CspScope>Boundary</CspScope>
+        <!-- Declared posture, never a build fix: Roslyn holds auto-generated files in the disabled nullable context under every setting (0/0 under enable, no NullableAttribute metadata), so enable would advertise a context the bindings never enter; consumers admit at the boundary. -->
+        <Nullable>disable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.Core.Api" />
+    </ItemGroup>
+</Project>
