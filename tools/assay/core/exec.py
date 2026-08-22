@@ -377,13 +377,25 @@ def apply_row_status(tool: Tool, done: Completed) -> Completed:
     A row carrying an ``empty_signature`` maps its (returncode, marker) nothing-to-do receipt to ``EMPTY`` —
     a runner with no eligible work (pytest exit 5, vitest "No test files found") is an empty scope, never a defect.
 
+    A row declaring ``defect_exit`` types its exit algebra: that exact code is the tool's rule-violation exit and reads
+    ``FAILED`` with its parsed rows, every other non-zero exit is a tool failure and reads ``FAULTED`` carrying the
+    stderr tail; ``TIMEOUT`` and ``BUSY`` receipts stay untouched.
+
     Returns:
         The receipt with the row-driven status applied, or unchanged when no policy matches.
     """
     empty = (ToolGroup.EMPTY_ON_EXIT1 in tool.groups and done.returncode == 1 and _is_match_document(done.stdout)) or (
         tool.empty_signature is not None and done.returncode == tool.empty_signature[0] and tool.empty_signature[1] in done.stdout + done.stderr
     )
-    return msgspec.structs.replace(done, status=RailStatus.EMPTY) if empty else done
+    match (empty, tool.defect_exit, done.returncode, done.status):
+        case (True, _, _, _):
+            return msgspec.structs.replace(done, status=RailStatus.EMPTY)
+        case (False, int(defect), rc, _) if rc == defect:
+            return msgspec.structs.replace(done, status=RailStatus.FAILED)
+        case (False, int(), rc, RailStatus.FAILED) if rc != 0:
+            return msgspec.structs.replace(done, status=RailStatus.FAULTED)
+        case _:
+            return done
 
 
 def _is_match_document(raw: bytes) -> bool:

@@ -1,6 +1,8 @@
 # [LAWS_CORPUS]
 
-Repo-wide maintenance law outlives any single language branch or campaign, so this corpus is the system of record for a fact no owner below it carries and for nothing else. Heavy workflow runs land their generalizable findings here through one terminal doctrine stage.
+Maintenance law outliving every language branch and campaign homes in this corpus.
+
+Heavy workflow runs land their generalizable findings here through one terminal doctrine stage.
 
 ## [01]-[PAGES]
 

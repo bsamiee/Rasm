@@ -15,6 +15,16 @@ from tools.assay.core.model import Claim, Input, Language, Mode, Parser, Runner,
 
 BENCHMARK_STORAGE_URI = f"file://{PY_ARTIFACT_ROOTS['benchmarks']}"
 PROBE_TIMEOUT_S: float = 8.0
+# buf's rule-violation exit; every other non-zero buf exit is a tool failure the lane reads as FAULTED.
+BUF_DEFECT_EXIT: int = 100
+JSONSCHEMA_PLUGIN: str = "protoc-gen-jsonschema"
+JSONSCHEMA_TEMPLATE: str = (
+    '{"version":"v2","plugins":[{"local":"'
+    + JSONSCHEMA_PLUGIN
+    + '","out":".","opt":["target=json-strict-bundle"],"strategy":"all","include_imports":false}]}'
+)
+_CONTRACTS_TIMEOUT_S: float = 120.0
+_CONTRACTS_GENERATE_TIMEOUT_S: float = 300.0
 _PROVISION_TIMEOUT_S: float = 120.0
 _PROVISION_WRITE_TIMEOUT_S: float = 300.0
 _SCENARIO_TIMEOUT_S: float = 600.0
@@ -26,15 +36,24 @@ _ONNXRUNTIME_LIB_PROBE: str = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXR
 
 DIRECT, UV, DOTNET, PNPM, INPROC = Runner.DIRECT, Runner.UV, Runner.DOTNET, Runner.PNPM, Runner.INPROC
 FILES, INCLUDE, PROJECT, SOLUTION, NONE, OWNED = (Input.FILES, Input.INCLUDE, Input.PROJECT, Input.SOLUTION, Input.NONE, Input.OWNED)
-PY, TS, CS, BASH, SQL, DOCS = (Language.PYTHON, Language.TYPESCRIPT, Language.CSHARP, Language.BASH, Language.SQL, Language.DOCS)
+PY, TS, CS, BASH, SQL, DOCS, PROTO = (
+    Language.PYTHON,
+    Language.TYPESCRIPT,
+    Language.CSHARP,
+    Language.BASH,
+    Language.SQL,
+    Language.DOCS,
+    Language.PROTO,
+)
 
 TOOLS: tuple[Tool, ...] = (
     # --- [PYTHON]
     Tool("validate-pyproject", UV, ("validate-pyproject", "pyproject.toml"), OWNED, PY, Claim.STATIC),
-    Tool("ruff", UV, ("ruff", "check"), FILES, PY, Claim.STATIC, parser=Parser.RUFF),
-    Tool("ruff", UV, ("ruff", "check", "--fix"), FILES, PY, Claim.STATIC, mode=Mode.WRITE, parser=Parser.RUFF),
-    Tool("ruff-format", UV, ("ruff", "format", "--check"), FILES, PY, Claim.STATIC, parser=Parser.RUFF_FORMAT),
-    Tool("ruff-format", UV, ("ruff", "format"), FILES, PY, Claim.STATIC, mode=Mode.WRITE, parser=Parser.RUFF_FORMAT),
+    # Explicit file paths bypass the manifest's `extend-exclude` unless `--force-exclude` rides the row, so the lane honors the project's carve.
+    Tool("ruff", UV, ("ruff", "check", "--force-exclude"), FILES, PY, Claim.STATIC, parser=Parser.RUFF),
+    Tool("ruff", UV, ("ruff", "check", "--fix", "--force-exclude"), FILES, PY, Claim.STATIC, mode=Mode.WRITE, parser=Parser.RUFF),
+    Tool("ruff-format", UV, ("ruff", "format", "--check", "--force-exclude"), FILES, PY, Claim.STATIC, parser=Parser.RUFF_FORMAT),
+    Tool("ruff-format", UV, ("ruff", "format", "--force-exclude"), FILES, PY, Claim.STATIC, mode=Mode.WRITE, parser=Parser.RUFF_FORMAT),
     Tool("ty", UV, ("ty", "check", "--no-progress"), OWNED, PY, Claim.STATIC, parser=Parser.TY),
     Tool(
         "mypy",
@@ -165,7 +184,13 @@ TOOLS: tuple[Tool, ...] = (
     # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD, parser=Parser.TSC),
     Tool(
-        "biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true", "--colors=off", "--reporter=json"), NONE, TS, Claim.STATIC, parser=Parser.BIOME
+        "biome",
+        PNPM,
+        ("biome", "ci", "--files-ignore-unknown=true", "--no-errors-on-unmatched", "--colors=off", "--reporter=json"),
+        NONE,
+        TS,
+        Claim.STATIC,
+        parser=Parser.BIOME,
     ),
     Tool("biome", PNPM, ("biome", "check", "--write", "--files-ignore-unknown=true"), FILES, TS, Claim.STATIC, mode=Mode.WRITE, parser=Parser.BIOME),
     Tool("vitest", PNPM, ("vitest", "run"), NONE, TS, Claim.TEST, mode=Mode.RUN, empty_signature=(1, b"No test files found")),
@@ -351,6 +376,91 @@ TOOLS: tuple[Tool, ...] = (
         Claim.CODE,
         mode=Mode.CONTENT,
     ),
+    # --- [CONTRACTS]
+    # buf is the one driver: lint/format/breaking are the gate lanes (exit 100 = violations, parsed from NDJSON), build
+    # bares the descriptor set the corpus gate resolves against, STAGE generate regenerates into the scratch {output}
+    # the freshness gate diffs, and WRITE generate rewrites the committed out roots under the contracts lease.
+    Tool(
+        "buf-lint",
+        PNPM,
+        ("buf", "lint", "--error-format", "json"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        timeout=_CONTRACTS_TIMEOUT_S,
+        parser=Parser.BUF,
+        defect_exit=BUF_DEFECT_EXIT,
+    ),
+    # The estate module path alone: vendored publisher bytes are never graded, and buf format has shipped
+    # non-idempotent releases, so the lane diffs and never writes.
+    Tool(
+        "buf-format",
+        PNPM,
+        ("buf", "format", "--diff", "--exit-code", "tests/contracts/proto"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        timeout=_CONTRACTS_TIMEOUT_S,
+        defect_exit=BUF_DEFECT_EXIT,
+    ),
+    Tool(
+        "buf-breaking",
+        PNPM,
+        ("buf", "breaking", "--against", ".git#branch=main", "--against-config", "buf.yaml", "--error-format", "json"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        timeout=_CONTRACTS_TIMEOUT_S,
+        parser=Parser.BUF,
+        defect_exit=BUF_DEFECT_EXIT,
+    ),
+    Tool(
+        "buf-build",
+        PNPM,
+        ("buf", "build", "-o", "{output}", "--as-file-descriptor-set", "--exclude-imports"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        mode=Mode.QUERY,
+        timeout=_CONTRACTS_TIMEOUT_S,
+    ),
+    Tool(
+        "buf-generate",
+        PNPM,
+        ("buf", "generate", "--template", "buf.gen.yaml", "-o", "{output}"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        mode=Mode.STAGE,
+        timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
+    ),
+    Tool(
+        "buf-generate",
+        PNPM,
+        ("buf", "generate", "--template", "buf.gen.yaml", "--clean"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        mode=Mode.WRITE,
+        timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
+    ),
+    Tool(
+        "buf-jsonschema",
+        PNPM,
+        ("buf", "generate", "{input}", "--template", JSONSCHEMA_TEMPLATE, "-o", "{output}", "--type", "{fqn}"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        mode=Mode.STAGE,
+        timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
+    ),
+    # INPROC gates: plugin resolution over the template's binaries, the corpus audit over manifest, schemas, disk,
+    # anchors, rosters, and descriptors, and the scratch-vs-committed freshness diff.
+    Tool("plugin-probe", INPROC, ("plugin-probe", "resolve"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.VERIFY),
+    Tool("corpus-gate", INPROC, ("corpus-gate", "check"), OWNED, PROTO, Claim.CONTRACTS),
+    Tool("freshness-gate", INPROC, ("freshness-gate", "diff"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.QUERY),
+    # The writer leg of generate: the derived roster block lands between each generated package's `.api` markers.
+    Tool("corpus-emit", INPROC, ("corpus-emit", "write"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.WRITE),
     # --- [PROVISION]
     Tool(
         "forge-provision", DIRECT, ("forge-provision", "{flags*}", "{verb}"), NONE, PY, Claim.PROVISION, mode=Mode.RUN, timeout=_PROVISION_TIMEOUT_S
@@ -435,4 +545,4 @@ def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PROBE_TIMEOUT_S", "TOOLS", "launch", "select"]
+__all__ = ["BUF_DEFECT_EXIT", "JSONSCHEMA_PLUGIN", "JSONSCHEMA_TEMPLATE", "PROBE_TIMEOUT_S", "TOOLS", "launch", "select"]

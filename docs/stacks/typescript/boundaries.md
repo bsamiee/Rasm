@@ -23,9 +23,11 @@ When a foreign signal matches several rows, the most specific owner wins, and id
 |  [13]   | store read after writes        | `Reactivity` keyed invalidation | re-run `Mailbox`/`Stream`       | cadence poll of unchanged rows |
 |  [14]   | reactive view binding          | `Atom.runtime` over Layer graph | `useAtomValue`/`useAtomSet`     | `run*`, per-render Layer       |
 |  [15]   | wasm module                    | scoped capability-Tag instance  | calls through the marked kernel | escaping linear-memory view    |
+|  [16]   | descriptor-bound message       | `Format.proto` family row       | validated generated shape       | hand Schema mirror of a proto  |
 
 - [04]: contribution family: endpoint/group expressed as data.
 - [06]: platform capability: fs, net, exec.
+- [16]: descriptor-bound message: a corpus `.proto` family crossing as binary or ProtoJSON.
 
 ## [02]-[ADMISSION]
 
@@ -501,3 +503,97 @@ const migrations = Migrator.fromRecord({
 
 export { Checkpoint, Ledger, migrations, Row };
 ```
+
+## [08]-[DESCRIPTOR_PLANE]
+
+[SCHEMA_FIRST]:
+- Use: every crossing a corpus `.proto` declares — proto binary, ProtoJSON a host emits, a Connect error detail, a size-delimited stream frame.
+- Law: the generated descriptor is the ONE authority for a wire's shape and every call takes it first — `fromBinary(schema, bytes, options)`, `fromJson(schema, json, options)`, `toBinary`, `toJson`, `create(schema, init)`, `anyPack(schema, message)` — so no page re-declares a message as a `Schema.Struct`, re-spells an enum as literals, or reads a field the descriptor does not name; the `$typeName` brand is the narrowing and `isMessage(value, schema)` the guard.
+- Law: proto is transport and `Schema` is domain — the generated shape is the boundary carrier and crosses into branch vocabulary through ONE `family(descriptor, owned)` composition at the codec owner, where `owned` is a transform whose ENCODED side is the generated `MessageShape` and whose type side is the branded, option-carrying domain value; a family whose consumers read the wire shape whole binds the descriptor alone and lifts absence at its own seam. A domain model that IS a proto message, or a proto message reused as a domain model, is the rejected form on both sides.
+- Law: validation is the corpus's — every message passes its `buf.validate` rules through one `@bufbuild/protovalidate` `Validator` at the descriptor admission, before any owned transform runs and before any message leaves, so a hand field rule beside the generated shape restates a rule the corpus already owns and is deleted; only a law no field rule can state — a cross-plane coupling, a roster order, a pointer grammar — refines above the descriptor.
+- Law: read posture is ONE value per direction, passed at every site — the binary posture keeps unknown fields and bounds recursion, the JSON posture spells `ignoreUnknownFields: true` beside the same bound because the package's JSON reader refuses an unknown field by default; a `fromJson` with no options is a forward-compatibility fork a newer producer trips.
+- Law: framing is a row of the family, never a second arm — `binary` for every proto-binary crossing, `json` for every ProtoJSON document — and the landed value is one shape under both; a stream frame is the package's own size-delimited pair under the ingress ceiling, because a Connect transport already frames its streams and a bidi rpc no transport binds crosses a socket under that frame instead.
+- Law: one `Code`→fault table per branch — keyed on the closed `Code` enum the transport ships, closed by `satisfies Record<Code, Row>`, read by every dial, retry gate, and enricher — and a remote fault's class elects off the producer's typed recovery arm, never off a domain case; a second grading beside that table makes retry depend on which module dialled.
+- Law: one Connect transport owner per branch — protocol and carrier as orthogonal rows over the package's `CommonTransportOptions` — and a runtime's node session manager enters as a carrier row's `UniversalClientFn`, never as a second transport roster.
+- Law: the well-known types ride the package's bridges — `TimestampSchema`/`DurationSchema` typed through `MessageShape`, `timestampMs`/`durationMs` into the branch clock, `anyPack`/`anyUnpack` against the one registry, `Struct`/`Value` through their generated codecs — so a hand `{ seconds, nanos }` struct, a hand type-URL switch, or a hand `kind` walk over a `Value` is the twin.
+- Reject: a `Schema.Class` transcribing a message in producer field order; a string-literal roster beside a generated enum; a decoded message compared by `SerializedData`; a `fromJson` without the read posture; a per-module code table; a second `createTransport` owner; a hand length-prefix parser beside `sizeDelimitedEncode`.
+
+```typescript conceptual
+import { create, type DescMessage, fromBinary, fromJson, isMessage, type JsonValue, type MessageShape, toBinary, toJson } from "@bufbuild/protobuf";
+import { type Timestamp, TimestampSchema, timestampMs } from "@bufbuild/protobuf/wkt";
+import { createValidator } from "@bufbuild/protovalidate";
+import { Code } from "@connectrpc/connect";
+import { DateTime, Either, Option, ParseResult, Schema } from "effect";
+
+// --- [CONSTANTS] ------------------------------------------------------------------------
+
+const _READ = { readUnknownFields: true, recursionLimit: 24 } as const;
+const _JSON_READ = { ignoreUnknownFields: true, recursionLimit: 24 } as const;
+const _validator = createValidator();
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+// the descriptor is the one narrowing; the corpus rules run behind it, before any owned transform
+const message = <Desc extends DescMessage>(schema: Desc): Schema.Schema<MessageShape<Desc>> =>
+    Schema.declare((input: unknown): input is MessageShape<Desc> => isMessage(input, schema), { identifier: schema.typeName }).pipe(
+        Schema.filter((held, _options, ast) => {
+            const verdict = _validator.validate(schema, held);
+            return verdict.kind === "valid"
+                ? true
+                : verdict.kind === "invalid"
+                  ? verdict.violations.map((violation) => ({ path: [violation.ruleId], message: violation.message }))
+                  : new ParseResult.Forbidden(ast, held, verdict.error.message);
+        }),
+    );
+
+// one family, two framings, one landed shape: the owned transform's ENCODED side is the generated message
+const family = <Desc extends DescMessage, A>(schema: Desc, owned: Schema.Schema<A, MessageShape<Desc>>) => ({
+    binary: Schema.transformOrFail(Schema.Uint8ArrayFromSelf, message(schema), {
+        strict: true,
+        decode: (octets, _o, ast) => Either.try({ try: () => fromBinary(schema, octets, _READ), catch: (d) => new ParseResult.Type(ast, octets, String(d)) }),
+        encode: (held) => Either.right(toBinary(schema, held)),
+    }).pipe(Schema.compose(owned, { strict: false })),
+    json: Schema.transformOrFail(Schema.Unknown, message(schema), {
+        strict: true,
+        decode: (json, _o, ast) => Either.try({ try: () => fromJson(schema, json as JsonValue, _JSON_READ), catch: (d) => new ParseResult.Type(ast, json, String(d)) }),
+        encode: (held) => Either.right(toJson(schema, held)),
+    }).pipe(Schema.compose(owned, { strict: false })),
+});
+
+// a stamp types against the package's own descriptor and crosses through its bridge, never hand arithmetic
+const Instant: Schema.Schema<DateTime.Utc, Timestamp> = Schema.transform(message(TimestampSchema), Schema.DateTimeUtcFromSelf, {
+    strict: true,
+    decode: (stamp) => DateTime.unsafeMake(timestampMs(stamp)),
+    encode: (instant) => create(TimestampSchema, { seconds: BigInt(Math.floor(DateTime.toEpochMillis(instant) / 1000)) }),
+});
+
+// --- [CONSTANTS] ------------------------------------------------------------------------
+
+// ONE table keyed on the enum the transport ships closed; `satisfies` proves it total and no inverse map stands beside it
+const hops = {
+    [Code.Canceled]: { class: "defect", retryable: false },
+    [Code.Unknown]: { class: "defect", retryable: false },
+    [Code.InvalidArgument]: { class: "invalid", retryable: false },
+    [Code.DeadlineExceeded]: { class: "expired", retryable: true },
+    [Code.NotFound]: { class: "absent", retryable: false },
+    [Code.AlreadyExists]: { class: "conflicted", retryable: false },
+    [Code.PermissionDenied]: { class: "denied", retryable: false },
+    [Code.ResourceExhausted]: { class: "exhausted", retryable: true },
+    [Code.FailedPrecondition]: { class: "invalid", retryable: false },
+    [Code.Aborted]: { class: "conflicted", retryable: true },
+    [Code.OutOfRange]: { class: "invalid", retryable: false },
+    [Code.Unimplemented]: { class: "defect", retryable: false },
+    [Code.Internal]: { class: "defect", retryable: false },
+    [Code.Unavailable]: { class: "unavailable", retryable: true },
+    [Code.DataLoss]: { class: "breached", retryable: false },
+    [Code.Unauthenticated]: { class: "denied", retryable: false },
+} as const satisfies Record<Code, { readonly class: string; readonly retryable: boolean }>;
+
+const _code = Schema.is(Schema.Enums(Code));
+const graded = (code: number): (typeof hops)[Code] => (_code(code) ? hops[code] : hops[Code.Unknown]);
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { family, graded, hops, Instant, message };
+```
+

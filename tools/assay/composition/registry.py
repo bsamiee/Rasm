@@ -67,6 +67,7 @@ from tools.assay.rails import (
     api as api_rail,
     bridge as bridge_rail,
     code as code_rail,
+    contracts as contracts_rail,
     docs as docs_rail,
     health as health_rail,
     package as package_rail,
@@ -77,6 +78,7 @@ from tools.assay.rails import (
 from tools.assay.rails.api import ApiParams
 from tools.assay.rails.bridge import BridgeParams
 from tools.assay.rails.code import CodeParams
+from tools.assay.rails.contracts import ContractsParams
 from tools.assay.rails.docs import DocsParams, FaultedPromotion
 from tools.assay.rails.package import PackageParams
 from tools.assay.rails.provision import ProvisionParams
@@ -597,6 +599,8 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown prose gate + Mermaid + planning-marker validation."),
+    Bind(Claim.CONTRACTS, "check", contracts_rail.check, ContractsParams, "buf lint + format diff + breaking vs main + corpus audit + freshness."),
+    Bind(Claim.CONTRACTS, "generate", contracts_rail.generate, ContractsParams, "buf generate --clean over every committed out root under lease."),
     Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start enabled Forge-owned provisioning services."),
     Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services while preserving owned volumes."),
     Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),

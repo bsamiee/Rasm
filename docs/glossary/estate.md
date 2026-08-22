@@ -94,7 +94,7 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `descriptor`: Refuses bare use.
 - `consumption descriptor`: Rows an open consumption axis — selection, admission, tenancy, lifetime, forfeit — filled by its supplying branch alone.
 - `capability descriptor`: Rows one plugin or agent command's capability — representation, channel demand, ops, request policy — at the agent axis.
-- `descriptor set`: Snapshots a proto source's compiled form beside it as the drift gate's per-source baseline.
+- `descriptor set`: Names the `FileDescriptorSet` `buf build` bares from the corpus image for one gate run; never a tracked baseline beside a source.
 - `frame budget`: Refuses bare use.
 - `viewport frame budget`: Bounds one rendered frame's spend — time, draws, residency — so a breach names its axis and degrades the frame alone.
 - `solver frame budget`: Stops a coarse solve at one frame deadline between iteration floor and ceiling, forking refinement onto a background lane.

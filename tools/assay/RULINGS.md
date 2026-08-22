@@ -8,8 +8,8 @@
 
 ## [02]-[SHAPE]
 
-- `npm:` member verdicts prove the entry module's OWN declarations alone — `export *` re-exports return `unsupported`, so an absence claim about a re-exported member proves on the resolved `.d.ts` tree, never the rail verdict.
-- `npm:` member resolution keys on the workspace-resolved package version — a store-directory scan can hit an orphaned older-version copy beside the live one and answer from the wrong surface.
+- `npm:` member verdicts prove the entry module's OWN declarations; `export *` re-exports return `unsupported` and prove on the `.d.ts` tree.
+- `npm:` member resolution keys on the workspace-resolved version — a store scan can answer from an orphaned older copy beside the live one.
 
 ## [03]-[COLLAPSE]
 
@@ -21,4 +21,9 @@
 
 ## [05]-[PROCESS]
 
-- (none)
+- Ruff rows carry `--force-exclude` — explicit paths bypass the manifest's `extend-exclude`; a catalog exclusion roster forks the carve.
+- Biome `ci` carries `--no-errors-on-unmatched` — the route hands explicit paths; a force-excluded out root otherwise aborts the lane.
+- `_GENERATED_MARKERS` names the committed `assay contracts generate` out roots — rows group as evidence, the tool's exit still fails the lane.
+- `contracts generate` emits each generated package's `.api` roster block between `<!-- roster:begin -->` and `<!-- roster:end -->` from the built descriptor set, `contracts check` byte-checks it, and hand rows outside the markers are not censused.
+- Seam schemas are gate-emitted `json-strict-bundle` projections of their proto: file name is the `$id`; a hand schema fails `schema-hand-authored`.
+- `buf format` rides `--diff --exit-code` and never writes — buf shipped non-idempotent formatter releases (buf issue 4650); the gate projects the diff and the author lands the spelling at the source.

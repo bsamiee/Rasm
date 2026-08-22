@@ -64,10 +64,11 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [04]   | `rg`       | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding. |
 |  [05]   | `ast-grep` | Never `sg`. Wrong pattern and clean tree both read zero — control-probe it; `--kind` inventories; `--json=compact` glued.   |
 |  [06]   | `assay`    | Run at repo root under `uv run --no-sync`; bare `static` plans zero — pass `--folder\|--project\|--all`.                    |
-|  [07]   | `fmt`      | Defaults to `--write` — pass `--check` first; markdown and C# hold no lane and skip silently.                               |
-|  [08]   | `gha`      | `check` folds actionlint+zizmor+ratchet, `run` passes to `act`; `act -l -W <dir>` exits 0 on zero workflows.                |
-|  [09]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
-|  [10]   | `gh`       | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                     |
+|  [07]   | `buf`      | Exploration only — `ls-files`/`stats`; `assay contracts` owns every gate; exit 100 = violations; `--path` never a module.   |
+|  [08]   | `fmt`      | Defaults to `--write` — pass `--check` first; markdown and C# hold no lane and skip silently.                               |
+|  [09]   | `gha`      | `check` folds actionlint+zizmor+ratchet, `run` passes to `act`; `act -l -W <dir>` exits 0 on zero workflows.                |
+|  [10]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
+|  [11]   | `gh`       | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                     |
 
 [LANE_GATES]: Run every gate from the repo root; a wrong cwd fabricates results instead of failing:
 
@@ -85,7 +86,7 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [10]   | `security`   | `trivy fs --scanners vuln,secret,misconfig --skip-dirs node_modules --skip-dirs .venv .` · `gitleaks detect`             |
 |  [11]   | `iac`        | `pulumi preview -C <dir>` · `pulumi about` — `pulumi whoami` mints a real ephemeral cloud account, never read-only       |
 |  [12]   | `provision`  | `assay provision <verb>` — Forge service, Postgres-extension, and DuckDB/SQLite surface evidence                         |
-|  [13]   | `proto`      | `buf lint` · `buf format -d --exit-code` · `nx run workspace-foundation:proto` — plugin by path; emission untracked      |
+|  [13]   | `contracts`  | `assay contracts check` · `assay contracts generate` — lint · format · breaking · tree freshness · manifest audit        |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

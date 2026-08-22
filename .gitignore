@@ -148,8 +148,6 @@ _tmp/
 
 # --- [AI_TOOLING] -------------------------------------------------------------
 
-# Root `buf.gen.yaml` plugin `out` trees: `nx run workspace-foundation:proto` re-mints them (one row per plugin row); biome reads this file too
-libs/typescript/core/src/interchange/gen/
 .claude/agent-memory-local/
 .claude/skills/**/.cache/
 .claude/settings.local.json

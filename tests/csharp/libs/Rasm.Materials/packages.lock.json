@@ -46,6 +46,11 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
+      "Antlr4.Runtime.Standard": {
+        "type": "Transitive",
+        "resolved": "4.13.1",
+        "contentHash": "Da5+i4kFHUseJRZGcBG5fmZGpA/Ns180ibrQMxgZzjpQOnENVvSL5gi5HZ8Ncz8/AR2WsKbOg2lMBzjz0HUQcA=="
+      },
       "Azure.Core": {
         "type": "Transitive",
         "resolved": "1.53.0",
@@ -73,20 +78,22 @@
         "resolved": "2.6.0",
         "contentHash": "iF2dMiGpaya8Umwi0OfsGKtq3aMVgHVsBChwQL+NhShEsRorcoTinGf9FFNBnBMwJW2Vm0FqhtOaEBY0+74p6g=="
       },
+      "Cel": {
+        "type": "Transitive",
+        "resolved": "0.3.3",
+        "contentHash": "8UaZmq0f5wUkWQ6NHQIkvV8AcRc6J3ARw3xiJ0IwwqDSLAcFIatfMPuR3CJGIYPWpDQ9jbT2v67FZtIyH8KbXQ==",
+        "dependencies": {
+          "Antlr4.Runtime.Standard": "4.13.1",
+          "Google.Protobuf": "3.25.2",
+          "TimeZoneConverter": "7.0.0"
+        }
+      },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
         "resolved": "4.0.2",
         "contentHash": "DUEiBio024JA+PD0By2DjnHMELyo8sjd9KmjQCjVT3nkxf0/y9TxwP9sDkZ4yTD+V0JU0KbzJ70tTruCJhfGGg==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
-        }
-      },
-      "Google.Api.CommonProtos": {
-        "type": "Transitive",
-        "resolved": "2.1.0",
-        "contentHash": "CEwg4cp80bf7q9vrvDwbwIJ3SG/p/K38dK3ZRG3r4zeFDNMF1Zt2y+iPdUJjtsNxDVQHv06nKViS7dgFT8E6zw==",
-        "dependencies": {
-          "Google.Protobuf": "[3.11.4, 4.0.0)"
         }
       },
       "Grpc.HealthCheck": {
@@ -733,6 +740,11 @@
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
+      "TimeZoneConverter": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "sFbY65N/5GdsHx7nkdHFHUG+5Ar4W0w6Aks7Y2X+Q4NOTw6XyX2Il7jm+4tPkc//4mA3nG0RdxI8gKgoJitdLw=="
+      },
       "Triangle": {
         "type": "Transitive",
         "resolved": "0.0.6-Beta3",
@@ -809,12 +821,14 @@
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Generator.Equals": "[4.0.2, )",
+          "Google.Api.CommonProtos": "[2.17.0, )",
           "Google.Protobuf": "[3.36.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.83.0, )",
           "Grpc.AspNetCore.Server": "[2.83.0, )",
           "Grpc.AspNetCore.Web": "[2.83.0, )",
           "Grpc.Core.Api": "[2.83.0, )",
           "Grpc.Net.Client": "[2.83.0, )",
+          "Grpc.StatusProto": "[2.83.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MQTTnet": "[5.2.0.1603, )",
@@ -911,14 +925,17 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
+          "Google.Api.CommonProtos": "[2.17.0, )",
           "Google.Protobuf": "[3.36.0, )",
-          "Grpc.Core.Api": "[2.83.0, )"
+          "Grpc.Core.Api": "[2.83.0, )",
+          "ProtoValidate": "[1.0.1, )"
         }
       },
       "rasm.element": {
         "type": "Project",
         "dependencies": {
           "CloudNative.CloudEvents": "[2.9.0, )",
+          "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
@@ -1163,6 +1180,15 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "2.1.0"
         }
       },
+      "Google.Api.CommonProtos": {
+        "type": "CentralTransitive",
+        "requested": "[2.17.0, )",
+        "resolved": "2.17.0",
+        "contentHash": "elfQPknFr495hm7vdy6ZlgyQh6yzZq9TU7sS35L/Fj/fqjM/mUGau9gVJLhvQEtUlPjtR80hpn/m9HvBMyCXIw==",
+        "dependencies": {
+          "Google.Protobuf": "[3.31.1, 4.0.0]"
+        }
+      },
       "Google.Protobuf": {
         "type": "CentralTransitive",
         "requested": "[3.36.0, )",
@@ -1216,6 +1242,16 @@
         "resolved": "2.83.0",
         "contentHash": "9w52xxORdIGu4Mm8lff3psMIlarenu+7TC4uIfiiW9AyaHZ6iPE/18gIkG1DD9byGDuhjuhnN9hiviBUAmCuZw==",
         "dependencies": {
+          "Grpc.Core.Api": "2.83.0"
+        }
+      },
+      "Grpc.StatusProto": {
+        "type": "CentralTransitive",
+        "requested": "[2.83.0, )",
+        "resolved": "2.83.0",
+        "contentHash": "nqdA+tBE5Sly9DJ/S9M90vdShhu9dPOZYQnTzzfy+WgJgo6fgtWBnNym0FNYhT21SK/dDoqeExLf3MZAxGIQXQ==",
+        "dependencies": {
+          "Google.Api.CommonProtos": "2.16.0",
           "Grpc.Core.Api": "2.83.0"
         }
       },
@@ -2184,6 +2220,17 @@
         "dependencies": {
           "Polly.Core": "8.7.0",
           "System.Threading.RateLimiting": "8.0.0"
+        }
+      },
+      "ProtoValidate": {
+        "type": "CentralTransitive",
+        "requested": "[1.0.1, )",
+        "resolved": "1.0.1",
+        "contentHash": "JMlGsuF8mhloxxlRqgb20MjcFz5FonZSxHsK+WSPl/tH5gVKIBqgRCi1bsuqzxt1P9UASgihtQ6t4VIIHVbzVQ==",
+        "dependencies": {
+          "Cel": "0.3.3",
+          "Google.Protobuf": "3.32.1",
+          "Microsoft.Extensions.Options": "8.0.2"
         }
       },
       "Pyroscope": {

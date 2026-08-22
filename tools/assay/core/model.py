@@ -43,6 +43,7 @@ class Claim(StrEnum):
     API = "api"
     DOCS = "docs"
     PROVISION = "provision"
+    CONTRACTS = "contracts"
 
 
 class Input(StrEnum):
@@ -75,6 +76,7 @@ class Language(StrEnum):
     BASH = "bash", "glob", frozenset((".sh", ".bash"))
     SQL = "sql", "glob", frozenset((".sql",))
     DOCS = "docs", "glob", frozenset((".md", ".mmd"))
+    PROTO = "proto", "glob", frozenset((".proto",))
 
     def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str]) -> Self:
         """Attach enum payload fields not represented by the StrEnum value."""
@@ -123,6 +125,7 @@ class Parser(StrEnum):
 
     NONE = "none"
     BIOME = "biome"
+    BUF = "buf"
     CS_CONSOLE = "cs-console"
     MYPY = "mypy"
     RUFF = "ruff"
@@ -298,7 +301,7 @@ type InprocThunk = Callable[[Check], Completed]
 
 RESULT_CAP: int = 1000
 # host-bound claims cannot run off-host; remote execution rejects them before argv composition.
-HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION))
+HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS))
 # Catalog command holes: `{name}` substitutes a ToolArgs string field inside a token; `{name*}` is a whole-token
 # tuple splice. A token whose referenced string value is empty drops whole, so optional flags vanish cleanly.
 _HOLE: re.Pattern[str] = re.compile(r"\{([a-z_]+)(\*)?\}")
@@ -408,6 +411,9 @@ class Tool(Base, frozen=True, cache_hash=True):
     parser: Parser = Parser.NONE
     # Row-owned PROJECT placement flag (e.g. ("--project",)); empty means the bare project token.
     input_flag: tuple[str, ...] = ()
+    # The tool's rule-violation exit (buf's 100): that code reads FAILED with parsed rows, every other non-zero exit
+    # reads FAULTED carrying the stderr tail; TIMEOUT and BUSY stay untouched. ``None`` keeps the returncode projection.
+    defect_exit: int | None = None
 
     def uv_groups(self) -> tuple[ToolGroup, ...]:
         """Return the groups that name genuine uv dependency groups for ``uv run --group`` injection.
@@ -736,6 +742,27 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
     captures: tuple[tuple[str, str], ...] = ()
 
 
+class ContractsRun(Detail, frozen=True, tag="contracts"):
+    """Contracts gate evidence: lane verdicts, descriptor census, freshness, plugin resolution, and per-lane fault tails.
+
+    ``faults`` carries the captured stderr tail per FAULTED lane, since a ``Parser.BUF`` lane finds nothing on
+    stdout for a non-defect exit; ``stale`` rows spell ``(kind, path)`` with kind in changed/missing/orphan.
+    """
+
+    lanes: tuple[tuple[str, str], ...] = ()
+    counts: tuple[tuple[str, int], ...] = ()
+    packages: tuple[str, ...] = ()
+    stale: tuple[tuple[str, str], ...] = ()
+    unformatted: tuple[str, ...] = ()
+    violations: tuple[tuple[str, str, int], ...] = ()
+    plugins: tuple[tuple[str, str], ...] = ()
+    seams: tuple[str, ...] = ()
+    anchors: tuple[tuple[str, str], ...] = ()
+    template: str = ""
+    scratch: str = ""
+    faults: tuple[tuple[str, str], ...] = ()
+
+
 class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
     """Bridge lifecycle host and capability projection.
 
@@ -752,7 +779,18 @@ class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
 
 
 type AnyDetail = (
-    ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ProvisionRun | ApiResolution | Diagnostic | RunDelta
+    ApiSource
+    | ApiSurface
+    | VerifySummary
+    | BridgeLifecycle
+    | TestRun
+    | StaticRun
+    | PackageRun
+    | ProvisionRun
+    | ContractsRun
+    | ApiResolution
+    | Diagnostic
+    | RunDelta
 )
 
 
@@ -979,6 +1017,7 @@ __all__ = [
     "Check",
     "Claim",
     "Completed",
+    "ContractsRun",
     "Counts",
     "Detail",
     "Diagnostic",

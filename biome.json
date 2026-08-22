@@ -37,6 +37,7 @@
             "!!**/.scratch",
             "!!**/.tmp",
             "!!.claude/workflows",
+            "!!libs/typescript/contracts/gen",
             "!!**/*.html"
         ]
     },

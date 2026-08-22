@@ -393,7 +393,7 @@ reviews:
         rubocop:
             enabled: false
         buf:
-            enabled: false
+            enabled: false  # assay contracts check owns the gate
         regal:
             enabled: false
         actionlint:

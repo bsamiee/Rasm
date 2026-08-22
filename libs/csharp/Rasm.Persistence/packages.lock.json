@@ -276,18 +276,6 @@
           "NJsonSchema.NewtonsoftJson": "11.0.2"
         }
       },
-      "Confluent.SchemaRegistry.Serdes.Protobuf": {
-        "type": "Direct",
-        "requested": "[2.15.0, )",
-        "resolved": "2.15.0",
-        "contentHash": "ZCyt4ZWNK3cM7bPiGJkuUsnFURzQjaPitCZ/JoIdJdjLp3Qa4RSfeuiNmC7cjk3spCWAEQjAAfgFwxgLgU2PCg==",
-        "dependencies": {
-          "Confluent.Kafka": "2.15.0",
-          "Confluent.SchemaRegistry": "2.15.0",
-          "Google.Protobuf": "3.26.1",
-          "protobuf-net.Reflection": "3.2.12"
-        }
-      },
       "DeltaLake.Net": {
         "type": "Direct",
         "requested": "[0.33.0, )",
@@ -380,6 +368,12 @@
           "Google.Apis.Storage.v1": "[1.74.0.4115, 2.0.0)"
         }
       },
+      "Google.Protobuf": {
+        "type": "Direct",
+        "requested": "[3.36.0, )",
+        "resolved": "3.36.0",
+        "contentHash": "wDPg8sKlmA8we1bqnC9DYKwLog4PNJ4GYTWV9FkzlGvfs3kNCSt2x0Qe31SBOeBPS2JGEZ/lNfil/Bkwx18Ufg=="
+      },
       "JetBrains.Annotations": {
         "type": "Direct",
         "requested": "[2026.2.0, )",
@@ -469,12 +463,6 @@
         "requested": "[3.0.138, )",
         "resolved": "3.0.138",
         "contentHash": "o97FZRHWIpMeg/Mzb5Whhcqe1/95SxZLn1bkG+P8T4ijiAY6eoe9BYTYyINBVzkyl5zehQ7NB6bz1DnEgqVZmQ=="
-      },
-      "Microsoft.AspNetCore.JsonPatch.SystemTextJson": {
-        "type": "Direct",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "OjaS6TcMcACLoCVrXmBD4tBqByKuVprHd+HTmmSErbnENDvUy6bB7ZjBiS4prBlmC36seP5dM8U6/WACwBu4Xg=="
       },
       "Microsoft.Data.Sqlite": {
         "type": "Direct",
@@ -1115,6 +1103,11 @@
           "Aardvark.Base.IO": "[5.3.20, 5.4.0)"
         }
       },
+      "Antlr4.Runtime.Standard": {
+        "type": "Transitive",
+        "resolved": "4.13.1",
+        "contentHash": "Da5+i4kFHUseJRZGcBG5fmZGpA/Ns180ibrQMxgZzjpQOnENVvSL5gi5HZ8Ncz8/AR2WsKbOg2lMBzjz0HUQcA=="
+      },
       "Apache.Arrow.Adbc.Telemetry.Traces.Listeners": {
         "type": "Transitive",
         "resolved": "0.23.0",
@@ -1179,6 +1172,16 @@
         "dependencies": {
           "Azure.Core": "1.55.0",
           "System.IO.Hashing": "10.0.3"
+        }
+      },
+      "Cel": {
+        "type": "Transitive",
+        "resolved": "0.3.3",
+        "contentHash": "8UaZmq0f5wUkWQ6NHQIkvV8AcRc6J3ARw3xiJ0IwwqDSLAcFIatfMPuR3CJGIYPWpDQ9jbT2v67FZtIyH8KbXQ==",
+        "dependencies": {
+          "Antlr4.Runtime.Standard": "4.13.1",
+          "Google.Protobuf": "3.25.2",
+          "TimeZoneConverter": "7.0.0"
         }
       },
       "ClosedXML.Parser": {
@@ -1263,14 +1266,6 @@
         "contentHash": "DUEiBio024JA+PD0By2DjnHMELyo8sjd9KmjQCjVT3nkxf0/y9TxwP9sDkZ4yTD+V0JU0KbzJ70tTruCJhfGGg==",
         "dependencies": {
           "Microsoft.Bcl.HashCode": "6.0.0"
-        }
-      },
-      "Google.Api.CommonProtos": {
-        "type": "Transitive",
-        "resolved": "2.17.0",
-        "contentHash": "elfQPknFr495hm7vdy6ZlgyQh6yzZq9TU7sS35L/Fj/fqjM/mUGau9gVJLhvQEtUlPjtR80hpn/m9HvBMyCXIw==",
-        "dependencies": {
-          "Google.Protobuf": "[3.31.1, 4.0.0]"
         }
       },
       "Google.Api.Gax": {
@@ -2166,6 +2161,11 @@
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
+      "TimeZoneConverter": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "sFbY65N/5GdsHx7nkdHFHUG+5Ar4W0w6Aks7Y2X+Q4NOTw6XyX2Il7jm+4tPkc//4mA3nG0RdxI8gKgoJitdLw=="
+      },
       "Uncodium.SimpleStore": {
         "type": "Transitive",
         "resolved": "3.0.30",
@@ -2244,14 +2244,17 @@
         "type": "Project",
         "dependencies": {
           "Csp.Contracts": "[1.0.0, )",
+          "Google.Api.CommonProtos": "[2.17.0, )",
           "Google.Protobuf": "[3.36.0, )",
-          "Grpc.Core.Api": "[2.83.0, )"
+          "Grpc.Core.Api": "[2.83.0, )",
+          "ProtoValidate": "[1.0.1, )"
         }
       },
       "rasm.element": {
         "type": "Project",
         "dependencies": {
           "CloudNative.CloudEvents": "[2.9.0, )",
+          "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
@@ -2353,11 +2356,14 @@
         "resolved": "3000.0.2.132",
         "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
       },
-      "Google.Protobuf": {
+      "Google.Api.CommonProtos": {
         "type": "CentralTransitive",
-        "requested": "[3.36.0, )",
-        "resolved": "3.36.0",
-        "contentHash": "wDPg8sKlmA8we1bqnC9DYKwLog4PNJ4GYTWV9FkzlGvfs3kNCSt2x0Qe31SBOeBPS2JGEZ/lNfil/Bkwx18Ufg=="
+        "requested": "[2.17.0, )",
+        "resolved": "2.17.0",
+        "contentHash": "elfQPknFr495hm7vdy6ZlgyQh6yzZq9TU7sS35L/Fj/fqjM/mUGau9gVJLhvQEtUlPjtR80hpn/m9HvBMyCXIw==",
+        "dependencies": {
+          "Google.Protobuf": "[3.31.1, 4.0.0]"
+        }
       },
       "Grpc.AspNetCore.Server": {
         "type": "CentralTransitive",
@@ -2945,19 +2951,15 @@
         "resolved": "9.0.2",
         "contentHash": "m6Lxaydjt710cFHsZkDdbu4hgr4ngk5SeI0OYCvIzXO88oTr2tMMOondn/8oCuEjoteViD6EV6obxP5n1C2iqQ=="
       },
-      "protobuf-net.Core": {
+      "ProtoValidate": {
         "type": "CentralTransitive",
-        "requested": "[3.2.56, )",
-        "resolved": "3.2.56",
-        "contentHash": "d6QOukTpDzs7zZv9tPnBZMtvHDNeHJQXUhMx54g4urUQsXK3oo9U70H9HvklYq7hlQ4A7AHJl7EVEqyCXXIl8Q=="
-      },
-      "protobuf-net.Reflection": {
-        "type": "CentralTransitive",
-        "requested": "[3.2.52, )",
-        "resolved": "3.2.52",
-        "contentHash": "nlpEtpGP37Jz2ORt17hshpM/WvLxsOQ7LwWqlNbFYHvAwE53VOfoJtAWaD/Go8pNglsUGcKup6ETJ6E9a9gYgg==",
+        "requested": "[1.0.1, )",
+        "resolved": "1.0.1",
+        "contentHash": "JMlGsuF8mhloxxlRqgb20MjcFz5FonZSxHsK+WSPl/tH5gVKIBqgRCi1bsuqzxt1P9UASgihtQ6t4VIIHVbzVQ==",
         "dependencies": {
-          "protobuf-net.Core": "3.2.52"
+          "Cel": "0.3.3",
+          "Google.Protobuf": "3.32.1",
+          "Microsoft.Extensions.Options": "8.0.2"
         }
       },
       "Snappier": {

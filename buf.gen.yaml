@@ -1,12 +1,77 @@
-# Generation axis; entry is nx run workspace-foundation:proto
+# Generation axis; only entry is `assay contracts generate`
 version: v2
-clean: true                                        # Sweeps what the run did not write, every out tree holds generated output alone
+clean: true                                              # Post-run sweep of every file under an out root the run did not write
+managed:
+  enabled: true                                          # Derives csharp_namespace Rasm.Contracts.<Family>.V1 from the package
+  disable:
+    - path: io/cloudevents/v1                            # Module-root relative, so the publisher's own options survive in every embedded descriptor
+    - path: grpc/health/v1
+    - file_option: java_package                          # Managed defaults for Java, ObjC, PHP, and Ruby otherwise ride every embedded descriptor
+    - file_option: java_outer_classname
+    - file_option: java_multiple_files
+    - file_option: objc_class_prefix
+    - file_option: php_namespace
+    - file_option: php_metadata_namespace
+    - file_option: ruby_package
 inputs:
-  - directory: tests/contracts                     # Module form, never the workspace default, no second corpus silently widens every plugin row
-plugins:                                           # One row per consumer whose build drives no protoc; a new row lands with a .gitignore row and nx outputs entry as one change
-  - local: node_modules/.bin/protoc-gen-es         # Path form binds the workspace binary; a bare name needs a pnpm/nx shell
-    out: libs/typescript/core/src/interchange/gen  # Module-relative _pb.ts is the import shape typescript:core/interchange/format binds
+  - directory: .                                         # One workspace input: plugin type filters resolve per input image, so a per-module input aborts
+plugins:
+  # Each row's `types` is the package set that branch's pages bind; a family no page in the branch reads is not emitted there
+  - local: node_modules/.bin/protoc-gen-es               # pnpm-pinned as a pair with the @bufbuild/protobuf runtime the emission imports
+    out: libs/typescript/contracts/gen
     opt:
-      - target=ts                                  # Branch gate is tsc --noEmit over sources, never the default .js + .d.ts pair
-      - erasable_syntax=true                       # Root tsconfig sets erasableSyntaxOnly; binds the day a corpus source declares an enum
-      - import_extension=ts                        # Root tsconfig sets allowImportingTsExtensions; binds the day a source imports a peer
+      - target=ts                                        # Branch gate is tsc --noEmit over sources, never the default .js + .d.ts pair
+      - import_extension=ts                              # Emission-relative imports carry .ts, which root tsconfig allowImportingTsExtensions admits
+      - erasable_syntax=true                             # Emits erasable TypeScript alone, matching root tsconfig erasableSyntaxOnly
+    include_imports: true                                # Every emitted file imports its dependency descriptors (buf.validate, google.rpc, google.type); WKT ride the runtime
+    types:
+      - rasm.contracts.appearance.v1
+      - rasm.contracts.compute.v1
+      - rasm.contracts.element.v1
+      - rasm.contracts.event.v1
+      - rasm.contracts.fault.v1
+      - rasm.contracts.host.v1
+      - rasm.contracts.organization.v1
+      - rasm.contracts.parity.v1
+      - io.cloudevents.v1
+      - grpc.health.v1
+  - local: .venv/bin/protoc-gen-py                         # Buf's protobuf-py generator; uv pins it as a pair with its runtime
+    out: libs/python/contracts/src/rasm/contracts/gen      # ONE root: protobuf-py emits root-relative imports, so estate, dependency, and publisher modules share it
+    opt: [init_files=false]                                # rasm/, rasm/contracts/, and gen/ stay PEP 420 namespace directories the branch shares
+    include_imports: true                                  # buf/ and google/ dependency modules land under the same root the estate modules reach by relative import
+    types:                                                 # Families Python pages bind; element and host have no Python reader and are not emitted here
+      - rasm.contracts.appearance.v1
+      - rasm.contracts.compute.v1
+      - rasm.contracts.declaration.v1
+      - rasm.contracts.event.v1
+      - rasm.contracts.fabrication.v1
+      - rasm.contracts.fault.v1
+      - rasm.contracts.organization.v1
+      - rasm.contracts.parity.v1
+      - rasm.contracts.scene.v1
+      - io.cloudevents.v1
+      - grpc.health.v1
+  - local: .venv/bin/protoc-gen-connectrpc                 # Connect stubs for every service-bearing source the branch serves or dials
+    out: libs/python/contracts/src/rasm/contracts/gen
+    opt: [io=async]                                        # The branch serves ASGI and dials under anyio
+    types: [rasm.contracts.compute.v1, grpc.health.v1]
+  - protoc_builtin: csharp
+    protoc_path: protoc                                    # Machine PATH; buf ships no protoc
+    out: libs/csharp/Rasm.Contracts/Generated
+    opt: [base_namespace=Rasm.Contracts]                   # Namespace tail becomes the directory
+    types: &csharp                                         # Every estate family: C# produces or reads each; buf.validate, google.rpc, and google.type bind from NuGet
+      - rasm.contracts.appearance.v1
+      - rasm.contracts.compute.v1
+      - rasm.contracts.declaration.v1
+      - rasm.contracts.element.v1
+      - rasm.contracts.event.v1
+      - rasm.contracts.fabrication.v1
+      - rasm.contracts.fault.v1
+      - rasm.contracts.host.v1
+      - rasm.contracts.organization.v1
+      - rasm.contracts.parity.v1
+      - rasm.contracts.scene.v1
+  - local: grpc_csharp_plugin                              # Machine PATH, the protoc tier
+    out: libs/csharp/Rasm.Contracts/Generated
+    opt: [base_namespace=Rasm.Contracts]
+    types: *csharp

@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
 
@@ -83,7 +84,6 @@
         <PackageReference Include="Confluent.SchemaRegistry" />
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Json" />
-        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Protobuf" />
         <PackageReference Include="DotPulsar" />
         <PackageReference Include="Marten" />
         <PackageReference Include="OpenTelemetry.Instrumentation.ConfluentKafka" />
@@ -146,9 +146,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
     </ItemGroup>
 
     <!-- Telemetry.Abstractions is the contract half only; the activation verbs and name registration are AppHost composition surface. -->

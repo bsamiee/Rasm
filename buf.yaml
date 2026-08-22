@@ -1,18 +1,27 @@
-# Gate axis; generation is the sibling buf.gen.yaml
+# Gate axis; generation is sibling buf.gen.yaml
 version: v2
 modules:
-  - path: tests/contracts
-    excludes:
-      - tests/contracts/io  # Vendored publisher bytes; module-membership exclusion carves generation aswell
+  - path: tests/contracts/proto                      # rasm.contracts.<family>.v1; directory spells the package
+  - path: tests/contracts/vendor/cloudevents/proto   # Publisher bytes; estate grades no copy of them
+    lint: {disable_builtin: true}
+    breaking: {disable_builtin: true}
+  - path: tests/contracts/vendor/grpc-health/proto   # Publisher bytes; Python has no package-shipped health client, so it generates here
+    lint: {disable_builtin: true}
+    breaking: {disable_builtin: true}
+deps:
+  - buf.build/bufbuild/protovalidate                 # (buf.validate.field) rules; STANDARD's PROTOVALIDATE rule type-checks them
+  - buf.build/googleapis/googleapis                  # google.rpc error details beside FaultDetail; google.type calendar scalars
 lint:
-  use:
-    - STANDARD
-  except:                   # Csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY names request and response shapes off the domain, never the rpc
-    - RPC_REQUEST_STANDARD_NAME
-    - RPC_RESPONSE_STANDARD_NAME
-  ignore_only:              # One ReloadReply serves ReloadOptions and DispatchPatch on the trigger column; one ArtifactFrame frames both directions of the Sync bidi seam
-    RPC_REQUEST_RESPONSE_UNIQUE:
-      - tests/contracts/rasm/compute/v1/compute.proto
+  use: [STANDARD]
+  rpc_allow_same_request_response: true              # ArtifactSyncService.Sync frames both directions with one ArtifactFrame
+  ignore_only:
+    RPC_REQUEST_STANDARD_NAME:                       # Request and response names come off the domain shape, never the rpc (tests/RULINGS [02])
+      - tests/contracts/proto/rasm/contracts/compute/v1/compute.proto
+      - tests/contracts/proto/rasm/contracts/compute/v1/control.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - tests/contracts/proto/rasm/contracts/compute/v1/compute.proto
+      - tests/contracts/proto/rasm/contracts/compute/v1/control.proto
+    RPC_REQUEST_RESPONSE_UNIQUE:                     # ReloadReply answers ReloadOptions and DispatchPatch: one reload transition, one reply shape
+      - tests/contracts/proto/rasm/contracts/compute/v1/control.proto
 breaking:
-  use:
-    - FILE                  # Baseline is a git ref, never the parity snapshot — that digest mints at --exclude-imports and resolves as no image
+  use: [FILE]  # Generated trees bind the file path as an import path; file move breaks a consumer the wire rules pass

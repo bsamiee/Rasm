@@ -7,7 +7,9 @@
     </PropertyGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Api.CommonProtos" />  <!-- google.rpc error details and google.type calendar scalars the emission references -->
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Core.Api" />
+        <PackageReference Include="ProtoValidate" />  <!-- Buf.Validate descriptor the emission references; the runtime evaluator consumers admit through -->
     </ItemGroup>
 </Project>

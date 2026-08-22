@@ -36,6 +36,8 @@
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeStubProject)' == 'true')">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(MSBuildThisFileDirectory)apps/grasshopper/'))">true</IsGrasshopperPluginProject>
         <IsAppHostProject Condition="'$(IsAppHostProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.AppHost'">true</IsAppHostProject>
+        <!-- The generated bindings distribution: protoc and grpc_csharp_plugin emission alone, so no workspace library or identity substrate reaches it. -->
+        <IsContractsProject Condition="'$(IsContractsProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.Contracts'">true</IsContractsProject>
         <IsAppUiProject Condition="'$(IsAppUiProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.AppUi'">true</IsAppUiProject>
         <IsComputeProject Condition="'$(IsComputeProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.Compute'">true</IsComputeProject>
         <IsPersistenceProject Condition="'$(IsPersistenceProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.Persistence'">true</IsPersistenceProject>
@@ -136,7 +138,7 @@
     </ItemGroup>
 
     <PropertyGroup Label="Workspace Library Policy">
-        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true')">false</UseWorkspaceLibraries>
+        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true' or '$(IsContractsProject)' == 'true')">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
         <!-- Thinktecture consumers bind to one shared public JetBrains.Annotations identity. -->
         <UsesThinktecture Condition="'$(UsesThinktecture)' == '' and '$(IsLocalCSharpAnalyzerProject)' != 'true' and ('$(UseWorkspaceLibraries)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true')">true</UsesThinktecture>

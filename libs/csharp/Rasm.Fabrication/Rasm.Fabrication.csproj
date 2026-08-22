@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
 
@@ -58,6 +59,10 @@
     <ItemGroup Label="Exchange Substrate">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="MTConnect.NET-Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Protobuf" />
     </ItemGroup>
 
     <ItemGroup Label="Host Services">

@@ -25,9 +25,9 @@ dependencies = [
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-grpc",             # [RUNTIME]: daemon-selectable OTLP gRPC egress row beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-instrumentation-asgi",                 # [RUNTIME]: ASGI middleware emitting server spans and extracting W3C context on every Connect request
     "opentelemetry-instrumentation-asyncio",              # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker crossing
     "opentelemetry-instrumentation-dbapi",                # [RUNTIME]: generic PEP-249 wrap seam for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
-    "opentelemetry-instrumentation-grpc",                 # [RUNTIME]: gRPC server/client span instrumentation for server/serve
     "opentelemetry-instrumentation-httpx",                # [TRANSPORT]: httpx client spans carrying W3C trace context
     "opentelemetry-instrumentation-jinja2",               # [RUNTIME]: jinja2 template render spans, composed by the runtime instrumentor train
     "opentelemetry-instrumentation-psycopg",              # [RUNTIME]: psycopg v3 DBAPI spans, composed by the runtime instrumentor train
@@ -61,14 +61,13 @@ dependencies = [
     "brotli",                                             # [ARTIFACTS]: compression
     "cloudevents",                                        # [ARTIFACTS]: CloudEvents envelope and the HTTP/Kafka/AMQP/MQTT binding set carrying the W3C trace-and-baggage extensions
     "confluent-kafka[schemaregistry,avro,json,protobuf]", # [RUNTIME]: librdkafka producer/consumer and the Schema Registry client with its Avro, JSON, and Protobuf serializers; the json-fast extra stays out because orjson compiles against pre-3.15 CPython internals
+    "connectrpc",                                         # [RUNTIME]: Connect-Python — generated async service ABCs, ASGI applications, and typed clients speaking Connect, gRPC, and gRPC-Web over one HTTP seam
     "detools",                                            # [ARTIFACTS]: binary-delta engine
     "fastavro",                                           # [RUNTIME]: Avro codec under the Schema Registry serializer and the `parse_schema` validator the branch reads `.avsc` documents through
     "fsspec",                                             # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
-    "grpcio",                                             # [RUNTIME]: gRPC transport for ServerHost serve paths
-    "grpcio-health-checking",                             # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle
-    "grpcio-tools",                                       # [RUNTIME]: gRPC protoc codegen companion
     "hishel[httpx]",                                      # [TRANSPORT]: RFC-9111 HTTP cache layer over the httpx transport legs with a persistent sqlite store
     "httpx",                                              # [TRANSPORT]: approved HTTP client surface for typed adapters
+    "hypercorn",                                          # [RUNTIME]: ASGI server binding HTTP/2 and h2c the Connect serve rail needs for gRPC and bidi streams; TCP and UNIX-socket binds
     "jsonschema",                                         # [RUNTIME]: validates a payload against a fetched JSON Schema document, the direction `msgspec.json.schema` emission cannot answer
     "lz4",                                                # [ARTIFACTS]: compression
     "nats-py",                                            # [RUNTIME]: NATS core and JetStream client for the subject-addressed transport arm
@@ -76,7 +75,8 @@ dependencies = [
     "obstore",                                            # [DATA]: object-store backend
     "paho-mqtt",                                          # [RUNTIME]: MQTT client for the telemetry and edge-device transport arm
     "pika",                                               # [RUNTIME]: blocking AMQP 0-9-1 client riding the `to_thread` arm, importing no asyncio
-    "protobuf",                                           # [RUNTIME]: transport wire codec
+    "protobuf",                                           # [DATA]+[COMPUTE]: google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR; the estate wire runtime is protobuf-py
+    "protobuf-py",                                        # [RUNTIME]: Buf protobuf runtime under the generated `_pb.py` bindings — binary, JSON, and descriptor surface for the estate wire
     "py7zr",
     "python-dateutil",                                    # [ARTIFACTS]: RFC-3339 `isoparse` the `cloudevents.core.bindings` and format modules import at module scope
     "stream-unzip",                                       # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
@@ -348,6 +348,8 @@ dev = [
     "moto[server]",
     "mypy",
     "pandas-stubs",
+    "protoc-gen-connectrpc",        # Connect-Python stub generator; buf drives it from .venv/bin
+    "protoc-gen-py<0.2",            # connectrpc 0.11.1 pins protobuf-py==0.1.1 exact, so the generator pairs at 0.1.1; drop the bound when connectrpc bumps
     "pyarrow-stubs",
     "pytest",
     "pytest-benchmark",
@@ -359,13 +361,11 @@ dev = [
     "ruff>=0.16.2",
     "s3fs",                         # object-store testkit backend over moto S3
     "scipy-stubs",
-    "sniffio",                      # async-flavor detection the testkit env/seams doubles import directly
+    "sniffio",                      # async-flavor detection the testkit env double imports directly
     "sqlfluff",                     # SQL format/lint rail; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
     "types-geopandas",
-    "types-grpcio",
-    "types-grpcio-health-checking",
     "types-lxml",
     "types-networkx",
     "types-openpyxl",
@@ -484,6 +484,7 @@ provides-extras = ["extensions", "sql"]
 [tool.ty.environment]
 python-platform = "all"
 python-version = "3.15"
+root = [".", "libs/python/contracts/src"]
 
 [tool.ty.analysis]
 respect-type-ignore-comments = false
@@ -512,15 +513,24 @@ exclude = [
 [tool.ty.rules]
 all = "error"
 
+# The generated tree stays typechecked; the two ignores are `protoc-gen-connectrpc` emission shapes (`path` overridden without `@override`, `codecs: Iterable[Codec]` unparameterized), carved path-scoped, never a tree exclude.
+[[tool.ty.overrides]]
+include = ["libs/python/contracts/src/**"]
+
+[tool.ty.overrides.rules]
+missing-override-decorator = "ignore"
+missing-type-argument = "ignore"
+
 [tool.ty.terminal]
 error-on-warning = true
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
-# `ty` is the binding type gate; mypy is advisory for `tools/assay` and `tests`.
+# `ty` is the binding type gate; mypy is advisory for `tools/assay`, `tests`, and the generated contracts tree.
 # Mypy-only divergences stay in overrides because `ty` rejects inline type-ignore comments.
 [tool.mypy]
-files = ["tools/assay", "tests"]
+files = ["libs/python/contracts/src", "tools/assay", "tests"]
+mypy_path = ["libs/python/contracts/src"] # the generated source root carries no py.typed under buf's clean sweep, so mypy reads it as a search root
 python_version = "3.15"
 cache_dir = ".cache/mypy"
 strict = true
@@ -571,8 +581,13 @@ warn_unreachable = false
 disable_error_code = ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module = ["boto3", "boto3.*", "fsspec", "fsspec.*", "s3fs"] # backend imports lack py.typed coverage
+module = ["boto3", "boto3.*", "fsspec", "fsspec.*", "jsonschema", "jsonschema.*", "s3fs"] # backend and validator imports lack py.typed coverage
 ignore_missing_imports = true
+
+# The mypy twin of the ty override: the same two `protoc-gen-connectrpc` emission shapes, carved module-scoped on the generated tree alone.
+[[tool.mypy.overrides]]
+module = "rasm.contracts.*"
+disable_error_code = ["explicit-override", "type-arg"]
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
@@ -583,7 +598,7 @@ minversion = "9.0"
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "libs/python/contracts/src"] # the generated `rasm.contracts` source root: pytest prepends it, ty/mypy read it through their own root rows; no dist, no `.pth`
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]
 collect_imported_tests = false
@@ -721,6 +736,7 @@ modules = [
     "tools.assay.rails.api",
     "tools.assay.rails.bridge",
     "tools.assay.rails.code",
+    "tools.assay.rails.contracts",
     "tools.assay.rails.docs",
     "tools.assay.rails.health",
     "tools.assay.rails.mutation_gate",
@@ -753,6 +769,7 @@ extend-exclude = [
     "**/coverage/**",
     "**/scratch/**",
     "**/test-results/**",
+    "libs/python/contracts/src/**",
 ]
 
 [tool.ruff.format]

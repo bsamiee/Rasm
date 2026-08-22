@@ -1,6 +1,6 @@
 # [PATTERNS]
 
-Pattern law binding two or more language branches: law admitted here binds every branch named, and single-branch law routes to the branch stack doctrine instead.
+Patterns bind every branch their `Binds` row names, and law reaching one branch alone routes to that branch's stack doctrine.
 
 ## [01]-[CONTENT_IDENTITY]
 
@@ -63,6 +63,10 @@ Portable operational behavior binds every branch a rail crosses.
 [EMPTY_FOLD]:
 - Binds: All branches.
 - Law: Pass and compliance verdicts gate non-emptiness before the fold, since quantification over an empty evidence stream passes vacuously.
+
+[LANE_CARVE]:
+- Binds: All branches.
+- Law: Lanes declare their carve set in their own config, so a lane admitted later states its exemptions or sweeps the carved tree with every sibling.
 
 ## [03]-[TENANCY]
 

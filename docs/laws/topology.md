@@ -1,8 +1,8 @@
 # [TOPOLOGY]
 
-Coupling map: editing a surface obligates its counterparts in the same change. Heavy workflow runs cull couplings the live tree no longer proves and land couplings discovered mid-run as new rows. Self-contained couplings ride the table; couplings whose obligations fan out or carry a proof condition land as cards below, each stating that condition as law.
+Surfaces obligate their counterparts on edit, and every row below names the counterpart that lands in the same change.
 
-Consumers walk this table and resolve each row live. Transcribing rows into a second surface goes stale the moment a row lands, so a rule, agent, or gate names the table and never a copy of its contents.
+Consumers resolve every row live at this table, so a rule, agent, or gate names the table where a transcribed copy goes stale on the next landing.
 
 ## [01]-[COUPLINGS]
 
@@ -54,12 +54,14 @@ Consumers walk this table and resolve each row live. Transcribing rows into a se
 |  [44]   | `[14]-[EVENT_FABRIC]` grammar or roster row  | each branch message-envelope owner + entry | one fabric, three branch transcriptions      |
 |  [45]   | fault case ordinal mint, retire, or move     | the estate allocation proof + stored codes | an issued code outlives the case minting it  |
 |  [46]   | Bim `Energy/results` vocabulary row          | Compute `Analysis/energy` transcription    | one authority, one byte-identical mirror     |
-|  [47]   | root `buf.gen.yaml` plugin `out` row         | its `.gitignore` row + nx `proto` outputs  | one emission, three surfaces, never tracked  |
+|  [47]   | generated-bindings package emission          | manifest path rows + every lane carve      | one emission, committed, proved fresh        |
 |  [48]   | wire options emission posture at its merge   | every peer-decoder block on that seam      | one posture, one spelling on every face      |
 |  [49]   | admitted-package vocabulary a roster mirrors | every branch roster transcribing that enum | an importing peer widens, a mirror does not  |
 |  [50]   | reviewer-config path, scope, or include glob | one dot alternate per tree it intends      | minimatch dot:false crosses no dot segment   |
 
 ## [02]-[CONDITIONED]
+
+Couplings fanning out or carrying a proof condition land as cards, each stating that condition as law, and every other coupling rides a table row.
 
 [REVIEWER_SCOPE]:
 - Surface: Reviewer-config path globs — `.coderabbit.yaml` `path`, `.greptile/config.json` `scope`, `.macroscope/**` frontmatter `include`.

@@ -230,11 +230,14 @@ catalogs:
       specifier: 1.72.0
       version: 1.72.0
     '@bufbuild/protobuf':
-      specifier: 2.13.0
-      version: 2.13.0
+      specifier: 2.14.0
+      version: 2.14.0
     '@bufbuild/protoc-gen-es':
-      specifier: 2.13.0
-      version: 2.13.0
+      specifier: 2.14.0
+      version: 2.14.0
+    '@bufbuild/protovalidate':
+      specifier: 1.2.0
+      version: 1.2.0
     '@confluentinc/kafka-javascript':
       specifier: 1.10.0
       version: 1.10.0
@@ -1124,10 +1127,13 @@ importers:
         version: 1.72.0
       '@bufbuild/protobuf':
         specifier: 'catalog:'
-        version: 2.13.0
+        version: 2.14.0
       '@bufbuild/protoc-gen-es':
         specifier: 'catalog:'
-        version: 2.13.0(@bufbuild/protobuf@2.13.0)(supports-color@7.2.0)
+        version: 2.14.0(@bufbuild/protobuf@2.14.0)(supports-color@7.2.0)
+      '@bufbuild/protovalidate':
+        specifier: 'catalog:'
+        version: 1.2.0(@bufbuild/protobuf@2.14.0)
       '@confluentinc/kafka-javascript':
         specifier: 'catalog:'
         version: 1.10.0(encoding@0.1.13)(supports-color@7.2.0)
@@ -1136,13 +1142,13 @@ importers:
         version: 1.10.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
       '@connectrpc/connect':
         specifier: 'catalog:'
-        version: 2.1.2(@bufbuild/protobuf@2.13.0)
+        version: 2.1.2(@bufbuild/protobuf@2.14.0)
       '@connectrpc/connect-node':
         specifier: 'catalog:'
-        version: 2.1.2(@bufbuild/protobuf@2.13.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.13.0))
+        version: 2.1.2(@bufbuild/protobuf@2.14.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.14.0))
       '@connectrpc/connect-web':
         specifier: 'catalog:'
-        version: 2.1.2(@bufbuild/protobuf@2.13.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.13.0))
+        version: 2.1.2(@bufbuild/protobuf@2.14.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.14.0))
       '@deck.gl/core':
         specifier: 'catalog:'
         version: 9.3.10
@@ -3220,29 +3226,44 @@ packages:
     peerDependencies:
       '@bufbuild/protobuf': ^2.6.2
 
+  '@bufbuild/cel-spec@0.4.0':
+    resolution: {integrity: sha512-dUS6f2fNt6KEumsYGE7YFxERZE5ZuyME1hQmGjtO8tkZhR6ow6/ne3v4Gik9cfdb9lSLK3AJ+vDxCdGWmDbWvA==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.6.2
+
   '@bufbuild/cel@0.3.0':
     resolution: {integrity: sha512-vIdcn0Ot6XDKakcDqEQvvlCtMlYwLlxc++SrVjjCmYIiZRH+tlr1GRYpe5R9kguSiTS3BLh7C+I7ZoektVPICQ==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.6.2
+
+  '@bufbuild/cel@0.4.0':
+    resolution: {integrity: sha512-CdW/JgiTJCYXqnwuaJRo7NcoYhR37AaF58MMiog0/t8nudn86ZyLXYaA1f2yGhm2U17h8pKGZNksTHVSTcpmAw==}
     peerDependencies:
       '@bufbuild/protobuf': ^2.6.2
 
   '@bufbuild/protobuf@2.12.0':
     resolution: {integrity: sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA==}
 
-  '@bufbuild/protobuf@2.13.0':
-    resolution: {integrity: sha512-acq7c49vxfm1ggJ95P70TX7ABDM0vxr1SYD3BB0o0jnBLB4OAqeHyKuN+cD3w80gXEDQ2zxHpR6CUeA+O/aU9g==}
+  '@bufbuild/protobuf@2.14.0':
+    resolution: {integrity: sha512-C3UGsiCwSprE2NKIIFA3hCDlpXTMCAXRZuEVp88L1GY36Y41+rYL5fryE+nOFhp4p4JPQvdV8PQ4DWgHgeTE+w==}
 
-  '@bufbuild/protoc-gen-es@2.13.0':
-    resolution: {integrity: sha512-ylI1vrLksdnXrVZRs9xGxmrQxKGhUm6pPszv26kqBvNiO3qPTktk+hgfwbLISBY4M/reShkT2dFLGT9fbydBXg==}
-    engines: {node: '>=20'}
+  '@bufbuild/protoc-gen-es@2.14.0':
+    resolution: {integrity: sha512-/Rrui0BJWSRONiKGYzqWq9ivGN3+cYkmc47QWITufr7K6yDb8HfssuJUSQZeptyg/rHbHrfDzCUjzoJ2pwuafg==}
+    engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.14.0
     peerDependenciesMeta:
       '@bufbuild/protobuf':
         optional: true
 
-  '@bufbuild/protoplugin@2.13.0':
-    resolution: {integrity: sha512-32eMChKaL/A8Hh5AfMmXSdnuyznN85uoEjoyWiWeRrvtQOtpqX/v1R9PDe0g9vMIgzznK9inMT3CUaal0kjLUQ==}
+  '@bufbuild/protoplugin@2.14.0':
+    resolution: {integrity: sha512-S0TvZhVtTEkZQRj2JsXBCXiib/b0+bLQtJCcn+hj9O/usgbcgxHn4D+ii22Ao3qj0/kKxVYeo7BtAI2dMk+iig==}
+
+  '@bufbuild/protovalidate@1.2.0':
+    resolution: {integrity: sha512-tD08DwGrHIV88khLz1Kdz9DYUwEo1TsoepaIg7/B/zd//AymaTx67kvCS1jlkcG/+vgQaSOl6f0HCE3sL8vI7w==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.8.0
 
   '@buttercup/fetch@0.2.1':
     resolution: {integrity: sha512-sCgECOx8wiqY8NN1xN22BqqKzXYIG2AicNLlakOAI4f0WgyLVUbAigMf8CZhBtJxdudTcB1gD5lciqi44jwJvg==}
@@ -17407,34 +17428,48 @@ snapshots:
       '@bufbuild/buf-win32-arm64': 1.72.0
       '@bufbuild/buf-win32-x64': 1.72.0
 
-  '@bufbuild/cel-spec@0.3.0(@bufbuild/protobuf@2.13.0)':
+  '@bufbuild/cel-spec@0.3.0(@bufbuild/protobuf@2.14.0)':
     dependencies:
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.14.0
 
-  '@bufbuild/cel@0.3.0(@bufbuild/protobuf@2.13.0)':
+  '@bufbuild/cel-spec@0.4.0(@bufbuild/protobuf@2.14.0)':
     dependencies:
-      '@bufbuild/cel-spec': 0.3.0(@bufbuild/protobuf@2.13.0)
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.14.0
+
+  '@bufbuild/cel@0.3.0(@bufbuild/protobuf@2.14.0)':
+    dependencies:
+      '@bufbuild/cel-spec': 0.3.0(@bufbuild/protobuf@2.14.0)
+      '@bufbuild/protobuf': 2.14.0
+
+  '@bufbuild/cel@0.4.0(@bufbuild/protobuf@2.14.0)':
+    dependencies:
+      '@bufbuild/cel-spec': 0.4.0(@bufbuild/protobuf@2.14.0)
+      '@bufbuild/protobuf': 2.14.0
 
   '@bufbuild/protobuf@2.12.0': {}
 
-  '@bufbuild/protobuf@2.13.0': {}
+  '@bufbuild/protobuf@2.14.0': {}
 
-  '@bufbuild/protoc-gen-es@2.13.0(@bufbuild/protobuf@2.13.0)(supports-color@7.2.0)':
+  '@bufbuild/protoc-gen-es@2.14.0(@bufbuild/protobuf@2.14.0)(supports-color@7.2.0)':
     dependencies:
-      '@bufbuild/protoplugin': 2.13.0(supports-color@7.2.0)
+      '@bufbuild/protoplugin': 2.14.0(supports-color@7.2.0)
     optionalDependencies:
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.14.0
     transitivePeerDependencies:
       - supports-color
 
-  '@bufbuild/protoplugin@2.13.0(supports-color@7.2.0)':
+  '@bufbuild/protoplugin@2.14.0(supports-color@7.2.0)':
     dependencies:
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.14.0
       '@typescript/vfs': 1.6.4(supports-color@7.2.0)(typescript@5.4.5)
       typescript: 5.4.5
     transitivePeerDependencies:
       - supports-color
+
+  '@bufbuild/protovalidate@1.2.0(@bufbuild/protobuf@2.14.0)':
+    dependencies:
+      '@bufbuild/cel': 0.4.0(@bufbuild/protobuf@2.14.0)
+      '@bufbuild/protobuf': 2.14.0
 
   '@buttercup/fetch@0.2.1':
     optionalDependencies:
@@ -17508,8 +17543,8 @@ snapshots:
       '@aws-sdk/credential-providers': 3.1095.0
       '@azure/identity': 4.13.1(supports-color@7.2.0)
       '@azure/keyvault-keys': 4.10.2(supports-color@7.2.0)
-      '@bufbuild/cel': 0.3.0(@bufbuild/protobuf@2.13.0)
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/cel': 0.3.0(@bufbuild/protobuf@2.14.0)
+      '@bufbuild/protobuf': 2.14.0
       '@criteria/json-schema': 0.10.0
       '@criteria/json-schema-validation': 0.10.0
       '@google-cloud/kms': 5.7.0(supports-color@7.2.0)
@@ -17539,23 +17574,23 @@ snapshots:
       '@bufbuild/protobuf': 2.12.0
       '@connectrpc/connect': 2.1.2(@bufbuild/protobuf@2.12.0)
 
-  '@connectrpc/connect-node@2.1.2(@bufbuild/protobuf@2.13.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.13.0))':
+  '@connectrpc/connect-node@2.1.2(@bufbuild/protobuf@2.14.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.14.0))':
     dependencies:
-      '@bufbuild/protobuf': 2.13.0
-      '@connectrpc/connect': 2.1.2(@bufbuild/protobuf@2.13.0)
+      '@bufbuild/protobuf': 2.14.0
+      '@connectrpc/connect': 2.1.2(@bufbuild/protobuf@2.14.0)
 
-  '@connectrpc/connect-web@2.1.2(@bufbuild/protobuf@2.13.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.13.0))':
+  '@connectrpc/connect-web@2.1.2(@bufbuild/protobuf@2.14.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.14.0))':
     dependencies:
-      '@bufbuild/protobuf': 2.13.0
-      '@connectrpc/connect': 2.1.2(@bufbuild/protobuf@2.13.0)
+      '@bufbuild/protobuf': 2.14.0
+      '@connectrpc/connect': 2.1.2(@bufbuild/protobuf@2.14.0)
 
   '@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.12.0)':
     dependencies:
       '@bufbuild/protobuf': 2.12.0
 
-  '@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.13.0)':
+  '@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.14.0)':
     dependencies:
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.14.0
 
   '@criteria/json-pointer@0.2.1': {}
 

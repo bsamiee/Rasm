@@ -37,6 +37,13 @@
 *.verified.* text eol=lf
 *.verified.txt text eol=lf working-tree-encoding=UTF-8
 
+# Generated bindings — one emission per branch, proved fresh by the contracts gate; a hand edit is a freshness failure
+libs/typescript/contracts/gen/** linguist-generated=true
+libs/python/contracts/src/** linguist-generated=true
+libs/csharp/Rasm.Contracts/Generated/** linguist-generated=true
+libs/csharp/Rasm.Contracts/Generated/** -diff
+*.bin binary
+
 # Icons
 *.ico -filter -diff -merge -text
 

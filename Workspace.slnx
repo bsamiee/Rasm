@@ -16,6 +16,9 @@
     <Folder Name="/libs/csharp/Rasm.Compute/">
         <Project Path="libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
     </Folder>
+    <Folder Name="/libs/csharp/Rasm.Contracts/">
+        <Project Path="libs/csharp/Rasm.Contracts/Rasm.Contracts.csproj" />
+    </Folder>
     <Folder Name="/libs/csharp/Rasm.Element/">
         <Project Path="libs/csharp/Rasm.Element/Rasm.Element.csproj" />
     </Folder>

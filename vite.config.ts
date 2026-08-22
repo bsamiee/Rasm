@@ -65,8 +65,7 @@ const CfgSchema = S.Union(
         react: S.optional(S.Boolean),
     }),
     S.Struct({
-        // Server bundles invert the external default: every bare specifier stays external and
-        // `bundle` opts a dependency subtree INTO the artifact — no curated external roster exists.
+        // Server bundles invert the external default: every bare specifier stays external and `bundle` opts a dependency subtree INTO the artifact — no curated external roster exists.
         bundle: S.optional(S.Array(S.String)),
         entry: S.String,
         mode: S.Literal('server'),
@@ -178,38 +177,38 @@ const plugins = {
         tailwindcss({ optimize: { minify: true } }),
         ...(c.pwa
             ? VitePWA({
-                devOptions: { enabled: false },
-                includeAssets: (c.assetExts ?? B.assets).map((x) => `**/*.${x}`),
-                manifest: {
-                    background_color: B.pwa.bg,
-                    description: c.pwa.description,
-                    display: 'standalone' as const,
-                    icons: [
-                        ...[192, 512].map((s) => ({
-                            purpose: 'any' as const,
-                            sizes: `${s}x${s}`,
-                            src: `/icon-${s}.png`,
-                            type: 'image/png',
-                        })),
-                        { purpose: 'maskable' as const, sizes: '512x512', src: '/icon-maskable.png', type: 'image/png' },
-                    ],
-                    name: c.pwa.name,
-                    scope: '/',
-                    short_name: c.pwa.shortName,
-                    start_url: '/',
-                    theme_color: c.pwa.themeColor,
-                },
-                registerType: 'autoUpdate',
-                workbox: {
-                    clientsClaim: true,
-                    globPatterns: [B.glob],
-                    runtimeCaching: [
-                        cache('CacheFirst', 'cdn-cache', B.cache.cdn, /^https:\/\/cdn\./),
-                        cache('NetworkFirst', 'api-cache', B.cache.api, /^https:\/\/api\./),
-                    ],
-                    skipWaiting: true,
-                },
-            }).map((p) => clientOnly(p))
+                  devOptions: { enabled: false },
+                  includeAssets: (c.assetExts ?? B.assets).map((x) => `**/*.${x}`),
+                  manifest: {
+                      background_color: B.pwa.bg,
+                      description: c.pwa.description,
+                      display: 'standalone' as const,
+                      icons: [
+                          ...[192, 512].map((s) => ({
+                              purpose: 'any' as const,
+                              sizes: `${s}x${s}`,
+                              src: `/icon-${s}.png`,
+                              type: 'image/png',
+                          })),
+                          { purpose: 'maskable' as const, sizes: '512x512', src: '/icon-maskable.png', type: 'image/png' },
+                      ],
+                      name: c.pwa.name,
+                      scope: '/',
+                      short_name: c.pwa.shortName,
+                      start_url: '/',
+                      theme_color: c.pwa.themeColor,
+                  },
+                  registerType: 'autoUpdate',
+                  workbox: {
+                      clientsClaim: true,
+                      globPatterns: [B.glob],
+                      runtimeCaching: [
+                          cache('CacheFirst', 'cdn-cache', B.cache.cdn, /^https:\/\/cdn\./),
+                          cache('NetworkFirst', 'api-cache', B.cache.api, /^https:\/\/api\./),
+                      ],
+                      skipWaiting: true,
+                  },
+              }).map((p) => clientOnly(p))
             : []),
         svgr({ exclude: '', include: '**/*.svg?react', svgrOptions: B.svgr }),
         clientOnly(
@@ -231,15 +230,15 @@ const plugins = {
         } as unknown as Plugin),
         ...(prod
             ? [
-                clientOnly(
-                    compression({
-                        algorithms: ['brotliCompress', 'gzip'],
-                        include: B.comp.f,
-                        skipIfLargerOrEqual: true,
-                        threshold: c.compressionThreshold ?? B.comp.t,
-                    }),
-                ),
-            ]
+                  clientOnly(
+                      compression({
+                          algorithms: ['brotliCompress', 'gzip'],
+                          include: B.comp.f,
+                          skipIfLargerOrEqual: true,
+                          threshold: c.compressionThreshold ?? B.comp.t,
+                      }),
+                  ),
+              ]
             : []),
         clientOnly(
             csp({
@@ -363,9 +362,9 @@ const config: {
         build: {
             lib: { entry: c.entry, fileName: 'main', formats: ['es'] as const, name: c.name },
             rolldownOptions: {
-                // Bare specifiers stay external by default — deps resolve from node_modules at run
-                // time — and `bundle` roots opt their subtrees into the artifact.
-                external: (id: string) => !id.startsWith('.') && !id.startsWith('/') && !(c.bundle ?? []).some((b) => id === b || id.startsWith(`${b}/`)),
+                // Bare specifiers stay external by default — deps resolve from node_modules at run time — and `bundle` roots opt their subtrees into the artifact.
+                external: (id: string) =>
+                    !id.startsWith('.') && !id.startsWith('/') && !(c.bundle ?? []).some((b) => id === b || id.startsWith(`${b}/`)),
                 output: { exports: 'named' as const },
             },
             sourcemap: true,

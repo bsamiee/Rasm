@@ -1,6 +1,8 @@
 # [SCARS]
 
-Regression-proven law with no other owner: each scar carries standing law, and its trigger names the falsifiable failure mode the law forecloses. Gaining a real owner — a gate, a doctrine page, a skill — moves the scar there and leaves no copy.
+Scars own regression-proven law no other surface holds, each trigger naming the falsifiable failure mode its law forecloses.
+
+Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there whole and leaves no copy.
 
 ## [01]-[LEDGER]
 
@@ -148,7 +150,6 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 [FROZEN_FOREIGN_ARTIFACT]:
 - Law: Vendored publisher bytes carve out of every respelling lane — formatter, breaking gate, generator, canonicalizer — staying byte-identical.
 - Trigger: Lanes reaching the vendored tree diff the estate's spelling over the publisher's, so re-vendoring reads as an estate edit.
-- Boundary: Each carve declares at its own lane's config, so a lane admitted later inherits no exemption and states its own.
 - Boundary: Readers modelling estate-emitted assets carve too — a vendored corpus emits no producer asset and reads as awaiting emission.
 
 [DIGEST_OVER_UNORDERED_CONTAINER]:
@@ -187,3 +188,9 @@ Regression-proven law with no other owner: each scar carries standing law, and i
 - Trigger: Bare ordinal tags — `([A])`, `([B])` — index the Nth bullet under a table, so one bullet edit silently repoints every tag above it.
 - Trigger: Tags outlive the list they indexed, leaving an ordinal that resolves to nothing while still reading as a citation.
 - Boundary: Markers enter durable prose only as a closed uppercase-bracketed token one schema owner declares.
+
+[GENERATED_TREE_AS_LAW]:
+- Law: Committed generated output names its producer at the consuming branch and proves fresh by regenerating into scratch and byte-diffing the tree.
+- Law: Generated out roots hold generated files alone; manifests, `py.typed`, `__init__.py`, and READMEs sit above the sweep.
+- Trigger: Hand-patched generated files survive every lane they are excluded from while a stamp or pin certifies them fresh.
+- Boundary: Type checkers stay ON the tree, and a red there convicts the upstream generator: carve the narrowest row and name the issue.

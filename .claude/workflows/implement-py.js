@@ -380,7 +380,7 @@ const LAW = [
     'TWO-TIER .api: every fence draws on BOTH the shared/universal catalogs at `' +
         SHARED_API +
         '/*.md` (anyio, expression, msgspec, pydantic, ' +
-        'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*, protobuf, grpcio, and siblings — the disk listing owns the ' +
+        'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*, protobuf-py, connectrpc, and siblings — the disk listing owns the ' +
         'roster) AND the folder-specific catalogs at ' +
         '`<folder>/.api/*.md`. The shared tier is SHARED capability you MUST consider and compose to realize the card properly — never re-derive by ' +
         'hand or settle for a thin folder-only subset; layer the shared rails (expression `Result`/`Option`, msgspec/pydantic discriminated models, ' +

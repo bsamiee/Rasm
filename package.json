@@ -8,7 +8,6 @@
         "coverage": "vitest run --coverage",
         "e2e": "playwright install chromium webkit && playwright test",
         "mutation": "stryker run",
-        "proto": "buf generate",
         "test": "vitest run"
     },
     "browserslist": [
@@ -24,6 +23,7 @@
         "@bufbuild/buf": "catalog:",
         "@bufbuild/protobuf": "catalog:",
         "@bufbuild/protoc-gen-es": "catalog:",
+        "@bufbuild/protovalidate": "catalog:",
         "@confluentinc/kafka-javascript": "catalog:",
         "@confluentinc/schemaregistry": "catalog:",
         "@connectrpc/connect": "catalog:",
@@ -322,28 +322,8 @@
     },
     "nx": {
         "targets": {
-            "proto": {
-                "cache": true,
-                "inputs": [
-                    "{workspaceRoot}/buf.yaml",
-                    "{workspaceRoot}/buf.gen.yaml",
-                    "{workspaceRoot}/tests/contracts/**/*.proto",
-                    {
-                        "externalDependencies": [
-                            "@bufbuild/buf",
-                            "@bufbuild/protoc-gen-es"
-                        ]
-                    }
-                ],
-                "outputs": [
-                    "{workspaceRoot}/libs/typescript/core/src/interchange/gen"
-                ]
-            },
             "typecheck": {
-                "command": "tsc --noEmit -p tsconfig.json",
-                "dependsOn": [
-                    "proto"
-                ]
+                "command": "tsc --noEmit -p tsconfig.json"
             }
         }
     }

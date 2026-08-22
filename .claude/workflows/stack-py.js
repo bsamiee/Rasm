@@ -293,7 +293,7 @@ const PY315 = [
 
 const APISTACK_SUBSTRATE = [
     'CITATION TIER (load-bearing, doctrine-specific): the SHARED substrate catalogs — `expression`, `pydantic`, `pydantic-settings`, `beartype`, ' +
-        '`msgspec`, `anyio`, `structlog`, `stamina`, `numpy`, `psutil`, `opentelemetry-*`, `protobuf`, `grpcio` — are cited by EVERY page. ENUMERATE ' +
+        '`msgspec`, `anyio`, `structlog`, `stamina`, `numpy`, `psutil`, `opentelemetry-*`, `protobuf-py`, `connectrpc` — are cited by EVERY page. ENUMERATE ' +
         'the catalog set IN FULL with a real `ls`/`fd` listing at every stage — the catalog root is docs/stacks/python/.api/ when present, else the ' +
         'language-wide libs/python/.api/ — never a memory-recalled roster. A CORE page cites ONLY this shared substrate. A sub-folder SHARD (a domain/ ' +
         'or numerics/ page, where such a router exists on disk) cites the shared substrate AND the package-cluster tier (the `.api/` catalogs for ' +

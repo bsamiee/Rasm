@@ -47,7 +47,7 @@ _MATCH_TEXT_CAP: int = field_cap(Match, "text", default=400)
 # SARIF 2.1 result levels -> assay severities; analyzer notes (e.g. CSP0903) surface as info-grade evidence.
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
-_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION)
+_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION, Claim.CONTRACTS)
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
 # Ruff full-output grammar leads with the kebab rule name, not a severity token; violations are errors by exit-code contract.
@@ -78,8 +78,15 @@ _CS_DIAGNOSTIC = re.compile(
     r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
     re.IGNORECASE,
 )
-# Forward-slash-normalized, lowercased path fragments and suffix that mark generated/build-output rows as evidence-only.
-_GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/")
+# Forward-slash-normalized, lowercased path fragments and suffix that mark generated/build-output rows as evidence-only: build
+# intermediates, staged build closures, and the three committed `assay contracts generate` out roots the freshness gate owns.
+_GENERATED_MARKERS: Final[tuple[str, ...]] = (
+    "/obj/",
+    "/.artifacts/assay/",
+    "libs/python/contracts/src/",
+    "libs/typescript/contracts/gen/",
+    "libs/csharp/rasm.contracts/generated/",
+)
 _GENERATED_SUFFIX: Final[str] = ".g.cs"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -156,6 +163,18 @@ class _BiomeDiagnostic(msgspec.Struct, frozen=True, gc=False):
 
 class _BiomeReport(msgspec.Struct, frozen=True, gc=False):
     diagnostics: tuple[_BiomeDiagnostic, ...] = ()
+
+
+class _BufAnnotation(msgspec.Struct, frozen=True, gc=False):
+    """One ``buf --error-format json`` NDJSON row; the wire ``type`` is the lint rule id or the breaking change id."""
+
+    path: str = ""
+    start_line: int = 0
+    start_column: int = 0
+    end_line: int = 0
+    end_column: int = 0
+    kind: str = msgspec.field(default="", name="type")
+    message: str = ""
 
 
 # --- [SEARCH_WIRE]
@@ -532,6 +551,20 @@ def _json_rows[T](
     return projected if projected or not embedded else _text_rows(tool=project, payload=payload)
 
 
+def _buf_row(line: str) -> Match | None:
+    try:
+        found = _BUF_ANNOTATION.decode(line.encode())
+    except msgspec.MsgspecError:
+        return None
+    return _diagnostic_match("buf", found.kind or "buf", "error", found.path, str(found.start_line), str(found.start_column), found.message)
+
+
+def _buf_rows(payload: str) -> tuple[Match, ...]:
+    # buf prints one annotation object per stdout line under its defect exit; stderr carries WARN lines and the
+    # ``Failure:`` line of a tool failure, neither of which decodes, so a non-defect exit yields zero rows here.
+    return tuple(row for raw in payload.splitlines() if (line := raw.strip()).startswith("{") and (row := _buf_row(line)) is not None)
+
+
 def _severity(raw: str) -> str:
     return {"warn": "warning", "warning": "warning", "note": "info", "info": "info", "error": "error"}.get(raw.lower(), "error")
 
@@ -602,9 +635,12 @@ def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
 
 def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
     sarif = _sarif_rows(sarif_dir, outcomes)
-    diagnostics = (*tuple(row for done in outcomes for row in _rows_of(done)), *_csharp_rows(outcomes), *sarif)
+    converted = tuple(row for done in outcomes for row in _rows_of(done))
+    diagnostics = (*converted, *_csharp_rows(outcomes), *sarif)
     if claim is not Claim.STATIC:
-        return (*defects, *sarif)
+        # A non-static claim keeps every row its stamped parser converted (a buf lane's annotations), ranked and deduped,
+        # ahead of the process defect tails; a Parser.NONE receipt converts to nothing, so those folds read as before.
+        return (*_rank(_dedupe(converted)), *defects, *sarif)
     source = _rank(_dedupe(tuple(row for row in diagnostics if not _generated(row))))
     generated = _group_generated(tuple(row for row in diagnostics if _generated(row)))
     return (*source, *generated, *defects)
@@ -703,6 +739,7 @@ def fold(
 
 _SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
 _BIOME_LOG: msgspec.json.Decoder[_BiomeReport] = msgspec.json.Decoder(_BiomeReport)
+_BUF_ANNOTATION: msgspec.json.Decoder[_BufAnnotation] = msgspec.json.Decoder(_BufAnnotation)
 AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])
 CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
 CAPTURE_ENCODER = msgspec.json.Encoder()
@@ -729,6 +766,7 @@ _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
     Parser.TY: lambda payload: _text_rows("ty", payload),
     Parser.MYPY: lambda payload: _text_rows("mypy", payload),
     Parser.TSC: lambda payload: _text_rows("tsc", payload),
+    Parser.BUF: _buf_rows,
     Parser.BIOME: lambda payload: _json_rows(
         payload,
         decoder=_BIOME_LOG,
