@@ -116,7 +116,7 @@
 [STACKING]:
 - `opentelemetry-api`(`libs/python/.api/opentelemetry-api.md`): supplies the `Context` that carries suppression keys and the labeler, the `SeverityNumber` band `std_to_otel` projects onto, and the `StatusCode` `http_status_to_status_code` returns.
 - `opentelemetry-semantic-conventions`(`.api/opentelemetry-semantic-conventions.md`): pinned EQUAL by this distribution's own requirement, so the two bump as one and a stability mode selected here resolves against that release's constant spellings.
-- `opentelemetry-instrumentation-{asyncio,dbapi,grpc,httpx,jinja2,psycopg,sqlite3,system-metrics,threading}`: each ships its `BaseInstrumentor` subclass against this lifecycle and reverses its own patch through `unwrap`; `dbapi` alone ships no instrumentor and is reached directly.
+- `opentelemetry-instrumentation-{asgi,asyncio,dbapi,httpx,jinja2,psycopg,sqlite3,system-metrics,threading}`: each ships its `BaseInstrumentor` subclass against this lifecycle and reverses its own patch through `unwrap`; `dbapi` and `asgi` ship no instrumentor and are reached directly.
 - `opentelemetry-processor-baggage`(`.api/opentelemetry-processor-baggage.md`): rides the same composition root and carries no instrumentor, so baggage promotion is unaffected by a suppression scope.
 
 [LOCAL_ADMISSION]:

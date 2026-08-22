@@ -39,10 +39,10 @@
 - Each exporter holds one persistent `grpc` channel built once by `_initialize_channel_and_stub` and reused across every export; the channel reinitializes only on an `UNAVAILABLE` reconnect, and never survives `fork()`.
 - `endpoint` is a grpc `host:port` netloc (default `localhost:4317`), never a `/v1/<signal>` path; `insecure=True` builds an `insecure_channel`, else `credentials` builds a `secure_channel`.
 - `compression=` takes a `grpc.Compression`, `NoCompression` default, `Gzip`/`Deflate` selectable.
+- `grpcio` reaches the estate as this exporter's transitive alone, so its whole surface stays interior here: the channel is a `grpc.Channel` from `insecure_channel`/`secure_channel` over a `ChannelCredentials`, and `grpc.StatusCode.UNAVAILABLE` triggers the reconnect.
 
 [STACKING]:
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): each exporter is the terminal sink behind one SDK processor — `OTLPSpanExporter` -> `BatchSpanProcessor` -> `TracerProvider`, `OTLPMetricExporter` -> `PeriodicExportingMetricReader` -> `MeterProvider`, `OTLPLogExporter` -> `BatchLogRecordProcessor` -> `LoggerProvider`; the processor owns batching and queueing, the exporter owns transport and reconnect.
-- `grpcio`(`.api/grpcio.md`): the persistent channel is a `grpc.Channel` from `insecure_channel`/`secure_channel` over a `ChannelCredentials`, `compression=` a `grpc.Compression`, reconnect triggered by `grpc.StatusCode.UNAVAILABLE`.
 - `protobuf`(`.api/protobuf.md`): SDK `ReadableSpan`/`MetricsData`/`ReadableLogRecord` encode to OTLP protobuf inside `_export`; the composing owner hands over SDK views and never hand-builds the protobuf tree.
 - `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): the peer default egress this row substitutes for — proto-http carries the estate default, this gRPC row selects only on a long-lived non-forking server.
 

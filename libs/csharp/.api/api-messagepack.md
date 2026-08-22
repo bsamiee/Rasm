@@ -10,7 +10,7 @@
 - namespace: `MessagePack`, `MessagePack.Formatters`, `MessagePack.Resolvers`
 - target: multi-target `net9.0`/`net8.0`/`netstandard2.1`/`netstandard2.0`/`net472`; the `net10.0` consumer binds `lib/net9.0/MessagePack.dll`, `MessagePack.Annotations` binds `lib/netstandard2.0`
 - depends: `MessagePack.Annotations` (contract attributes); `MessagePackAnalyzer` (`api-messagepack-analyzer.md`) is the build-only source-generator companion every consumer pairs
-- rail: snapshot-codec and appearance-interchange binary wire
+- rail: snapshot-codec and branch-interior stage-crossing binary frames
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -134,7 +134,7 @@
 - `CBOR`/`Chr.Avro`(`Rasm.Persistence/.api/api-cbor.md`, `Rasm.Persistence/.api/api-chr-avro.md`): codec-selection peers — MessagePack owns the schemaless evolving record, CBOR the content-stable self-describing blob, Avro the schema-governed leg.
 - `ObjectStore`(`Rasm.Persistence/.api/api-objectstore.md`): `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam over a length-delimited multi-snapshot blob body, yielding one sequence per element under the codec's own `SequencePool`.
 - Persistence consumer anchor: `Element/codec#CODEC_AXIS` `SnapshotCodec` builds one profile from `MessagePackSerializerOptions.Standard` — `CompositeResolver.Create` seating the `InstantFormatter` head ahead of the Thinktecture, generated, and reflection resolvers, `UntrustedData` at a 256-frame depth, and `Lz4BlockArray` — and the published-AOT profile swaps that chain for the single generated resolver behind the same formatter head; `Query/cache#L2_CONTRIBUTION` reads that same profile through `Deserialize<T>(in ReadOnlySequence<byte>)` and `Serialize<T>(IBufferWriter<byte>, T)`, so durable cache bytes and snapshot bytes share one codec.
-- Materials consumer anchor: the `interchange` `WireCodec` composes the appearance-interchange profile — `[MessagePackObject]` + `[Key(int)]` records with `[SerializationConstructor]` immutable ctors, `[Union(int, Type)]` dispatching the polymorphic `BsdfLobe`/appearance hierarchy on stable integer keys, `[GeneratedMessagePackResolver]` source-gen (AOT-safe, IL-emit-free, exposing `UseMapMode`), `Lz4BlockArray`, and `MessagePackSecurity.UntrustedData` on external wire — with `ThinktectureMessageFormatterResolver.Instance` composed ahead of `StandardResolver.Instance`; codec throws enter `Op.Catch` at the edge and retain their original exceptional `Error` unless a documented provider verdict maps to a caused owner fault.
+- Materials consumer anchor: `Appearance/interchange#TEXTURE_EGRESS` `StageCodec` composes the photo-to-PBR stage-crossing profile — `[MessagePackObject]` + `[Key(int)]` rows with `[SerializationConstructor]` immutable ctors, `[GeneratedMessagePackResolver]` source-gen (AOT-safe, IL-emit-free), `Lz4BlockArray`, and `MessagePackSecurity.UntrustedData` across the plugin firebreak — lawful because NO peer runtime decodes those bytes; every appearance wire a peer decodes is the generated `rasm.contracts.appearance.v1` message, never a MessagePack record; codec throws enter `Op.Catch` at the edge and retain their original exceptional `Error` unless a documented provider verdict maps to a caused owner fault.
 
 [LOCAL_ADMISSION]:
 - MessagePack is a codec inside declared profiles, never public folder vocabulary; contract keys, union tags, resolver composition, compression, and security are profile data.
@@ -145,6 +145,6 @@
 
 [RAIL_LAW]:
 - Package: `MessagePack`
-- Owns: the schemaless binary snapshot, cache, sync, and appearance-interchange wire with in-codec LZ4 framing
+- Owns: the schemaless binary snapshot, cache, sync, and branch-interior stage-crossing frames with in-codec LZ4 framing
 - Accept: profile-declared serialization of attribute-carrying wire types, bounded untrusted decode, generated-resolver AOT composition, one shared immutable options value per profile
 - Reject: hand-rolled msgpack framing, an outer compressor over an in-codec-compressed payload, a serializer-branded type on a public folder surface, per-call options construction, a runtime reflection-emit resolver as the AOT path, `TrustedData` on external input, and `ConvertToJson` as a JSON system of record

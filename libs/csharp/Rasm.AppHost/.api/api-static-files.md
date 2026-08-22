@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.App` static-files capability
-- framework: `Microsoft.AspNetCore.App` shared framework — reached through the `<FrameworkReference>` `Grpc.AspNetCore` already declares, so this catalog records a capability, never a package admission
+- framework: `Microsoft.AspNetCore.App` shared framework — reached through the `<FrameworkReference>` `Grpc.AspNetCore.Server` already declares, so this catalog records a capability, never a package admission
 - assembly: `Microsoft.AspNetCore.StaticFiles`, `Microsoft.AspNetCore.StaticAssets`, `Microsoft.Extensions.FileProviders.Physical`
 - namespace: `Microsoft.AspNetCore.Builder`, `Microsoft.AspNetCore.StaticFiles`, `Microsoft.AspNetCore.StaticFiles.Infrastructure`, `Microsoft.AspNetCore.StaticAssets`, `Microsoft.Extensions.FileProviders`
 - asset: shared framework, no manifest row and no lock entry

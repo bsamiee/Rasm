@@ -253,12 +253,12 @@
 - Every call shape resolves through `CreateCallInvoker`, so `CallInvokerExtensions.Intercept` is the single seam policy layers at and an interceptor never reaches into the channel.
 - `CallOptions` is an immutable struct: each `With*` returns a fresh copy, so per-call policy threads forward with no shared state.
 - `ServiceConfig` is data: retry, hedging, throttling, and balancing each resolve as a `ConfigObject` row the channel reads, never a call-site branch.
-- Every remote fault leaves as `RpcException` and enters `Op.Catch` before the one `WireFault` decoder reads `Status`, `StatusCode`, and `Trailers`: one valid numeric `FaultDetail` becomes opaque `RemoteFault` evidence, while zero recognized details use the caused local transport classifier.
+- Every remote fault leaves as `RpcException` and enters `Op.Catch` before the one decoder reads it — `Rasm.AppHost` `FaultWire.Decode` through `RpcException.GetRpcStatus()` (`Grpc.StatusProto`), then `Rasm.Compute` `WireFault.StatusRail` on the residual code: exactly one recognized `fault.v1.FaultDetail` becomes opaque `RemoteFault` evidence, zero recognized details use the caused local transport classifier, malformed or multiple recognized details retain the caught error on `Internal`.
 
 [STACKING]:
 - `Grpc.Net.Common`(`Rasm.Compute/.api/api-grpc-common.md`): `ICompressionProvider` rows register on `GrpcChannelOptions.CompressionProviders`, the per-call `grpc-internal-encoding-request` metadata key selects one by `EncodingName`, `ConnectivityState` is the vocabulary `GrpcChannel.State` reports, and `IAsyncStreamReader<T>.ReadAllAsync` drains a server-streaming response.
 - `Grpc.Core.Api`(`.api/api-grpc-core-api.md`): `Metadata` with `Metadata.Entry` is the header carrier `CallOptions.Headers`, `WithHeaders`, and `RpcException.Trailers` all thread; the `-bin` key suffix selects `ValueBytes` over `Value`.
-- `Grpc.Tools`(`.api/api-grpc-tools.md`): a generated `<Service>Client` binds the `CallInvoker` from `CreateCallInvoker`, so every interceptor in the chain sits under the typed stub with no generated-code edit.
+- `Rasm.Contracts`(`Rasm.Contracts/.api/rasm-contracts.md`): a `local: grpc_csharp_plugin` row on the buf generation axis emits the `<Service>Client` into that committed assembly, binding the `CallInvoker` from `CreateCallInvoker`, so every interceptor in the chain sits under the typed stub with no generated-code edit.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `IMessage<T>` payloads serialize on the call path, and `MaxSendMessageSize` with `MaxReceiveMessageSize` bounds each frame.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Timestamp` and `Duration` fields project through `ToInstant` and `ToNodaDuration`, so the message clock and the `WithDeadline` budget share one time vocabulary.
 - `Grpc.Net.Client.Web`(`Rasm.Compute/.api/api-grpc-client-web.md`): `GrpcWebHandler` is a `DelegatingHandler` wrapping the `SocketsHttpHandler` handed to `GrpcChannelOptions.HttpHandler`, so gRPC-Web composes over the transport instead of replacing it.
@@ -277,4 +277,4 @@
 - Package: `Grpc.Net.Client`
 - Owns: the client channel, its transport policy, the invoker chain, and the client-side service-config algebra
 - Accept: one warm channel per endpoint, one interceptor chain, a per-call `CallOptions` copy, and `ServiceConfig` rows as data
-- Reject: a hand-rolled retry loop, a channel minted per call, and a per-call status/detail map beside the shared `WireFault` decoder
+- Reject: a hand-rolled retry loop, a channel minted per call, and a per-call status/detail map beside `FaultWire.Decode` and the `WireFault` rail

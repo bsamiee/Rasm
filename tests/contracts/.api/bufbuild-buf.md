@@ -1,58 +1,80 @@
 # [CONTRACTS_API_BUFBUILD_BUF]
 
-`buf` gates the contract corpus: `lint` holds every `.proto` to the rules `buf.yaml` declares, `breaking` refuses a wire change against a prior tree, and `build` mints the `FileDescriptorSet` snapshot each source freezes beside it. One module — `tests/contracts` — feeds every verb, and a violation prints `path:line:col:message` under exit code 100.
+`buf` owns both axes of the contract corpus from the repo root: `buf.yaml` gates every `.proto` (`lint`, `format --diff`, `breaking` FILE against `main`) and `buf.gen.yaml` drives every committed binding tree through protoc plugins buf itself resolves. Rule violations exit 100 with `path:line:col:message`; every other non-zero exit is a tool failure.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@bufbuild/buf`
 - package: `@bufbuild/buf` (Apache-2.0)
-- module: three executables under `node_modules/.bin/` — `buf`, `protoc-gen-buf-lint`, `protoc-gen-buf-breaking`; a node shim dispatches to the platform binary an `@bufbuild/buf-<os>-<arch>` optional dependency carries
-- runtime: node >=12; every verb resolves against the local module and reaches the registry only where a flag names it
-- rail: proto lint, breaking refusal, descriptor-set minting, and formatting over the corpus
+- module: `buf`, `protoc-gen-buf-lint`, `protoc-gen-buf-breaking` under `node_modules/.bin/`, a node shim over the `@bufbuild/buf-<os>-<arch>` binary
+- runtime: node; verbs reach the registry only where a flag names it, and `protoc_builtin` rows take the machine `protoc` buf never ships
+- rail: proto lint, canonical-format diff, FILE-breaking refusal against `main`, image building, and plugin-driven generation over the corpus
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: `buf.yaml` v2 — the module and rule declaration `buf config init` scaffolds and every verb reads
+[PUBLIC_TYPE_SCOPE]: `buf.yaml` v2 — the gate axis every verb reads from the working directory upward
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [CAPABILITY]                                                               |
 | :-----: | :----------------------------------------- | :------------ | :------------------------------------------------------------------------- |
 |  [01]   | `version: v2`                              | enum          | the config generation; `v1beta1`/`v1` migrate through `buf config migrate` |
 |  [02]   | `modules: [{ path, name?, includes?, … }]` | struct        | one record per module root; `path` fixes what a proto path is relative to  |
-|  [03]   | `lint.use` / `breaking.use`                | struct        | the categories in force, resolved through `buf config ls-*-rules`          |
-|  [04]   | `lint.except` / `breaking.except`          | struct        | drops a named rule everywhere the config reaches                           |
-|  [05]   | `lint.ignore` / `lint.ignore_only`         | struct        | drops every rule, or one named rule, for the listed paths                  |
-|  [06]   | `lint.service_suffix`                      | struct        | the suffix `SERVICE_SUFFIX` demands, default `Service`                     |
-|  [07]   | `lint.enum_zero_value_suffix`              | struct        | the suffix `ENUM_ZERO_VALUE_SUFFIX` demands, default `_UNSPECIFIED`        |
-|  [08]   | `lint.rpc_allow_same_request_response`     | struct        | admits one type on both sides of one rpc                                   |
-|  [09]   | `lint.rpc_allow_google_protobuf_empty_*`   | struct        | admits `google.protobuf.Empty` as a request or response                    |
-|  [10]   | `lint.allow_comment_ignores`               | struct        | admits an in-file `buf:lint:ignore <RULE>` comment directive               |
-|  [11]   | `modules[].lint` / `modules[].breaking`    | struct        | one module's own rule config, REPLACING the default whole                  |
+|  [03]   | `modules[].lint` / `modules[].breaking`    | struct        | one module's own rule config, REPLACING the workspace default whole        |
+|  [04]   | `modules[].<axis>.disable_builtin: true`   | struct        | a module carrying no rule at all; `lint`/`breaking` WARN and pass it       |
+|  [05]   | `lint.use` / `breaking.use`                | struct        | the categories in force, resolved through `buf config ls-*-rules`          |
+|  [06]   | `lint.except` / `breaking.except`          | struct        | drops a named rule everywhere the config reaches                           |
+|  [07]   | `lint.ignore` / `lint.ignore_only`         | struct        | drops every rule, or one named rule, for `buf.yaml`-relative paths         |
+|  [08]   | `breaking.ignore` / `breaking.ignore_only` | struct        | the breaking-axis twins of row [07]                                        |
+|  [09]   | `lint.service_suffix`                      | struct        | the suffix `SERVICE_SUFFIX` demands, default `Service`                     |
+|  [10]   | `lint.enum_zero_value_suffix`              | struct        | the suffix `ENUM_ZERO_VALUE_SUFFIX` demands, default `_UNSPECIFIED`        |
+|  [11]   | `lint.rpc_allow_*`                         | struct        | admits one type on both rpc sides, or `google.protobuf.Empty` on either    |
+|  [12]   | `lint.allow_comment_ignores`               | struct        | admits an in-file `buf:lint:ignore <RULE>` comment directive               |
+|  [13]   | `deps: [<bsr-module>]` + `buf.lock`        | struct        | registry dependencies `buf dep update` pins; the protovalidate seat        |
 
-- [IGNORE_PATHS]: buf resolves top-level `ignore` and `ignore_only` paths against the directory holding `buf.yaml`, so a root-seated config spells the full `tests/contracts/rasm/<family>/v1/<family>.proto`. `buf lint --error-format=config-ignore-yaml` prints a `version: v1` block whose paths are MODULE-relative — a starting point, never a v2 config to paste.
-- [MODULE_SCOPE]: a module-level `lint`/`breaking` block overrides the workspace default in its ENTIRETY with nothing merged, and `disable_builtin: true` is how a module carries no rule at all. Two `modules` entries may share a `path` while no `.proto` is shared, and an `excludes` directory is a lawful `path` for a second entry.
+- `modules[].lint`/`modules[].breaking`: a module block replaces the workspace default whole; nothing merges.
+- `disable_builtin: true`: `buf lint`/`buf breaking` warn `No lint rules are configured` for that module while its sibling grades; read the exit code.
+- `lint.ignore`/`ignore_only`/`breaking.ignore`: paths resolve against the `buf.yaml` directory; `managed.disable` `path:` is module-relative.
 
-[PUBLIC_TYPE_SCOPE]: `buf.gen.yaml` v2 — the generation template `buf generate` reads, seated at the repo root beside `buf.yaml`
+[PUBLIC_TYPE_SCOPE]: `buf.gen.yaml` v2 — the generation axis `buf generate` reads from the working directory alone, seated at the repo root beside `buf.yaml`
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                                                   |
-| :-----: | :------------------------------------------------------ | :------------ | :------------------------------------------------------------- |
-|  [01]   | `version: v2`                                           | enum          | the template generation                                        |
-|  [02]   | `clean: true`                                           | struct        | deletes every plugin `out` root before generation runs         |
-|  [03]   | `inputs: [{ directory }]`                               | struct        | a LOCAL module root or workspace root                          |
-|  [04]   | `inputs: [{ module }]`                                  | struct        | a BSR module reference; a local path fails `invalid mod path`  |
-|  [05]   | `inputs: [{ proto_file, include_package_files? }]`      | struct        | one source, optionally with its package peers                  |
-|  [06]   | `inputs: [{ git_repo, tarball, zip_archive, *_image }]` | struct        | a ref, archive, or prebuilt image resolved without a checkout  |
-|  [07]   | `inputs[].paths` / `exclude_paths`                      | struct        | filters the input; entries read as `--path` does               |
-|  [08]   | `inputs[].types` / `exclude_types`                      | struct        | narrows the input to a named type closure                      |
-|  [09]   | `plugins: [{ local, out, opt, strategy }]`              | struct        | a locally-run plugin with its `out` root and `opt`             |
-|  [10]   | `plugins: [{ remote }]` / `{ protoc_builtin }`          | struct        | a BSR-hosted plugin, or a protoc built-in under `protoc_path`  |
-|  [11]   | `plugins[].include_imports` / `include_wkt`             | struct        | widens the emission past the targeted files; the CLI flag wins |
-|  [12]   | `managed: { enabled, disable, override }`               | struct        | rewrites file and field options during generation              |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :---------------------------------------------- | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `version: v2`                                   | enum          | the template generation                                           |
+|  [02]   | `clean: true`                                   | struct        | POST-run sweep of every file under an `out` the run did not write |
+|  [03]   | `managed: { enabled, disable, override }`       | struct        | rewrites file and field options in every plugin's image           |
+|  [04]   | `managed.disable: [{ path }, { file_option }]`  | struct        | opts a module-relative path or one file option out of rewriting   |
+|  [05]   | `managed.override: [{ file_option, value, … }]` | struct        | prefix, suffix, and value rows keyed by `file_option`, scopable   |
+|  [06]   | `inputs: [{ directory }]`                       | struct        | workspace or module root; ONE `directory: .` carries every module |
+|  [07]   | `inputs: [{ module }, { proto_file }, …]`       | struct        | a BSR module, one source, a ref, an archive, or an image          |
+|  [08]   | `inputs[].paths` / `exclude_paths`              | struct        | filters the input; entries read as `--path` does                  |
+|  [09]   | `plugins[].local` / `remote` / `protoc_builtin` | struct        | literal binary name or path, BSR plugin, or protoc built-in       |
+|  [10]   | `plugins[].protoc_path`                         | struct        | protoc binary for `protoc_builtin`; default `protoc` on `${PATH}` |
+|  [11]   | `plugins[].out` / `opt` / `strategy`            | struct        | out root, option list, `directory` (default) or `all`             |
+|  [12]   | `plugins[].types` / `exclude_types`             | struct        | per-input image filter; package tokens and FQNs                   |
+|  [13]   | `plugins[].include_imports` / `include_wkt`     | struct        | widens emission past the targeted files; the CLI flag wins        |
 
-- [TEMPLATE_SEAT]: `buf generate` reads `buf.gen.yaml` from the working directory alone — it walks up for `buf.yaml`, never for the template — so the root seat beside `buf.yaml` is the one every verb discovers from the repo root with no `--template`. `local` accepts a `${PATH}` name or a file path; the estate spells `node_modules/.bin/protoc-gen-es`, so a bare `node_modules/.bin/buf generate` runs outside a pnpm or nx shell where the bare name fails `executable file not found in $PATH`. `clean: true` sweeps from each `out` every file the run did not write and keeps the root; `-o <dir>` prepends a base to every `out`.
-- [GENERATE_INPUT]: a v2 template's `inputs` and its plugin `out` both resolve against the WORKING DIRECTORY, never against the template's own location, and `paths`/`exclude_paths` entries resolve there too. The workspace root and a declared module's own path are both lawful `directory` inputs over one module and target the same files; a path BELOW a declared module root refuses as contained by that module, and a `proto_file` or `paths` entry naming an `excludes` tree fails `no .proto files were targeted`. Emitted paths stay MODULE-relative under every form.
-- [MANAGED_OVERRIDE]: managed mode accepts `csharp_namespace`, `csharp_namespace_prefix`, `go_package`, `java_package*`, `objc_class_prefix`, `php_namespace*`, `ruby_package*`, `optimize_for`, `cc_enable_arenas`, and the `jstype` field option; enabling it derives `csharp_namespace` from the package and overrides whatever a file declares inline.
+- `clean: true`: sweeps AFTER a successful run — every file under each `out` the run did not write, emptied subdirectories included; the root stays.
+- `clean: true`: written paths union across plugins sharing one `out` and across a nested `out`; a failing plugin cancels the sweep and its siblings.
+- `-o <dir>`: prepends `<dir>` to every `out` and scopes the sweep there, so a scratch regeneration mirrors the committed trees untouched.
+- `types`/`exclude_types`: resolve against EACH input's image — per-module inputs fail `exclusion of type "<pkg>": not found` on the other module.
+- `types`/`exclude_types`: a package token drops the whole file; a message token strips the types and hands the emptied file to a per-file builtin.
+- `managed.disable` `path:`: module-root relative — the workspace spelling matches nothing silently; `module:` never matches a local nil-name module.
+- `managed`: `disable` beats `override`; `field_option` admits `jstype` alone; WKTs skip; `go_package` moves only under an override.
+- plugin failure: one failing plugin cancels its siblings, each printing `signal: killed` — the real error is the one other line.
 
-[PUBLIC_TYPE_SCOPE]: lint categories — nested, each a superset of the one before, resolved from the binary through `buf config ls-lint-rules --version v2`
+[PUBLIC_TYPE_SCOPE]: managed defaults — the file options `managed.enabled: true` OVERWRITES in every embedded descriptor, never fills
+
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                         |
+| :-----: | :----------------------- | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `csharp_namespace`       | enum          | PascalCase per package segment, `.`-joined                           |
+|  [02]   | `java_package`           | enum          | `com.<package>`; `java_package_prefix`/`_suffix` rows recompose it   |
+|  [03]   | `java_outer_classname`   | enum          | PascalCase of the proto file name                                    |
+|  [04]   | `java_multiple_files`    | enum          | `true`                                                               |
+|  [05]   | `objc_class_prefix`      | enum          | uppercased segment initials padded to three with `X`; `GPB` → `GPX`  |
+|  [06]   | `php_namespace`          | enum          | PascalCase per package segment, `\`-joined                           |
+|  [07]   | `php_metadata_namespace` | enum          | `<php_namespace>\GPBMetadata`                                        |
+|  [08]   | `ruby_package`           | enum          | PascalCase per package segment, `::`-nested                          |
+
+[PUBLIC_TYPE_SCOPE]: lint categories — nested, each a superset of the one before, resolved through `buf config ls-lint-rules --version v2`
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                                                                          |
 | :-----: | :---------- | :------------ | :---------------------------------------------------------------------------------------------------- |
@@ -72,64 +94,73 @@
 |  [04]   | `WIRE`      | enum          | binary compatibility alone — a field rename passes, a type or number change fails                 |
 |  [05]   | `CSR`       | enum          | the registry-consumption profile, between `WIRE_JSON` and `PACKAGE`                               |
 
-[PUBLIC_TYPE_SCOPE]: input formats and exit codes — the argument vocabulary every verb shares
+[PUBLIC_TYPE_SCOPE]: input formats, error formats, and exit codes — the argument vocabulary every verb shares
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------------- | :------------ | :-------------------------------------------------------- |
-|  [01]   | `dir` / `protofile` / `mod`                        | enum          | a source tree, one file with its deps, or a remote module |
-|  [02]   | `binpb` / `json` / `txtpb` / `yaml`                | enum          | a prebuilt image or descriptor set in four encodings      |
-|  [03]   | `git#branch=<b>` / `git#ref=<r>` / `tar` / `zip`   | enum          | a git ref or archive resolved without a checkout          |
-|  [04]   | `--error-format text\|json\|github-actions\|junit` | enum          | violation rendering; `config-ignore-yaml` on `lint` alone |
-|  [05]   | exit `0` / `100` / `1`                             | enum          | clean / rule violations found / config or build failure   |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [CAPABILITY]                                                            |
+| :-----: | :--------------------------------------------- | :------------ | :---------------------------------------------------------------------- |
+|  [01]   | `dir` / `protofile` / `mod`                    | enum          | a source tree, one file with its deps, or a remote module               |
+|  [02]   | `binpb` / `json` / `txtpb` / `yaml`            | enum          | a prebuilt image or descriptor set in four encodings                    |
+|  [03]   | `git#branch=<b>` / `git#ref=<r>` / `tar`/`zip` | enum          | a git ref or archive resolved without a checkout                        |
+|  [04]   | `--error-format <format>`                      | enum          | `text` `json` `msvs` `junit` `github-actions` `gitlab-code-quality`     |
+|  [05]   | `json` violation record                        | struct        | NDJSON `path`, `start_line`, `start_column`, `end_*`, `type`, `message` |
+|  [06]   | exit `0` / `100` / `1`                         | enum          | clean / rule violations / config, build, module, or plugin failure      |
+
+- exit `1`: stderr carries the single `Failure: …` line and stdout stays EMPTY, so the verdict reads stderr, never stdout rows.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the gate verbs — each defaults its input to `.` and reads `buf.yaml` from the working directory upward
+[ENTRYPOINT_SCOPE]: the gate and generation verbs — each defaults its input to `.` and reads `buf.yaml` from the working directory upward
 
-| [INDEX] | [SURFACE]                                                 | [SHAPE] | [CAPABILITY]                                                    |
-| :-----: | :-------------------------------------------------------- | :------ | :-------------------------------------------------------------- |
-|  [01]   | `buf lint [input]`                                        | command | rule violations at `path:line:col`; exit 100 when any fires     |
-|  [02]   | `buf breaking [input] --against <input>`                  | command | refuses a change the chosen category forbids                    |
-|  [03]   | `buf breaking … --against-config <buf.yaml>`              | command | reads the baseline under the CURRENT rules                      |
-|  [04]   | `buf breaking … --against-registry`                       | command | compares to the registry default branch; excludes `--against`   |
-|  [05]   | `buf build [input] -o <file>`                             | command | mints an image; `--as-file-descriptor-set` bares it             |
-|  [06]   | `buf format [input] -w` / `-d --exit-code`                | command | canonical `.proto` layout; rewrite in place, or gate            |
-|  [07]   | `buf generate [input] --template <buf.gen.yaml>`          | command | drives protoc plugins from the ROOT template; see `[02]`        |
-|  [08]   | `buf ls-files [input] --format text\|json\|import`        | command | the file set a verb resolves, with or without imports           |
-|  [09]   | `buf stats [input]`                                       | command | file, package, message, field, service, and rpc counts          |
-|  [10]   | `buf export -o <dir>` / `buf convert --type --from --to`  | command | extract a source tree; recode one message across formats        |
-|  [11]   | `buf config init` / `ls-lint-rules` / `ls-breaking-rules` | command | scaffold a v2 config; resolve the live rule set from the binary |
-|  [12]   | `buf config migrate` / `ls-modules`                       | command | lift v1 config to v2; list the configured module roots          |
-|  [13]   | `buf dep graph` / `dep update` / `dep prune`              | command | dependency graph and `buf.lock` maintenance                     |
-|  [14]   | `protoc-gen-buf-lint` / `protoc-gen-buf-breaking`         | plugin  | the same rule engines as protoc plugins                         |
+| [INDEX] | [SURFACE]                                                 | [SHAPE] | [CAPABILITY]                                                   |
+| :-----: | :-------------------------------------------------------- | :------ | :------------------------------------------------------------- |
+|  [01]   | `buf lint [input]`                                        | command | rule violations at `path:line:col`; exit 100 when any fires    |
+|  [02]   | `buf format [input] --diff --exit-code`                   | command | canonical `.proto` layout as a diff; `-w` rewrites in place    |
+|  [03]   | `buf breaking [input] --against <input> --against-config` | command | refuses a change the category forbids under CURRENT rules      |
+|  [04]   | `buf build [input] -o <file>`                             | command | mints an image; `--as-file-descriptor-set` bares it            |
+|  [05]   | `buf generate [input] [--template] [-o <dir>] [--clean]`  | command | drives every template plugin row; `-o` prefixes each `out`     |
+|  [06]   | `buf ls-files [input] --format text\|json\|import`        | command | the file set a verb resolves, with or without imports          |
+|  [07]   | `buf stats [input]`                                       | command | file, package, message, field, service, and rpc counts         |
+|  [08]   | `buf config ls-modules` / `ls-*-rules`                    | command | the configured module roots; the live rule set from the binary |
+|  [09]   | `buf config init` / `migrate`                             | command | scaffold a v2 config; lift v1 config to v2                     |
+|  [10]   | `buf dep update` / `graph` / `prune`                      | command | `buf.lock` maintenance and the dependency graph                |
+|  [11]   | `buf export -o <dir>` / `buf convert --type --from --to`  | command | extract a source tree; recode one message across formats       |
+|  [12]   | `buf curl --protocol connect\|grpc\|grpcweb`              | command | call a running service; `--reflect` needs HTTP/2               |
+|  [13]   | `protoc-gen-buf-lint` / `protoc-gen-buf-breaking`         | plugin  | the same rule engines as protoc plugins                        |
 
-- [BREAKING_FILTERS]: `--path` filters the input AND the baseline, so filtering to a path absent from the baseline fails `image contains no files`; scope a per-source run by choosing the baseline, never by `--path`.
-- [AGAINST_CONFIG]: absent `--against-config`, buf reads whatever config the baseline ref carries — a ref predating `buf.yaml` infers a module at its own root and every proto path shifts, so every file reads deleted.
-- [BUILD_PARITY]: `--as-file-descriptor-set --exclude-imports --exclude-source-info` emits a bare, deterministic `FileDescriptorSet`; `--path` selects one source so the set holds exactly one file.
-- [FORMAT_GATE]: `--exit-code` alone still writes every formatted file to stdout, so the gate form pairs it with `-d` and reads a diff; `-w` rewrites in place.
-- [PROTOC_PLUGINS]: both read a `--buf-lint_opt` / `--buf-breaking_opt` JSON payload naming the config, so a protoc-driven build runs the corpus rules without buf owning generation.
+- `buf lint --path <p>`: refuses a module root (`specify this module path directly as an input`); it names a file or subdirectory.
+- `buf breaking --path`: filters the input AND the baseline, so a path absent from the baseline fails `image contains no files`.
+- `buf breaking`: fails exit 1 `Module "path: …" had no .proto files` on a module the baseline lacks — a tool-failure form, never exit 100.
+- `buf breaking` without `--against-config`: reads the baseline ref's own config, so a ref predating the module set re-roots every path as deleted.
+- `buf format --exit-code`: alone writes every formatted file to stdout — the gate form pairs it with `--diff`.
+- `buf format`: has shipped non-idempotent releases, so the gate diffs and never writes.
+- `buf generate` `local:`: takes the literal binary name or path — a path resolves as a file, a bare name off `${PATH}`; no `protoc-gen-` prefixing.
+- `buf build -o /dev/null`: proves the workspace compiles with no artifact; `buf ls-files` is the cheapest census of what every verb resolves.
+- `buf build --as-file-descriptor-set`: bares the image to the `FileDescriptorSet` every runtime decodes; the raw image carries buf-only fields.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Root `buf.yaml` declares one module at `tests/contracts`, so every proto path a rule, a violation, or a `buf.lock` names reads `rasm/<family>/v1/<family>.proto` from the corpus root while a `--path` argument and a top-level `ignore_only` entry stay workspace-relative. `PACKAGE_DIRECTORY_MATCH` therefore binds the directory to the package: `rasm.<family>.v1` lands at `rasm/<family>/v1/`, and a new family inherits that seat rather than re-deciding it.
-- Snapshot and baseline are DIFFERENT artifacts. `<family>.descriptor.binpb` is a parity digest minted at `--exclude-imports` so three minters emitting one source agree byte-for-byte, each protoc bundle's well-known-type descriptors staying out of the comparison; that exclusion also leaves it unresolvable as an image, and `buf breaking --against <snapshot>` fails `could not resolve import` on any importing source. Git refs carry the baseline.
-- `buf` owns BOTH axes at the repo root — `buf.yaml` the gate (lint, breaking, formatting, snapshot minting) and the sibling `buf.gen.yaml` the generation — over one corpus module, and the consumer's own build decides who takes a template row: a build already driving protoc keeps it, a build driving none takes one row. `Grpc.Tools` compiles the C# side through MSBuild `<Protobuf>` items at per-project `GrpcServices` and `Access` settings and `grpc_tools.protoc` runs in-process on the Python side, both off the same corpus root and neither committing output, so a template row for either would mint committed files beside an in-build producer of the same names (buf's BSR `protocolbuffers/csharp|python` rows also send the schema to the registry, and `grpcio-tools`' service generator is no protoc-plugin binary buf can run). TypeScript has no protoc, so `@bufbuild/protoc-gen-es` takes the root template's one row today. `protoc-gen-buf-lint` and `protoc-gen-buf-breaking` carry the corpus rules INTO the native invocations, so one rule set reaches three builds with one authority per axis. EXECUTION is the corpus-side gap `MANIFEST.md` `[02.9]` records at the same grain: buf mints every snapshot here while the C# and Python trees run no generator over those sources and compare no emission byte-for-byte, so three-minter parity holds by construction and stays unrun at those two peers.
-- The root template names the corpus MODULE as its `directory` input — `tests/contracts` from the repo root, where `buf generate` discovers the template with no `--template` and `node_modules/.bin/protoc-gen-es` resolves as a file path under no `${PATH}` shell. The workspace default reaches the same files while one module stands and emits byte-identical output, so the module form is chosen for what it forecloses: a second `modules` entry would silently widen every plugin row onto a corpus no consumer asked for, where the named form admits it as one deliberate `inputs` row. Emitted paths are MODULE-relative under either form, which is what makes `rasm/<family>/v1/<family>_pb.ts` the import shape `typescript:core/interchange/format#PROTO_ENGINE` binds. `nx run workspace-foundation:proto` is the ONE entry: the root `package.json` `proto` target hashes `buf.yaml`, the template, every corpus `.proto`, and the `@bufbuild/buf` + `@bufbuild/protoc-gen-es` packages, caches each `out` tree as `outputs`, and `typecheck` depends on it, so a cache hit restores the emission and a corpus edit regenerates before the compiler reads; `pnpm proto` runs the same command uncached. Generated trees are never committed — the emission derives from the corpus plus a lockfile-pinned plugin, `clean: true` sweeps what a run did not write, each file's header stamps plugin version and options — and a new consumer is one `plugins` row whose `out` seats inside the consuming tree, landing with its `.gitignore` row and the nx `outputs` entry as one fact (`docs/laws/topology.md`).
-- `excludes` is a GENERATION carve as well as a gate carve: `tests/contracts/io` leaves the module entirely, so no input form reaches the vendored CloudEvents source and the TypeScript binding it owes has no producer. Closing that owes a second `modules` entry at `path: tests/contracts/io` carrying `lint`/`breaking` blocks set to `disable_builtin: true`, a `--path` scope on the `buf format` gate so the vendored bytes keep the `docs/laws/scars.md` `[FROZEN_FOREIGN_ARTIFACT]` carve the current exclusion gives them for free, and a second `inputs` row in the root template whose plugin `out` seats BESIDE the estate tree, since `CloudEvent` collides with the message-envelope class every consumer imports. Until all three land together, the second module trades one carve for the other and the exclusion stands.
-- `managed` mode owning all three loses: it derives `csharp_namespace` from the package and overrides the `option csharp_namespace = "Rasm.Channels"` both sources declare and `Rasm.Materials/Raster/set` binds by name, it forfeits per-project `GrpcServices` and `Access` control, and it forces committed generated output into three graphs that generate at build today.
+- Root `buf.yaml` declares the estate module at `tests/contracts/proto` and one module per publisher at `tests/contracts/vendor/<publisher>/proto`.
+- Each publisher module lands as one `modules` row under `disable_builtin` on both axes with one `managed.disable` `path:` row; no input row changes.
+- `buf format --diff --exit-code tests/contracts/proto` names the estate module alone, so no publisher byte enters the format path.
+- Root `buf.gen.yaml` feeds ONE workspace input (`directory: .`) to every plugin row; type filters resolve against that one image as package tokens.
+- `protoc_builtin: csharp` and `local: grpc_csharp_plugin` ride the machine `protoc` tier through the `protoc_path` `${PATH}` default.
+- `protoc-gen-es`, `protoc-gen-py`, and `protoc-gen-connectrpc` ride the pnpm catalog and the uv venv, each pinned as a pair with its runtime.
+- `protoc-gen-jsonschema` rides the machine estate; `assay contracts` drives it through an inline template, never a `buf.gen.yaml` row.
 
 [STACKING]:
-- `@bufbuild/protobuf`(`libs/typescript/core/.api/bufbuild-protobuf.md`): `buf build --as-file-descriptor-set` emits exactly what `createFileRegistry(fileDescriptorSet)` decodes, so the snapshot this catalog mints is the runtime's descriptor-reflection input and `interchange/contract` walks it through `reflect`; that catalog owns the message runtime and this one owns the file that feeds it — a rule, category, or config key never appears there, and a codec entrypoint never appears here.
-- `tests/contracts/README.md` (within-corpus edge): the corpus README owns the seam layout and the regeneration trigger, `MANIFEST.md` `[02.9]-[DESCRIPTOR_DRIFT]` owns the per-source snapshot rows, and this catalog owns the commands and rule vocabulary those two invoke.
+- `@bufbuild/protobuf`(`libs/typescript/core/.api/bufbuild-protobuf.md`): `createFileRegistry(fileDescriptorSet)` decodes the bared image.
+- `protobuf-py`(`libs/python/.api/protobuf-py.md`): `protobuf.wkt.FileDescriptorSet.from_binary` decodes the bared image the corpus gate reads.
+- `tests/contracts/README.md` (within-corpus edge): the README owns authority, layout, and regeneration; this catalog owns commands, keys, and rules.
 
 [LOCAL_ADMISSION]:
-- Invoke every verb as `node_modules/.bin/buf`, exactly as the corpus invokes each workspace tool; a globally-resolved `buf` binds no version the workspace pins.
-- `buf.yaml` carries a refused rule as `except` where the estate's own ruled vocabulary displaces it everywhere, or `ignore_only` where one source's stated design departs; each entry carries its reason inline, and a lowered category standing in for either is refused.
-- Each source regenerates its snapshot through `buf build --path <source> --as-file-descriptor-set --exclude-imports --exclude-source-info`; any other flag set forks the parity setting the drift contract compares.
+- Invoke every verb as `node_modules/.bin/buf` from the repo root; a global `buf` binds no pinned version and a foreign cwd re-roots every path.
+- `buf.yaml` carves a rule as `except` where ruled vocabulary displaces it everywhere, else `ignore_only` on the one departing source.
+- Every carve row states its why inline; a lowered category standing in for a carve is refused.
+- Template rows carry one load-bearing clause per option and per carve; an option nothing reads is not added.
 
 [RAIL_LAW]:
 - Package: `@bufbuild/buf`
-- Owns: the proto rule engine (lint categories, breaking categories, per-rule `except`/`ignore_only`, the configurable suffix and rpc knobs), the deterministic `FileDescriptorSet` and image minting, canonical formatting, the file/stat/export/convert readers, and the two protoc plugins carrying the same engines into a foreign build
-- Accept: one module root declared in a root `buf.yaml`, a git ref as the breaking baseline read under `--against-config`, the frozen per-source snapshot as a parity digest, `@bufbuild/protobuf` as the runtime decoding what `build` emits, and the root `buf.gen.yaml` naming that module as its `directory` input with one `plugins` row per consumer whose build drives no protoc
-- Reject: a globally-resolved binary, a category lowered to quiet a finding, a snapshot minted at other flags, `--path` used to scope a baseline, a `managed` block rewriting an option a source declares inline, a `buf.gen.yaml` seated at this corpus or inside one branch, a template row for a consumer whose build already drives protoc, and a committed `out` tree
+- Owns: the proto rule engine, canonical formatting, image minting, plugin generation with managed options and the post-run sweep, and the readers
+- Accept: root `buf.yaml` module roots, a git-ref baseline under `--against-config`, one workspace input with package filters, generated-only outs
+- Reject: a global binary, a lowered category, `breaking.ignore` or a second `--against`, a descriptor snapshot, a per-module input, a second driver

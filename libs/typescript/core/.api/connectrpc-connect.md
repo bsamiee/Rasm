@@ -32,12 +32,12 @@
 
 [PUBLIC_TYPE_SCOPE]: the fault algebra `interchange/codec` folds
 - rail: interchange/codec
-- `ConnectError` (`code`/`metadata`/`details`/`rawMessage`/`cause`) is the one transport fault; `Code` is the closed 16-value gRPC-aligned enum folding to the `HopReason` vocabulary, and `details` are `Any`-wrapped messages `findDetails` decodes.
+- `ConnectError` (`code`/`metadata`/`details`/`rawMessage`/`cause`) is the one transport fault; `Code` is the closed 16-value gRPC-aligned enum `interchange/codec`'s `Wire.Hops` keys its ONE row table on, and `details` are `Any`-wrapped messages `findDetails(registry)` decodes against `interchange/format`'s registry.
 
 | [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                               |
 | :-----: | :---------------------------------------------------------------- | :--------------- | :------------------------------------------------ |
 |  [01]   | `ConnectError`                                                    | transport fault  | `fromConnect` fold source; at `Effect.tryPromise` |
-|  [02]   | `Code` (`Canceled`…`Unauthenticated`, 1–16)                       | closed code enum | retryability + `HopReason`; `Match.exhaustive`    |
+|  [02]   | `Code` (`Canceled`…`Unauthenticated`, 1–16)                       | closed code enum | `Wire.Hops` key; `satisfies Record<Code, Row>`    |
 |  [03]   | `ConnectError.from(reason, code?)`                                | normalizer       | any reason → `ConnectError` (Abort→Canceled)      |
 |  [04]   | `ConnectError.findDetails(desc \| registry)`                      | detail decode    | `Any`-wrapped error details → typed messages      |
 |  [05]   | `ServiceImpl` / `MethodImpl` / `HandlerContext` / `ConnectRouter` | server-side      | OUT of `wire`'s client role; import is the defect |
@@ -97,13 +97,13 @@
 - transport and client are orthogonal: `Transport` implements the protocol, `createClient` is generic over it, so protocol selection is a `Transport` choice and `Client<T>` holds one shape across every arm.
 - `createClient` derives every method signature from the emitted `DescService`, so the SDK is one descriptor and a hand-authored client method is the drift defect.
 - Core binds typed calls through public `createClient`; internal client-function factories are neither imports nor transcription sources.
-- `ConnectError` carries the fault: a failed call rejects with `code`/`metadata`/`details`, which `interchange/codec` folds to `HopReason` — the wire fault altitude, distinct from any local `Data.TaggedError`.
+- `ConnectError` carries the fault: a failed call rejects with `code`/`metadata`/`details`, which `interchange/invoke` folds to one of three outcomes by trailer shape — `Remote` off the generated `FaultDetail`, `Transport` off the `Wire.Hops` row for the code, `MalformedDetail` — the wire fault altitude, distinct from any local `Data.TaggedError`.
 - interception is the cross-cutting seam: an `Interceptor` onion attaches trace propagation, auth, and per-call `ContextValues`, never the call site.
 
 [STACKING]:
-- `@bufbuild/protobuf` (`.api/bufbuild-protobuf.md`): the message runtime under Connect — `createClient` consumes a `DescService`, request inputs are `MessageInitShape<I>` and responses `MessageShape<O>`, and the transport's `Serialization` calls `toBinary`/`fromBinary` internally; `interchange/contract` diffs the same `FileDescriptorSet` via `createFileRegistry`, so client and drift gate share one descriptor source.
+- `@bufbuild/protobuf` (`.api/bufbuild-protobuf.md`): the message runtime under Connect — `createClient` consumes a `DescService`, request inputs are `MessageInitShape<I>` and responses `MessageShape<O>`, and the transport's `Serialization` calls `toBinary`/`fromBinary` internally; `createClient` reads the `GenService` const straight off the generated `@rasm/ts/contracts/<proto path>_pb` module, so client and codec share one descriptor source.
 - `effect` (`.api/effect.md`): each unary `Promise` lifts through `Effect.tryPromise({ try, catch: ConnectError.from })` and each streaming `AsyncIterable` folds through `Stream.fromAsyncIterable`, wrapped once at `interchange/invoke` so no domain code sees a bare `Promise`.
-- `value/fault` + `effect` `Schedule` (`.api/effect.md`): `Effect.retry(Schedule)` retries only on retryable `Code` (`Unavailable`/`DeadlineExceeded`/`Aborted`/`ResourceExhausted`), discriminated over `ConnectError.code` by `Match.exhaustive`; `CallOptions.timeoutMs` and `createDeadlineSignal` carry the per-call deadline.
+- `value/fault` + `effect` `Schedule` (`.api/effect.md`): the dial's retry gate reads `Fault.Class.retryable` off the `Wire.Hops` row for `ConnectError.code` — one table, never a per-page `Match` over codes; `CallOptions.timeoutMs` and `createDeadlineSignal` carry the per-call deadline.
 - `effect` interruption: `CallOptions.signal` is the running fiber's `AbortSignal`, so a scope close or race loss aborts the in-flight RPC with `Code.Canceled`.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): an `Interceptor` reads the active span via `Tracer.currentOtelSpan` and writes `traceparent` into `req.header` on egress, `ContextValues` carrying the tenant/HLC it annotates — W3C propagation without a call-site change.
 - `@effect/platform` `HttpClient` (`.api/effect-platform.md`): the `./protocol` kit assembles a `Transport` whose body is an `Effect` over the shared `net/client` `HttpClient`, inheriting its retry/proxy/tracing posture instead of a bare `fetch`.
@@ -112,4 +112,4 @@
 - Package: `@connectrpc/connect`
 - Owns: the `Transport` port, `createClient`/`Client<T>` and the callback/any client variants, `CallOptions`, the `Interceptor` onion, the `ConnectError`/`Code` fault algebra with `from`/`findDetails`, `ContextValues`, the `-bin` header codec, and the `./protocol` transport-construction kit
 - Accept: `createClient` over a `connect-web` `Transport` and an emitted `DescService`; client methods lifted through `Effect.tryPromise`/`Stream.fromAsyncIterable`; `ConnectError` folded through `interchange/codec`; retry via `Effect.retry(Schedule)` gated on retryable `Code`; `CallOptions.signal` from Effect interruption; trace propagation via an `Interceptor`; a custom Effect-native `Transport` from `./protocol`
-- Reject: hand-written client maps, internal client-function factories, bare async values or raw catches in domain code, ad-hoc `Code` inspection outside `fromConnect`, and server routers in `wire` except kit-driven `createRouterTransport`
+- Reject: hand-written client maps, internal client-function factories, bare async values or raw catches in domain code, ad-hoc `Code` inspection outside `Wire.Hops`, a second `createTransport` owner beside `interchange/invoke`, and server routers in `wire` except kit-driven `createRouterTransport`

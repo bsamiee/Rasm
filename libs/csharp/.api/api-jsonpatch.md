@@ -109,10 +109,9 @@
 - Adapter-free applies dispatch the target by shape — `Dictionary<,>`, `JsonObject`, `JsonArray`, any `IList`, then POCO — through an internal factory whose adapter implements `IObjectAdapterWithTest`, so a default apply executes `Test`.
 
 [STACKING]:
-- `System.Text.Json`(`.api/api-system-text-json.md`): one `JsonSerializerOptions` drives both seams, so schema export describes the record this surface patches and contract projection stays split from structured edit.
+- `System.Text.Json`(`.api/api-system-text-json.md`): one frozen `JsonSerializerOptions` drives the patch application over the configuration document, so value conversion never diverges from the suite codec.
 - `LanguageExt.Core`(`.api/api-languageext.md`): the `Action<JsonPatchError>` collector projects each failure onto `Validation<Error, A>`, so a rejected patch accumulates typed faults instead of unwinding through a catch.
-- `Rasm.Persistence` diffs exact `NodeWire` ProtoJSON into deterministic closed operations for `EntityEdit.Members`.
-- `Rasm.AppHost` applies configuration patches to a cloned `JsonObject` and republishes only after typed success.
+- `Rasm.AppHost` `Wire/companion#CONTROL_SERVICE` lowers the generated `control.v1.PatchOp` oneof onto one `JsonPatchDocument` through a total `Switch`, applies it to a cloned configuration `JsonObject`, and republishes only after typed success; a wire-message partial update is `FieldMask` + `Merge` on the binary shape (`Rasm.Persistence/Version/merge`), never a JSON patch.
 
 [LOCAL_ADMISSION]:
 - Intake deserializes `application/json-patch+json` into the untyped `JsonPatchDocument`; `JsonPatchDocument<TModel>` is the authoring shape, its `Expression` paths breaking the build on a renamed member.

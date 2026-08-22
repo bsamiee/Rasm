@@ -177,7 +177,7 @@
 - `propagate.extract` defaults its `context` slot to the AMBIENT context, so a carrier carrying no `traceparent` returns that ambient context unchanged and `get_current_span` off it yields the LIVE LOCAL span (`is_valid` True, `is_remote` False) rather than an invalid one; extraction success therefore proves nothing about origin, and `parent.is_remote` is the one member deciding remote hop against local parent — a call site stamping `remote=True` off a returned context mislabels every local parent
 
 [STACKING]:
-- `grpcio`(`.api/grpcio.md`): a client interceptor stamps the active context via `propagate.inject(metadata, setter=...)`, a server interceptor continues it via `propagate.extract(invocation_metadata, getter=...)` then `start_as_current_span(kind=SpanKind.SERVER)`; this surface owns the W3C `traceparent`/`tracestate` encoding, `grpcio` owns the `aio.Metadata` carrier
+- `connectrpc`(`.api/connectrpc.md`): a client `MetadataInterceptor.on_start` stamps the active context via `propagate.inject(ctx.request_headers)`, a server interceptor continues it via `propagate.extract(ctx.request_headers)` then `start_as_current_span(kind=SpanKind.SERVER)`; this surface owns the W3C `traceparent`/`tracestate` encoding, `connectrpc` owns the `Headers` carrier
 - `msgspec`(`.api/msgspec.md`): `to_builtins(struct, str_keys=True)` yields exactly the primitive `str | bool | int | float | Sequence[...]` mapping `Span.set_attributes` accepts, annotating a span from a decoded wire struct with no manual flattening
 - `structlog`(`.api/structlog.md`): `get_current_span().get_span_context()` yields the `trace_id`/`span_id` that `format_trace_id`/`format_span_id` render as the hex fields a `structlog` processor binds for trace-log correlation
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): this surface emits no-op providers until the SDK installs real ones via `set_*_provider` at the composition root; library code calls `get_tracer`/`get_meter`/`get_logger` and never imports the SDK. That SDK re-exports a same-named class per instrument family — including its own `_Gauge` — that DERIVES from the abstract here, and its temporality and aggregation preference maps admit those SDK classes alone, raising on every class from this surface
@@ -185,7 +185,7 @@
 
 [LOCAL_ADMISSION]:
 - library code imports only from `opentelemetry-api`; SDK imports belong to the composition root
-- multi-dict carriers such as `grpc.aio.Metadata` bind a custom `Getter`, never the default
+- `connectrpc` `Headers` stacks repeat keys under `add` and returns them from `getall`, so its carrier binds a `Getter` reading `getall` — the default getter takes one `__getitem__` value and drops every later add
 - metrics instruments are created once per meter and reused, synchronous or observable per measurement model, never per-request
 - `start_as_current_span` is the default; `start_span` is reserved for a span whose activation crosses an async boundary the context manager cannot hold
 

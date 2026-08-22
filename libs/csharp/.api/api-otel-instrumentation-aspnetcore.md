@@ -55,7 +55,7 @@
 [STACKING]:
 - `OpenTelemetry`(`api-opentelemetry.md`): inbound extraction reads the composite W3C propagator `Sdk.SetDefaultTextMapPropagator` seats at the root, and the request activity parents every span the trace opens downstream.
 - `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): outbound client spans nest inside the request span, so one server-root sampler verdict decides the whole fan-out and neither leg doubles the other.
-- `Grpc.AspNetCore`(`api-grpc-aspnetcore.md`): server endpoints gain spans through this subscription, never a service-side interceptor shim.
+- `Grpc.AspNetCore.Server`(`api-grpc-aspnetcore.md`): server endpoints gain spans through this subscription, never a service-side interceptor shim.
 - `OpenTelemetry.Instrumentation.GrpcNetClient`(`api-otel-instrumentation-grpcnetclient.md`): the outbound counterpart partitions gRPC by direction, its `SuppressDownstreamInstrumentation` collapsing the client HTTP leg alone.
 - `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): `HttpRouteParameterRedactionMode` and the `RequestMetadata` route vocabulary decide how a route segment survives onto the span, so an inbound span never carries an unredacted parameter.
 - `SignalGovernance.Govern`: AppHost's service-root fold composes the trace verb inside its `WithTracing` delegate beside the baggage and profile processors, one registration covering HTTP and gRPC server spans; inbound gRPC on the companion control service carries rpc semconv only under the gRPC env switch.

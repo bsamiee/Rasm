@@ -1,6 +1,6 @@
 # [RASM_API_PROTOBUF]
 
-`Google.Protobuf` owns generated wire contracts for the Compute remote lane and every projection off them: binary through the coded streams, the span and sequence buffer fast path, the extension and unknown-field algebra, the reflection descriptor graph, and JSON at the diagnostic edge. Generated messages implement `IBufferMessage`, so one message body crosses a pooled transport with no intermediate array. Message envelopes, content digests, and transport policy stop outside this boundary.
+`Google.Protobuf` owns generated wire contracts for the Compute remote lane and every projection off them: binary through the coded streams, the span and sequence buffer fast path, the extension and unknown-field algebra, the reflection descriptor graph, and ProtoJSON — the one JSON form a generated message takes — through a registry-bearing formatter and parser pair. Generated messages implement `IBufferMessage`, so one message body crosses a pooled transport with no intermediate array. Message envelopes, content digests, and transport policy stop outside this boundary.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `Google.Protobuf` (BSD-3-Clause)
 - assembly: `Google.Protobuf`, binding the asset carrying the `ReadOnlySpan<byte>`, `ReadOnlySequence<byte>`, and `IBufferWriter<byte>` overloads
 - namespace: `Google.Protobuf`, `Google.Protobuf.Collections`, `Google.Protobuf.Reflection`, `Google.Protobuf.WellKnownTypes`
-- depends: `Grpc.Tools` owns the `.proto` compile; this package ships the managed runtime alone
+- depends: `protoc` under the buf generation axis owns the `.proto` compile outside every project; this package ships the managed runtime alone
 - rail: remote-contracts
 
 ## [02]-[PUBLIC_TYPES]
@@ -88,6 +88,22 @@
 |  [21]   | `DescriptorProto`                   | sealed class   | message descriptor as a wire message       |
 |  [22]   | `FileDescriptorSet`                 | sealed class   | descriptor-set payload carrier             |
 
+[PUBLIC_TYPE_SCOPE]: editions, feature sets, custom options, and comparers
+
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `Edition`                                       | enum          | `Proto2`/`Proto3`/`_2023`/`_2024`/`_2026` edition roster             |
+|  [02]   | `FeatureSet`                                    | message       | resolved per-descriptor features (`FieldPresence`, `EnumType`, `RepeatedFieldEncoding`, `Utf8Validation`, `MessageEncoding`, `JsonFormat`, `EnforceNamingStyle`, `DefaultSymbolVisibility`, `EnforceProtoLimits`) |
+|  [03]   | `FeatureSet.Types.ProtoLimitsFeature`           | message       | `EnforceProtoLimits` feature carrier                                 |
+|  [04]   | `CSharpFeatures`                                | message       | `NullableReferenceTypes` — the ONE C# emission feature              |
+|  [05]   | `SymbolVisibility`                              | enum          | descriptor export posture a declaration carries                      |
+|  [06]   | `CustomOptions`                                 | sealed class  | `TryGet<Kind>(int field, out value)` over unregistered option fields |
+|  [07]   | `ProtobufEqualityComparers`                     | static class  | bitwise `double`/`float` comparers generated `Equals` read           |
+
+- `CustomOptions`: `TryGetBool`, `TryGetInt32`, `TryGetInt64`, `TryGetFixed32`, `TryGetFixed64`, `TryGetSFixed32`, `TryGetSFixed64`, `TryGetSInt32`, `TryGetSInt64`, `TryGetUInt32`, `TryGetUInt64`, `TryGetFloat`, `TryGetDouble`, `TryGetString`, `TryGetBytes`, `TryGetMessage<T>` — a descriptor's typed options come off `GetOptions()` and extension-declared ones off the generated extension handle; this class serves options no registry resolved.
+- `CSharpFeatures.NullableReferenceTypes`: the feature that turns `#nullable enable` on in the emission; it is set from an editions source only, so a csproj flip never reaches it.
+- `ProtobufEqualityComparers.GetEqualityComparer<T>()`: bitwise for `float`/`double` and their nullables (NaN equals NaN, `-0.0` differs from `+0.0`), default otherwise — the comparer generated `Equals` and `RepeatedField<T>.Equals` read.
+
 [PUBLIC_TYPE_SCOPE]: `Google.Protobuf.WellKnownTypes` generated messages
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                           |
@@ -130,6 +146,7 @@ Each wrapper message carries one presence-bearing field over its named CLR primi
 |  [11]   | `WithExtensionRegistry(ExtensionRegistry) -> MessageParser<T>` | instance | extension-aware parser           |
 
 - `MessageParser<T>.ParseJson`: routes through the default `JsonParser`, so `WithDiscardUnknownFields` never reaches it — an unknown-field-tolerant JSON decode binds `JsonParser.Settings.WithIgnoreUnknownFields`.
+- `ParseDelimitedFrom(Stream)` pairs with `WriteDelimitedTo(Stream)` alone: a varint-prefixed frame fed to `ParseFrom(ReadOnlySequence<byte>)` throws on the prefix byte, and `ParseFrom(ReadOnlySequence<byte>)`/`ParseFrom(ReadOnlySpan<byte>)` run with `sizeLimit = int.MaxValue` and recursion 100, so a size-bounded hostile parse takes `ParseFrom(CodedInputStream.CreateWithLimits(stream, size, depth))`.
 
 [ENTRYPOINT_SCOPE]: serialize and merge through `MessageExtensions`
 
@@ -145,13 +162,10 @@ Every member binds `this IMessage`; merge forms mutate the receiver in place, an
 |  [06]   | `MergeFrom(ReadOnlySequence<byte>)`          | static  | fragmented merge, no contiguity     |
 |  [07]   | `MergeDelimitedFrom(Stream)`                 | static  | length-prefixed merge               |
 |  [08]   | `ToByteArray() -> byte[]`                    | static  | managed byte copy                   |
-|  [09]   | `ToByteString() -> ByteString`               | static  | immutable byte copy                 |
-|  [10]   | `WriteTo(Stream)`                            | static  | stream write                        |
-|  [11]   | `WriteTo(IBufferWriter<byte>)`               | static  | pooled write, no intermediate array |
-|  [12]   | `WriteTo(Span<byte>)`                        | static  | write into a pre-sized span         |
-|  [13]   | `WriteDelimitedTo(Stream)`                   | static  | length-prefixed stream write        |
-|  [14]   | `WriteLengthPrefixedTo(IBufferWriter<byte>)` | static  | varint-prefixed pooled write        |
-|  [15]   | `IsInitialized() -> bool`                    | static  | required-field completeness verdict |
+|  [09]   | `WriteTo(Stream)`                            | static  | stream write                        |
+|  [10]   | `WriteTo(IBufferWriter<byte>)`               | static  | pooled write, no intermediate array |
+|  [11]   | `WriteTo(Span<byte>)`                        | static  | write into a pre-sized span         |
+|  [12]   | `WriteDelimitedTo(Stream)`                   | static  | length-prefixed stream write        |
 
 - `MessageExtensions.WriteTo(Span<byte>)`: requires a destination sized exactly to `IMessage.CalculateSize()`; any other length throws.
 
@@ -336,7 +350,7 @@ Each scalar factory has a tag-only form and a default-value form, and `uint tag`
 |  [12]   | `FieldMask.IsValid(MessageDescriptor, FieldMask) -> bool`             | static   | descriptor-checked mask verdict     |
 |  [13]   | `FieldMask.IsValid<T>(FieldMask) -> bool`                             | static   | type-checked mask verdict           |
 |  [14]   | `FieldMask.IsPathValid(string) -> bool`                               | static   | path-syntax verdict                 |
-|  [15]   | `FieldMask.Normalize() -> FieldMask`                                  | instance | sort, dedupe, prune subpaths        |
+|  [15]   | `FieldMask.Normalize() -> FieldMask`                                  | instance | dedupe and prune subpaths, unsorted |
 |  [16]   | `FieldMask.Union(params FieldMask[]) -> FieldMask`                    | instance | path-set union                      |
 |  [17]   | `FieldMask.Intersection(FieldMask) -> FieldMask`                      | instance | path-set intersection               |
 |  [18]   | `FieldMask.Merge(IMessage, IMessage)`                                 | instance | copy masked paths, source to target |
@@ -344,6 +358,7 @@ Each scalar factory has a tag-only form and a default-value form, and `uint tag`
 |  [20]   | `FieldMask.Paths -> RepeatedField<string>`                            | property | the selected path set               |
 
 - `Any.Unpack<T>`: throws on a payload-type mismatch; `TryUnpack<T>` returns the verdict instead.
+- `FieldMask.Normalize`: walks a `Dictionary`-backed tree, so the returned `Paths` order is insertion order, never sorted — an owner whose order is load-bearing sorts `Paths` itself once, and `Union` is therefore not commutative on equality.
 - `FieldMask.MergeOptions`: `ReplaceMessageFields`, `ReplaceRepeatedFields`, and `ReplacePrimitiveFields` each discard existing target content instead of merging into it.
 
 [ENTRYPOINT_SCOPE]: temporal and dynamic well-known values
@@ -466,6 +481,7 @@ Each `Value` factory is static and returns a `Value` over one named case; `ForLi
 |  [19]   | `JsonParser.Settings.WithTypeRegistry(TypeRegistry)`       | instance | resolve `Any` payload types      |
 
 - `JsonFormatter.Settings.WithIndentation`: inserts `Environment.NewLine` breaks on a non-null indentation, so a writer already emitting `\r\n` doubles them; `null` disables indentation and keeps the projection single-line.
+- `JsonFormatter.Default`: elides default-valued fields and throws `InvalidOperationException` on any `Any` whose type the empty registry cannot resolve; `JsonParser.Default` refuses unknown JSON members — the estate's one configured pair (`WithTypeRegistry` over every `<F>Reflection.Descriptor`, `WithIgnoreUnknownFields(true)`) lives at `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`, and `.Default` is the deleted form.
 
 [ENTRYPOINT_SCOPE]: coded-stream limits, determinism, and size costing
 
@@ -496,7 +512,7 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 |  [19]   | `CodedOutputStream.ComputeRawVarint32Size(uint) -> int`  | static   | raw 32-bit varint cost          |
 |  [20]   | `CodedOutputStream.ComputeRawVarint64Size(ulong) -> int` | static   | raw 64-bit varint cost          |
 
-- `CodedOutputStream.Deterministic`: fixes map-field ordering so equal messages serialize to equal bytes within one binary; unknown fields carried across a schema change break that equality, so a persisted canonical form pins its own field order.
+- `CodedOutputStream.Deterministic`: fixes map-field ordering so equal messages serialize to equal bytes within one binary; it is a property of the stream object alone, so a frozen fixture stages through `new CodedOutputStream(stream) { Deterministic = true }` then `WriteTo(cos)` and `Flush()`, never the `IBufferWriter<byte>` path; cross-generator byte identity still needs a map-free wire, since no peer generator orders map entries the same way.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -507,24 +523,26 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 - `UnsafeByteOperations.UnsafeWrap` and `UnsafeCollectionOperations.AsSpan` alias caller storage rather than copying it, so the caller holds that storage unchanged for the message's read window.
 - `FieldCodec<T>` is the one read, write, and size unit behind every generated accessor, and `RepeatedField<T>` and `MapField<TKey, TValue>` consume it for bulk wire flow.
 - Extension state threads as `ref ExtensionSet<TTarget>`, so an unextended message stores no set, and `UnknownFieldSet` preserves every field the current descriptor does not claim.
-- Descriptor identity folds on `DescriptorBase.FullName` with `Index`, and `FileDescriptor.SerializedData` with `ToProto()` returns the payload a contract diff walks.
+- Descriptor identity folds on `DescriptorBase.FullName` with `Index`, and `FileDescriptor.SerializedData` with `ToProto()` returns the payload a descriptor-set export carries — no estate gate diffs it, since `buf breaking` at the corpus is the compatibility authority.
 - `InvalidProtocolBufferException` and `InvalidJsonException` both derive from `IOException`, so one catch shape covers both decode rails.
 
 [STACKING]:
-- `Microsoft.IO.RecyclableMemoryStream`(`Rasm.Compute/.api/api-recyclable-stream.md`): a rented stream is the `IBufferWriter<byte>` that `WriteLengthPrefixedTo` writes into, and its `GetReadOnlySequence()` is the fragmented source `ParseFrom(ReadOnlySequence<byte>)` decodes from, so a frame stages and decodes with no contiguous copy.
+- `Microsoft.IO.RecyclableMemoryStream`(`Rasm.Compute/.api/api-recyclable-stream.md`): a rented stream is the `IBufferWriter<byte>` that `WriteTo(IBufferWriter<byte>)` stages an unprefixed body into, and the same stream is the `Stream` that `CodedInputStream.CreateWithLimits` bounds on the read leg, so a frame stages and decodes with no contiguous copy and no length prefix.
 - `System.IO.Hashing`(`.api/api-hashing.md`): a `Deterministic` write feeds `XxHash128.HashToUInt128` for content identity beside `Crc32.HashToUInt32` for frame integrity, both reading the same staged span.
 - `CommunityToolkit.HighPerformance`(`.api/api-highperformance.md`): `MemoryOwner<byte>.DangerousGetArray` hands its rented segment to `UnsafeByteOperations.UnsafeWrap`, and `ArrayPoolBufferWriter<byte>` is the `WriteTo(IBufferWriter<byte>)` target the owner releases after the send.
-- `Grpc.Net.Client`(`.api/api-grpc-client.md`): `IMessage<T>` payloads serialize on the call path under the channel's message-size bounds, and the generic numeric-code/recovery `FaultDetail` envelope crosses as an `Any` that `TryUnpack<T>` or `Unpack(TypeRegistry)` resolves; it never serializes or rehydrates a source fault union.
-- `Grpc.AspNetCore`(`.api/api-grpc-aspnetcore.md`): the same generated contracts are the server-edge request and response payloads.
-- `Grpc.Tools`(`.api/api-grpc-tools.md`): `protoc` emits the `IMessage<T>` classes, their static `Parser` and `Descriptor`, and `field_mask.proto`'s `FieldMask` this surface then operates on.
+- `Grpc.Net.Client`(`.api/api-grpc-client.md`): `IMessage<T>` payloads serialize on the call path under the channel's message-size bounds, and the `fault.v1.FaultDetail{domain, case, correlation, stamp, tenant, recovery, violations}` detail crosses inside `google.rpc.Status.details` as one `Any` that `Any.Is(FaultDetail.Descriptor)` selects and `Unpack<FaultDetail>()` opens; it never serializes or rehydrates a source fault union.
+- `Grpc.StatusProto`(`.api/api-grpc-statusproto.md`): `Google.Rpc.Status.ToRpcException()` and `RpcException.GetRpcStatus()` carry that status on the `grpc-status-details-bin` trailer, so no consumer spells the trailer or parses `Status` by hand.
+- `Google.Api.CommonProtos`(`.api/api-commonprotos.md`): `Google.Rpc.Status`, `RetryInfo`, `BadRequest.FieldViolation`, `DebugInfo`, and the `google.type` calendar scalars the element and host families declare are generated messages over this runtime.
+- `Grpc.AspNetCore.Server`(`.api/api-grpc-aspnetcore.md`): the same generated contracts are the server-edge request and response payloads.
+- `Rasm.Contracts`(`Rasm.Contracts/.api/rasm-contracts.md`): the SOLE in-repo emitter — a `protoc_builtin: csharp` row on the buf generation axis emits every estate `IMessage<T>` class, its static `Parser` and `Descriptor`, and the `<F>Reflection` file descriptor into that committed assembly, and every consumer reaches them by project reference; no second emission and no hand-copied generated type exists.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Timestamp` and `Duration` fields project through its paired inverses, so the wire clock and interior NodaTime values share one vocabulary and this package's operator algebra stays on the wire side of that seam.
 - `Riok.Mapperly`(`.api/api-mapperly.md`): generated mappers transcribe message fields to domain shapes, filling get-only `RepeatedField<T>` and `MapField<TKey, TValue>` members through an existing-target mapping method.
-- Within-library: one message crosses as one pooled pass — `CalculateSize()` sizes the frame, `WriteLengthPrefixedTo(IBufferWriter<byte>)` stages it into the rented stream, the digest reads that span, and the receiving leg folds `GetReadOnlySequence()` straight into `ParseFrom(ReadOnlySequence<byte>)`; a partial update rides `FieldMask.Normalize()` then `IsValid` then `Merge` under `MergeOptions`, and a descriptor-diff walker folds `Fields.InFieldNumberOrder()`, `FieldDescriptor.FieldType`, `HasPresence`, and `DescriptorProto.Types.ReservedRange` into the contract checksum.
+- Within-library: one message crosses as one pooled pass — `CalculateSize()` sizes the frame, `WriteTo(IBufferWriter<byte>)` stages the body into the rented stream, the digest reads that span, and the receiving leg parses `ParseFrom(CodedInputStream.CreateWithLimits(stream, size, depth))` under the consumer's declared ceiling; the one length-prefixed form is the `WriteDelimitedTo(Stream)`/`ParseDelimitedFrom(Stream)` pair on a stream of consecutive messages; a partial update rides `FieldMask.Union().Normalize()` then `IsValid` then `Merge` under `MergeOptions`, and `UnknownFieldSet` retention is where a retired peer field lands under the compatibility law.
 
 [LOCAL_ADMISSION]:
 - Remote Compute contracts enter through generated `IMessage<T>` surfaces, and this codec stack owns their binary payloads end to end.
-- JSON projection serves diagnostics, through one configured `JsonFormatter` or `JsonParser` carrying explicit `Settings` and `TypeRegistry`.
-- Reflection descriptors serve diagnostics, contract evolution, and read-only runtime dispatch.
+- JSON crossings are ProtoJSON of a generated message through the ONE configured `JsonFormatter`/`JsonParser` pair carrying the estate `TypeRegistry` (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`); the parser tolerates unknown members so binary and JSON intake share one admission posture.
+- Reflection descriptors serve diagnostics, `Any`/`FieldMask` admission, the contract generation read off `FileDescriptor.Package`, and read-only runtime dispatch — never a runtime compatibility diff.
 - Proto2 extensions and unknown fields enter through the extension and unknown-field surfaces, keeping forward-compatible payloads intact across a re-emit.
 
 [RAIL_LAW]:
@@ -532,4 +550,4 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 - Owns: generated wire contracts, the codec stack, the buffer fast path, `FieldCodec<T>`, the extension and unknown-field algebra, the reflection descriptor graph, the well-known type family, and JSON edge projection
 - Accept: generated contracts driven over the span, sequence, and `IBufferWriter<byte>` entries, stacked onto the pooled stream sink and the content-identity digest
 - Reject: a per-message serializer written against raw streams beside the generated `IBufferMessage` path
-- `Rasm.Element` (`Graph/wire` family): `CodedInputStream.CreateWithLimits` the one hostile size/recursion gate, `MessageParser<T>.ParseFrom` under it, `ByteString` 16-byte big-endian content keys, `RepeatedField`/`MapField` fills at the boundary's own mutable shape, `MessageExtensions.WriteTo(IBufferWriter<byte>)`/`WriteLengthPrefixedTo`/`WriteDelimitedTo` the copy-free egress legs, and `FieldMask.FromString<T>().Normalize()` + `MessageDescriptor`/`IFieldAccessor.Clear` the declaration-total redaction walk.
+- `Rasm.Element` (`Graph/wire` family): `CodedInputStream.CreateWithLimits` the one hostile size/recursion gate, `MessageParser<T>.ParseFrom` under it, content keys as the kernel `ContentHash.Wire`/`Admit` 16 big-endian bytes (`docs/laws/patterns.md` `[CONTENT_KEY]`), `RepeatedField`/`MapField` fills at the boundary's own mutable shape, `MessageExtensions.WriteTo(IBufferWriter<byte>)` and the `WriteDelimitedTo`/`ParseDelimitedFrom` pair the copy-free egress legs, and `FieldMask.FromString<T>().Normalize()` + `MessageDescriptor`/`IFieldAccessor.Clear` the declaration-total redaction walk.

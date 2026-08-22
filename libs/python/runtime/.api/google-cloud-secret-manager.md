@@ -71,7 +71,7 @@ Every surface hangs off `SecretManagerServiceClient`: the bare `(...)` row const
 - `reliability/resilience#RESILIENCE`: `guarded(RetryClass.SECRET, ...)` wraps the cloud-tier probe, offloaded through `anyio.to_thread.run_sync` so the blocking gRPC read never stalls the loop.
 
 [LOCAL_ADMISSION]:
-- admission admits `SecretManagerServiceClient` construction, its `secret_client=` injection, and the `with` bracket that retires it; ADC/service-account resolution, retry/timeout defaults, and the internal `SecretManagerServiceGrpcTransport` — distinct from the `.api/grpcio.md` serve/dial channels the runtime owns — all arrive settled from the client, and this page owns only the read slice the cloud-tier row consumes.
+- admission admits `SecretManagerServiceClient` construction, its `secret_client=` injection, and the `with` bracket that retires it; ADC/service-account resolution, retry/timeout defaults, and the internal `SecretManagerServiceGrpcTransport` — a client-private channel no runtime serve or dial seam shares — all arrive settled from the client, and this page owns only the read slice the cloud-tier row consumes.
 
 [RAIL_LAW]:
 - Package: `google-cloud-secret-manager`

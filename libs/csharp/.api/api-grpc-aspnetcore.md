@@ -1,11 +1,11 @@
 # [RASM_API_GRPC_ASPNETCORE]
 
-`Grpc.AspNetCore` owns the gRPC ASP.NET server rail: service registration, endpoint mapping, the global and per-service policy pair with its ordered interceptor pipeline, and the service-model seam that registers methods without a generated base. `Grpc.AspNetCore.Web` folds `application/grpc-web[-text]` traffic onto that rail, and `Grpc.AspNetCore.HealthChecks` projects the registered `Microsoft.Extensions.Diagnostics.HealthChecks` results onto `grpc.health.v1.Health`. This rail terminates calls and never dials them.
+`Grpc.AspNetCore.Server` owns the gRPC ASP.NET server rail: service registration, endpoint mapping, the global and per-service policy pair with its ordered interceptor pipeline, and the service-model seam that registers methods without a generated base. `Grpc.AspNetCore.Web` folds `application/grpc-web[-text]` traffic onto that rail, and `Grpc.AspNetCore.HealthChecks` projects the registered `Microsoft.Extensions.Diagnostics.HealthChecks` results onto `grpc.health.v1.Health`. This rail terminates calls and never dials them.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Grpc.AspNetCore`
-- package: `Grpc.AspNetCore` (Apache-2.0)
+[PACKAGE_SURFACE]: `Grpc.AspNetCore.Server`
+- package: `Grpc.AspNetCore.Server` (Apache-2.0)
 - assembly: `Grpc.AspNetCore.Server`
 - namespace: `Grpc.AspNetCore.Server`, `Grpc.AspNetCore.Server.Model`, `Grpc.Core`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
 - rail: remote-server
@@ -30,7 +30,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: server hosting, policy, and service model — `Grpc.AspNetCore`
+[PUBLIC_TYPE_SCOPE]: server hosting, policy, and service model — `Grpc.AspNetCore.Server`
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [CAPABILITY]                                   |
 | :-----: | :---------------------------------------- | :------------ | :--------------------------------------------- |
@@ -203,7 +203,7 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 - `ServingStatus` proto values `Unknown=0` `Serving=1` `NotServing=2` `ServiceUnknown=3` are the wire contract; the canonical projection maps healthy and degraded to `Serving`, unhealthy to `NotServing`.
 
 [STACKING]:
-- `Grpc.Tools`(`.api/api-grpc-tools.md`): `GrpcServices=Server` emits the service base class `MapGrpcService<TService>` binds, and `Access` fixes that type's visibility.
+- `Rasm.Contracts`(`Rasm.Contracts/.api/rasm-contracts.md`): the `local: grpc_csharp_plugin` row on the buf generation axis emits the `<Svc>.<Svc>Base` class `MapGrpcService<TService>` binds into that committed assembly, so an app root derives the base by project reference and no project drives a codegen pass of its own.
 - `Google.Protobuf`(`.api/api-protobuf.md`): generated `IMessage<T>` requests and responses are the payloads `GrpcServiceOptions.MaxReceiveMessageSize` bounds.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Instant` and `Duration` cross the server edge as `Timestamp` and `Duration` through its conversion extensions.
 - `Grpc.Net.Client`(`.api/api-grpc-client.md`): `GrpcServiceOptions.CompressionProviders` and the message-size pair mirror `GrpcChannelOptions`, so one policy row set configures both ends.
@@ -221,7 +221,7 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 - AppHost binds `HealthServiceImpl` as the `grpc.health.v1` singleton; every health contributor projects its result into `HealthServiceImpl.SetStatus` through the tag-predicate mapping, so broker, store, and system readiness reach one serving-status surface.
 
 [RAIL_LAW]:
-- Package: `Grpc.AspNetCore`, `Grpc.AspNetCore.Web`, `Grpc.AspNetCore.HealthChecks`, `Grpc.HealthCheck`
+- Package: `Grpc.AspNetCore.Server`, `Grpc.AspNetCore.Web`, `Grpc.AspNetCore.HealthChecks`, `Grpc.HealthCheck`
 - Owns: gRPC service registration, endpoint mapping, server policy with its interceptor pipeline, server-side grpc-web translation, and the `grpc.health.v1.Health` service with its reference `HealthServiceImpl` serving-status map
 - Accept: server-terminated calls under `GrpcServiceOptions` policy, browser-framed calls through `UseGrpcWeb`, and health probes projected from the registered checks
 - Reject: a hand-rolled health proto or serving-status map beside `HealthServiceImpl`, a second server compression list, or a per-service options bag beside `GrpcServiceOptions<TService>`

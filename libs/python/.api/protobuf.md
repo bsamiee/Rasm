@@ -1,189 +1,184 @@
 # [PY_BRANCH_API_PROTOBUF]
 
-`protobuf` owns `protoc`-generated message serialization across binary wire, JSON, and text, over the descriptor schema model and the descriptor-pool/symbol-database/message-factory registries that resolve a message class by name or descriptor. `_pb2.py` classes derive from `Message` and auto-register into the default `DescriptorPool`. It is the transport rail's wire-encode engine — generated messages compose through the `proto` functional codec and `json_format`/`text_format` at boundaries, well-known types as first-class value carriers.
+`protobuf` owns the `google.protobuf` message runtime beneath the two foreign IRs the branch decodes — the Substrait plan and the ONNX model — whose `_pb2` classes derive from `Message`. It folds binary, JSON, and text codecs over those messages beside the well-known value carriers, and hands the estate's own wire vocabulary to `protobuf-py`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `protobuf`
 - package: `protobuf` (BSD-3-Clause)
 - module: `google.protobuf`
-- namespaces: `...message`, `...descriptor`, `...descriptor_pool`, `...symbol_database`, `...message_factory`, `...json_format`, `...text_format`, `...proto`, `...internal.api_implementation`, `...internal.well_known_types`, `...<wkt>_pb2`, `...compiler.plugin_pb2`
-- abi: native `upb` C extension by default, `cpp` or pure `python` selected at import via `api_implementation`
-- rail: transport
+- namespaces: `...message`, `...proto`, `...json_format`, `...text_format`, `...unknown_fields`, `...runtime_version`, `...internal.api_implementation`, `...<wkt>_pb2`
+- abi: native `upb` C extension by default, `cpp` or pure `python` elected at import through `api_implementation`
+- rail: data + compute IR
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message family
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]  | [CAPABILITY]                                            |
-| :-----: | :------------ | :------------- | :------------------------------------------------------ |
-|  [01]   | `Message`     | abstract base  | root of all generated message classes                   |
-|  [02]   | `Error`       | exception base | `Exception` subclass rooting both binary-codec refusals |
-|  [03]   | `DecodeError` | exception      | malformed binary wire input                             |
-|  [04]   | `EncodeError` | exception      | unserializable message state                            |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]  | [CAPABILITY]                                                     |
+| :-----: | :------------ | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `Message`     | abstract base  | root every `_pb2` message class derives from                     |
+|  [02]   | `Error`       | exception base | binary-codec refusal root, disjoint from the JSON and text roots |
+|  [03]   | `DecodeError` | exception      | malformed binary wire input                                      |
+|  [04]   | `EncodeError` | exception      | message state the binary encoder refuses                         |
 
-[PUBLIC_TYPE_SCOPE]: json_format exception family
+[PUBLIC_TYPE_SCOPE]: projection exception roots
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]  | [CAPABILITY]                                                           |
-| :-----: | :--------------------------------- | :------------- | :--------------------------------------------------------------------- |
-|  [01]   | `json_format.Error`                | exception base | `Exception` subclass rooting both JSON refusals, DISJOINT from `Error` |
-|  [02]   | `json_format.ParseError`           | exception      | `ParseDict`/`Parse` refusal, carrying the offending field path         |
-|  [03]   | `json_format.SerializeToJsonError` | exception      | `MessageToDict`/`MessageToJson` refusal on unrenderable state          |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]  | [CAPABILITY]                                                   |
+| :-----: | :-------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `json_format.Error`                     | exception base | JSON-projection refusal root, subclassing `Exception` direct   |
+|  [02]   | `json_format.ParseError`                | exception      | `Parse`/`ParseDict` refusal carrying the offending field path  |
+|  [03]   | `json_format.EnumStringValueParseError` | exception      | unknown enum string name, re-wrapped as `ParseError` on escape |
+|  [04]   | `json_format.SerializeToJsonError`      | exception      | `MessageToJson`/`MessageToDict` refusal on unrenderable state  |
+|  [05]   | `text_format.Error`                     | exception base | text-projection refusal root, subclassing `Exception` direct   |
+|  [06]   | `text_format.ParseError`                | exception      | `Parse`/`Merge` refusal carrying line and column               |
 
-[PUBLIC_TYPE_SCOPE]: descriptor and registry family
+[PUBLIC_TYPE_SCOPE]: well-known value carriers
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [CAPABILITY]                           |
-| :-----: | :-------------------- | :------------- | :------------------------------------- |
-|  [01]   | `Descriptor`          | message schema | schema for a single message type       |
-|  [02]   | `FieldDescriptor`     | field schema   | field type, label, number, and options |
-|  [03]   | `EnumDescriptor`      | enum schema    | enum type schema                       |
-|  [04]   | `EnumValueDescriptor` | enum value     | enum value name-number pair            |
-|  [05]   | `FileDescriptor`      | file schema    | single `.proto` file schema            |
-|  [06]   | `ServiceDescriptor`   | service schema | RPC service schema                     |
-|  [07]   | `MethodDescriptor`    | method schema  | single RPC method schema               |
-|  [08]   | `OneofDescriptor`     | oneof schema   | oneof field group schema               |
-|  [09]   | `DescriptorPool`      | registry       | schema registry for cross-file lookups |
-|  [10]   | `SymbolDatabase`      | registry       | type-name -> message-class resolver    |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :------------------------------------------ | :------------ | :------------------------------------------------------- |
+|  [01]   | `any_pb2.Any`                               | well-known    | type-URL-tagged embedded message                         |
+|  [02]   | `timestamp_pb2.Timestamp`                   | well-known    | seconds + nanos UTC instant                              |
+|  [03]   | `duration_pb2.Duration`                     | well-known    | signed seconds + nanos span, both slots sharing the sign |
+|  [04]   | `struct_pb2.Struct` / `Value` / `ListValue` | well-known    | dynamic JSON-shaped object, scalar cell, and sequence    |
+|  [05]   | `field_mask_pb2.FieldMask`                  | well-known    | snake_case field-path set over a message tree            |
+|  [06]   | `wrappers_pb2.*Value` / `empty_pb2.Empty`   | well-known    | presence-bearing scalar wrappers and the empty message   |
 
-[PUBLIC_TYPE_SCOPE]: backend selection and well-known types
+[PUBLIC_TYPE_SCOPE]: runtime introspection
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [CAPABILITY]                                   |
-| :-----: | :------------------------------------------ | :------------ | :--------------------------------------------- |
-|  [01]   | `internal.api_implementation.Type()`        | function      | active backend: `'upb'` / `'cpp'` / `'python'` |
-|  [02]   | `any_pb2.Any`                               | well-known    | type-URL-tagged embedded message               |
-|  [03]   | `timestamp_pb2.Timestamp`                   | well-known    | seconds+nanos UTC instant                      |
-|  [04]   | `duration_pb2.Duration`                     | well-known    | signed seconds+nanos span                      |
-|  [05]   | `struct_pb2.Struct` / `Value` / `ListValue` | well-known    | dynamic JSON-like object                       |
-|  [06]   | `field_mask_pb2.FieldMask`                  | well-known    | set of field paths for partial updates         |
-|  [07]   | `wrappers_pb2.*Value` / `empty_pb2.Empty`   | well-known    | nullable scalar wrappers / empty message       |
-
-[PUBLIC_TYPE_SCOPE]: FieldDescriptor constants
-- wire-type prefix `FieldDescriptor.TYPE_`; cardinality prefix `FieldDescriptor.LABEL_`.
-
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]               |
-| :-----: | :------------------------------ | :------------ | :------------------------- |
-|  [01]   | `TYPE_DOUBLE` / `TYPE_FLOAT`    | wire type     | 64/32-bit float fields     |
-|  [02]   | `TYPE_INT32` / `TYPE_INT64`     | wire type     | varint signed int fields   |
-|  [03]   | `TYPE_UINT32` / `TYPE_UINT64`   | wire type     | varint unsigned int fields |
-|  [04]   | `TYPE_SINT32` / `TYPE_SINT64`   | wire type     | zigzag signed int fields   |
-|  [05]   | `TYPE_FIXED32` / `TYPE_FIXED64` | wire type     | fixed-width int fields     |
-|  [06]   | `TYPE_SFIXED32`/`TYPE_SFIXED64` | wire type     | fixed-width signed fields  |
-|  [07]   | `TYPE_BOOL`                     | wire type     | boolean field              |
-|  [08]   | `TYPE_STRING` / `TYPE_BYTES`    | wire type     | UTF-8 string / raw bytes   |
-|  [09]   | `TYPE_ENUM`                     | wire type     | enum-typed field           |
-|  [10]   | `TYPE_MESSAGE` / `TYPE_GROUP`   | wire type     | embedded message / group   |
-|  [11]   | `LABEL_OPTIONAL`                | cardinality   | singular optional field    |
-|  [12]   | `LABEL_REQUIRED`                | cardinality   | singular required field    |
-|  [13]   | `LABEL_REPEATED`                | cardinality   | repeated field             |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :------------------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `unknown_fields.UnknownFieldSet` | field set     | iterable of `field_number`/`wire_type`/`data` records a decode kept |
+|  [02]   | `runtime_version.VersionError`   | exception     | gencode-to-runtime skew refusal                                     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Message instance operations
 
-| [INDEX] | [SURFACE]                                       | [SHAPE]  | [CAPABILITY]                              |
-| :-----: | :---------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `Message.SerializeToString(deterministic=None)` | instance | binary wire encoding to `bytes`           |
-|  [02]   | `Message.ParseFromString(data)`                 | instance | clear + decode binary wire bytes in place |
-|  [03]   | `Message.MergeFromString(data)`                 | instance | merge binary wire bytes in place          |
-|  [04]   | `Message.SerializePartialToString()`            | instance | encode even if required fields missing    |
-|  [05]   | `Message.CopyFrom(other_msg)`                   | instance | replace all fields from another message   |
-|  [06]   | `Message.MergeFrom(other_msg)`                  | instance | merge fields from another message         |
-|  [07]   | `Message.Clear()`                               | instance | reset all fields to defaults              |
-|  [08]   | `Message.ClearField(field_name)`                | instance | reset one field to default                |
-|  [09]   | `Message.SetInParent()`                         | instance | mark a sub-message present (empty)        |
-|  [10]   | `Message.HasField(field_name)`                  | instance | test singular/message/oneof presence      |
-|  [11]   | `Message.WhichOneof(oneof_name)`                | instance | name of populated oneof member or None    |
-|  [12]   | `Message.ListFields()`                          | instance | list set `(FieldDescriptor, value)` pairs |
-|  [13]   | `Message.ByteSize()`                            | instance | encoded size in bytes (caches)            |
-|  [14]   | `Message.IsInitialized()`                       | instance | all required fields populated             |
-|  [15]   | `Message.UnknownFields()`                       | instance | preserved unknown-field set               |
-|  [16]   | `Message.DiscardUnknownFields()`                | instance | drop preserved unknown fields             |
-|  [17]   | `Message.FromString(data)`                      | factory  | decode and return new message             |
-|  [18]   | `Message.DESCRIPTOR`                            | property | the message's `Descriptor`                |
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `Message.SerializeToString(*, deterministic)`        | instance | encode to binary wire `bytes`                       |
+|  [02]   | `Message.SerializePartialToString(*, deterministic)` | instance | encode without the required-field check             |
+|  [03]   | `Message.ParseFromString(serialized)`                | instance | clear, then decode binary wire bytes in place       |
+|  [04]   | `Message.MergeFromString(serialized)`                | instance | overlay binary wire bytes onto current state        |
+|  [05]   | `Message.FromString(s)`                              | factory  | decode bytes into a new message                     |
+|  [06]   | `Message.CopyFrom(other_msg)`                        | instance | replace every field from another message            |
+|  [07]   | `Message.MergeFrom(other_msg)`                       | instance | overlay set fields from another message             |
+|  [08]   | `Message.Clear()` / `Message.ClearField(field_name)` | instance | reset every field / one field to its default        |
+|  [09]   | `Message.HasField(field_name)`                       | instance | presence of a message, oneof member, or `optional`  |
+|  [10]   | `Message.WhichOneof(oneof_group)`                    | instance | name of the populated oneof member, else `None`     |
+|  [11]   | `Message.ListFields()`                               | instance | set `(FieldDescriptor, value)` pairs in field order |
+|  [12]   | `Message.ByteSize()`                                 | instance | encoded size in bytes, caching the result           |
+|  [13]   | `Message.IsInitialized()`                            | instance | every proto2 required field populated               |
+|  [14]   | `Message.DiscardUnknownFields()`                     | instance | erase the preserved unknown-field set               |
+|  [15]   | `Message.SetInParent()`                              | instance | mark an empty submessage present on its parent      |
+|  [16]   | `Message.HasExtension(field_descriptor)`             | instance | proto2 extension presence                           |
+|  [17]   | `Message.ClearExtension(field_descriptor)`           | instance | reset one proto2 extension                          |
+|  [18]   | `Message.DESCRIPTOR`                                 | property | the message's `Descriptor`                          |
 
-[ENTRYPOINT_SCOPE]: functional encode/decode (proto module)
-- `from google.protobuf import proto`: non-mutating mirror of the instance methods — `parse` returns a NEW message where `ParseFromString` decodes in place.
+- `Message.HasField`: raises `ValueError` on an implicit-presence proto3 scalar and on a name the message never declares.
+- `Message.UnknownFields`: `unknown_fields.UnknownFieldSet(message)` reads that set where the `upb` backend raises `NotImplementedError`.
 
-| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                           |
-| :-----: | :-------------------------------------------------------------- | :------ | :------------------------------------- |
-|  [01]   | `proto.serialize(message, deterministic=None) -> bytes`         | static  | encode message to `bytes`              |
-|  [02]   | `proto.parse(message_class, payload) -> message`                | static  | decode bytes to a NEW message instance |
-|  [03]   | `proto.serialize_length_prefixed(message, output: io.BytesIO)`  | static  | write varint-length-prefixed frame     |
-|  [04]   | `proto.parse_length_prefixed(message_class, input: io.BytesIO)` | static  | read one varint-length-prefixed frame  |
-|  [05]   | `proto.byte_size(message) -> int`                               | static  | encoded size without serializing       |
-|  [06]   | `proto.clear_message(message)`                                  | static  | reset all fields                       |
-|  [07]   | `proto.clear_field(message, field_name)`                        | static  | reset one field                        |
+[ENTRYPOINT_SCOPE]: functional codec (`google.protobuf.proto`)
+- `proto` mirrors the instance methods without mutation: `parse` returns a NEW message where `ParseFromString` decodes in place.
 
-[ENTRYPOINT_SCOPE]: JSON and text format
-- shown options default `False`; `preserving_proto_field_name` governs both `json_format` serializers.
+| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------------ | :------ | :------------------------------------------- |
+|  [01]   | `proto.serialize(message, deterministic) -> bytes`                        | static  | encode a message to `bytes`                  |
+|  [02]   | `proto.parse(message_class, payload) -> message`                          | static  | decode bytes into a new message instance     |
+|  [03]   | `proto.serialize_length_prefixed(message, output)`                        | static  | write one varint-length-prefixed frame       |
+|  [04]   | `proto.parse_length_prefixed(message_class, input_bytes)`                 | static  | read one varint-length-prefixed frame        |
+|  [05]   | `proto.byte_size(message) -> int`                                         | static  | encoded size without materializing the bytes |
+|  [06]   | `proto.clear_message(message)` / `proto.clear_field(message, field_name)` | static  | reset every field / one field to its default |
 
-| [INDEX] | [SURFACE]                                                                  | [SHAPE] | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------------- | :------ | :--------------------------------------- |
-|  [01]   | `json_format.MessageToJson(message)`                                       | static  | encode to JSON string                    |
-|  [02]   | `json_format.MessageToDict(message, always_print_fields_with_no_presence)` | static  | encode to dict                           |
-|  [03]   | `json_format.Parse(text, message, ignore_unknown_fields)`                  | static  | decode JSON string into existing message |
-|  [04]   | `json_format.ParseDict(js_dict, message, ignore_unknown_fields)`           | static  | decode dict into existing message        |
-|  [05]   | `text_format.MessageToString(message, as_one_line)`                        | static  | encode to proto text format string       |
-|  [06]   | `text_format.MessageToBytes(message)`                                      | static  | encode to proto text format bytes        |
-|  [07]   | `text_format.Parse(text, message, allow_unknown_field)`                    | static  | decode text format into existing message |
-|  [08]   | `text_format.Merge(text, message)`                                         | static  | merge text format into existing message  |
+[ENTRYPOINT_SCOPE]: JSON projection
+- serializer carry: `preserving_proto_field_name`, `use_integers_for_enums`, `always_print_fields_with_no_presence`, `descriptor_pool`, `float_precision`
+- parser carry: `ignore_unknown_fields`, `descriptor_pool`, `max_recursion_depth`
 
-[ENTRYPOINT_SCOPE]: registries and dynamic message classes
+| [INDEX] | [SURFACE]                                                             | [SHAPE] | [CAPABILITY]                                |
+| :-----: | :-------------------------------------------------------------------- | :------ | :------------------------------------------ |
+|  [01]   | `json_format.MessageToJson(message, indent, sort_keys, ensure_ascii)` | static  | render to a JSON string                     |
+|  [02]   | `json_format.MessageToDict(message)`                                  | static  | project to a `dict` of JSON-shaped builtins |
+|  [03]   | `json_format.Parse(text, message)`                                    | static  | decode a JSON string into `message`         |
+|  [04]   | `json_format.ParseDict(js_dict, message)`                             | static  | decode a mapping into `message`             |
 
-| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                  |
-| :-----: | :-------------------------------------------------------------------- | :------- | :-------------------------------------------- |
-|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                         | static   | process-wide default pool                     |
-|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`       | instance | resolve a registered message schema           |
-|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`          | instance | resolve a registered `.proto` file            |
-|  [04]   | `DescriptorPool.FindServiceByName(full_name) -> ServiceDescriptor`    | instance | resolve a registered service; `KeyError` miss |
-|  [05]   | `ServiceDescriptor.methods_by_name -> Mapping[str, MethodDescriptor]` | instance | rpc roster keyed by compiled method name      |
-|  [06]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor`   | instance | register a `FileDescriptorProto` at runtime   |
-|  [07]   | `symbol_database.Default() -> SymbolDatabase`                         | static   | default symbol resolver                       |
-|  [08]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`                | instance | resolve a generated class by full name        |
-|  [09]   | `message_factory.GetMessageClass(descriptor) -> type[Message]`        | static   | message class for a runtime `Descriptor`      |
-|  [10]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`      | static   | all message classes across given files        |
+[ENTRYPOINT_SCOPE]: text projection
+- printer carry: `as_utf8`, `as_one_line`, `use_short_repeated_primitives`, `pointy_brackets`, `use_index_order`, `use_field_number`, `float_format`, `double_format`, `indent`, `message_formatter`, `print_unknown_fields`, `force_colon`, `descriptor_pool`
+- parser carry: `allow_unknown_field`, `allow_unknown_extension`, `allow_field_number`, `descriptor_pool`
+
+| [INDEX] | [SURFACE]                                                         | [SHAPE] | [CAPABILITY]                                     |
+| :-----: | :---------------------------------------------------------------- | :------ | :----------------------------------------------- |
+|  [01]   | `text_format.MessageToString(message) -> str`                     | static  | render to the proto text format                  |
+|  [02]   | `text_format.MessageToBytes(message) -> bytes`                    | static  | render that same text as encoded bytes           |
+|  [03]   | `text_format.Parse(text, message)` / `ParseLines(lines, message)` | static  | overlay a text block, refusing a repeated scalar |
+|  [04]   | `text_format.Merge(text, message)` / `MergeLines(lines, message)` | static  | overlay a text block, the last scalar winning    |
 
 [ENTRYPOINT_SCOPE]: well-known type operations
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                    |
-| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------ |
-|  [01]   | `Any.Pack(msg, type_url_prefix=...)` / `Any.Unpack(msg) -> bool`              | instance | embed / extract a typed message |
-|  [02]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`                        | instance | type discrimination on the URL  |
-|  [03]   | `Timestamp.GetCurrentTime()` / `ToDatetime(tzinfo=None)` / `FromDatetime(dt)` | instance | now / `datetime` round-trip     |
-|  [04]   | `Timestamp.ToJsonString()` / `FromJsonString(v)`                              | instance | RFC3339 round-trip              |
-|  [05]   | `Timestamp.ToNanoseconds()` / `FromNanoseconds(n)`                            | instance | nanos round-trip                |
-|  [06]   | `Duration.ToJsonString()` / `FromJsonString(v)`                               | instance | JSON span round-trip            |
-|  [07]   | `Duration.ToNanoseconds()` / `FromTimedelta(td)`                              | instance | nanos / timedelta round-trip    |
-|  [08]   | `Struct.update(dict)` / `Struct.keys()` / `Struct.items()` / `Struct[k] = v`  | instance | dynamic JSON-like object access |
-|  [09]   | `FieldMask.FromJsonString(v)` / `ToJsonString()` / `MergeMessage(src, dst)`   | instance | partial-update path set         |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `Any.Pack(msg, type_url_prefix, deterministic)` / `Any.Unpack(msg) -> bool` | instance | embed a typed message / extract it           |
+|  [02]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`                      | instance | discriminate on the type URL                 |
+|  [03]   | `Timestamp.GetCurrentTime()` / `ToDatetime(tzinfo)` / `FromDatetime(dt)`    | instance | now / `datetime` round-trip                  |
+|  [04]   | `Timestamp.ToJsonString()` / `FromJsonString(value)`, same on `Duration`    | instance | RFC3339 instant / `<n>s` span round-trip     |
+|  [05]   | `Duration.ToTimedelta()` / `FromTimedelta(td)`                              | instance | `timedelta` round-trip                       |
+|  [06]   | `Timestamp.ToNanoseconds()` / `Duration.FromNanoseconds(nanos)`, 4 rungs    | instance | integral ladder shared by both carriers      |
+|  [07]   | `Struct.update(dictionary)` / `keys()` / `values()` / `items()` / `[key]`   | instance | dynamic object read and bulk write           |
+|  [08]   | `Struct.get_or_create_struct(key)` / `Struct.get_or_create_list(key)`       | instance | mint or reach a nested container             |
+|  [09]   | `ListValue.append(value)` / `ListValue.extend(elem_seq)`                    | instance | sequence append                              |
+|  [10]   | `ListValue.add_struct()` / `ListValue.add_list()`                           | instance | mint a nested container in place             |
+|  [11]   | `FieldMask.FromJsonString(value)` / `FieldMask.ToJsonString()`              | instance | lowerCamel path-list round-trip              |
+|  [12]   | `FieldMask.AllFieldsFromDescriptor(d)` / `IsValidForDescriptor(d)`          | instance | seed a mask from a descriptor / validate one |
+|  [13]   | `FieldMask.Union(mask1, mask2)` / `Intersect(mask1, mask2)`                 | instance | set algebra into the receiver                |
+|  [14]   | `FieldMask.CanonicalFormFromMask(mask)`                                     | instance | canonicalize an overlapping path set         |
+|  [15]   | `FieldMask.MergeMessage(source, destination, ...)`                          | instance | copy the masked paths across messages        |
+
+- [15]-[MERGE_MESSAGE]: `FieldMask.MergeMessage(source, destination, replace_message_field, replace_repeated_field)`
+
+[ENTRYPOINT_SCOPE]: backend and gencode gates
+
+| [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :---------------------------------------------------------- | :------ | :--------------------------------------- |
+|  [01]   | `api_implementation.Type() -> str`                          | static  | active `upb`, `cpp`, or `python` backend |
+|  [02]   | `unknown_fields.UnknownFieldSet(message)`                   | ctor    | iterate the unknown fields a decode kept |
+|  [03]   | `ValidateProtobufRuntimeVersion(gen_domain, ..., location)` | static  | refuse gencode skew                      |
+
+- [03]-[GENCODE_GATE]: `runtime_version.ValidateProtobufRuntimeVersion(gen_domain, gen_major, gen_minor, gen_patch, gen_suffix, location)`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `api_implementation.Type()` reports the active `upb`/`cpp`/`python` backend chosen at import; native `upb` is the default fast path and the `_message` extension backs the instance methods.
-- every `DescriptorPool.Find*ByName` miss raises `KeyError` — the native `upb` pool and the pure-python one alike — so a resolver fence names that one class and never the `LookupError` base a different backend might have chosen.
-- generated message classes auto-register in `descriptor_pool.Default()`; `symbol_database.Default().GetSymbol(full_name)` and `message_factory.GetMessageClass(descriptor)` resolve a class by name/descriptor — the dynamic-message path when the `_pb2` import is not statically known.
-- `SerializeToString(deterministic=True)` produces a stable byte order for hashing/caching; default order is implementation-defined. `ParseFromString` clears the message first; `MergeFromString` overlays onto current state.
-- proto3 preserves unknown fields by default: `UnknownFields()` reads them, `DiscardUnknownFields()` drops them, and `json_format`/`text_format` parse under `ignore_unknown_fields`.
-- `HasField` applies to message-typed fields and proto3 `optional`/oneof members; plain proto3 scalar fields carry no presence. `WhichOneof` returns the populated oneof member name or `None`.
-- `runtime_version.ValidateProtobufRuntimeVersion` at generated-module import gates gencode/runtime skew.
+- `api_implementation.Type()` reports the backend elected at import and the native `upb` extension backs every instance method; that backend refuses `Message.UnknownFields()`, so `unknown_fields.UnknownFieldSet(message)` is the branch's one unknown-field reader.
+- `deterministic` rides both binary encoders by KEYWORD alone — a positional argument refuses — and pins map and unknown-field ordering so a hash or cache key over the bytes reproduces; the default order is implementation-defined.
+- `ParseFromString` clears the message then merges, `MergeFromString` overlays onto current state, and `proto.parse` returns a new message leaving its input untouched.
+- `ByteSize()` and `proto.byte_size` return exactly the length `SerializeToString()` produces and cache it, so a size gate never pays a second encode.
+- Binary round-trips carry unknown fields through untouched while `MessageToDict` and `MessageToString` drop them, so a JSON transcode hop erases every field the local descriptor never learned.
+- `HasField` answers presence for message-typed fields, oneof members, and proto2 or `optional` fields, raising `ValueError` on an implicit-presence proto3 scalar; `WhichOneof` names the populated member or `None`.
+- `ignore_unknown_fields=True` swallows an unknown enum STRING name beside an unknown field name and leaves that field at its default, so a lax intake drops enum data the strict default refuses.
+- `always_print_fields_with_no_presence` fills implicit-presence proto3 fields alone, and a proto2 or `optional` field carrying explicit presence stays absent from the projection.
+- Three refusal roots subclass `Exception` directly and none subclasses another — `message.Error` on the binary leg, `json_format.Error` on the JSON leg, `text_format.Error` on the text leg.
+- `SerializeToString` raises `EncodeError` on a proto2 message missing a required field where `SerializePartialToString` emits the partial bytes; `IsInitialized()` reads that state ahead of either.
+- `text_format.Parse` and `Merge` both overlay without clearing, `Parse` refusing a second assignment to one scalar where `Merge` takes the last.
+- Every `datetime` and `timedelta` crossing truncates to microseconds — `FromDatetime`, `ToDatetime`, `FromTimedelta`, `ToTimedelta`, and `GetCurrentTime` alike — where `FromNanoseconds`/`ToNanoseconds` and the JSON string forms carry the full nanosecond slot.
+- `FieldMask` stores snake_case paths while `ToJsonString` emits lowerCamel, so the mask's own JSON form and a `preserving_proto_field_name` projection spell one path two ways.
+- `ValidateProtobufRuntimeVersion` runs at every generated-module import and raises `VersionError` on skew, so the `substrait` and `onnx` `_pb2` modules set the runtime floor this branch satisfies.
 
 [STACKING]:
-- `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): the OTLP exporter encodes SDK telemetry into `opentelemetry-proto` `_pb2` messages and ships their `SerializeToString()` bytes; this package is the encode engine under it.
-- `msgspec`(`.api/msgspec.md`): the msgspec `Struct` message envelope owns the schema and holds the protobuf frame as its opaque `bytes` value; `proto.serialize(message, deterministic=True)`/`proto.parse(message_class, payload)` produce and consume that frame, `message_factory.GetMessageClass(descriptor)` drives descriptor dispatch, and `Any` `@type`-keyed message envelopes decode as shapes-vocabulary `Packed` mappings on the discriminant.
-- `grpcio`(`.api/grpcio.md`): generated message classes are the request/response types of the `grpc.aio` stubs with `proto.serialize`/`proto.parse` as the channel serializer/deserializer.
-- boundary intake/emit: `json_format.ParseDict` raises JSON payloads into a typed message at intake, `MessageToDict(preserving_proto_field_name=True)` keeps snake_case keys at emit.
-- well-known carriers: `Timestamp` at the time boundary (`FromDatetime`/`ToDatetime` truncate to microseconds, so a 100-ns clock reconstructs from its own carrier slots), `Struct.update` for dynamic bodies, `Any.Pack`/`Unpack` for heterogeneous typed envelopes.
-- stream frames: `proto.serialize_length_prefixed`/`parse_length_prefixed` carry length-delimited record-per-frame transports.
-- descriptor drift-gate: the runtime `transport/shapes#aligned` pass resolves `DescriptorPool.FindMessageTypeByName(message.DESCRIPTOR.full_name)` per vocabulary row — a pool read, never an `AddSerializedFile` re-registration — cross-checking the compiled `Descriptor` against the struct's `msgspec.inspect` field set for absent slots, phantom slots, and the `TYPE_*64` floor; the gate proves structure, byte parity stays with the seed-reproduction corpus.
+- `substrait`(`libs/python/data/.api/substrait.md`): `substrait.proto.Plan` is a `_pb2` `Message`; the admission gate runs `Plan.ParseFromString(wire)` and answers `message.DecodeError` as the `PlanRefusal.UNPARSEABLE` row, reads `relations`/`extension_urns` off the parsed message through `HasField`/`WhichOneof`, and re-emits with `SerializeToString`/`ByteSize`.
+- `onnx`(`libs/python/compute/.api/onnx.md`): `ModelProto` and `GraphProto` are `_pb2` messages; `onnx.load_model_from_string(s)` lands the model through `ParseFromString`, and `model.SerializeToString()` is the byte handoff `onnxruntime.InferenceSession` consumes past the checker gate.
+- `confluent-kafka`(`.api/confluent-kafka.md`): `ProtobufSerializer(msg_type, schema_registry_client)` calls `Message.SerializeToString()` beneath its magic-byte and message-index framing while `ProtobufDeserializer(message_type)` calls `ParseFromString` and answers a bad frame with `message.DecodeError`; the branch hands it messages and never frames bytes itself.
+- `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): `OTLPSpanExporter.export(spans)` encodes the SDK batch into an OTLP `_pb2` request and POSTs its `SerializePartialToString()` bytes, so this runtime is the encode engine under every signal exporter.
+- `protobuf-py`(`.api/protobuf-py.md`): the two runtimes meet on descriptor bytes alone — a `FileDescriptorSet.SerializeToString()` from this runtime feeds `protobuf.wkt.FileDescriptorSet.from_binary(...).to_registry()` so a Substrait or ONNX schema reads as `DescMessage` views on the estate rail; no estate fence transcodes between the two message families.
 
 [LOCAL_ADMISSION]:
-- Generated `_pb2.py` files are the only source of concrete message classes; a runtime-resolved schema builds through `message_factory.GetMessageClass` against the pool, and the `google.protobuf.internal.builder` path stays inside the generated modules alone.
-- `proto.serialize`/`proto.parse` carry the non-mutating functional path; `ParseFromString` is reserved for in-place reuse of a pre-allocated message.
-- A codec fence names BOTH exception roots: `message.Error` covers the binary leg and `json_format.Error` the JSON leg, and neither subclasses the other, so a `catch` naming one alone lets the other propagate past the rail.
+- `_pb2` classes arrive from the admitted IR distributions alone; no first-party `.proto` compiles against this runtime, and `protobuf-py` mints every estate wire message.
+- `proto.serialize`/`proto.parse` carry the non-mutating path, and `ParseFromString` earns its call only where a caller reuses a pre-allocated message.
+- Codec fences name every refusal root their leg touches, since `message.Error` and `json_format.Error` stand disjoint and a catch naming one alone lets the other past the rail.
+- Emit reads `MessageToDict(preserving_proto_field_name=True)` so the mapping keys match the proto field names the interior model already spells.
+- Unknown-field census rides `unknown_fields.UnknownFieldSet`, and `DiscardUnknownFields()` marks the deliberate erase a re-emit declares.
 
 [RAIL_LAW]:
 - Package: `protobuf`
-- Owns: message serialization (binary/JSON/text), descriptor schema, pool/symbol-database/message-factory registries, well-known type carriers, and the native `upb` encode/decode backend
-- Accept: generated `_pb2.py` messages, `proto.serialize`/`parse`, `json_format.ParseDict` at intake, `MessageToDict(preserving_proto_field_name=True)` at emit, well-known types as value carriers, `message_factory` for dynamic schemas
-- Reject: hand-rolled binary encoding, direct `Message` instantiation, `ParseFromString` expecting merge semantics, the pure-`python` backend where the native extension is available
+- Owns: `google.protobuf` binary, JSON, and text codecs with the well-known value carriers beneath the Substrait plan and ONNX model IRs, on the native `upb` backend
+- Accept: `_pb2` messages from `substrait` and `onnx`, `proto.serialize`/`parse` and their length-prefixed pair, `json_format.ParseDict` at intake, `MessageToDict(preserving_proto_field_name=True)` at emit, well-known types as value carriers
+- Reject: first-party `_pb2` emission, `google.protobuf` on the estate wire rail, hand-rolled binary encoding, a positional `deterministic`, `Message.UnknownFields()` where the `upb` backend refuses it, the pure-`python` backend where the native extension loads
