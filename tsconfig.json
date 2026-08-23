@@ -3,7 +3,6 @@
         "allowImportingTsExtensions": true,
         "allowUnreachableCode": false,
         "allowUnusedLabels": false,
-        "customConditions": ["types", "import"],
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
@@ -23,10 +22,9 @@
         "resolveJsonModule": true,
         "rootDir": ".",
         "skipLibCheck": true,
-        "sourceMap": true,
         "strict": true,
         "target": "esnext",
-        "types": ["node", "vite/client", "vitest"],
+        "types": ["node", "vite/client"],
         "verbatimModuleSyntax": true
     },
     "exclude": [

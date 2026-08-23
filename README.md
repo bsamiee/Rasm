@@ -4,11 +4,13 @@ Rasm carries a platform tier and a product tier: `libs/` holds independently ado
 
 Estates carry the domains they hold: C# the host-bound AEC domain, Python the host-free science, compute, data, geometry, and exchange domain, TypeScript the host-free web, edge, backend, and deployment domain. Each originates, operates, and deploys through its own toolchain, so a single-language application ships with no peer branch present, and a domain widens at its owning branch under one admission ladder.
 
-Cross-language contracts split in two classes. Every branch mints an infrastructure contract from its own inputs, and `tests/contracts/` defines the shape and proves parity across the mints. One producer named by the capability it holds emits a domain contract, and every peer decodes it. `tests/contracts/MANIFEST.md` binds each contract to its class; `libs/.planning/ARCHITECTURE.md` owns the stratification law, the consumption model, the design language, the admission ladder, and that class boundary.
+Cross-language contracts split by atomic case: `tests/contracts/manifest.json` binds each case to its authority class, exact definition, actors, and proof, and that manifest mints the class vocabulary a crossing elects. `libs/.planning/ARCHITECTURE.md` owns the stratification law, consumption model, design language, admission ladder, and the class boundary each authority holds.
 
-Every `libs/` package is an independently versioned dependency an unrelated application takes exactly as it takes any external package. One branch serves N count of unrelated consumers at once — single-tenant and multi-tenant, in-host and headless, sidecar, companion, standalone, CLI, service and edge — a package assumes no consumer, or sibling set. Deployment shape arrives as data on the axis roster the composition root supplies, and a package unable to serve an axis value refuses at admission with typed evidence.
+Each `libs/<language>/contracts/` folder is a permanent generated SDK and import boundary, not planning scaffolding or a second schema owner. Estate Protobuf and publisher sources stay in `tests/contracts/`; generated structural repetition is accepted output, while hand-authored wire mirrors beside it are defects.
 
-All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it, designed to be agent-first: host and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around one polymorphic entry per bounded concept — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic for agents to write minimal hand-roll code or misuse `libs/` capability.
+Every `libs/` package is an independently versioned dependency an unrelated application takes exactly as it takes any external package. One branch serves unrelated consumers at once — single-tenant and multi-tenant, in-host and headless, sidecar, companion, standalone, CLI, service and edge — a package assumes no consumer, or sibling set. Deployment shape arrives as data on the axis roster the composition root supplies, and a package unable to serve an axis value refuses at admission with typed evidence.
+
+All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries capture host and provider APIs whole and internalize them behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls. Every folder folds one polymorphic entry per bounded concept, so intelligence rides inside the owner and an app built on it carries neither hand-rolled provider code nor knob and ceremony spam.
 
 Review depth: `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
 
@@ -20,23 +22,23 @@ Each host row is `host` axis capability the owning branch supplies; a new host l
 
 | [INDEX] | [HOST]         | [BRANCH] | [SURFACE]                                                           |
 | :-----: | :------------- | :------- | :------------------------------------------------------------------ |
-|  [01]   | Rhino 9/WIP    | C#       | `net10.0` hosted plugins, Yak package output for Mac package roots. |
+|  [01]   | `Rhino 9/WIP`  | C#       | `net10.0` hosted plugins, Yak package output for Mac package roots. |
 |  [02]   | `Grasshopper2` | C#       | GH2 product surfaces; shared C# projects target `net10.0`.          |
 
 ## [02]-[TOPOLOGY]
 
-| [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                      |
-| :-----: | :------------------- | :----------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `libs/csharp`        | C# library suite         | Rhino 9/WIP and GH2-aware AEC and host-boundary packages.                   |
-|  [02]   | `libs/python`        | Python library suite     | Host-free science, compute, data, geometry, IFC, and artifact packages.     |
-|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web, edge, runtime, persistence, security, UI, and deployment.    |
-|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.  |
-|  [05]   | `tools/assay`        | Typed operator           | Typed evidence rails across every claim; the CLI `--help` owns the roster.  |
-|  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.   |
-|  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                    |
-|  [08]   | `tools/biome`        | TS architecture pressure | Promoted GritQL lint rules the root `biome.json` registers at error.        |
-|  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                          |
-|  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material. |
+| [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                       |
+| :-----: | :------------------- | :----------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `libs/csharp`        | C# library suite         | Rhino 9/WIP and GH2-aware AEC and host-boundary packages.                    |
+|  [02]   | `libs/python`        | Python library suite     | Host-free science, data, geometry, artifacts, and isolated native providers. |
+|  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web, edge, runtime, persistence, security, UI, and deployment.     |
+|  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus the cross-language contract corpus.   |
+|  [05]   | `tools/assay`        | Typed operator           | Typed evidence rails across every claim; the CLI `--help` owns the roster.   |
+|  [06]   | `tools/rhino-bridge` | Live Rhino owner         | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.    |
+|  [07]   | `tools/cs-analyzer`  | C# architecture pressure | Local Roslyn diagnostics for repeated source-shape laws.                     |
+|  [08]   | `tools/biome`        | TS architecture pressure | Promoted GritQL lint rules the root `biome.json` registers at error.         |
+|  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                           |
+|  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.  |
 
 ## [03]-[LIBRARY_OWNERS]
 
@@ -54,18 +56,18 @@ Plugin projects classify themselves in their project files; build behavior does 
 
 Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect that repairs at the writing tool's own configuration, never through a wrapper that relocates the write after the fact.
 
-- `tools/assay` is the repo operator: its registry owns public command shape, its envelopes own result interpretation, and it returns typed reports, artifacts, faults, routing notes, and evidence rather than stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
-- `tools/assay provision` is the Rasm evidence envelope for Forge-provisioned server and native campaign facts. `Parametric_Forge` owns service composition, installed provisioning and scientific executables, Docker/Compose assets, credential and port policy, and native exports; Rasm owns the sanitized `ProvisionRun` facts, manifests, locks, `.api` catalogues, and evidence that consume those machine surfaces.
-- Rasm agents invoke Assay as `uv run python -m tools.assay provision <verb>`; the registry and per-claim `--help` own the verb census. Assay accepts Forge schema-v3 JSON only and projects sanitized `ProvisionRun` evidence. Direct `forge-provision` calls, Docker/Compose assets, cleanup, and diagnostic JSON remain Forge-level debugging surfaces.
-- `tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
-- `tools/cs-analyzer` captures repeated C# shape laws after source diffs prove the rule reduces surface while preserving behavior. Analyzer diagnostics are architecture pressure, not suppression targets.
-- `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. One root `biome.json` registers every rule with its path scope while each rule declares its own `severity` at `register_diagnostic`, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
-- `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
-- GitHub repository settings — merge hygiene, rulesets, review automation — are settings-as-code `@pulumi/github` rows in Parametric_Forge `services/topology.ts`; the services driver preview is the verification surface, never the GitHub UI. `secrets` owns credential custody and process-boundary consumption.
+- `tools/assay` runs every quality claim on its own rail: its registry mints command shape and one JSON `Envelope` carries the verdict a caller reads.
+- `tools/assay provision` envelopes the machine estate as sanitized evidence; `Parametric_Forge` owns composition, executables, and credential policy.
+- `provision` admits Forge schema-v3 JSON alone and projects one `ProvisionRun`; raw `forge-provision` calls and Compose diagnostics stay Forge-side.
+- `tools/rhino-bridge` owns every live RhinoWIP step launch to quit, so no library, suite, or prompt re-spells endpoint, cargo, or spool choreography.
+- `tools/cs-analyzer` admits a C# shape law once a source diff proves the rule cuts surface while preserving behavior.
+- `tools/biome` spells the branch doctrine's mechanical shape laws, and `tests/typescript/_architecture` proves roster, spans, and severity on disk.
+- `tools/yak` stores package metadata alone; Assay owns staging, deployment, publish, artifact roots, and host refresh.
+- `Parametric_Forge` `services/topology.ts` owns GitHub settings as `@pulumi/github` rows proved at driver preview; `secrets` owns credential custody.
 
 ## [06]-[PLANNING_AND_EVIDENCE]
 
-New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `ARCHITECTURE.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). Each campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
+New foundational libraries earn a planning campaign before production source wherever scope runs broad or future-consumer-facing. `libs/.planning/` owns every planning law — topology, the campaign loop and its quality bar, the authoring standard, and the target index — and each campaign closes by collapsing surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
 ## [07]-[DEVELOPMENT_MODEL]
 

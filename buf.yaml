@@ -2,6 +2,7 @@
 version: v2
 modules:
   - path: tests/contracts/proto                      # rasm.contracts.<family>.v1; directory spells the package
+    name: buf.build/rasm/contracts                   # One published estate release unit; vendored publisher modules remain unnamed
   - path: tests/contracts/vendor/cloudevents/proto   # Publisher bytes; estate grades no copy of them
     lint: {disable_builtin: true}
     breaking: {disable_builtin: true}
@@ -13,15 +14,5 @@ deps:
   - buf.build/googleapis/googleapis                  # google.rpc error details beside FaultDetail; google.type calendar scalars
 lint:
   use: [STANDARD]
-  rpc_allow_same_request_response: true              # ArtifactSyncService.Sync frames both directions with one ArtifactFrame
-  ignore_only:
-    RPC_REQUEST_STANDARD_NAME:                       # Request and response names come off the domain shape, never the rpc (tests/RULINGS [02])
-      - tests/contracts/proto/rasm/contracts/compute/v1/compute.proto
-      - tests/contracts/proto/rasm/contracts/compute/v1/control.proto
-    RPC_RESPONSE_STANDARD_NAME:
-      - tests/contracts/proto/rasm/contracts/compute/v1/compute.proto
-      - tests/contracts/proto/rasm/contracts/compute/v1/control.proto
-    RPC_REQUEST_RESPONSE_UNIQUE:                     # ReloadReply answers ReloadOptions and DispatchPatch: one reload transition, one reply shape
-      - tests/contracts/proto/rasm/contracts/compute/v1/control.proto
 breaking:
   use: [FILE]  # Generated trees bind the file path as an import path; file move breaks a consumer the wire rules pass

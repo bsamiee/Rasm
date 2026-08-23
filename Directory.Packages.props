@@ -38,7 +38,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Transport">
-        <PackageVersion Include="Google.Api.CommonProtos"                                  Version="2.17.0" />
+        <PackageVersion Include="Celly.Protovalidate"                                     Version="1.2.0" />
+        <PackageVersion Include="Google.Api.CommonProtos"                                 Version="2.17.0" />
         <PackageVersion Include="Google.Protobuf"                                         Version="3.36.0" />
         <PackageVersion Include="Grpc.AspNetCore.HealthChecks"                            Version="2.83.0" />
         <PackageVersion Include="Grpc.AspNetCore.Server"                                  Version="2.83.0" />
@@ -51,7 +52,6 @@
         <PackageVersion Include="MessagePack"                                             Version="3.1.8" />
         <PackageVersion Include="MessagePackAnalyzer"                                     Version="3.1.8" />
         <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />
-        <PackageVersion Include="ProtoValidate"                                           Version="1.0.1" />
     </ItemGroup>
 
     <ItemGroup Label="Kernel Numerics">
@@ -152,9 +152,9 @@
         <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI"                           Version="0.15.1" />
         <PackageVersion Include="Microsoft.Z3"                                            Version="4.12.2" />
         <!-- PureHDF accelerated filters (Blosc2/Bitshuffle/Deflate.ISA-L) publish no osx RID; the managed Lzf/BZip2 pair is the complete filter set here. -->
-        <PackageVersion Include="PureHDF"                                                 Version="2.1.4" />
-        <PackageVersion Include="PureHDF.Filters.BZip2.SharpZipLib"                       Version="2.1.4" />
-        <PackageVersion Include="PureHDF.Filters.Lzf"                                     Version="2.1.4" />
+        <PackageVersion Include="PureHDF"                                                 Version="2.2.0" />
+        <PackageVersion Include="PureHDF.Filters.BZip2.SharpZipLib"                       Version="2.2.0" />
+        <PackageVersion Include="PureHDF.Filters.Lzf"                                     Version="2.2.0" />
         <PackageVersion Include="TorchSharp"                                              Version="0.107.0" />
     </ItemGroup>
 

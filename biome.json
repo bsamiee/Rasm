@@ -10,35 +10,35 @@
         "ignoreUnknown": true,
         "includes": [
             "**",
-            "!!**/node_modules",
-            "!!**/.cache",
-            "!!**/.artifacts",
-            "!!**/.mypy_cache",
-            "!!**/.nx",
-            "!!**/.parcel-cache",
-            "!!**/.probes",
-            "!!**/.pulumi",
-            "!!**/.pytest_cache",
-            "!!**/.ruff_cache",
-            "!!**/.swc",
-            "!!**/.venv",
-            "!!**/.history",
-            "!!**/bin",
-            "!!**/obj",
-            "!!**/dist",
-            "!!**/build",
-            "!!**/_tmp",
-            "!!**/packages.lock.json",
-            "!!**/pnpm-lock.yaml",
-            "!!**/uv.lock",
-            "!!**/.archive",
-            "!!**/_archive",
-            "!!**/scratch",
-            "!!**/.scratch",
-            "!!**/.tmp",
-            "!!.claude/workflows",
-            "!!libs/typescript/contracts/gen",
-            "!!**/*.html"
+            "!**/node_modules",
+            "!**/.cache",
+            "!**/.artifacts",
+            "!**/.mypy_cache",
+            "!**/.nx",
+            "!**/.parcel-cache",
+            "!**/.probes",
+            "!**/.pulumi",
+            "!**/.pytest_cache",
+            "!**/.ruff_cache",
+            "!**/.swc",
+            "!**/.venv",
+            "!**/.history",
+            "!**/bin",
+            "!**/obj",
+            "!**/dist",
+            "!**/build",
+            "!**/_tmp",
+            "!**/packages.lock.json",
+            "!**/pnpm-lock.yaml",
+            "!**/uv.lock",
+            "!**/.archive",
+            "!**/_archive",
+            "!**/scratch",
+            "!**/.scratch",
+            "!**/.tmp",
+            "!.claude/workflows",
+            "!libs/typescript/contracts/gen",
+            "!**/*.html"
         ]
     },
     "plugins": [
@@ -140,13 +140,19 @@
     },
     "overrides": [
         {
+            "includes": ["tests/contracts/**", "!tests/contracts/manifest.json"],
+            "formatter": {
+                "enabled": false
+            }
+        },
+        {
             "includes": ["tests/typescript/e2e/platform/blocked.pw.ts"],
             "linter": {
                 "enabled": false
             }
         },
         {
-            "includes": [".claude/skills/coding-applescript/**/*.js", ".agents/skills/coding-applescript/**/*.js"],
+            "includes": [".claude/skills/coding-applescript/**/*.js"],
             "linter": {
                 "rules": {
                     "correctness": {

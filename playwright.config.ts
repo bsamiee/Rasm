@@ -123,10 +123,9 @@ const config: PlaywrightTestConfig = defineConfig({
     // Goldens key per-project and per-platform by decision: a new CI platform's first run WRITES its missing goldens and fails (updateSnapshots stays 'missing'),
     // the mint lands as committed files under review, never as a mismatch break against another platform's pixels.
     snapshotPathTemplate: '{testDir}/goldens/{projectName}/{platform}/{testFilePath}/{arg}{ext}',
-    testDir: path.join(_ROOT, 'tests/typescript/e2e'),
+    testDir: 'tests/typescript/e2e',
     testMatch: '**/*.pw.ts',
     timeout: 30_000,
-    tsconfig: path.join(_ROOT, 'tests/typescript/e2e/tsconfig.json'),
     use: {
         actionTimeout: 10_000,
         colorScheme: 'light',

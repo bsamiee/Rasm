@@ -1,77 +1,171 @@
 # Generation axis; only entry is `assay contracts generate`
 version: v2
-clean: true                                              # Post-run sweep of every file under an out root the run did not write
+clean: true                                   # Removes each configured out directory before plugins write this run's complete tree
 managed:
-  enabled: true                                          # Derives csharp_namespace Rasm.Contracts.<Family>.V1 from the package
-  disable:
-    - path: io/cloudevents/v1                            # Module-root relative, so the publisher's own options survive in every embedded descriptor
-    - path: grpc/health/v1
-    - file_option: java_package                          # Managed defaults for Java, ObjC, PHP, and Ruby otherwise ride every embedded descriptor
-    - file_option: java_outer_classname
-    - file_option: java_multiple_files
-    - file_option: objc_class_prefix
-    - file_option: php_namespace
-    - file_option: php_metadata_namespace
-    - file_option: ruby_package
+    enabled: true                             # Derives csharp_namespace Rasm.Contracts.<Family>.V1 from the package
+    disable:
+        - path: io/cloudevents/v1             # Publisher import-path selector; upstream file options survive in every embedded descriptor
+        - path: grpc/health/v1
+        - file_option: java_package           # Managed defaults for Java, ObjC, PHP, and Ruby otherwise ride every embedded descriptor
+        - file_option: java_outer_classname
+        - file_option: java_multiple_files
+        - file_option: objc_class_prefix
+        - file_option: php_namespace
+        - file_option: php_metadata_namespace
+        - file_option: ruby_package
 inputs:
-  - directory: .                                         # One workspace input: plugin type filters resolve per input image, so a per-module input aborts
+    - directory: .                            # One workspace input; plugin filters resolve against one image
 plugins:
-  # Each row's `types` is the package set that branch's pages bind; a family no page in the branch reads is not emitted there
-  - local: node_modules/.bin/protoc-gen-es               # pnpm-pinned as a pair with the @bufbuild/protobuf runtime the emission imports
-    out: libs/typescript/contracts/gen
-    opt:
-      - target=ts                                        # Branch gate is tsc --noEmit over sources, never the default .js + .d.ts pair
-      - import_extension=ts                              # Emission-relative imports carry .ts, which root tsconfig allowImportingTsExtensions admits
-      - erasable_syntax=true                             # Emits erasable TypeScript alone, matching root tsconfig erasableSyntaxOnly
-    include_imports: true                                # Every emitted file imports its dependency descriptors (buf.validate, google.rpc, google.type); WKT ride the runtime
-    types:
-      - rasm.contracts.appearance.v1
-      - rasm.contracts.compute.v1
-      - rasm.contracts.element.v1
-      - rasm.contracts.event.v1
-      - rasm.contracts.fault.v1
-      - rasm.contracts.host.v1
-      - rasm.contracts.organization.v1
-      - rasm.contracts.parity.v1
-      - io.cloudevents.v1
-      - grpc.health.v1
-  - local: .venv/bin/protoc-gen-py                         # Buf's protobuf-py generator; uv pins it as a pair with its runtime
-    out: libs/python/contracts/src/rasm/contracts/gen      # ONE root: protobuf-py emits root-relative imports, so estate, dependency, and publisher modules share it
-    opt: [init_files=false]                                # rasm/, rasm/contracts/, and gen/ stay PEP 420 namespace directories the branch shares
-    include_imports: true                                  # buf/ and google/ dependency modules land under the same root the estate modules reach by relative import
-    types:                                                 # Families Python pages bind; element and host have no Python reader and are not emitted here
-      - rasm.contracts.appearance.v1
-      - rasm.contracts.compute.v1
-      - rasm.contracts.declaration.v1
-      - rasm.contracts.event.v1
-      - rasm.contracts.fabrication.v1
-      - rasm.contracts.fault.v1
-      - rasm.contracts.organization.v1
-      - rasm.contracts.parity.v1
-      - rasm.contracts.scene.v1
-      - io.cloudevents.v1
-      - grpc.health.v1
-  - local: .venv/bin/protoc-gen-connectrpc                 # Connect stubs for every service-bearing source the branch serves or dials
-    out: libs/python/contracts/src/rasm/contracts/gen
-    opt: [io=async]                                        # The branch serves ASGI and dials under anyio
-    types: [rasm.contracts.compute.v1, grpc.health.v1]
-  - protoc_builtin: csharp
-    protoc_path: protoc                                    # Machine PATH; buf ships no protoc
-    out: libs/csharp/Rasm.Contracts/Generated
-    opt: [base_namespace=Rasm.Contracts]                   # Namespace tail becomes the directory
-    types: &csharp                                         # Every estate family: C# produces or reads each; buf.validate, google.rpc, and google.type bind from NuGet
-      - rasm.contracts.appearance.v1
-      - rasm.contracts.compute.v1
-      - rasm.contracts.declaration.v1
-      - rasm.contracts.element.v1
-      - rasm.contracts.event.v1
-      - rasm.contracts.fabrication.v1
-      - rasm.contracts.fault.v1
-      - rasm.contracts.host.v1
-      - rasm.contracts.organization.v1
-      - rasm.contracts.parity.v1
-      - rasm.contracts.scene.v1
-  - local: grpc_csharp_plugin                              # Machine PATH, the protoc tier
-    out: libs/csharp/Rasm.Contracts/Generated
-    opt: [base_namespace=Rasm.Contracts]
-    types: *csharp
+    # `types` is the manifest actor-root union its typed semantic supports; Buf expands recursive descriptor closure
+    - local: node_modules/.bin/protoc-gen-es  # pnpm-pinned as a pair with the @bufbuild/protobuf runtime the emission imports
+      out: libs/typescript/contracts/gen
+      opt:
+        - target=ts                           # Branch gate is tsc --noEmit over sources, never the default .js + .d.ts pair
+        - import_extension=js                 # ESM-resolvable specifiers the package build emits verbatim; tsc reads them back as .ts sources
+        - erasable_syntax=true                # Emits erasable TypeScript alone, matching root tsconfig erasableSyntaxOnly
+        - valid_types=protovalidate_required  # Narrows generated value types where protovalidate marks message presence required
+      include_imports: true                   # Emits dependency descriptors; WKT ride the runtime
+      types:
+        - rasm.contracts.clock.v1.Hlc
+        - rasm.contracts.fault.v1.FaultDetail
+        - io.cloudevents.v1.CloudEvent
+        - rasm.contracts.element.v1.NodeWire
+        - rasm.contracts.element.v1.EntityEditWire
+        - rasm.contracts.crdt.v1.CrdtOpWire
+        - rasm.contracts.event.v1.Extensions
+        - rasm.contracts.availability.v1.CommandAvailability
+        - rasm.contracts.ui.v1.AppUiSurfaceProgram
+        - rasm.contracts.render.v1.GeometryResidency
+        - rasm.contracts.ui.v1.EvidenceTimelineWire
+        - rasm.contracts.bcf.v1.BcfTopicWire
+        - rasm.contracts.bim.v1.ModelDiffWire
+        - rasm.contracts.credential.v1.CredentialPublicWire
+        - rasm.contracts.feature.v1.FlagVerdictWire
+        - rasm.contracts.binding.v1.BindingStatus
+        - rasm.contracts.binding.v1.CoercedValueWire
+        - rasm.contracts.binding.v1.WriteReceiptWire
+        - rasm.contracts.ui.v1.CommandGateWire
+        - rasm.contracts.ui.v1.CommandInvocation
+        - rasm.contracts.ui.v1.EvidenceReceiptWire
+        - rasm.contracts.bcf.v1.BcfViewpointWire
+        - rasm.contracts.appearance.v1.Set
+        - rasm.contracts.appearance.v1.Material
+        - rasm.contracts.parity.v1.Backend
+        - rasm.contracts.benchmark.v1.BenchmarkClaimWire
+        - rasm.contracts.organization.v1.Organization
+        - rasm.contracts.capability.v1.DescriptorPinWire
+        - io.cloudevents.v1.CloudEventBatch
+    - local: .venv/bin/protoc-gen-py                     # Buf's protobuf-py generator; uv pins it as a pair with its runtime
+      out: libs/python/contracts/src/rasm/contracts/gen  # Estate and support imports share this nested root; publishers generate under vendor
+      opt: [init_files=false]                            # rasm/, rasm/contracts/, and gen/ stay PEP 420 namespace directories the branch shares
+      include_imports: true                              # Support modules share the estate's relative-import root
+      types:
+        - rasm.contracts.clock.v1.Hlc
+        - rasm.contracts.fault.v1.FaultDetail
+        - rasm.contracts.compute.v1.TessellationRequest
+        - rasm.contracts.compute.v1.TessellationReceipt
+        - rasm.contracts.artifact.v1.ArtifactRequest
+        - rasm.contracts.artifact.v1.ArtifactRef
+        - rasm.contracts.artifact.v1.ArtifactFrame
+        - rasm.contracts.artifact.v1.FetchRequest
+        - rasm.contracts.artifact.v1.FetchResponse
+        - rasm.contracts.artifact.v1.PutRequest
+        - rasm.contracts.artifact.v1.PutResponse
+        - rasm.contracts.cad.v1.CadRequest
+        - rasm.contracts.cad.v1.CadReply
+        - rasm.contracts.cad.v1.CadTessellationRequest
+        - rasm.contracts.cad.v1.CadTessellationReceipt
+        - rasm.contracts.scan.v1.GaussianSplatScan
+        - rasm.contracts.capability.v1.DiscoverRequest
+        - rasm.contracts.capability.v1.DiscoveryCatalog
+        - rasm.contracts.crdt.v1.CrdtOpWire
+        - rasm.contracts.event.v1.Extensions
+        - rasm.contracts.appearance.v1.Set
+        - rasm.contracts.parity.v1.Backend
+        - rasm.contracts.organization.v1.Organization
+        - rasm.contracts.scene.v1.SceneDescriptor
+        - rasm.contracts.fabrication.v1.FeatureControl
+        - rasm.contracts.declaration.v1.DeclarationRecord
+    - local: .venv/bin/protoc-gen-py                  # Publisher messages live below rasm.contracts.vendor to avoid stdlib/dist collisions
+      out: libs/python/contracts/src/rasm/contracts/vendor
+      opt: [init_files=false]
+      types:
+        - io.cloudevents.v1.CloudEvent
+        - io.cloudevents.v1.CloudEventBatch
+        - grpc.health.v1.HealthCheckRequest
+        - grpc.health.v1.HealthCheckResponse
+    - local: .venv/bin/protoc-gen-connectrpc          # Connect stubs for every service-bearing source the branch serves or dials
+      out: libs/python/contracts/src/rasm/contracts/gen
+      opt: [io=async]                                 # The branch serves ASGI and dials under anyio
+      types:
+        - rasm.contracts.compute.v1.ComputeService.Tessellate
+        - rasm.contracts.artifact.v1.ArtifactService.Fetch
+        - rasm.contracts.artifact.v1.ArtifactService.Put
+        - rasm.contracts.cad.v1.CadService.Execute
+        - rasm.contracts.cad.v1.CadService.Tessellate
+        - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
+    - local: .venv/bin/protoc-gen-connectrpc          # Publisher service stubs share the vendored message namespace
+      out: libs/python/contracts/src/rasm/contracts/vendor
+      opt: [io=async]
+      types: [grpc.health.v1.Health.Check]
+    - remote: buf.build/protocolbuffers/csharp:v36.0  # Remote pin makes the emitter reproducible off the machine PATH
+      revision: 1                                     # Pin the exact BSR plugin build behind the semantic plugin version
+      out: libs/csharp/Rasm.Contracts/Generated
+      opt: [base_namespace=Rasm.Contracts]            # Namespace tail becomes the directory
+      types:
+        - rasm.contracts.clock.v1.Hlc
+        - rasm.contracts.fault.v1.FaultDetail
+        - rasm.contracts.compute.v1.TessellationRequest
+        - rasm.contracts.compute.v1.TessellationReceipt
+        - rasm.contracts.artifact.v1.ArtifactRequest
+        - rasm.contracts.artifact.v1.ArtifactRef
+        - rasm.contracts.artifact.v1.ArtifactFrame
+        - rasm.contracts.artifact.v1.FetchRequest
+        - rasm.contracts.artifact.v1.FetchResponse
+        - rasm.contracts.artifact.v1.PutRequest
+        - rasm.contracts.artifact.v1.PutResponse
+        - rasm.contracts.scan.v1.GaussianSplatScan
+        - rasm.contracts.capability.v1.DiscoverRequest
+        - rasm.contracts.capability.v1.DiscoveryCatalog
+        - rasm.contracts.compute.v1.SetDegradationRequest
+        - rasm.contracts.compute.v1.DegradationReply
+        - rasm.contracts.compute.v1.DrainRuntimeRequest
+        - rasm.contracts.compute.v1.DrainReply
+        - rasm.contracts.element.v1.EntityEditWire
+        - rasm.contracts.element.v1.NodeWire
+        - rasm.contracts.crdt.v1.CrdtOpWire
+        - rasm.contracts.event.v1.Extensions
+        - rasm.contracts.availability.v1.CommandAvailability
+        - rasm.contracts.ui.v1.AppUiSurfaceProgram
+        - rasm.contracts.render.v1.GeometryResidency
+        - rasm.contracts.ui.v1.EvidenceTimelineWire
+        - rasm.contracts.bcf.v1.BcfTopicWire
+        - rasm.contracts.bim.v1.ModelDiffWire
+        - rasm.contracts.credential.v1.CredentialPublicWire
+        - rasm.contracts.feature.v1.FlagVerdictWire
+        - rasm.contracts.binding.v1.BindingStatus
+        - rasm.contracts.binding.v1.CoercedValueWire
+        - rasm.contracts.binding.v1.WriteReceiptWire
+        - rasm.contracts.ui.v1.CommandGateWire
+        - rasm.contracts.ui.v1.CommandInvocation
+        - rasm.contracts.ui.v1.EvidenceReceiptWire
+        - rasm.contracts.bcf.v1.BcfViewpointWire
+        - rasm.contracts.appearance.v1.Set
+        - rasm.contracts.appearance.v1.Material
+        - rasm.contracts.parity.v1.Backend
+        - rasm.contracts.benchmark.v1.BenchmarkClaimWire
+        - rasm.contracts.organization.v1.Organization
+        - rasm.contracts.scene.v1.SceneDescriptor
+        - rasm.contracts.fabrication.v1.FeatureControl
+        - rasm.contracts.declaration.v1.DeclarationRecord
+    - remote: buf.build/grpc/csharp:v1.83.0  # Service emitter pinned independently at its official remote plugin
+      revision: 1                            # Pin the exact BSR plugin build behind the semantic plugin version
+      out: libs/csharp/Rasm.Contracts/Generated
+      opt: [base_namespace=Rasm.Contracts]
+      types:
+        - rasm.contracts.compute.v1.ComputeService.Tessellate
+        - rasm.contracts.artifact.v1.ArtifactService.Fetch
+        - rasm.contracts.artifact.v1.ArtifactService.Put
+        - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
+        - rasm.contracts.compute.v1.ControlService.SetDegradation
+        - rasm.contracts.compute.v1.ControlService.DrainRuntime

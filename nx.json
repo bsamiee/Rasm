@@ -10,8 +10,14 @@
     },
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
-        "production": ["default", "!{projectRoot}/**/*.spec.{ts,tsx,mts,cts}", "!{projectRoot}/**/*.test.{ts,tsx,mts,cts}", "!{projectRoot}/dist"],
+        "production": [
+            "default",
+            "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}",
+            "!{projectRoot}/**/*.{pw,k6}.ts",
+            "!{projectRoot}/dist/**/*"
+        ],
         "sharedGlobals": [
+            "{workspaceRoot}/.gitignore",
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/package.json",
             "{workspaceRoot}/playwright.config.ts",
@@ -34,12 +40,13 @@
         },
         "typecheck": {
             "cache": true,
-            "inputs": ["default", "^production"]
-        },
-        "test": {
-            "cache": true,
-            "inputs": ["default", "^production"],
-            "outputs": ["{workspaceRoot}/.artifacts/typescript/coverage", "{workspaceRoot}/.artifacts/typescript/test-results"]
+            "inputs": [
+                "default",
+                "^production",
+                {
+                    "externalDependencies": ["typescript"]
+                }
+            ]
         },
         "lint": {
             "cache": true,
@@ -60,18 +67,8 @@
         {
             "plugin": "@nx/vite/plugin",
             "options": {
-                "buildTargetName": "build",
                 "compiler": "tsc",
                 "typecheckTargetName": "typecheck"
-            }
-        },
-        {
-            "plugin": "@nx/vitest",
-            "options": {
-                "ciGroupName": "vitest",
-                "ciTargetName": "test-ci",
-                "testMode": "run",
-                "testTargetName": "test"
             }
         },
         {

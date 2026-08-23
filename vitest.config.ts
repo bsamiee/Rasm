@@ -106,8 +106,13 @@ const config: ViteUserConfig = defineConfig({
         fakeTimers: { ..._CONFIG.fakeTimers, toFake: [..._CONFIG.fakeTimers.toFake] },
         fileParallelism: true,
         // Watch reruns track the gauge inputs too: container pins feed the harness lanes, grit rules feed the admission live-fire.
-        forceRerunTriggers: ['**/package.json/**', '**/vitest.config.*/**', '**/tsconfig*.json', '**/tests/containers.json', '**/tools/biome/*.grit'],
-        globals: true,
+        forceRerunTriggers: [
+            '**/package.json/**',
+            '**/{vitest,vite}.config.*/**',
+            '**/tsconfig*.json',
+            '**/tests/containers.json',
+            '**/tools/biome/*.grit',
+        ],
         hideSkippedTests: _CI,
         hookTimeout: _CONFIG.timeouts.hook,
         isolate: true,

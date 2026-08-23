@@ -59,7 +59,7 @@ dependencies = [
     # --- [IO_TRANSPORT]
     "asyncssh",                                           # [RUNTIME]: fleet SSH channel for the remote worker arm and SFTP artifact reads
     "brotli",                                             # [ARTIFACTS]: compression
-    "cloudevents",                                        # [ARTIFACTS]: CloudEvents envelope and the HTTP/Kafka/AMQP/MQTT binding set carrying the W3C trace-and-baggage extensions
+    "cloudevents",                                        # [RUNTIME]: validated CloudEvents attribute algebra plus HTTP, Kafka, AMQP, and RabbitMQ protocol bindings
     "confluent-kafka[schemaregistry,avro,json,protobuf]", # [RUNTIME]: librdkafka producer/consumer and the Schema Registry client with its Avro, JSON, and Protobuf serializers; the json-fast extra stays out because orjson compiles against pre-3.15 CPython internals
     "connectrpc",                                         # [RUNTIME]: Connect-Python — generated async service ABCs, ASGI applications, and typed clients speaking Connect, gRPC, and gRPC-Web over one HTTP seam
     "detools",                                            # [ARTIFACTS]: binary-delta engine
@@ -77,8 +77,10 @@ dependencies = [
     "pika",                                               # [RUNTIME]: blocking AMQP 0-9-1 client riding the `to_thread` arm, importing no asyncio
     "protobuf",                                           # [DATA]+[COMPUTE]: google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR; the estate wire runtime is protobuf-py
     "protobuf-py",                                        # [RUNTIME]: Buf protobuf runtime under the generated `_pb.py` bindings — binary, JSON, and descriptor surface for the estate wire
+    "protovalidate",                                      # [RUNTIME+ARTIFACTS]: evaluates descriptor rules at transport and generated-document producer boundaries
+    "rasm-contracts",                                     # [WIRE]: installable generated SDK with resources, Connect, and validation closure
     "py7zr",
-    "python-dateutil",                                    # [ARTIFACTS]: RFC-3339 `isoparse` the `cloudevents.core.bindings` and format modules import at module scope
+    "python-dateutil",                                    # [RUNTIME]: RFC-3339 `isoparse` used by CloudEvents bindings and format readers
     "stream-unzip",                                       # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
     "stream-zip",                                         # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
     "universal-pathlib",                                  # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry; compute experiments/model UPath consumer
@@ -196,7 +198,6 @@ dependencies = [
     "xarray-spatial; python_version<'3.15'",              # [DATA]: raster terrain analytics; numba-gated
     "xvec",                                               # [DATA]: shapely-geometry-indexed xarray dimensions — vector data cubes backing the zone-cube owner
     # --- [GEOMETRY_CAD]
-    "cadquery-ocp; python_version<'3.15'",                # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel; the release declares Requires-Python <3.15 and ships no sdist
     "compas",                                             # [GEOMETRY]: algebra toolkit
     "compas_dr",                                          # [GEOMETRY]: COMPAS dynamic relaxation
     "compas_tna",                                         # [GEOMETRY]: COMPAS thrust-network analysis
@@ -349,7 +350,7 @@ dev = [
     "mypy",
     "pandas-stubs",
     "protoc-gen-connectrpc",        # Connect-Python stub generator; buf drives it from .venv/bin
-    "protoc-gen-py<0.2",            # connectrpc 0.11.1 pins protobuf-py==0.1.1 exact, so the generator pairs at 0.1.1; drop the bound when connectrpc bumps
+    "protoc-gen-py",                 # protobuf-py generator; buf drives the pair from .venv/bin
     "pyarrow-stubs",
     "pytest",
     "pytest-benchmark",
@@ -383,6 +384,14 @@ mutation = ["mutmut"]
 [tool.uv.sources]
 # 0.22.9 imports typing.no_type_check_decorator (removed in 3.15); the pinned rev is current main past the fix, unreleased as of 0.22.9.
 beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79dfb7f595457a85c82398601c17b2f1" }
+# Published Connect pins protobuf-py 0.1.1; this immutable upstream source carries the runtime and generator pair on protobuf-py 0.3.
+connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }
+protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
+rasm-contracts = { workspace = true }
+
+[tool.uv.workspace]
+members = ["libs/python/contracts"]
+exclude = ["libs/python/cad"]
 
 [tool.uv]
 package = false
@@ -484,7 +493,7 @@ provides-extras = ["extensions", "sql"]
 [tool.ty.environment]
 python-platform = "all"
 python-version = "3.15"
-root = [".", "libs/python/contracts/src"]
+root = ["."]
 
 [tool.ty.analysis]
 respect-type-ignore-comments = false
@@ -515,7 +524,7 @@ all = "error"
 
 # The generated tree stays typechecked; the two ignores are `protoc-gen-connectrpc` emission shapes (`path` overridden without `@override`, `codecs: Iterable[Codec]` unparameterized), carved path-scoped, never a tree exclude.
 [[tool.ty.overrides]]
-include = ["libs/python/contracts/src/**"]
+include = ["libs/python/contracts/src/rasm/contracts/gen/**", "libs/python/contracts/src/rasm/contracts/vendor/**"]
 
 [tool.ty.overrides.rules]
 missing-override-decorator = "ignore"
@@ -526,11 +535,10 @@ error-on-warning = true
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
-# `ty` is the binding type gate; mypy is advisory for `tools/assay`, `tests`, and the generated contracts tree.
+# `ty` is the binding type gate; mypy checks `tools/assay`, `tests`, and the installed SDK modules those consumers import.
 # Mypy-only divergences stay in overrides because `ty` rejects inline type-ignore comments.
 [tool.mypy]
-files = ["libs/python/contracts/src", "tools/assay", "tests"]
-mypy_path = ["libs/python/contracts/src"] # the generated source root carries no py.typed under buf's clean sweep, so mypy reads it as a search root
+files = ["tools/assay", "tests"]
 python_version = "3.15"
 cache_dir = ".cache/mypy"
 strict = true
@@ -586,7 +594,7 @@ ignore_missing_imports = true
 
 # The mypy twin of the ty override: the same two `protoc-gen-connectrpc` emission shapes, carved module-scoped on the generated tree alone.
 [[tool.mypy.overrides]]
-module = "rasm.contracts.*"
+module = ["rasm.contracts.gen.*", "rasm.contracts.vendor.*"]
 disable_error_code = ["explicit-override", "type-arg"]
 
 # --- [PYTEST] ---------------------------------------------------------------------------
@@ -598,7 +606,7 @@ minversion = "9.0"
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
-pythonpath = [".", "libs/python/contracts/src"] # the generated `rasm.contracts` source root: pytest prepends it, ty/mypy read it through their own root rows; no dist, no `.pth`
+pythonpath = ["."] # repository modules resolve from root; `rasm.contracts` resolves through the installed workspace distribution
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]
 collect_imported_tests = false
@@ -769,7 +777,8 @@ extend-exclude = [
     "**/coverage/**",
     "**/scratch/**",
     "**/test-results/**",
-    "libs/python/contracts/src/**",
+    "libs/python/contracts/src/rasm/contracts/gen/**",
+    "libs/python/contracts/src/rasm/contracts/vendor/**",
 ]
 
 [tool.ruff.format]

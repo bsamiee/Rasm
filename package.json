@@ -4,11 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "bench": "vitest bench --run",
-        "coverage": "vitest run --coverage",
-        "e2e": "playwright install chromium webkit && playwright test",
-        "mutation": "stryker run",
-        "test": "vitest run"
+        "browsers": "playwright install chromium webkit"
     },
     "browserslist": [
         "baseline widely available"
@@ -222,7 +218,6 @@
         "babel-plugin-react-compiler": "catalog:",
         "basic-ftp": "catalog:",
         "browserslist": "catalog:",
-        "cbor-x": "catalog:",
         "chevrotain": "catalog:",
         "chokidar": "catalog:",
         "class-variance-authority": "catalog:",
@@ -321,10 +316,12 @@
         }
     },
     "nx": {
-        "targets": {
-            "typecheck": {
-                "command": "tsc --noEmit -p tsconfig.json"
-            }
+        "namedInputs": {
+            "default": [
+                "{workspaceRoot}/libs/typescript/**/*",
+                "{workspaceRoot}/tests/typescript/**/*",
+                "sharedGlobals"
+            ]
         }
     }
 }

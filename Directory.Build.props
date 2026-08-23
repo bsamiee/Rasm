@@ -111,18 +111,18 @@
         <SkipLocalCSharpAnalyzerReference Condition="'$(SkipLocalCSharpAnalyzerReference)' == '' and ('$(IsLocalCSharpAnalyzerProject)' == 'true' or '$(IsAnalyzerTestProject)' == 'true')">true</SkipLocalCSharpAnalyzerReference>
     </PropertyGroup>
 
-    <ItemGroup Label="Workspace Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">
+    <ItemGroup Label="Workspace Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(IsContractsProject)' != 'true'">
         <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
     </ItemGroup>
 
     <!-- Missing local analyzer projects fail loudly; SkipLocalCSharpAnalyzerReference is the only opt-out. -->
-    <ItemGroup Label="Workspace Source Generator And Analyzer" Condition="'$(SkipLocalCSharpAnalyzerReference)' != 'true'">
+    <ItemGroup Label="Workspace Source Generator And Analyzer" Condition="'$(SkipLocalCSharpAnalyzerReference)' != 'true' and '$(IsContractsProject)' != 'true'">
         <ProjectReference Include="$(LocalCSharpAnalyzerProject)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!-- One Csp.Contracts identity carries BoundaryAdapter/CspExempt across host, test, and bridge projects. -->
-    <ItemGroup Label="Csp Contract Reference" Condition="'$(IsRoslynComponent)' != 'true' and '$(MSBuildProjectName)' != 'Csp.Contracts'">
+    <ItemGroup Label="Csp Contract Reference" Condition="'$(IsRoslynComponent)' != 'true' and '$(MSBuildProjectName)' != 'Csp.Contracts' and '$(IsContractsProject)' != 'true'">
         <ProjectReference Include="$(CspContractsProject)" />
     </ItemGroup>
 
@@ -133,7 +133,7 @@
         <CspScope Condition="'$(CspScope)' == '' and ('$(IsBenchmarkProject)' == 'true' or '$(IsLocalCSharpAnalyzerProject)' == 'true')">Tooling</CspScope>
     </PropertyGroup>
 
-    <ItemGroup Label="Csp Scope Plumbing">
+    <ItemGroup Label="Csp Scope Plumbing" Condition="'$(IsContractsProject)' != 'true'">
         <CompilerVisibleProperty Include="CspScope" />
     </ItemGroup>
 
@@ -284,7 +284,7 @@
         <Using Include="Avalonia.Media" />
     </ItemGroup>
 
-    <ItemGroup Label="Assembly Visibility" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">
+    <ItemGroup Label="Assembly Visibility" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)')) and '$(IsContractsProject)' != 'true'">
         <InternalsVisibleTo Include="$(MSBuildProjectName).Tests" />
         <InternalsVisibleTo Include="Rasm.TestKit" />
     </ItemGroup>
