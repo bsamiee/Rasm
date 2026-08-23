@@ -24,6 +24,7 @@
         "skipLibCheck": true,
         "strict": true,
         "target": "esnext",
+        "tsBuildInfoFile": ".cache/typescript/root.tsbuildinfo",
         "types": ["node", "vite/client"],
         "verbatimModuleSyntax": true
     },

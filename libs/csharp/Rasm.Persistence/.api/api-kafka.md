@@ -72,33 +72,38 @@
 
 - `[selector vocabularies]`: `SecurityProtocol` `SaslMechanism` `SaslOauthbearerMethod` `SslEndpointIdentificationAlgorithm` `PartitionAssignmentStrategy` `BrokerAddressFamily` `ClientDnsLookup` `MetadataRecoveryStrategy`.
 
-[PUBLIC_TYPE_SCOPE]: `ProducerConfig` declares twenty properties over `ClientConfig`, every one nullable but `DeliveryReportFields`; each maps to the librdkafka key below and unset means the native default, so a claim about buffering, ordering, or ack semantics holds only where its key is written. Producer-side queue depth is the `[BOUND]` coordinate a durable egress leg reads.
+[PUBLIC_TYPE_SCOPE]: `ProducerConfig` declares twenty properties over `ClientConfig`, every one nullable but `DeliveryReportFields`; each maps to the librdkafka key below and unset means the documented default beside it, so a claim about buffering, ordering, or ack semantics holds only where its key is written or that default is the intent. Producer-side queue depth is the `[BOUND]` coordinate a durable egress leg reads and the retry pair is its `[RETRY_OWNER]`.
 
-| [INDEX] | [PROPERTY]                            | [LIBRDKAFKA_KEY]                          | [CLR_TYPE] |
-| :-----: | :------------------------------------ | :---------------------------------------- | :--------- |
-|  [01]   | `QueueBufferingMaxMessages`           | `queue.buffering.max.messages`            | `int?`     |
-|  [02]   | `QueueBufferingMaxKbytes`             | `queue.buffering.max.kbytes`              | `int?`     |
-|  [03]   | `QueueBufferingBackpressureThreshold` | `queue.buffering.backpressure.threshold`  | `int?`     |
-|  [04]   | `LingerMs`                            | `linger.ms`                               | `double?`  |
-|  [05]   | `BatchNumMessages`                    | `batch.num.messages`                      | `int?`     |
-|  [06]   | `BatchSize`                           | `batch.size`                              | `int?`     |
-|  [07]   | `StickyPartitioningLingerMs`          | `sticky.partitioning.linger.ms`           | `int?`     |
-|  [08]   | `MessageSendMaxRetries`               | `message.send.max.retries`                | `int?`     |
-|  [09]   | `MessageTimeoutMs`                    | `message.timeout.ms`                      | `int?`     |
-|  [10]   | `RequestTimeoutMs`                    | `request.timeout.ms`                      | `int?`     |
-|  [11]   | `EnableIdempotence`                   | `enable.idempotence`                      | `bool?`    |
-|  [12]   | `EnableGaplessGuarantee`              | `enable.gapless.guarantee`                | `bool?`    |
-|  [13]   | `TransactionalId`                     | `transactional.id`                        | `string?`  |
-|  [14]   | `TransactionTimeoutMs`                | `transaction.timeout.ms`                  | `int?`     |
-|  [15]   | `CompressionType`                     | `compression.type`                        | enum?      |
-|  [16]   | `CompressionLevel`                    | `compression.level`                       | `int?`     |
-|  [17]   | `Partitioner`                         | `partitioner`                             | enum?      |
-|  [18]   | `EnableBackgroundPoll`                | `dotnet.producer.enable.background.poll`  | `bool?`    |
-|  [19]   | `EnableDeliveryReports`               | `dotnet.producer.enable.delivery.reports` | `bool?`    |
-|  [20]   | `DeliveryReportFields`                | `dotnet.producer.delivery.report.fields`  | `string`   |
+| [INDEX] | [PROPERTY]                            | [LIBRDKAFKA_KEY]                          | [CLR_TYPE] | [DEFAULT]           |
+| :-----: | :------------------------------------ | :---------------------------------------- | :--------- | :------------------ |
+|  [01]   | `QueueBufferingMaxMessages`           | `queue.buffering.max.messages`            | `int?`     | `100000`            |
+|  [02]   | `QueueBufferingMaxKbytes`             | `queue.buffering.max.kbytes`              | `int?`     | `1048576`           |
+|  [03]   | `QueueBufferingBackpressureThreshold` | `queue.buffering.backpressure.threshold`  | `int?`     | `1`                 |
+|  [04]   | `LingerMs`                            | `linger.ms`                               | `double?`  | `5`                 |
+|  [05]   | `BatchNumMessages`                    | `batch.num.messages`                      | `int?`     | `10000`             |
+|  [06]   | `BatchSize`                           | `batch.size`                              | `int?`     | `1000000`           |
+|  [07]   | `StickyPartitioningLingerMs`          | `sticky.partitioning.linger.ms`           | `int?`     | `10`                |
+|  [08]   | `MessageSendMaxRetries`               | `message.send.max.retries`                | `int?`     | `2147483647`        |
+|  [09]   | `MessageTimeoutMs`                    | `message.timeout.ms`                      | `int?`     | `300000`            |
+|  [10]   | `RequestTimeoutMs`                    | `request.timeout.ms`                      | `int?`     | `30000`             |
+|  [11]   | `EnableIdempotence`                   | `enable.idempotence`                      | `bool?`    | `false`             |
+|  [12]   | `EnableGaplessGuarantee`              | `enable.gapless.guarantee`                | `bool?`    | `false`             |
+|  [13]   | `TransactionalId`                     | `transactional.id`                        | `string?`  | empty               |
+|  [14]   | `TransactionTimeoutMs`                | `transaction.timeout.ms`                  | `int?`     | `60000`             |
+|  [15]   | `CompressionType`                     | `compression.type`                        | enum?      | `none`              |
+|  [16]   | `CompressionLevel`                    | `compression.level`                       | `int?`     | `-1`                |
+|  [17]   | `Partitioner`                         | `partitioner`                             | enum?      | `consistent_random` |
+|  [18]   | `EnableBackgroundPoll`                | `dotnet.producer.enable.background.poll`  | `bool?`    | `true`              |
+|  [19]   | `EnableDeliveryReports`               | `dotnet.producer.enable.delivery.reports` | `bool?`    | `true`              |
+|  [20]   | `DeliveryReportFields`                | `dotnet.producer.delivery.report.fields`  | `string`   | `all`               |
 
 - `LingerMs` alone reads through `GetDouble`, so an `int?` assumption on that one property mistypes the only fractional-millisecond knob the producer carries.
-- `QueueBufferingMaxMessages` and `QueueBufferingMaxKbytes` cap the native produce queue and `QueueBufferingBackpressureThreshold` throttles the internal producer threads ahead of that cap; leaving all three unset means the client's own defaults bound a durable drain, never a value the composing fence declared.
+- `QueueBufferingMaxMessages` and `QueueBufferingMaxKbytes` cap the native produce queue and `QueueBufferingBackpressureThreshold` throttles the internal producer threads ahead of that cap; a full queue REFUSES the produce rather than dropping it, so the durable bound is a refusal a leg folds and never silent loss.
+- `MessageSendMaxRetries` is a producer-side RETRY OWNER at `INT32_MAX`, and `MessageTimeoutMs` is its only real bound — "the maximum time librdkafka may use to deliver a message (including retries)", where delivery fails when EITHER the retry count or that timeout is exceeded, and a zero timeout is infinite. Leaving both unset declines nothing — it inherits an effectively unbounded retry behind a five-minute wall.
+- `EnableIdempotence` is not one knob but four: enabling it adjusts `max.in.flight.requests.per.connection=5`, `retries=INT32_MAX`, `acks=all`, and `queuing.strategy=fifo` "if not modified by the user", and "Producer instantation will fail if user-supplied configuration is incompatible" — so those four stay foreclosed rather than tunable beside it, and a settings roster carrying any of them carries a value that either restates the forced one or refuses to construct.
+- `EnableGaplessGuarantee` ships subject to change or removal by its own doc, requires `enable.idempotence=true`, raises a FATAL `ERR__GAPLESS_GUARANTEE` that stops the producer, and covers no `message.timeout.ms` expiry — so it converts one class of gap into a dead producer and leaves the timeout class uncovered.
+- `Acks` and `MaxInFlight` are NOT `ProducerConfig` members: both are inherited from `ClientConfig`, and `MaxInFlight` maps to `max.in.flight` — not `max.in.flight.requests.per.connection`, which no property spells at all.
+- `DeliveryReportFields` is the one non-nullable property and its setter calls `value.ToString()` unguarded, so assigning null raises rather than clearing the key.
 - `ClientConfig.ThrowIfContainsNonUserConfigurable()` returns `this` and validates nothing, so it never screens a misplaced key.
 
 [PUBLIC_TYPE_SCOPE]: serialization
@@ -145,7 +150,7 @@
 |  [08]   | `ProducerBuilder.SetPartitioner(string, PartitionerDelegate)` | instance | per-topic partition selection      |
 |  [09]   | `ProducerBuilder.Build()` / `ConsumerBuilder.Build()`         | factory  | mints the client, codec slots set  |
 
-- `[builder diagnostics]` on either builder: `SetErrorHandler(Error)` `SetLogHandler(LogMessage)` `SetStatisticsHandler(string)` `SetOAuthBearerTokenRefreshHandler(string)`.
+- `[builder diagnostics]` on either builder: `SetErrorHandler(Error)` `SetLogHandler(LogMessage)` `SetStatisticsHandler(string)` `SetOAuthBearerTokenRefreshHandler(string)`. Every one is SINGLE-SHOT, raising `InvalidOperationException` on a second set, while `SetPartitioner`/`SetDefaultPartitioner` raise `ArgumentException` instead; a statistics-handler exception routes to the error handler, and error- and log-handler exceptions are swallowed outright, so neither reaches a rail.
 - `[rebalance hooks]` on `ConsumerBuilder`: `SetPartitionsAssignedHandler` `SetPartitionsRevokedHandler` `SetPartitionsLostHandler` `SetOffsetsCommittedHandler` — each takes the `Func<…, IEnumerable<TopicPartitionOffset>>` start-offset override or the `Action<…>` observer form.
 - `SetPartitionsAssignedHandler(Func<IConsumer<TKey, TValue>, List<TopicPartition>, IEnumerable<TopicPartitionOffset>>)` returns the START offsets replacing the committed position; the `Action<IConsumer<TKey, TValue>, List<TopicPartition>>` overload adapts onto that same backing slot, so setting either form twice raises `InvalidOperationException` and one builder binds exactly one assigned handler.
 - `SetPartitionsRevokedHandler`'s `Func` variant sets `RevokedOrLostHandlerIsFunc`, which is incompatible with incremental (cooperative) rebalancing; a cooperative consumer takes the `Action` form and reaches `IncrementalAssign(IEnumerable<TopicPartitionOffset>)`/`IncrementalAssign(IEnumerable<TopicPartition>)` beside the four whole-assignment `Assign` overloads.
@@ -167,6 +172,9 @@
 |  [09]   | `AbortTransaction()` / `AbortTransaction(TimeSpan)`                   | instance | discards the produced batch      |
 
 - `ProduceAsync` and `Produce` each carry a `TopicPartition` overload pinning the partition; the `Produce` callback takes `Action<DeliveryReport<TKey, TValue>>`, so the report carries `Error` where the awaited path throws `ProduceException<TKey, TValue>`.
+- `Error` lives on `DeliveryReport` alone. `ProduceException.DeliveryResult` is typed `DeliveryResult<TKey, TValue>` and NOT the report, so a caught produce fault reads its `Error` off the base `KafkaException`, and the result's `Key`/`Value`/`Timestamp`/`Headers` proxies dereference `Message` unguarded and raise on the null one a refusal leaves.
+- `Flush` is two members with two return types — `int Flush(TimeSpan)` answering the remaining out-queue length and `void Flush(CancellationToken)` raising `OperationCanceledException`; neither is async and no `FlushAsync` exists.
+- `InitTransactions` and `SendOffsetsToTransaction` carry ONLY their `TimeSpan` overloads, and `AddBrokers` on `IClient` is the broker-mutation member — no `AddBrokerAddresses` spelling exists.
 
 [ENTRYPOINT_SCOPE]: subscribe, fetch, and commit on `IConsumer<TKey, TValue>`
 
@@ -197,7 +205,9 @@
 |  [23]   | `ConsumerGroupMetadata`                                | property | token the producer transaction takes    |
 |  [24]   | `Close()`                                              | instance | leaves the group, commits final state   |
 
-- `ConsumeResult.IsPartitionEOF` marks a poll that reached the live edge with no record, so the result carries a position and no `Message`.
+- `ConsumeResult.IsPartitionEOF` marks a poll that reached the live edge with no record, so the result carries a position and no `Message`. `StoreOffset(ConsumeResult)` and `Commit(ConsumeResult)` both raise `InvalidOperationException` on such a result, and both derive the committed position as `Offset + 1`.
+- `Close()` is the ONE teardown: `Dispose` alone releases the handle "without committing offsets and without alerting the group coordinator that the consumer is exiting the group", leaving the group to rebalance only after `session.timeout.ms`. `Close` also RE-RAISES a statistics- or log-handler exception the client stashed earlier, so a teardown crossing carries a throw unrelated to the close itself.
+- `Headers.GetLastBytes` raises `KeyNotFoundException` where the `Try` form answers false, `Remove(string)` drops EVERY value under the key, and `Header` publishes no `Value` property — the bytes reach a reader through `GetValueBytes()` alone.
 - `IConsumerExtensions.PositionTopicPartitionOffset` extends `IConsumer<TKey, TValue>` and rethrows a per-partition fault as `KafkaException`.
 
 [ENTRYPOINT_SCOPE]: runtime mutation on a live `IClient` — `ClientExtensions` carries the OAUTHBEARER hand-off as extension methods.
@@ -244,14 +254,14 @@
 
 [LOCAL_ADMISSION]:
 - Op-log changefeed egress builds one `IProducer<TKey, TValue>` per stream through `ProducerBuilder` with explicit `ISerializer<T>` codecs; the serializer slot is fixed at build, never per-call, and CDC egress binds `Serializers.ByteArray` for the already-framed redacted payload.
-- Delivery enters through awaited `ProduceAsync`, and `DeliveryAck.FromResult(DeliveryResult.Status, detail)` maps `Persisted` to `Persisted(Duplicate: false)` and either ambiguous status to retriable `Indeterminate`; a caught fatal `ProduceException` maps to `Refused` at the same adapter boundary, and raw `DeliveryResult`, `PersistenceStatus`, and `Error` values stop there.
+- Delivery enters through awaited `ProduceAsync`, and `KafkaAck.FromResult(DeliveryResult.Status, detail)` maps `Persisted` to `Persisted(Duplicate: false)` and either ambiguous status to retriable `Indeterminate`; a caught fatal `ProduceException` maps to `Refused` through `KafkaAck.FromError` at the same boundary owner, and raw `DeliveryResult`, `PersistenceStatus`, and `Error` values stop there — the shared `DeliveryAck` union itself names no type from this package.
 - `Error.IsRetriable` and `Error.TxnRequiresAbort` are `internal`, so adapter discrimination reads `Error.Code`, `IsFatal`, and `IsBrokerError`, and `KafkaRetriableException` versus `KafkaTxnRequiresAbortException` splits a transient retry from a mandatory `AbortTransaction`.
-- `ProducerConfig.EnableIdempotence` deduplicates broker-side retries and the transaction bracket gives `ReadCommitted` consumers atomic visibility, both scoped to broker records alone; the PostgreSQL outbox cursor advances outside that scope, so content-key consumer dedupe closes the crash window between broker persistence and cursor advance.
+- `ProducerConfig.EnableIdempotence` deduplicates broker-side retries and the transaction bracket gives `ReadCommitted` consumers atomic visibility, both scoped to broker records alone; the PostgreSQL outbox cursor advances outside that scope, so content-key consumer dedupe closes the crash window between broker persistence and cursor advance. Egress states `MessageTimeoutMs` explicitly because idempotence forces the retry count to `INT32_MAX` and that timeout becomes the leg's whole attempt bound; it states none of the four properties idempotence forces, since supplying any of them either restates the forced value or refuses to construct the producer.
 - Kafka consumers disable `EnableAutoCommit` and commit through `StoreOffset` with an explicit `Commit`, so a committed offset never outruns durable downstream apply; `GetWatermarkOffsets`/`QueryWatermarkOffsets` derive lag and `OffsetsForTimes` resolves a replay cursor from a wall-clock `TopicPartitionTimestamp`.
 - `SetOAuthBearerTokenRefreshHandler` wires a SASL/OAUTHBEARER cluster so each librdkafka refresh callback mints a token from the admitted `OpenIddict.Client` and hands it back through `OAuthBearerSetToken`, or reports a mint failure through `OAuthBearerSetTokenFailure`; `SetSaslCredentials` rotates a PLAIN or SCRAM credential without rebuilding the client.
 
 [RAIL_LAW]:
 - Package: `Confluent.Kafka`
 - Owns: librdkafka-backed produce and consume, delivery acknowledgement, offset commit, producer transactions, and the native client lifetime for the Kafka egress sink row.
-- Accept: builder-constructed clients with fixed codec slots, awaited `ProduceAsync`, `DeliveryResult.Status` folded through `DeliveryAck.FromResult`, explicit `StoreOffset`/`Commit` on a durable consumer, `Error`-driven refusal, and transactions scoped to broker-record visibility.
-- Reject: hand-rolled Kafka wire framing, fire-and-forget `Produce` on the durable rail, auto-commit on a durable consumer, a raw provider outcome past the `DeliveryAck` adapter, and a per-protocol ack vocabulary distinct from `Persisted`/`Indeterminate`/`Refused`.
+- Accept: builder-constructed clients with fixed codec slots, awaited `ProduceAsync`, `DeliveryResult.Status` folded through `KafkaAck.FromResult`, explicit `StoreOffset`/`Commit` on a durable consumer, `Close` before dispose, `Error`-driven refusal, and transactions scoped to broker-record visibility.
+- Reject: hand-rolled Kafka wire framing, fire-and-forget `Produce` on the durable rail, auto-commit on a durable consumer, a bare `Dispose` on a group consumer, an undeclared `MessageTimeoutMs` beside a pinned `EnableIdempotence`, a settings key restating a value idempotence already forces, a raw provider outcome past the `KafkaAck` boundary, and a per-protocol ack vocabulary distinct from `Persisted`/`Indeterminate`/`Refused`.

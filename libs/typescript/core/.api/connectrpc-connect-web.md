@@ -1,21 +1,21 @@
 # [TS_CORE_API_CONNECTRPC_CONNECT_WEB]
 
-`@connectrpc/connect-web` mints the two browser `Transport` factories `interchange/invoke` selects between — `createConnectTransport` and `createGrpcWebTransport` — one options record behind a `protocol` discriminant, no client surface of its own. Both are fetch-based: the `fetch` override is the seam carrying `net/client` policy and OTel propagation, and an absent `grpc-web-text` routes binary-frame progress or an `arraybuffer` response to `@effect/platform-browser` XHR.
+`@connectrpc/connect-web` mints the two public fetch `Transport` factories `interchange/invoke` seats as its browser/Bun adapter — `createConnectTransport` and `createGrpcWebTransport`. The package has no native gRPC factory, so `web + grpc` has no supported-pair type or schema arm. Both factories accept a `fetch` override; neither implements `grpc-web-text`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect-web`
 - package: `@connectrpc/connect-web` (Apache-2.0)
-- peer: `@connectrpc/connect` (`Transport`/`Interceptor`; `.api/connectrpc-connect.md`), `@bufbuild/protobuf` (JSON/binary read-write option types; `.api/bufbuild-protobuf.md`)
+- peer: `@connectrpc/connect` (`Transport`/`Interceptor`; `.api/connectrpc-connect.md`), `@bufbuild/protobuf` (codec options; `../../.api/bufbuild-protobuf.md`)
 - effect-peer: none direct — `createClient` consumes the returned `Transport`, wrapped in `effect` at `interchange/invoke` (`.api/effect.md`)
-- catalog-verdict: KEEP — the browser transport authority
+- catalog-verdict: KEEP — the browser/Bun transport authority
 - module: dual esm/cjs, one `.` export
 - runtime: browser-primary (fetch API), node via global `fetch`; no `grpc-web-text`
 - rail: interchange/invoke
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the transport-options pair — one field set, one `protocol` discriminant, one `Transport` out
+[PUBLIC_TYPE_SCOPE]: the two public option records — one per supported web protocol, each yielding `Transport`
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                 |
 | :-----: | :---------------------------------- | :--------------- | :------------------------------------------------------------------ |
@@ -31,7 +31,7 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the two `(options) -> Transport` factories the `protocol` value selects, one per client, and the `fetch`/`interceptors` seams threaded through the options
+[ENTRYPOINT_SCOPE]: the two `(options) -> Transport` factories the web adapter records as its complete supported set
 
 | [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                |
 | :-----: | :-------------------------------- | :------------- | :----------------------------------------------------------------- |
@@ -43,21 +43,21 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- one axis, one client: both factories return the same `@connectrpc/connect` `Transport`, so `createClient` is protocol-agnostic and the connect-vs-grpc-web choice is a `protocol` discriminant selecting the factory, not a second client or code path.
+- one adapter, two supported protocols: both factories return the same `@connectrpc/connect` `Transport`; `Invoke.Dial` selects one factory from the adapter's total record for each configured lane, and no client code branches on protocol.
 - transport-only: this package exports the two factories and their option records; the typed `Client<T>`, `CallOptions`, `Interceptor`, and `ConnectError` all live in `@connectrpc/connect`, and `useBinaryFormat` + `binaryOptions`/`jsonOptions` select the `@bufbuild/protobuf` codec — binary for the C#-emitted services, JSON the Connect default.
 
 [STACKING]:
 - `@connectrpc/connect`(`.api/connectrpc-connect.md`): the factory output is the `Transport` argument to `createClient(service, transport)`; `interceptors` feed its shared `Interceptor` chain and `defaultTimeoutMs` seeds the deadline `CallOptions.timeoutMs` overrides per call.
-- `@effect/platform-browser`(`.api/effect-platform-browser.md`): the `fetch` override binds the transport to the `net/client` default-policy client wrapped as a `fetch`; a lane needing upload/download progress or an `arraybuffer` response bypasses the transport for `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer`, since `grpc-web-text` is unimplemented here.
+- `@effect/platform-browser`(`.api/effect-platform-browser.md`): a lane needing upload/download progress or an `arraybuffer` response uses `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer`; this package exposes no `grpc-web-text` or XHR transport.
 - `@effect/opentelemetry`: a `connect` `Interceptor` reads `Tracer.currentOtelSpan` and writes W3C `traceparent` on egress, continuing the active trace across both transport arms without rewriting `fetch`.
-- `effect`(`.api/effect.md`): `baseUrl`/`defaultTimeoutMs`/`useBinaryFormat`/`protocol` are `Config`-decoded from `proc/config`; the transport builds once at the `interchange/invoke` root and the client wraps in `Effect.tryPromise`/`Stream.fromAsyncIterable`.
+- `effect`(`.api/effect.md`): `baseUrl`/`defaultTimeoutMs`/`useBinaryFormat` and the discriminated adapter lane are decoded once; `Invoke.Dial.web(fetch)` publishes the two factories and the selected transport builds at Dial construction.
 
 [LOCAL_ADMISSION]:
-- select one factory per configured client by the `protocol` discriminant; never instantiate both for one descriptor or branch on protocol downstream of `createClient`.
-- pass the instrumented `fetch` and the shared `Interceptor` chain through the options and keep `baseUrl`/`useBinaryFormat`/`defaultTimeoutMs`/`useHttpGet` `Config`-decoded; a bare transport bypassing `net/client` policy or a hardcoded endpoint is the parameterization defect.
+- record both factories on the web adapter and invoke only the configured lane's member; `web + grpc` never reaches a guard because the discriminated lane schema cannot express it.
+- pass the host `fetch` and shared `Interceptor` chain through the options; keep `baseUrl`/`useBinaryFormat`/`defaultTimeoutMs` decoded, and keep `useHttpGet` absent while no corpus RPC declares `NO_SIDE_EFFECTS`.
 
 [RAIL_LAW]:
 - Package: `@connectrpc/connect-web`
-- Owns: the two browser `Transport` factories and their near-identical option records that together are the `interchange/invoke` protocol axis
-- Accept: one factory per client on a `protocol` discriminant, the `Transport` handed to `connect`'s `createClient`, the `fetch` override carrying `net/client` policy + OTel propagation, `useBinaryFormat`/`binaryOptions` as the codec selector, `Config`-decoded `baseUrl`/`defaultTimeoutMs`
-- Reject: an invocation or client concept sourced here, both factories live for one descriptor, a bare transport bypassing net-client policy and trace propagation, hardcoded endpoint/timeout, expecting `grpc-web-text`/XHR streaming instead of `@effect/platform-browser`
+- Owns: the public Connect and gRPC-Web fetch factories and their option records; together they are the complete `web` adapter capability
+- Accept: both factories as a total adapter record, one selected transport per configured lane, the host `fetch` override, the shared interceptor chain, codec options, and decoded endpoint/timeout policy
+- Reject: an invocation or client concept sourced here, native gRPC on a web lane, downstream protocol branching, a hardcoded endpoint/timeout, or expecting `grpc-web-text`/XHR streaming

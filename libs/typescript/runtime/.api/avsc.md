@@ -71,7 +71,7 @@ Bundled typings declare themselves incomplete: they cover the node entry alone, 
 - Compilation runs once at module initialization; `Type.forValue` and `parse` infer a schema instead of binding the frozen one and never enter a contract path.
 
 [STACKING]:
-- `core/interchange/format`(`core/.planning/interchange/format.md`): the Avro row declares the media type and the empty `arm` whose `degrade` names this lane; the codec filling it mints once at `net/channel.md`'s `Avro` owner through `Format.event.admitted` on a `Lane` seat, and no second `Type` is constructed anywhere.
+- `core/interchange/format`(`core/.planning/interchange/format.md`): the Avro row owns the media identity; `net/channel.md`'s `Avro` binds the generated `CloudEventsAvro` publisher asset through `Format.event.avro` once for MQTT and HTTP intake, and no second `Type` is constructed anywhere.
 - `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): supplies the attribute record the `attribute` map carries and the extension roster whose value types the map's union admits.
 - `effect` `Schema`(`.api/effect.md`): `fromBuffer` yields an untyped tree; `Schema.decodeUnknown` lands it once into owned vocabulary and lifts a `ParseError` onto the rail, and `Either.try` converts the encode and decode throws at that one seam.
 - `@confluentinc/schemaregistry`(`runtime/.api/confluentinc-schemaregistry.md`): carries its own transitive `avsc` for Kafka PAYLOAD serdes under the registry framing; this catalogue's use encodes the message envelope and the two never share a `Type`.

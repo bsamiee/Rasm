@@ -45,10 +45,10 @@ Every cross-language seam resolves to one generated surface; the table names the
 
 [FAULT_DETAIL]:
 - Use when: a refusal crosses the wire in either direction.
-- Accept: one `ConnectError(code, message, details=[...])` raised at the serve edge, carrying the corpus `FaultDetail` and, when a retry window is stated, `google.rpc.RetryInfo`; ingress reads `ErrorDetail.value(DetailClass)` over `ConnectError.details` — protocol-agnostic on Connect, gRPC, and gRPC-Web — and a raise carrying no decodable detail answers absence, never a forged verdict.
+- Accept: one `ConnectError(code, message, details=[...])` raised at the serve edge, carrying the corpus `FaultDetail` and, when a retry window is stated, the recovery arm's OWN `google.rpc.RetryInfo` packed a second time; ingress reads `ErrorDetail.value(DetailClass)` over `ConnectError.details` — protocol-agnostic on Connect, gRPC, and gRPC-Web — and a raise carrying no decodable detail answers absence, never a forged verdict.
 - Law: the detail's `domain` is the PRODUCING family and `case` that family's closed ordinal — the emitting leg and its row's position in declaration order — and never the Connect code, which the same refusal carries separately on `ConnectError.code`; `connectrpc.Code` is a string `Enum`, `int(code)` raises, and no ordinal of it is a wire fact. A peer keeps the `(domain, case)` pair opaque: a remote family never elects local topology, and an unseated subject crosses at the unspecified zero under the serving leg.
 - Law: re-drive is TWO axes — the transport code the retry class grades and the producer's own `recovery` verdict off the decoded detail — read together at the one seam that holds a live `ConnectError`: a stated `terminal` refuses a re-drive the code would allow, a stated window replaces the backoff curve, and an unstated verdict defers to the class; a consumer band-mapping a code back to a verdict substitutes its own table for the producer's.
-- Law: `FaultDetail.recovery.retry_after` and `RetryInfo.retry_delay` project from the SAME admitted recovery value. The fault detail preserves the corpus verdict and RetryInfo gives standard middleware the delay; neither is reconstructed from the transport code or from the other detail.
+- Law: `FaultDetail.recovery.retry_after` IS a `google.rpc.RetryInfo`, so the estate detail and the standard advice detail carry ONE message and not two projections that can disagree: the throttled arm is minted once at the recovery correspondence, and the advice seat packs that instance. A second `RetryInfo` construction beside the detail, or a window rebuilt from the transport code, is the deleted form. `retry_delay` is a message slot the generator spells optional and the corpus rule forces present, so the arm's admission collapses that optionality and refuses an arm claiming a window while stating none.
 - Law: field-scoped refusals cross as `google.rpc.BadRequest.FieldViolation` rows on the detail — the one place a field path crosses — each carrying the row's defect token as `reason`; the fault's tag, detail string, and facts stay LOCAL on the producer's span and log line, joinable on the detail's correlation.
 - Reject: `int(Code)`; a `FaultDetail` built from a status; a hand trailer beside the details channel; a consumer that decodes `domain` into its own union; a second code-to-fault table beside the one the transport owner declares.
 
@@ -68,12 +68,16 @@ from connectrpc.server import ConnectASGIApplication, Endpoint
 from expression import Error, Ok, Result
 from protobuf import Message, Oneof, Registry
 from protobuf.wkt import Any, Duration, Empty, FieldMask, Struct, any_pb, duration_pb, empty_pb, field_mask_pb, struct_pb
+from rasm.contracts.gen.google.rpc import error_details_pb
+from rasm.contracts.gen.google.rpc.error_details_pb import RetryInfo
 
 type Profile = Literal["<profile-a>", "<profile-b>"]
 type Encode = Literal["<wrong-type>", "<out-of-range>", "<malformed>"]
 
 ENCODE_RAISES: Final[tuple[type[Exception], ...]] = (TypeError, ValueError, OverflowError)
-REGISTRY: Final[Registry] = Registry(*(module.desc() for module in (any_pb, duration_pb, empty_pb, field_mask_pb, struct_pb)))
+REGISTRY: Final[Registry] = Registry(
+    *(module.desc() for module in (any_pb, duration_pb, empty_pb, error_details_pb, field_mask_pb, struct_pb))
+)
 _ZSTD: Final[Compression] = ZstdCompression()
 _GZIP: Final[Compression] = GzipCompression()
 POLICY: Final[dict[Profile, tuple[int, tuple[Compression, ...]]]] = {
@@ -139,8 +143,10 @@ def encoded(request: Message) -> Result[bytes, Encode]:
 
 
 def refused(code: Code, detail: Message, window: Duration | None) -> ConnectError:
-    recovery = Oneof("retry_after", window) if window is not None else Oneof("terminal", Empty())
-    return ConnectError(code, f"{recovery.field}", details=[Any.pack(detail), Any.pack(FieldMask(paths=["<field>"]))])
+    advice = None if window is None else RetryInfo(retry_delay=window)  # the ONE construction site for the window
+    recovery = Oneof("terminal", Empty()) if advice is None else Oneof("retry_after", advice)
+    standard = (Any.pack(FieldMask(paths=["<field>"])),) if advice is None else (Any.pack(advice),)  # the arm ITSELF
+    return ConnectError(code, f"{recovery.field}", details=[Any.pack(detail), *standard])
 
 
 def stated[D: Message](raised: Exception, into: type[D]) -> D | None:
@@ -152,10 +158,10 @@ def stated[D: Message](raised: Exception, into: type[D]) -> D | None:
 
 
 def redrive(raised: Exception, grade: Callable[[Code], bool | float]) -> bool | float:
-    match raised, stated(raised, Duration):
-        case (ConnectError(), Duration() as window):
+    match raised, stated(raised, RetryInfo):
+        case (ConnectError(), RetryInfo(retry_delay=Duration() as window)):
             return window.to_seconds()
-        case (ConnectError(code=code), None):
+        case (ConnectError(code=code), _):  # no advice detail, or one stating no delay, grades on the code alone
             return grade(code)
         case _:
             return False

@@ -48,6 +48,8 @@
 |  [11]   | `ReasonCodes`                                              | static            | MQTT v5 reason-code vocabulary             |
 
 - `IClientOptions` seats both override hooks: `customHandleAcks` and `authPacket` ride the connect options record, while `handleMessage` and `handleAuth` are the client members they drive.
+- `IClientOptions` also seats the CONNECT credential (`username`, `password`), the session pair (`clean`, `properties.sessionExpiryInterval`), the inbound flow-control window (`properties.receiveMaximum`), and the re-dial posture (`reconnectPeriod`, `reconnectOnConnackError`, `connectTimeout`, `resubscribe`).
+- `customHandleAcks` is honored at `protocolVersion: 5` alone; every lower version replaces it with an immediate acknowledgement.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -67,10 +69,15 @@
 
 [LOCAL_ADMISSION]:
 - Acquire with `connectAsync` and release with `endAsync`; set `protocolVersion: 5` where the carrier dialect is required.
+- Gate inbound acknowledgement on the handler through `handleMessage`: the package emits `message` and then calls that member, whose callback releases the PUBACK at QoS 1 and the PUBCOMP at QoS 2. Event listeners alone read frames the broker already counts acknowledged, which is the named at-most-once defect wearing a QoS number.
+- Pair a withheld acknowledgement with `clean: false` and a `sessionExpiryInterval`: a refused message re-offers on SESSION RESUME and never inside the live connection, and a clean session discards it outright.
+- Declare `properties.receiveMaximum` — unset, the broker decides how many QoS>0 publications ride unacknowledged toward this client.
+- Bound the release: `end(false)` parks on `outgoingEmpty` with NO deadline, so an unresponsive broker holds a closing scope forever; run the graceful arm under a window and fall through to `end(true)`. Neither arm drains the offline queue holding QoS-0 publishes and control packets.
+- Every dial rebuilds the CONNECT packet from `client.options`, so that record is the credential rotation rail; `reconnect()` replaces both packet stores and discards queued QoS>0 state, so a rotation supervisor trades freshness for publish loss.
 - Keep every incoming/outgoing `Store` private to its client; QoS 1 and 2 delivery state never crosses clients.
 - Treat subscription grant `128` as refusal and map it through the typed fault rail.
 
 [RAIL_LAW]:
 - Owns: live client resources, MQTT verbs, packet and option frames, lifecycle events, acknowledgements, and per-client stores.
 - Accept: scoped acquisition, carrier-driven user properties, typed packet reads, scoped streams, and typed reason-code folding.
-- Reject: invalid root imports, global clients/listeners/stores, unscoped connections, raw carrier reads, and swallowed grant refusal.
+- Reject: invalid root imports, global clients/listeners/stores, unscoped connections, raw carrier reads, swallowed grant refusal, listener-only ingress on a QoS>0 subscription, and a deadline-free graceful release.

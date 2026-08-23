@@ -70,6 +70,8 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 |  [08]   | `parsers.KerchunkParquetParser(group, fs_root, skip_variables, reader_options)`          | kerchunk Parquet reference files |
 |  [09]   | `parsers.IcechunkParser(*, branch, tag, snapshot_id, group, skip_variables, batch_size)` | Icechunk snapshot read           |
 
+`HDFParser.reader_factory` defaults to `obspec_utils.readers.BlockStoreReader`; omit the keyword to select it because an explicit `None` replaces the callable and fails at first read.
+
 [PUBLIC_TYPE_SCOPE]: registry, executors, codecs
 
 `ObjectStoreRegistry` (from `obspec_utils.registry`) is the canonical scheme→store map; `parallel` ships concrete executors for `open_virtual_mfdataset`, and `codecs` bridges zarr-v2 and zarr-v3 codec configs — the boundary that lets a v2 source manifest write a v3 store.
@@ -128,7 +130,7 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 [STACKING]:
 - `icechunk`(`.api/icechunk.md`): `ds.vz.to_icechunk(IcechunkStore, *, mode)` writes the virtual chunk references into an icechunk session store, and `parsers.IcechunkParser` reads a branch/tag/snapshot back into a `ManifestStore`.
 - `zarr`(`.api/zarr.md`): `ManifestStore` is a zarr-v3 `Store` and `ManifestArray.metadata` a zarr `ArrayV3Metadata`, so a `codecs`-bridged virtual store composes into every zarr array consumer.
-- `obspec-utils`(`.api/obspec-utils.md`): one `ObjectStoreRegistry` resolves each URL scheme to an `obstore` backend, and every `Parser` reads bytes through that registry via the obspec `BlockStoreReader`.
+- `obspec-utils`(`.api/obspec-utils.md`): one `ObjectStoreRegistry` resolves each object URL against a registered store-root prefix, preserving a non-empty relative object key for the default `BlockStoreReader`.
 - `xarray`(`libs/python/.api/xarray.md`): `to_virtual_dataset`/`to_virtual_datatree` lift a `ManifestStore` into an `xarray.Dataset`/`DataTree` whose virtual variables carry `ManifestArray` data, joining the lazy xarray rail.
 - within-lib: `open_virtual_mfdataset` composes a `Parser`, one shared `ObjectStoreRegistry`, and `get_executor`-selected parallelism into a combined virtual `Dataset` the `vz` accessor then exports; sharing one registry across opens reuses credentials and connection pools.
 

@@ -2,12 +2,9 @@
     "stryker-config": {
         "test-runner": "mtp",
         "solution": "Workspace.slnx",
+        "mutate": ["**/libs/csharp/**/*.cs", "**/tools/**/*.cs", "!**/obj/**", "!**/bin/**", "!**/vendor/**", "!**/Rasm.Contracts/Generated/**"],
         "concurrency": 4,
-        "output": ".artifacts/csharp/stryker",
-        "baseline": {
-            "enabled": true,
-            "provider": "Disk"
-        },
+        "additional-timeout": 5000,
         "thresholds": {
             "high": 90,
             "low": 85,

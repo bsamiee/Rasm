@@ -68,9 +68,8 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 
 [STACKING]:
 - `../crds/gateway` (crd2pulumi): `v1.Gateway` and `v1.HTTPRoute` are the branch's compile-checked spelling of this CRD estate, regenerated against the pinned channel rather than pinned as an npm dependency.
-- `kube/traffic#EDGE_FAMILY`: `_EDGES.gateway` carries the class name, the controller namespace, and the `split` column marking weighted backendRefs as this group's capability and the legacy `Ingress` row's gap.
-- `kube/traffic#EDGE_REALIZE`: authors the `Gateway` HTTPS listener over a `kubernetes.io/tls` sink and the `HTTPRoute` binding hostname to backend, including the incumbent/candidate weight pair a staged generation writes.
-- `operate/converge#PUBLICATION`: selects the candidate share this group's `weight` member carries; the edge writes the number and the rollout strategy owns it.
+- `kube/traffic#EDGE_FAMILY`: `_EDGES.gateway` carries the class name and controller namespace beside the legacy `Ingress` row.
+- `kube/traffic#EDGE_REALIZE`: authors the `Gateway` HTTPS listener over a `kubernetes.io/tls` sink and the `HTTPRoute` binding hostname to one backend.
 - `operate/policy#POLICY_ROWS`: `gateway-tls-required` walks `Gateway` CRs by `kind` and an `apiVersion` prefixed `gateway.networking.k8s.io`, judging listener sets for an `HTTPS` member with non-empty `certificateRefs` — the CR's own props are the carrier's stable discriminant.
 - `external-dns` (`.api/external-dns.md`): `gateway-httproute` reads `HTTPRoute` hostnames as its record set, which is why that source stands alone with no Ingress or Service source armed.
 

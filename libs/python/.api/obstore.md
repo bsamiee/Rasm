@@ -89,6 +89,7 @@ Every operation is both a module-level free function taking `store` first and a 
 - retry law: `RetryConfig` and `BackoffConfig` travel into store construction; the store layer governs transient storage faults, and `stamina` wraps only the operation boundary.
 - zero-copy law: `Bytes` implements the buffer protocol; callers materialize Python `bytes` only where an owning boundary requires ownership.
 - conditional law: `GetOptions` carries `if_match`, `if_none_match`, time preconditions, ranges, versions, and head policy; `PutMode` carries create/overwrite/update-version compare-and-swap.
+- path upload law: `put`/`put_async` accept a local `Path` and select bounded multipart upload by size. `create` disables that multipart path, so a pre-hashed content-addressed artifact uses atomic overwrite; identical digest-addressed retries are equivalent, and the caller owns aborted-multipart cleanup policy.
 - range law: `get_range` and `get_ranges` accept explicit start/end/length or range-dict shapes, and `get_ranges` coalesces nearby ranges.
 - list law: `list(return_arrow=True)` emits Arrow `RecordBatch` chunks for direct Arrow/Polars ingestion.
 

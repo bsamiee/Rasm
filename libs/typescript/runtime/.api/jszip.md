@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_JSZIP]
 
-`jszip` assembles and reads a ZIP container as one mutable tree — a polymorphic `file` that adds, fetches, or pattern-matches an entry by argument shape, `folder` scoping, and a type-indexed `generateAsync<T>`/`loadAsync` serialization narrowing through `OutputByType`. `report` folds artifacts into one archive inside `Effect.sync`, crosses to the rail once via `Effect.tryPromise`, and streams a large bundle through `generateInternalStream` rather than buffering.
+`jszip` assembles and reads a ZIP container as one mutable tree — a polymorphic `file` that adds, fetches, or pattern-matches an entry by argument shape, `folder` scoping, and a type-indexed `generateAsync<T>`/`loadAsync` serialization narrowing through `OutputByType`. `report` folds artifacts into one archive inside `Effect.sync`, crosses to the rail once via `Effect.tryPromise`, and streams a large bundle through `generateNodeStream` rather than buffering.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -77,7 +77,7 @@
 - Progress is a receipt stream: `onUpdate(JSZipMetadata)` reports `{ percent, currentFile }`, folded into a `Ref`/`SubscriptionRef` or a `Metric.gauge` for live job progress.
 
 [STACKING]:
-- `effect` (`../../.api/effect.md`): `Effect.tryPromise` lifts `generateAsync`/`loadAsync`/`entry.async`; `Effect.sync` owns the tree fold; `Stream.async` bridges `JSZipStreamHelper` events to a backpressured `Stream`; `Effect.forEach(artifacts, { concurrency })` populates entries; `Metric.gauge` folds the `percent` receipt; `Effect.acquireRelease` scopes a temp workspace.
+- `effect` (`../../.api/effect.md`): `Effect.tryPromise` lifts `generateAsync`/`loadAsync`/`entry.async`; `Effect.sync` owns the tree fold; `Stream.fromAsyncIterable` PULLS `generateNodeStream`, so the deflate paces against the drain; `Effect.forEach(artifacts, { concurrency })` populates entries; `Metric.gauge` folds the `percent` receipt; `Effect.acquireRelease` scopes a temp workspace.
 - `@effect/platform` (`../../.api/effect-platform.md`): the `Uint8Array` archive lands via `FileSystem.writeFile(path, bytes)` or `FileSystem.sink`; wire egress is `HttpBody.uint8Array(bytes, "application/zip")` or `HttpBody.stream(byteStream)`; `Path.resolve`/`Path.join` validate `unsafeOriginalName` against the extraction root.
 - `@effect/platform-node` (`../../.api/effect-platform-node.md`): `NodeStream.fromReadable` lifts `generateNodeStream`/`entry.nodeStream` to a `Stream<Uint8Array>`; `NodeSink.fromWritable` writes the archive stream into a Node `Writable`.
 - `jspdf` (`./jspdf.md`) / `exceljs` (`./exceljs.md`) / `papaparse` (`./papaparse.md`): the artifact producers — `report` builds each document to `Uint8Array` under one output-format row, then folds them into one `jszip` tree keyed by filename; jszip is the container over the document owners, never a producer. `report` sends the `application/zip` `Uint8Array` down the shared `deliver` egress — `FileSystem.writeFile`, `HttpBody`, or a `nodemailer` (`./nodemailer.md`) attachment.
@@ -86,10 +86,12 @@
 [LOCAL_ADMISSION]:
 - One polymorphic `file` and `generateAsync<T>` parameterized by output type own add/get/match and serialization; a per-format serializer or `addFile`/`getFile` variant is rejected.
 - `Effect.tryPromise` bounds the `generateAsync`/`loadAsync` seam and `Effect.sync` the tree fold; the mutable tree never crosses the `Effect` boundary and domain code never `await`s a `JSZip` promise raw.
-- `generateNodeStream`/`generateInternalStream` carry an unbounded bundle; `Path.resolve` against a fixed root validates every `unsafeOriginalName` before extraction.
+- `generateNodeStream` carries an unbounded bundle under real backpressure; `Path.resolve` against a fixed root validates every `unsafeOriginalName` before extraction.
+- `Stream.async` over `JSZipStreamHelper` events backpressures NOTHING: the helper pushes on `resume` while that constructor's undeclared bound is `Queue.bounded(16)` whose enqueues run detached, so every chunk past sixteen parks a fiber holding it and the whole archive lands on the heap. Push bridges over the helper hold only where the fence reads each emit's accepted flag and drives `pause`/`resume` off it; `generateNodeStream` already owns that loop, so the pulled read is the form.
+- `loadAsync` stamps `unsafeOriginalName` on FILE rows alone — `if (!input.dir)` in the loader — so it is `undefined` on every directory row and a resolver handed it throws `ERR_INVALID_ARG_TYPE` before any guard runs. Traversal folds therefore drop `entry.dir` rows first and fall back to the loader-sanitized `name` where no raw name survives.
 
 [RAIL_LAW]:
 - Package: `jszip`
 - Owns: ZIP container assembly and reading — the polymorphic `file`/`folder`/`filter` tree, the type-indexed `generateAsync`/`generateNodeStream`/`generateInternalStream` egress, `loadAsync` with CRC integrity, per-entry lazy byte access, the `STORE`/`DEFLATE` policy, and the `JSZipMetadata` progress receipt
-- Accept: `Effect.tryPromise`-lifted generate/load, `Effect.sync` tree folds, `Stream.async`/`NodeStream.fromReadable` over the stream helpers, `uint8array` bytes to `FileSystem`/`HttpBody`/a `nodemailer` attachment, compression as a policy value, `unsafeOriginalName` validated against a resolved root
+- Accept: `Effect.tryPromise`-lifted generate/load, `Effect.sync` tree folds, `Stream.fromAsyncIterable`/`NodeStream.fromReadable` over `generateNodeStream`, `uint8array` bytes to `FileSystem`/`HttpBody`/a `nodemailer` attachment, compression as a policy value, `unsafeOriginalName` validated against a resolved root
 - Reject: `addFile`/`getFile` proliferation, a serializer method per output format, the mutable tree crossing the `Effect` boundary, whole-archive buffering for unbounded bundles, unvalidated extraction of a loaded entry path

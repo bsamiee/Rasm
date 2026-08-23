@@ -120,6 +120,7 @@
 [ENTRYPOINT_SCOPE]: `scipy.io` Matrix Market exchange
 - `mmread(source, *, spmatrix=False)` returns a `coo_array`; the bare default returns the legacy `coo_matrix` and is never taken.
 - `mmwrite(target, a, comment, field, precision, symmetry='AUTO')` — `symmetry` accepts `general`/`symmetric`/`skew-symmetric`/`hermitian`.
+- Compute pins `symmetry="general"`: the C# peer's pinned MathNet writer and reader expose operand values but no symmetry metadata.
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RESULT]                                         |
 | :-----: | :------------------------------------- | :------------- | :----------------------------------------------- |
@@ -254,6 +255,7 @@
 [STACKING]:
 - `scikit-fem`(`.api/scikit-fem.md`): FEM assembly emits a `scipy.sparse` matrix and its solver factories return `scipy.sparse.linalg` callables — `solver_iter_krylov(M=...)` consumes a `LinearOperator` preconditioner, and scipy owns the sparse direct/Krylov/eigen solve under the FEM dispatcher.
 - numeric-intent owner: `integrate.qmc_quad` folds a `scipy.stats.qmc` engine into its quadrature nodes; the shift-invert `OPinv` is a `LinearOperator` wrapping a `factorized([A - sigma·M])` closure; `signal.hilbert` composes `fft`/`ifft`; `expm_multiply` takes the action-only `exp(A)·B` path over a `LinearOperator`.
+- runtime lane: spatial and transform native teams enter through `LanePolicy.whole`; only `LaneGrant.width` reaches scipy's `workers` slots, so allocator totals never become package inputs and outer admissions never multiply full-width inner teams.
 
 [LOCAL_ADMISSION]:
 - import: submodule imports at boundary scope only.

@@ -15,18 +15,18 @@
 
 [PUBLIC_TYPE_SCOPE]: connection and channel roots
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [CAPABILITY]                                           |
-| :-----: | :---------------------------------------------- | :---------------- | :----------------------------------------------------- |
-|  [01]   | `IConnectionFactory`                            | factory contract  | builds connections, recovery policy                    |
-|  [02]   | `ConnectionFactory`                             | factory           | concrete factory + recovery defaults                   |
-|  [03]   | `IConnection`                                   | connection root   | channel creation, recovery events                      |
-|  [04]   | `IChannel`                                      | channel root      | publish/consume/ack/topology surface                   |
-|  [05]   | `CreateChannelOptions`                          | channel policy    | publisher-confirm + dispatch-concurrency policy        |
-|  [06]   | `AmqpTcpEndpoint`                               | endpoint          | host/port/TLS endpoint descriptor                      |
-|  [07]   | `IEndpointResolver`                             | endpoint resolver | multi-endpoint connection ordering                     |
-|  [08]   | `SslOption`                                     | TLS option        | server cert validation + client cert                   |
-|  [09]   | `ICredentialsProvider`                          | credential source | rotatable credential provider                          |
-|  [10]   | `.OutstandingPublisherConfirmationsRateLimiter` | confirm limiter   | default `ThrottlingRateLimiter(128, 50)` back-pressure |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------- | :---------------- | :------------------------------------------------- |
+|  [01]   | `IConnectionFactory`                            | factory contract  | builds connections, recovery policy                |
+|  [02]   | `ConnectionFactory`                             | factory           | concrete factory + recovery defaults               |
+|  [03]   | `IConnection`                                   | connection root   | channel creation, recovery events                  |
+|  [04]   | `IChannel`                                      | channel root      | publish/consume/ack/topology surface               |
+|  [05]   | `CreateChannelOptions`                          | channel policy    | publisher-confirm + dispatch-concurrency policy    |
+|  [06]   | `AmqpTcpEndpoint`                               | endpoint          | host/port/TLS endpoint descriptor                  |
+|  [07]   | `IEndpointResolver`                             | endpoint resolver | multi-endpoint connection ordering                 |
+|  [08]   | `SslOption`                                     | TLS option        | server cert validation + client cert               |
+|  [09]   | `ICredentialsProvider`                          | credential source | rotatable credential provider                      |
+|  [10]   | `.OutstandingPublisherConfirmationsRateLimiter` | confirm limiter   | `RateLimiter?`; NULL on every constructed instance |
 
 [PUBLIC_TYPE_SCOPE]: message, properties, and consumer family
 
@@ -59,7 +59,9 @@
 |  [06]   | `Exceptions.OperationInterruptedException`     | failure          | broker-initiated operation interrupt     |
 |  [07]   | `Exceptions.AlreadyClosedException`            | failure          | operation on a closed channel/connection |
 |  [08]   | `Exceptions.BrokerUnreachableException`        | failure          | all endpoints unreachable at connect     |
-|  [09]   | `IChannelExtensions` / `IConnectionExtensions` | extensions       | reduced-arity convenience overloads      |
+|  [09]   | `Exceptions.PublishException`                  | failure          | `IsReturn` splits return from nack       |
+|  [10]   | `Events.FlowControlEventArgs`                  | flow event       | channel-level broker flow control        |
+|  [11]   | `IChannelExtensions` / `IConnectionExtensions` | extensions       | reduced-arity convenience overloads      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -111,15 +113,22 @@
 |  [02]   | `IConnection.ConnectionRecoveryErrorAsync`                           | event wire | fires on a recovery attempt failure  |
 |  [03]   | `IConnection.ConnectionBlockedAsync`                                 | event wire | broker flow-control / resource alarm |
 |  [04]   | `IConnection.ConnectionShutdownAsync` / `CallbackExceptionAsync`     | event wire | shutdown / callback-fault hook       |
-|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`        | telemetry  | W3C trace-context via headers        |
-|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}` | telemetry  | `ActivitySource` names for OTel      |
+|  [05]   | `IChannel.BasicAcksAsync` / `BasicNacksAsync` / `BasicReturnAsync`   | event wire | confirm and return, channel-scoped   |
+|  [06]   | `IChannel.FlowControlAsync` / `ChannelShutdownAsync`                 | event wire | channel flow control / shutdown      |
+|  [07]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`        | telemetry  | W3C trace-context via headers        |
+|  [08]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}` | telemetry  | `ActivitySource` names for OTel      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Every connection, channel, publish, consume, and topology op returns `Task`/`ValueTask` and takes a `CancellationToken`; `BasicAckAsync`/`BasicNackAsync`/`BasicRejectAsync`/`GetNextPublishSequenceNumberAsync`/`BasicPublishAsync` return `ValueTask` on the hot path, topology and consume return `Task`.
 - `IChannel` multiplexes one AMQP session over a single TCP `IConnection` and is single-writer for publishes; concurrent publishes need separate channels or external serialization, and `consumerDispatchConcurrency` on `CreateChannelOptions` bounds parallel consumer-callback dispatch.
-- Publisher confirms are the durable-publish mechanism: `CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)` makes `BasicPublishAsync` await the broker ack and throw on nack, the `OutstandingPublisherConfirmationsRateLimiter` bounding in-flight unconfirmed publishes; AMQP `Tx*` is the alternative transaction mechanism, rejected on the durable egress path where confirms apply.
+- Publisher confirms carry durable publish: `CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true)` makes `BasicPublishAsync` await the broker ack and throw on nack. Confirm mode elects THERE alone — `ConfirmSelectAsync`, `WaitForConfirmsAsync`, and a `NextPublishSeqNo` property are absent, `GetNextPublishSequenceNumberAsync` being the only sequence read.
+- AMQP `Tx*` is the alternative transaction mechanism, rejected on the durable egress path where confirms apply.
+- TRAP: that exact two-argument call leaves in-flight publishes UNBOUNDED. `OutstandingPublisherConfirmationsRateLimiter` is a `public readonly` field whose initializer is `new ThrottlingRateLimiter(128, 50)`, but the public constructor's own parameter for it defaults to `null` and the constructor assigns it, so a caller-built instance carries `null` — which its own doc defines as rate limiting disabled. Only a PASSED third argument mints a limiter at all, and the members stay readonly FIELDS, so no post-construction assignment repairs it.
+- `CreateChannelOptions` publishes no static `Default`, and its `consumerDispatchConcurrency` parameter defaults to `1` while the field's own doc claims `null`; the parameter wins, so a channel never inherits `IConnectionFactory.ConsumerDispatchConcurrency` unless `null` is passed explicitly.
+- `mandatory` carries NO default on either `BasicPublishAsync` overload, so every call site states it; the two overloads differ only in `string` versus `CachedString` for exchange and routing key.
+- Confirm-tracking publish reports both broker refusals through one `PublishException`, whose `IsReturn` is the sole discriminant: `true` is a `basic.return` — an unroutable address no retry reaches — and `false` a `basic.nack` the broker may take on a later attempt, so a fold collapsing the pair either quarantines a re-drivable row or re-offers an address that cannot resolve. `PublishSequenceNumber` pairs the refusal with its publish, and both constructors reject a zero sequence number.
 - Automatic and topology recovery, both on by default, reconnect and replay declared exchanges, queues, bindings, and consumers after a connection drop; `RecoverySucceededAsync`/`ConnectionRecoveryErrorAsync` observe it.
 - `ReadOnlyMemory<byte>` carries the message body end to end across publish and `BasicDeliverEventArgs.Body`, no per-message `byte[]` allocation.
 
@@ -127,12 +136,12 @@
 - `CloudNative.CloudEvents` (`api-cloudevents`) frames the body and rides its attributes (`traceparent`, `redacted`, `sequence`) on `BasicProperties.Headers`, so a headers-exchange binding filters on attributes without parsing the body; `RabbitMQ.Client` owns only the publish and ack.
 - `RabbitMQActivitySource.ContextInjector`/`ContextExtractor` propagate W3C trace context through `BasicProperties.Headers` and the publisher/subscriber `ActivitySource`s register with the AppHost `telemetry` OpenTelemetry pipeline; the redacted op payload is framed by the redaction codec (`api-redaction`) before publish.
 - `IConnection.UpdateSecretAsync` rotates an OAuth2 token on the live connection and `ICredentialsProvider` is the periodic-refresh form; the runtime token authority (`OpenIddict.Client`) is the shared seam binding broker auth to the token provider.
-- `OutstandingPublisherConfirmationsRateLimiter` (a `System.Threading.RateLimiting.RateLimiter`) bounds in-flight publishes and transient connect/publish faults retry through the `Polly`/`stamina` engine rail; `ConnectionBlockedAsync` feeds the broker-resource-alarm back-pressure shed.
+- `OutstandingPublisherConfirmationsRateLimiter` (a `System.Threading.RateLimiting.RateLimiter`) bounds in-flight publishes only where the composing root PASSES one, since the constructor defaults it to `null`; transient connect/publish faults retry through the `Polly`/`stamina` engine rail, `ConnectionBlockedAsync` feeds the connection-scoped broker-resource-alarm shed, and `IChannel.FlowControlAsync` is its channel-scoped peer.
 - Dead-lettered messages and shovel/backup snapshots share the object-store residence (`api-objectstore`/`Minio`) with the other egress sinks through the `Store/blobstore` lane.
 
 [LOCAL_ADMISSION]:
-- `rabbitmq` binds one `IConnection` per broker and one `IChannel` per publishing path via `CreateChannelAsync` with confirm tracking enabled; the channel confirm policy is fixed at open, never per-publish.
-- At-least-once egress: `BasicPublishAsync` awaits the confirm and a nack triggers the retry rail; `mandatory: true` with a `BasicReturnEventArgs` handler routes an unroutable message to dead-letter rather than dropping it.
+- `rabbitmq` binds one `IConnection` per broker and one `IChannel` per publishing path via `CreateChannelAsync` with confirm tracking enabled AND an explicit rate limiter, because the constructor's own default leaves unconfirmed publishes unbounded; the channel confirm policy is fixed at open, never per-publish.
+- At-least-once egress: `BasicPublishAsync` awaits the confirm under `mandatory: true` and both broker refusals arrive as one `PublishException`, whose `IsReturn` splits the terminal unroutable address from the re-drivable nack; the `BasicReturnAsync` event carries the returned body for a leg that needs the payload beside that verdict.
 - `BasicQosAsync` prefetch and manual `BasicAckAsync`/`BasicNackAsync(requeue)` keep the ack from outrunning durable downstream apply; `autoAck` is rejected on the durable work-queue path.
 - Durable topology declares queues `durable: true` with `x-queue-type=quorum` and a dead-letter exchange in `arguments`, per-message TTL and priority riding `BasicProperties.Expiration`/`Priority`; the declaration is idempotent and replayed by topology recovery.
 - RabbitMQ owns routing-rich egress — topic and headers exchange, RPC `ReplyTo`, priority — and the partitioned append-log changefeed stays on Kafka (`api-kafka`); the two are distinct binding roster rows, never collapsed.
@@ -140,5 +149,5 @@
 [RAIL_LAW]:
 - Package: `RabbitMQ.Client`
 - Owns: AMQP 0-9-1 routing-rich egress — connection and channel lifecycle, exchange/queue/binding topology, publisher-confirm publish, ack-based consume, and built-in trace-context propagation
-- Accept: the async `IConnection`/`IChannel` surface, `CreateChannelOptions` publisher confirms with the rate limiter, generic `BasicPublishAsync<T>`, manual `BasicQosAsync` with `BasicAckAsync`/`BasicNackAsync`, and `RabbitMQActivitySource` propagation
-- Reject: a hand-rolled AMQP framing or confirm-tracking loop, AMQP `Tx*` on the durable path where confirms apply, `autoAck` on the durable work queue, and a hand-rolled trace-context or retry implementation where the client owns it
+- Accept: the async `IConnection`/`IChannel` surface, `CreateChannelOptions` publisher confirms with an explicitly passed rate limiter, generic `BasicPublishAsync<T>` under a stated `mandatory`, `PublishException.IsReturn` as the refusal discriminant, manual `BasicQosAsync` with `BasicAckAsync`/`BasicNackAsync`, and `RabbitMQActivitySource` propagation
+- Reject: a hand-rolled AMQP framing or confirm-tracking loop, AMQP `Tx*` on the durable path where confirms apply, `autoAck` on the durable work queue, a confirm channel opened without its rate limiter, a return folded onto a nack, and a hand-rolled trace-context or retry implementation where the client owns it

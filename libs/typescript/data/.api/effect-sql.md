@@ -59,7 +59,7 @@
 |  [05]   | `Model.VariantsDatabase` / `Model.VariantsJson` | variant axis    | DB-variant trio vs JSON-variant trio (members in lead)           |
 
 [PUBLIC_TYPE_SCOPE]: the `Model` variant-schema field families
-- `Model.Class` derives one struct into six wire variants, a field's per-variant presence its type; `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build, narrow, and rename a variant field set, and `Override` forces a value into a generated variant. Journal events, snapshot headers, projection rows, and ledger rows compose from the field families below, never a hand-written per-entity trio.
+- `Model.Class` derives one struct into six wire variants, a field's per-variant presence its type; `Field`/`FieldOnly`/`FieldExcept`/`fieldEvolve`/`fieldFromKey` build, narrow, and rename a variant field set, and `Override` forces a value into a generated variant. Journal, projection, and ledger rows compose from the field families below, never a hand-written per-entity trio.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                              |
 | :-----: | :------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |

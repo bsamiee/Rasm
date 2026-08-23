@@ -308,6 +308,7 @@ Five reason-code enums share one MQTT v5 code space, so a lane column marks memb
 - Every folder composes the wire through `MqttClientFactory.CreateMqttClient`, never a direct `MqttClient` construction, and takes the bound client from its own composition root so no case constructs one.
 - Inbound payloads arrive as `ReadOnlySequence<byte>` on `MqttApplicationMessage.Payload`; decode at the boundary, never re-buffer per handler.
 - QoS, retain, last-will, and session-expiry are policy columns on the composing row, never new transports or cases.
+- Settlement posture and the receiving lane's overflow policy are ONE bargain a composing row states together: a row settling on admission over a dropping lane refuses `ExactlyOnce` at its own mint, since a discarded delivery the broker already released never redelivers.
 - MQTT reason codes map to typed receipts at the edge; `MqttProtocolViolationException` and `InvalidOperationException` never cross an outbound boundary.
 
 [RAIL_LAW]:

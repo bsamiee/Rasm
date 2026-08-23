@@ -90,16 +90,17 @@
 
 [PUBLIC_TYPE_SCOPE]: editions, feature sets, custom options, and comparers
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                                        |
-| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------------------ |
-|  [01]   | `Edition`                                       | enum          | `Proto2`/`Proto3`/`_2023`/`_2024`/`_2026` edition roster             |
-|  [02]   | `FeatureSet`                                    | message       | resolved per-descriptor features (`FieldPresence`, `EnumType`, `RepeatedFieldEncoding`, `Utf8Validation`, `MessageEncoding`, `JsonFormat`, `EnforceNamingStyle`, `DefaultSymbolVisibility`, `EnforceProtoLimits`) |
-|  [03]   | `FeatureSet.Types.ProtoLimitsFeature`           | message       | `EnforceProtoLimits` feature carrier                                 |
-|  [04]   | `CSharpFeatures`                                | message       | `NullableReferenceTypes` — the ONE C# emission feature              |
-|  [05]   | `SymbolVisibility`                              | enum          | descriptor export posture a declaration carries                      |
-|  [06]   | `CustomOptions`                                 | sealed class  | `TryGet<Kind>(int field, out value)` over unregistered option fields |
-|  [07]   | `ProtobufEqualityComparers`                     | static class  | bitwise `double`/`float` comparers generated `Equals` read           |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                         |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `Edition`                             | enum          | `Proto2`/`Proto3`/`_2023`/`_2024`/`_2026` edition roster             |
+|  [02]   | `FeatureSet`                          | message       | resolved per-descriptor feature set                                  |
+|  [03]   | `FeatureSet.Types.ProtoLimitsFeature` | message       | `EnforceProtoLimits` feature carrier                                 |
+|  [04]   | `CSharpFeatures`                      | message       | `NullableReferenceTypes` — the ONE C# emission feature               |
+|  [05]   | `SymbolVisibility`                    | enum          | descriptor export posture a declaration carries                      |
+|  [06]   | `CustomOptions`                       | sealed class  | `TryGet<Kind>(int field, out value)` over unregistered option fields |
+|  [07]   | `ProtobufEqualityComparers`           | static class  | bitwise `double`/`float` comparers generated `Equals` read           |
 
+- `FeatureSet`: `FieldPresence`, `EnumType`, `RepeatedFieldEncoding`, `Utf8Validation`, `MessageEncoding`, `JsonFormat`, `EnforceNamingStyle`, `DefaultSymbolVisibility`, `EnforceProtoLimits`.
 - `CustomOptions`: `TryGetBool`, `TryGetInt32`, `TryGetInt64`, `TryGetFixed32`, `TryGetFixed64`, `TryGetSFixed32`, `TryGetSFixed64`, `TryGetSInt32`, `TryGetSInt64`, `TryGetUInt32`, `TryGetUInt64`, `TryGetFloat`, `TryGetDouble`, `TryGetString`, `TryGetBytes`, `TryGetMessage<T>` — a descriptor's typed options come off `GetOptions()` and extension-declared ones off the generated extension handle; this class serves options no registry resolved.
 - `CSharpFeatures.NullableReferenceTypes`: the feature that turns `#nullable enable` on in the emission; it is set from an editions source only, so a csproj flip never reaches it.
 - `ProtobufEqualityComparers.GetEqualityComparer<T>()`: bitwise for `float`/`double` and their nullables (NaN equals NaN, `-0.0` differs from `+0.0`), default otherwise — the comparer generated `Equals` and `RepeatedField<T>.Equals` read.
@@ -152,20 +153,20 @@ Each wrapper message carries one presence-bearing field over its named CLR primi
 
 Every member binds `this IMessage`; merge forms mutate the receiver in place, and write forms emit into a stream, a pooled writer, or a pre-sized span.
 
-| [INDEX] | [SURFACE]                                    | [SHAPE] | [CAPABILITY]                        |
-| :-----: | :------------------------------------------- | :------ | :---------------------------------- |
-|  [01]   | `MergeFrom(byte[])`                          | static  | array merge                         |
-|  [02]   | `MergeFrom(byte[], int, int)`                | static  | array-slice merge                   |
-|  [03]   | `MergeFrom(ByteString)`                      | static  | immutable-bytes merge               |
-|  [04]   | `MergeFrom(Stream)`                          | static  | stream merge                        |
-|  [05]   | `MergeFrom(ReadOnlySpan<byte>)`              | static  | pooled merge, no stream             |
-|  [06]   | `MergeFrom(ReadOnlySequence<byte>)`          | static  | fragmented merge, no contiguity     |
-|  [07]   | `MergeDelimitedFrom(Stream)`                 | static  | length-prefixed merge               |
-|  [08]   | `ToByteArray() -> byte[]`                    | static  | managed byte copy                   |
-|  [09]   | `WriteTo(Stream)`                            | static  | stream write                        |
-|  [10]   | `WriteTo(IBufferWriter<byte>)`               | static  | pooled write, no intermediate array |
-|  [11]   | `WriteTo(Span<byte>)`                        | static  | write into a pre-sized span         |
-|  [12]   | `WriteDelimitedTo(Stream)`                   | static  | length-prefixed stream write        |
+| [INDEX] | [SURFACE]                           | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :---------------------------------- | :------ | :---------------------------------- |
+|  [01]   | `MergeFrom(byte[])`                 | static  | array merge                         |
+|  [02]   | `MergeFrom(byte[], int, int)`       | static  | array-slice merge                   |
+|  [03]   | `MergeFrom(ByteString)`             | static  | immutable-bytes merge               |
+|  [04]   | `MergeFrom(Stream)`                 | static  | stream merge                        |
+|  [05]   | `MergeFrom(ReadOnlySpan<byte>)`     | static  | pooled merge, no stream             |
+|  [06]   | `MergeFrom(ReadOnlySequence<byte>)` | static  | fragmented merge, no contiguity     |
+|  [07]   | `MergeDelimitedFrom(Stream)`        | static  | length-prefixed merge               |
+|  [08]   | `ToByteArray() -> byte[]`           | static  | managed byte copy                   |
+|  [09]   | `WriteTo(Stream)`                   | static  | stream write                        |
+|  [10]   | `WriteTo(IBufferWriter<byte>)`      | static  | pooled write, no intermediate array |
+|  [11]   | `WriteTo(Span<byte>)`               | static  | write into a pre-sized span         |
+|  [12]   | `WriteDelimitedTo(Stream)`          | static  | length-prefixed stream write        |
 
 - `MessageExtensions.WriteTo(Span<byte>)`: requires a destination sized exactly to `IMessage.CalculateSize()`; any other length throws.
 
@@ -227,18 +228,20 @@ Wire operations take a codec and a `ref` cursor; `UnsafeCollectionOperations` ha
 |  [04]   | `RepeatedField<T>.WriteTo(CodedOutputStream, FieldCodec<T>)`                   | instance | bulk stream encode          |
 |  [05]   | `RepeatedField<T>.CalculateSize(FieldCodec<T>) -> int`                         | instance | exact repeated-field size   |
 |  [06]   | `RepeatedField<T>.Capacity -> int`                                             | property | pre-size the backing array  |
-|  [07]   | `RepeatedField<T>.AddRange(IEnumerable<T>)`                                    | instance | bulk append                 |
-|  [08]   | `RepeatedField<T>.Clone() -> RepeatedField<T>`                                 | instance | structural deep copy        |
-|  [09]   | `RepeatedFieldExtensions.AddRange(ReadOnlySpan<T>)`                            | static   | span-sourced bulk append    |
-|  [10]   | `UnsafeCollectionOperations.AsSpan(RepeatedField<T>) -> Span<T>`               | static   | live backing-array window   |
-|  [11]   | `UnsafeCollectionOperations.SetCount(RepeatedField<T>, int)`                   | static   | resize without per-item add |
-|  [12]   | `MapField<TKey, TValue>.AddEntriesFrom(ref ParseContext, Codec)`               | instance | bulk decode into the map    |
-|  [13]   | `MapField<TKey, TValue>.WriteTo(ref WriteContext, Codec)`                      | instance | bulk encode from the map    |
-|  [14]   | `MapField<TKey, TValue>.CalculateSize(Codec) -> int`                           | instance | exact map-field size        |
-|  [15]   | `MapField<TKey, TValue>.MergeFrom(IDictionary<TKey, TValue>)`                  | instance | dictionary merge            |
-|  [16]   | `MapField<TKey, TValue>.Clone() -> MapField<TKey, TValue>`                     | instance | structural deep copy        |
-|  [17]   | `new MapField<TKey, TValue>.Codec(FieldCodec<TKey>, FieldCodec<TValue>, uint)` | ctor     | key, value, and map tag     |
+|  [07]   | `RepeatedField<T>.Add(IEnumerable<T>)`                                         | instance | collection-initializer fill |
+|  [08]   | `RepeatedField<T>.AddRange(IEnumerable<T>)`                                    | instance | bulk append                 |
+|  [09]   | `RepeatedField<T>.Clone() -> RepeatedField<T>`                                 | instance | structural deep copy        |
+|  [10]   | `RepeatedFieldExtensions.AddRange(ReadOnlySpan<T>)`                            | static   | span-sourced bulk append    |
+|  [11]   | `UnsafeCollectionOperations.AsSpan(RepeatedField<T>) -> Span<T>`               | static   | live backing-array window   |
+|  [12]   | `UnsafeCollectionOperations.SetCount(RepeatedField<T>, int)`                   | static   | resize without per-item add |
+|  [13]   | `MapField<TKey, TValue>.AddEntriesFrom(ref ParseContext, Codec)`               | instance | bulk decode into the map    |
+|  [14]   | `MapField<TKey, TValue>.WriteTo(ref WriteContext, Codec)`                      | instance | bulk encode from the map    |
+|  [15]   | `MapField<TKey, TValue>.CalculateSize(Codec) -> int`                           | instance | exact map-field size        |
+|  [16]   | `MapField<TKey, TValue>.MergeFrom(IDictionary<TKey, TValue>)`                  | instance | dictionary merge            |
+|  [17]   | `MapField<TKey, TValue>.Clone() -> MapField<TKey, TValue>`                     | instance | structural deep copy        |
+|  [18]   | `new MapField<TKey, TValue>.Codec(FieldCodec<TKey>, FieldCodec<TValue>, uint)` | ctor     | key, value, and map tag     |
 
+- `RepeatedField<T>.Add(IEnumerable<T>)` is the overload a C# collection initializer binds, so `Field = { sequence }` on a get-only repeated member fills it; `AddRange` reads the same sequence through an explicit call.
 - `UnsafeCollectionOperations.AsSpan`: writes through to the field's storage, and a `null` element written into a message-typed span corrupts the later encode; `SetCount` grows with default-initialized slots.
 
 [ENTRYPOINT_SCOPE]: extension handles and registry admission

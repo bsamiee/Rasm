@@ -39,7 +39,7 @@ One shape owns every family: `new X(name, XArgs, opts?: pulumi.ComponentResource
 |  [02]   | `ec2.DefaultVpc` | adopt the account default VPC + its subnets          |
 
 [COMPUTE_SCOPE]: `awsx.ecs` — ECS services
-- `FargateService`/`EC2Service(args)` compose service + inline `taskDefinitionArgs` + log group + IAM in one resource; args `cluster, desiredCount, networkConfiguration, loadBalancers, taskDefinitionArgs, deploymentCircuitBreaker, assignPublicIp`.
+- `FargateService`/`EC2Service(args)` compose service + inline `taskDefinitionArgs` + log group + IAM in one resource; args `cluster, desiredCount, networkConfiguration, loadBalancers, taskDefinitionArgs, deploymentCircuitBreaker, assignPublicIp`. A multi-container task uses `containers`, `dependsOn`, `mountPoints`, and `volumes`; `SUCCESS` gates the app on a finite materializer.
 - `FargateTaskDefinition`/`EC2TaskDefinition(container | containers)` → image + log group + exec role, the standalone task-def compositions.
 
 | [INDEX] | [SYMBOL]                                              | [ROLE]                                      |

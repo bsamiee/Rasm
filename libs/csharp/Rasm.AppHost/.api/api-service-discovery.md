@@ -51,6 +51,14 @@
 |  [07]   | `AddPassThroughServiceEndpointProvider()`         | static  | no-resolution pass-through provider       |
 |  [08]   | `IHttpClientBuilder.AddServiceDiscovery()`        | static  | resolving handler plus gRPC filter        |
 
+[PUBLIC_MEMBER_SCOPE]: `ServiceEndpointQuery`
+
+| [INDEX] | [MEMBER]          | [TYPE]                  | [CAPABILITY]                                 |
+| :-----: | :---------------- | :---------------------- | :------------------------------------------- |
+|  [01]   | `IncludedSchemes` | `IReadOnlyList<string>` | ordered scheme preference split from the URI |
+|  [02]   | `ServiceName`     | `string`                | the resolved host, endpoint prefix stripped  |
+|  [03]   | `EndpointName`    | `string?`               | the `_name.` host prefix, absent when unused |
+
 [ENTRYPOINT_SCOPE]: resolution and selection operations
 
 | [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                       |
@@ -73,7 +81,9 @@
 - Resolving a service name that yields no endpoints throws `InvalidOperationException`; the round-robin selector faults identically on an empty endpoint set.
 - Round-robin is the sole shipped selector — `internal`, registered as the default, advancing by `Interlocked.Increment` modulo endpoint count; no random selector ships.
 - Refresh rides `ServiceEndpointSource.ChangeToken`; consumers observe membership change through the token, never by polling endpoint values.
-- `ServiceDiscoveryOptions.AllowAllSchemes` defaults `true`, `RefreshPeriod` defaults to 60 seconds absent an active change callback, and `AllowedSchemes` gates schemes once `AllowAllSchemes` is `false`.
+- `ServiceDiscoveryOptions.AllowAllSchemes` defaults `true`, `RefreshPeriod` defaults to 60 seconds absent an active change callback, and `AllowedSchemes` gates schemes once `AllowAllSchemes` is `false`; `ApplyAllowedSchemes` intersects a requested list against that set and answers the whole allowed list when the request is empty.
+- Query scheme is an ORDERED PREFERENCE, not one value: `ServiceEndpointQuery.TryParse` splits `Uri.Scheme` on `'+'`, so `https+http://name` resolves https endpoints ahead of http ones and a single-scheme authority forecloses that fallback.
+- Query host carries an optional endpoint name: a leading `_` before the first `.` splits `EndpointName` from `ServiceName`, so `_grpc.mesh` names one endpoint of the `mesh` service; a schemeless input parses under a synthetic scheme and yields an EMPTY `IncludedSchemes`.
 - `ConfigurationServiceEndpointProvider` binds the `"Services"` configuration section by default; `PassThroughServiceEndpointProvider` returns an already-addressable `EndPoint` unresolved.
 - `IHttpClientBuilder.AddServiceDiscovery` installs a resolving delegating handler and a filter that disables built-in gRPC load balancing for resolved clients.
 
@@ -87,6 +97,7 @@
 - Instance selection stays inside the resolver's round-robin selector, never reimplemented at a call site.
 - Providers register explicitly — `AddConfigurationServiceEndpointProvider` for `IConfiguration`-backed cluster rows, `AddPassThroughServiceEndpointProvider` for already-addressable endpoints.
 - Scheme filtering is package policy through `ServiceDiscoveryOptions.AllowedSchemes`, never a call-site URI check.
+- Dialled authorities carry their scheme preference as composition DATA — `Wire/coordination`'s `DialScheme` rows spell the ordered list this query parses — so no projection hard-codes a scheme for an endpoint family that states none.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.ServiceDiscovery`

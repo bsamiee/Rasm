@@ -8,24 +8,8 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-[*.{ts,tsx,js,jsx,mts,cts}]
-indent_style = space
-indent_size = 4
-max_line_length = 150
-
-[*.py]
-indent_style = space
-indent_size = 4
-max_line_length = 150
-
-[*.{yml,yaml}]
-indent_style = space
-indent_size = 4
-max_line_length = 150
-
-[*.swift]
-indent_style = space
-indent_size = 4
+# Indentation is the [*] root's; these routes add only the shared width ceiling.
+[*.{ts,tsx,js,jsx,mts,cts,py,yml,yaml,swift}]
 max_line_length = 150
 
 [*.cs]
@@ -346,8 +330,7 @@ MA0032.allowOverloadsWithOptionalParameters = false                           # 
 dotnet_code_quality_unused_parameters = all                                   # Enforce unused-parameter analysis for all member visibilities.
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------
-# Roslyn IDE rules without dedicated style preference keys. Most ship at silent
-# severity by default and are invisible to `dotnet format --severity warn`.
+# Roslyn IDE rules without dedicated style preference keys. Most ship at silent severity by default and are invisible to `dotnet format --severity warn`.
 # Each entry promotes a mechanical, behavior-preserving cleanup to error.
 dotnet_diagnostic.IDE0001.severity = error                                    # Simplify type names (drop unneeded namespace qualifiers).
 dotnet_diagnostic.IDE0002.severity = error                                    # Simplify member access (drop unneeded type qualifiers).

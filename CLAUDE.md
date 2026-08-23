@@ -63,8 +63,8 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [03]   | `fd`       | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored.          |
 |  [04]   | `rg`       | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding. |
 |  [05]   | `ast-grep` | Never `sg`. Wrong pattern and clean tree both read zero — control-probe it; `--kind` inventories; `--json=compact` glued.   |
-|  [06]   | `assay`    | Run at repo root under `uv run --no-sync`; bare `static` plans zero — pass `--folder\|--project\|--all`.                    |
-|  [07]   | `buf`      | Exploration only — `ls-files`/`stats`; `assay contracts` owns every gate; exit 100 = violations; `--path` never a module.   |
+|  [06]   | `assay`    | Runs `uv run --no-sync python -m tools.assay` at repo root; bare `static` plans zero — pass `--folder\|--project\|--all`.   |
+|  [07]   | `buf`      | Runs `pnpm exec buf`: `ls-files`/`stats` alone; `assay contracts` gates; exit 100 = violations; `--path` never a module.    |
 |  [08]   | `fmt`      | Defaults to `--write` — pass `--check` first; markdown and C# hold no lane and skip silently.                               |
 |  [09]   | `gha`      | `check` folds actionlint+zizmor+ratchet, `run` passes to `act`; `act -l -W <dir>` exits 0 on zero workflows.                |
 |  [10]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
@@ -74,9 +74,9 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 
 | [INDEX] | [LANE]       | [CHECK_INVOCATION]                                                                                                       |
 | :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `csharp`     | `assay static --project <csproj>` · `dotnet build Workspace.slnx --no-restore` — serial; assay's parallel fan self-locks |
-|  [02]   | `python`     | `assay static --folder <dir>` — ruff, ty, mypy, lint-imports; ty binds, mypy advises, and both lie from a foreign cwd    |
-|  [03]   | `typescript` | `assay static --folder <dir>` — `biome ci` and `tsc --noEmit`; `biome lint` skips the formatter and greens falsely       |
+|  [01]   | `csharp`     | `assay static --project <csproj>` — `.slnx` refuses here; a second run contending one lease exits BUSY (5)               |
+|  [02]   | `python`     | `assay static --folder <dir>` — `--folder` narrows ruff alone; ty, mypy, lint-imports sweep their own config scope       |
+|  [03]   | `typescript` | `assay static --folder <dir>` — `--folder` narrows `biome` alone; `tsc` reads the root config and sweeps the estate      |
 |  [04]   | `markdown`   | `assay docs check <paths>` · `.claude/skills/docgen/scripts/prose_gate.py fix --write` — the sole markdown formatter     |
 |  [05]   | `sql`        | `uv run sqlfluff lint <paths>` · `uv run squawk` — a bare `.` lints vendored fixtures inside `.venv`, honoring no ignore |
 |  [06]   | `shell`      | `shellcheck <files>` · `shfmt -d <files>` — pathless `shfmt` blocks on stdin until the deadline kills it                 |

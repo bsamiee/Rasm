@@ -37,11 +37,12 @@
 *.verified.* text eol=lf
 *.verified.txt text eol=lf working-tree-encoding=UTF-8
 
-# Generated bindings — one emission per branch, proved fresh by the contracts gate; a hand edit is a freshness failure
-libs/typescript/contracts/gen/** linguist-generated=true
-libs/python/contracts/src/** linguist-generated=true
-libs/csharp/Rasm.Contracts/Generated/** linguist-generated=true
-libs/csharp/Rasm.Contracts/Generated/** -diff
+# Generated out roots — one emission per branch, proved fresh by the contracts gate; a hand edit is a freshness failure.
+# Each root holds generated files alone, so the hand-authored package surface above it (py.typed, __init__.py, manifests) stays outside the sweep.
+libs/typescript/contracts/gen/** linguist-generated=true -diff
+libs/python/contracts/src/rasm/contracts/gen/** linguist-generated=true -diff
+libs/python/contracts/src/rasm/contracts/vendor/** linguist-generated=true -diff
+libs/csharp/Rasm.Contracts/Generated/** linguist-generated=true -diff
 *.bin binary
 
 # Icons

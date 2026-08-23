@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_HEALTHCHECKS_KAFKA]
 
-`AspNetCore.HealthChecks.Kafka` (Xabaril) is one concrete `IHealthCheck` proving Kafka broker write-readiness by producing a probe message to a topic through an admitted `Confluent.Kafka` `IProducer<string, string>`. Its producer binds the same `ProducerConfig` the CloudEvents-over-Kafka topics rail composes, so it enters the AppHost capability-health fold as one `remote`-tagged probe row, never a second transport.
+`AspNetCore.HealthChecks.Kafka` (Xabaril) proves Kafka broker write-readiness with one `IHealthCheck` producing a probe record through an admitted `Confluent.Kafka` `IProducer<string, string>`. AppHost carries the probe alone and no Kafka client — `Confluent.Kafka` is a `Rasm.Persistence` row — so it enters the capability-health fold as one `remote`-tagged row over the `ProducerConfig` the composition root built for that branch's egress binding.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - assembly: `HealthChecks.Kafka`
 - namespace: `HealthChecks.Kafka`, `Microsoft.Extensions.DependencyInjection`
 - target: `net8.0` (also `netstandard2.0`); the `net10.0` consumer binds the `net8.0` asset, `RefSafetyRules(11)` nullable-annotated
-- depends: `Microsoft.Extensions.Diagnostics.HealthChecks` (`IHealthCheck`, `HealthCheckResult`, `HealthCheckRegistration`), `Confluent.Kafka` (`ProducerConfig`, `ProducerBuilder<,>`, `IProducer<,>`, `Message<,>`)
+- depends: `Microsoft.Extensions.Diagnostics.HealthChecks` (`IHealthCheck`, `HealthCheckResult`, `HealthCheckRegistration`) admitted in this folder; `Confluent.Kafka` (`ProducerConfig`, `ProducerBuilder<,>`, `IProducer<,>`, `Message<,>`) arrives transitively, so the folder holds no direct `Confluent.Kafka` reference
 - asset: runtime library
 - rail: health
 
@@ -60,16 +60,16 @@ Every `AddKafka` overload extends `IHealthChecksBuilder` and closes with `string
 - registration policy: overloads [01] and [02] register `KafkaHealthCheck` as a singleton and add `HealthCheckRegistration(name ?? "kafka", sp => sp.GetRequiredService<KafkaHealthCheck>(), failureStatus, tags, timeout)`; `failureStatus` null defaults to `HealthStatus.Unhealthy`, and `tags`/`timeout` flow into the registration.
 
 [STACKING]:
-- `Confluent.Kafka`: `ProducerConfig` is the admitted broker config the `Wire/topics`/`Wire/outbox` CloudEvents-over-Kafka rail composes, so `Configure` installs the same `SetValueSerializer` the production producer binds and the probe exercises the real serializer path.
-- `Observability/health.md`: `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Kafka, kafkaCheck), cadence)` adapts `CheckHealthAsync` into one deploy-gated `remote`-tagged contributor row that `HealthSurface.Register` admits and `HealthReport.Snapshot` projects, and a faulted broker drives that owner's `ReducedRemote` degradation.
+- `Confluent.Kafka`: `Rasm.Persistence` `Version/egress#EGRESS_SINK` owns the CloudEvents-over-Kafka binding, its csproj carrying `Confluent.Kafka` and `CloudNative.CloudEvents.Kafka`; the composition root hands this probe that binding's own `ProducerConfig`, so `Configure` installs the same serializer the production producer binds and the probe exercises the real path. `Wire/topics` fans in-process and `Wire/outbox` relays over an `OutboundHop`; neither holds a Kafka client, so neither is this probe's config source.
+- `Observability/health#HEALTH_FOLD`: `HealthContributorRow.Of(new ProbeSource.Driver(DriverProbe.Kafka, kafkaCheck), cadence)` adapts `CheckHealthAsync` into one deploy-gated `remote`-tagged contributor row that `HealthSurface.Register` admits and `HealthReport.Snapshot` projects, and a faulted broker drives that owner's `ReducedRemote` degradation. `DriverProbe.Kafka` is seed data tracking the landed Persistence sink roster, so a deployment composing no Kafka binding registers no row here.
 
 [LOCAL_ADMISSION]:
-- `ProducerConfig` carries the same broker/SASL/SSL configuration the CloudEvents-over-Kafka topics rail builds its `IProducer` from; the probe re-binds the admitted config rather than minting a second connection vocabulary, so a broker outage degrades the publish path and the probe in lockstep.
+- `ProducerConfig` arrives from the composition root as the value the Persistence egress binding built its own `IProducer` from; the probe re-binds that config rather than minting a second connection vocabulary, so a broker outage degrades the publish path and the probe in lockstep, and a root binding no Kafka sink supplies this probe nothing and registers no row.
 - Non-`Persisted` deliveries and connect/auth exceptions project as a typed `HealthCheckResult` carrying `FailureStatus`, folded into a `HealthSnapshot.Entry` rather than thrown across the fold.
-- Health writes target a dedicated `healthchecks` topic, never the production CloudEvents topics, so they never pollute the durable event log the outbox replays.
+- Health writes target a dedicated `healthchecks` topic, never the production CloudEvents topics, so they never pollute the committed op-log the Persistence egress pump drains.
 
 [RAIL_LAW]:
 - Package: `AspNetCore.HealthChecks.Kafka`
 - Owns: Kafka broker write-readiness as one `remote`-tagged contributor probe
-- Accept: a shared `ProducerConfig`, a dedicated probe topic, and a bounded probe cadence
+- Accept: the composition root's own `ProducerConfig`, a dedicated probe topic, and a bounded probe cadence
 - Reject: a parallel Kafka connection vocabulary, probing the production CloudEvents topics, or a thrown probe failure crossing the health fold

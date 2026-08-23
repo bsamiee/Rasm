@@ -152,18 +152,23 @@
 | [INDEX] | [SURFACE]                                                | [SHAPE]    | [CAPABILITY]                                            |
 | :-----: | :------------------------------------------------------- | :--------- | :------------------------------------------------------ |
 |  [01]   | `fromQueue` / `fromPubSub` / `async`                     | source     | `serve/live` feeds, `core/interchange/frame` reassembly |
-|  [02]   | `asyncScoped` / `asyncPush`                              | source     | scoped `addEventListener`; backpressured push           |
+|  [02]   | `asyncScoped` / `asyncPush`                              | source     | scoped listener bridge; the bound is a STATED option    |
 |  [03]   | `fromReadableStream` / `fromReadableStreamByob`          | source     | `browser/fetch` streams, `data/object` BYOB ingress     |
-|  [04]   | `mapEffect(f, { concurrency })` / `mapConcatEffect`      | transform  | bounded per-element effects, effectful expansion        |
-|  [05]   | `grouped` / `groupedWithin` / `throttle`                 | transform  | batch windows, rate shaping on one carrier              |
-|  [06]   | `aggregateWithin(sink, schedule)`                        | transform  | aggregate into `Sink.foldWeighted` across two fibers    |
-|  [07]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan        | fan-out, keyed split, latest-value join                 |
-|  [08]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain      | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
-|  [09]   | `toReadableStream` / `toReadableStreamEffect`            | drain      | feed web-stream consumers (`data/object` puts)          |
-|  [10]   | `toAsyncIterable` / `toAsyncIterableEffect`              | drain      | drain under `for await`; the `Effect` form carries `R`  |
-|  [11]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience | resumable feeds; `haltWhen(deferred)` ends stream       |
-|  [12]   | `timeout(d)` / `timeoutFail(() => error, d)`             | resilience | end a stalled feed, or fail it on the typed channel     |
+|  [04]   | `fromAsyncIterable(iterable, onError)`                   | source     | a node `Readable` PULLS — its high-water mark applies   |
+|  [05]   | `unwrap` / `unwrapScoped`                                | source     | acquire the source in a scope, then hand back the feed  |
+|  [06]   | `mapEffect(f, { concurrency })` / `mapConcatEffect`      | transform  | bounded per-element effects, effectful expansion        |
+|  [07]   | `grouped` / `groupedWithin` / `throttle`                 | transform  | batch windows, rate shaping on one carrier              |
+|  [08]   | `aggregateWithin(sink, schedule)`                        | transform  | aggregate into `Sink.foldWeighted` across two fibers    |
+|  [09]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan        | fan-out, keyed split, latest-value join                 |
+|  [10]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain      | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
+|  [11]   | `toReadableStream` / `toReadableStreamEffect`            | drain      | feed web-stream consumers (`data/object` puts)          |
+|  [12]   | `toAsyncIterable` / `toAsyncIterableEffect`              | drain      | drain under `for await`; the `Effect` form carries `R`  |
+|  [13]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience | resumable feeds; `haltWhen(deferred)` ends stream       |
+|  [14]   | `timeout(d)` / `timeoutFail(() => error, d)`             | resilience | end a stalled feed, or fail it on the typed channel     |
+|  [15]   | `interruptWhen(effect)` / `interruptWhenDeferred`        | resilience | a forked driver's FAILURE reaches the stream it feeds   |
 
+- `Stream.async`, `asyncEffect`, and `asyncScoped` fall to `Queue.bounded(16)` when a caller states no bound, and each `emit` runs its offer as a DETACHED promise — so a synchronous producer never blocks on a full queue and every chunk past sixteen parks a fiber still holding it. Push bridges therefore backpressure nothing by default: they buffer unboundedly in parked fibers under a number that reads like a ceiling. `asyncPush` inverts the failure — no options means an UNBOUNDED mailbox, options without a strategy means `dropping` — and its `EmitOpsPush` members answer a `boolean` a producer must read to pause. Sources already shaped as an `AsyncIterable`, a node `Readable` among them, belong on `fromAsyncIterable`, which pulls one chunk per demand and lets that source's own backpressure hold.
+- `Stream.interruptWhen(effect)` forks the effect and emits its FAILURE onto the stream, discarding its success — so a driver fiber feeding a sink reports its refusal to the consumer, while `zipRight(join, Effect.never)` on the success arm keeps a still-flushing pipe from being cut at the driver's finish.
 - `Stream.fromPubSub`: without `{ scoped: true }` it subscribes on first pull and unsubscribes when the consumer's scope closes.
 - `Stream.aggregateWithin(sink, schedule)` splits the pipeline into two fibers and feeds the SCHEDULE an `Option<B>` of what the sink emitted per window, so the pull delay reacts to the aggregate itself; `None` marks a window the sink closed empty.
 - `Stream.toAsyncIterable` fixes `R` at `never`, so a requirement-carrying stream reaches `for await` only through `toAsyncIterableEffect`, which yields the iterable as `Effect<AsyncIterable<A>, never, R>`, or `toAsyncIterableRuntime(runtime)`, which discharges `R` against a `Runtime<XR>` the caller already holds.

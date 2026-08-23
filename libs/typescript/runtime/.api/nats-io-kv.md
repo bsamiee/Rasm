@@ -37,7 +37,7 @@
 |  [02]   | `kv.create(k, data, markerTTL?)`                             | claim write    | create-if-absent claim/lock mint                       |
 |  [03]   | `kv.update(k, data, version, timeout?)`                      | CAS write      | the OCC arm; stale `version` rejects, default write    |
 |  [04]   | `kv.put(k, data, opts?)`                                     | plain write    | last-writer-wins only where the row genuinely rules it |
-|  [05]   | `kv.get(k, opts?: { revision })`                             | point read     | → `Promise<KvEntry \| null>`; `revision` time-travel   |
+|  [05]   | `kv.get(k, opts?: { revision })`                             | point read     | → `Promise<KvEntry \| null>`; same-key generation pin  |
 |  [06]   | `kv.delete(k, opts?)` / `kv.purge(k, opts?)`                 | remove         | tombstone-with-history vs erased history               |
 |  [07]   | `kv.watch(opts?)` / `kv.history(opts?)` / `kv.keys(filter?)` | replay + tail  | change tail, revision replay, key census; iterators    |
 |  [08]   | `kv.status()` / `kv.destroy()`                               | admin          | bucket introspection and teardown                      |
@@ -50,6 +50,7 @@
 - `effect` (`.api/effect.md`): promise members convert through `Effect.tryPromise`; `watch`/`history`/`keys` lift through `Stream.fromAsyncIterable` under a scoped bracket; a CAS rejection folds to a typed conflict fault retried by a `Schedule` policy, never a bare loop.
 
 [LOCAL_ADMISSION]:
+- `revision` is a BUCKET-WIDE stream sequence, not a per-key counter: `get(k, { revision })` fetches the message at that sequence and returns `null` when its key differs from `k`. Revisions read off one key therefore pin nothing on another, so a fencing protocol built on a pinned read answers absence on every call; seniority carries the token INTO the write instead.
 - Writes are CAS-first: `update` with the read revision is default; a bare `put` admits only where the key row rules last-writer-wins.
 - `create` mints claims — create-if-absent is the lock/leader primitive; polling `get` for absence is rejected.
 - `watch` is replay-plus-tail, never a work queue — queue semantics ride the durable-consumer fanout lane.
@@ -59,4 +60,4 @@
 - Package: `@nats-io/kv`
 - Owns: bucket administration, revision-CAS writes, versioned point reads with revision time-travel, watch/history replay, key census, tombstone-versus-purge removal
 - Accept: Layer-build bucket ensure, `update`-first writes with typed CAS conflict folds, `create` as the claim mint, iterators lifted through `Stream.fromAsyncIterable` under scoped brackets
-- Reject: blind `put` where a revision was read, `watch` as a work queue, a second dial beside the engine connection, the bucket as system of record, ack calls against ordered watch iterators
+- Reject: blind `put` where a revision was read, `watch` as a work queue, a second dial beside the engine connection, the bucket as system of record, ack calls against ordered watch iterators, a revision pinned across keys

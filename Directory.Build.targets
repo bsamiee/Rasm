@@ -1,4 +1,19 @@
 <Project>
+    <!-- UseWorkspaceLibraries is project-body-settable, so props-time derivation freezes UsesThinktecture against the pre-body default and hands a non-consumer the JetBrains.Annotations identity. Every reader is an item-pass condition, which evaluates after this file. -->
+    <PropertyGroup Label="Workspace Library Policy">
+        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true' or '$(IsWireContractsProject)' == 'true' or '$(IsCspContractsProject)' == 'true')">false</UseWorkspaceLibraries>
+        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
+        <!-- Thinktecture consumers bind to one shared public JetBrains.Annotations identity. -->
+        <UsesThinktecture Condition="'$(UsesThinktecture)' == '' and '$(IsLocalCSharpAnalyzerProject)' != 'true' and ('$(UseWorkspaceLibraries)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true')">true</UsesThinktecture>
+        <NeedsSystemDrawingCompilePackage Condition="'$(NeedsSystemDrawingCompilePackage)' == '' and ('$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">true</NeedsSystemDrawingCompilePackage>
+    </PropertyGroup>
+
+    <!-- Reads UsesThinktecture, so it follows that derivation; the generator consumes the value through a CompilerVisibleProperty the editorconfig target resolves at execution. -->
+    <PropertyGroup Label="Thinktecture Identity Generators" Condition="'$(UsesThinktecture)' == 'true'">
+        <!-- One public JetBrains.Annotations identity avoids Thinktecture-generated internal polyfill collisions. -->
+        <ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations>false</ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations>
+    </PropertyGroup>
+
     <!-- Yak properties derive from the project-body YakPackageSlug; props-time evaluation sees an empty slug, so the block lives here. -->
     <PropertyGroup Label="Plugin And Yak Packaging">
         <YakPath Condition="'$(YakPath)' == '' and '$(RHINO_YAK_PATH)' != ''">$(RHINO_YAK_PATH)</YakPath>
@@ -11,11 +26,21 @@
         <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
     </PropertyGroup>
 
-    <!-- AssayTestShell derives from the project body, invisible at props time; reclassification lands here so spec-free shells build as empty libraries and solution-scope dotnet test never discovers them. -->
-    <PropertyGroup Label="Shell Classification" Condition="'$(AssayTestShell)' == 'true'">
-        <IsTestProject>false</IsTestProject>
-        <OutputType>Library</OutputType>
-        <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <!-- AssayTestShell is body-set, so the test verdict settles here and nothing upstream may pre-answer it: spec-free shells stay libraries solution-scope dotnet test never discovers. -->
+    <!-- TargetFrameworks is body-set, so a props-time default silently wins the cross-target election and drops every framework but its own. -->
+    <PropertyGroup Label="Framework Default">
+        <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Test Classification">
+        <IsTestProject Condition="'$(IsTestProject)' == '' and '$(AssayTestShell)' == 'true'">false</IsTestProject>
+        <IsTestProject Condition="'$(IsTestProject)' == '' and '$(IsTestLaneProject)' == 'true'">true</IsTestProject>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Test Runtime Config" Condition="'$(IsTestProject)' == 'true'">
+        <OutputType>Exe</OutputType>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <_XunitRunnerJsonContent>{"$schema":"https://xunit.net/schema/v3.1/xunit.runner.schema.json","parallelAlgorithm":"conservative","preEnumerateTheories":true,"longRunningTestSeconds":30,"printMaxEnumerableLength":64,"printMaxObjectDepth":4}</_XunitRunnerJsonContent>
     </PropertyGroup>
 
     <!-- MPXJ.Net rides ikvm-maven: JARs resolve from Maven Central and IKVM-compile inside the consumer build. The import task hosts a JVM that dies in the Roslyn LSP's shared MSBuild task host and poisons unrelated project loads; design-time builds empty the Maven chains, real builds keep the full pipeline. -->

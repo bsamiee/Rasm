@@ -45,54 +45,54 @@
 
 Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`, every `links` parameter to `IEnumerable<ActivityLink>?`, and `start` to `DateTimeOffset`.
 
-| [INDEX] | [SURFACE]                                                                                 | [SHAPE]  | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------------------------------------------- | :------- | :------------------------------- |
-|  [01]   | `ActivitySource(string, string?, tags)`                                                   | ctor     | version-stamped scope mint       |
-|  [02]   | `ActivitySource(ActivitySourceOptions)`                                                   | ctor     | mint carrying a schema url       |
-|  [03]   | `ActivitySource.HasListeners() -> bool`                                                   | instance | pre-payload gate before the open |
-|  [04]   | `ActivitySource.StartActivity(string, ActivityKind) -> Activity?`                         | instance | open under the ambient parent    |
-|  [05]   | `ActivitySource.StartActivity(string, ActivityKind, ActivityContext, tags, links, start)` | instance | explicit parent, links, backdate |
-|  [06]   | `ActivitySource.CreateActivity(string, ActivityKind) -> Activity?`                        | instance | build unstarted for later arming |
-|  [07]   | `ActivitySource.AddActivityListener(ActivityListener)`                                    | static   | process-wide subscription        |
-|  [08]   | `ActivitySource.Dispose()`                                                                | instance | drop from the global source list |
-|  [09]   | `Activity.Start() -> Activity`                                                            | instance | arm a built span                 |
-|  [10]   | `Activity.Stop()`                                                                         | instance | stop with listener notification  |
-|  [11]   | `Activity.Dispose()`                                                                      | instance | `using`-bracket stop             |
-|  [12]   | `Activity.SetStartTime(DateTime) -> Activity`                                             | instance | backdate an armed span           |
-|  [13]   | `Activity.SetEndTime(DateTime) -> Activity`                                               | instance | close on a captured instant      |
-|  [14]   | `Activity.IsAllDataRequested -> bool`                                                     | property | listener verdict gating tag cost |
-|  [15]   | `Activity.SetStatus(ActivityStatusCode, string?) -> Activity`                             | instance | terminal verdict; yields itself  |
-|  [16]   | `Activity.SetTag(string, object?) -> Activity`                                            | instance | set-or-replace one dimension     |
-|  [17]   | `Activity.AddTag(string, object?) -> Activity`                                            | instance | append with no replace scan      |
-|  [18]   | `Activity.GetTagItem(string) -> object?`                                                  | instance | one tag read                     |
-|  [19]   | `Activity.AddEvent(ActivityEvent) -> Activity`                                            | instance | timestamped point append         |
-|  [20]   | `Activity.AddLink(ActivityLink) -> Activity`                                              | instance | causal edge append after start   |
-|  [21]   | `Activity.AddException(Exception, in TagList, DateTimeOffset) -> Activity`                | instance | exception event via the recorder |
-|  [22]   | `Activity.SetCustomProperty(string, object?)`                                             | instance | process-local, never exported    |
-|  [23]   | `Activity.GetCustomProperty(string) -> object?`                                           | instance | process-local payload read       |
-|  [24]   | `Activity.EnumerateTagObjects() -> Activity.Enumerator<KeyValuePair<string, object?>>`    | instance | allocation-free tag walk         |
-|  [25]   | `Activity.EnumerateEvents() -> Activity.Enumerator<ActivityEvent>`                        | instance | allocation-free event walk       |
-|  [26]   | `Activity.EnumerateLinks() -> Activity.Enumerator<ActivityLink>`                          | instance | allocation-free link walk        |
-|  [27]   | `Activity.DisplayName -> string`                                                          | property | name distinct from operation id  |
-|  [28]   | `Activity.Duration -> TimeSpan`                                                           | property | elapsed span, valid after stop   |
-|  [29]   | `Activity.Current -> Activity?`                                                           | property | ambient span across async flow   |
-|  [30]   | `Activity.CurrentChanged`                                                                 | static   | ambient-span change event        |
-|  [31]   | `Activity.AddBaggage(string, string?) -> Activity`                                        | instance | promote a key down the chain     |
-|  [32]   | `Activity.SetBaggage(string, string?) -> Activity`                                        | instance | set-or-replace one baggage key   |
-|  [33]   | `Activity.GetBaggageItem(string) -> string?`                                              | instance | baggage read across parents      |
-|  [34]   | `Activity.Context -> ActivityContext`                                                     | property | outbound propagation payload     |
-|  [35]   | `Activity.Id -> string?`                                                                  | property | W3C `traceparent` value          |
-|  [36]   | `Activity.TraceStateString -> string?`                                                    | property | W3C `tracestate` passthrough     |
-|  [37]   | `Activity.SetParentId(ActivityTraceId, ActivitySpanId, ActivityTraceFlags) -> Activity`   | instance | manual parent outside a mint     |
-|  [38]   | `ActivityContext.TryParse(string?, string?, bool, out ActivityContext) -> bool`           | static   | `traceparent` admission          |
-|  [39]   | `ActivityTraceId.CreateRandom() -> ActivityTraceId`                                       | static   | fresh trace identity             |
-|  [40]   | `ActivitySpanId.CreateRandom() -> ActivitySpanId`                                         | static   | fresh span identity              |
-|  [41]   | `ActivityLink(ActivityContext, ActivityTagsCollection?)`                                  | ctor     | edge mint over a parsed context  |
-|  [42]   | `ActivityLink.Context -> ActivityContext`                                                 | property | linked context read off the edge |
-|  [43]   | `ActivityLink.Tags -> IEnumerable<KeyValuePair<string, object?>>?`                        | property | edge tag set, null when unset    |
-|  [44]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                             | ctor     | stack tag buffer for a write     |
-|  [45]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat          |
-|  [46]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C `traceparent` carrier codec  |
+| [INDEX] | [SURFACE]                                                                                 | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :---------------------------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `ActivitySource(string, string?, tags)`                                                   | ctor     | version-stamped scope mint        |
+|  [02]   | `ActivitySource(ActivitySourceOptions)`                                                   | ctor     | mint carrying a schema url        |
+|  [03]   | `ActivitySource.HasListeners() -> bool`                                                   | instance | pre-payload gate before the open  |
+|  [04]   | `ActivitySource.StartActivity(string, ActivityKind) -> Activity?`                         | instance | open under the ambient parent     |
+|  [05]   | `ActivitySource.StartActivity(string, ActivityKind, ActivityContext, tags, links, start)` | instance | explicit parent, links, backdate  |
+|  [06]   | `ActivitySource.CreateActivity(string, ActivityKind) -> Activity?`                        | instance | build unstarted for later arming  |
+|  [07]   | `ActivitySource.AddActivityListener(ActivityListener)`                                    | static   | process-wide subscription         |
+|  [08]   | `ActivitySource.Dispose()`                                                                | instance | drop from the global source list  |
+|  [09]   | `Activity.Start() -> Activity`                                                            | instance | arm a built span                  |
+|  [10]   | `Activity.Stop()`                                                                         | instance | stop with listener notification   |
+|  [11]   | `Activity.Dispose()`                                                                      | instance | `using`-bracket stop              |
+|  [12]   | `Activity.SetStartTime(DateTime) -> Activity`                                             | instance | backdate an armed span            |
+|  [13]   | `Activity.SetEndTime(DateTime) -> Activity`                                               | instance | close on a captured instant       |
+|  [14]   | `Activity.IsAllDataRequested -> bool`                                                     | property | listener verdict gating tag cost  |
+|  [15]   | `Activity.SetStatus(ActivityStatusCode, string?) -> Activity`                             | instance | terminal verdict; yields itself   |
+|  [16]   | `Activity.SetTag(string, object?) -> Activity`                                            | instance | set-or-replace one dimension      |
+|  [17]   | `Activity.AddTag(string, object?) -> Activity`                                            | instance | append with no replace scan       |
+|  [18]   | `Activity.GetTagItem(string) -> object?`                                                  | instance | one tag read                      |
+|  [19]   | `Activity.AddEvent(ActivityEvent) -> Activity`                                            | instance | timestamped point append          |
+|  [20]   | `Activity.AddLink(ActivityLink) -> Activity`                                              | instance | causal edge append after start    |
+|  [21]   | `Activity.AddException(Exception, in TagList, DateTimeOffset) -> Activity`                | instance | exception event via the recorder  |
+|  [22]   | `Activity.SetCustomProperty(string, object?)`                                             | instance | process-local, never exported     |
+|  [23]   | `Activity.GetCustomProperty(string) -> object?`                                           | instance | process-local payload read        |
+|  [24]   | `Activity.EnumerateTagObjects() -> Activity.Enumerator<KeyValuePair<string, object?>>`    | instance | allocation-free tag walk          |
+|  [25]   | `Activity.EnumerateEvents() -> Activity.Enumerator<ActivityEvent>`                        | instance | allocation-free event walk        |
+|  [26]   | `Activity.EnumerateLinks() -> Activity.Enumerator<ActivityLink>`                          | instance | allocation-free link walk         |
+|  [27]   | `Activity.DisplayName -> string`                                                          | property | name distinct from operation id   |
+|  [28]   | `Activity.Duration -> TimeSpan`                                                           | property | elapsed span, valid after stop    |
+|  [29]   | `Activity.Current -> Activity?`                                                           | property | ambient span across async flow    |
+|  [30]   | `Activity.CurrentChanged`                                                                 | static   | ambient-span change event         |
+|  [31]   | `Activity.AddBaggage(string, string?) -> Activity`                                        | instance | promote a key down the chain      |
+|  [32]   | `Activity.SetBaggage(string, string?) -> Activity`                                        | instance | set-or-replace one baggage key    |
+|  [33]   | `Activity.GetBaggageItem(string) -> string?`                                              | instance | baggage read across parents       |
+|  [34]   | `Activity.Context -> ActivityContext`                                                     | property | outbound propagation payload      |
+|  [35]   | `Activity.Id -> string?`                                                                  | property | W3C `traceparent` value           |
+|  [36]   | `Activity.TraceStateString -> string?`                                                    | property | W3C `tracestate` passthrough      |
+|  [37]   | `Activity.SetParentId(ActivityTraceId, ActivitySpanId, ActivityTraceFlags) -> Activity`   | instance | manual parent outside a mint      |
+|  [38]   | `ActivityContext.TryParse(string?, string?, bool, out ActivityContext) -> bool`           | static   | `traceparent` admission           |
+|  [39]   | `ActivityTraceId.CreateRandom() -> ActivityTraceId`                                       | static   | fresh trace identity              |
+|  [40]   | `ActivitySpanId.CreateRandom() -> ActivitySpanId`                                         | static   | fresh span identity               |
+|  [41]   | `ActivityLink(ActivityContext, ActivityTagsCollection?)`                                  | ctor     | edge mint over a parsed context   |
+|  [42]   | `ActivityLink.Context -> ActivityContext`                                                 | property | linked context read off the edge  |
+|  [43]   | `ActivityLink.Tags -> IEnumerable<KeyValuePair<string, object?>>?`                        | property | edge tag set, null when unset     |
+|  [44]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                             | ctor     | stack tag buffer for a write      |
+|  [45]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat           |
+|  [46]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C trace-context + baggage codec |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -113,7 +113,7 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 - `OpenTelemetry`(`.api/api-opentelemetry.md`): `TracerProviderBuilder.AddSource(params string[])` admits these source names and seats the sampler and processor chain an emitting library never references.
 - `SpanBand`: freezes one `ActivitySource` per `KernelDomain` trace scope, and `Traced` folds `HasListeners`, the `using` open, and a `MapFail` observer that stamps status beside the generated `FaultId` tag pair then returns the SAME `Error` into one `Fin` bracket every measured kernel entry composes; its trailing `SpanEdge` carriage reaches the parent-bearing `StartActivity` overload on all three arguments at once, so kind, parent, and links resolve in one value and neither rail shape carries a knob the other lacks.
 - `SpanEdge`: closes the parent-bearing overload's carriage — `Kind` heads the span role, `Context` projects `Activity.Current` from an absent parent so a carriage-free bracket keeps byte-identical parenting and its sampling vote, and `Edges` passes null over an empty sequence so a link-free open pays no enumerator; `Under(carrier, kind)` adopts an ingress parent at `Consumer` and `FanIn(links, kind)` replays a batch's edges, the two shapes producer arity admits.
-- `TraceCarrier`: owns the kernel's one causal edge in both shapes — `Of(Activity?)` captures `Activity.Id`/`TraceStateString` where a producing span is live, `Parent` runs the ONE `ActivityContext.TryParse(…, isRemote: true, …)` on the capsule and projects `Option<ActivityContext>` for a single-producer ingress to adopt, and `Link(facts)` layers an `ActivityTagsCollection` onto that same parse for `Option<ActivityLink>`, so a malformed carrier roots a fresh trace or drops its own edge and never the batch's; `Rasm.AppHost/Wire/outbox#DISPATCH_SWEEP` persists it on `OutboxRow` at enqueue and folds one edge per relayed row into a producer-kind drain bracket, the estate's one hand-composed link set, while `Rasm.Compute/Runtime/ingest#BROKER_INGEST` hands the decoded carrier outward for the composing root to adopt as its ingress parent.
+- `TraceCarrier`: owns the kernel's one causal edge in both shapes — `Of(Activity?)` delegates `traceparent`, `tracestate`, and W3C `baggage` capture to `DistributedContextPropagator.CreateW3CPropagator()`, `Admit` delegates foreign-field parsing to the same codec and exposes baggage only as an admitted `TraceBaggage`, `Parent` runs the ONE `ActivityContext.TryParse(…, isRemote: true, …)` on the capsule, and `Link(facts)` layers an `ActivityTagsCollection` onto that parse, so a malformed carrier roots a fresh trace or drops its own edge and never the batch's; `Rasm.AppHost/Wire/outbox#DISPATCH_SWEEP` retains it on `RelayEntry` and folds one edge per relayed envelope into a producer-kind drain bracket, while `Rasm.Compute/Runtime/ingest#BROKER_INGEST` hands the decoded carrier outward for the composing root to adopt as its ingress parent.
 - `OpenTelemetry.Instrumentation.ConfluentKafka`(`.api/api-otel-instrumentation-confluentkafka.md`): the instrumented consumer owns the producer-to-consumer edge, so a Kafka consume fold composes no `TraceCarrier.Link` of its own — the shipped link is the one edge for that cause.
 - `Rasm.Element`: `ElementPoint.Plane` derives one `TraceScope` per point off the hook id's own `rasm.<pkg>.<domain>` head and the kernel rail's traced `Fire` brackets every decoration in the admitted band, so the package owns no source; `ElementFact.Marks` stamps identifier-grade content keys through `SetTag` on the open span, one slot per semantic because set-or-replace collapses two facts sharing a span.
 - `Rasm.Bim`: `BimPoint.Plane` derives the same way and `BimTelemetry.Traced` takes a NULLABLE band — a composition admitting no scope runs the identical rail untraced rather than minting a source its root never disposes — stamping `rasm.bim.model` from its own required argument beside any caller-supplied identifier-grade marks, all post-start, so no stamp reaches the sampling verdict and no Bim span exists unattributed; metric-plane tenancy rides the kernel `TenantContext` projection and span-plane tenancy the app root's baggage promotion, so no emitting page reads a baggage store.

@@ -193,6 +193,7 @@
 - `cloudpickle`(`.api/cloudpickle.md`): a message crossing the worker seam pickles as its `to_binary()` bytes through `__getstate__`, so a kernel argument or result that is a generated class costs one encode and one decode per crossing and never a deep copy of the slot store.
 - `protobuf`(`.api/protobuf.md`): the two runtimes meet on descriptor bytes alone — a `google.protobuf` `FileDescriptorSet.SerializeToString()` feeds `wkt.FileDescriptorSet.from_binary(...).to_registry()`, handing the foreign Substrait and ONNX schemas a `DescMessage` view on the estate wire rail.
 - within the branch, the generated `contracts` bindings are the sole producer of `Message` subclasses; a runtime-resolved schema builds its `Registry` from a `FileDescriptorSet` and reads fields through `DescMessage` and `message[desc_field]`, never through a hand-built class.
+- `cloudevents`(`.api/cloudevents.md`): protobuf structured mode packs the sealed generated-`Message` payload arm into the publisher `Any`, preserving `type_url`; its `ce_integer` oneof remains signed 32-bit even when the source descriptor scalar is wider.
 
 [LOCAL_ADMISSION]:
 - `protobuf-py` and `protoc-gen-py` pin as one pair in the manifest, and the `_pb.py` tree regenerates on every runtime bump.

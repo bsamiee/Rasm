@@ -349,7 +349,7 @@
 
 [LOCAL_ADMISSION]:
 - Every wire surface below the composition root declares its contract through a `JsonSerializerContext`; the reflection resolver enters only where an app root admits it explicitly through `MakeReadOnly(populateMissingResolver: true)`.
-- Every descriptor, argument record, and config record reaches export through `SuiteContracts.Schema`, the repo's one call site.
+- AppHost native capability schemas resolve from source-generated `JsonTypeInfo` through `AIJsonUtilities`; published MCP schemas remain verbatim.
 
 [RAIL_LAW]:
 - Package: `System.Text.Json`

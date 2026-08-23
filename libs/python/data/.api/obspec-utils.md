@@ -127,7 +127,7 @@ Each wrapper takes a `ReadableStore` as its first `store` argument.
 
 [TOPOLOGY]:
 - Three-package stack: `obspec` owns the structural protocols, `obstore` the Rust-backed concrete stores and the `MemoryStore` the cache/split wrappers reuse as a buffer, `obspec_utils` the registry, readers, wrappers, glob, and `AiohttpStore` on top — all keyed to the `obspec` protocols, so an `obstore` store, an `AiohttpStore`, and a wrapper stack are mutually substitutable.
-- Registry resolution keys on `(scheme, netloc)` then walks the path-segment tree for the longest registered prefix, stripping the store's own `prefix` (obstore) or parsed `url` path (`AiohttpStore`) so the returned `Path` is store-relative: register `s3://bucket`, resolve `s3://bucket/a/b` yields `(store, "a/b")`.
+- Registry resolution keys on `(scheme, netloc)` then walks the path-segment tree for the longest registered prefix, stripping the store's own `prefix` (obstore) or parsed `url` path (`AiohttpStore`) so the returned `Path` is store-relative: register `s3://bucket`, resolve `s3://bucket/a/b` yields `(store, "a/b")`; registering the full object URL returns an empty path and is invalid for file readers.
 - Reader selection is a decision axis: `EagerStoreReader` when the whole file is needed or random access dominates (RAM-bound), `BlockStoreReader` for sparse partial reads of a large file (memory-capped LRU), `BufferedStoreReader` for forward streaming with rare back-seeks.
 
 [STACKING]:

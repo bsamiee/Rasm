@@ -25,18 +25,18 @@
 
 [PUBLIC_TYPE_SCOPE]: server-call, stream-writer, and metadata contracts
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                        |
-| :-----: | :----------------------- | :------------ | :---------------------------------- |
-|  [01]   | `ServerCallContext`      | class         | per-call server state root          |
-|  [02]   | `IServerStreamWriter<T>` | interface     | server-streaming response writer    |
-|  [03]   | `IAsyncStreamWriter<T>`  | interface     | base async write contract           |
-|  [04]   | `WriteOptions`           | class         | per-write flag carrier              |
-|  [05]   | `WriteFlags`             | enum          | `[Flags]` write bits                |
-|  [06]   | `Metadata`               | class         | `IList<Metadata.Entry>` header list |
-|  [07]   | `Metadata.Entry`         | class         | one ASCII or binary header pair     |
-|  [08]   | `IAsyncStreamReader<T>`  | interface     | pull-side stream read contract      |
-|  [09]   | `IClientStreamWriter<T>` | interface     | client request-stream writer        |
-|  [10]   | `AsyncDuplexStreamingCall<TReq,TResp>` | class | bidi call: both streams, status, trailers |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------------- | :------------ | :---------------------------------------- |
+|  [01]   | `ServerCallContext`                    | class         | per-call server state root                |
+|  [02]   | `IServerStreamWriter<T>`               | interface     | server-streaming response writer          |
+|  [03]   | `IAsyncStreamWriter<T>`                | interface     | base async write contract                 |
+|  [04]   | `WriteOptions`                         | class         | per-write flag carrier                    |
+|  [05]   | `WriteFlags`                           | enum          | `[Flags]` write bits                      |
+|  [06]   | `Metadata`                             | class         | `IList<Metadata.Entry>` header list       |
+|  [07]   | `Metadata.Entry`                       | class         | one ASCII or binary header pair           |
+|  [08]   | `IAsyncStreamReader<T>`                | interface     | pull-side stream read contract            |
+|  [09]   | `IClientStreamWriter<T>`               | interface     | client request-stream writer              |
+|  [10]   | `AsyncDuplexStreamingCall<TReq,TResp>` | class         | bidi call: both streams, status, trailers |
 
 - `WriteFlags`: `BufferHint` (1) `NoCompress` (2)
 - Registers the fault and call-policy carriers(`.api/api-grpc-client.md`): `Status`, `StatusCode`, `RpcException`, and `CallOptions` ship in this assembly and carry their construction, roster, read-back, and `With*` threading at the client rail, which both server rails type against; the rows above are the carriers this catalogue adds beyond them.
@@ -60,51 +60,51 @@
 
 [ENTRYPOINT_SCOPE]: server-call context, stream writers, and metadata
 
-| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]               |
-| :-----: | :--------------------------------------------------------------------- | :------- | :------------------------- |
-|  [01]   | `ServerCallContext.Method -> string`                                   | property | RPC method name            |
-|  [02]   | `ServerCallContext.Host -> string`                                     | property | called host name           |
-|  [03]   | `ServerCallContext.Peer -> string`                                     | property | remote endpoint URI        |
-|  [04]   | `ServerCallContext.Deadline -> DateTime`                               | property | call deadline              |
-|  [05]   | `ServerCallContext.RequestHeaders -> Metadata`                         | property | inbound request headers    |
-|  [06]   | `ServerCallContext.ResponseTrailers -> Metadata`                       | property | outbound trailing headers  |
-|  [07]   | `ServerCallContext.Status -> Status`                                   | property | status sent at finish      |
-|  [08]   | `ServerCallContext.WriteOptions -> WriteOptions?`                      | property | next-write flags           |
-|  [09]   | `ServerCallContext.CancellationToken -> CancellationToken`             | property | call cancellation signal   |
-|  [10]   | `ServerCallContext.AuthContext -> AuthContext`                         | property | peer auth state            |
-|  [11]   | `ServerCallContext.UserState -> IDictionary<object, object>`           | property | interceptor state bag      |
-|  [12]   | `ServerCallContext.WriteResponseHeadersAsync(Metadata) -> Task`        | method   | flush leading headers      |
-|  [13]   | `ServerCallContext.CreatePropagationToken(ContextPropagationOptions?)` | method   | deadline-propagation token |
-|  [14]   | `IAsyncStreamWriter<T>.WriteAsync(T) -> Task`                          | method   | emit one message           |
-|  [15]   | `IAsyncStreamWriter<T>.WriteAsync(T, CancellationToken) -> Task`       | method   | cancellable emit           |
-|  [16]   | `IAsyncStreamWriter<T>.WriteOptions -> WriteOptions?`                  | property | per-write flags            |
-|  [17]   | `WriteOptions(WriteFlags)`                                             | ctor     | flag carrier               |
-|  [18]   | `WriteOptions.Default`                                                 | static   | shared no-flag default     |
-|  [19]   | `MoveNext<T>(IAsyncStreamReader<T>) -> Task<bool>`                     | static   | manual reader pump         |
-|  [20]   | `IAsyncStreamReader<T>.Current -> T`                                   | property | the message the last `MoveNext` read |
-|  [21]   | `IAsyncStreamReader<T>.MoveNext(CancellationToken) -> Task<bool>`      | method   | advance; false at end of stream |
-|  [22]   | `IClientStreamWriter<T>.CompleteAsync() -> Task`                       | method   | half-close the request stream |
-|  [23]   | `AsyncDuplexStreamingCall<TReq,TResp>.RequestStream`                   | property | the `IClientStreamWriter<TReq>` |
-|  [24]   | `AsyncDuplexStreamingCall<TReq,TResp>.ResponseStream`                  | property | the `IAsyncStreamReader<TResp>` |
-|  [25]   | `AsyncDuplexStreamingCall<TReq,TResp>.ResponseHeadersAsync`            | property | `Task<Metadata>` leading headers |
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `ServerCallContext.Method -> string`                                   | property | RPC method name                               |
+|  [02]   | `ServerCallContext.Host -> string`                                     | property | called host name                              |
+|  [03]   | `ServerCallContext.Peer -> string`                                     | property | remote endpoint URI                           |
+|  [04]   | `ServerCallContext.Deadline -> DateTime`                               | property | call deadline                                 |
+|  [05]   | `ServerCallContext.RequestHeaders -> Metadata`                         | property | inbound request headers                       |
+|  [06]   | `ServerCallContext.ResponseTrailers -> Metadata`                       | property | outbound trailing headers                     |
+|  [07]   | `ServerCallContext.Status -> Status`                                   | property | status sent at finish                         |
+|  [08]   | `ServerCallContext.WriteOptions -> WriteOptions?`                      | property | next-write flags                              |
+|  [09]   | `ServerCallContext.CancellationToken -> CancellationToken`             | property | call cancellation signal                      |
+|  [10]   | `ServerCallContext.AuthContext -> AuthContext`                         | property | peer auth state                               |
+|  [11]   | `ServerCallContext.UserState -> IDictionary<object, object>`           | property | interceptor state bag                         |
+|  [12]   | `ServerCallContext.WriteResponseHeadersAsync(Metadata) -> Task`        | method   | flush leading headers                         |
+|  [13]   | `ServerCallContext.CreatePropagationToken(ContextPropagationOptions?)` | method   | deadline-propagation token                    |
+|  [14]   | `IAsyncStreamWriter<T>.WriteAsync(T) -> Task`                          | method   | emit one message                              |
+|  [15]   | `IAsyncStreamWriter<T>.WriteAsync(T, CancellationToken) -> Task`       | method   | cancellable emit                              |
+|  [16]   | `IAsyncStreamWriter<T>.WriteOptions -> WriteOptions?`                  | property | per-write flags                               |
+|  [17]   | `WriteOptions(WriteFlags)`                                             | ctor     | flag carrier                                  |
+|  [18]   | `WriteOptions.Default`                                                 | static   | shared no-flag default                        |
+|  [19]   | `MoveNext<T>(IAsyncStreamReader<T>) -> Task<bool>`                     | static   | manual reader pump                            |
+|  [20]   | `IAsyncStreamReader<T>.Current -> T`                                   | property | the message the last `MoveNext` read          |
+|  [21]   | `IAsyncStreamReader<T>.MoveNext(CancellationToken) -> Task<bool>`      | method   | advance; false at end of stream               |
+|  [22]   | `IClientStreamWriter<T>.CompleteAsync() -> Task`                       | method   | half-close the request stream                 |
+|  [23]   | `AsyncDuplexStreamingCall<TReq,TResp>.RequestStream`                   | property | the `IClientStreamWriter<TReq>`               |
+|  [24]   | `AsyncDuplexStreamingCall<TReq,TResp>.ResponseStream`                  | property | the `IAsyncStreamReader<TResp>`               |
+|  [25]   | `AsyncDuplexStreamingCall<TReq,TResp>.ResponseHeadersAsync`            | property | `Task<Metadata>` leading headers              |
 |  [26]   | `AsyncDuplexStreamingCall<TReq,TResp>.GetStatus()` / `GetTrailers()`   | method   | terminal status and trailers after completion |
-|  [27]   | `AsyncDuplexStreamingCall<TReq,TResp>.Dispose()`                       | method   | cancel an undrained call |
-|  [28]   | `Metadata()`                                                           | ctor     | empty header list          |
-|  [29]   | `Metadata.Add(string, string)`                                         | method   | append ASCII header        |
-|  [30]   | `Metadata.Add(string, byte[])`                                         | method   | append binary header       |
-|  [31]   | `Metadata.Add(Metadata.Entry)`                                         | method   | append an entry            |
-|  [32]   | `Metadata.Get(string) -> Metadata.Entry?`                              | method   | first entry by key         |
-|  [33]   | `Metadata.GetValue(string) -> string?`                                 | method   | ASCII value by key         |
-|  [34]   | `Metadata.GetValueBytes(string) -> byte[]?`                            | method   | binary value by key        |
-|  [35]   | `Metadata.GetAll(string) -> IEnumerable<Metadata.Entry>`               | method   | all entries by key         |
-|  [36]   | `Metadata.BinaryHeaderSuffix`                                          | const    | `"-bin"` key marker        |
-|  [37]   | `Metadata.Empty`                                                       | static   | shared read-only empty     |
-|  [38]   | `Metadata.Entry(string, string)`                                       | ctor     | ASCII header pair          |
-|  [39]   | `Metadata.Entry(string, byte[])`                                       | ctor     | binary header pair         |
-|  [40]   | `Metadata.Entry.Key -> string`                                         | property | lowercased key             |
-|  [41]   | `Metadata.Entry.Value -> string`                                       | property | ASCII value                |
-|  [42]   | `Metadata.Entry.ValueBytes -> byte[]`                                  | property | raw value bytes            |
-|  [43]   | `Metadata.Entry.IsBinary -> bool`                                      | property | binary-entry flag          |
+|  [27]   | `AsyncDuplexStreamingCall<TReq,TResp>.Dispose()`                       | method   | cancel an undrained call                      |
+|  [28]   | `Metadata()`                                                           | ctor     | empty header list                             |
+|  [29]   | `Metadata.Add(string, string)`                                         | method   | append ASCII header                           |
+|  [30]   | `Metadata.Add(string, byte[])`                                         | method   | append binary header                          |
+|  [31]   | `Metadata.Add(Metadata.Entry)`                                         | method   | append an entry                               |
+|  [32]   | `Metadata.Get(string) -> Metadata.Entry?`                              | method   | first entry by key                            |
+|  [33]   | `Metadata.GetValue(string) -> string?`                                 | method   | ASCII value by key                            |
+|  [34]   | `Metadata.GetValueBytes(string) -> byte[]?`                            | method   | binary value by key                           |
+|  [35]   | `Metadata.GetAll(string) -> IEnumerable<Metadata.Entry>`               | method   | all entries by key                            |
+|  [36]   | `Metadata.BinaryHeaderSuffix`                                          | const    | `"-bin"` key marker                           |
+|  [37]   | `Metadata.Empty`                                                       | static   | shared read-only empty                        |
+|  [38]   | `Metadata.Entry(string, string)`                                       | ctor     | ASCII header pair                             |
+|  [39]   | `Metadata.Entry(string, byte[])`                                       | ctor     | binary header pair                            |
+|  [40]   | `Metadata.Entry.Key -> string`                                         | property | lowercased key                                |
+|  [41]   | `Metadata.Entry.Value -> string`                                       | property | ASCII value                                   |
+|  [42]   | `Metadata.Entry.ValueBytes -> byte[]`                                  | property | raw value bytes                               |
+|  [43]   | `Metadata.Entry.IsBinary -> bool`                                      | property | binary-entry flag                             |
 
 - `MoveNext<T>`: `Grpc.Core.AsyncStreamReaderExtensions` ships this pump here; the `ReadAllAsync<T>` drain over the same static class name is `Grpc.Net.Common`'s half.
 - `AsyncDuplexStreamingCall`: `GetStatus()`/`GetTrailers()` throw before the response stream completes; a bidi driver writes every request, calls `CompleteAsync()`, drains `ResponseStream.ReadAllAsync(token)`, then reads status — and `Dispose()` on an undrained call is the cancellation idiom.
@@ -126,8 +126,8 @@
 - `Grpc.AspNetCore.Server`(`.api/api-grpc-aspnetcore.md`): a hosted service method takes `ServerCallContext` and `IServerStreamWriter<T>` from this surface, and a registered interceptor reads `Metadata` off the same call.
 - `Grpc.Net.Common`(`Rasm.Compute/.api/api-grpc-common.md`): the compression-provider contracts and the `ConnectivityState` vocabulary are that catalogue's, and `IAsyncStreamReader<T>.ReadAllAsync` there is the client-side drain pairing with `IServerStreamWriter<T>.WriteAsync` here.
 - `Rasm.Contracts`(`Rasm.Contracts/.api/rasm-contracts.md`): the SOLE in-repo emitter — `grpc_csharp_plugin` under the buf generation axis emits `ControlService` and its siblings from the corpus `.proto` into that committed assembly, every consumer references it by project, and its build is the rail; every symbol the emission DERIVES FROM is on this one, so the generated shape is catalogable beside the roster that catalogue carries. Derive-from roster: `ClientBase<T>` and `ClientBase.ClientBaseConfiguration` (the client base and its `NewInstance` clone seam), `CallInvoker`, `ChannelBase`, `Method<TRequest,TResponse>` and `MethodType` (each verb's descriptor), `Marshallers.Create<T>` (the per-message codec pair), `ServerServiceDefinition` and `ServiceBinderBase` (the two `BindService` registration forms), `ServerCallContext` (the second parameter of every server override), `AsyncUnaryCall<T>`, `AsyncServerStreamingCall<T>`, and `IServerStreamWriter<T>` (the call-shape returns), `BindServiceMethodAttribute` (the generated container's registration marker), `CallOptions` and `Metadata` (the client overload pair), and `RpcException`/`Status`/`StatusCode` (the one peer-visible fault channel). Those members fix one shape, transcribed from the pre-generated `Grpc.HealthCheck` stubs the same plugin emitted: a unary server override is `public virtual Task<TReply> Verb(TRequest request, ServerCallContext context)`, a streaming one takes `IServerStreamWriter<TReply>` ahead of the context and returns bare `Task`; each client verb is a four-member quartet over the two blocking and two async overloads; `__ServiceName` is the proto package-qualified service name every descriptor keys on; `Descriptor` projects the reflection descriptor. Writers needing a generated spelling read this shape, never the member rail.
-- `Rasm.AppHost`: `ControlServiceImpl`/`DiagnosticServiceImpl` derive the generated `<Svc>.<Svc>Base`, read `ServerCallContext` per verb, and leave every failure through `FaultWire.Raise`.
-- `Rasm.Compute`: `IServerStreamWriter<T>.WriteAsync` on the server pairs with `IAsyncStreamReader<T>.ReadAllAsync` on the client so one streaming contract carries the same `IMessage<T>` payloads end to end, and `WriteOptions.BufferHint` coalesces server writes the client drains as one `IAsyncEnumerable<T>`; `Runtime/channels#ARTIFACT_FRAMES` `FrameEdge.Sync` drives `ArtifactSyncService.Sync` over `AsyncDuplexStreamingCall<ArtifactFrame, ArtifactFrame>` — `RequestStream.WriteAsync` per frame, `CompleteAsync()`, `ResponseStream.ReadAllAsync`.
+- `Rasm.AppHost`: `ControlServiceImpl` derives the generated `ControlService.ControlServiceBase`, reads `ServerCallContext` per surviving verb, and leaves every failure through `FaultWire.Raise`.
+- `Rasm.Compute`: generated `artifact.v1.ArtifactService.Fetch` takes `FetchRequest{sha256}`, pairs server `IServerStreamWriter<FetchResponse>.WriteAsync` with client `IAsyncStreamReader<FetchResponse>.ReadAllAsync`, and unwraps each required `frame`. `Put` pairs server `IAsyncStreamReader<PutRequest>` with client `AsyncClientStreamingCall<PutRequest, PutResponse>`, wrapping every shared frame and admitting the required response artifact. `WriteOptions.BufferHint` may coalesce server-stream writes; `CompleteAsync()` closes the Put request stream before its unary response is read.
 
 [LOCAL_ADMISSION]:
 - Contextual marshallers are the admitted codec form; the byte-array pair enters only where a payload has no pooled writer.

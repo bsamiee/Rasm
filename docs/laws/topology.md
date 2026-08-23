@@ -16,7 +16,7 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [06]   | `libs/csharp/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs         | strata law lands at both ends                |
 |  [07]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
 |  [08]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
-|  [09]   | `.config/dotnet-tools.json` tool row         | `tools/assay` decompile rails              | manifest tools are assay runtime deps        |
+|  [09]   | `.config/dotnet-tools.json` tool row         | the operator rail running that command     | a row no rail runs installs a dead dep       |
 |  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
 |  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
 |  [12]   | `FaultBand` row mint, split, or retire       | every fault union reading that row         | one registry proves disjointness for all     |
@@ -59,13 +59,15 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [49]   | admitted-package vocabulary a roster mirrors | every branch roster transcribing that enum | an importing peer widens, a mirror does not  |
 |  [50]   | reviewer-config path, scope, or include glob | one dot alternate per tree it intends      | minimatch dot:false crosses no dot segment   |
 |  [51]   | generated contract package public-root set   | each branch consumer census + buf filters  | selective output follows real consumption    |
+|  [52]   | `buf.gen.yaml` `types:` row or actor root    | each contract `.api` roster block          | the block derives; a hand edit is lost       |
+|  [53]   | `manifest.json` generated-actor anchor       | its cluster body spelling every token      | a fence naming none decodes nothing          |
 
 ## [02]-[CONDITIONED]
 
 Couplings fanning out or carrying a proof condition land as cards, each stating that condition as law, and every other coupling rides a table row.
 
 [REVIEWER_SCOPE]:
-- Surface: Reviewer-config path globs — `.coderabbit.yaml` `path`, `.greptile/config.json` `scope`, `.macroscope/**` frontmatter `include`.
+- Surface: Reviewer-config path globs — `.coderabbit.yaml` `path`, `.greptile/files.json` `scope`, `.macroscope/**` frontmatter `include`.
 - Obligates: One explicit alternate per dot-directory the scope intends, because minimatch resolves `dot:false` and no `**` crosses a dot segment.
 - Law: Globs implying `libs/**` carry `libs/**/.planning/**`, adding `libs/**/.api/**` where the scope reaches catalogs.
 - Law: Tree-wide markdown globs carry the `.planning`, `.api`, and `.claude` alternates their own trees hold.
@@ -76,6 +78,7 @@ Couplings fanning out or carrying a proof condition land as cards, each stating 
 - Surface: Central manifest dependency rows — `Directory.Packages.props`, `pyproject.toml`, or `pnpm-workspace.yaml`.
 - Obligates: Folder `README.md` and the `.api/` catalog tiers, because dependency admission is a multi-surface fact.
 - Law: `Directory.Packages.props` rows also obligate the consuming `.csproj`.
+- Law: `pyproject.toml` direct-URL pins obligate every sibling spelling that URL — two coordinates land two distributions in one import namespace.
 
 [CATALOG_MEMBER]:
 - Surface: Folder `.api/` catalog members.

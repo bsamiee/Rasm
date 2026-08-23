@@ -37,10 +37,10 @@
 |  [04]   | `NatsConnection`             | class         | the concrete `IAsyncDisposable` connection root             |
 |  [05]   | `INatsConnectionPool`        | interface     | round-robin connection fan-out                              |
 |  [06]   | `NatsConnectionPool`         | class         | the pool `AddNats` registers                                |
-|  [07]   | `NatsOpts`                   | class         | url, name, registry, TLS, auth, ping, buffers, reply mode   |
-|  [08]   | `NatsPubOpts`                | class         | per-publish wait-until-sent and error handler               |
-|  [09]   | `NatsSubOpts`                | class         | per-subscription max-msgs, idle and start-up timeouts       |
-|  [10]   | `NatsSubChannelOpts`         | class         | bounded subscription channel capacity and full-mode         |
+|  [07]   | `NatsOpts`                   | record        | the whole connection policy — `[CONNECTION_POLICY]`         |
+|  [08]   | `NatsPubOpts`                | record        | per-publish wait-until-sent and error handler               |
+|  [09]   | `NatsSubOpts`                | record        | the per-subscription override — `[SUBSCRIPTION_POLICY]`     |
+|  [10]   | `NatsSubChannelOpts`         | record        | bounded subscription channel capacity and full-mode         |
 |  [11]   | `NatsMsg<T>`                 | struct        | `Subject`/`Data`/`Headers`/`ReplyTo`/`Flags`; `ReplyAsync`  |
 |  [12]   | `NatsMsgBuilder<T>`          | class         | mutable message build with its own serializer slot          |
 |  [13]   | `NatsHeaders`                | class         | the `IDictionary<string, StringValues>` header carrier      |
@@ -60,6 +60,68 @@
 
 - `NatsConnection.GetStats()`: internal, so `NatsStats` reads only through a wrapper the assembly itself composes; process telemetry comes off the `NATS.Net` `ActivitySource`.
 - `NatsOpts.SocketConnectionFactory` (`INatsSocketConnectionFactory`) swaps the transport for a custom `INatsSocketConnection`/`INatsTlsUpgradeableSocketConnection`; the default socket stands unless one is supplied.
+
+[CONNECTION_POLICY]: `NatsOpts` is a record whose every column carries a shipped default, so a composition that names none still runs a fully-decided policy — reconnect curve, ping liveness, subscription bound, and drain posture all resolve from this table whether or not a page declares them.
+
+| [INDEX] | [MEMBER]                        | [TYPE]                   | [DEFAULT]               | [DECIDES]                                    |
+| :-----: | :------------------------------ | :----------------------- | :---------------------- | :------------------------------------------- |
+|  [01]   | `Url`                           | `string`                 | `nats://localhost:4222` | seed server list, comma-separated            |
+|  [02]   | `Name`                          | `string`                 | `NATS .NET Client`      | the client name every server view reports    |
+|  [03]   | `ConnectTimeout`                | `TimeSpan`               | `2s`                    | one dial attempt's ceiling                   |
+|  [04]   | `RetryOnInitialConnect`         | `bool`                   | `false`                 | whether a failed FIRST dial enters reconnect |
+|  [05]   | `ReconnectWaitMin`              | `TimeSpan`               | `2s`                    | the reconnect curve's floor                  |
+|  [06]   | `ReconnectWaitMax`              | `TimeSpan`               | `5s`                    | the reconnect curve's ceiling                |
+|  [07]   | `ReconnectJitter`               | `TimeSpan`               | `100ms`                 | the per-attempt spread                       |
+|  [08]   | `MaxReconnectRetry`             | `int`                    | `-1`                    | attempt bound; negative is unbounded         |
+|  [09]   | `NoRandomize`                   | `bool`                   | `false`                 | whether the server list keeps declared order |
+|  [10]   | `IgnoreAuthErrorAbort`          | `bool`                   | `false`                 | whether a repeated auth error stops retrying |
+|  [11]   | `PingInterval`                  | `TimeSpan`               | `2m`                    | liveness cadence                             |
+|  [12]   | `MaxPingOut`                    | `int`                    | `2`                     | unanswered pings before the socket drops     |
+|  [13]   | `RequestTimeout`                | `TimeSpan`               | `5s`                    | the request-reply await ceiling              |
+|  [14]   | `CommandTimeout`                | `TimeSpan`               | `5s`                    | the write-side enqueue ceiling               |
+|  [15]   | `SubPendingChannelCapacity`     | `int`                    | `16384`                 | every subscription's pending-channel bound   |
+|  [16]   | `SubPendingChannelFullMode`     | `BoundedChannelFullMode` | `DropNewest`            | what an overrun subscription does            |
+|  [17]   | `SubscriptionCleanUpInterval`   | `TimeSpan`               | `5m`                    | the reaper cadence for ended subscriptions   |
+|  [18]   | `DrainSubscriptionsOnDispose`   | `bool`                   | `false`                 | whether dispose drains or abandons buffers   |
+|  [19]   | `ConsumerDrainOnDisposeTimeout` | `TimeSpan?`              | absent                  | the dispose-drain budget, drain-gated        |
+|  [20]   | `DrainPingTimeout`              | `TimeSpan`               | `5s`                    | the per-subscription drain PING/PONG fence   |
+|  [21]   | `SuppressSlowConsumerWarnings`  | `bool`                   | `false`                 | whether a slow consumer logs once            |
+|  [22]   | `WriterBufferSize`              | `int`                    | `65536`                 | socket write buffer                          |
+|  [23]   | `ReaderBufferSize`              | `int`                    | `65536`                 | socket read buffer                           |
+|  [24]   | `MaxPayloadHardCap`             | `int`                    | `67108864`              | the local ceiling a server INFO cannot raise |
+|  [25]   | `WaitUntilSent`                 | `bool`                   | `false`                 | whether a publish awaits the socket write    |
+|  [26]   | `PublishTimeoutOnDisconnected`  | `bool`                   | `false`                 | whether a disconnected publish times out     |
+|  [27]   | `ObjectPoolSize`                | `int`                    | `256`                   | command-object pool depth                    |
+|  [28]   | `InboxPrefix`                   | `string`                 | `_INBOX`                | the reply-inbox subject root                 |
+|  [29]   | `HeaderEncoding`                | `Encoding`               | `ASCII`                 | header byte encoding                         |
+|  [30]   | `SubjectEncoding`               | `Encoding`               | `UTF8`                  | subject byte encoding                        |
+|  [31]   | `SkipSubjectValidation`         | `bool`                   | `false`                 | whether subjects are checked before send     |
+|  [32]   | `Echo`                          | `bool`                   | `true`                  | whether a connection receives its own sends  |
+|  [33]   | `Headers`                       | `bool`                   | `true`                  | whether the CONNECT advertises header use    |
+|  [34]   | `Verbose`                       | `bool`                   | `false`                 | whether the server ACKs every protocol line  |
+|  [35]   | `UseThreadPoolCallback`         | `bool`                   | `false`                 | whether callbacks leave the read loop        |
+
+- `NatsOpts` owns the reconnect curve alone, so a page composing it declares no schedule of its own; `ReconnectAsync()` forces one attempt and `ReconnectFailed` reports each refusal.
+- `MaxReconnectRetry` at its `-1` default retries forever, so a composition wanting a bounded reconnect states the bound rather than wrapping the connection in a retry it does not own.
+
+[SUBSCRIPTION_POLICY]: `NatsSubOpts` is the per-subscription override over `[CONNECTION_POLICY]`; every slot is nullable and an unset slot inherits the connection value rather than a second default.
+
+| [INDEX] | [MEMBER]                          | [TYPE]                    | [DECIDES]                                             |
+| :-----: | :-------------------------------- | :------------------------ | :---------------------------------------------------- |
+|  [01]   | `NatsSubOpts.ChannelOpts`         | `NatsSubChannelOpts?`     | this subscription's own pending-channel bound         |
+|  [02]   | `NatsSubOpts.MaxMsgs`             | `int?`                    | auto-unsubscribe after N messages                     |
+|  [03]   | `NatsSubOpts.Timeout`             | `TimeSpan?`               | auto-unsubscribe after a total span                   |
+|  [04]   | `NatsSubOpts.StartUpTimeout`      | `TimeSpan?`               | auto-unsubscribe when no first message arrives        |
+|  [05]   | `NatsSubOpts.IdleTimeout`         | `TimeSpan?`               | auto-unsubscribe on a gap between messages            |
+|  [06]   | `NatsSubOpts.StopOnEmptyMsg`      | `bool?`                   | whether an empty status frame ends the subscription   |
+|  [07]   | `NatsSubOpts.ThrowIfNoResponders` | `bool?`                   | whether a no-responders frame raises                  |
+|  [08]   | `NatsSubOpts.Events`              | `NatsSubEvents?`          | `OnSubscribed`, the established-subscription callback |
+|  [09]   | `NatsSubChannelOpts.Capacity`     | `int?`                    | the bound, `1000` where the record is supplied unset  |
+|  [10]   | `NatsSubChannelOpts.FullMode`     | `BoundedChannelFullMode?` | the overrun verb, `Wait` where supplied unset         |
+
+- `MaxMsgs` and the three timeout slots END the subscription rather than refusing one message, so a composition reading them as per-message deadlines loses the stream at the first gap.
+- Supplying `NatsSubChannelOpts` at all switches the two unset slots onto ITS defaults (`1000`/`Wait`), not the connection's (`16384`/`DropNewest`), so a page overriding one slot states both.
+- `NatsSubEvents.OnSubscribed` fires once when the SUB reaches the send queue and never again across reconnects, so it is an establishment fence, never a reconnect signal.
 
 [SERIALIZER_TYPES]: the codec registry seam — `NATS.Client.Core` contracts with the `NATS.Client.Serializers.Json` reflection leg.
 
@@ -120,8 +182,9 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 |  [08]   | `INatsConnection.OnSocketAvailableAsync`                                | property | wrap the socket before protocol start |
 |  [09]   | `AddNats(int, Func<NatsOpts,NatsOpts>, Action<NatsConnection>, object)` | static   | pooled keyed DI registration          |
 
-[CONNECTION_EVENTS]: `INatsConnection` raises each as an `AsyncEventHandler<T>` feeding the health fold — `SlowConsumerDetected` is the subscription back-pressure trip, `LameDuckModeActivated` the graceful server drain, and `ServerError` carries the classified `NatsServerErrorKind`.
+[CONNECTION_EVENTS]: `INatsConnection` raises each as an `AsyncEventHandler<T>` feeding the health fold — `SlowConsumerDetected` is the subscription back-pressure trip, `MessageDropped` the loss that trip produces, `LameDuckModeActivated` the graceful server drain, and `ServerError` carries the classified `NatsServerErrorKind`. Each is connection-wide, so a per-subscription reader discriminates on the args' own `Subscription`/`Subject`.
 - `[INatsConnection]`: `ConnectionOpened` `ConnectionDisconnected` `ReconnectFailed` `MessageDropped` `SlowConsumerDetected` `LameDuckModeActivated` `ServerError`
+- `[NatsMessageDroppedEventArgs]`: `Subscription` (`NatsSubBase`) `Pending` `Subject` `ReplyTo` `Headers` `Data`; `[NatsSlowConsumerEventArgs]`: `Subscription`
 
 [CORE_PUBSUB]: Core publish, subscribe, and request-reply — the unconfirmed leg.
 
@@ -144,8 +207,8 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 | :-----: | :------------------------------------------------------------------------- | :------- | :-------------------------------------- |
 |  [01]   | `INatsClient.CreateJetStreamContext(NatsJSOpts) -> INatsJSContext`         | factory  | context view over the connection        |
 |  [02]   | `NatsJSContext(INatsConnection, NatsJSOpts)`                               | ctor     | the concrete context                    |
-|  [03]   | `PublishAsync<T>(string, T, NatsHeaders) -> PubAckResponse`                | instance | durable publish awaiting the broker ack |
-|  [04]   | `TryPublishAsync<T>(string, T, NatsHeaders) -> NatsResult<PubAckResponse>` | instance | the non-throwing publish rail           |
+|  [03]   | `PublishAsync<T>(string, T, NatsHeaders, NatsJSPubOpts) -> PubAckResponse` | instance | durable publish awaiting the broker ack |
+|  [04]   | `TryPublishAsync<T>(string, T, NatsHeaders, NatsJSPubOpts)`                | instance | the non-throwing publish rail           |
 |  [05]   | `PublishConcurrentAsync<T>(string, T) -> NatsJSPublishConcurrentFuture`    | instance | deferred ack for pipelined batches      |
 |  [06]   | `CreateOrUpdateStreamAsync(StreamConfig) -> INatsJSStream`                 | instance | provision or reconfigure a stream       |
 |  [07]   | `CreateOrUpdateConsumerAsync(string, ConsumerConfig) -> INatsJSConsumer`   | instance | durable consumer                        |
@@ -166,6 +229,23 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 |  [08]   | `INatsJSMsg<T>.AckTerminateAsync(AckOpts)`                           | instance | terminate with no redelivery      |
 |  [09]   | `INatsJSStream.GetDirectAsync<T>(StreamMsgGetRequest) -> NatsMsg<T>` | instance | direct stream read for replay     |
 |  [10]   | `INatsJSStream.PurgeAsync(StreamPurgeRequest)`                       | instance | retention purge                   |
+
+[JS_PUBLISH_OPTS]: `NatsJSPubOpts : NatsPubOpts` carries the publish-side identity and optimistic-concurrency guards; `NatsJSPubOpts.Default` is the instance a publish taking no options runs under.
+
+| [INDEX] | [MEMBER]                             | [TYPE]     | [DEFAULT] | [DECIDES]                                       |
+| :-----: | :----------------------------------- | :--------- | :-------- | :---------------------------------------------- |
+|  [01]   | `MsgId`                              | `string`   | absent    | the dedup identity, written as `Nats-Msg-Id`    |
+|  [02]   | `ExpectedStream`                     | `string`   | absent    | refuse where the subject binds another stream   |
+|  [03]   | `ExpectedLastMsgId`                  | `string`   | absent    | refuse unless the named id is the stream's last |
+|  [04]   | `ExpectedLastSequence`               | `ulong?`   | absent    | stream-wide optimistic-concurrency fence        |
+|  [05]   | `ExpectedLastSubjectSequence`        | `ulong?`   | absent    | per-subject optimistic-concurrency fence        |
+|  [06]   | `ExpectedLastSubjectSequenceSubject` | `string`   | absent    | the subject that per-subject fence reads        |
+|  [07]   | `RetryAttempts`                      | `int`      | `1`       | extra publish attempts on a no-responders reply |
+|  [08]   | `RetryWaitBetweenAttempts`           | `TimeSpan` | `250ms`   | the spacing between those attempts              |
+
+- `MsgId` is the SDK's own dedup carriage and the ONE spelling a durable publish takes; hand-writing `Nats-Msg-Id` onto `NatsHeaders` re-implements a member the option owns and forks the key the peer branches already set through their own option (`@nats-io/jetstream` `msgID`).
+- `RetryAttempts` is a retry owner INSIDE the publish, so a hop already holding one declares this slot rather than inheriting it — an undeclared default silently doubles the attempt count the hop's own owner accounts.
+- `ExpectedLastSequence` and `ExpectedLastSubjectSequence` carry the broker-side refusal a resumed relay reads instead of re-publishing blind; the per-subject fence needs `ExpectedLastSubjectSequenceSubject` to name the subject it measures.
 
 [JS_CONFIG]: `StreamConfig.DuplicateWindow` bounds message dedup and `ConsumerConfig.MaxDeliver` with `Backoff` bounds redelivery.
 - `[StreamConfig]`: `Subjects` `Retention` `Storage` `MaxAge` `MaxMsgs` `MaxBytes` `Discard` `DuplicateWindow` `AllowDirect` `Republish` `Placement` `Mirror` `Sources`
@@ -221,17 +301,21 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 [TOPOLOGY]:
 - `NatsConnection` is the long-lived thread-safe root multiplexing every subject over one socket and disposed as `IAsyncDisposable`; `CreateJetStreamContext`, `CreateKeyValueStoreContext`, and `CreateObjectStoreContext` mint lightweight views over it, and `NatsConnectionPool` fans publishes across N connections only where raw throughput demands it. Compute owns its capture subscriber independent of the Persistence egress connection — constructed once and shared across the capture lane, never per-subscription and never a process-global static.
 - Every entry point (`NatsConnection`, `NatsClient`, the `AddNats` DI builder) shares one `NatsOpts` subscription default — a 16384-slot pending channel with `BoundedChannelFullMode.DropNewest` surfacing overflow through `MessageDropped` rather than stalling the socket read loop into a slow-consumer disconnect.
+- Every Core subscription therefore rides a BOUNDED lossy channel whether or not a page declares one: `NatsSub<T>` constructs `Channel.CreateBounded` over `[CONNECTION_POLICY]` rows `[15]`/`[16]` and routes each discarded message into `OnMessageDropped`, so a seam that declares no `NatsSubOpts.ChannelOpts` has still chosen a drop policy and owes it the same declaration a hand-built bounded channel owes.
+- `MessageDropped` is that loss's one evidence surface — `NatsMessageDroppedEventArgs` carries `Subscription` (`NatsSubBase`, exposing `Subject`), `Pending`, `Subject`, `ReplyTo`, `Headers`, and `Data` — and `SlowConsumerDetected` (`NatsSlowConsumerEventArgs.Subscription`) marks entry into that condition once per recovery cycle unless `SuppressSlowConsumerWarnings` is set. Core NATS carries no redelivery, so a dropped Core message is permanently lost and a subscription reading neither event accounts none of it.
+- Teardown splits three ways and one alone preserves the buffer: cancelling the `SubscribeAsync<T>` enumerator abandons every pending message, `INatsSub<T>.UnsubscribeAsync()` completes the channel and drops what the socket still holds, and `INatsSub<T>.DrainAsync(ct)` sends UNSUB, fences on a PING/PONG round trip bounded by `DrainPingTimeout`, then completes `Msgs`.
+- Flushing closes therefore hold the `SubscribeCoreAsync<T>` handle and read `Msgs` to completion; `DrainSubscriptionsOnDispose` with `ConsumerDrainOnDisposeTimeout` is the connection-wide counterpart.
 - `NatsOpts.RequestReplyMode` defaults to `NatsRequestReplyMode.Direct`: a `RequestAsync` reply correlates on the connection's existing inbox subscription with the per-reply muxer skipped, `NatsNoRespondersException` still thrown at the no-responder reply; `SharedInbox` restores the per-request subscription-and-channel mechanism.
 - Core `PublishAsync` returns once the frame is written, so the awaited `INatsJSContext.PublishAsync` and its `PubAckResponse` are the protocol's only durable delivery evidence; `TryPublishAsync` carries the same ack on the `NatsResult<T>` rail instead of throwing.
 - `PubAckResponse.Duplicate` reports the broker recognizing a prior `Nats-Msg-Id` inside the stream's `StreamConfig.DuplicateWindow`, which makes idempotent publish the exactly-once-effective primitive; `NatsJSDuplicateMessageException` is the distinct duplicate-sequence rejection, never the benign window hit.
 - `ConsumerConfig` owns redelivery through `AckPolicy`, `AckWait`, `MaxDeliver`, and `Backoff`, and `INatsJSMsg<T>` closes each message with `AckAsync`, `NakAsync`, `AckProgressAsync`, or `AckTerminateAsync`; each consumer group tracks its own cursor independent of any store cursor a reader keeps; `NatsJSConsumeOpts.DrainOnCancel` opts a consume loop into delivering buffered messages after cancellation so handlers still ack, the default stopping immediately, and `INatsSub<T>.DrainAsync` is the Core-subscription counterpart fencing in-flight deliveries without tearing the connection — the graceful stop for one capture subscriber.
-- `SubscribeAsync<byte[]>(subject, queueGroup, ct)` drains through `await foreach` until `ct` trips or the connection drops, one `NatsMsg<byte[]>` per iteration; `queueGroup` load-balances the sensor subject across N capture subscribers, null for one.
+- `SubscribeAsync<byte[]>(subject, queueGroup, serializer, opts, ct)` drains through `await foreach` until `ct` trips or the connection drops, one `NatsMsg<byte[]>` per iteration; `queueGroup` load-balances the sensor subject across N capture subscribers, null for one, and `opts` is where a seam states its `[SUBSCRIPTION_POLICY]` bound. `SubscribeCoreAsync<T>(subject, queueGroup, serializer, opts, ct)` returns the `INatsSub<T>` handle instead, which is what a drain-closing seam holds.
 - `NatsOpts.SerializerRegistry` fixes the per-type codec at construction, so `NatsRawSerializer<T>` carries already-encoded bytes and `NatsJsonContextSerializer<T>` the AOT-safe source-generated JSON form.
 - `INatsKVStore.CreateAsync` and `UpdateAsync(key, value, revision)` are the create-if-absent and revision-CAS pair, refusing through `NatsKVCreateException` and `NatsKVWrongLastRevisionException`; `WatchAsync` is the changefeed and `HistoryAsync` the revision replay.
 - `NatsInstrumentationOptions.Default` is process-static, so `Filter` and `Enrich` bind once for the whole process; spans emit on the `NATS.Net` `ActivitySource` under `messaging.system = nats`.
 
 [STACKING]:
-- `CloudNative.CloudEvents`(`api-cloudevents.md`): no NATS protocol binding ships, so the egress leg maps the message envelope onto `NatsHeaders` itself — `Nats-Msg-Id` from the content key beside the `traceparent` rows — and hands `NatsRawSerializer<T>` the formatter's bytes; on the ingest side `NatsMsg<byte[]>.Data` decodes through `Rasm/Domain/event` `EventEnvelope.Decode` when the framing names an admitted event format and through the branch-owned `ce-`-prefixed header binding otherwise, landing the typed `SensorReading<T>`, the W3C pair over `NatsMsg.Headers` symmetric to the MQTT `UserProperties` carrier.
+- `CloudNative.CloudEvents`(`api-cloudevents.md`): no NATS protocol binding ships, so the egress leg maps the message envelope onto `NatsHeaders` itself — the `ce-`-prefixed attribute rows beside the `traceparent` pair — while the dedup identity rides `NatsJSPubOpts.MsgId` from the content key rather than a hand-written header, and hands `NatsRawSerializer<T>` the formatter's bytes; on the ingest side `NatsMsg<byte[]>.Data` decodes through `Rasm/Domain/event` `EventEnvelope.Decode` when the framing names an admitted event format and through the branch-owned `ce-`-prefixed header binding otherwise, landing the typed `SensorReading<T>`, the W3C pair over `NatsMsg.Headers` symmetric to the MQTT `UserProperties` carrier.
 - `Confluent.Kafka`(`Rasm.Persistence/.api/api-kafka.md`), `RabbitMQ.Client`(`Rasm.Persistence/.api/api-rabbitmq.md`), `DotPulsar`(`Rasm.Persistence/.api/api-dotpulsar.md`): peer egress `Binding` rows over one op-log message envelope, each folding its provider outcome to `DeliveryAck` at its own leg boundary.
 - `StackExchange.Redis`(`Rasm.Persistence/.api/api-redis.md`): the same multiplexer-singleton topology and the same codec-owns-the-shape boundary; a Redis stream and a JetStream stream are peer sink rows whose group cursors never merge.
 - `LightningDB`(`Rasm.Persistence/.api/api-lightningdb.md`), `ObjectStore`(`Rasm.Persistence/.api/api-objectstore.md`): embedded and cloud counterparts to the JetStream KV and Object tiers, all selected as `Store/provisioning` backend rows.
@@ -240,13 +324,14 @@ Every op is async under a trailing `CancellationToken`, and `-> T` names the awa
 - Within the package one connection carries every leg: `TryPublishAsync` publishes on the ROP rail, `PublishConcurrentAsync` defers its ack through `NatsJSPublishConcurrentFuture.GetResponseAsync` for pipelined batches, `NatsMsg<T>.StartActivity` continues the consume-side trace, `NatsAuthOpts.AuthCredCallback` rotates credentials per connect, and `NatsKVEntry<T>.Delta` bounds a watch catch-up.
 
 [LOCAL_ADMISSION]:
-- Persistence changefeed egress dials `INatsJSContext.TryPublishAsync` on its `Nats` sink row with `NatsHeaders["Nats-Msg-Id"]` set to the entity content key in lower-hex, folding a null `Error` to `Persisted`, `Duplicate` to `Persisted(Duplicate: true)`, a server `-ERR` or timeout to `Indeterminate`, and a fatal protocol fault to `Refused`; only the contiguous `Persisted` prefix advances the outbox cursor. Each publish builds a fresh `NatsHeaders`: publish leaves an instance mutable, so one instance never serves concurrent publishes.
+- Persistence changefeed egress dials `INatsJSContext.TryPublishAsync` on its `Nats` sink row under a `NatsJSPubOpts` whose `MsgId` is the entity content key in lower-hex, folding a null `Error` to `Persisted`, `Duplicate` to `Persisted(Duplicate: true)`, a server `-ERR` or timeout to `Indeterminate`, and a fatal protocol fault to `Refused`; only the contiguous `Persisted` prefix advances the outbox cursor. Each publish builds a fresh `NatsHeaders`: publish leaves an instance mutable, so one instance never serves concurrent publishes.
 - A durable stream provisions through `CreateOrUpdateStreamAsync(StreamConfig)` on file storage with a `DuplicateWindow` wide enough to absorb a held-cursor re-drive, and a downstream reader consumes it on its own `ConsumerConfig` cursor.
 - PostgreSQL owns coordination: the `Store/coordination` fenced compare-and-swap under `LeaseToken` is the one lease and CAS vocabulary, and the JetStream KV enters as a distributed store-backend row on `Store/provisioning`; an Object Store bucket carries chunked blobs through `PutAsync(string, Stream, bool)` and closes with `SealAsync`, a distributed tier beside the embedded and cloud blob rows; domain code binds the `Try*` form and lifts `NatsResult.Error` onto the store fault rail at one site.
-- Compute ingest decodes `NatsMsg<byte[]>` through the kernel `EventEnvelope.Decode` pair on the structured leg and the branch-owned `ce-`-prefixed header binding on the binary one, `NatsRawSerializer<byte[]>` framing the bytes untouched while the kernel format rows own the shape; `msg.IsEmpty`/`msg.HasNoResponders` (the `NatsMsgFlags` bits) skip an empty control frame before any decode runs. W3C trace continuity spells no header literal here: the row's `Reader` hands `NatsMsg.Headers` to `TraceContext.Continue` — the one seam adopting the inbound context AND the delivery's tenancy under its trust row — `EventEnvelope.Trace` projects the envelope's own creation-time `TraceCarrier` pair, and `SpanEdge.Under` is the consuming bracket, so a literal `traceparent`/`tracestate` read and a hand-built carrier record are both deleted forms and no OTel broker instrumentation is admitted.
+- Compute ingest obtains declarations and whole-message admission from one kernel `EventExtensionContract<event.v1.Extensions>` for structured bodies and `ce-` binary headers. `TraceContext.Continue` owns current-hop adoption while admitted generated extensions carry creation-time trace.
+- Compute ingest states its own pending-channel bound on `NatsSubOpts.ChannelOpts` and subscribes to `MessageDropped` for the subscription's life, so the capture lane's loss reads as receipted evidence on the same rail its expiry drops ride rather than as the connection default's silent discard.
 
 [RAIL_LAW]:
 - Package: `NATS.Net`
 - Owns: the NATS protocol — Core pub/sub and request-reply, JetStream durable streams with publish-ack and drain, JetStream KV revisioned CAS, JetStream Object Store chunked blobs, and the Core subscription ingest seam for the twin sensor wire
-- Accept: one long-lived connection with context views over it, an awaited `PubAckResponse` as the durable ack, `Nats-Msg-Id` from the content key, `NatsRawSerializer<T>` carrying settled snapshot bytes, the `NatsResult` rail in domain logic, and `SubscribeAsync<byte[]>` drained under a `CancellationToken` onto `WorkLane.CaptureIngest`
-- Reject: per-publish or per-subscription connection construction, hand-rolled NATS framing, a Core publish backing a durable row, a JSON shape spelled at the subject boundary, a per-message or folder-local formatter instance, a trace read anywhere but `NatsMsg.Headers`, a per-transport message-envelope shape parallel to the kernel message-envelope algebra, a lease or CAS vocabulary beside the PostgreSQL fenced store, a retry owner beside `AckWait` and `MaxDeliver`, and a Compute-side JetStream or KV member — the folder split forecloses that fork
+- Accept: one long-lived connection with context views over it, an awaited `PubAckResponse` as the durable ack, `NatsJSPubOpts.MsgId` from the content key, `NatsRawSerializer<T>` carrying settled snapshot bytes, the `NatsResult` rail in domain logic, a declared `NatsSubOpts.ChannelOpts` bound whose overrun accounts through `MessageDropped`, and a subscription closed by `DrainAsync` where its buffer is owed to a consumer
+- Reject: per-publish or per-subscription connection construction, hand-rolled NATS framing, a hand-written `Nats-Msg-Id` header beside the option that owns it, an undeclared subscription bound whose drops nothing reads, a cancellation-only teardown on a subscription whose buffer is owed, a Core publish backing a durable row, a JSON shape spelled at the subject boundary, a per-message or folder-local formatter instance, a trace read anywhere but `NatsMsg.Headers`, a per-transport message-envelope shape parallel to the kernel message-envelope algebra, a lease or CAS vocabulary beside the PostgreSQL fenced store, a retry owner beside `AckWait`, `MaxDeliver`, and an undeclared `NatsJSPubOpts.RetryAttempts`, and a Compute-side JetStream or KV member — the folder split forecloses that fork

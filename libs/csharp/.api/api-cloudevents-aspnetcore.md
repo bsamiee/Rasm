@@ -56,8 +56,8 @@
 
 [STACKING]:
 - `api-cloudevents.md`: that catalogue owns the envelope, the `CloudEventFormatter` contract, `ContentMode`, `MimeUtilities`, and the `HttpUtilities` header grammar; this package binds them onto the ASP.NET Core abstractions alone, and the sibling `.Http` classes there serve `HttpClient`, `HttpListener`, and `HttpWebRequest` hosts this estate does not run.
-- Kernel owner anchor: the formatter every call takes is the `EventFormat` row's own instance from `Rasm/Domain/event#FORMAT_CONTRACT`, and the extension roster every decode takes is `EventRoster.Declared` from `#EXTENSION_ROSTER`, so an ingress never spells either.
-- `Rasm.AppHost` consumer anchor: the HTTP ingress route probes, decodes under the declared roster, and admits tenancy through the ingress trust row before any routing decision reads `source` or `authcontext`; the abuse-protection `OPTIONS` handshake and its `WebHook-*` headers are the route's own and touch no member of this package.
+- Kernel owner anchor: every call takes the `EventFormat` row's formatter; each ingress supplies a generated-descriptor declaration for the `event.v1.Extensions` fields it consumes, so no kernel wire roster or attribute literal survives.
+- `Rasm.AppHost` consumer anchor: the HTTP ingress route probes, decodes under its generated-descriptor declarations, and admits tenancy before its injected domain projection routes the envelope; the abuse-protection `OPTIONS` handshake and its `WebHook-*` headers remain route-owned.
 
 [LOCAL_ADMISSION]:
 - Every call takes the shared formatter instance and the one declared extension roster; a call-site roster literal and a per-request formatter are both the rejected forms.

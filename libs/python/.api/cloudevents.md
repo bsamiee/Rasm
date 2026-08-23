@@ -65,6 +65,8 @@ Every message dataclass is `@dataclass(frozen=True)`; its container fields are p
 
 [CORE_FAULTS]: `cloudevents.core.exceptions`, rooted at `BaseCloudEventException(Exception)`
 
+The four leaf findings expose `attribute_name` but no stable code, tag, enum, or other discriminant. Their exception class is therefore the only non-message finding identity available to a boundary fault; `str(finding)` is mutable diagnostic prose rather than an identity.
+
 | [INDEX] | [SYMBOL]                        | [BASES]                               | [CARRIES]                                           |
 | :-----: | :------------------------------ | :------------------------------------ | :-------------------------------------------------- |
 |  [01]   | `BaseCloudEventException`       | `Exception`                           | the tree root                                       |
@@ -169,6 +171,7 @@ Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None
 - `v1.http.CloudEvent.__init__` checks exactly two things: that `specversion` names a known version, and that `{"id", "source", "type", "specversion"} <= attributes.keys()`. It validates no type, no emptiness, no URI shape, no RFC-3339 parse, and no extension name; it lowercases every key, stores `time` as an ISO STRING rather than a `datetime`, and exposes `__setitem__`/`__delitem__` so a constructed event mutates past every check it did run.
 - Extension names admit through `re.match(r"^[a-z0-9]+$", name)`, a one-character floor, and refusal of the reserved `"data"` name — a CHARSET rule with no length ceiling, so a name past the specification's twenty-character bound passes here.
 - `CloudEvent.__init__` MUTATES the `attributes` mapping it is handed, writing the `specversion`, `id`, and `time` defaults into the caller's own dict before validating it; `get_attributes()` then returns that same live dict uncopied, and `core.bindings.kafka.from_structured` relies on the aliasing to inject `partitionkey` before rebuilding the event through a second full validation pass.
+- `BaseCloudEvent.get_data`, `EventFactory`, and `CloudEvent.__init__` annotate data as `dict | str | bytes | None`, but the constructor performs no data type or value validation and stores the object untouched. A generated protobuf `Any` therefore works at runtime while the public annotation rejects it; the protobuf format must widen that one proven constructor call explicitly and bind the v1 factory, never invent a second event carrier.
 - Batch code is absent whole: no batch media type, no batch encoder, no batch branch in `JSONFormat`, and no occurrence of the token anywhere in the tree — batch framing is branch-owned, never a package gap to route around.
 - `JSONFormat` is the one concrete `Format` and is never a singleton — every `*_event` convenience wrapper constructs a fresh `JSONFormat()` per call.
 - `write_data`/`read_data` carry the binary content mode and `write`/`read` the structured one, so a `Format` implementation missing the payload pair breaks every binding's binary leg while its structured leg still runs.
@@ -179,8 +182,13 @@ Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None
 - Three version vocabularies coexist — `core.spec.SpecVersion` (`Literal`), `v1.sdk.event.attribute.SpecVersion` (`str` enum), and `v1.conversion._obj_by_version` (a dict) — and only the first is the `core` tree's.
 
 [STACKING]:
-- `msgspec`(`.api/msgspec.md`): the branch payload owner. `Encoder.encode` supplies the `Format.write_data` byte body and `Decoder.decode` consumes `read_data`'s output, so the message envelope's `data` slot crosses as `Struct` bytes rather than through the SDK's `json` round trip; a `Raw` band holds the signed sub-tree byte-identical for the DSSE digest.
-- Marshaller pairs are a composition seam, not a codec: a payload frame stacks compression beneath the `msgspec` codec inside one `data_marshaller`/`data_unmarshaller` value, so a frame class is a bound port at the composition root and never a second body path through the format.
+- `msgspec`(`.api/msgspec.md`): opaque payload bytes cross binary mode unchanged; JSON batch decoding uses `list[msgspec.Raw]` only to preserve each complete JSON event object's bytes before `JSONFormat.read` admits it.
+- `protobuf-py`(`.api/protobuf-py.md`): the sealed payload union also admits a generated `Message`; protobuf structured mode packs it into `Any`, while decode retains the generated `Any` and its `type_url` for registry resolution.
+- Rasm-profile payload support is explicit per event-format row: JSON/Avro admit opaque bytes, while protobuf also admits generated `Message`; an unsupported arm refuses before codec invocation.
+- The generic Avro adapter retains the publisher AVSC's complete recursive JSON-value union; its wire-only record wrappers disappear before package `CloudEvent` construction, and profile admission narrows later.
+- Runtime `EventFormat.write`/`decode` expose strict generic v1 single and batch capability over the package event protocol; `encode`/`admit` compose the generated Rasm profile without replacing those entries.
+- The CloudEvents `ce_integer` abstract type is signed 32-bit in both publisher protobuf and Avro schemas, so a wider generated scalar re-enters that ceiling before mint.
+- Binary `write_data`/`read_data` are an SDK binding mechanism, not a structured event-format choice. Compression applies after the complete carrier body at the binding/residence owner; no identity frame or marshaller twin sits inside a format row.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): `propagate.inject`/`propagate.extract` over the attribute mapping carry the CREATION-time W3C context as extension attributes; the distribution declares no OpenTelemetry dependency, so both directions are branch-wired.
 - `confluent-kafka`(`.api/confluent-kafka.md`): `KafkaMessage.headers`/`key`/`value` map onto `Producer.produce(headers=, key=, value=)` and back off `Message.headers()`/`key()`/`value()`; the SDK opens no connection, so the client leg is the branch's.
 - `pika`(`.api/pika.md`): `RabbitMQMessage.headers`/`content_type`/`body` map onto `BasicProperties(headers=, content_type=)` and `basic_publish(body=)`.

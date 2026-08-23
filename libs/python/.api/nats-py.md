@@ -141,12 +141,16 @@ Every lifecycle callback must be a coroutine function — a plain callable raise
 - Inbound status lines arrive as headers: a `503` on a request raises `NoRespondersError`, and the status keys resolve through `nats.js.api.Header.STATUS`.
 - `publish` refuses past the SERVER-advertised `max_payload` with `MaxPayloadError`, past the pending buffer with `OutboundBufferLimitError`, and on an empty subject with `BadSubjectError` — the payload ceiling is read off the connection rather than a constant.
 - `Subscription.messages` is available only on a callback-free subscription and raises otherwise; a callback subscription and an iterator subscription are two shapes over one constructor.
-- Each subscription is backed by a bounded `asyncio.Queue`, and overflow reaches `error_cb` as a `SlowConsumerError` carrying the subject, reply, sid, and the subscription itself — the shed is evidence, never silence.
+- Each subscription is backed by a bounded `asyncio.Queue`, and overflow reaches `error_cb` as a `SlowConsumerError` carrying the subject, reply, sid, and the subscription. Two ceilings shed there independently: a `pending_bytes_limit` above zero drops before the enqueue, a `QueueFull` on `put_nowait` drops at `pending_msgs_limit`. Both drop and continue — no raise reaches the reader and `stats` counts no shed.
+- `error_cb` unbound resolves the package's own `_default_error_callback`, which writes one `logger.error` and returns. Every asynchronous shed the client owns — `SlowConsumerError`, `DrainTimeoutError`, `FlushTimeoutError`, `ServerNotInPoolError`, and each reader- and reconnect-leg raise — reaches THAT callback alone, so an unbound composition converts permanent message loss into a stdlib log line no receipt, counter, or rail carries.
+- `Client` runs a RECONNECT schedule of its own beside any caller's: `allow_reconnect` defaults on, `max_reconnect_attempts` to sixty tries, and `reconnect_time_wait` to a two-second gap, so a dropped connection re-dials for roughly two minutes underneath whatever the caller wrapped the call in. `force_reconnect()` drives the same path deliberately.
+- `drain()` bounds the whole subscription drain with `drain_timeout` and CANCELS the gather on expiry — the remaining pending queues are discarded, `error_cb` receives one `DrainTimeoutError`, and the connection then flushes PUBLISHES and closes. Inbound loss at teardown is therefore silent past that one callback, while the outbound half genuinely flushes.
+- `publish` bounds the outbound side LOUDLY by contrast: `pending_size` caps the command buffer and an overflowing publish raises `OutboundBufferLimitError` at the caller rather than dropping.
 - `Msg` is a MUTABLE dataclass while its `Metadata` and `SequencePair` are frozen; `metadata` parses lazily off the `$JS.ACK` reply subject and raises `NotJSMessageError` on a core message.
 - `in_progress()` may be called repeatedly and does not mark the message acknowledged; `ack()` twice raises `MsgAlreadyAckdError`.
 - `JetStreamContext` SUBCLASSES `JetStreamManager`, so the administration roster is reachable from the context and a separate `jsm()` handle is needed only where the context is not held.
 - `stats` is a plain dict attribute rather than a property — `in_msgs`, `out_msgs`, `in_bytes`, `out_bytes`, `reconnects`, `errors_received`.
-- `drain()` sheds subscriptions, then publishes, then closes; it raises `ConnectionClosedError` or `ConnectionReconnectingError` by state rather than settling.
+- `drain()` sheds subscriptions, then flushes publishes, then closes; it raises `ConnectionClosedError` or `ConnectionReconnectingError` by state rather than settling.
 - `nats-py` declares ZERO required dependencies; the WebSocket transport, NKEYS authentication, and the accelerated header parse are each an optional extra whose absence disables that leg alone.
 - `nats.aio.errors` keeps the v1 aliases (`ErrTimeout`, `ErrNoServers`, `NatsError`, and siblings), each subclassing its modern counterpart under a docstring naming the `nats.errors` replacement.
 
@@ -157,6 +161,10 @@ Every lifecycle callback must be a coroutine function — a plain callable raise
 
 [LOCAL_ADMISSION]:
 - Every lifecycle callback is a coroutine function, since a plain callable refuses at connect.
+- Every composition BINDS `error_cb` onto the branch fault rail, because the package default converts a permanently lost message into one log line — a `SlowConsumerError` is the sole witness a delivery the server already made never reached a handler.
+- Every subscription STATES `pending_msgs_limit` and `pending_bytes_limit` against the lane's own limiter, since an inherited ceiling sizes the shed threshold against nothing the branch measured.
+- `reconnect_time_wait`, `max_reconnect_attempts`, and `allow_reconnect` state their values at the dial. `reliability/resilience#RESILIENCE` holds every schedule the branch runs and `RetryClass.BROKER` routes its re-offer through a RESTART, so an inherited reconnect curve underneath that route makes effective attempts the product of two schedules — the fork the branch RULINGS foreclose for binding rows and that inheritance re-opens beneath them.
+- `drain_timeout` states its value against the lane's in-flight window, since expiry discards every queued delivery rather than extending the drain.
 - Header support probes the live connection rather than a version literal, so a server without it refuses the binary content mode at admission instead of publishing a headerless message that decodes as nothing.
 - Admission reads `max_payload` off the connection before any encode, so an oversized event routes to the reference-carrying leg rather than raising at publish.
 - Trio's forfeit rides a declared row on the arm's own descriptor, never an undocumented assumption.
@@ -166,4 +174,4 @@ Every lifecycle callback must be a coroutine function — a plain callable raise
 - Package: `nats-py`
 - Owns: the NATS core protocol, subject and queue-group subscription, request-reply, message headers, and the JetStream stream, consumer, key-value, and object-store surfaces
 - Accept: `nats.connect`, `Client`, `Msg` with its settlement verbs, `Subscription` and its iterator, `JetStreamContext`, `JetStreamManager`, `nats.js.api` configs, `nats.errors` and `nats.js.errors`
-- Reject: the deprecated `nats.aio.errors` aliases; a non-coroutine lifecycle callback; a hardcoded payload ceiling beside the server-advertised `max_payload`; the trio backend
+- Reject: an unbound `error_cb`; a subscription inheriting its pending ceilings; an inherited reconnect curve beside the `RetryClass` owner; an inherited `drain_timeout`; the deprecated `nats.aio.errors` aliases; a non-coroutine lifecycle callback; a hardcoded payload ceiling beside the server-advertised `max_payload`; the trio backend

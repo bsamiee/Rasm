@@ -41,7 +41,7 @@
 |  [06]   | `IMessageBuilder<TMessage>` | message builder | key/orderingKey/eventTime/deliverAt/properties/sequenceId → `Send` |
 
 - `IMessage<TValue>`/`IMessage` received message envelope: `Value()` `MessageId` `Data` `Key` `EventTime*` `Properties` `RedeliveryCount`
-- `MessageMetadata` produce carrier: `Key` `KeyBytes` `OrderingKey` `SequenceId` `EventTime*` `DeliverAt*`, property indexer, `SetCompressionInfo`
+- `MessageMetadata` produce carrier: `Key` `KeyBytes` `OrderingKey` `SequenceId` `SchemaVersion` `EventTime*` `DeliverAt*`, `SetCompressionInfo`, and a `this[string]` STRING INDEXER for message properties — not a dictionary, and it raises `ArgumentNullException` on a null key OR a null value
 - `MessageId` position: `LedgerId` `EntryId` `Partition` `BatchIndex` `Topic`, static `Earliest`/`Latest`, `TryParse`, comparable
 
 [PUBLIC_TYPE_SCOPE]: options and schema
@@ -50,7 +50,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]     | [CAPABILITY]                                                                 |
 | :-----: | :-------------------------- | :---------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `ProducerOptions<TMessage>` | producer options  | topic, `Schema`, compression, access mode, router, pending cap               |
+|  [01]   | `ProducerOptions<TMessage>` | producer options  | topic, `Schema`, compression, access mode, router, pending cap, trace attach |
 |  [02]   | `ConsumerOptions<TMessage>` | consumer options  | subscription name/type, `Schema`, topics/pattern, initial position, prefetch |
 |  [03]   | `ReaderOptions<TMessage>`   | reader options    | start `MessageId`, topic, `Schema`, prefetch, compacted                      |
 |  [04]   | `ProcessingOptions`         | process pump      | `Process` auto-ack pump tuning (roster below)                                |
@@ -120,7 +120,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 
 | [INDEX] | [SURFACE]                                                 | [SHAPE]       | [CAPABILITY]                                               |
 | :-----: | :-------------------------------------------------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `new ProducerOptions<TMessage>(topic, schema)`            | object init   | producer config; default `RoundRobinPartitionRouter`       |
+|  [01]   | `new ProducerOptions<TMessage>(topic, schema)`            | object init   | producer config; `MaxPendingMessages` left at ZERO         |
 |  [02]   | `producer.Send(message, ct)` (extension)                  | produce       | awaits broker ack → `MessageId`                            |
 |  [03]   | `producer.Send(MessageMetadata, message, ct)`             | produce       | keyed/timed produce → `MessageId`                          |
 |  [04]   | `sender.Send(byte[] / ReadOnlyMemory<byte>, ct)`          | produce       | raw-bytes `ISend<ReadOnlySequence<byte>>` overloads        |
@@ -173,10 +173,17 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 - payload codec: `ISchema<T>` encodes/decodes over `ReadOnlySequence<byte>` with an optional schema version; the raw-bytes path (`ISend<ReadOnlySequence<byte>>`) is the zero-copy egress codec for an already-framed payload, avoiding a per-message serializer.
 - state: every client is an `IStateHolder<TState>` whose `OnStateChangeTo`/`From` drive reactive lifecycle, the final states `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic` terminating the await; `WaitForExclusive` producer access is the leader-election primitive, the exclusive producer being the WAL leader.
 - compression: managed `Lz4`/`Zlib`/`Zstd`/`Snappy` via `ProducerOptions.CompressionType`, no native codec.
+- TRAP: `MaxPendingMessages` carries TWO defaults. `IProducerBuilder.MaxPendingMessages` documents 500 and the builder seeds that value, but the `ProducerOptions<T>(topic, schema)` constructor initializes every other member and leaves this one at `default(uint)` — ZERO.
+- Zero pins the pipeline rather than breaking it: the value reaches `SubProducer` as `new AsyncQueueWithCursor<SendOp>(maxItems)`, whose enqueue releases its pending-lock grant only where `_queue.Count < maxItems`, and at zero that comparison never holds.
+- Nothing crashes and nothing drops under it — the grant then releases only as the previous delivery dequeues on its receipt, so the producer silently runs ONE unacknowledged delivery deep, five hundred times narrower than the builder path.
+- TRAP: `SequenceId` auto-assigns by SENTINEL. `Producer.InternalSend` reads `metadata.SequenceId == 0` as the request to assign, drawing from a `SequenceId` counter constructed per producer instance at `options.InitialSequenceId` (default 0) — so the counter restarts from that seed on every construction, and a replayed suffix after a restart re-lands beneath a broker high-water mark that dedups on `(producer name, sequence id)` monotonicity.
+- Caller-supplied ids ride verbatim and, unlike auto-assigned ones, never reset to zero when the send faults, so re-offering a failed message re-sends its exact id. Durable producers therefore supply their own monotone, restart-surviving position — never a hash, never zero.
+- send verbs split on bound: `ISend.Send` awaits its `MessageId` through a `TaskCompletionSource` the receipt completes, while `SendChannel.Send` enqueues onto the same bounded queue and returns; both traverse `InternalSend`, so the pending cap governs each.
 
 [STACKING]:
 - egress payload codec: the CDC-egress op payload (already a redacted, framed byte buffer) sends through the raw-bytes `ISend<ReadOnlySequence<byte>>.Send(byte[], ct)` with CloudEvents attributes carried as `MessageMetadata` properties, so a broker filters on metadata without decoding `Data`; `Schema.Protobuf<T>()` (`Google.Protobuf` `IMessage<T>` payloads) or `Schema.Avro*` (`api-chr-avro`) instead binds a typed sink so the schema rides the message.
 - exactly-once egress: `ProducerAccessMode.WaitForExclusive` with the reactive `IState` await elects one WAL-leader producer per partition; the awaited `Send` `MessageId` (`LedgerId:EntryId:Partition:BatchIndex`) confirms the durable offset advance, and a `ProducerFencedException` on the loser triggers re-election.
+- broker-side dedup rests entirely on the sequence-id trap above and is a separate claim: a returned `MessageId` reads alike for a stored message and one the broker discarded as a duplicate, so an unordered or restart-reset id turns silent loss into an advancing cursor.
 - ingress replay: `IReader<TMessage>` from a stored `MessageId` (or `Seek(publishTime)`) replays the topic deterministically into the `Version/ledger` ingress rail; tiered storage makes the replay window long-lived, distinct from a cursor-bound consumer.
 - back-pressure: `GetLastMessageIds` against the consumer position derives subscription lag for the egress back-pressure shed — the same lag-probe shape as the Kafka watermark seam (`api-kafka`).
 - telemetry: the built-in `ActivitySource`/`Meter` registers with the AppHost OpenTelemetry tracer (`telemetry` port) so produce/consume spans and client-created/disposed meters ride the shared provider, never a bespoke logger.
@@ -184,11 +191,12 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 
 [LOCAL_ADMISSION]:
 - DotPulsar enters behind the `Version/egress#EGRESS_SINK` vocabulary as the `pulsar` binding row and a distinct log-streaming ingress backend, orthogonal to the Kafka/NATS/RabbitMQ wire protocols.
-- client lifecycle (connection pool, producer/consumer/reader handles) is egress-profile ceremony — `IAsyncDisposable` resources bracketed by the sink, never ambient singletons.
+- client lifecycle (connection pool, producer/consumer/reader handles) is egress-profile ceremony — `IAsyncDisposable` resources bracketed by the sink, never ambient singletons. Teardown DRAINS before it disposes: `Producer.DisposeAsync` cancels its token and disposes each sub-producer, and the only drain is `ISendChannel.Completion()` over `WaitForSendQueueEmpty`, so a dispose reached first abandons every queued delivery.
+- durable rows state `MaxPendingMessages` and `InitialSequenceId` explicitly whichever construction path they take, because both carry a default that reads as configuration nobody wrote.
 - subscription name, type, initial position, and ack policy are sink policy declared on the egress profile, never chosen per-message.
 
 [RAIL_LAW]:
 - Package: `DotPulsar`
 - Owns: native Pulsar binary-protocol produce/consume/read, durable subscriptions, acks, cursorless replay, schema-typed payloads, reactive state, and built-in `ActivitySource`/`Meter` telemetry
 - Accept: `PulsarClient.Builder()` construction, typed `ProducerOptions`/`ConsumerOptions`/`ReaderOptions` with an explicit `ISchema<T>`, awaited `Send`/`Acknowledge` for at-least-once egress, `Process` auto-ack under bounded parallelism, `WaitForExclusive` leader-election for exactly-once, and `ActivitySource` telemetry through the AppHost tracer
-- Reject: hand-rolled Pulsar wire framing, `DotPulsar.Internal.*` as a consumer API, fire-and-forget `SendChannel` without `Completion()` on the at-least-once path, a missing `ISchema<T>`, and the `DotPulsarException` family collapsed onto one error rail
+- Reject: hand-rolled Pulsar wire framing, `DotPulsar.Internal.*` as a consumer API, fire-and-forget `SendChannel` without `Completion()` on the at-least-once path, an unstated `MaxPendingMessages` on an object-initialized `ProducerOptions`, a `SequenceId` written from a hash or any other unordered value, a missing `ISchema<T>`, and the `DotPulsarException` family collapsed onto one error rail

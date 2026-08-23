@@ -1,6 +1,6 @@
 # [TS_BRANCH_API_CLOUDEVENTS]
 
-`cloudevents` accelerates the CloudEvents 1.0 JSON event format and the HTTP, Kafka, and MQTT protocol bindings. It owns neither the estate's attribute grammar nor its extension roster nor its format roster — the specification does, and `interchange/carrier` transcribes it — so this catalogue records what the distribution reaches and where its surface stops short of the specification the branch carries anyway.
+`cloudevents` owns the branch's CloudEvents 1.0 envelope plus JSON, HTTP, Kafka, and MQTT behavior. Generated Protobuf and the frozen Avro publisher asset supply the other event formats; no branch page transcribes an envelope or extension roster.
 
 Barrel exports bound the admitted surface. Four HTTP header members and the `Detector` shape live in modules the barrel never re-exports, no `exports` map fences `dist/`, and the branch refuses the deep path reaching them; every such member is branch-owned instead.
 
@@ -80,18 +80,19 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 - `Emitter` and `event.emit()` back one process-global `EventEmitter`, so two branch applications in one process share one registry.
 
 [STACKING]:
-- `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): the branch's ONE message-envelope owner — the attribute grammar, the extension roster, and the mint entry that supplies `id`, `time`, and `specversion` explicitly, lifts the construction throw onto the typed rail, and re-proves the extension-name ceiling the SDK only mentions; its `cloudevents` dialect row reads and writes an event's own UNPREFIXED attribute record, and each binding's prefix stays that binding's.
-- `core/interchange/format`(`core/.planning/interchange/format.md`): the event-format roster — JSON delegating to this package's structured mode, protobuf and Avro branch-owned because this distribution ships neither — with the batch sibling on the two formats that define one (JSON and Protobuf; Avro's `batch` column reads absent) and the media-type-prefix framing every batch decode reads.
+- `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): `Event.admit`/`mint` own strict SDK construction, `Event.format.protobuf` owns publisher Protobuf conversion, `Event.address` owns the `(source,id)` dedup coordinate, and `Event.rasm` owns the descriptor-derived profile while leaving `dataref` residence downstream.
+- `core/interchange/format` (`core/.planning/interchange/format.md`): exact JSON, generated Protobuf, and lane-bound Avro codecs with optional batch members and exact parsed media identity.
 - `core/interchange/codec`(`core/.planning/interchange/codec.md`): the wire registry excludes the message envelope by law, so no `Wire` family, landing class, or parity obligation names a CloudEvents shape.
-- `data/journal/append`(`data/.planning/journal/append.md`): projects each claimed outbox row through `Event.mint` — the addressed record decodes into `Event.Fact` first, so the grammar proof reaches the mint instead of dissolving in the widened attribute record injection returns — and decodes the authenticated inverse through `Carrier.extract`.
-- `runtime/serve/route`(`runtime/.planning/serve/route.md`): detects the frame off the media-type prefix and the binding's own specversion header, sanitizes the band, decodes ONCE through `HTTP.toEvent`, and admits each member at the core owner — it constructs nothing, so the double-parse `isEvent` forces never runs here.
-- `runtime/net/channel`(`runtime/.planning/net/channel.md`): mints its frame through `MQTTMessageFactory`, reads arity off the format roster before decoding through `MQTT.toEvent`, and publishes through `MQTT.binary` under the binding's own unprefixed User-Property namespace.
+- `data/journal/append` (`data/.planning/journal/append.md`): mints the stable `journal` capability source independently from the admitted type, projects each claimed row through `Event.rasm.Fact` and `Event.rasm.mint`, and keeps `dataschema` as the payload schema URI.
+- `data/object/store`(`data/.planning/object/store.md`): `Dataref` externalizes and resolves subject-addressed bytes under one confined HTTPS residence, proving a dual inline/reference payload byte-equal.
+- `runtime/serve/route`(`runtime/.planning/serve/route.md`): consumes the core closed frame, admitted JSON and Protobuf codecs, and the publisher-asset Avro codec; resolves `dataref` through the data port and deduplicates each member on `Event.address` before settlement.
+- `runtime/net/channel`(`runtime/.planning/net/channel.md`): mints frames through `MQTTMessageFactory`, routes structured JSON through the SDK and Protobuf or Avro through their exact codecs, refuses every batch, and re-admits each SDK or Avro result strictly.
 - `effect` `Schema`(`.api/effect.md`): `Binding.toEvent` yields `CloudEventV1<unknown>` or an array of them, so the landing narrows the arity before `Schema.decodeUnknown` decodes `data` and the typed extensions; `Effect.try` lifts every construction throw.
 - `effect` `Match`(`.api/effect.md`): binding and content-mode selection dispatch through owned literal rows, since the package's `Mode` is an `enum` the branch cannot declare.
-- `@bufbuild/protobuf`/`cbor-x`/`@msgpack/msgpack`(`core/.api/`) and `avsc`(`runtime/.api/avsc.md`): those own the `data` PAYLOAD codec while this package owns the JSON message envelope and its transport headers around that payload.
+- `@bufbuild/protobuf`/`@msgpack/msgpack`(`core/.api/`) and `avsc`(`runtime/.api/avsc.md`): those own the `data` payload codec while this package owns the JSON message envelope and its transport headers around that payload.
 - `mqtt`(`runtime/.api/mqtt.md`): owns connectivity; `MQTTMessageFactory` builds the frame this package's binding shapes and `mqtt` publishes.
-- `runtime/net/pubsub`(`runtime/.planning/net/pubsub.md`): carries the message envelope as the fanout port's ONE payload — `Kafka.binary`/`Kafka.toEvent` own the `ce_` header band and the record key while the registry serde owns the data bytes, and the branch NATS binding composes `HTTP.binary`/`HTTP.toEvent` because the specification's NATS binding is the same `ce-` prefixed header set.
-- `runtime/work/deliver`(`runtime/.planning/work/deliver.md`): projects the stored announcement at claim time through the mode's own binding, seals the digested attribute set into `dssematerial`, and signs the encoded octets once before any reserialization.
+- `runtime/net/pubsub`(`runtime/.planning/net/pubsub.md`): Kafka uses its SDK binding; NATS and browser tabs carry the exact structured JSON single codec; every decoded event crosses `Event.admit`.
+- `runtime/work/deliver`(`runtime/.planning/work/deliver.md`): projects the stored announcement at claim time through the mode's own binding and signs the exact encoded transport octets once before any reserialization.
 - `core/value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` becomes `Fault.Class` evidence inside `Effect.try`; a bare `TypeError` from the cross-version guard folds onto the same rail.
 
 [LOCAL_ADMISSION]:

@@ -526,6 +526,8 @@
         <PackageVersion Include="System.IO.Packaging"                                     Version="10.0.10" />
         <PackageVersion Include="System.Management"                                       Version="10.0.10" />
         <PackageVersion Include="System.Memory"                                           Version="4.6.3" />
+        <!-- Rides Microsoft.Identity.Client.Extensions.Msal; the floor unifies against the Grasshopper2 host 8.0.0.0 binding. -->
+        <PackageVersion Include="System.Security.Cryptography.ProtectedData"              Version="10.0.10" />
         <!-- Rides EPPlus; the floor lifts five NU1903-high advisories (GHSA-23rf-6693-g89p cluster) past the audit gate. -->
         <PackageVersion Include="System.Security.Cryptography.Xml"                        Version="10.0.10" />
         <PackageVersion Include="System.Threading.RateLimiting"                           Version="10.0.10" />

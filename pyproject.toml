@@ -41,9 +41,9 @@ dependencies = [
     "pebble",                                             # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
     "psutil",
     "pydantic",
+    "pydantic-settings",
     "pyroscope-io",                                       # [RUNTIME]: continuous-profiling agent feeding the pyroscope-otel span-link rail
     "pyroscope-otel",                                     # [RUNTIME]: continuous-profiling span links beside the OTLP rails
-    "pydantic-settings",
     "ruamel-yaml",
     "stamina",
     "structlog",
@@ -60,7 +60,7 @@ dependencies = [
     "asyncssh",                                           # [RUNTIME]: fleet SSH channel for the remote worker arm and SFTP artifact reads
     "brotli",                                             # [ARTIFACTS]: compression
     "cloudevents",                                        # [RUNTIME]: validated CloudEvents attribute algebra plus HTTP, Kafka, AMQP, and RabbitMQ protocol bindings
-    "confluent-kafka[schemaregistry,avro,json,protobuf]", # [RUNTIME]: librdkafka producer/consumer and the Schema Registry client with its Avro, JSON, and Protobuf serializers; the json-fast extra stays out because orjson compiles against pre-3.15 CPython internals
+    "confluent-kafka[schemaregistry,avro,json,protobuf]", # [RUNTIME]: librdkafka producer/consumer and the Schema Registry client with its Avro, JSON, and Protobuf serializers; the json-fast extra stays out because `JSONSerializer`/`JSONDeserializer` take `json_encode`/`json_decode` hooks the branch binds to msgspec, so orjson would enter as a second JSON engine nothing reads
     "connectrpc",                                         # [RUNTIME]: Connect-Python — generated async service ABCs, ASGI applications, and typed clients speaking Connect, gRPC, and gRPC-Web over one HTTP seam
     "detools",                                            # [ARTIFACTS]: binary-delta engine
     "fastavro",                                           # [RUNTIME]: Avro codec under the Schema Registry serializer and the `parse_schema` validator the branch reads `.avsc` documents through
@@ -78,7 +78,6 @@ dependencies = [
     "protobuf",                                           # [DATA]+[COMPUTE]: google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR; the estate wire runtime is protobuf-py
     "protobuf-py",                                        # [RUNTIME]: Buf protobuf runtime under the generated `_pb.py` bindings — binary, JSON, and descriptor surface for the estate wire
     "protovalidate",                                      # [RUNTIME+ARTIFACTS]: evaluates descriptor rules at transport and generated-document producer boundaries
-    "rasm-contracts",                                     # [WIRE]: installable generated SDK with resources, Connect, and validation closure
     "py7zr",
     "python-dateutil",                                    # [RUNTIME]: RFC-3339 `isoparse` used by CloudEvents bindings and format readers
     "stream-unzip",                                       # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
@@ -91,24 +90,24 @@ dependencies = [
     "array-api-extra",                                    # [COMPUTE]: supplemental array API helpers
     "clarabel",                                           # [COMPUTE]: Clarabel conic solver and cvxpy backend
     "cvxpy<1.9",                                          # [COMPUTE]: disciplined convex optimization; 1.9 pulls sparsediffpy whose OpenMP CMake build fails (no cp315 wheel)
-    "diffrax; python_version<'3.15'",                     # [COMPUTE]: JAX differential-equation solvers
-    "equinox; python_version<'3.15'",                     # [COMPUTE]: JAX PyTree modules
+    "diffrax",                                            # [COMPUTE]: JAX differential-equation solvers
+    "equinox",                                            # [COMPUTE]: JAX PyTree modules
     "findiff",                                            # [COMPUTE]: finite-difference operators for solvers and sensitivity
     "gmsh",                                               # [COMPUTE]: 1/2/3-D unstructured mesh generation with physical groups feeding scikit-fem assembly and the meshio round-trip
     "highspy",                                            # [COMPUTE]: HiGHS LP/MIP/QP simplex + interior-point solver; cvxpy backend beside the Clarabel/SCS conic arms
-    "interpax; python_version<'3.15'",                    # [COMPUTE]: JAX interpolation and splines
-    "jax; python_version<'3.15'",                         # [COMPUTE]: XLA accelerator; jax is pure-Python and the marker gates its mandatory jaxlib pin, which ships no cp315 wheel and no sdist at any release
+    "interpax; python_version<'3.15'",                    # [COMPUTE]: JAX interpolation and splines; its `jax<0.11` pin holds jaxlib on the 0.10 line, whose wheels cap at cp314 and ship no sdist
+    "jax",                                                # [COMPUTE]: XLA accelerator; the mandatory jaxlib pin ships cp315 wheels from jaxlib 0.11.1
     "jaxtyping",                                          # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
-    "lineax; python_version<'3.15'",                      # [COMPUTE]: JAX linear solvers
+    "lineax",                                             # [COMPUTE]: JAX linear solvers
     "mpmath",                                             # [COMPUTE]: arbitrary-precision real and complex math
     "numba; python_version<'3.15'",                       # [COMPUTE]: LLVM JIT accelerator; setup.py refuses cp315
     "numpy",                                              # [COMPUTE]: array substrate
-    "optax; python_version<'3.15'",                       # [COMPUTE]: first-order JAX optimizers for optimistix
-    "optimistix; python_version<'3.15'",                  # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
+    "optax",                                              # [COMPUTE]: first-order JAX optimizers for optimistix
+    "optimistix",                                         # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
     "pint",                                               # [COMPUTE]: unit registry and quantity arithmetic
     "python-flint",                                       # [COMPUTE]: Arb interval numerics
     "pywavelets",                                         # [COMPUTE]: discrete and continuous wavelet transforms
-    "quadax; python_version<'3.15'",                      # [COMPUTE]: JAX adaptive quadrature
+    "quadax; python_version<'3.15'",                      # [COMPUTE]: JAX adaptive quadrature; its `jax<0.11` pin holds jaxlib on the 0.10 line, whose wheels cap at cp314 and ship no sdist
     "scikit-fem",                                         # [COMPUTE]: FEM assembly
     "scipy",                                              # [COMPUTE]: numerical algorithms
     "scs",                                                # [COMPUTE]: SCS first-order operator-splitting conic solver beside Clarabel; cvxpy SCS backend
@@ -118,8 +117,8 @@ dependencies = [
     "uncertainties",                                      # [COMPUTE]: first-order error propagation with correlated_values/unumpy
     # --- [STATISTICS_ML]
     "arviz<1",                                            # [COMPUTE]: Bayesian diagnostics; pymc 5.x caps arviz<1 and the pymc 6 line that admits arviz 1 hard-requires pytensor 3
-    "blackjax; python_version<'3.15'",                    # [COMPUTE]: JAX NUTS/HMC samplers
-    "numpyro; python_version<'3.15'",                     # [COMPUTE]: JAX NUTS sampler
+    "blackjax",                                           # [COMPUTE]: JAX NUTS/HMC samplers
+    "numpyro",                                            # [COMPUTE]: JAX NUTS sampler
     "nutpie",                                             # [COMPUTE]: Rust NUTS sampler for PyMC
     "onnx",                                               # [COMPUTE]: model graph IR
     "onnxruntime; python_version<'3.15'",                 # [COMPUTE]: model runtime; wheels cap at cp314 and the project ships no sdist
@@ -194,10 +193,11 @@ dependencies = [
     "rasterio",                                           # [DATA]: raster geospatial IO
     "rioxarray",                                          # [DATA]: rasterio accessor bridging ndarray to CF DataArray and COG raster write
     "shapely",                                            # [DATA]: planar operations
-    "stac-geoparquet; python_version<'3.15'",             # [DATA]: STAC item GeoParquet table interchange; hard orjson dep — orjson compiles against pre-3.15 CPython internals (no cp315 wheel)
+    "stac-geoparquet",                                    # [DATA]: STAC item GeoParquet table interchange
     "xarray-spatial; python_version<'3.15'",              # [DATA]: raster terrain analytics; numba-gated
     "xvec",                                               # [DATA]: shapely-geometry-indexed xarray dimensions — vector data cubes backing the zone-cube owner
     # --- [GEOMETRY_CAD]
+    "cadquery-ocp; python_version<'3.15'",                # [GEOMETRY]: OCCT B-rep kernel, STEP/IGES exchange, XCAF assembly, and mesh triangulation; wheels cap at cp314 with no sdist, so `OCP` imports live from the Forge python-overlay `.pth`
     "compas",                                             # [GEOMETRY]: algebra toolkit
     "compas_dr",                                          # [GEOMETRY]: COMPAS dynamic relaxation
     "compas_tna",                                         # [GEOMETRY]: COMPAS thrust-network analysis
@@ -291,7 +291,7 @@ dependencies = [
     "pyktx",                                              # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product (docs/laws/topology.md [43])
     "pysubs2",                                            # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
     "pyvips",                                             # [ARTIFACTS]: fused decode, downscale, ICC, smartcrop; source API mode over the Forge vips — HEVC/HEIF, JXL, and EXR the binary wheel excludes
-    "scikit-image",                                       # [ARTIFACTS]: image processing; sdist builds at the floor under the pythran dependency-metadata gast override below
+    "scikit-image",                                       # [ARTIFACTS]: image processing; its sdist builds at the floor through pythran, which resolves gast 0.7.0 and beniget 0.5.0 natively from 0.19.0
     "simpleidml",                                         # [ARTIFACTS]: IDML package mutation and composition
     "tifffile",                                           # [ARTIFACTS]: TIFF container IO and extratag authoring
     # --- [TYPOGRAPHY_COLOR]
@@ -387,14 +387,17 @@ beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79
 # Published Connect pins protobuf-py 0.1.1; this immutable upstream source carries the runtime and generator pair on protobuf-py 0.3.
 connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
-rasm-contracts = { workspace = true }
 
-[tool.uv.workspace]
-members = ["libs/python/contracts"]
-exclude = ["libs/python/cad"]
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "libs/python/contracts/src"
+module-name = "rasm.contracts"
 
 [tool.uv]
-package = false
+package = true
 default-groups = ["dev", "mutation"]
 
 # TOML 1.0 confines an inline table to one line, so the per-package build knobs ride their own table rather than a multi-line brace `taplo` refuses to parse.
@@ -413,15 +416,6 @@ name = "colour-cxf"
 version = "0.1.1"
 requires-python = ">=3.10"
 requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"]
-
-# pythran 0.18.1 pins gast~=0.6.0, whose 3.15 AST shim raises on the required node fields CPython 3.15 introduced; gast 0.7.0 fixes it and beniget 0.4.2.post1
-# admits gast>=0.5.0, so only the pythran pin blocks the scikit-image pythran targets (both compile clean under gast 0.7.0, probed live). The override rewrites
-# that one pin for the build-env resolution; it is version-pinned, so a pythran release past 0.18.1 resolves natively and retires this block on its own bump.
-[[tool.uv.dependency-metadata]]
-name = "pythran"
-version = "0.18.1"
-requires-python = ">=3.7"
-requires-dist = ["ply>=3.4", "setuptools", "gast~=0.7.0", "numpy", "beniget~=0.4.0"]
 
 # colour-science 0.4.7 declares Requires-Python <3.15. PEP 440 sorts 3.15.0b3 below 3.15.0, so the cap is inert on the current Forge interpreter and bites the
 # instant that interpreter reaches a final 3.15.x: corrected static metadata drops the cap ahead of the flake bump and mirrors the real dependency set whole.
@@ -906,10 +900,10 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
-# Roster bans the EAGER module-level form alone; the module-scope `lazy` proxy is the admitted deferral
-# (libs/python/.planning/RULINGS.md [04]). ruff 0.16 TID253 reads `lazy import X` identically to `import X`
-# (probed at py315), so realization gates the lazy form per-file until the rule learns the difference.
-banned-module-level-imports = [
+# Roster names the cold dependencies whose module-scope binding must be the `lazy` proxy, the admitted deferral
+# at libs/python/.planning/RULINGS.md [04]. TID254 refuses the eager form and passes `lazy import`/`lazy from`,
+# which TID253 cannot separate; lexical-isolation bans stay license-class law, never a roster row.
+require-lazy = [
     "adbc_driver_flightsql",
     "adbc_driver_snowflake",
     "daft",
@@ -1045,12 +1039,8 @@ ignore-one-line-docstrings = false
 allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__"]
 allow-magic-value-types = ["str", "bytes", "int"]
 max-args = 8
-max-bool-expr = 3
-max-branches = 6
-max-locals = 10
 max-nested-blocks = 4
 max-public-methods = 10
-max-statements = 30
 
 # --- [SQLFLUFF] -------------------------------------------------------------------------
 

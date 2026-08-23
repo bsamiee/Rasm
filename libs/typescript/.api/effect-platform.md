@@ -44,16 +44,17 @@
 - rail: system-apis
 - `FileSystem` mints scoped temp paths whose deletion ties to the `Scope`; `Command`'s `Process` exposes `stdin` as a `Sink`, `stdout`/`stderr` as `Stream`, `exitCode` as an `Effect`; `Worker.WorkerManager`/`Worker.Spawner`/`WorkerRunner.PlatformRunner`/`Socket.WebSocketConstructor` are the runtime-provided Tags the bindings satisfy.
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                            |
-| :-----: | :---------------------------------------------- | :------------ | :-------------------------------------- |
-|  [01]   | `FileSystem.FileSystem`                         | fs Tag        | `proc`, `data/lane`                     |
-|  [02]   | `Path.Path`                                     | path Tag      | `proc`, `iac`                           |
-|  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`   | kv Tag        | `data/lane`, `browser/persist`          |
-|  [04]   | `Command.Command` / `CommandExecutor.Process`   | subprocess    | `proc/exec` — declarative               |
-|  [05]   | `Terminal.Terminal`                             | tty Tag       | `serve/cli` — line/key input, display   |
-|  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core/interchange/frame` |
-|  [07]   | `Worker.WorkerPool` / `WorkerRunner`            | worker        | `proc/worker`, `browser/fetch` pools    |
-|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail     |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                             |
+| :-----: | :---------------------------------------------- | :------------ | :--------------------------------------- |
+|  [01]   | `FileSystem.FileSystem`                         | fs Tag        | `proc`, `data/lane`                      |
+|  [02]   | `Path.Path`                                     | path Tag      | `proc`, `iac`                            |
+|  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`   | kv Tag        | `data/lane`, `browser/persist`           |
+|  [04]   | `Command.Command` / `CommandExecutor.Process`   | subprocess    | `proc/exec` — declarative                |
+|  [05]   | `Terminal.Terminal`                             | tty Tag       | `serve/cli` — line/key input, display    |
+|  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core/interchange/frame`  |
+|  [07]   | `Worker.WorkerPool` / `WorkerRunner`            | worker        | `proc/worker`, `browser/fetch` pools     |
+|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail      |
+|  [09]   | `HttpIncomingMessage.withMaxBodySize`           | body policy   | `serve/route`, `net/client` — byte bound |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -88,27 +89,27 @@
 
 [ENTRYPOINT_SCOPE]: server, router, and middleware
 - rail: boundaries
-- `HttpRouter`: `.empty` `.get(path, handler)` `.mountApp(prefix, app)` `.use(middleware)`. `HttpServerResponse`: `.json(data)` `.schemaJson(schema)(value)` `.text` `.stream` `.file` `.setCookie` `.setHeaders`. `HttpServerRequest`: `.schemaBodyJson(schema)` `.schemaHeaders` `.schemaSearchParams` `.upgrade`. `HttpMiddleware`: `.cors(options)` `.logger` `.xForwardedHeaders` `.searchParamsParser`.
+- `HttpRouter`: `.empty` `.get(path, handler)` `.mountApp(prefix, app)` `.use(middleware)`. `HttpServerResponse`: `.json(data)` `.schemaJson(schema)(value)` `.text` `.stream` `.file` `.setCookie` `.setHeaders`. `HttpServerRequest`: `.schemaBodyJson(schema)` `.schemaHeaders` `.schemaSearchParams` `.upgrade`; `HttpIncomingMessage.withMaxBodySize(Option<SizeInput>)` scopes the actual-byte ceiling the body collector reads. `HttpMiddleware`: `.cors(options)` `.logger` `.xForwardedHeaders` `.searchParamsParser`.
 - `HttpLayerRouter`: `.use` `.add(method, path, handler)` `.addAll` `.addHttpApi(api, { openapiPath? })` `.middleware` `.cors()` `.disableLogger` `.serve` `.toWebHandler` `.params` `.schemaJson` `.schemaPathParams`. `HttpMultiplex`: `.make` `.empty` `.add(predicate, app)` `.headerExact` `.headerRegex` `.headerStartsWith` `.hostExact` `.hostRegex`. `HttpServerRespondable`: `.symbol` `.toResponse` `.toResponseOrElse` `.isRespondable`. `ChannelSchema`: `.encode` `.encodeUnknown` `.decode` `.decodeUnknown` `.duplex` `.duplexUnknown({ inputSchema, outputSchema })` — no `make` exists; the duplex pair IS the constructor surface.
 - `HttpApiScalar.layer({ path? })` `.layerCdn` `.layerHttpLayerRouter({ api, path, scalar? })` `.layerHttpLayerRouterCdn({ api, path, version?, scalar? })` and `HttpApiSwagger.layer({ path })` / `.layerHttpLayerRouter({ api, path })` mount the docs UI — the router-native forms require `api`. `HttpApiError` prebuilt status faults: `.HttpApiDecodeError` `.BadRequest` `.Unauthorized` `.Forbidden` `.NotFound` `.Conflict` `.InternalServerError` `.ServiceUnavailable`.
 
-| [INDEX] | [SURFACE]                               | [SHAPE]        | [CAPABILITY]                                                                 |
-| :-----: | :-------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `HttpRouter`                            | route          | `serve/route` — compose routes; `mountApp` mounts a sub-`HttpApp`            |
-|  [02]   | `HttpServerResponse`                    | respond        | `serve` handlers; cookie/header decorators on the response value             |
-|  [03]   | `HttpServerRequest`                     | ingress decode | `serve` — body/header/query decode; `.upgrade` yields the WebSocket `Socket` |
-|  [04]   | `HttpMiddleware`                        | wrap           | `serve/route` — cross-cutting transforms on the handler `HttpApp`            |
-|  [05]   | `HttpLayerRouter`                       | layer route    | `serve/route` — `Layer`-native router; raw routes + an `HttpApi`             |
-|  [06]   | `HttpServer.serve` / `.layerTestClient` | run / test     | `serve/route` binds the app to the server `Layer`; test client               |
-|  [07]   | `HttpMultiplex`                         | multiplex      | `serve/route` — host/header dispatch across several `HttpApp`s               |
-|  [08]   | `HttpServerRespondable`                 | self-render    | `serve/problem` — a domain value self-renders; outbound-fault law            |
-|  [09]   | `HttpApiScalar` / `HttpApiSwagger`      | docs ui        | `serve/api` — Scalar reference UI beside the derived OpenAPI route           |
-|  [10]   | `HttpApiError` faults                   | status faults  | status-tagged endpoint errors; `serve/problem` folds escaped ones            |
-|  [11]   | `ChannelSchema`                         | typed channel  | `serve/live` — `Schema`-typed bidirectional `Channel`                        |
-|  [12]   | `Effectify`                             | lift           | `effectify` wraps a node-callback function as an `Effect`                    |
-|  [13]   | `OpenApiJsonSchema`                     | schema         | `make` projects a `Schema` to standalone JSON Schema                         |
-|  [14]   | `HttpMethod`                            | literal union  | the method literals every router keys on                                     |
-|  [15]   | `WorkerError`                           | fault family   | the tagged worker fault `isWorkerError` narrows                              |
+| [INDEX] | [SURFACE]                                   | [SHAPE]        | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------------ | :------------- | :------------------------------------------------------------------ |
+|  [01]   | `HttpRouter`                                | route          | `serve/route` — compose routes; `mountApp` mounts a sub-`HttpApp`   |
+|  [02]   | `HttpServerResponse`                        | respond        | `serve` handlers; cookie/header decorators on the response value    |
+|  [03]   | `HttpServerRequest` / `HttpIncomingMessage` | ingress decode | `serve` — typed decode and body ceiling; `.upgrade` yields `Socket` |
+|  [04]   | `HttpMiddleware`                            | wrap           | `serve/route` — cross-cutting transforms on the handler `HttpApp`   |
+|  [05]   | `HttpLayerRouter`                           | layer route    | `serve/route` — `Layer`-native router; raw routes + an `HttpApi`    |
+|  [06]   | `HttpServer.serve` / `.layerTestClient`     | run / test     | `serve/route` binds the app to the server `Layer`; test client      |
+|  [07]   | `HttpMultiplex`                             | multiplex      | `serve/route` — host/header dispatch across several `HttpApp`s      |
+|  [08]   | `HttpServerRespondable`                     | self-render    | `serve/problem` — a domain value self-renders; outbound-fault law   |
+|  [09]   | `HttpApiScalar` / `HttpApiSwagger`          | docs ui        | `serve/api` — Scalar reference UI beside the derived OpenAPI route  |
+|  [10]   | `HttpApiError` faults                       | status faults  | status-tagged endpoint errors; `serve/problem` folds escaped ones   |
+|  [11]   | `ChannelSchema`                             | typed channel  | `serve/live` — `Schema`-typed bidirectional `Channel`               |
+|  [12]   | `Effectify`                                 | lift           | `effectify` wraps a node-callback function as an `Effect`           |
+|  [13]   | `OpenApiJsonSchema`                         | schema         | `make` projects a `Schema` to standalone JSON Schema                |
+|  [14]   | `HttpMethod`                                | literal union  | the method literals every router keys on                            |
+|  [15]   | `WorkerError`                               | fault family   | the tagged worker fault `isWorkerError` narrows                     |
 
 - Rows [12]-[15] carry verified members no fence composes yet; each enters at its consuming seam rather than through a wrapper.
 

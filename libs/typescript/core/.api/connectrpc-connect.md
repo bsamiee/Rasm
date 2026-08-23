@@ -2,26 +2,27 @@
 
 `@connectrpc/connect` owns the protocol-neutral RPC invocation surface `interchange/invoke` binds the emitted capability SDK onto: `createClient(service, transport)` projects a `@bufbuild/protobuf` `DescService` into a typed `Client<T>` the type system derives, over a `Transport` any protocol supplies.
 
-`ConnectError`/`Code` is the `interchange/codec` fold source, the `Interceptor` onion the cross-cutting seam, and `./protocol` the kit for an Effect-native `Transport`.
+`ConnectError`/`Code` is the `interchange/codec` fold source and the `Interceptor` onion the cross-cutting seam. Protocol construction stays with the public web and Node adapter packages.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect`
 - package: `@connectrpc/connect` (Apache-2.0)
-- peer: `@bufbuild/protobuf` — `DescService`/`DescMethod`/`MessageInitShape`/`MessageShape`/`create`/`fromBinary`/`toBinary` (`.api/bufbuild-protobuf.md`)
+- peer: `@bufbuild/protobuf` — `DescService`/`DescMethod`/`MessageInitShape`/`MessageShape`/`create`/`fromBinary`/`toBinary` (`../../.api/bufbuild-protobuf.md`)
 - effect-peer: none direct — client `Promise`/`AsyncIterable` cross into `Effect.tryPromise`/`Stream.fromAsyncIterable` at `interchange/invoke` (`.api/effect.md`)
-- runtime: isomorphic, `sideEffects:false`; transport-agnostic — `connect-web` fetch or any `Transport`
-- modules: `.` (client, error, interceptor, context), `./protocol` (transport-construction kit), `./protocol-connect`, `./protocol-grpc`, `./protocol-grpc-web`
+- runtime: isomorphic, `sideEffects:false`; transport-agnostic — consumes any public adapter `Transport`
+- module: `.` — client, error, interceptor, context, and the in-process router transport
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the transport, the descriptor-derived client, and per-call options
 - rail: interchange/invoke
-- `Client<Desc>` method shapes derive from the descriptor — unary `Promise`, streaming `AsyncIterable<MessageShape<...>>` bridging directly to `effect` `Stream`; `CallOptions` threads `signal`/`timeoutMs`/`contextValues` per call.
+- `Client<Desc>` method shapes derive from the descriptor — unary `Promise`, streaming `AsyncIterable<MessageShape<...>>` bridging directly to `effect` `Stream`; `CallOptions` threads `signal`/`timeoutMs`/`contextValues` per call and carries NO retry knob, so re-drive stays the caller's schedule.
+- Requests carry `service`/`method`/`requestMethod`/`url`/`signal`/`header`/`contextValues`; RESPONSES carry `service`/`header`/`trailer` alone — an interceptor reading `signal` or `contextValues` off a response finds neither, and `trailer` fills only once the response iterable is fully drained.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                             |
 | :-----: | :------------------------------------------------ | :--------------- | :-------------------------------------------------------------- |
-|  [01]   | `Transport` (`.unary`, `.stream`)                 | protocol port    | from `connect-web`; `createClient` is generic over it           |
+|  [01]   | `Transport` (`.unary`, `.stream`)                 | protocol port    | from the selected public web or Node adapter factory            |
 |  [02]   | `Client<Desc extends DescService>`                | typed client     | unary→`Promise`, stream→`AsyncIterable`; from descriptor        |
 |  [03]   | `CallOptions`                                     | call knobs       | `signal` binds interruption; `timeoutMs`≤0 disables the default |
 |  [04]   | `CallbackClient<Desc>` / `AnyClient`              | client variant   | callback + dynamic flavors; `wire` uses the promise `Client`    |
@@ -29,6 +30,7 @@
 |  [06]   | `UnaryRequest` / `UnaryResponse`                  | interceptor io   | `stream:false` arm — `message`/`method`/`header`/`signal`       |
 |  [07]   | `StreamRequest` / `StreamResponse`                | interceptor io   | `stream:true` arm — `message`, `trailer`, `contextValues`       |
 |  [08]   | `ContextValues` / `ContextKey<T>`                 | per-call context | tenant, deadline, HLC through interceptors without global state |
+|  [09]   | `Registry` (peer) on `findDetails`                | detail registry  | the generated file registry an incoming detail decodes against  |
 
 [PUBLIC_TYPE_SCOPE]: the fault algebra `interchange/codec` folds
 - rail: interchange/codec
@@ -46,7 +48,7 @@
 
 [ENTRYPOINT_SCOPE]: constructing the client and the invocation seam
 - rail: interchange/invoke
-- `createClient(service, transport)` is the one factory — always the codegen `DescService` over a `connect-web` `Transport`, never a hand-written method map.
+- `createClient(service, transport)` is the one client factory — always the codegen `DescService` over a selected public adapter `Transport`, never a hand-written method map.
 - `createUnaryFn` and `createServerStreamingFn` are internal helpers absent from the root barrel and package export map.
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                        |
@@ -64,36 +66,12 @@
 |  [11]   | `err.findDetails(desc)`                            | detail decode   | decode typed `Any`-wrapped error details                   |
 |  [12]   | `createRouterTransport(routes, options?)` / `cors` | in-proc / CORS  | in-memory `Transport` for kit specs; CORS helper           |
 
-[ENTRYPOINT_SCOPE]: the `./protocol` kit — a custom Effect-native transport
-- rail: interchange/invoke
-- `./protocol` assembles a fully `Effect`-owned `Transport` over `@effect/platform` `HttpClient` instead of the fetch-bound `connect-web` factories, inheriting the `net/client` client policy.
-
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :--------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `createMethodUrl(baseUrl, method)` | url build      | `<baseUrl>/<pkg>.<Service>/<Method>` route          |
-|  [02]   | `createMethodSerializationLookup`  | codec lookup   | per-method binary/JSON `Serialization` lookup       |
-|  [03]   | `createClientMethodSerializers`    | codec pair     | the binary/JSON `Serialization` pair for a method   |
-|  [04]   | `runUnaryCall(opts)`               | unary runner   | the invocation a custom `Transport.unary` wraps     |
-|  [05]   | `runStreamingCall(opts)`           | stream runner  | the invocation a custom `Transport.stream` wraps    |
-|  [06]   | `encodeEnvelope`                   | envelope write | length-prefix a frame for streaming egress          |
-|  [07]   | `createEnvelopeReadableStream`     | envelope read  | read length-prefixed frames off a body stream       |
-|  [08]   | `EnvelopedMessage`                 | envelope shape | the `{ flags, data }` frame record                  |
-|  [09]   | `transformSplitEnvelope`           | envelope split | split a body into enveloped frames                  |
-|  [10]   | `pipe`                             | compose        | thread a body through the transform algebra         |
-|  [11]   | `createAsyncIterable`              | source         | lift values into an `AsyncIterable` body            |
-|  [12]   | `makeIterableAbortable`            | abort          | make an iterable abortable on signal                |
-|  [13]   | `sinkAllBytes`                     | sink           | drain a byte iterable to one buffer                 |
-|  [14]   | `transformParseEnvelope`           | parse          | parse enveloped frames back to messages             |
-|  [15]   | `createDeadlineSignal(timeoutMs)`  | deadline       | deadline `AbortSignal` bound to Effect interruption |
-|  [16]   | `createLinkedAbortController`      | linked abort   | chain an abort to a parent signal                   |
-|  [17]   | `getAbortSignalReason`             | abort reason   | read the reason off an aborted signal               |
-|  [18]   | `createFetchClient`                | fetch client   | the universal client over `fetch`                   |
-|  [19]   | `universalClientRequestToFetch`    | request map    | map a universal request to a `fetch` request        |
-|  [20]   | `contentTypeMatcher`               | content type   | match the response content-type to a codec          |
-
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
+- Deadlines propagate on the wire, not just locally: `timeoutMs` builds a deadline signal that aborts with `Code.DeadlineExceeded` AND writes a header — `Connect-Timeout-Ms` carrying bare milliseconds on Connect, `Grpc-Timeout` carrying milliseconds with an `m` unit suffix on gRPC and gRPC-Web. Undefined timeouts send no header at all, and `defaultTimeoutMs` itself defaults to undefined, so an unset deadline crosses as an unbounded call.
+- `ConnectError.from` maps an `AbortError` or `TimeoutError` to `Code.Canceled` and DROPS the cause, so an interruption's origin survives only where the fold captures it before normalizing.
+- `ConnectError[Symbol.hasInstance]` is structural, so `instanceof` holds across duplicate package copies and no fold needs a nominal identity check.
 - transport and client are orthogonal: `Transport` implements the protocol, `createClient` is generic over it, so protocol selection is a `Transport` choice and `Client<T>` holds one shape across every arm.
 - `createClient` derives every method signature from the emitted `DescService`, so the SDK is one descriptor and a hand-authored client method is the drift defect.
 - Core binds typed calls through public `createClient`; internal client-function factories are neither imports nor transcription sources.
@@ -101,15 +79,15 @@
 - interception is the cross-cutting seam: an `Interceptor` onion attaches trace propagation, auth, and per-call `ContextValues`, never the call site.
 
 [STACKING]:
-- `@bufbuild/protobuf` (`.api/bufbuild-protobuf.md`): the message runtime under Connect — `createClient` consumes a `DescService`, request inputs are `MessageInitShape<I>` and responses `MessageShape<O>`, and the transport's `Serialization` calls `toBinary`/`fromBinary` internally; `createClient` reads the `GenService` const straight off the generated `@rasm/ts/contracts/<proto path>_pb` module, so client and codec share one descriptor source.
+- `@bufbuild/protobuf` (`../../.api/bufbuild-protobuf.md`): Connect consumes generated descriptors and delegates message codecs to the shared runtime.
 - `effect` (`.api/effect.md`): each unary `Promise` lifts through `Effect.tryPromise({ try, catch: ConnectError.from })` and each streaming `AsyncIterable` folds through `Stream.fromAsyncIterable`, wrapped once at `interchange/invoke` so no domain code sees a bare `Promise`.
-- `value/fault` + `effect` `Schedule` (`.api/effect.md`): the dial's retry gate reads `Fault.Class.retryable` off the `Wire.Hops` row for `ConnectError.code` — one table, never a per-page `Match` over codes; `CallOptions.timeoutMs` and `createDeadlineSignal` carry the per-call deadline.
+- `value/fault` + `effect` `Schedule` (`.api/effect.md`): the dial's retry gate reads `Fault.Class.retryable` off the `Wire.Hops` row for `ConnectError.code` — one table, never a per-page `Match` over codes; `CallOptions.timeoutMs` carries the per-call deadline.
 - `effect` interruption: `CallOptions.signal` is the running fiber's `AbortSignal`, so a scope close or race loss aborts the in-flight RPC with `Code.Canceled`.
 - `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): an `Interceptor` reads the active span via `Tracer.currentOtelSpan` and writes `traceparent` into `req.header` on egress, `ContextValues` carrying the tenant/HLC it annotates — W3C propagation without a call-site change.
-- `@effect/platform` `HttpClient` (`.api/effect-platform.md`): the `./protocol` kit assembles a `Transport` whose body is an `Effect` over the shared `net/client` `HttpClient`, inheriting its retry/proxy/tracing posture instead of a bare `fetch`.
+- `@connectrpc/connect-web` and `@connectrpc/connect-node`: their public factory records realize the supported adapter pairs; this package consumes the selected `Transport` without knowing its host.
 
 [RAIL_LAW]:
 - Package: `@connectrpc/connect`
-- Owns: the `Transport` port, `createClient`/`Client<T>` and the callback/any client variants, `CallOptions`, the `Interceptor` onion, the `ConnectError`/`Code` fault algebra with `from`/`findDetails`, `ContextValues`, the `-bin` header codec, and the `./protocol` transport-construction kit
-- Accept: `createClient` over a `connect-web` `Transport` and an emitted `DescService`; client methods lifted through `Effect.tryPromise`/`Stream.fromAsyncIterable`; `ConnectError` folded through `interchange/codec`; retry via `Effect.retry(Schedule)` gated on retryable `Code`; `CallOptions.signal` from Effect interruption; trace propagation via an `Interceptor`; a custom Effect-native `Transport` from `./protocol`
-- Reject: hand-written client maps, internal client-function factories, bare async values or raw catches in domain code, ad-hoc `Code` inspection outside `Wire.Hops`, a second `createTransport` owner beside `interchange/invoke`, and server routers in `wire` except kit-driven `createRouterTransport`
+- Owns: the `Transport` port, `createClient`/`Client<T>` and the callback/any client variants, `CallOptions`, the `Interceptor` onion, the `ConnectError`/`Code` fault algebra with `from`/`findDetails`, `ContextValues`, and the `-bin` header codec
+- Accept: `createClient` over a selected public adapter `Transport` and an emitted `DescService`; client methods lifted through `Effect.tryPromise`/`Stream.fromAsyncIterable`; `ConnectError` folded through `interchange/codec`; retry via `Effect.retry(Schedule)` gated on retryable `Code`; `CallOptions.signal` from Effect interruption; trace propagation via an `Interceptor`
+- Reject: hand-written client maps, internal client-function or protocol factories, bare async values or raw catches in domain code, ad-hoc `Code` inspection outside `Wire.Hops`, a second adapter selector beside `interchange/invoke`, and server routers in `wire` except `createRouterTransport` for in-process proof

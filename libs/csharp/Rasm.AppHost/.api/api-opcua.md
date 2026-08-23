@@ -78,6 +78,8 @@
 |  [08]   | `ITelemetryContext`                  | interface     | telemetry context threaded into managed client constructors |
 |  [09]   | `MonitoringMode`                     | enum          | `Disabled` / `Sampling` / `Reporting`                       |
 |  [10]   | `NotificationMessage`                | class         | publish batch; `uint SequenceNumber` orders redeliveries    |
+|  [11]   | `MonitoredItemOptions`               | record        | serializable item request; `QueueSize` defaults to `0`      |
+|  [12]   | `MonitoredItemStatus`                | record        | the server's REVISED item parameters and per-item `Error`   |
 
 [PUBLIC_TYPE_SCOPE]: address-space and value primitives — `Opc.Ua`
 
@@ -94,6 +96,10 @@
 |  [09]   | `ReadValueIdCollection` | collection    | batch of `ReadValueId` for `ReadAsync`                     |
 |  [10]   | `StatusCodeCollection`  | collection    | `WriteResponse.Results` status batch                       |
 |  [11]   | `TimestampsToReturn`    | enum          | `Source` / `Server` / `Both` / `Neither`                   |
+|  [12]   | `MonitoringFilter`      | class         | filter base every monitored-item filter derives from       |
+|  [13]   | `DataChangeFilter`      | class         | data-item filter; trigger, deadband type, deadband value   |
+|  [14]   | `DataChangeTrigger`     | enum          | `Status` / `StatusValue` / `StatusValueTimestamp`          |
+|  [15]   | `DeadbandType`          | enum          | `None` / `Absolute` / `Percent`                            |
 
 [PUBLIC_TYPE_SCOPE]: certificate and PKI — `Opc.Ua.Security.Certificates`
 
@@ -198,18 +204,42 @@ Managed lifecycle pivots by stage; configuration, reverse-connect, endpoint, ide
 
 Arming members set on the object initializer before `Subscription.AddItem` and `Subscription.CreateAsync`; publishing and sampling intervals are milliseconds.
 
-| [INDEX] | [SURFACE]                         | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :-------------------------------- | :------- | :--------------------------------- |
-|  [01]   | `Subscription.PublishingInterval` | property | `int` publish cadence, ms          |
-|  [02]   | `Subscription.KeepAliveCount`     | property | `uint` empty-publish threshold     |
-|  [03]   | `Subscription.LifetimeCount`      | property | `uint` server-side expiry          |
-|  [04]   | `MonitoredItem.StartNodeId`       | property | `NodeId` monitored node            |
-|  [05]   | `MonitoredItem.AttributeId`       | property | `uint` monitored attribute         |
-|  [06]   | `MonitoredItem.SamplingInterval`  | property | `int` sample cadence, ms           |
-|  [07]   | `MonitoredItem.MonitoringMode`    | property | `MonitoringMode` notification mode |
-|  [08]   | `WriteValue.NodeId`               | property | `NodeId` write node                |
-|  [09]   | `WriteValue.AttributeId`          | property | `uint` write attribute             |
-|  [10]   | `WriteValue.Value`                | property | `DataValue` write payload          |
+| [INDEX] | [SURFACE]                         | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :-------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `Subscription.PublishingInterval` | property | `int` publish cadence, ms                       |
+|  [02]   | `Subscription.KeepAliveCount`     | property | `uint` empty-publish threshold                  |
+|  [03]   | `Subscription.LifetimeCount`      | property | `uint` server-side expiry                       |
+|  [04]   | `MonitoredItem.StartNodeId`       | property | `NodeId` monitored node                         |
+|  [05]   | `MonitoredItem.AttributeId`       | property | `uint` monitored attribute                      |
+|  [06]   | `MonitoredItem.SamplingInterval`  | property | `int` sample cadence, ms                        |
+|  [07]   | `MonitoredItem.MonitoringMode`    | property | `MonitoringMode` notification mode              |
+|  [08]   | `MonitoredItem.QueueSize`         | property | `uint` SERVER-side notification queue depth     |
+|  [09]   | `MonitoredItem.DiscardOldest`     | property | `bool` server discard end, default `true`       |
+|  [10]   | `MonitoredItem.Filter`            | property | `MonitoringFilter?` server-side sampling filter |
+|  [11]   | `WriteValue.NodeId`               | property | `NodeId` write node                             |
+|  [12]   | `WriteValue.AttributeId`          | property | `uint` write attribute                          |
+|  [13]   | `WriteValue.Value`                | property | `DataValue` write payload                       |
+
+[ENTRYPOINT_SCOPE]: monitored-item sampling policy and the server's verdict on it
+
+`QueueSize`, `DiscardOldest`, `SamplingInterval`, and `Filter` cross together as one `MonitoredItemCreateRequest.RequestedParameters`, and the server answers each with a revised value on `MonitoredItem.Status`.
+
+| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `MonitoredItem.Status`                 | property | `MonitoredItemStatus`, the server's own answer  |
+|  [02]   | `MonitoredItemStatus.Error`            | property | `ServiceResult?` per-item create/modify refusal |
+|  [03]   | `MonitoredItemStatus.QueueSize`        | property | `uint` queue depth the server GRANTED           |
+|  [04]   | `MonitoredItemStatus.SamplingInterval` | property | `double` interval the server GRANTED            |
+|  [05]   | `MonitoredItemStatus.FilterResult`     | property | `MonitoringFilterResult?` filter verdict        |
+|  [06]   | `MonitoredItemStatus.Created`          | property | `bool`, true once the server assigned an id     |
+|  [07]   | `DataChangeFilter.Trigger`             | property | `DataChangeTrigger` reporting trigger           |
+|  [08]   | `DataChangeFilter.DeadbandType`        | property | `uint` slot the `DeadbandType` roster fills     |
+|  [09]   | `DataChangeFilter.DeadbandValue`       | property | `double` absolute or percent band               |
+|  [10]   | `DataChangeFilter.Validate()`          | instance | `ServiceResult` pre-wire refusal                |
+|  [11]   | `Subscription.CreateItemsAsync(ct)`    | instance | `Task<IList<MonitoredItem>>`, per-item results  |
+
+- `DataChangeFilter.Validate()` answers `ServiceResult.Good` on admission — never null, unlike `WriteValue.Validate` — and refuses an unrostered deadband type or trigger, a negative `DeadbandValue`, and a percent band past `100`.
+- `MonitoredItemStatus.DiscardOldest` initializes `true`; every other granted column starts at its type default until the server answers.
 
 [ENTRYPOINT_SCOPE]: node write and its refusal rail
 
@@ -400,6 +430,10 @@ Every mutator answers `StatusCode` and throws nothing, so a configuration change
 - `Subscription.PublishingInterval` is the `int` policy the row sets; `CurrentPublishingInterval` reads back the server-negotiated `double`, never cast to a `TimeSpan`.
 - `Opc.Ua.Profiles` in `Opc.Ua.Core.dll` declares the transport URIs — `PubSubUdpUadpTransport` is `http://opcfoundation.org/UA-Profile/Transport/pubsub-udp-uadp`, with `PubSubMqttUadpTransport` and `PubSubMqttJsonTransport` its `pubsub-mqtt-uadp` and `pubsub-mqtt-json` siblings; the static `UaPubSubApplication.SupportedTransportProfiles` re-inlines the same three, ordered udp-uadp, mqtt-json, mqtt-uadp.
 - `SessionClient.WriteAsync` throws at two sites alone: a null service response raising `BadUnknownResponse`, and `ClientBase.ValidateResponse(ResponseHeader)` raising on a null or bad SERVICE-level result. `Results` is never inspected on the way out, so a per-node refusal arrives as one element of `Results` and throws nothing.
+- `MonitoredItemOptions.QueueSize` initializes to `0` and `DiscardOldest` to `true`; a data item forwards that zero verbatim (the setter rewrites only `int.MaxValue`, which it maps to `1`), so an item left unset arms a server queue holding ONE value and the server discards every change between two publishes.
+- Part 4 sets the `Overflow` InfoBit on the first `DataValue` a client receives after such a discard, and `StatusCode.Overflow` reads it only where `HasDataValueInfo` (`0x400`) is set, so the getter already gates its own precondition.
+- TRAP: `MonitoredItem.Filter`'s SETTER runs `ValidateFilter(NodeClass, value)`, which THROWS `ServiceResultException` for a node class admitting no filter (`Object`, `Method`, `ObjectType`, and the type-node classes) and silently REWRITES `State.NodeClass` when the filter kind disagrees with it; `MonitoredItemOptions.NodeClass` initializes to `Variable`, where a `DataChangeFilter` admits and neither branch fires.
+- TRAP: `Subscription.CreateAsync` runs `CreateItemsAsync` internally, and that member lands each per-item refusal on `MonitoredItem.Status.Error` through `SetCreateResult` and THROWS NOTHING — only a service-level fault raises — so an item the server declined leaves a created subscription that will never notify.
 - TRAP: `ServiceResult`'s statics are NULL-TOLERANT with asymmetric defaults — `IsGood(null)` is true, `IsBad(null)` false, `IsNotBad(null)` true, `IsUncertain(null)` false — so an unassigned result reads as good on the good rail and as not-bad on the bad rail.
 - TRAP: `ServiceResult.ToLongString` DOES NOT EXIST at this pin; `ToString()` is the only formatted read, and a fence spelling the long form fails to compile.
 - TRAP: `UaDataSetMessage.DataSet` is null wherever decode failed — the UADP decoder logs and answers null — and a DELTA frame yields a full-length `Fields` array whose untransmitted entries carry a null `Value` beside live `FieldMetaData`. Both nulls guard before a field projects into a value.
@@ -407,7 +441,7 @@ Every mutator answers `StatusCode` and throws nothing, so a configuration change
 - Session and PKI operations use the `*Async` variants, each taking a `CancellationToken`.
 
 [STACKING]:
-- `Wire/livewire.md` `OpcUaLane`: composes the managed `Session`/`Subscription`/`MonitoredItem` surface; each `MonitoredItem.Notification` projects one `DataValue` into `ExternalValue` and writes it to one bounded `Channel<ExternalValue>`, never running the interior on the OPC UA publish thread; `PubSubLane` composes `UaPubSubApplication.DataReceived`, fanning each dataset field into the same lane.
+- `Wire/livewire.md` `OpcUaLane`: composes the managed `Session`/`Subscription`/`MonitoredItem` surface; each `MonitoredItem.Notification` projects one `DataValue` into `ExternalValue` and writes it to one bounded `Channel<ExternalValue>`, never running the interior on the OPC UA publish thread; its `SamplePolicy` seat declares `QueueSize`, `DiscardOldest`, and the `DataChangeFilter` so the server-side queue carries a stated depth, the opener proves `Status.Error` before handing a lane back, and the callback fans `StatusCode.Overflow` as the server's own discard evidence; `PubSubLane` composes `UaPubSubApplication.DataReceived`, fanning each dataset field into the same lane.
 - `api-mqtt`(`libs/csharp/.api/api-mqtt.md`): the peer `MQTTnet` transport row; its `IMqttClient` fan and this surface's `UaPubSubApplication.DataReceived` fan drain into the one bounded `Channel<ExternalValue>` the live-wire studio owns.
 
 [LOCAL_ADMISSION]:
@@ -415,6 +449,8 @@ Every mutator answers `StatusCode` and throws nothing, so a configuration change
 - Low-level session construction requires a transport channel; `ClientChannelManager` owns channel lifecycle, while managed `Session.CreateAsync` builds its own channel from the configuration-loaded endpoint.
 - Certificate validation runs through `CertificateValidator` initialized from `SecurityConfiguration`; trust lists persist as directory stores.
 - PubSub admits one `UaPubSubApplication` per process; connections register through configuration.
+- Monitored items declare `QueueSize`, `DiscardOldest`, and their `DataChangeFilter` at the consuming seat; an unset queue is a server-side discard policy no consumer chose.
+- Per-item create verdicts read off `MonitoredItem.Status.Error`, never off an exception the create call does not raise.
 
 [RAIL_LAW]:
 - Package: `OPCFoundation.NetStandard.Opc.Ua` + `OPCFoundation.NetStandard.Opc.Ua.PubSub`

@@ -107,7 +107,7 @@ Built-in checkers, the twelve reachable with no extra installed: `date`, `date-t
 
 [STACKING]:
 - `confluent-kafka`(`.api/confluent-kafka.md`): `JSONSerializer`/`JSONDeserializer` compose this validator beneath the registry's magic-byte frame, so a registry-fronted JSON payload validates against the registered subject's own document and the framing never reaches a schema.
-- `cloudevents`(`.api/cloudevents.md`): `dataschema` names the registry subject and version, and this owner grades the payload against the document that coordinate resolves — the message envelope's own attribute validation stays `core.v1.event.CloudEvent`'s and never crosses here.
+- `cloudevents`(`.api/cloudevents.md`): `dataschema` is an optional absolute URI identifying the payload schema; this owner grades the payload only after composition separately resolves that URI to an admitted schema document. Registry subject/version and protobuf `Any.type_url` remain independent configuration, while message-envelope attribute validation stays `core.v1.event.CloudEvent`'s.
 - `msgspec`(`.api/msgspec.md`): `msgspec.json.schema` emits a document FROM a Python type while this owner grades data AGAINST a foreign one, so the two are inverse directions of one concern and neither substitutes for the other.
 
 [LOCAL_ADMISSION]:

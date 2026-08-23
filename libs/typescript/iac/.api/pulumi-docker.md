@@ -38,17 +38,18 @@
 |  [05]   | `Tag` / `BuildxBuilder`         | re-tag an image / manage a buildx builder instance                                                  |
 
 [RUNTIME_SCOPE]: container runtime
-- `Container` is the deep runtime surface: `image` pins an immutable digest, `command`/`entrypoints` shape the process, `envs` carries `KEY=VALUE` rows, `gpus`/`devices`/`capabilities`/`memory`/`cpus` bound resources, `labels` tag it. `Network` and `Volume` each emit `name: Output<string>`; the `ContainerPort`/`ContainerNetworksAdvanced`/`ContainerVolume`/`ContainerMount` rows are the nested `ports`/`networksAdvanced`/`volumes`/`mounts` arg records.
+- `Container` is the deep runtime surface: `image` pins an immutable digest, `command`/`entrypoints` shape the process, `envs` carries `KEY=VALUE` rows, and `uploads` writes literal, base64, or source-backed files before start. `Network` and `Volume` emit `name: Output<string>` for the nested port, network, volume, and mount records.
 
-| [INDEX] | [SYMBOL]                    | [KEY_ARGS]                                                                                                 |
-| :-----: | :-------------------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Container`                 | `image`, `ports`, `envs`, `mounts`/`volumes`, `networksAdvanced`, `healthcheck`, `restart`/`maxRetryCount` |
-|  [02]   | `Network`                   | `driver`, `ipamConfigs`/`ipamDriver`, `attachable`, `internal`, `ingress`, `options`, `labels`             |
-|  [03]   | `Volume`                    | `driver`/`driverOpts`, `cluster`, `labels`                                                                 |
-|  [04]   | `ContainerPort`             | `internal` (required), `external?`, `ip?`, `protocol?`                                                     |
-|  [05]   | `ContainerNetworksAdvanced` | `name` (required — bind `Network.name`), `aliases?`, `ipv4Address?`, `driverOpts?`                         |
-|  [06]   | `ContainerVolume`           | `volumeName?` (bind `Volume.name`), `containerPath?`, `hostPath?`, `readOnly?`, `fromContainer?`           |
-|  [07]   | `ContainerMount`            | `target`, `type` required, `source?`, `readOnly?`, `bindOptions?`, `volumeOptions?`, `tmpfsOptions?`       |
+| [INDEX] | [SYMBOL]                    | [KEY_ARGS]                                                                                            |
+| :-----: | :-------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `Container`                 | `image`, `envs`, `uploads`, `mounts`/`volumes`, `networksAdvanced`, `healthcheck`, `restart`          |
+|  [02]   | `Network`                   | `driver`, `ipamConfigs`/`ipamDriver`, `attachable`, `internal`, `ingress`, `options`, `labels`        |
+|  [03]   | `Volume`                    | `driver`/`driverOpts`, `cluster`, `labels`                                                            |
+|  [04]   | `ContainerPort`             | `internal` (required), `external?`, `ip?`, `protocol?`                                                |
+|  [05]   | `ContainerNetworksAdvanced` | `name` (required — bind `Network.name`), `aliases?`, `ipv4Address?`, `driverOpts?`                    |
+|  [06]   | `ContainerVolume`           | `volumeName?` (bind `Volume.name`), `containerPath?`, `hostPath?`, `readOnly?`, `fromContainer?`      |
+|  [07]   | `ContainerMount`            | `target`, `type` required, `source?`, `readOnly?`, `bindOptions?`, `volumeOptions?`, `tmpfsOptions?`  |
+|  [08]   | `ContainerUpload`           | `file` required; exactly one of `content`/`contentBase64`/`source`; `permissions?` controls file mode |
 
 [SWARM_SCOPE]: swarm-mode services
 - Replicated or global swarm workloads carry rolling `updateConfig`/`rollbackConfig` and `endpointSpec` publish. `ServiceConfig`/`Secret` inject config and secret material — bind `Secret.data` to a Doppler-sourced `Output`.

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_H5PY]
 
-`h5py` maps the HDF5 container to Python. Compute composes it as the exchange-container surface alone — the sparse-operator archive pair and the graduation drift-envelope writer — never as a field store: the gridded field rail and its full h5py surface belong to `libs/python/data/.api/h5py.md`, and this folder's admission covers only the group/dataset/attribute members its two exchange fences spell.
+`h5py` maps the HDF5 container to Python. Compute composes it as the exchange-container surface alone — sparse-operator archives, graduation drift envelopes, and waveform corpora — never as a field store: the gridded field rail and its full h5py surface belong to `libs/python/data/.api/h5py.md`, and this folder's admission covers only the group/dataset/attribute members its exchange fences spell.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - module: `import h5py`
 - namespaces: `h5py`
 - owner: `compute`
-- rail: exchange — the HDF5 container carrying the C#-peer sparse-operator and drift-envelope crossings
+- rail: exchange — the HDF5 container carrying the C#-peer sparse-operator, drift-envelope, and waveform crossings
 - capability: file IO, group namespace, typed dataset storage, attribute metadata, vlen string dtype
 
 ## [02]-[PUBLIC_TYPES]
@@ -50,7 +50,7 @@
 
 [TOPOLOGY]:
 - `File` is a context manager; a `with` block flushes and closes the handle, and a leaked handle locks or corrupts the file.
-- Mode `x` is the create-only open both exchange fences pin, matching the peer's create-only archive session.
+- Mode `x` is the create-only open every writer fence pins, matching the peer's create-only archive session.
 - Attribute values keep their numpy dtypes both ways, so the wire pins (`int32` indices, `int64` shape, `float64` values) spell as explicit `astype`/`np.<dtype>` at every write.
 
 [STACKING]:
@@ -58,10 +58,10 @@
 - `scipy`(`.api/scipy.md`): the sparse archive datasets feed the `csr_array`/`csc_array` constructors directly off the read arrays.
 
 [LOCAL_ADMISSION]:
-- Consumers are the two exchange fences alone: `solvers/linear#EXCHANGE` (the scipy-convention sparse archive pair) and `experiments/model#ENVELOPE` (the drift-envelope writer); a compute field, ensemble, or CF store over h5py routes to the data branch owners instead.
+- Consumers are the exchange fences alone: `solvers/linear#EXCHANGE` (scipy-convention sparse archives), `experiments/model#ENVELOPE` (drift envelopes), and `analysis/signal#WAVEFORM_EXCHANGE` (two-axis waveform publication); a compute field, ensemble, or CF store routes to the data branch owners instead.
 
 [RAIL_LAW]:
 - Package: `h5py`
-- Owns: the HDF5 exchange-container IO this folder's two C#-peer crossings spell
+- Owns: the HDF5 exchange-container IO this folder's C#-peer crossings spell
 - Accept: a context-managed `File`, create-only `x` mode, explicit dtype pins at every dataset and attribute write, `string_dtype` for vlen categories
 - Reject: a file handle leaked outside `with`, an implicit int64 index dataset where the exchange convention pins int32, and any field-store or CF use the data branch owns

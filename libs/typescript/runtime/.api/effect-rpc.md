@@ -83,9 +83,11 @@
 |  [07]   | `layerProtocolStdio({ stdin, stdout })` / `makeProtocolStdio`  | protocol       | stdio transport (`stdin` Stream / `stdout` Sink)      |
 |  [08]   | `layerProtocolSocketServer` / `makeProtocolSocketServer`       | protocol       | raw socket transport over a `SocketServer`            |
 |  [09]   | `makeProtocolWithHttpApp` / `makeProtocolWithHttpAppWebsocket` | protocol (raw) | `Protocol` from an existing `HttpApp` (unary / +WS)   |
-|  [10]   | `layerHttpRouter({ group, path, protocol? })`                  | serve+mount    | fused handler+protocol mount on an `HttpRouter` path  |
+|  [10]   | `layerHttpRouter({ group, path, protocol?, concurrency? })`    | serve+mount    | fused handler+protocol mount on an `HttpRouter` path  |
 |  [11]   | `toHttpApp(group, options?)`                                   | serve          | `HttpApp` value from a group                          |
 |  [12]   | `toWebHandler(group, { middleware?, memoMap? })`               | serve          | `fetch` `{ handler, dispose }` for edge runtimes      |
+
+- `layerHttpRouter` fuses `layer(group, options)` with `layerProtocolHttpRouter`/`layerProtocolWebsocketRouter` on the `protocol` discriminant, which DEFAULTS to websockets — so a caller wanting HTTP states it. Its `concurrency` defaults to `"unbounded"`: the server builds a permit semaphore only when a number arrives, so an unstated mount serves every in-flight message at once and no Layer above the mount can re-impose a ceiling.
 
 [ENTRYPOINT_SCOPE]: client protocol rows + per-request headers (`RpcClient`)
 
@@ -93,12 +95,14 @@
 | :-----: | :-------------------------------------------------------------------- | :------------- | :----------------------------------------- |
 |  [01]   | `make(group, { spanPrefix?, flatten?, generateRequestId? })`          | derive         | build the group-typed caller (an `Effect`) |
 |  [02]   | `layerProtocolHttp({ url, transformClient?, retryTransientErrors? })` | protocol       | HTTP client transport over `HttpClient`    |
-|  [03]   | `layerProtocolSocket({ retryTransientErrors? })`                      | protocol       | socket client transport                    |
+|  [03]   | `layerProtocolSocket({ retryTransientErrors?, retrySchedule? })`      | protocol       | socket client transport, reconnecting      |
 |  [04]   | `layerProtocolWorker({ size, concurrency? })`                         | protocol       | worker-pool client transport               |
 |  [05]   | `makeProtocolHttp(client)`                                            | protocol (raw) | unlayered HTTP client `Protocol`           |
 |  [06]   | `makeProtocolSocket(options?)`                                        | protocol (raw) | unlayered socket client `Protocol`         |
 |  [07]   | `makeProtocolWorker(options)`                                         | protocol (raw) | unlayered worker client `Protocol`         |
 |  [08]   | `withHeaders` / `withHeadersEffect` / `currentHeaders`                | headers        | per-call / effect-derived / the `FiberRef` |
+
+- `RpcClient.layerProtocolSocket` reconnects FOREVER and `retryTransientErrors` gates only whether a failed open surfaces to the caller, never whether the loop runs. Its unstated curve is `Schedule.exponential(500, 1.5)` unioned with `Schedule.spaced(5000)` and carries no jitter, so a fleet returns to a restarted server in lockstep; `retrySchedule` is where a consumer states its own.
 
 [ENTRYPOINT_SCOPE]: serialization codec rows (`RpcSerialization`)
 

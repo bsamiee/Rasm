@@ -126,7 +126,7 @@
 
 [STACKING]:
 - `confluent-kafka`(`.api/confluent-kafka.md`): `AvroSerializer`/`AvroDeserializer` compose this codec beneath the registry's magic-byte frame, so a registry-fronted payload never reaches `schemaless_writer` directly and the writer schema resolves off the frame's schema id.
-- `cloudevents`(`.api/cloudevents.md`): the Avro `EventFormat` row's `write_data`/`read_data` pair runs `schemaless_writer`/`schemaless_reader` over the resolved schema, since the CloudEvents payload carries its own framing and needs no Avro container header.
+- `cloudevents`(`.api/cloudevents.md`): the Avro row runs `schemaless_writer`/`schemaless_reader` over the exact publisher AVSC resource for the whole structured event. Its projection realizes bytes/null/scalars, recursive JSON objects, and record-object arrays while refusing generated Message payloads the AVSC does not represent; the later Rasm profile admits opaque bytes and binary mode selects no structured schema.
 - `obstore`(`.api/obstore.md`): a container file read through `reader` streams off an object-store byte range, so `block_reader`'s per-block offsets align with the ranged fetch rather than a whole-object download.
 
 [LOCAL_ADMISSION]:

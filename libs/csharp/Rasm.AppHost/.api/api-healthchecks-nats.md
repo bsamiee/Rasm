@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_HEALTHCHECKS_NATS]
 
-`AspNetCore.HealthChecks.Nats` (Xabaril) mints one sealed `IHealthCheck` that proves NATS broker reachability by opening the injected `INatsConnection` — the pooled connection the app already registers, resolved from DI unless a factory overrides it. Connection liveness IS the reachability signal: the probe carries no options type, message factory, or result detail. It enters the AppHost capability-health fold as one `remote`-tagged contributor row over the shared pooled connection, so broker degradation routes through the existing `ReducedRemote` degradation rule.
+`AspNetCore.HealthChecks.Nats` (Xabaril) mints one sealed `IHealthCheck` proving NATS broker reachability by opening the injected `INatsConnection`, resolved from DI unless a factory overrides it. Connection liveness IS the reachability signal: the probe carries no options type, message factory, or result detail. AppHost carries the probe alone and no NATS client — `NATS.Net` is a `Rasm.Persistence` and `Rasm.Compute` row — so it grades whichever pooled connection the composition root registered, routing broker degradation through the existing `ReducedRemote` rule.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -43,14 +43,14 @@
 
 [STACKING]:
 - `api-health`(`.api/api-health.md`): the probe implements the `Microsoft.Extensions.Diagnostics.HealthChecks` abstractions `IHealthCheck`/`HealthCheckResult`/`HealthCheckRegistration` that `AddNats` registers.
-- within-lib: `AddNats` binds the SAME pooled `NatsConnection` the durable-drain/broker publish rail composes, and the health fold admits `NatsHealthCheck` as the `DriverProbe.Nats` (`Remote`-tagged) contributor row that `HealthReport.Snapshot` projects, so a broker partition degrades the publish path and the probe in lockstep.
+- `Observability/health#HEALTH_FOLD`: admits `NatsHealthCheck` as the `DriverProbe.Nats` (`Remote`-tagged) contributor row that `HealthReport.Snapshot` projects, and `AddNats` resolves the SAME pooled `NatsConnection` the composition root registered for its NATS-composing branch — `Rasm.Persistence` `Version/egress#EGRESS_SINK` or `Rasm.Compute` `Runtime/ingest` — so a broker partition degrades that path and the probe in lockstep. `DriverProbe.Nats` tracks the landed sink roster as seed data, so a root registering no `INatsConnection` registers no row here.
 
 [LOCAL_ADMISSION]:
-- Admitted as one `Remote`-tagged contributor row over the shared pooled `INatsConnection` — the `DriverProbe.Nats` row, never a parallel `AddNats` registration face or a second connection vocabulary; `NatsOpts` (URL, TLS, auth, ping cadence) is defined once on the app's connection.
+- Admitted as one `Remote`-tagged contributor row over the composition root's pooled `INatsConnection` — the `DriverProbe.Nats` row, never a parallel `AddNats` registration face or a second connection vocabulary; `NatsOpts` (URL, TLS, auth, ping cadence) is defined once at the branch owning that connection, and this folder states none of it.
 - Connect failures cross the fold as a typed `HealthCheckResult`, never a thrown exception; the message-less `Unhealthy()` gains name and tag at the row since the package attaches no detail.
 
 [RAIL_LAW]:
 - Package: `AspNetCore.HealthChecks.Nats`
 - Owns: NATS broker reachability as one `remote`-tagged contributor probe over the shared `INatsConnection`
-- Accept: the pooled `NatsConnection` resolved from DI or a factory, and a bounded probe cadence
+- Accept: the composition root's pooled `NatsConnection` resolved from DI or a factory, and a bounded probe cadence
 - Reject: a second NATS connection vocabulary, a JetStream/consumer assertion in the probe, or a thrown probe failure crossing the health fold

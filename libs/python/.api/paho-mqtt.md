@@ -143,6 +143,9 @@ Each callback also has a decorator factory on the instance — `connect_callback
 - `loop_read` ignores its `max_packets` argument — the body overwrites it with the live in-flight count, floored at one.
 - `loop_misc` answers `MQTT_ERR_CONN_LOST` and fires `on_disconnect` when no PINGRESP arrives within `keepalive` seconds, so keepalive liveness is that call's alone.
 - `publish` never blocks and never raises on queue overflow — it answers an `MQTTMessageInfo` whose `rc` is `MQTT_ERR_QUEUE_SIZE`, and `wait_for_publish`/`is_published` on that handle raise `ValueError` rather than reporting the shed. It raises `ValueError` for an empty topic under `MQTTv311`, an out-of-range QoS, and a payload past 268435455 bytes.
+- Two distinct causes wear that one `rc`: the outbound queue standing at its ceiling, and a message-id collision against a live in-flight entry. Neither is recoverable from the code alone.
+- Outbound queue depth defaults to ZERO meaning UNBOUNDED, so an unset ceiling buffers a stalled broker's whole backlog in process memory rather than shedding, and `max_queued_messages` refuses on an established connection — the value binds before `connect` or never. In-flight width defaults to twenty messages.
+- `reconnect_on_failure` defaults on and re-dials from inside CONNACK handling, not just from the network loop: an `MQTTv311` session refused for protocol version silently DOWNGRADES itself to `MQTTv31` and reconnects, and one refused for identifier with an empty client id MINTS a random client id and reconnects. Both reach the socket-first shape, both change a session property a subscriber's durability depends on, and neither raises.
 - `MQTTMessageInfo.wait_for_publish` waits on a `threading.Condition`, waking every `timeout/10` seconds and blocking unbounded when `timeout is None`.
 - `MQTTMessage.topic` decodes its bytes as UTF-8 on every read, so a non-UTF-8 topic raises at the property rather than at receipt.
 - `Client.__init__` refuses a `str` first argument with the v1-to-v2 migration message, refuses `clean_session` under MQTTv5, and refuses an empty `client_id` with `clean_session=False`. `VERSION1` emits a `DeprecationWarning` at construction.
@@ -165,9 +168,13 @@ Each callback also has a decorator factory on the instance — `connect_callback
 - `suppress_exceptions` stays false and the crossing rails its own faults, so a re-entry failure is a typed fault rather than a killed loop.
 - `MQTTv5` is the admitted protocol for the binary content mode; an `MQTTv311` session carries no property surface and lowers structured-only.
 - `reinitialise` is refused; a re-armed composition constructs a fresh client.
+- Every client STATES `max_queued_messages` and `max_inflight_messages_set` before connecting, since the shipped queue ceiling is unbounded and a bound landing after connect refuses.
+- Every publish READS the answered `MQTTMessageInfo.rc`, because the shed is that value alone and both its causes — a full queue and a message-id collision — return normally.
+- `reconnect_on_failure` and `reconnect_delay_set` state their values at construction. `reliability/resilience#RESILIENCE` holds every schedule the branch runs and `RetryClass.BROKER` routes its re-offer through a RESTART, so an inherited reconnect curve underneath that route makes effective attempts the product of two schedules.
+- `MQTTv5` carries the admitted content mode, so its CONNACK path reaches neither silent respelling; a composition falling back to `MQTTv311` binds a non-empty client id and refuses `reconnect_on_failure`, since a downgraded protocol version and a minted session identity each change what a durable subscription resumes.
 
 [RAIL_LAW]:
 - Package: `paho-mqtt`
 - Owns: the MQTT protocol state machine, its 5.0 property vocabulary, reason codes, subscribe options, and topic-filter matching
 - Accept: `Client` under `CallbackAPIVersion.VERSION2`, the socket-first loop triple, `Properties` scoped to a `PacketTypes` member, `ReasonCode`, `SubscribeOptions`
-- Reject: `reinitialise`; `CallbackAPIVersion.VERSION1`; the plural `ReasonCodes` alias; a bare integer where a `ReasonCode` or `PacketTypes` member states the value; `suppress_exceptions = True`
+- Reject: an unbounded outbound queue; a publish whose `MQTTMessageInfo.rc` nothing reads; an inherited reconnect curve beside the `RetryClass` owner; an empty client id on an `MQTTv311` session; `reinitialise`; `CallbackAPIVersion.VERSION1`; the plural `ReasonCodes` alias; a bare integer where a `ReasonCode` or `PacketTypes` member states the value; `suppress_exceptions = True`

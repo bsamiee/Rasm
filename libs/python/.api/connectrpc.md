@@ -9,7 +9,7 @@
 - module: `connectrpc`
 - namespaces: `connectrpc.server`, `connectrpc.client`, `connectrpc.request`, `connectrpc.method`, `connectrpc.interceptor`, `connectrpc.codec`, `connectrpc.compression` with `.gzip` / `.brotli` / `.zstd`, `connectrpc.errors`, `connectrpc.code`, `connectrpc.protocol`, `connectrpc.compat`
 - abi: pure Python; clients dial through the `pyqwest` reqwest-backed native extension, servers mount on any ASGI or WSGI host
-- depends: `pyqwest` supplies `Client` and `SyncClient` over an `HTTPTransport` carrying TLS, mTLS, proxy, pool, and `HTTPVersion` selection
+- depends: `protobuf-py` supplies the message and descriptor runtime; `pyqwest` supplies the HTTP clients and transport
 - rail: transport
 
 ## [02]-[PUBLIC_TYPES]
@@ -218,15 +218,16 @@
 - `hypercorn`(`libs/python/runtime/.api/hypercorn.md`): `hypercorn.asyncio.serve(app, config)` hosts `<Svc>ASGIApplication` off a `Config` whose `bind` roster the composition root assigns (plaintext h2c on a UNIX socket included), and `DispatcherMiddleware({app.path: app})` mounts several services on one listener; `hypercorn.trio` hosts no Connect application.
 - `opentelemetry-instrumentation-asgi`(`libs/python/runtime/.api/opentelemetry-instrumentation-asgi.md`): `OpenTelemetryMiddleware(<Svc>ASGIApplication(service))` opens the server span, and `server_request_hook` stamps rpc attributes off the `/<package>.<Service>/<Method>` path.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): the server span is `opentelemetry-instrumentation-asgi`'s off `scope["headers"]`, the client `MetadataInterceptor.on_start` stamps the active context through `propagate.inject(ctx.request_headers)`, and its `on_end` closes the span off `ConnectError.code`.
-- `anyio`(`.api/anyio.md`): a blocking handler body bounds through `to_thread.run_sync(fn, limiter=CapacityLimiter(n))`, and `ctx.timeout_ms` feeds `fail_after(ctx.timeout_ms / 1000)` so the handler refuses on its own remaining deadline.
+- `anyio`(`.api/anyio.md`): a blocking handler leaves the event loop through an explicit limiter. `to_thread.run_sync(..., abandon_on_cancel=False)` preserves slot custody but cannot stop in-flight native work; a hard native deadline uses `to_process.run_sync(..., cancellable=True)` under `fail_after(ctx.timeout_ms / 1000)`, which terminates the worker on cancellation.
 - `stamina`(`libs/python/runtime/.api/stamina.md`): `AsyncRetryingCaller.on(hook)` returns a `BoundAsyncRetryingCaller` whose backoff hook reads `ConnectError.code` — `UNAVAILABLE` and `DEADLINE_EXCEEDED` retry, `INVALID_ARGUMENT` and `FAILED_PRECONDITION` never — wrapping every `<Svc>Client.<rpc>` call.
 - `zstandard`(`libs/python/artifacts/.api/zstandard.md`) and `brotli`(`libs/python/artifacts/.api/brotli.md`): `ZstdCompression(level)` folds onto `ZstdCompressor(level=...).compress` and `ZstdDecompressor().stream_reader`, `BrotliCompression(quality)` onto `brotli.compress(string, quality=...)`, and seating either in `compressions=` or `accept_compression=` admits its distribution.
+- `pyqwest`(`libs/python/runtime/.api/pyqwest.md`): the dial rides one `HTTPTransport` whose row states `timeout`, `read_timeout`, and `follow_redirects`, since this distribution carries no retry and no redirect policy of its own and inherits whichever the transport was built with; `pyqwest.middleware.retry` is refused there as a second schedule beneath the `stamina` caller below. `timeout_ms` is this client's OWN deadline — absent by default, per-call or per-client, wrapping the whole call — so it bounds the RPC while the transport row bounds the socket, and neither substitutes for the other.
 - within the branch, one composition root seats every `<Svc>ASGIApplication` under a single dispatcher, sharing one interceptor tuple across the applications and one `pyqwest` `Client` across every `<Svc>Client`.
 
 [LOCAL_ADMISSION]:
 - generated `<Svc>ASGIApplication` / `<Svc>Client` pairs are the sole handler and dialer shape; a hand-built `ConnectASGIApplication(endpoints=...)` or a raw `execute_unary(method=MethodInfo(...))` lives only where no generated stub exists.
 - `protobuf=py` is the one generator option the estate emits, so `connectrpc.compat` codecs stay out of every fence.
-- `connectrpc` and `protoc-gen-connectrpc` pin as one set with `protobuf-py`, and the `_connect.py` tree regenerates on every bump.
+- `connectrpc` and `protoc-gen-connectrpc` resolve from one source coordinate and one protobuf floor. The `_connect.py` tree regenerates whenever that pair moves.
 - every client takes an injected `pyqwest` `Client` over an `HTTPTransport` the composition root `aclose`s, and no fence leans on `ConnectClient.close()` to release a socket.
 
 [RAIL_LAW]:

@@ -3,16 +3,23 @@ version: v2
 modules:
   - path: tests/contracts/proto                      # rasm.contracts.<family>.v1; directory spells the package
     name: buf.build/rasm/contracts                   # One published estate release unit; vendored publisher modules remain unnamed
-  - path: tests/contracts/vendor/cloudevents/proto   # Publisher bytes; estate grades no copy of them
-    lint: {disable_builtin: true}
-    breaking: {disable_builtin: true}
+  - path: tests/contracts/vendor/cloudevents/proto   # Publisher bytes; the envelope clears STANDARD whole, so it carves nothing
   - path: tests/contracts/vendor/grpc-health/proto   # Publisher bytes; Python has no package-shipped health client, so it generates here
-    lint: {disable_builtin: true}
-    breaking: {disable_builtin: true}
+    lint:                                            # A module block REPLACES the workspace lint config whole; an omitted use falls to buf's STANDARD default
+      use: [STANDARD]
+      disallow_comment_ignores: true                 # The replacement drops the workspace refusal too, so publisher bytes would carry an unreviewed carve
+      except:
+        - ENUM_VALUE_PREFIX                          # Publisher spells SERVING, never SERVING_STATUS_SERVING
+        - ENUM_ZERO_VALUE_SUFFIX                     # Publisher zero value is UNKNOWN, never SERVING_STATUS_UNSPECIFIED
+        - SERVICE_SUFFIX                             # Publisher service is Health, never HealthService
+        - RPC_REQUEST_RESPONSE_UNIQUE                # Check and Watch share one HealthCheckRequest and HealthCheckResponse pair
+        - RPC_REQUEST_STANDARD_NAME                  # Watch takes HealthCheckRequest, never WatchRequest
+        - RPC_RESPONSE_STANDARD_NAME                 # Watch returns HealthCheckResponse, never WatchResponse
 deps:
   - buf.build/bufbuild/protovalidate                 # (buf.validate.field) rules; STANDARD's PROTOVALIDATE rule type-checks them
   - buf.build/googleapis/googleapis                  # google.rpc error details beside FaultDetail; google.type calendar scalars
 lint:
   use: [STANDARD]
+  disallow_comment_ignores: true                     # Carves live in this reviewable file; v2 admits buf:lint:ignore by default and this refuses it
 breaking:
   use: [FILE]  # Generated trees bind the file path as an import path; file move breaks a consumer the wire rules pass

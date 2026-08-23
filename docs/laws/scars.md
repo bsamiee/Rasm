@@ -28,7 +28,8 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: Lane findings, alignment rows, and charter text inherit this law, so a report claim with no disk re-probe stays a hypothesis.
 - Boundary: Dispatch premises re-prove both ways — `blocked` and `already landed` alike — and a prose-read spelling re-reads at its owning fence.
 - Boundary: Receipt rows and census counts are dispatch premises — a receipted landing and a tally sizing a rebuild alike re-prove on disk first.
-- Boundary: Census instruments prove on a control probe — one known hit, one known miss — before a count routes work; a wrong pattern reads zero.
+- Boundary: Census and gate instruments prove on a control probe — one known hit, one known miss — before a count or a verdict routes work.
+- Boundary: Wrong patterns read zero and malformed target sets plan zero, so an instrument examining nothing reports clean.
 - Boundary: Decompile and reflection listings prove spelling alone; access and implementation prove by bind-and-invoke on the owning rail.
 - Boundary: Absence proves on the rail a consumer dials — a workspace binary or wrapper answers where an interactive-PATH probe reads nothing.
 
@@ -50,6 +51,15 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: Cross-language wires convict the producer — a zero-filled required slot strands the peer's absence arm while both ends read correct.
 - Boundary: Structurally-zero slots state why at their site, so a sweep tells structural from fabricated zeros without re-deriving the domain.
 - Boundary: Platform-gated counter projections OMIT the absent key, and process-constant counter binding spells that omission platform absence alone.
+
+[TALLY_COARSER_THAN_ITS_VOCABULARY]:
+- Law: Tallies over a closed vocabulary key on the vocabulary itself, so every member counts under its own name and a later member seats itself.
+- Law: Buckets ride as a column on the vocabulary each member declares, so one owner holds the partition and no fold site re-derives it.
+- Law: Bucket totals derive at read from the keyed tally, since a bucket stored beside the keys mirrors it, drifts from it, and cannot recombine.
+- Trigger: Runs proving nothing read arithmetically identical to runs proving everything — skips seat as passes, faults leave the total.
+- Boundary: Repair keys the tally, never adds a bucket — a fourth named slot answering a ninth member repeats the whole edit on the tenth.
+- Boundary: Prose disclosure never repairs it — a note naming the skip leaves the number a reader gates on still spelling proved.
+- Boundary: `[DISCARDED_DISCRIMINANT]` owns the predicate-grain form; this scar binds every aggregate whose buckets are fewer than its members.
 
 [STRATA_TWIN]:
 - Law: Concepts two strata peers both spell home at the lowest stratum every consumer reaches, seated before either peer declares them.

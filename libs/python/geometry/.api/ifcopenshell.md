@@ -28,15 +28,15 @@
 
 `geom.create_shape` returns an `Element` whose representation discriminates on output mode into one of the two shape carriers below.
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]      | [CAPABILITY]                                                     |
-| :-----: | :------------------------- | :----------------- | :--------------------------------------------------------------- |
-|  [01]   | `geom.settings`            | tessellation knobs | deflection/units/UV/output mode knob bag                         |
-|  [02]   | `geom.serializer_settings` | serializer knobs   | GLB/OBJ/XML serializer configuration                             |
-|  [03]   | `geom.iterator`            | mesh daemon        | multi-threaded whole-model tessellation iterator                 |
-|  [04]   | `geom.tree`                | spatial index      | bounding-box/clash spatial query tree                            |
-|  [05]   | `BRepElement`              | shape result       | `Element` carrying an OCC BRep representation                    |
-|  [06]   | `TriangulationElement`     | shape result       | `Element` with a `Triangulation` (verts/faces/normals/materials) |
-|  [07]   | `geom.serializers`         | serializer set     | GLB/OBJ/XML/SVG mesh serializers                                 |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]      | [CAPABILITY]                                                                       |
+| :-----: | :------------------------- | :----------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `geom.settings`            | tessellation knobs | deflection, precision, dimensionality, placement, material, UV, and opening policy |
+|  [02]   | `geom.serializer_settings` | serializer knobs   | GLB/OBJ/XML serializer configuration                                               |
+|  [03]   | `geom.iterator`            | mesh daemon        | multi-threaded whole-model tessellation iterator                                   |
+|  [04]   | `geom.tree`                | spatial index      | bounding-box/clash spatial query tree                                              |
+|  [05]   | `BRepElement`              | shape result       | `Element` carrying an OCC BRep representation                                      |
+|  [06]   | `TriangulationElement`     | shape result       | `Element` with a `Triangulation` (verts/faces/normals/materials)                   |
+|  [07]   | `geom.serializers`         | serializer set     | GLB/OBJ/XML/SVG mesh serializers                                                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -69,17 +69,17 @@
 
 [ENTRYPOINT_SCOPE]: tessellation and analysis
 
-Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRARY` kernel selector (`opencascade`/`cgal`/`cgal-simple`/`hybrid-cgal-simple-opencascade`).
+Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRARY` kernel selector (`opencascade`/`cgal`/`cgal-simple`/`hybrid-cgal-simple-opencascade`), defaulting to `opencascade`; `geom.iterator` takes it as `geometry_library=`.
 
-| [INDEX] | [SURFACE]                                    | [CAPABILITY]                                                                  |
-| :-----: | :------------------------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `geom.create_shape`                          | per-element tessellation from settings/instance/kernel                        |
-|  [02]   | `geom.iterate`                               | lazy whole-model mesh generator (model plus threads)                          |
-|  [03]   | `geom.iterator`                              | reusable mesh iterator object                                                 |
-|  [04]   | `geom.serialise`                             | serialize geometry to a format (schema plus shape string)                     |
-|  [05]   | `geom.tree`                                  | build a spatial/clash query tree; `geometry_library` defaults `"opencascade"` |
-|  [06]   | `guid.new` / `compress` / `expand` / `split` | IFC GUID mint + encode/decode; `compress`/`expand`/`split` positional-only    |
-|  [07]   | `validate.validate`                          | schema-conformance validation (model plus logger)                             |
+| [INDEX] | [SURFACE]                                                         | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `geom.create_shape`                                               | per-element tessellation from settings/instance/kernel     |
+|  [02]   | `geom.iterate`                                                    | lazy whole-model mesh generator (model plus threads)       |
+|  [03]   | `geom.iterator(settings, model, num_threads, include=, exclude=)` | reusable filtered mesh iterator object                     |
+|  [04]   | `geom.serialise`                                                  | serialize geometry to a format (schema plus shape string)  |
+|  [05]   | `geom.tree`                                                       | build a spatial/clash query tree                           |
+|  [06]   | `guid.new` / `compress` / `expand` / `split`                      | IFC GUID mint and codec; the codec trio is positional-only |
+|  [07]   | `validate.validate`                                               | schema-conformance validation (model plus logger)          |
 
 [ENTRYPOINT_SCOPE]: authoring usecase dispatch
 
@@ -154,7 +154,7 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 - defined-type axis: LIST-of-SELECT members surface as `entity_instance` values — `IfcIndexedPolyCurve.Segments` yields segments answering `is_a("IfcLineIndex")`/`is_a("IfcArcIndex")` with the raw 1-based index run into `Points.CoordList` on `wrappedValue`; an absent OPTIONAL list attribute reads `None`, never `()`.
 - mutation axis: edits batch under `begin_transaction`/`end_transaction()` (no `commit=` arg), with `undo`/`redo`/`discard_transaction` stepping the stack. High-level authoring is the direct `ifcopenshell.api.<module>.<action>(ifc_file, **settings)` callable over the closed usecase vocabulary; the per-usecase relating keyword differs per row, so a single generic relating keyword is the deleted form. `file.create_entity`/`add`/`remove` are the primitive verbs underneath.
 - georeference axis: `get_helmert_transformation_parameters` is the single extraction seam every conversion reads, so an `IfcMapConversion`, an `IfcMapConversionScaled` with its three scale factors, an `IfcRigidOperation`, and the IFC2X3 `ePSet_MapConversion` all resolve to ONE nine-field `HelmertTransformation` and no consumer branches on schema or coordinate-operation subtype. A `None` return means the model carries no georeference, and every `auto_*` entry answers its input unchanged rather than raising, so the ungeoreferenced case is the identity transform. `should_return_in_map_units`/`is_specified_in_map_units` select whether the scale factor is applied on the way out, so a project-unit and a map-unit consumer share one entry — a caller re-dividing by `scale` outside is the deleted form.
-- tessellation axis: one `geom.settings` knob bag (deflection, `iterator-output`, `use-world-coords`, `generate-uvs`, `length-unit`) and a `geometry_library` kernel feed `geom.iterate`/`create_shape`; `geom.has_occ` flags OpenCASCADE and falls back to CGAL. `TriangulationElement` verts/faces/materials feed the mesh/GLB seam, never the `BRepElement`.
+- tessellation axis: one `geom.settings` knob bag (`mesher-linear-deflection`, `mesher-angular-deflection`, `precision`, `dimensionality`, `weld-vertices`, `use-world-coords`, `apply-default-materials`, `generate-uvs`, `disable-opening-subtractions`) and a `geometry_library` kernel feed `geom.iterator`/`iterate`/`create_shape`; `serializer_settings.set("use-element-guids", bool)` owns serialized node identity. Iterator `include`/`exclude` are mutually exclusive lists of entity instances or GlobalId strings, so element/type scope binds at construction rather than a post-mesh filter. `geom.has_occ` flags OpenCASCADE and falls back to CGAL. `TriangulationElement` verts/faces/materials feed the mesh/GLB seam, never the `BRepElement`.
 - analysis axis: `util.element` resolves property sets, containment, and decomposition; `util.selector.filter_elements` runs the selector grammar; results stay `entity_instance` values.
 - evidence: each model op captures schema version, instance count, and edited-entity count; each tessellation captures element/vertex/face counts and kernel as an ifc receipt.
 - boundary: ifcopenshell owns IFC parse and tessellation; mesh post-processing routes to `trimesh`, point clouds to `open3d`, glTF authoring to the artifacts owner; live UI stays outside.

@@ -9,10 +9,6 @@ resolution-markers = [
 ]
 
 [manifest]
-members = [
-    "rasm-contracts",
-    "workspace-foundation-python",
-]
 
 [[manifest.dependency-metadata]]
 name = "colour-cxf"
@@ -35,17 +31,20 @@ requires-python = ">=3.11"
 provides-extras = ["jax", "numba"]
 
 [[manifest.dependency-metadata]]
-name = "pythran"
-version = "0.18.1"
-requires-dist = ["ply>=3.4", "setuptools", "gast~=0.7.0", "numpy", "beniget~=0.4.0"]
-requires-python = ">=3.7"
-
-[[manifest.dependency-metadata]]
 name = "substrait"
 version = "0.30.0"
 requires-dist = ["protobuf>=5,<7", "substrait-protobuf==0.99.0", "substrait-antlr==0.99.0 ; extra == 'extensions'", "pyyaml ; extra == 'extensions'", "sqloxide ; extra == 'sql'", "deepdiff ; extra == 'sql'"]
 requires-python = ">=3.10"
 provides-extras = ["extensions", "sql"]
+
+[[package]]
+name = "absl-py"
+version = "2.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/4f/d79676ab82f2e42fc3611618139f13a9c4c31d0cff4b486982047679a802/absl_py-2.5.0.tar.gz", hash = "sha256:0c996f25c0490700fadabe6351630f6111534fa0ae252cc6d2014ea3b141135f", size = 118119, upload-time = "2026-07-03T10:57:48.157Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/0a/a10b45aab35b175aded078a462dc8d0c698f5b13946e7cb0869097b78bb6/absl_py-2.5.0-py3-none-any.whl", hash = "sha256:0f17b89f2a4eaaedc4f28c622998aa690564b3012a396a4ffad0821007fe03ba", size = 137410, upload-time = "2026-07-03T10:57:46.735Z" },
+]
 
 [[package]]
 name = "adbc-driver-flightsql"
@@ -684,6 +683,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8d/13/d8b56ef2e6b6ae2cc1b23e509ea7cc8d3423aa0d8a7d7634c23c0bf845e2/bitstruct-8.22.1.tar.gz", hash = "sha256:97588318c906c60d33129e0061dd830b03d793c517033d312487c75426d1e808", size = 35616, upload-time = "2026-02-17T14:14:23.296Z" }
 
 [[package]]
+name = "blackjax"
+version = "1.6.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jax" },
+    { name = "jaxlib" },
+    { name = "numpy" },
+    { name = "optax" },
+    { name = "scipy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/12/bc/423d304810d0defb54906d220468730895207c9c908cc0ea67d925b463b5/blackjax-1.6.2.tar.gz", hash = "sha256:ad3c97ff6c77cfa17310a68de665d1a48f9d47ff1ac39725082ab235517406ee", size = 5302867, upload-time = "2026-07-16T13:10:25.422Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/13/fc2be5e0c9a68c18eb0ea8ece9a0f3b078a513fd8a695f00d506de08db97/blackjax-1.6.2-py3-none-any.whl", hash = "sha256:2989786202cdfc9b0a84f8215c24f2c7985b40ae432136282c3776d979d1236e", size = 4915114, upload-time = "2026-07-16T13:10:23.466Z" },
+]
+
+[[package]]
 name = "blackrenderer"
 version = "0.8.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1091,6 +1107,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/bd/2a/23f34ec9d04624958
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/2b/f97f1c193fb855c345d678f5077d6926034db0722df74c8f057020e05a25/charset_normalizer-3.4.9-py3-none-any.whl", hash = "sha256:68e5f26a1ad57ded6d1cfb85331d1c1a195314756471d97758c48498bb4dcdf5", size = 64538, upload-time = "2026-07-07T14:34:56.993Z" },
 ]
+
+[[package]]
+name = "ciso8601"
+version = "2.3.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/8a/075724aea06c98626109bfd670c27c248c87b9ba33e637f069bf46e8c4c3/ciso8601-2.3.3.tar.gz", hash = "sha256:db5d78d9fb0de8686fbad1c1c2d168ed52efb6e8bf8774ae26226e5034a46dae", size = 31909, upload-time = "2025-08-20T16:31:33.51Z" }
 
 [[package]]
 name = "clarabel"
@@ -1706,6 +1728,24 @@ wheels = [
 ]
 
 [[package]]
+name = "diffrax"
+version = "0.7.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "equinox" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "lineax" },
+    { name = "optimistix" },
+    { name = "typing-extensions" },
+    { name = "wadler-lindig" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/ea/a22853377a840d70d1d174d43183f12990c66eecf34ba7e76eec781249d0/diffrax-0.7.2.tar.gz", hash = "sha256:9adc70fe90dba83f7dd839845839b2531a3dd736a3944fe1aa26598507cfb48e", size = 155159, upload-time = "2026-02-18T01:14:04.964Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/48/c42f657f3d6b4d9d9674c9bc48e763d024511ea4cc1d6e0c68c7b4380c43/diffrax-0.7.2-py3-none-any.whl", hash = "sha256:1beee2f991cd049962fe3c89da28f933753aa66d80bef857533276c9f23301ed", size = 199673, upload-time = "2026-02-18T01:14:03.38Z" },
+]
+
+[[package]]
 name = "dill"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1913,6 +1953,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/77/d6/13bb8bf27209f7eccc73d4c3bde8501bb08c0dba9d95c447debd8f3d9ad9/epdx-0.3.0-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ab284e6c1e34bbc5b686e8d89da55a468c6ee5ad88715f39e76b32eca33a02f0", size = 1230466, upload-time = "2023-07-30T11:54:23.76Z" },
     { url = "https://files.pythonhosted.org/packages/c3/2d/02aa2642091cf7c23054ed92cff2c0653503556b551b555c7bf9e569a053/epdx-0.3.0-cp38-abi3-win32.whl", hash = "sha256:ffb01dc1f4ed978e20f5747da44bb54b95aba9de3abe3b4e64b0909685e8bdc0", size = 225246, upload-time = "2023-07-30T11:54:25.754Z" },
     { url = "https://files.pythonhosted.org/packages/ca/3f/0dfdfb635c3956e665e0d324e5631fd8632503f57b0ee42c8653ff2e43d0/epdx-0.3.0-cp38-abi3-win_amd64.whl", hash = "sha256:dead5b735d9a4f4b012e36dbdc3e63e52d56c97ac952c6384dd132a96a710c37", size = 231435, upload-time = "2023-07-30T11:54:27.56Z" },
+]
+
+[[package]]
+name = "equinox"
+version = "0.13.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "typing-extensions" },
+    { name = "wadler-lindig" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/ff/522336d2f8264f2ad97119710b76e2cddf66145d03a1e89899175d26b192/equinox-0.13.8.tar.gz", hash = "sha256:dd075050018e2dd02e252e9d29d3060f7e67f085622d8d27a8e89e24bb8523db", size = 145257, upload-time = "2026-05-05T10:03:43.258Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/d6/69a76c8ccdef14af687c497040292a46e59fc7a0ab24724b60e50ca61030/equinox-0.13.8-py3-none-any.whl", hash = "sha256:ca004348533cc30a63ebe8823d7dd4bb626dce17743d40bbddb89b402ef2a240", size = 185813, upload-time = "2026-05-05T10:03:41.673Z" },
 ]
 
 [[package]]
@@ -3114,6 +3169,41 @@ wheels = [
 ]
 
 [[package]]
+name = "jax"
+version = "0.11.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jaxlib" },
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "opt-einsum" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/90/aa/c3b6ac3863a490661e255d2356802b54d57b533460fa221d30743d81a6c1/jax-0.11.1.tar.gz", hash = "sha256:43e0d45b1dac002eca04c2de73298395225dd0d4651e3f573a540eaa18abfd80", size = 2864119, upload-time = "2026-08-17T20:31:29.938Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/f4/5f9a286e1eeca9faa8b83885edccf63ab2f1b22e17f6a5ea66ac86b1afe4/jax-0.11.1-py3-none-any.whl", hash = "sha256:72ed60bf85a0b53d0f5b5cd61e37a8b25f369f6f88481feb98ab489894861a82", size = 3302513, upload-time = "2026-08-17T20:29:00.294Z" },
+]
+
+[[package]]
+name = "jaxlib"
+version = "0.11.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/93/da40546a2f67735717a1ffb4751da4eb92527fa326caa6e9973444b41321/jaxlib-0.11.1-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:6e264bd7cecff9053f71c4c7d1aeb0940aa7da9226ddcb00117abb39b5faccf4", size = 63174333, upload-time = "2026-08-17T20:31:00.789Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/da/d73f62bc74692640e0d140db8964fa98a403686eb22c8d0810776e3a2e9e/jaxlib-0.11.1-cp315-cp315-manylinux_2_27_aarch64.whl", hash = "sha256:93c945387919ae27e1475b86802f72ec9f511f65ec74677b33ba47f895e51f9c", size = 82774506, upload-time = "2026-08-17T20:31:03.949Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/c4/44e62769133051f37e12e33cf41e50c24c229c9378624c076edf53f8dd73/jaxlib-0.11.1-cp315-cp315-manylinux_2_27_x86_64.whl", hash = "sha256:b953f341c67d28f202b8af6dfaf9908281e2129ad9bc100454a9fdd2dae0b6f2", size = 87904049, upload-time = "2026-08-17T20:31:12.41Z" },
+    { url = "https://files.pythonhosted.org/packages/75/d1/1243129103b5df137cc84d2bd998d403b5dd2ebcb857f51fd318ebd20282/jaxlib-0.11.1-cp315-cp315-win_amd64.whl", hash = "sha256:8f7956e26fc27b3782b180688545df6ac98c60b9429c45467eaa268bdc60f091", size = 71068945, upload-time = "2026-08-17T20:31:17.332Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/17/bbc0a38d2d560c92e1dd123d293ec2f78e24a843baa13238fd361e7ab370/jaxlib-0.11.1-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:d3945259807c26d231a2b61a63f4b6f1058f6519803b9bcc55ea2f1ae6a13108", size = 63263361, upload-time = "2026-08-17T20:31:20.369Z" },
+    { url = "https://files.pythonhosted.org/packages/97/5b/819e20e911ba4eae21f96ec808a97605383d519d605276914a2b0fb8ef2a/jaxlib-0.11.1-cp315-cp315t-manylinux_2_27_aarch64.whl", hash = "sha256:3bce7f70714ed7e1967b9725e67c0aa3e111ca7e0dc7434c5d7d1e2047a8de26", size = 82868605, upload-time = "2026-08-17T20:31:23.805Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/e7/9593d22d398b66dae5fab17f961ed16ce7acfe11425276a6d2a0200d97ff/jaxlib-0.11.1-cp315-cp315t-manylinux_2_27_x86_64.whl", hash = "sha256:a3064a14d47f03b777454667bc8bf0a7c2d506714fe108adacf734f63cd7a5ae", size = 87998599, upload-time = "2026-08-17T20:31:27.376Z" },
+]
+
+[[package]]
 name = "jaxtyping"
 version = "0.3.11"
 source = { registry = "https://pypi.org/simple" }
@@ -3626,6 +3716,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6c/f0/89eb11dffbe9279ff37144dec786927314502ae0b114f1449dc78c458aab/librt-0.15.0-cp315-cp315t-win32.whl", hash = "sha256:c16d15ee371643ab48dc8248a3e680ebbeca573a13af2c3dd0c985b142d77162", size = 104313, upload-time = "2026-08-07T10:49:12.305Z" },
     { url = "https://files.pythonhosted.org/packages/6d/4a/1f1978c200f563beda63c36adff2d65bbecb81e365e8e69e572f5f70fbc6/librt-0.15.0-cp315-cp315t-win_amd64.whl", hash = "sha256:dbd605739f228912dc49027cb764456b9757750bdc2b6b7773164db7096c6fd1", size = 126889, upload-time = "2026-08-07T10:49:13.881Z" },
     { url = "https://files.pythonhosted.org/packages/38/a6/800800bfed7b1fb10fc3f3d557785c3854e80d3f7a9800d784b176a1fc2d/librt-0.15.0-cp315-cp315t-win_arm64.whl", hash = "sha256:84d244b00604d17df3fc7736c327892d6bba66181254aa4087be807b6c342bdc", size = 110700, upload-time = "2026-08-07T10:49:15.499Z" },
+]
+
+[[package]]
+name = "lineax"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "equinox" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/e0/b7e501899cebd6dc609a01645350afa7976d40a8f3c0bfdf4560e448b2b7/lineax-0.1.1.tar.gz", hash = "sha256:187b8ea93b8e1099fb792e81c6e71a9c269f4fcadbb5313fe312d5847f581f9d", size = 53195, upload-time = "2026-05-01T15:59:06.793Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/f8/0d32243c6b8e5dbee9097cf0c95bbdf8681ba4463c927c2e3445f3775814/lineax-0.1.1-py3-none-any.whl", hash = "sha256:2e399f1674773ab2ba54d76175a618977a554f47abd0a345198d53d92c07beb2", size = 77567, upload-time = "2026-05-01T15:59:05.517Z" },
 ]
 
 [[package]]
@@ -4300,6 +4405,23 @@ wheels = [
 ]
 
 [[package]]
+name = "numpyro"
+version = "0.21.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jax" },
+    { name = "jaxlib" },
+    { name = "multipledispatch" },
+    { name = "numpy" },
+    { name = "tqdm", version = "4.67.3", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'ARM64' or sys_platform != 'win32'" },
+    { name = "tqdm", version = "4.70.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'ARM64' and sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0a/39/46fc1a9ad37f40ad4ce64491da5d1e131ded2d6ab652eb6acb1561fc4151/numpyro-0.21.0.tar.gz", hash = "sha256:fc4a90a024a08840868d46b5f9bdc416dfa3ab76c61691036b44ac2b8a77ac77", size = 433670, upload-time = "2026-05-02T18:10:09.478Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/03/f338093d5384e4f97cfdc8cd6f015ef8b4694dedb6f7a42ff4f7c7ff20aa/numpyro-0.21.0-py3-none-any.whl", hash = "sha256:f89eb82303610d12edae057fb2180bab079434961357df9483d44ab04568543c", size = 394841, upload-time = "2026-05-02T18:10:07.083Z" },
+]
+
+[[package]]
 name = "nutpie"
 version = "0.16.11"
 source = { registry = "https://pypi.org/simple" }
@@ -4896,6 +5018,46 @@ wheels = [
 ]
 
 [[package]]
+name = "opt-einsum"
+version = "3.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/b9/2ac072041e899a52f20cf9510850ff58295003aa75525e58343591b0cbfb/opt_einsum-3.4.0.tar.gz", hash = "sha256:96ca72f1b886d148241348783498194c577fa30a8faac108586b14f1ba4473ac", size = 63004, upload-time = "2024-09-26T14:33:24.483Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/cd/066e86230ae37ed0be70aae89aabf03ca8d9f39c8aea0dec8029455b5540/opt_einsum-3.4.0-py3-none-any.whl", hash = "sha256:69bb92469f86a1565195ece4ac0323943e83477171b91d24c35afe028a90d7cd", size = 71932, upload-time = "2024-09-26T14:33:23.039Z" },
+]
+
+[[package]]
+name = "optax"
+version = "0.2.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "jax" },
+    { name = "jaxlib" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/f9/e3d11ae6f298ee941a0690e353a323d158ba5dedc436e75621c310845c5c/optax-0.2.8.tar.gz", hash = "sha256:5b225b35066fc3eebaa4d798f1b4173b4d57d1a480610908981f8343b50af0b0", size = 301193, upload-time = "2026-03-20T23:30:05.465Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/69/6a93d8600c339d7687a05857c7907bd4dd8cf88691a5ea106d7a50af90a1/optax-0.2.8-py3-none-any.whl", hash = "sha256:e3ca2d36c99daab1800ae9dbc0545034382d6bc780b24d969e1b0df65fa31cb4", size = 402960, upload-time = "2026-03-20T23:30:03.886Z" },
+]
+
+[[package]]
+name = "optimistix"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "equinox" },
+    { name = "jax" },
+    { name = "jaxtyping" },
+    { name = "lineax" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/0b/3bdc0e698cb0d264e5dca0b5bb171342a950a43fa6e046d8c57189298422/optimistix-0.1.0.tar.gz", hash = "sha256:f05c9104748e87e1dc10a0b4a2be94e427f98c3eab0b1d41ea24a593d76be03d", size = 70164, upload-time = "2026-02-16T13:35:43.991Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/53/6a81a6ebb1739f19c32002139719d4ee021a349d5bdbe066910feed327a1/optimistix-0.1.0-py3-none-any.whl", hash = "sha256:c8edda7bf7fe48839c93fcd72bce750c950ed9f7033158303150b7ab395add81", size = 101740, upload-time = "2026-02-16T13:35:42.971Z" },
+]
+
+[[package]]
 name = "optype"
 version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4917,6 +5079,25 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4c/ca/bfac8bc689799bcca4157e0e0ced07e70ce125193fc2e166d2e685b7e2fe/ordered-set-4.1.0.tar.gz", hash = "sha256:694a8e44c87657c59292ede72891eb91d34131f6531463aab3009191c77364a8", size = 12826, upload-time = "2022-01-26T14:38:56.6Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/55/af02708f230eb77084a299d7b08175cff006dea4f2721074b92cdb0296c0/ordered_set-4.1.0-py3-none-any.whl", hash = "sha256:046e1132c71fcf3330438a539928932caf51ddbc582496833e23de611de14562", size = 7634, upload-time = "2022-01-26T14:38:48.677Z" },
+]
+
+[[package]]
+name = "orjson"
+version = "3.12.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/f3/742fb1f62b825f2c010697eaf4e828004bc2a81e7e806666989c132c7c42/orjson-3.12.0.tar.gz", hash = "sha256:d14203fb1aae2ad9b3d52f8a0e82aeb10197ef1c9bc61da7f358bd70b00123d5", size = 4142915, upload-time = "2026-08-14T16:13:30.607Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/64/99c8947ece10c17176af9aae85c4948f1d109da77440ec14d87239efaf73/orjson-3.12.0-cp315-cp315-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl", hash = "sha256:01efac2074fffb4cb1ea3fab7861e9d0f2a26913854a972f5ac760525dbdaf6e", size = 223398, upload-time = "2026-08-14T16:13:14.694Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/30/cf983fe09f2731420fda097a9f7ef4343f47fa216c228961ad8f6da44f3d/orjson-3.12.0-cp315-cp315-macosx_15_0_arm64.whl", hash = "sha256:ed4ca42bd55955aa34deedcfdfd0e0c31abf51143aae158ae2bc3520b626e517", size = 123655, upload-time = "2026-08-14T16:13:16.221Z" },
+    { url = "https://files.pythonhosted.org/packages/11/50/9cb8ae73fa4749dbbc20f617004213b5ff01c20aaeec34c3f31124f2c1d8/orjson-3.12.0-cp315-cp315-manylinux_2_39_aarch64.whl", hash = "sha256:40f92192227505acca4e2533ce565f8e6b9535f7d0d09b0968452f18b7376b38", size = 130515, upload-time = "2026-08-14T16:13:17.601Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/0a/adb6ce1a5b5fbf9cb1790f9961bb668a0dd5429aadaf6cee044724681795/orjson-3.12.0-cp315-cp315-manylinux_2_39_armv7l.whl", hash = "sha256:33efefcf5d88eaf400b47e2eba02f91f319bb9951be61ca500b7d536d3f2079d", size = 113327, upload-time = "2026-08-14T16:13:18.927Z" },
+    { url = "https://files.pythonhosted.org/packages/51/5c/d17f61581d8dbdde7048f87a330fa24915edec38db4d72b381fec14fbb56/orjson-3.12.0-cp315-cp315-manylinux_2_39_i686.whl", hash = "sha256:8e386b0bc0ddd7cd2056f884b5a0af33592bd01ac66a7ca4b42a65a7e7774a13", size = 130105, upload-time = "2026-08-14T16:13:20.317Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/b7/938befcf33bee4704a92ecec6a2731224c539d939bf9429fd39396d28931/orjson-3.12.0-cp315-cp315-manylinux_2_39_x86_64.whl", hash = "sha256:58c58e1de0006ffb580368d6793c36c7b0b021db066479cf281bf5061e732328", size = 131049, upload-time = "2026-08-14T16:13:21.719Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/15/cfa2021d64d5aa8bb5c9f604ef375e00ec8b657651b5dd650b1b7ad13df1/orjson-3.12.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:08231552159be266a7269555bd9f7c016aee7d9ad6dab06eb58796c5ccb7101c", size = 135320, upload-time = "2026-08-14T16:13:23.415Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/50/3e75dfe357c1e8f9e287c7a5740260ef15bd23a5299eae8d0835dcad5375/orjson-3.12.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:a15f9a891bce5f5cc5d210e3ad8614d4d1b489a56448c099d6d2a7168b2d954a", size = 127488, upload-time = "2026-08-14T16:13:24.791Z" },
+    { url = "https://files.pythonhosted.org/packages/11/a6/79aed402eb3ab284dc5b4791a7ad62c5875127de01b8e3f04bd92d551298/orjson-3.12.0-cp315-cp315-win32.whl", hash = "sha256:03091c8a64db4be38746597ceea68f33c238e27acd9bfe99fb59420224ae7a55", size = 128048, upload-time = "2026-08-14T16:13:26.217Z" },
+    { url = "https://files.pythonhosted.org/packages/64/f7/2723e264aab7248c1ed6ecaad8e5d0cb866c0cffde75442102ffa7491aba/orjson-3.12.0-cp315-cp315-win_amd64.whl", hash = "sha256:2b7bcefb9f40fa242fa6b06377232c048e655747790829609168c01162f60578", size = 121860, upload-time = "2026-08-14T16:13:27.577Z" },
+    { url = "https://files.pythonhosted.org/packages/82/56/630c9113ec8996778f1f0304b364b091b9a9db5fef5fdc17cca622f5ea24/orjson-3.12.0-cp315-cp315-win_arm64.whl", hash = "sha256:859fc4196855890150bb08e649b30d2c93b249b3e3edd0d3bb2231abf8aa8adc", size = 126754, upload-time = "2026-08-14T16:13:28.962Z" },
 ]
 
 [[package]]
@@ -6865,25 +7046,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/2c/21/ef6157213316e85790041254259907eb722e00b03480256c0545d98acd33/rapidfuzz-3.14.5.tar.gz", hash = "sha256:ba10ac57884ce82112f7ed910b67e7fb6072d8ef2c06e30dc63c0f604a112e0e", size = 57901753, upload-time = "2026-04-07T11:16:31.931Z" }
 
 [[package]]
-name = "rasm-contracts"
-version = "0.1.0"
-source = { editable = "libs/python/contracts" }
-dependencies = [
-    { name = "anyio" },
-    { name = "connectrpc" },
-    { name = "protobuf-py" },
-    { name = "protovalidate" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anyio", specifier = ">=4.14.2,<5" },
-    { name = "connectrpc", url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" },
-    { name = "protobuf-py", specifier = ">=0.3.0,<0.4" },
-    { name = "protovalidate", specifier = ">=2.0.0,<3" },
-]
-
-[[package]]
 name = "rasterio"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -7523,6 +7685,28 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/bf/fb3d339594983debc7d870e7b6fb31a8f9d1d4e577cc877e922d53afaf82/squawk_cli-2.62.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:a80cc9aee4f1876e24c831a374c1fb70937b78dc8209eb37303f60fd2e954d11", size = 7150670, upload-time = "2026-08-06T04:50:38.66Z" },
     { url = "https://files.pythonhosted.org/packages/e1/c9/397a3a9ca9679d703bb3e9a55a75fd38ed4bd7e58657aa6430f1d5ecaa0a/squawk_cli-2.62.0-py3-none-win32.whl", hash = "sha256:83c51db72c930cfcca14ad5f5be61b78709908f1c67803527379376032ad927a", size = 4067063, upload-time = "2026-08-06T04:50:46.503Z" },
     { url = "https://files.pythonhosted.org/packages/6c/e5/17f9328171d5b432e84c1c8b311ba073c857f5f44e7508ec446eb0f00492/squawk_cli-2.62.0-py3-none-win_amd64.whl", hash = "sha256:b37ba73a68b39d144b38ccacfa40685994f75c71d3e45fe9e86f2a8db7a23647", size = 4497772, upload-time = "2026-08-06T04:50:44.688Z" },
+]
+
+[[package]]
+name = "stac-geoparquet"
+version = "0.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ciso8601" },
+    { name = "geopandas" },
+    { name = "orjson" },
+    { name = "packaging" },
+    { name = "pandas" },
+    { name = "psutil" },
+    { name = "pyarrow" },
+    { name = "pyproj" },
+    { name = "pystac" },
+    { name = "shapely" },
+    { name = "types-psutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/30/fc/1961b507b13d693279a404f2423c27c71e5f01883af7f422aefb35a5330c/stac_geoparquet-0.8.2.tar.gz", hash = "sha256:7a3de5b0b36f1d4cf2e522a23ce36c5570e290753e5b93cc9d7cad8da8b60b09", size = 1962738, upload-time = "2026-08-12T14:11:50.592Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/e8/9f0983d5698025959992206c61e15619ce953d3906791b6a337fa9f625f6/stac_geoparquet-0.8.2-py3-none-any.whl", hash = "sha256:0a67d237159c6a790538a1ef66d4698c529d40795567f7266b60dc2f5aee880b", size = 32691, upload-time = "2026-08-12T14:11:49.146Z" },
 ]
 
 [[package]]
@@ -8514,7 +8698,7 @@ wheels = [
 [[package]]
 name = "workspace-foundation-python"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "adbc-driver-flightsql" },
     { name = "adbc-driver-manager" },
@@ -8536,6 +8720,7 @@ dependencies = [
     { name = "azure-identity" },
     { name = "azure-keyvault-secrets" },
     { name = "beartype" },
+    { name = "blackjax" },
     { name = "blackrenderer" },
     { name = "brotli" },
     { name = "bw-processing" },
@@ -8566,6 +8751,7 @@ dependencies = [
     { name = "datafusion" },
     { name = "deltalake" },
     { name = "detools" },
+    { name = "diffrax" },
     { name = "docxtpl" },
     { name = "dragonfly-core" },
     { name = "dragonfly-energy" },
@@ -8573,6 +8759,7 @@ dependencies = [
     { name = "drawsvg" },
     { name = "duckdb" },
     { name = "epdx" },
+    { name = "equinox" },
     { name = "expression" },
     { name = "ezdxf" },
     { name = "fast-sugiyama" },
@@ -8610,6 +8797,7 @@ dependencies = [
     { name = "icechunk" },
     { name = "igraph" },
     { name = "imagecodecs" },
+    { name = "jax" },
     { name = "jaxtyping" },
     { name = "jinja2" },
     { name = "jsonschema" },
@@ -8625,6 +8813,7 @@ dependencies = [
     { name = "latex2mathml" },
     { name = "lazrs" },
     { name = "lbt-recipes" },
+    { name = "lineax" },
     { name = "loky" },
     { name = "lxml" },
     { name = "lz4" },
@@ -8643,6 +8832,7 @@ dependencies = [
     { name = "networkx" },
     { name = "numcodecs" },
     { name = "numpy" },
+    { name = "numpyro" },
     { name = "nutpie" },
     { name = "obspec-utils" },
     { name = "obstore" },
@@ -8672,6 +8862,8 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentype-feature-freezer" },
+    { name = "optax" },
+    { name = "optimistix" },
     { name = "paho-mqtt" },
     { name = "pandas" },
     { name = "pandera" },
@@ -8733,7 +8925,6 @@ dependencies = [
     { name = "pyvips" },
     { name = "pywavelets" },
     { name = "queenbee" },
-    { name = "rasm-contracts" },
     { name = "rasterio" },
     { name = "reportlab" },
     { name = "resvg-py" },
@@ -8757,6 +8948,7 @@ dependencies = [
     { name = "skl2onnx" },
     { name = "small-gicp" },
     { name = "sqlglot" },
+    { name = "stac-geoparquet" },
     { name = "stamina" },
     { name = "stream-unzip" },
     { name = "stream-zip" },
@@ -8865,7 +9057,7 @@ requires-dist = [
     { name = "azure-keyvault-secrets" },
     { name = "bcf-client", marker = "python_full_version < '3.15'" },
     { name = "beartype", git = "https://github.com/beartype/beartype.git?rev=f927b66f79dfb7f595457a85c82398601c17b2f1" },
-    { name = "blackjax", marker = "python_full_version < '3.15'" },
+    { name = "blackjax" },
     { name = "blackrenderer" },
     { name = "brotli" },
     { name = "bw-processing" },
@@ -8874,6 +9066,7 @@ requires-dist = [
     { name = "bw2data" },
     { name = "bw2io" },
     { name = "c2pa-python" },
+    { name = "cadquery-ocp", marker = "python_full_version < '3.15'" },
     { name = "clarabel" },
     { name = "cloudevents" },
     { name = "cloudpickle" },
@@ -8896,7 +9089,7 @@ requires-dist = [
     { name = "datafusion" },
     { name = "deltalake" },
     { name = "detools" },
-    { name = "diffrax", marker = "python_full_version < '3.15'" },
+    { name = "diffrax" },
     { name = "docxtpl" },
     { name = "dragonfly-core" },
     { name = "dragonfly-energy" },
@@ -8904,7 +9097,7 @@ requires-dist = [
     { name = "drawsvg" },
     { name = "duckdb" },
     { name = "epdx", specifier = "<1.0" },
-    { name = "equinox", marker = "python_full_version < '3.15'" },
+    { name = "equinox" },
     { name = "expression" },
     { name = "ezdxf" },
     { name = "fast-sugiyama" },
@@ -8950,7 +9143,7 @@ requires-dist = [
     { name = "igraph" },
     { name = "imagecodecs" },
     { name = "interpax", marker = "python_full_version < '3.15'" },
-    { name = "jax", marker = "python_full_version < '3.15'" },
+    { name = "jax" },
     { name = "jaxtyping" },
     { name = "jinja2" },
     { name = "jsonschema" },
@@ -8968,7 +9161,7 @@ requires-dist = [
     { name = "lazrs" },
     { name = "lbt-recipes" },
     { name = "lets-plot", marker = "python_full_version < '3.15'" },
-    { name = "lineax", marker = "python_full_version < '3.15'" },
+    { name = "lineax" },
     { name = "loky" },
     { name = "lxml" },
     { name = "lz4" },
@@ -8988,7 +9181,7 @@ requires-dist = [
     { name = "numba", marker = "python_full_version < '3.15'" },
     { name = "numcodecs" },
     { name = "numpy" },
-    { name = "numpyro", marker = "python_full_version < '3.15'" },
+    { name = "numpyro" },
     { name = "nutpie" },
     { name = "obspec-utils" },
     { name = "obstore" },
@@ -9020,8 +9213,8 @@ requires-dist = [
     { name = "opentelemetry-sdk" },
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentype-feature-freezer" },
-    { name = "optax", marker = "python_full_version < '3.15'" },
-    { name = "optimistix", marker = "python_full_version < '3.15'" },
+    { name = "optax" },
+    { name = "optimistix" },
     { name = "paho-mqtt" },
     { name = "pandas" },
     { name = "pandera" },
@@ -9089,7 +9282,6 @@ requires-dist = [
     { name = "pywavelets" },
     { name = "quadax", marker = "python_full_version < '3.15'" },
     { name = "queenbee" },
-    { name = "rasm-contracts", editable = "libs/python/contracts" },
     { name = "rasterio" },
     { name = "reportlab" },
     { name = "resvg-py" },
@@ -9114,7 +9306,7 @@ requires-dist = [
     { name = "small-gicp" },
     { name = "sparse", marker = "python_full_version < '3.15'" },
     { name = "sqlglot" },
-    { name = "stac-geoparquet", marker = "python_full_version < '3.15'" },
+    { name = "stac-geoparquet" },
     { name = "stamina" },
     { name = "stream-unzip" },
     { name = "stream-zip" },

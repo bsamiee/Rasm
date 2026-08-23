@@ -1,21 +1,19 @@
 # [TS_RUNTIME_API_CONNECTRPC_CONNECT_NODE]
 
-`@connectrpc/connect-node` is the Node dual-role package `runtime` owns: the `connectNodeAdapter` server mount projecting a `@connectrpc/connect` `ConnectRouter` into an `http.RequestListener` (the `serve/live.md` Mount port), and the `http2` universal client `createNodeHttpClient` builds over an `Http2SessionManager` — the `node` carrier row `net/client.md` hands `core:interchange/invoke#DIAL_AXIS`, the branch's one Connect transport owner.
-
-The three client `Transport` factories stay unmined: each is `createTransport` from `@connectrpc/connect/protocol-*` over that same universal client, and the core dial already builds every protocol over every carrier from one `CommonTransportOptions`, so a factory row here would be a second transport owner grading its own codes.
+`@connectrpc/connect-node` is the Node dual-role package `runtime` owns: `connectNodeAdapter` projects a server router into an `http.RequestListener`, while the public Connect, gRPC-Web, and gRPC client factories form the scoped Node capability `net/client` hands `Invoke.Dial`. One `Http2SessionManager` supplies all three client transports for a peer.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect-node`
 - package: `@connectrpc/connect-node` (Apache-2.0)
-- peer: `@connectrpc/connect` (exact — `Transport`/`Interceptor`/`ConnectRouter`/`ConnectRouterOptions`/`ContextValues`/`ConnectError`; `core/.api/connectrpc-connect.md`), `@bufbuild/protobuf` (JSON/binary read-write option types; `core/.api/bufbuild-protobuf.md`)
+- peer: `@connectrpc/connect` (transport and router contracts; `core/.api/connectrpc-connect.md`), `@bufbuild/protobuf` (codec options; `../../.api/bufbuild-protobuf.md`)
 - effect-peer: none direct — the server `NodeHandlerFn` mounts at `serve/live.md`, the client `Transport` wraps in `effect` at `net/client.md` (`../../.api/effect.md`)
 - catalog-verdict: KEEP — the Node server+client transport authority
 - module: single `.` export, dual ESM+CJS; server and client over `http`/`https`/`http2`, the gRPC arm pins `http2`
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: client transport options trio — the factory names the protocol, `httpVersion` selects the Node module, all three yield the identical `Transport`; unmined in this branch, recorded so a bump re-proves the record the `node` carrier's universal client shares. Rows past the three headers are the shared record fields.
+[PUBLIC_TYPE_SCOPE]: client transport options trio — the factory names the protocol, `httpVersion` selects the Node module where applicable, and all three yield `Transport`
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                 |
 | :-----: | :------------------------------------ | :---------------- | :------------------------------------------------------------------ |
@@ -37,32 +35,26 @@ The three client `Transport` factories stay unmined: each is `createTransport` f
 |  [16]   | `.nodeOptions?`                       | socket / TLS      | passed to `http`/`https` `request()` or `http2` `connect()`         |
 |  [17]   | `.useHttpGet?` (Connect arm)          | verb              | GET for idempotent side-effect-free unary methods                   |
 
-[SESSION_MANAGER_TYPE_TRAP]: `.sessionManager` and `sessionProvider` both type as `NodeHttp2ClientSessionManager`, an interface the root `index.d.ts` never re-exports — it ships only from the `@private` `node-universal-client` module. Spell the slot through the concrete exported `Http2SessionManager` class, which satisfies the interface structurally; naming the interface imports an unexported symbol. `sessionProvider` seats on `NodeHttpClientOptions` (`httpVersion: "2"` arm) and answers the manager the `node` carrier's scope already holds.
+[SESSION_MANAGER_SEAM]: `.sessionManager` accepts the concrete exported `Http2SessionManager`; providing it supersedes `nodeOptions` and the inline ping fields, so the adapter scopes one manager and never duplicates its residency on a transport record.
 
 [PUBLIC_TYPE_SCOPE]: server adapter and HTTP/2 session surface — `ConnectNodeAdapterOptions` extends `ConnectRouterOptions`, `Http2SessionManager`/`Http2SessionOptions` own the client-lane keepalive; rail serve/live.
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                       |
-| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
-|  [01]   | `ConnectNodeAdapterOptions`               | server mount    | extends `ConnectRouterOptions`; the router mount options                  |
-|  [02]   | `.routes: (router) => void`               | route builder   | `router.service(Service, impl)` mounts the emitted service                |
-|  [03]   | `.contextValues?: (req) => ContextValues` | per-req context | tenant/principal/deadline per inbound request                             |
-|  [04]   | `.fallback?: NodeHandlerFn`               | 404 fallback    | handler when no RPC path matches                                          |
-|  [05]   | `.requestPathPrefix?: string`             | mount prefix    | serve all handlers under a path prefix                                    |
-|  [06]   | `NodeHandlerFn`                           | handler         | `(req, res) => void` — the `http.RequestListener` value                   |
-|  [07]   | `NodeServerRequest`/`NodeServerResponse`  | node io         | `http.IncomingMessage` \| `http2.Http2ServerRequest` + res                |
-|  [08]   | `Http2SessionManager`                     | keepalive class | `authority`, `state()`, `error()`, `connect`, `request`, `abort`          |
-|  [09]   | `.notifyResponseByteRead(stream)`         | keepalive duty  | a reader calls it per successful read or PING frames fire needlessly      |
-|  [10]   | `Http2SessionOptions`                     | keepalive knobs | `pingIntervalMs`, `pingTimeoutMs`, `pingIdleConnection`, idle timeout     |
-|  [11]   | `NodeHttpClientOptions`                   | client fn opts  | `httpVersion: "1.1"` + `nodeOptions` \| `"2"` + `sessionProvider` — `@private` |
-|  [12]   | `ConnectRouterOptions`                    | router options  | `extends Partial<UniversalHandlerOptions>`; `grpc?`/`grpcWeb?`/`connect?` |
-|  [13]   | `UniversalHandlerOptions.interceptors`    | server onion    | `Interceptor[]` over every call the router serves; inherited, not own     |
-|  [14]   | `.acceptCompression`/`.compressMinBytes`  | server codec    | inherited router-wide compression floor and admitted algorithms           |
-|  [15]   | `.readMaxBytes`/`.writeMaxBytes`          | server frames   | inherited frame caps refusing an oversized request or response            |
-|  [16]   | `.maxTimeoutMs`/`.shutdownSignal`         | server lifetime | inherited deadline ceiling; the abort signal draining handlers            |
-|  [17]   | `.requireConnectProtocolHeader`           | server guard    | inherited; refuses a unary call missing its protocol header               |
-|  [18]   | `.interceptors` on every transport option | client onion    | `Interceptor[]` on the connect, grpc, and grpc-web records                |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                     |
+| :-----: | :---------------------------------------- | :-------------- | :---------------------------------------------------------------------- |
+|  [01]   | `ConnectNodeAdapterOptions`               | server mount    | extends `ConnectRouterOptions`; the router mount options                |
+|  [02]   | `.routes: (router) => void`               | route builder   | `router.service(Service, impl)` mounts the emitted service              |
+|  [03]   | `.contextValues?: (req) => ContextValues` | per-req context | tenant/principal/deadline per inbound request                           |
+|  [04]   | `.fallback?: NodeHandlerFn`               | 404 fallback    | handler when no RPC path matches                                        |
+|  [05]   | `.requestPathPrefix?: string`             | mount prefix    | serve all handlers under a path prefix                                  |
+|  [06]   | `NodeHandlerFn`                           | handler         | `(req, res) => void` — the `http.RequestListener` value                 |
+|  [07]   | `NodeServerRequest`/`NodeServerResponse`  | node io         | `http.IncomingMessage` \| `http2.Http2ServerRequest` + res              |
+|  [08]   | `Http2SessionManager`                     | keepalive class | `authority`, `state()`, `error()`, `connect`, `request`, `abort`        |
+|  [09]   | `.notifyResponseByteRead(stream)`         | keepalive duty  | a reader calls it per successful read or PING frames fire needlessly    |
+|  [10]   | `Http2SessionOptions`                     | keepalive knobs | `pingIntervalMs`, `pingTimeoutMs`, `pingIdleConnection`, idle timeout   |
+|  [11]   | `ConnectRouterOptions`                    | router options  | inherited public protocol enablement, codec, frame, and lifetime policy |
+|  [12]   | `.interceptors` on every transport option | client onion    | `Interceptor[]` on the connect, grpc, and grpc-web records              |
 
-[SERVER_INTERCEPTOR_TRAP]: `ConnectNodeAdapterOptions` declares NO own `interceptors` field — the option arrives through `ConnectRouterOptions extends Partial<UniversalHandlerOptions>`, an interface carrying an `@private Internal code, does not follow semantic versioning` marker and exporting only from the `@connectrpc/connect/protocol` subpath. Rows [13] through [17] ride that marker, so a composing fence binds them as declared traps a version bump re-proves; naming `interceptors` on the adapter record alone reads as a first-class option and drops silently when the inheritance moves. The member a re-prove actually targets is `validateUniversalHandlerOptions`, whose returned record is what carries a caller's array into every protocol handler factory — the router merges the validated record OVER the raw options, so a release that stops copying the field replaces a live onion with the empty default and emits no type error anywhere.
+[SERVER_POLICY_SEAM]: `ConnectNodeAdapterOptions` publicly extends `ConnectRouterOptions`, so protocol enablement, interceptors, compression, frame ceilings, deadlines, and shutdown policy arrive on the same server mount record as `routes`.
 
 [ADAPTER_MUTATION_TRAP]: `connectNodeAdapter` WRITES its default compression roster back onto the options object it was handed before building the router, so the record is not treated as read-only — a frozen literal throws under strict mode and a record shared across two adapters carries the first one's mutation into the second. Build a fresh record per adapter, or declare `acceptCompression` and leave nothing to default.
 
@@ -70,18 +62,17 @@ The three client `Transport` factories stay unmined: each is `createTransport` f
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the universal client, the keepalive, and the three `(options) -> Transport` factories — `net/client.md` builds ONE `createNodeHttpClient` per origin over the scoped manager and hands it to the core dial as the `node` carrier; the factories are unmined; rail net/client.
+[ENTRYPOINT_SCOPE]: the three public `(options) -> Transport` factories, compression values, and HTTP/2 manager forming the scoped Node adapter; rail net/client
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                            |
 | :-----: | :------------------------------------------- | :---------------- | :------------------------------------------------------------- |
 |  [01]   | `createConnectTransport(options): Transport` | connect arm       | `protocol:"connect"` — `http`/`https`/`http2`, `useHttpGet`    |
 |  [02]   | `createGrpcTransport(options): Transport`    | grpc arm          | `protocol:"grpc"` — `http2`-only, native gRPC gateway          |
 |  [03]   | `createGrpcWebTransport(options): Transport` | grpc-web arm      | `protocol:"grpc-web"` — `http`/`https`/`http2`, binary         |
-|  [04]   | `compressionGzip` / `compressionBrotli`      | compression const | zlib `Compression` the root hands `Invoke.Dial`'s seam          |
+|  [04]   | `compressionGzip` / `compressionBrotli`      | compression const | zlib `Compression` the root hands `Invoke.Dial`'s seam         |
 |  [05]   | `new Http2SessionManager(url, ping?, opts?)` | keepalive         | one `http2` connection; `opts` is `http2.ClientSessionOptions` |
-|  [06]   | `createNodeHttpClient(options): UniversalClientFn` | client fn    | `@private`; the `node` carrier seat is its ONE lawful caller   |
 
-[ENTRYPOINT_SCOPE]: the server mount and framework-adapter internals — `connectNodeAdapter` is the Mount port; the `universal*`/`createNodeHttpClient` helpers are careful-use surface a non-standard Node host reaches for, never ordinary mount code; rail serve/live.
+[ENTRYPOINT_SCOPE]: the public server mount and framework-adapter helpers — `connectNodeAdapter` is the Mount port; rail serve/live
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                      |
 | :-----: | :-------------------------------------------------- | :---------------- | :------------------------------------------------------- |
@@ -93,7 +84,7 @@ The three client `Transport` factories stay unmined: each is `createTransport` f
 
 [TOPOLOGY]:
 - dual role, one package: connect-node is BOTH the `connectNodeAdapter` server mount (the `serve/live.md` Mount port) and the three client transports (the `net/client.md` lane) — the reason `runtime` holds it distinct from `core`'s browser-only `connect-web` (`core/.api/connectrpc-connect-web.md`), which exposes no server surface and no `http2` client lane.
-- the client seat is a CARRIER, never a transport: `createNodeHttpClient({ httpVersion: "2", sessionProvider })` yields the `UniversalClientFn` the core dial's `node` carrier row admits, and every protocol transport builds from `@connectrpc/connect/protocol-*` over it at `core:interchange/invoke#DIAL_AXIS`; the three factories here wrap exactly that pair and stay unmined so the branch keeps one transport owner and one code table.
+- the client seat is a total public adapter: `createConnectTransport`, `createGrpcWebTransport`, and `createGrpcTransport` form its three factory arms, and `core:interchange/invoke#DIAL_AXIS` selects one arm from the discriminated lane; the Node adapter carries all three while the browser/Bun adapter cannot spell native gRPC.
 - server mount is descriptor-driven: `connectNodeAdapter({ routes })` binds `router.service(Service, impl)` over the `@bufbuild/protobuf` `DescService` the C# `SdkTarget.TypeScript` generator emits; the returned `NodeHandlerFn` is `http.RequestListener`-compatible, and the live `ConnectRouter`/`ServiceImpl`/`HandlerContext` server family runs at the runtime serve tier.
 - node-only lane capabilities: `compressionGzip`/`compressionBrotli` (zlib) feed `acceptCompression`/`sendCompression` under `compressMinBytes`, and `Http2SessionManager` keeps one `http2` connection alive with PING frames (the `GRPC_ARG_KEEPALIVE_*` mapping), maintaining a `GOAWAY`-flagged connection until its streams drain and opening a fresh one for new requests — neither reaches the browser fetch transport.
 - session residency is caller-folded: `sessionManager` binds ONE manager per transport and the manager tracks ONE connection, so a per-origin pool is the composing fence's own scoped map — no undici dispatcher and no agent-style pool option governs this arm, and binding `sessionManager` voids `nodeOptions` and every ping knob on that same record.
@@ -101,11 +92,11 @@ The three client `Transport` factories stay unmined: each is `createTransport` f
 
 [STACKING]:
 - `@connectrpc/connect`(`core/.api/connectrpc-connect.md`): the three factories return the `Transport` for `createClient`; `connectNodeAdapter` mounts a `ConnectRouter` threading per-request `ContextValues`; the `ConnectError`/`Code` fold, the `Interceptor` onion, and `CallOptions` stay `connect`-owned.
-- `@bufbuild/protobuf`(`core/.api/bufbuild-protobuf.md`): client and server share the emitted `DescService`; `useBinaryFormat` + `binaryOptions`/`jsonOptions` select the codec — binary content-stable for the C#-emitted services, JSON the debuggable Connect default.
+- `@bufbuild/protobuf`(`../../.api/bufbuild-protobuf.md`): client and server share emitted `DescService` values and codec options.
 - `effect` + `@effect/platform-node`(`../../.api/effect.md`, `../../.api/effect-platform-node.md`): transports construct once at the `net/client.md` root, each unary method lifting through `Effect.tryPromise` and each server-streaming through `Stream.fromAsyncIterable`; `CallOptions.signal` binds fiber interruption to `Code.Canceled`; the `NodeHandlerFn` mounts under the platform-node HTTP server at `serve/live.md`; `nodeOptions` carries `Config`-decoded TLS/socket policy.
 - `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): the hand-written W3C `Interceptor` pair reads `Tracer.currentOtelSpan` and writes/reads `traceparent` — injected on client egress via `interceptors`, extracted on server ingress through the inherited router option — carrying trace both directions since no TS `otelconnect` exists; `otel/emit.md`'s `Propagation` owns the header codec. `Interceptor` is `(next: AnyFn) => AnyFn` over an UNEXPORTED `AnyFn = (req: UnaryRequest | StreamRequest) => Promise<UnaryResponse | StreamResponse>`, so a composing fence spells the onion through the exported `Interceptor` alias and never annotates the inner function; the carrier is `header: Headers` on `RequestCommon` — present on BOTH request arms beside `requestMethod`, `url`, `signal`, and `contextValues` — while `ResponseCommon` carries `header`/`trailer` and no context values at all. Server-side the same alias wraps the IMPLEMENTATION invocation rather than the HTTP exchange: it runs after protocol negotiation and message decode, its `req.header` IS the handler context's inbound header bag and its `req.contextValues` IS the `ContextValues` the implementation then reads, and on any streaming method `next` settles once the response iterable is CONSTRUCTED — the messages flow after the onion returned, so an interceptor seats per-call policy and can never bracket a streaming body.
 - `@effect/platform-node`(`../../.api/effect-platform-node.md`) node-handler lift: `HttpApp` exposes `fromWebHandler` over a FETCH-shaped handler alone and no member accepting a `NodeHandlerFn`, so an adapter reaches `HttpApp.Default` by pulling the request inside an effect and driving `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` — the identical accessor pair `serve/route.md`'s rail mount already drives a raw node handler through, and the mount rides `Seam.guard` by construction because the router attaches that middleware once above every mounted row.
-- `net/client.md` `node` carrier (within-lib): the seat scopes one `Http2SessionManager` per origin, builds the universal client over it, and stamps the machine band through the `Interceptor` it hands the dial's seam; frame caps, the retry ladder, execution-plan failover, and the `Code`→class grading are `core:interchange/invoke`'s and `Wire.Hops`'s — a transport or budget minted here is the second owner the branch deleted.
+- `net/client.md` Node adapter (within-lib): the seat scopes one `Http2SessionManager` per origin and publishes the three public factory closures to the dial seam; frame caps, the retry ladder, execution-plan failover, and the `Code`→class grading are `core:interchange/invoke`'s and `Wire.Hops`'s — a policy or budget minted here is the second owner the branch deleted.
 
 [LOCAL_ADMISSION]:
 - mount the server through `connectNodeAdapter({ routes })` with `contextValues` extracting the per-request principal/tenant; the returned `NodeHandlerFn` is the `serve/live.md` Mount port, never a hand-written Node request switch.
@@ -115,10 +106,10 @@ The three client `Transport` factories stay unmined: each is `createTransport` f
 - declare `sendCompression` rather than inheriting the uncompressed default, since the record exposes the knob and silence ships every request raw.
 - `Http2SessionManager` and `contextValues` carry no process-global state — per-transport session, per-request context — so two apps compose the serve port and client lane without registry or connection collision.
 - scope each `Http2SessionManager` and `abort()` it on release; a manager outliving its root holds an open connection and every stream on it.
-- `createNodeHttpClient` is reached ONCE, at the `node` carrier seat, and its `@private` marker re-proves against `NodeHttpClientOptions` on every bump; reach `universalRequestFromNodeRequest`/`universalResponseToNodeResponse` only when hosting a non-standard Node server framework.
+- construct every client arm through its public factory and bind the same scoped `Http2SessionManager`; reach `universalRequestFromNodeRequest`/`universalResponseToNodeResponse` only when hosting a non-standard Node server framework.
 
 [RAIL_LAW]:
 - Package: `@connectrpc/connect-node`
-- Owns: the `http2` universal client over `Http2SessionManager`/`Http2SessionOptions`, the `connectNodeAdapter` server mount projecting a `ConnectRouter` into an `http.RequestListener`, the zlib `compressionGzip`/`compressionBrotli` pair, and the three unmined `Transport` factories
-- Accept: one `createNodeHttpClient` per origin at the `node` carrier seat handed to `Invoke.Dial`'s seam, `connectNodeAdapter` mounting the emitted `DescService` router at the `serve/live.md` Mount port, the credential `Interceptor` on the dial's seam, gzip/brotli handed to the seam's compression roster, a scoped `Http2SessionManager` per origin, `Config`-decoded `baseUrl`
-- Reject: a client concept `connect` owns sourced here (`CallOptions`/`ContextValues`/the fault algebra), a `Transport` factory called in this branch, a second `Code` grading, a frame cap or deadline minted beside the core dial's, a hand-written Node request switch instead of `connectNodeAdapter`, an unscoped session manager, the `universal*` helpers in ordinary mount code
+- Owns: the three public client `Transport` factories over `Http2SessionManager`/`Http2SessionOptions`, the `connectNodeAdapter` server mount projecting a `ConnectRouter` into an `http.RequestListener`, and the zlib `compressionGzip`/`compressionBrotli` pair
+- Accept: the public factory record handed to `Invoke.Dial`'s Node adapter seam, `connectNodeAdapter` mounting the emitted `DescService` router at the `serve/live.md` Mount port, the credential `Interceptor` on the dial's seam, gzip/brotli handed to the seam's compression roster, one scoped `Http2SessionManager` per origin, `Config`-decoded `baseUrl`
+- Reject: a client concept `connect` owns sourced here (`CallOptions`/`ContextValues`/the fault algebra), a second `Code` grading, a frame cap or deadline minted beside the core dial's, a hand-written Node request switch instead of `connectNodeAdapter`, an unscoped session manager, the `universal*` helpers in ordinary mount code

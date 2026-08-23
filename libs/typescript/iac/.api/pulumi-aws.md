@@ -59,6 +59,10 @@ Public-access refusals ride four independent `Input<boolean>` args on one resour
 |  [05]   | `types.input.iam.ServicePrincipal`                        | nested  | `{ Service }` — the principal an OAC grant names         |
 |  [06]   | `cloudfront.Distribution.arn`                             | output  | the `AWS:SourceArn` value scoping that grant             |
 
+[ENTRYPOINT_SCOPE]: private task publication
+
+`BucketObjectv2` writes literal or base64 content under an owned key, while `iam.getPolicyDocumentOutput` builds the task policy as a provider-bound `Output` document. A recursive Fargate materializer lists only its generation prefix and reads only objects under it from a dedicated public-blocked bucket; serving-origin policy never reaches that bucket.
+
 [PUBLIC_TYPE_SCOPE]: provider + engine model
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]  | [CAPABILITY]                                        |

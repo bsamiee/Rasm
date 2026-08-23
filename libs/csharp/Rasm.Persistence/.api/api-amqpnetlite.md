@@ -20,7 +20,7 @@
 |  [01]   | `AmqpObject`        | abstract class | `Error`, `Closed`, `AddClosedCallback`, close pair |
 |  [02]   | `Connection`        | class          | container connection over an `Address`             |
 |  [03]   | `Session`           | class          | channel multiplex on one connection                |
-|  [04]   | `Link`              | abstract class | name, handle, role, link state, detach             |
+|  [04]   | `Link`              | abstract class | name, handle, role, link state, detach, flow props |
 |  [05]   | `SenderLink`        | class          | outbound link — send, cancel, no credit member     |
 |  [06]   | `ReceiverLink`      | class          | inbound link — receive and the credit surface      |
 |  [07]   | `Address`           | class          | broker endpoint with scheme and credentials        |
@@ -93,7 +93,12 @@
 |  [10]   | `Connection.Factory` / `DisableServerCertValidation` | static   | shared factory; a public FIELD, not a property |
 
 - `AmqpSettings` carries exactly `MaxFrameSize` `ContainerId` `HostName` `MaxSessionsPerConnection` `MaxLinksPerSession` `IdleTimeout` — no member bounds credit or in-flight deliveries.
-- `Session` publishes only `Connection`, `SessionState`, and its two constructors; `Connection` publishes no `CreateSession`, so a session is constructed, never requested.
+- `Session` publishes only `Connection`, `SessionState`, and its two constructors; `Connection` publishes no `CreateSession`, so a session is constructed, never requested. Its one-argument constructor begins at a 2048-frame window each way, and only the `Begin`-taking overload reaches that number.
+- Every timeout-free `Send`, `SendAsync`, and `Close` runs under an INTERNAL 60-second constant, so the default is real but unnameable — a caller wanting a stated deadline passes the `TimeSpan` overload.
+- `Link.OnLinkStateProperties` is the one PUBLIC flow hook on either link role: it fires on the connection I/O thread when an incoming `Flow` carries a non-empty `Properties` field, which is peer metadata and never a credit reading.
+- `Outcome` declares no members of its own; only `Rejected` carries an `Error` and only `Modified` carries `DeliveryFailed`/`UndeliverableHere`/`MessageAnnotations`, so a disposition's cause is readable on exactly one of the four arms.
+- `SenderSettleMode` is `Unsettled`/`Settled`/`Mixed` and `ReceiverSettleMode` is `First`/`Second`, both `byte`-backed.
+- `ReceiverLink` grants 200 credit internally when a caller sets none, so an unset receiver is bounded and an unset sender is not.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -121,4 +126,4 @@
 - Package: `AMQPNetLite.Core`
 - Owns: the `AMQP 1.0` protocol — container connection, session multiplex, sender and receiver links, the framing and type model, SASL, transactions, and the broker-side listener
 - Accept: awaited `SendAsync` with a caller timeout, receiver credit through `SetCredit`/`Start`, `AmqpObject.Closed` and `Error` as the out-of-band fault surface, and terminus configuration through `Source`/`Target`
-- Reject: the callback send forms on a durable rail, any claim of a sender-side credit or in-flight setting, a locally-written outgoing session window read as a bound, hand-built `cloudEvents_` application properties over a raw message, and conflation with the `AMQP 0-9-1` `RabbitMQ.Client` surface
+- Reject: the callback send forms on a durable rail, any claim of a sender-side credit or in-flight setting, a locally-written outgoing session window read as a bound, a timeout-free send standing in for a stated deadline, hand-built `cloudEvents_` application properties over a raw message, and conflation with the `AMQP 0-9-1` `RabbitMQ.Client` surface
