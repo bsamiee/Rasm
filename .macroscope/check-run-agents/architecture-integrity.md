@@ -18,7 +18,7 @@ Hunt these classes, each finding naming file, anchor, the boundary breached, and
 - Concern ownership: a concern owned twice within one runtime, a folder mixing unrelated concerns, or a single concern scattered across sibling folders where one owner belongs.
 - Owner-shape at folder tier: a new page or owner modelling what an existing owner in this or a sibling page absorbs as a case, row, or policy value; pressure to add a second surface is the signal to deepen the first.
 - Seam coupling: a cross-folder or cross-language touchpoint coupled to a sibling's interior rather than recorded as an aligned port or wire seam — coupling beyond the declared ports and the wire seams is the defect.
-- Cross-language second-mint: `tests/contracts/MANIFEST.md` classes each entry and the class alone decides who mints, so read the entry live and name no language — a DOMAIN entry forks its semantic model on a second producer beside the one its entry names, an INFRASTRUCTURE entry forks the parity the corpus proves when a branch mints it twice or skips its own mint and decodes a peer's instead.
+- Cross-language authority: read each atomic case live from `tests/contracts/manifest.json` and apply `tests/contracts/README.md` `[01]-[AUTHORITY]`. Branch contradiction of declared authority, actors, readiness, proof, or asset custody is a finding; never copy the roster here.
 - Universal-vs-capture inversion: a host-neutral owner minted for a contract with no cross-runtime consumer (a Rhino feature wearing universal clothes), or a rich Rhino surface thinned to a host-neutral contract that guts capability.
 
 Settled topology outranks intuition: a placement `ARCHITECTURE.md` rules is never a finding. Finding nothing after a genuine cross-folder pass is a first-class verdict.

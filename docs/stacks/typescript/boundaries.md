@@ -514,9 +514,9 @@ export { Checkpoint, Ledger, migrations, Row };
 - Law: read posture is ONE value per direction, passed at every site — the binary posture keeps unknown fields and bounds recursion, the JSON posture spells `ignoreUnknownFields: true` beside the same bound because the package's JSON reader refuses an unknown field by default; a `fromJson` with no options is a forward-compatibility fork a newer producer trips.
 - Law: framing is a row of the family, never a second arm — `binary` for every proto-binary crossing, `json` for every ProtoJSON document — and the landed value is one shape under both; a stream frame is the package's own size-delimited pair under the ingress ceiling, because a Connect transport already frames its streams and a bidi rpc no transport binds crosses a socket under that frame instead.
 - Law: one `Code`→fault table per branch — keyed on the closed `Code` enum the transport ships, closed by `satisfies Record<Code, Row>`, read by every dial, retry gate, and enricher — and a remote fault's class elects off the producer's typed recovery arm, never off a domain case; a second grading beside that table makes retry depend on which module dialled.
-- Law: one Connect transport owner per branch — protocol and carrier as orthogonal rows over the package's `CommonTransportOptions` — and a runtime's node session manager enters as a carrier row's `UniversalClientFn`, never as a second transport roster.
+- Law: one Connect transport-selection owner per branch returns a public `TransportFactory` capability over supported runtime/protocol pairs. Browser and Bun adapters compose `@connectrpc/connect-web` factories for Connect and gRPC-Web; Node composes `@connectrpc/connect-node` factories for Connect, gRPC-Web, and gRPC, with `Http2SessionManager` kept inside the Node adapter. Private `CommonTransportOptions`, protocol modules, and universal-client types never enter a fence.
 - Law: the well-known types ride the package's bridges — `TimestampSchema`/`DurationSchema` typed through `MessageShape`, `timestampMs`/`durationMs` into the branch clock, `anyPack`/`anyUnpack` against the one registry, `Struct`/`Value` through their generated codecs — so a hand `{ seconds, nanos }` struct, a hand type-URL switch, or a hand `kind` walk over a `Value` is the twin.
-- Reject: a `Schema.Class` transcribing a message in producer field order; a string-literal roster beside a generated enum; a decoded message compared by `SerializedData`; a `fromJson` without the read posture; a per-module code table; a second `createTransport` owner; a hand length-prefix parser beside `sizeDelimitedEncode`.
+- Reject: a `Schema.Class` transcribing a message in producer field order; a string-literal roster beside a generated enum; a decoded message compared by `SerializedData`; a `fromJson` without the read posture; a per-module code table; private Connect transport internals; an unsupported runtime/protocol Cartesian product; a hand length-prefix parser beside `sizeDelimitedEncode`.
 
 ```typescript conceptual
 import { create, type DescMessage, fromBinary, fromJson, isMessage, type JsonValue, type MessageShape, toBinary, toJson } from "@bufbuild/protobuf";
@@ -596,4 +596,3 @@ const graded = (code: number): (typeof hops)[Code] => (_code(code) ? hops[code] 
 
 export { family, graded, hops, Instant, message };
 ```
-

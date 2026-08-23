@@ -23,8 +23,8 @@
             "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "tests/contracts/**", "docs/laws/**"]
         },
         {
-            "path": "tests/contracts/MANIFEST.md",
-            "description": "Cross-language contract ledger: each entry's class, the branch anchors an infrastructure entry mints, the one producer a domain entry names",
+            "path": "tests/contracts/manifest.json",
+            "description": "Cross-language atomic-case registry: exact definition, authority, actors, readiness, oracle, and frozen evidence",
             "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "tests/**"]
         },
         {

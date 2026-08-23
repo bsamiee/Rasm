@@ -212,7 +212,7 @@ const PHASE_ROWS = {
                     'libs/.planning/RULINGS.md',
                     'docs/laws/topology.md',
                     'docs/laws/scars.md',
-                    'tests/contracts/MANIFEST.md',
+                    'tests/contracts/manifest.json',
                     'tests/contracts/README.md',
                     'tests/RULINGS.md',
                     'libs/.planning/IDEAS.md',
@@ -235,10 +235,15 @@ const PHASE_ROWS = {
                     'strata peers, and a provisioned row whose consumer ignores its keys. ' +
                     'THE PROOF ESTATE IS YOURS ALONE — no lens writes tests/, so the contract corpus closes here or nowhere. Read ' +
                     'tests/README.md and tests/RULINGS.md as binding law first. Every wire this campaign minted, renamed, widened, or ' +
-                    'retired reconciles against tests/contracts/MANIFEST.md: an entry whose minters or consumers no longer resolve is ' +
-                    'repaired at the entry, a wire crossing a branch boundary with no entry earns one under the README entry schema, ' +
-                    'and a ledger row pointing at a dropped surface is re-anchored rather than deleted. Verify each minter and consumer ' +
-                    'coordinate opens to a real symbol on disk before you let its row stand. Land the TELEMETRY_CONVENTION shape as the ' +
+                    'retired reconciles at its atomic tests/contracts/manifest.json case: locate the owning entry and case, then verify ' +
+                    'its class, pin, proof, exact tagged definition, blockers/assets posture, and producer/minters/consumers against ' +
+                    'disk. Every actor must resolve to one live fence, name the exact decoder coordinate in contract, declare its ' +
+                    'direction, and carry truthful generated | package | proof custody; an RPC actor additionally binds the exact ' +
+                    'service-method FQN while its direction names the request/response role. A moved surface repairs that exact actor ' +
+                    'anchor. A peer-decoded wire with no case earns ' +
+                    'one under the manifest schema, while a branch-interior wire stays in the paired seam maps and mints no corpus case. ' +
+                    'Only a seam that no longer crosses a peer removes its case; no dead actor or generic entry-level repair survives. ' +
+                    'Land the TELEMETRY_CONVENTION shape as the ' +
                     'conformance rows now stand rather than as the campaign doc described them, and record in tests/RULINGS.md what the ' +
                     'parity proof does and does not cover — role-aware absence is part of the shape, never an exception to it. ' +
                     'Read .claude/scratch/observability/RECEIPTS.md and land every row still OPEN at the owner it names, and read ' +

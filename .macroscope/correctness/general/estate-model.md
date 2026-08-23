@@ -8,7 +8,7 @@ include:
 
 # [ESTATE_MODEL]
 
-`libs/` holds independently adoptable packages: each is an external-library-grade dependency an unrelated future application takes, and each serves unknown consumers by construction. Three language estates stand as peers — no branch produces above another, none is a prerequisite for another, and a branch's host domain names a focus it carries, never a rank. `libs/.planning/ARCHITECTURE.md` owns this law; read it and `tests/contracts/MANIFEST.md` live before any finding, and never carry a copy of either roster here.
+`libs/` holds independently adoptable packages: each is an external-library-grade dependency an unrelated future application takes, and each serves unknown consumers by construction. Three language estates stand as peers — no branch produces above another, none is a prerequisite, and a branch's host domain names a focus, never a rank. Read `libs/.planning/ARCHITECTURE.md` and `tests/contracts/manifest.json` live before a finding; never carry a copy of either roster here.
 
 ## [01]-[ASSUMED_CONSUMER]
 
@@ -24,16 +24,14 @@ include:
 
 ## [03]-[CONTRACT_CLASS]
 
-- Defined contract classes carry the only legitimate cross-estate coupling, and the `MANIFEST.md` `Class` field read live is the discriminant — never a language, never a rank.
-- Every branch mints an INFRASTRUCTURE entry from its own inputs with corpus parity as the proof: a mint by fewer than every branch, and a second mint of one contract inside one branch, each fork that parity. Single-language applications resolve the entry whole with no peer present.
-- DOMAIN entries name exactly one producer by the capability it holds; every peer decodes and re-encodes, so a second producer forks the semantic model the contract carries.
-- Fences, contract rows, and manifest entries leaving branch B unable to run without branch A present carry the cross-language prerequisite defect; the two classes above are its only carve-out, and the finding names the class and its owning entry.
+- Defined contract cases carry the only legitimate cross-estate coupling; read each case live from `manifest.json`, never infer its authority.
+- Apply `tests/contracts/README.md` `[01]-[AUTHORITY]`; a branch contradicting the declared class, actors, readiness, proof, or assets is a finding.
+- Fences or adapters leaving one branch unable to run without another present carry the cross-language prerequisite defect; the finding names the atomic case and the declared authority it contradicts.
 
 ## [04]-[TRANSCRIPTION_CONFORMANCE]
 
-- Transcription is the conformance mechanism wherever Tier-0 law says so, because the three SDK trains move on split maturity channels: a drifted row repairs at its owning branch page in the same change, never through a shared library and never by one branch importing a peer's spelling.
-- Three standing transcription sets carry no reviewer guard of their own until this one: the telemetry wire rows each branch spells at its own named anchor, each INFRASTRUCTURE contract spelled in three branch type systems, and the consumption-axis roster spelled at each branch's admission owner.
-- Diffs touching one anchor without its counterparts, and counterparts whose meaning has drifted from the canonical row, are findings naming the canonical owner and each stale anchor. Derive-from-the-roster demands stay void against these sets — the duty is the same-change repair at every transcribing anchor.
+- Transcription applies only where Tier-0 requires branch-local vocabulary; drift repairs at every named anchor in the same change.
+- Generated contract bindings are not transcriptions: they derive from corpus proto, so a hand branch spelling beside them is a second wire model.
 
 ## [05]-[ADMISSION_RUNG]
 

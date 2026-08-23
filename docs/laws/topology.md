@@ -20,9 +20,9 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
 |  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
 |  [12]   | `FaultBand` row mint, split, or retire       | every fault union reading that row         | one registry proves disjointness for all     |
-|  [13]   | `tests/contracts/` seam schema or class row  | every minter and producer the entry names  | class decides who re-proves conformance      |
+|  [13]   | `tests/contracts/manifest.json` case         | every executor and consumer the case names | class decides who re-proves conformance      |
 |  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
-|  [15]   | design-page cluster anchor rename or retire  | every `MANIFEST.md` field naming it        | manifest anchors resolve on disk             |
+|  [15]   | design-page cluster anchor rename or retire  | every `manifest.json` field naming it      | manifest anchors resolve on disk             |
 |  [16]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
 |  [17]   | `docs/glossary/` band page add or retire     | `.greptile/files.json` + topology-closure  | an unread band governs nothing               |
 |  [18]   | Tier-0 `[08]` conformance row                | branch anchors beside the corpus entry     | corpus parity proves the three spellings     |
@@ -58,6 +58,7 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [48]   | wire options emission posture at its merge   | every peer-decoder block on that seam      | one posture, one spelling on every face      |
 |  [49]   | admitted-package vocabulary a roster mirrors | every branch roster transcribing that enum | an importing peer widens, a mirror does not  |
 |  [50]   | reviewer-config path, scope, or include glob | one dot alternate per tree it intends      | minimatch dot:false crosses no dot segment   |
+|  [51]   | generated contract package public-root set   | each branch consumer census + buf filters  | selective output follows real consumption    |
 
 ## [02]-[CONDITIONED]
 
@@ -104,7 +105,7 @@ Couplings fanning out or carrying a proof condition land as cards, each stating 
 - Law: Refusals seated at a consumer obligate the producer to publish the column that refusal reads in the same pass.
 
 [APPEARANCE_WIRE_MIRROR]:
-- Surface: `MaterialWire`, `TextureSetWire`, and `OpenPbrGroupsWire` with their payload families at `csharp:Rasm.Materials/Appearance/interchange`.
+- Surface: Generated `rasm.contracts.appearance.v1.Material` and `Set` families owned by `tests/contracts/proto/rasm/contracts/appearance/v1`.
 - Obligates: both `tests/contracts/` appearance entries and the `python:runtime/transport/shapes` and `typescript:core/interchange/codec` decoders.
 - Law: No compiler spans these surfaces, so a column, key-number, or order move lands every one in the same change, quoted verbatim.
 - Law: Schema authority is the producer's positional `[Key(n)]` roster — declaration order tracks it except where an append spells out of order.

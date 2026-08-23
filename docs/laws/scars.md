@@ -151,6 +151,9 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Law: Vendored publisher bytes carve out of every respelling lane — formatter, breaking gate, generator, canonicalizer — staying byte-identical.
 - Trigger: Lanes reaching the vendored tree diff the estate's spelling over the publisher's, so re-vendoring reads as an estate edit.
 - Boundary: Readers modelling estate-emitted assets carve too — a vendored corpus emits no producer asset and reads as awaiting emission.
+- Boundary: Registries fingerprinting an asset's bytes make those bytes the contract, so estate-authored and publisher assets carve alike.
+- Boundary: Formatter carves seat the whole pinned tree and except the registry, since a per-file roster desyncs the moment a pin lands.
+- Boundary: Damaged pinned bytes restore by search against the registry's own length and digest, never by re-serializing under a guessed style.
 
 [DIGEST_OVER_UNORDERED_CONTAINER]:
 - Law: Digests, preimages, and wire arrays from a hash-keyed container read the owner-published canonical ORDER, never container enumeration.
