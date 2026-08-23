@@ -146,6 +146,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Api.CommonProtos" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.AspNetCore.Server" />

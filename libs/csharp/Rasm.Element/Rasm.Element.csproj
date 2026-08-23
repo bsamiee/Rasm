@@ -19,9 +19,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
-        <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>

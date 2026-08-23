@@ -46,11 +46,6 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
-      "Antlr4.Runtime.Standard": {
-        "type": "Transitive",
-        "resolved": "4.13.1",
-        "contentHash": "Da5+i4kFHUseJRZGcBG5fmZGpA/Ns180ibrQMxgZzjpQOnENVvSL5gi5HZ8Ncz8/AR2WsKbOg2lMBzjz0HUQcA=="
-      },
       "Azure.Core": {
         "type": "Transitive",
         "resolved": "1.53.0",
@@ -78,14 +73,18 @@
         "resolved": "2.6.0",
         "contentHash": "iF2dMiGpaya8Umwi0OfsGKtq3aMVgHVsBChwQL+NhShEsRorcoTinGf9FFNBnBMwJW2Vm0FqhtOaEBY0+74p6g=="
       },
-      "Cel": {
+      "Celly": {
         "type": "Transitive",
-        "resolved": "0.3.3",
-        "contentHash": "8UaZmq0f5wUkWQ6NHQIkvV8AcRc6J3ARw3xiJ0IwwqDSLAcFIatfMPuR3CJGIYPWpDQ9jbT2v67FZtIyH8KbXQ==",
+        "resolved": "1.2.0",
+        "contentHash": "3NuJoocWJLn82zl9SF8zuC/kJpnBLr7lrysQ1TNlT6OjxK4r+u0/2SWRwTu7hl9P7xybc88KHDKJY/PE4CIYbw=="
+      },
+      "Celly.Protobuf": {
+        "type": "Transitive",
+        "resolved": "1.2.0",
+        "contentHash": "oKxAEWutbk16y0JBKWrOvtD6nPLqNVFK3vKDOdKvYlupQ9KJ5beI/YT13BIOM344qD7UbUx0vg0wW/rByVDdaA==",
         "dependencies": {
-          "Antlr4.Runtime.Standard": "4.13.1",
-          "Google.Protobuf": "3.25.2",
-          "TimeZoneConverter": "7.0.0"
+          "Celly": "1.2.0",
+          "Google.Protobuf": "3.31.1"
         }
       },
       "Generator.Equals.Runtime": {
@@ -740,11 +739,6 @@
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
-      "TimeZoneConverter": {
-        "type": "Transitive",
-        "resolved": "7.0.0",
-        "contentHash": "sFbY65N/5GdsHx7nkdHFHUG+5Ar4W0w6Aks7Y2X+Q4NOTw6XyX2Il7jm+4tPkc//4mA3nG0RdxI8gKgoJitdLw=="
-      },
       "Triangle": {
         "type": "Transitive",
         "resolved": "0.0.6-Beta3",
@@ -924,11 +918,10 @@
       "rasm.contracts": {
         "type": "Project",
         "dependencies": {
-          "Csp.Contracts": "[1.0.0, )",
+          "Celly.Protovalidate": "[1.2.0, )",
           "Google.Api.CommonProtos": "[2.17.0, )",
           "Google.Protobuf": "[3.36.0, )",
-          "Grpc.Core.Api": "[2.83.0, )",
-          "ProtoValidate": "[1.0.1, )"
+          "Grpc.Core.Api": "[2.83.0, )"
         }
       },
       "rasm.element": {
@@ -956,6 +949,7 @@
       "rasm.materials": {
         "type": "Project",
         "dependencies": {
+          "Celly.Protovalidate": "[1.2.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
@@ -968,6 +962,7 @@
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "Microsoft.Extensions.Telemetry.Abstractions": "[10.8.0, )",
           "NodaTime": "[3.3.3, )",
+          "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
@@ -1074,6 +1069,17 @@
         "contentHash": "AkASwfci9wogU47pUFnNEE8vdXNcZJoHIz/SMuxJJMDgykoGVco1g3NF3Lt3KvRNg/XUa548Y9QojjqcytZz9g==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
+        }
+      },
+      "Celly.Protovalidate": {
+        "type": "CentralTransitive",
+        "requested": "[1.2.0, )",
+        "resolved": "1.2.0",
+        "contentHash": "7fAdWNT9GIJlDiL2Se7DErGdrEQA5Zf/TUg974ARhNfE89IIq1Qnvjbi9ktcHELhhvPvh057hP/16kQavr9eHA==",
+        "dependencies": {
+          "Celly": "1.2.0",
+          "Celly.Protobuf": "1.2.0",
+          "Google.Protobuf": "3.31.1"
         }
       },
       "CloudNative.CloudEvents": {
@@ -2220,17 +2226,6 @@
         "dependencies": {
           "Polly.Core": "8.7.0",
           "System.Threading.RateLimiting": "8.0.0"
-        }
-      },
-      "ProtoValidate": {
-        "type": "CentralTransitive",
-        "requested": "[1.0.1, )",
-        "resolved": "1.0.1",
-        "contentHash": "JMlGsuF8mhloxxlRqgb20MjcFz5FonZSxHsK+WSPl/tH5gVKIBqgRCi1bsuqzxt1P9UASgihtQ6t4VIIHVbzVQ==",
-        "dependencies": {
-          "Cel": "0.3.3",
-          "Google.Protobuf": "3.32.1",
-          "Microsoft.Extensions.Options": "8.0.2"
         }
       },
       "Pyroscope": {

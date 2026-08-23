@@ -63,6 +63,7 @@
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
 
     <ItemGroup Label="Observability">

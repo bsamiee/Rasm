@@ -1,15 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Committed protoc and grpc_csharp_plugin emission of the rasm.contracts.&lt;family&gt;.v1 corpus — the one in-repo bindings assembly every C# wire consumer references by project; generation is its only author.</Description>
-        <CspScope>Boundary</CspScope>
+        <Description>Generated C# messages, descriptors, service bases, and clients for the Rasm contract corpus.</Description>
+        <IsPackable>true</IsPackable>
+        <PackageId>Rasm.Contracts</PackageId>
+        <Title>Rasm Contracts</Title>
+        <Version>0.1.0</Version>
+        <Authors>bsamiee</Authors>
+        <Copyright>Copyright © 2025 bsamiee</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageProjectUrl>https://buf.build/rasm/contracts</PackageProjectUrl>
+        <PackageTags>protobuf;grpc;contracts;generated-sdk;rasm</PackageTags>
+        <PackageReleaseNotes>Initial generated SDK for the versioned Rasm contract corpus.</PackageReleaseNotes>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <DebugType>portable</DebugType>
+        <EmbedAllSources>true</EmbedAllSources>
         <!-- Declared posture, never a build fix: Roslyn holds auto-generated files in the disabled nullable context under every setting (0/0 under enable, no NullableAttribute metadata), so enable would advertise a context the bindings never enter; consumers admit at the boundary. -->
         <Nullable>disable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup Label="Package">
+        <None Update="README.md" Pack="true" PackagePath="/" />
+    </ItemGroup>
+
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Api.CommonProtos" />  <!-- google.rpc error details and google.type calendar scalars the emission references -->
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Core.Api" />
-        <PackageReference Include="ProtoValidate" />  <!-- Buf.Validate descriptor the emission references; the runtime evaluator consumers admit through -->
     </ItemGroup>
 </Project>

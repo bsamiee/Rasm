@@ -22,6 +22,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
@@ -48,17 +49,4 @@
         <Using Include="Eto.Drawing.Matrix" Alias="Matrix" />
     </ItemGroup>
 
-    <ItemGroup Label="Domain Usings">
-        <Using Include="Rasm.Domain" />
-        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftFact" />
-        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody&gt;" Alias="DraftReceipt" />
-        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockFact" />
-        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody&gt;" Alias="BlockReceipt" />
-        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody&gt;" Alias="LightFact" />
-        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody&gt;" Alias="LightReceipt" />
-        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody&gt;" Alias="MaterialFact" />
-        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody&gt;" Alias="MaterialReceipt" />
-        <Using Include="Rasm.Rhino.Document.Fact&lt;Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody&gt;" Alias="HistoryFact" />
-        <Using Include="Rasm.Rhino.Document.FactStream&lt;Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody&gt;" Alias="HistoryReceipt" />
-    </ItemGroup>
 </Project>

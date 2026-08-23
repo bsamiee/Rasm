@@ -141,7 +141,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Google.Api.CommonProtos" />
         <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
 
     <!-- This folder mints the presented wgpu device every peer plane binds; the native binaries ride this row alone. -->

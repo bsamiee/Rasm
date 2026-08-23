@@ -9,4 +9,8 @@
     <ItemGroup Label="Headless Session">
         <PackageReference Include="Avalonia.Headless.XUnit" PrivateAssets="all" />
     </ItemGroup>
+    <ItemGroup Label="Wire Proof">
+        <PackageReference Include="Verify.DiffPlex" PrivateAssets="all" />
+        <PackageReference Include="Verify.XunitV3" PrivateAssets="all" />
+    </ItemGroup>
 </Project>

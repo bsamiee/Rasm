@@ -146,6 +146,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />

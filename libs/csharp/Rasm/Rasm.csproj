@@ -38,8 +38,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Event Envelope">
+        <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
+        <PackageReference Include="Google.Protobuf" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Usings">

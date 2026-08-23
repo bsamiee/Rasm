@@ -221,14 +221,18 @@
         "resolved": "2.6.0",
         "contentHash": "iF2dMiGpaya8Umwi0OfsGKtq3aMVgHVsBChwQL+NhShEsRorcoTinGf9FFNBnBMwJW2Vm0FqhtOaEBY0+74p6g=="
       },
-      "Cel": {
+      "Celly": {
         "type": "Transitive",
-        "resolved": "0.3.3",
-        "contentHash": "8UaZmq0f5wUkWQ6NHQIkvV8AcRc6J3ARw3xiJ0IwwqDSLAcFIatfMPuR3CJGIYPWpDQ9jbT2v67FZtIyH8KbXQ==",
+        "resolved": "1.2.0",
+        "contentHash": "3NuJoocWJLn82zl9SF8zuC/kJpnBLr7lrysQ1TNlT6OjxK4r+u0/2SWRwTu7hl9P7xybc88KHDKJY/PE4CIYbw=="
+      },
+      "Celly.Protobuf": {
+        "type": "Transitive",
+        "resolved": "1.2.0",
+        "contentHash": "oKxAEWutbk16y0JBKWrOvtD6nPLqNVFK3vKDOdKvYlupQ9KJ5beI/YT13BIOM344qD7UbUx0vg0wW/rByVDdaA==",
         "dependencies": {
-          "Antlr4.Runtime.Standard": "4.13.1",
-          "Google.Protobuf": "3.25.2",
-          "TimeZoneConverter": "7.0.0"
+          "Celly": "1.2.0",
+          "Google.Protobuf": "3.31.1"
         }
       },
       "ClosedXML.Parser": {
@@ -1598,11 +1602,6 @@
         "resolved": "10.4.0",
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
-      "TimeZoneConverter": {
-        "type": "Transitive",
-        "resolved": "7.0.0",
-        "contentHash": "sFbY65N/5GdsHx7nkdHFHUG+5Ar4W0w6Aks7Y2X+Q4NOTw6XyX2Il7jm+4tPkc//4mA3nG0RdxI8gKgoJitdLw=="
-      },
       "Tuf": {
         "type": "Transitive",
         "resolved": "0.5.0",
@@ -1810,6 +1809,7 @@
           "AngouriMath": "[1.4.0, )",
           "Apache.Arrow": "[23.0.0, )",
           "CSparse": "[4.4.0, )",
+          "Celly.Protovalidate": "[1.2.0, )",
           "Clipper2": "[2.0.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
@@ -1848,7 +1848,6 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "PeterO.Numbers": "[1.8.2, )",
           "PollinationSDK": "[1.10.0, )",
-          "ProtoValidate": "[1.0.1, )",
           "PureHDF": "[2.1.4, )",
           "PureHDF.Filters.BZip2.SharpZipLib": "[2.1.4, )",
           "PureHDF.Filters.Lzf": "[2.1.4, )",
@@ -1875,11 +1874,10 @@
       "rasm.contracts": {
         "type": "Project",
         "dependencies": {
-          "Csp.Contracts": "[1.0.0, )",
+          "Celly.Protovalidate": "[1.2.0, )",
           "Google.Api.CommonProtos": "[2.17.0, )",
           "Google.Protobuf": "[3.36.0, )",
-          "Grpc.Core.Api": "[2.83.0, )",
-          "ProtoValidate": "[1.0.1, )"
+          "Grpc.Core.Api": "[2.83.0, )"
         }
       },
       "rasm.element": {
@@ -2288,6 +2286,17 @@
         "contentHash": "AkASwfci9wogU47pUFnNEE8vdXNcZJoHIz/SMuxJJMDgykoGVco1g3NF3Lt3KvRNg/XUa548Y9QojjqcytZz9g==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
+        }
+      },
+      "Celly.Protovalidate": {
+        "type": "CentralTransitive",
+        "requested": "[1.2.0, )",
+        "resolved": "1.2.0",
+        "contentHash": "7fAdWNT9GIJlDiL2Se7DErGdrEQA5Zf/TUg974ARhNfE89IIq1Qnvjbi9ktcHELhhvPvh057hP/16kQavr9eHA==",
+        "dependencies": {
+          "Celly": "1.2.0",
+          "Celly.Protobuf": "1.2.0",
+          "Google.Protobuf": "3.31.1"
         }
       },
       "Chr.Avro": {
@@ -4142,17 +4151,6 @@
         "requested": "[9.0.2, )",
         "resolved": "9.0.2",
         "contentHash": "m6Lxaydjt710cFHsZkDdbu4hgr4ngk5SeI0OYCvIzXO88oTr2tMMOondn/8oCuEjoteViD6EV6obxP5n1C2iqQ=="
-      },
-      "ProtoValidate": {
-        "type": "CentralTransitive",
-        "requested": "[1.0.1, )",
-        "resolved": "1.0.1",
-        "contentHash": "JMlGsuF8mhloxxlRqgb20MjcFz5FonZSxHsK+WSPl/tH5gVKIBqgRCi1bsuqzxt1P9UASgihtQ6t4VIIHVbzVQ==",
-        "dependencies": {
-          "Cel": "0.3.3",
-          "Google.Protobuf": "3.32.1",
-          "Microsoft.Extensions.Options": "8.0.2"
-        }
       },
       "PureHDF": {
         "type": "CentralTransitive",
