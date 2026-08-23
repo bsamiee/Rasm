@@ -16,7 +16,7 @@ iac/
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
     │   ├── observe.ts    # _SOURCES and residence row families, the _PACKS ingest arm, and the realized-backend projection seam
     │   ├── policy.ts     # Evidence sink spine and the guard-pack row set asserting estate-authored resources
-    │   ├── converge.ts   # _STAGED rollout table and the atomic active-generation pointer write
+    │   ├── converge.ts   # Backend proof fold and the atomic active-generation pointer write
     │   └── cloud.ts      # EscApi rail, the twin resource set, and the one-clock seating constraint
     └── kube/             # K8s estate Tier classes realized on either plane
         ├── workload.ts   # _LIFE lifecycle anchor and the typed workload cell set every role row constructs
@@ -162,6 +162,6 @@ Growth is one row on the owning surface (a cloud, capability, credential, tenanc
 - Data planes bind the published door as an ordinary query end.
 - Convergence treats recovery as clean-target materialization and returns it through the normal publication path.
 - Every declared pod stamps `Tier`'s privilege anchor; the guard pack asserts it only on estate-authored resources.
-- Every workload role mounts the proved contract and active-generation pointer before scheduling.
+- Every backend-armed workload takes the proved contract and active-generation pointer before scheduling, each platform row projecting it per row.
 - Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
 - Static distribution publishes caller-owned artifact rows on the `served` plane and carries no UI codec semantics.

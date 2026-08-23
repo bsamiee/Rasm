@@ -32,6 +32,10 @@
         "./ui/viewer": "./ui/viewer/src/index.ts",
         "./iac": "./iac/src/index.ts"
     },
+    "dependencies": {
+        "@bufbuild/protobuf": "catalog:",
+        "@rasm/contracts": "workspace:*"
+    },
     "devDependencies": {
         "@rasm/ts-testkit": "workspace:*"
     }

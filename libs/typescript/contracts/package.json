@@ -1,0 +1,36 @@
+{
+    "name": "@rasm/contracts",
+    "version": "0.1.0",
+    "description": "Generated TypeScript SDK for the Rasm contract corpus",
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        "./*": "./gen/*.ts"
+    },
+    "files": [
+        "dist",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc --build tsconfig.build.json --clean && tsc --build tsconfig.build.json",
+        "prepack": "pnpm run build"
+    },
+    "dependencies": {
+        "@bufbuild/protobuf": "catalog:"
+    },
+    "devDependencies": {
+        "typescript": "catalog:"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            "./*": {
+                "types": "./dist/*.d.ts",
+                "import": "./dist/*.js",
+                "default": "./dist/*.js"
+            }
+        }
+    }
+}

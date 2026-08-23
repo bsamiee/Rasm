@@ -191,8 +191,9 @@ async def _emit_leaf(leaf: Action, ctx: _Drive) -> RailStatus:
     match is_governed(ctx.ceiling):
         case True:
             claim, verb = _label(leaf)
-            # Counts(1, 0, 1) preserves one governed leaf even though SKIP bypasses the rail fold; describe owns the label string.
-            skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: {describe(leaf)} cpu>={ctx.ceiling or 0.0:.0%}",))
+            # The governed leaf seats itself as one skipped census row even though it bypasses the rail fold; describe owns the label string.
+            note = f"governed: {describe(leaf)} cpu>={ctx.ceiling or 0.0:.0%}"
+            skip = Report(claim, verb, RailStatus.SKIP, Counts.of(RailStatus.SKIP), notes=(note,))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
         # Recursive Sequence/Debounce leaves reuse the held limiter token; re-acquire raises in anyio.
         case False:

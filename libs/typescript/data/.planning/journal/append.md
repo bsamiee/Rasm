@@ -37,7 +37,7 @@ import {
 import { PgClient } from "@effect/sql-pg"
 import type { CloudEvent, CloudEventV1 } from "cloudevents"
 import {
-  Array, Context, Data, DateTime, Effect, Either, Encoding, Hash, HashMap, Option, Predicate, Record, Schedule, Schema,
+  Array, Context, Data, DateTime, Effect, Either, Hash, HashMap, Option, Predicate, Record, Schedule, Schema,
   Stream, pipe, type ParseResult,
 } from "effect"
 import { Carrier, Digest, Event, Fault, Identity, Tap } from "@rasm/ts/core"
@@ -613,9 +613,6 @@ const _ledgerDdl: Capability.Ensure = {
 - Law: publish is total over its faults — `VersionConflict`, `JournalFault`, `HookVeto`, `SqlError`, `ParseError`; an unknown plan tag, incomplete `RETURNING` roster, duplicate claim lacking its settled receipt, or app-armed admission veto fails typed and rolls back whole.
 - Law: the hook points bracket the commit from both sides — the `journalPublish` veto runs pre-append inside the transaction after the replay short-circuit (a replay is already-settled truth no policy re-adjudicates), and the observe fan rides `Tenant.afterCommit` beside the Live stamp, so a subscriber can never see pre-commit state, join the commit, or slow the write path beyond the post-commit drain it subscribed to.
 - Law: each slot returns the read owner's exact `Live.Keys` value; publish composes the roster through `Live.merged` and registers one `Reactivity.invalidate` through `Tenant.afterCommit`. `Tenant.within` drains the invocation-local roster only after its outer transaction commits. Savepoint release, rollback, and ledger replay stamp nothing, so no reader can wake into pre-commit state and no duplicate commit emits a second mutation.
-- Owner: `Journal.causal(spec)` is the host op-log admission — one producer entry decodes into one `Journal.Intent` and lands through the SAME publish transaction every app write takes, so a synced entry inherits OCC, idempotency, the outbox, and slot projection instead of a second write path that has none of them.
-- Law: a synced entry claims the ledger on its operation DOT, `${origin}:${counter}` — the identity the producer minted, never the payload digest, so two peers writing identical bytes land two rows and a redelivery replays the stored receipt; a content-keyed claim reports the second genuine edit as a duplicate and the ledger then serves a receipt for a write that never happened. Causal CONTEXT stays out of the key: it is ordering evidence this plane does not arbitrate, and folding it in makes one operation re-appendable every time its minter's frontier re-encodes.
-- Law: every synced entry publishes under `Occ.Any`. Stream version is this plane's single-writer coordinate and the entry already carries its own causal position, so `Occ.Exact` refuses exactly the concurrent operations the producer's merge policy declares commutative — the journal records causal order, and re-adjudicating it here arbitrates a decision the CRDT plane already settled.
 
 ```mermaid
 sequenceDiagram
@@ -710,65 +707,6 @@ const _deliverables = <A extends Journal.Event>(intent: Journal.Intent<A>, recei
     payload: row.payload,
     urgency: intent.urgency,
   }))
-
-// --- [BOUNDARIES] --------------------------------------------------------------------------
-
-// Host op-log admission. `Operation` is the producer's identity verbatim — a `(origin, counter)` dot beside the
-// frontier its minter had observed — and the context arrives already SORTED by origin, which is why it decodes into an
-// ordered array rather than a record: a re-sort here would hide a producer that stopped sorting, and every digest
-// taken over the vector agrees across runtimes only while that order holds.
-const _Operation = Schema.Struct({
-  origin: Schema.NonEmptyString,
-  counter: Schema.Int.pipe(Schema.nonNegative()),
-  context: Schema.Array(Schema.Tuple(Schema.NonEmptyString, Schema.Int.pipe(Schema.nonNegative()))),
-})
-
-// The producer's routing columns over the envelope's WIRE projection, so a synced row lifts through the SAME
-// `spec.plan.decode` the windowed read runs and a producer-side schema move rides the one upcast chain.
-const _Entry = Schema.Struct({
-  ...Upcast.Envelope.wire.fields,
-  id: _Operation,
-  family: Schema.NonEmptyString,
-  entity: StreamKey.fields.aggregate,
-})
-
-// Replicated edits claim behind every locally originated one: the drain orders ascending, and a sync backlog that
-// preempts interactive work inverts exactly the service class the urgency column exists to express.
-const _SYNC_URGENCY = 100
-
-declare namespace Journal {
-  type Operation = typeof _Operation.Type
-  type Entry = typeof _Entry.Type
-}
-
-// Dot alone claims the ledger: it is already unique per operation, so widening the claim with the causal context
-// re-opens the same operation on every frontier re-encoding, and narrowing it to the payload digest collapses two
-// peers' identical writes into one landed row.
-const _claimOf = (id: Journal.Operation): Journal.Key =>
-  Schema.decodeSync(_IdempotencyKey)(`${id.origin}:${id.counter}`)
-
-// One entry becomes one intent, and the intent takes the standing publish path: `Occ.Any` because the producer's
-// causal position already orders the write and the stream version is this plane's own single-writer coordinate, and
-// `urgency` at the sync floor because a replicated edit never preempts a locally originated one.
-const _causal = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
-  (
-    app: typeof Identity.App.fields.app.Type,
-    tenant: typeof Identity.Tenant.fields.tenant.Type,
-    entry: Journal.Entry,
-    classification: Event.Class,
-    slots: ReadonlyArray<Journal.Slot<A>> = [],
-  ) =>
-    Effect.map(spec.plan.decode(entry), (event): Journal.Intent<A> => ({
-      stream: new StreamKey({ app, tenant, aggregate: entry.entity }),
-      events: [event],
-      occ: _Occ.Any(),
-      key: Option.some(_claimOf(entry.id)),
-      urgency: _SYNC_URGENCY,
-      // Synced entries announce at the grade their producer declared: inheriting a default here lets a peer's
-      // restricted payload cross a broker this deployment refuses it on.
-      classification,
-      slots,
-    }))
 
 const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
   (intent: Journal.Intent<A>) =>
@@ -882,12 +820,14 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: the settle's cost is one no-op write per displaced row and that cost is already paid — the id roster locks and touches exactly the rows the unfenced mark touched, so the fence buys its refusal for a dead tuple where the old spelling bought a lost delivery; a displaced holder that finds a live claimant mid-commit waits on that row's lock and then writes nothing, which is the ordering the unfenced form waited for and then overwrote.
 - Law: each deliverable carries the journal's global `sequence` beside its stream version, so a drain receipt, checkpoint, or forensic join names the exact source fact without re-querying by payload coordinates.
 - Law: outbox observability is the census projected across the seam — `Journal.census` answers `{ depth, oldest, redelivered }` in one decoded aggregate, the runtime meter bridge samples it through its `Probe` port and sets the `Convention.metric.outboxDepth`/`outboxAge`/`outboxRedelivered` gauges, and this page mints no instrument: the outbox rows stay the evidence truth and the gauges stay the lossy dashboard projection.
-- Law: the announcement is a projection fold the claimed row owns and never a second record of truth — `_Deliverable.envelope` composes `Event.mint`, the branch's ONE mint entry, so this page states no attribute grammar, no extension roster, and no construction posture; a refusal arrives as `Event.Refusal` and folds to the `envelope` fault reason, and the raw throw the package raises never reaches a fiber.
-- Law: the addressed attributes decode ONCE through `Event.Fact` — `id` the landed global `sequence`, `source` the `StreamKey` spelled as one URI path, `type` the event tag verbatim, `time` the write instant, `subject` the stored content key, `dataschema` the registry coordinate, `datacontenttype` the arrow's media — so the proof that record satisfies the grammar rides the decoded value into the mint rather than dissolving in a widened attribute record on the next expression.
-- Law: `subject` and any `dataref` publish the content key as 32 LOWERCASE hex — this branch's content wire codec spells UPPER, so the envelope edge re-cases the encoded value at the mint and no shared codec changes case, which is the estate's mapping law for an upper-spelling branch.
+- Law: the announcement is a projection fold the claimed row owns and never a second record of truth — `_Deliverable.envelope` composes `Event.rasm.mint`, so this page states no attribute grammar or SDK construction.
+- Law: the addressed attributes decode ONCE through `Event.rasm.Fact`; this opaque JSON payload publishes no `dataschema`, while its internal evolve generation remains journal state rather than an envelope alias.
+- Law: `subject` publishes the content key as 32 LOWERCASE hex and `data` carries the exact UTF-8 bytes that key addresses. No `dataref` is projected: the relay retains the subject-bound bytes and every binding frames that one payload rather than resolving or reserializing a second representation.
 - Law: the app's event family spells its own `_tag` as the estate grammar's `rasm.<domain>.<subject>.<fact>.v<N>`, since the tag IS the announced `type`; a tag outside that grammar fails typed at the projection rather than reaching a subscription that keys on it.
-- Law: the two version axes stay disjoint — the `type` major `v<N>` moves only on a breaking change while `event_version` moves on every generation, so `dataschema` names `(tag, event_version)` as the registry coordinate the evolve plan already resolves and no consumer re-derives one from the other.
-- Law: the landed global `sequence` serves both roles it inhabits — `id` carries it as the producer's operation identity, so `(source, id)` dedups a redelivered claim structurally, and the `sequence` extension carries it as the per-source position under `sequencetype: "Integer"`; both cross as decimal TEXT, which is why no consumer of this branch arms the package's `CE_USE_BIG_INT` global JSON swap to move a 64-bit identity.
+- Law: the journal relay states `journal` as its stable producer capability beside the event type; the type's subject remains the payload's domain concept, while stream coordinates stay in `partitionkey` and never enter producer identity.
+- Law: the two version axes stay disjoint — the `type` major versions event semantics while `event_version` remains the internal evolve-plan generation and never impersonates a payload schema URI.
+- Law: the landed global `sequence` is both producer operation identity and the generated D20 string extension; bigint formatting left-pads to exactly 20 digits, so lexical and numeric order agree without Number coercion or a duplicate sequence-domain field.
+- Tests: sequence `2` projects as `00000000000000000002` before `10` as `00000000000000000010`, and both the event identity and generated extension carry that one spelling.
 - Law: `partitionkey` is the stream triple, so a transport partitioning on it keeps one aggregate's announcements in one ordering domain, and `dataclassification` is the writer's declared grade a binding reads before deciding the payload crosses at all.
 - Law: `Carrier.promote` seats the complete tenant scope before the mint injects, so the CREATION-time trace and the tenant baggage ride the roster extensions the mint writes; the transport's own hop context is its binding's, never this projection's.
 - Law: binding mode is the transport's fact across the claim seam — the runtime engine selects structured versus binary through its own binding row and carries the VALUE this page mints; no `Binding`, `Mode`, or emitter surface is reached here, and the process-global `Emitter` singleton stays banned estate-wide.
@@ -912,8 +852,8 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   // content key minted over the stored bytes, and the handling grade a binding gates on.
   event_version: Upcast.Generation,
   subject: Digest.Key.content,
-  classification: Event.classes.schema,
-  payload: Model.JsonFromString(Schema.Unknown),
+  classification: Event.rasm.classes.schema,
+  payload: Schema.String,
   urgency: Schema.Int,
   attempts: Schema.Int,
   // Two halves of one lease and neither substitutes for the other: `claimed_at` prices the EXPIRY a crashed claimant
@@ -1026,52 +966,50 @@ const _overlay = {
   serverSubtle: SqlEventLogServer.layerStorageSubtle,
 } as const
 
-// One serdes arrow serves the whole outbox — the journal writes JSON text through `Schema.parseJson` — so the media
-// type and the registry coordinate are both row data off THAT arrow and neither reaches the mint as a call-site literal.
+// One serdes arrow serves the whole outbox — the journal writes JSON text through `Schema.parseJson` — so its media
+// type is row data off THAT arrow, while this opaque payload declares no schema URI or registry coordinate.
 const _SERDES = {
   media: "application/json",
-  subject: (tag: string, generation: number): string => `rasm://schema/journal/${tag}/${generation}`,
 } as const
+
+const _EVENT_CAPABILITY = "journal"
+
+const _eventSequence = (sequence: bigint): string => String(sequence).padStart(20, "0")
 
 const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.Effect<CloudEvent<unknown>, JournalFault> =>
   Effect.gen(function* () {
     const stream = new StreamKey({ app: deliverable.app, tenant: deliverable.tenant, aggregate: deliverable.aggregate })
     const fault = (detail: string) => new JournalFault({ case: { reason: "envelope", stream, detail } })
-    const { app, tenant, aggregate } = yield* Either.mapLeft(
-      Either.all({
-        app: Encoding.encodeUriComponent(deliverable.app),
-        tenant: Encoding.encodeUriComponent(deliverable.tenant),
-        aggregate: Encoding.encodeUriComponent(deliverable.aggregate),
-      }),
-      (caught) => fault(String(caught)),
+    const sequence = _eventSequence(deliverable.sequence)
+    const source = yield* Effect.mapError(
+      Event.rasm.source(deliverable.tag, _EVENT_CAPABILITY),
+      (issue) => fault(issue.message),
     )
-    // Decoding the addressed record into `Event.Fact` is what carries the grammar proof INTO the mint: the widened
+    // Decoding the addressed record into `Event.rasm.Fact` carries the profile proof into the strict SDK mint; the widened
     // attribute record the mint's own carrier injection returns can no longer discard it on the next expression.
     const fact = yield* Effect.mapError(
       Effect.flatMap(Schema.encode(Digest.codecs.content.wire)(deliverable.subject), (subject) =>
-        Schema.decode(Event.Fact)({
-          id: String(deliverable.sequence), // Redelivery keeps the landed sequence as the same consumer-dedup identity.
-          source: `rasm://journal/${app}/${tenant}/${aggregate}`,
+        Schema.decode(Event.rasm.Fact)({
+          id: sequence, // Redelivery keeps the landed sequence as the same consumer-dedup identity.
+          source,
           type: deliverable.tag,
           time: DateTime.formatIso(deliverable.created_at),
           subject: subject.toLowerCase(), // the estate spells `subject` in 32 LOWERCASE hex; this branch's content wire is UPPER, and the envelope edge is the one re-case site
 
-          dataschema: _SERDES.subject(deliverable.tag, deliverable.event_version),
           datacontenttype: _SERDES.media,
-          data: deliverable.payload,
+          data: _utf8.encode(deliverable.payload),
         })),
       (issue) => fault(issue.message),
     )
     const scope = new Identity.Tenant({ app: deliverable.app, tenant: deliverable.tenant })
     return yield* Effect.mapError(
-      Event.mint(
+      Event.rasm.mint(
         fact,
         {
           // This stream triple is the ordering domain a partitioning transport keys on, and the same landed sequence
           // that identifies the operation is this source's position — one number in two declared roles, both text.
           partitionkey: `${deliverable.app}${_SEPARATOR}${deliverable.tenant}${_SEPARATOR}${deliverable.aggregate}`,
-          sequence: String(deliverable.sequence),
-          sequencetype: "Integer",
+          sequence,
           dataclassification: deliverable.classification,
         },
         Carrier.promote(carrier, scope),
@@ -1159,7 +1097,6 @@ const Journal = {
     head: (stream: StreamKey) => Effect.flatMap(SqlClient.SqlClient, (sql) => _head(sql, stream)),
     read: _read(spec),
     publish: _publish(spec),
-    causal: _causal(spec),
   }),
   now: _now,
   advance: _advance, // the folder's one monotone conditional upsert: `evolve`'s snapshot row and `retain`'s frontier
@@ -1181,8 +1118,6 @@ const Journal = {
   Fence: _Fence, // the verdict every store-validated conditional write in the folder answers with
   Occ: _Occ,
   Key: _IdempotencyKey,
-  Entry: _Entry,
-  Operation: _Operation,
   Sequence: _Sequence,
   Version: _Version,
   Conflict: VersionConflict,

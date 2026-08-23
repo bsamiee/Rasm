@@ -23,11 +23,10 @@ core/
     │   ├── evidence.ts   # Decoded outcomes, receipts, progress, and Evidence.Availability verdicts
     │   ├── feed.ts       # Feed.Entry union and the Feed.Document column band under one Clock.Hlc order
     │   └── presence.ts   # Actor-presence CRDT over proven merge rows
-    ├── interchange/      # Contract wire plane — generated bindings, codecs, and the capability dial; never serving
+    ├── interchange/      # Contract wire plane — codecs over the generated contracts bindings and the capability dial; never serving
     │   ├── format.ts     # Byte-dialect engines behind one decode transform
     │   ├── codec.ts      # Wire families over one keyed-decode registry, the closed family roster, and one bounded tree walk
     │   ├── frame.ts      # Frame reassembly, geometry tensor views, and residency under Shape.Ingress ceilings
-    │   ├── contract.ts   # Descriptor-set drift diff into graded verdicts
     │   ├── carrier.ts    # Carrier.Context total parse/print folds, transport dialect rows, and the extension-slot seat
     │   └── invoke.ts     # Capability dial and both directions of the command contract
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
@@ -48,6 +47,7 @@ core/
 - S2 `carrier` takes the same census union type-only, so its typed-metadata roster closes against the wire families with no value edge.
 - S2 `carrier` also seats the message envelope, since its extension slot IS a carrier frame and a second seat forks one attribute record.
 - S2 `format` holds the ingress ceiling universal — every admitted message passes one bound, and no lane mints a private cap.
+- S2 `format` seats the one `Validator` and descriptor registry — every message admits through `Format.proto.message`, and no sibling re-validates.
 
 ```mermaid
 ---
@@ -63,7 +63,6 @@ flowchart TB
     subgraph S2["S2 INTERCHANGE"]
         Invoke[invoke]
         CarrierP[carrier]
-        Contract[contract]
         Codec[codec · Wire]
         Format[format]
         Frame[frame]
@@ -89,10 +88,9 @@ flowchart TB
         Fault[fault]
     end
     Codec e1@-->|"[IMPORT]: Format.Arm"| Format
-    Codec e2@-->|"[IMPORT]: Tally"| Evidence
+    Codec e2@-->|"[IMPORT]: Evidence.Availability"| Evidence
     Frame e3@-->|"[IMPORT]: Wire"| Codec
     Frame e4@-->|"[IMPORT]: Shape.Ingress"| Schema
-    Contract e5@-->|"[IMPORT]: Wire"| Codec
     Invoke e6@-->|"[IMPORT]: Wire"| Codec
     Invoke e7@-->|"[IMPORT]: Carrier.promote"| CarrierP
     Invoke e8@-->|"[IMPORT]: Convention"| Convention
@@ -152,24 +150,20 @@ flowchart LR
     AppHost([Rasm.AppHost])
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
-    Compute e2@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire + FaultDetail"| Wire
-    Element e3@<-->|"[WIRE]: rasm.element.v1"| Wire
-    Persistence e4@-->|"[WIRE]: CrdtOpWire"| Wire
-    Persistence e5@-->|"[WIRE]: SnapshotHeader"| Wire
+    Compute e2@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail"| Wire
+    Element e3@<-->|"[WIRE]: rasm.contracts.element.v1"| Wire
+    Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.v1.CrdtOpWire)"| Wire
     Bim e6@-->|"[WIRE]: IfcWire"| Frame
     Bim e7@-->|"[WIRE]: BcfTopicWire"| Wire
-    Bim e8@-->|"[WIRE]: PredicateWire"| Wire
-    Materials e9@-->|"[WIRE]: MaterialWire"| Wire
-    Materials e10@-->|"[WIRE]: TextureSetWire"| Wire
-    Artifacts e11@-->|"[WIRE]: AssetSetManifest"| Wire
-    AppUi e12@-->|"[WIRE]: CommandPayloadWire"| Invoke
-    AppUi e13@-->|"[WIRE]: GeometryResidencyWire"| Frame
+    Materials e9@-->|"[WIRE]: Material"| Wire
+    Materials e10@-->|"[WIRE]: Set"| Wire
+    Artifacts e11@-->|"[WIRE]: Set"| Wire
+    AppUi e12@-->|"[WIRE]: CommandInvocation"| Invoke
+    AppUi e13@-->|"[WIRE]: GeometryResidency"| Frame
     AppUi e14@-->|"[WIRE]: EvidenceTimelineWire"| Wire
     AppHost e15@-->|"[WIRE]: DescriptorPinWire"| Invoke
-    AppHost e16@-->|"[WIRE]: ReceiptEnvelopeWire"| Wire
-    AppHost e17@-->|"[WIRE]: CommandAvailabilityWire"| Wire
-    AppHost e18@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Wire
-    AppHost e19@-->|"[WIRE]: HostFingerprintWire"| Wire
+    AppHost e17@-->|"[WIRE]: CommandAvailability"| Wire
+    AppHost e18@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteReceiptWire"| Wire
     Bim e20@-->|"[PROJECTION]: GeoWire"| Wire
 ```
 
@@ -208,10 +202,10 @@ flowchart LR
     Iac([iac])
     Digest e1@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Data
     Digest e2@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Runtime
-    Wire e3@-->|"[SHAPE]: FlagVerdict"| Runtime
+    Wire e3@-->|"[SHAPE]: Wire.FlagVerdict"| Runtime
     Wire e4@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature + Wire.Walk"| Ui
-    Wire e5@-->|"[SHAPE]: Hops"| Data
-    Wire e6@-->|"[SHAPE]: Wire.TextureSet"| Data
+    Wire e5@-->|"[SHAPE]: Wire.Hops"| Data
+    Wire e6@-->|"[SHAPE]: Wire.Set"| Data
     Fold e7@-->|"[SHAPE]: Fold.Plan"| Data
     Feed e8@-->|"[SHAPE]: Feed.Document"| Ui
     Identity e9@-->|"[SHAPE]: Identity.Tenant"| Security
@@ -236,8 +230,8 @@ flowchart LR
     Tap e28@-->|"[SHAPE]: Tap.Name"| Security
     Carrier e29@-->|"[SHAPE]: Carrier.Context"| Runtime
     Carrier e30@-->|"[SHAPE]: Carrier.Context"| Data
-    Event e31@-->|"[EVENT]: Event.Fact"| Data
-    Event e32@-->|"[EVENT]: Event.Fact"| Runtime
+    Event e31@-->|"[EVENT]: Event.rasm.Fact"| Data
+    Event e32@-->|"[EVENT]: Event.address + Event.rasm"| Runtime
     Transition e33@-->|"[SHAPE]: Transition.Config"| Ui
     Transition e34@-->|"[SHAPE]: Transition.Actor"| Ui
     Presence e35@-->|"[SHAPE]: Presence.State"| Ui
@@ -281,7 +275,7 @@ Exact delegating sites and per-owner wiring live on the owning implementation pa
 ## [05]-[BOUNDARIES]
 
 - Core imports nothing from the branch and nothing host-bound; every module runs identically under node, bun, and the browser.
-- Core owns TypeScript contract bindings; one registry encodes or decodes each conforming wire family for every later-stratum consumer.
-- Every cross-language primitive admits and brands at one seam, and cross-runtime parity proves bit-identical against the frozen contract corpus.
+- Core composes the generated `contracts/` bindings by module path; one registry encodes or decodes each wire family for every later-stratum consumer.
+- Every cross-language primitive admits and brands at one seam; parity proves against the frozen corpus — bytes on map-free wires, semantic elsewhere.
 - Secret derivation is the security folder's concern; the digest engine here is content identity only.
 - Persistence, serving, transport hosting, rendering, and exporters are later-wave concerns; core defines the shapes they carry and nothing they run.

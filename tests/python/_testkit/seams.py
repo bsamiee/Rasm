@@ -11,9 +11,7 @@ from typing import Protocol, Self, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
 import msgspec
-lazy import grpc.aio
 lazy import pytest
-lazy import sniffio
 lazy import trio.testing
 
 
@@ -190,30 +188,6 @@ async def loopback_server[S: _AsyncServer](
         yield Loopback(host=host, port=port_of(server))
 
 
-@asynccontextmanager
-async def grpc_loopback(bind: Callable[[grpc.aio.Server], None], *, host: str = "127.0.0.1") -> AsyncGenerator[tuple[Loopback, grpc.aio.Channel]]:
-    """Serve a ``grpc.aio`` server on an ephemeral loopback port with a connected channel.
-
-    ``bind`` registers servicers or generic handlers on the fresh server; the daemon and
-    server-runtime lanes ride this one capsule instead of per-suite lifecycle code.
-
-    Yields:
-        The bound ``Loopback`` endpoint and an open insecure ``grpc.aio.Channel``.
-    """
-    # grpc.aio binds the asyncio loop; under the trio anyio backend the capsule cannot exist.
-    if sniffio.current_async_library() != "asyncio":
-        pytest.skip("grpc_loopback requires the asyncio backend")
-    server = grpc.aio.server()
-    bind(server)
-    port = server.add_insecure_port(f"{host}:0")
-    await server.start()
-    try:
-        async with grpc.aio.insecure_channel(f"{host}:{port}") as channel:
-            yield Loopback(host=host, port=port), channel
-    finally:
-        await server.stop(grace=None)
-
-
 # --- [VIRTUAL_TIME]
 
 
@@ -222,7 +196,7 @@ def autojump_backend(threshold: float = 0.0) -> tuple[str, dict[str, object]]:
 
     Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``,
     so retry, drain, and timeout laws prove in microseconds of wall time. Each call mints a fresh
-    clock; the grpc/asyncssh capsules skip themselves under this backend through their own guards.
+    clock; the asyncssh double skips itself under this backend through its own guard.
 
     Returns:
         ``("trio", {"clock": MockClock(...)})`` for the anyio pytest plugin's backend fixture.
@@ -384,7 +358,6 @@ __all__ = [
     "VariantWriter",
     "autojump_backend",
     "autospec_proc",
-    "grpc_loopback",
     "install_module_attr",
     "loopback_server",
     "psutil_module_double",

@@ -16,6 +16,7 @@ import weakref
 from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
 import msgspec
 import pytest
+from ruamel.yaml import YAML
 
 from tests.python._testkit.runtime import REPO_ROOT
 lazy from tests.python._testkit.strategies import resolve  # strategies imports this module; the lazy binding breaks the cycle at first draw
@@ -28,6 +29,9 @@ _LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
 
 # Distinguishes a genuinely-None public value (value-only exempt) from an attribute __all__ promises but the module never defines.
 _ABSENT: object = object()
+
+# The root generation template is the one authority on generated out roots; a tree beneath one is emitted, never authored, so it owes no suite.
+_TEMPLATE: Path = REPO_ROOT / "buf.gen.yaml"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -99,6 +103,20 @@ def auto_exempt(subject: object) -> bool:
             return type(subject).__module__ == "typing" or not callable(subject)
 
 
+def generated_roots(source_root: Path) -> frozenset[Path]:
+    """Resolve the generation template's ``plugins[].out`` directories lying under ``source_root``.
+
+    Returns:
+        Out roots resolved against the template's directory; empty when no template or no out root lies beneath ``source_root``.
+    """
+    match YAML(typ="safe").load(_TEMPLATE) if _TEMPLATE.is_file() else None:
+        case {"plugins": [*rows]}:
+            outs = ((_TEMPLATE.parent / out).resolve() for row in rows if isinstance(row, dict) and isinstance(out := row.get("out"), str))
+            return frozenset(root for root in outs if root.is_relative_to(source_root))
+        case _:
+            return frozenset()
+
+
 # The filesystem walk and per-module public-name fold are one import-failure-aware coverage pass.
 def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, str], ...]]:
     """Collect a package's public symbols and import failures.
@@ -111,11 +129,16 @@ def _public_surface(package_name: str) -> tuple[dict[str, object], tuple[tuple[s
     modules = [root]
     failures: list[tuple[str, str]] = []
     for base in getattr(root, "__path__", ()):
+        # Generation authors every module beneath an out root, so those symbols owe no law here for the same
+        # reason register_tree grants their folder no suite: one template, one authority, both census grains.
+        emitted = generated_roots(Path(base).resolve())
         for py in sorted(Path(base).rglob("*.py")):
             parts = py.relative_to(base).with_suffix("").parts
             stem = parts[:-1] if parts[-1] == "__init__" else parts
             mod_name = ".".join((package_name, *stem))
             if mod_name == package_name or any(part.startswith("_") for part in stem):
+                continue
+            if any(py.resolve().is_relative_to(out) for out in emitted):
                 continue
             try:
                 modules.append(importlib.import_module(mod_name))
@@ -274,25 +297,46 @@ def register_sut(package: str, *, exempt: frozenset[str] = frozenset(), suite: P
     )
 
 
-def register_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
-    """Register every source-bearing package folder under ``source_root`` from disk shape.
+def _importable(folder: Path, /) -> str:
+    """Name the package a source folder installs, from disk shape alone.
 
-    A child folder registers only when it carries Python source; its dotted name derives from its
-    repo-relative path (bare folder name outside the repo, matching ``sys.path``-prepended roots)
-    and its suite is the same-named folder under ``suite_root``. A sourceless folder never
-    registers, so a planning-only tree adds zero census obligations until code lands.
+    A ``src`` layout installs the shallowest ``__init__.py`` package beneath it, so the dotted name
+    is that package's path under ``src`` — the one name its modules already carry once installed.
+    Registering the folder path instead imports the whole tree a second time under a shadow name,
+    minting duplicate classes, descriptors, and limiters beside the live ones. A flat folder keeps
+    its repo-relative dotted path, which is what a ``sys.path``-prepended root already resolves.
 
     Returns:
-        Registered dotted package names in folder order; empty when no folder carries source.
+        The dotted name under which this folder's modules import.
+    """
+    source = folder / "src"
+    installed = sorted((py.parent for py in source.rglob("__init__.py")), key=lambda root: len(root.parts)) if source.is_dir() else []
+    if installed:
+        return ".".join(installed[0].relative_to(source).parts)
+    return ".".join(folder.relative_to(REPO_ROOT).parts) if folder.is_relative_to(REPO_ROOT) else folder.name
+
+
+def register_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
+    """Register every authored-source package folder under ``source_root`` from disk shape.
+
+    A child folder registers only when it carries Python source outside every generated out root
+    the generation template declares; it registers under the name its modules import by, and its
+    suite is the same-named folder under ``suite_root``. A sourceless folder never registers, so a
+    planning-only tree adds zero census obligations until code lands; a folder whose source is the
+    generator's emission alone is no stratum — generation is its author, so it owes no suite and no
+    census.
+
+    Returns:
+        Registered dotted package names in folder order; empty when no folder carries authored source.
     """
     children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
-    names = tuple(
-        ".".join(child.relative_to(REPO_ROOT).parts) if child.is_relative_to(REPO_ROOT) else child.name
-        for child in children
-        if next(child.rglob("*.py"), None) is not None
+    roots = generated_roots(source_root.resolve())
+    authored = tuple(
+        child for child in children if any(not any(py.resolve().is_relative_to(root) for root in roots) for py in child.rglob("*.py"))
     )
-    for name in names:
-        register_sut(name, suite=suite_root / name.rsplit(".", 1)[-1])
+    names = tuple(_importable(child) for child in authored)
+    for name, child in zip(names, authored, strict=True):
+        register_sut(name, suite=suite_root / child.name)
     return names
 
 
@@ -361,6 +405,7 @@ __all__ = [
     "consume_covers",
     "register_sut",
     "register_tree",
+    "generated_roots",
     "assert_law_coverage",
     "auto_exempt",
     "uncollected_laws",

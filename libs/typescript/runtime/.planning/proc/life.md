@@ -15,22 +15,23 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 - Owner: the phase tuple and the cell — the tuple is a semantic order (lifecycle rank is load-bearing; the anchor derives `Phase` and no consumer re-lists states); the cell starts at `booting`, `life.online` stamps `running` (the boot module's last act before serving), and only the drain fold advances further; the published `phase` is the read-only `Subscribable` projection of the interior cell, so a consumer reads and subscribes and a write is unspellable.
 - Law: the park is the drain trigger — `life.parked` is `online` then `Effect.never` with the drain fold attached through `Effect.onInterrupt`, so the boot module runs `row.main(Effect.scoped(Effect.provide(life.parked, root)))` and a delivered `SIGINT`/`SIGTERM` (which `runMain` converts to root-fiber interruption) executes the ordered drain BEFORE scope close releases resources — choreography first, finalizers second, exactly once, on every exit class.
 - Law: `Layer.launch` remains the boot for graphs with no ordered drain; the moment one drain step exists, `parked` is the entry — two boot shapes selected by whether choreography is registered, never mixed.
-- Boundary: phase consumption is one-directional — the ready fold gates on the cell, the serving edge stops intake by it, and `iac` aligns `terminationGracePeriod` to the drain budget row rather than a second constant; browser lifecycle is the ui wave's own boot fact.
+- Boundary: phase consumption is one-directional — the ready fold gates on the cell, the serving edge stops intake by it, and `iac` aligns `terminationGracePeriod` to the drain budget row rather than a second constant; browser lifecycle is the ui wave's own boot fact. When the deploy plane supplies either backend mount variable, the built-in ready row re-reads the mounted data-owned contract and generation pointer; a backendless root registers no such row.
 - Entry: `Life.register(step)` and `Life.probe(row)` from any Layer build (`accessors: true`); `life.parked` in the boot module; `life.phase` for observers.
-- Packages: `effect` (`SubscriptionRef`, `Subscribable`, `Deferred`, `Ref`, `Chunk`), `./config.ts` (`Setting`).
+- Packages: `effect` (`SubscriptionRef`, `Subscribable`, `Deferred`, `Ref`, `Chunk`), `@effect/platform` (`FileSystem`, `Path`), `@rasm/ts/data` (`Backend.project`), `./config.ts` (`Setting`).
 
 ## [03]-[RANKED_FOLD]
 
 [RANKED_FOLD]:
-- Owner: `_bounded` — the one budgeted row executor: measure the open instant, run the row's effect under `Effect.exit` with the budget applied as `Effect.timeoutOption` over `Effect.disconnect`, measure the close, and return the `Exit`-of-`Option` evidence beside the elapsed span; both registries fold through it, so the lapse-is-a-verdict law, the crash-is-evidence law, and the severed-deadline law are stated once.
+- Owner: `_bounded` — the one budgeted row executor: measure the open and close through monotonic `Clock.currentTimeNanos`, run the row's effect under `Effect.exit` with the budget applied as `Effect.timeoutOption` over `Effect.disconnect`, and return the `Exit`-of-`Option` evidence beside the elapsed span; a wall-clock adjustment therefore cannot mint a negative or inflated receipt, and both registries fold through the same executor, so the lapse-is-a-verdict law, the crash-is-evidence law, and the severed-deadline law are stated once.
 - Law: every deadline rides a severed fiber — the drain fold runs inside the interrupt's masked finalizer, where a bare timeout waits instead of interrupting, so `Effect.disconnect` severs the row's work onto its own fiber and the deadline settles on time while the shielded work finishes in background; a lapse is a verdict, never an abort.
-- Law: a row never fails its fold — a crash converts through `Effect.exit`, a lapse folds from `Option.none`, so the surrounding report is total and the serving edge carries zero recovery arms; the graders are the only per-surface difference — the drain grader folds to `drained | lapsed | crashed`, the probe grader to the grade lattice with lapse and crash landing at `fail` with their detail.
+- Law: a row never fails its fold — a typed refusal or defect converts through `Effect.exit`, a lapse folds from `Option.none`, so the surrounding report is total and the serving edge carries zero recovery arms; the graders are the only per-surface difference — the drain grader folds to `drained | lapsed | crashed`, while the probe grader preserves a typed failure's message (and a defect's pretty cause) beside `fail` instead of erasing every refusal into the word `crashed`.
 - Growth: a third ranked surface (a warm-up band, a maintenance sweep) is one registry plus one grader over the same executor.
 - Packages: `effect` (`Clock`, `Duration`, `Effect`, `Exit`, `Option`).
 
 ```typescript signature
 import {
     Array,
+    Cause,
     Chunk,
     Clock,
     DateTime,
@@ -48,7 +49,9 @@ import {
     SubscriptionRef,
     pipe,
 } from 'effect';
+import { FileSystem, Path } from '@effect/platform';
 import { Fault } from '@rasm/ts/core';
+import { Backend } from '@rasm/ts/data';
 import { Setting } from './config.ts';
 
 const _PHASES = ['booting', 'running', 'draining', 'halted'] as const;
@@ -131,7 +134,8 @@ declare namespace Life {
         readonly budget: Option.Option<Duration.Duration>;
         readonly run: Effect.Effect<void>;
     };
-    type Probe = { readonly label: string; readonly kind: Kind; readonly run: Effect.Effect<Grade> };
+    type ProbeFault = { readonly message: string };
+    type Probe = { readonly label: string; readonly kind: Kind; readonly run: Effect.Effect<Grade, ProbeFault> };
     type Row = _Row;
     type Graded = _Graded;
     type Receipt = _Receipt;
@@ -149,20 +153,20 @@ const _TRANSITIONS = {
 const _byRank: Order.Order<Life.Step> = Order.mapInput(Order.number, (step: Life.Step) => step.rank);
 const _byGrade: Order.Order<Life.Grade> = Order.mapInput(Order.number, (grade: Life.Grade) => _GRADES[grade].rank);
 
-const _bounded = <A>(
-    run: Effect.Effect<A>,
+const _bounded = <A, E>(
+    run: Effect.Effect<A, E>,
     budget: Option.Option<Duration.Duration>,
-): Effect.Effect<{ readonly outcome: Exit.Exit<Option.Option<A>>; readonly elapsed: Duration.Duration }> =>
+): Effect.Effect<{ readonly outcome: Exit.Exit<Option.Option<A>, E>; readonly elapsed: Duration.Duration }> =>
     Effect.gen(function* () {
-        const opened = yield* Clock.currentTimeMillis;
+        const opened = yield* Clock.currentTimeNanos;
         const outcome = yield* Effect.exit(
             Option.match(budget, {
                 onNone: () => Effect.map(run, Option.some),
                 onSome: (limit) => Effect.timeoutOption(Effect.disconnect(run), limit),
             }),
         );
-        const closed = yield* Clock.currentTimeMillis;
-        return { outcome, elapsed: Duration.millis(closed - opened) };
+        const closed = yield* Clock.currentTimeNanos;
+        return { outcome, elapsed: Duration.nanos(closed - opened) };
     });
 
 const _drainGrade: (outcome: Exit.Exit<Option.Option<void>>) => Life.Verdict = Exit.match({
@@ -170,11 +174,78 @@ const _drainGrade: (outcome: Exit.Exit<Option.Option<void>>) => Life.Verdict = E
     onSuccess: Option.match({ onNone: () => 'lapsed' as const, onSome: () => 'drained' as const }),
 });
 
-const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [Life.Grade, Option.Option<string>] = Exit.match({
-    onFailure: () => ['fail', Option.some('crashed')] as const,
+const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>, Life.ProbeFault>) => readonly [Life.Grade, Option.Option<string>] = Exit.match({
+    onFailure: (cause) => [
+        'fail',
+        Option.some(
+            Option.match(Cause.failureOption(cause), {
+                onNone: () => Cause.pretty(cause),
+                onSome: (fault) => fault.message,
+            }),
+        ),
+    ] as const,
     onSuccess: Option.match({
         onNone: () => ['fail', Option.some('lapsed')] as const,
         onSome: (grade: Life.Grade) => [grade, Option.none<string>()] as const,
+    }),
+});
+
+const _backendMount = Fault.Class.family(['paths', 'identity'] as const, {
+    paths: Fault.Class.row({
+        class: 'absent',
+        leg: 'backend-mount',
+        detail: Schema.Struct({ contractRoot: Schema.Boolean, pointerPath: Schema.Boolean }),
+        render: ({ contractRoot, pointerPath }) =>
+            `backend mount pair is partial: contract root ${contractRoot ? 'present' : 'absent'}, pointer path ${pointerPath ? 'present' : 'absent'}`,
+    }),
+    identity: Fault.Class.row({
+        class: 'conflicted',
+        leg: 'backend-mount',
+        detail: Schema.Struct({ projected: Schema.NonEmptyString, pointed: Schema.String }),
+        render: ({ projected, pointed }) =>
+            `mounted backend contract projects generation ${projected}, while the pointer names ${pointed || '<empty>'}`,
+    }),
+});
+
+class BackendMountFault extends Schema.TaggedError<BackendMountFault>()('BackendMountFault', {
+    case: _backendMount.payload,
+}) {
+    get class(): Fault.Class.Kind {
+        return _backendMount.classOf(this.case.reason);
+    }
+    override get message(): string {
+        return _backendMount.render(this.case);
+    }
+}
+
+const _backendUtf8 = new TextDecoder();
+
+const _backendProbe = (setting: Setting, files: FileSystem.FileSystem, paths: Path.Path): Life.Probe => ({
+    label: 'backend-contract',
+    kind: 'ready',
+    run: Option.match(Option.all({ contractRoot: setting.backend.contractRoot, pointerPath: setting.backend.pointerPath }), {
+        onNone: () =>
+            Effect.fail(
+                new BackendMountFault({
+                    case: {
+                        reason: 'paths',
+                        contractRoot: Option.isSome(setting.backend.contractRoot),
+                        pointerPath: Option.isSome(setting.backend.pointerPath),
+                    },
+                }),
+            ),
+        onSome: ({ contractRoot, pointerPath }) =>
+            Effect.gen(function* () {
+                const contract = yield* files.readFile(paths.join(contractRoot, 'contract.json'));
+                const projection = yield* Backend.project({ contract });
+                const pointed = _backendUtf8.decode(yield* files.readFile(pointerPath)).trim();
+                if (projection.contract.id !== pointed) {
+                    return yield* new BackendMountFault({
+                        case: { reason: 'identity', projected: projection.contract.id, pointed },
+                    });
+                }
+                return 'pass' as const;
+            }),
     }),
 });
 ```
@@ -193,6 +264,7 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
 [PROBE_ROUTES]:
 - Owner: the probe vocabulary and the report fold — `_KINDS` closes the taxonomy with its serving routes (`/startupz`, `/readyz`, `/livez` — the k8s trio), `_GRADES` closes the verdict lattice with rank columns so worst-of merge is an `Order` projection; `Life.report(kind)` filters the registry to the kind, sweeps every probe with unbounded concurrency (probes are independent — accumulation, never abort), bounds each by `Setting.life.probe` through the shared executor, and merges grades worst-of; zero probes fold to `pass`, vacuously healthy.
 - Law: kind semantics are the row's contract — `started` answers once per boot (slow warm-up allowed), `ready` answers "route traffic to me now" (dependency reachability, queue depth), `live` answers "is this process worth keeping" (event-loop responsiveness, deadlock sentinels); a dependency check inside a liveness probe is the classic self-inflicted restart loop and is the named defect.
+- Law: mounted backend readiness projects `contract.json` through data's `Backend.project` on every memoized readiness sweep, compares the projection's contract identity with the trimmed pointer bytes, and preserves file, projection, partial-pair, and identity failures as probe detail. It never copies the Backend schema, never calls `Backend.admit`, and never fabricates `Backend.Generation`: Kafka artifact admission still receives the app root's genuinely admitted generation proof.
 - Law: the ready fold gates on the phase first — outside `running` the report is `fail` with the phase as detail before any probe runs; liveness never reads the phase.
 - Law: memo posture follows kind semantics — `started` uses `Effect.cached` and settles once per boot, while `ready | live` use `Effect.cachedWithTTL`; the readiness phase gate remains outside the cached probe sweep, so a transition to `draining` returns failure immediately even when the prior probe result remains warm.
 - Law: routes are data — `Life.route(kind)` projects the row; the serving edge mounts the three routes from this anchor and encodes the report (`pass/warn → 200`, `fail → 503`), `iac` writes the same three paths into workload manifests, so the path never exists twice.
@@ -202,10 +274,15 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
 class Life extends Effect.Service<Life>()('runtime/Life', {
     scoped: Effect.gen(function* () {
         const setting = yield* Setting;
+        const files = yield* FileSystem.FileSystem;
+        const paths = yield* Path.Path;
         const cell = yield* SubscriptionRef.make<Life.Phase>('booting');
         const phase: Subscribable.Subscribable<Life.Phase> = cell;
         const steps = yield* Ref.make(Chunk.empty<Life.Step>());
-        const probes = yield* Ref.make(Chunk.empty<Life.Probe>());
+        const backendArmed = Option.isSome(setting.backend.contractRoot) || Option.isSome(setting.backend.pointerPath);
+        const probes = yield* Ref.make(
+            backendArmed ? Chunk.of(_backendProbe(setting, files, paths)) : Chunk.empty<Life.Probe>(),
+        );
         const ledger = yield* Ref.make(Chunk.empty<Life.Row>());
         const pending = yield* Ref.make(Chunk.empty<Life.Step>());
         const settled = yield* Deferred.make<Life.Receipt>();
@@ -354,7 +431,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Life, LifeFault };
+export { BackendMountFault, Life, LifeFault };
 ```
 
 ## [06]-[RESEARCH]

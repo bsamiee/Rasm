@@ -244,7 +244,7 @@ flowchart LR
     Virtual e6@-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Impact e7@<-->|"[CONTENT_KEY]: ContentKey"| Persistence
     Bim e8@-->|"[PROJECTION]: GeoWire"| Geospatial
-    Rhino e9@-->|"[WIRE]: OrganizationWire"| Graph
+    Rhino e9@-->|"[WIRE]: Organization"| Graph
     Persistence e10@-->|"[WIRE]: FlightTicket"| Query
     Impact e11@-->|"[WIRE]: DeclarationRecord"| Materials
 ```

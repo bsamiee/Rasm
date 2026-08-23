@@ -10,7 +10,7 @@ The hook rail lives here too, because a hook point is an evidence surface a boar
 - [03]-[OBJECTIVES]: `ComputeObjective` — one objective binding a kernel indicator to a population/breach selector pair minted off ONE type argument.
 - [04]-[PANEL_PROJECTION]: `PanelRow`, `ComputeDescriptors` — the pack derived from the instrument roster and the objective roster, and its wire projection.
 - [05]-[HOOK_POINTS]: `ConvergenceMark`, `ComputeHookRail` — the five-point compute hook roster on the kernel capsule, its fire sites, and its isolation-cell reading.
-- [06]-[TS_PROJECTION]: Descriptor, indicator, and alert wire shapes.
+- [06]-[TS_PROJECTION]: the pack crosses as a generated message the corpus mints, never a hand TS mirror.
 
 ## [02]-[FACT_SELECTION]
 
@@ -86,7 +86,7 @@ public sealed record ComputeObjective {
 - Growth: a new panel is the instrument row it derives from; a panel wanting a non-default widget or a narrower break set overrides on its own `PanelSpec` row; zero new surface.
 - Law: a ladder crosses WITH its unit. `Buckets` carries the UCUM unit its boundaries measure and the kernel proves that unit against the declaring row's own, so the panel row carries the ladder ROW rather than a bare boundary array a renderer would have to guess the quantity of.
 - Law: `Objective.Create` throws on a malformed row, and every row here is a `static readonly` roster entry — so a bad name, target, or window breaks at TYPE INITIALIZATION, which is the compile-adjacent proof a rail-typed factory over a fixed roster could not give.
-- Boundary: descriptor rows emit during the descriptor build under the suite schema hash beside `ReceiptSurface.Kinds` and cross on the `[06]-[TS_PROJECTION]` wires; the ts-iac compile leg (`typescript:iac` `[0014]`) owns turning rows into Foundation-SDK dashboards and rule groups — Compute owns no IaC surface and renders nothing.
+- Boundary: descriptor rows emit during the descriptor build under the suite schema hash beside `ReceiptSurface.Kinds` and cross only as the generated message `[06]-[TS_PROJECTION]` names; the ts-iac compile leg (`typescript:iac` `[0014]`) owns turning rows into Foundation-SDK dashboards and rule groups — Compute owns no IaC surface and renders nothing.
 - Boundary: `BoardPack.Admit` carries every claim this pack owes — panel widgets and break keys, indicator series and partition keys, and objective-name distinctness across the alert namespace — so an alert can never name a series the meter never mounts, a panel can never break on a key its row never declares, and a folder-local probe restating any of them is the deleted form. Two further proofs are STRUCTURAL and probing them tests nothing: `FactSelector.Of` resolves its kind through the frozen registry so an objective naming an unregistered case has no construction path, and `ComputeObjective.Of` mints the population-and-breach pair off ONE type argument behind a private constructor so a pair spanning two cases has none either.
 - Boundary: omitting the window canonicalizes it at the kernel to the estate compliance default, so no calendar literal lands in a descriptor row and a shortened window still refuses below the longest burn row; a hand-typed window, factor, or severity beside the kernel table is the forked form that silently diverges from every sibling descriptor plane on the next tuning.
 
@@ -201,43 +201,7 @@ public sealed record ComputeHookRail(
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: `InstrumentKindWire`, `PanelKindWire`, `BucketLadderWire`, `ComputePanelWire`, `LevelBreachWire`, `SliWire`, `AlertSeverityWire`, `BurnRowWire`, `AlertSpecWire` — the descriptor rows as the deploy plane consumes them.
-- Packages: BCL inbox
-- Growth: a new panel or alert axis lands as one field on its descriptor wire, and a new kernel `Sli`, `InstrumentKind`, `PanelKind`, `BurnRow`, or `AlertSeverity` row lands as one arm or key on the wire union mirroring it; zero new surface.
-- Boundary: this section is the `tests/contracts/MANIFEST.md` `[02.16]-[BOARD_PACK]` seam's C# MINTER, `typescript:core/observe/board#PACKS` its peer minter and `typescript:iac/operate/observe#BOARD_APPLY` its consumer, payload `canonical-json` + `digest` under a DESIGN-PIN — the consumer encodes packs in-process and names no wire type, so a grep census over `libs/typescript` reads zero and refutes nothing.
-- Boundary: every literal union here mirrors a kernel `[SmartEnum<string>]` or `[Union]` roster ARM FOR ARM — `SliWire` mirrors every indicator arm and saturation polarity, and `AlertSpecWire` carries every column `Slo.Specs` fills, `hold` included, because a column the compile leg cannot read has no seat on the ladder.
-- Boundary: a bucket ladder crosses WITH its unit, matching the C# `Option<Buckets>` column — bare boundary numbers name no quantity, so a renderer comparing a ceiling against them would have to guess.
-- Boundary: durations use their invariant textual forms; absent evidence crosses as explicit null.
-
-```ts signature
-type InstrumentKindWire = "count" | "delta" | "distribution" | "reading" | "total" | "balance" | "level" | "levels";
-type PanelKindWire = "timeseries" | "stat" | "gauge" | "heatmap" | "logs" | "table" | "geomap" | "nodes";
-
-interface BucketLadderWire { unit: string; bounds: number[]; }
-interface ComputePanelWire { title: string; instrument: string; unit: string; measure: InstrumentKindWire; panel: PanelKindWire; by: string[]; ladder: BucketLadderWire | null; }
-
-type LevelBreachWire = "ceiling" | "floor";
-type SliWire =
-  | { sli: "ratio"; good: string; total: string }
-  | { sli: "partition"; metric: string; by: string; good: string[] }
-  | { sli: "latency"; metric: string; ceiling: string; quantile: number }
-  | { sli: "saturation"; metric: string; bound: number; breach: LevelBreachWire }
-  | { sli: "freshness"; metric: string; horizon: string };
-
-type AlertSeverityWire = "page" | "ticket";
-type BurnRowWire = "page-fast" | "page-slow" | "ticket-fast" | "ticket-slow";
-
-interface AlertSpecWire {
-  slug: string;
-  burn: BurnRowWire;
-  severity: AlertSeverityWire;
-  hold: string;
-  sli: SliWire;
-  target: number;
-  spend: number;
-  annotations: ReadonlyArray<{ key: string; value: string }>;
-}
-```
+- Law: the board pack crosses to the deploy plane ONLY as a generated message the corpus mints — no hand TS interface, literal union, or method shape lives on this page, and the hand indicator, alert, and panel mirror that once stood here is retired with its arm-for-arm census. The corpus carries no `rasm.contracts.board.v1` family today, so `ComputeDescriptors.Board` leaves the process as the kernel `BoardPack` value on the contributor port alone, and the descriptor-to-dashboard compile leg (`typescript:iac/operate/observe#BOARD_APPLY`) reads the generated schema the day the family lands — IDEAS `BOARD_PACK_FAMILY` names that corpus ripple. NAMED LOSS: no cross-language board wire exists until the family mints. Witness: the retired mirror had zero TS readers (`typescript:core/observe/board#PACKS` encodes packs in-process and names no wire type), so nothing decoded it.
 
 ## [07]-[RESEARCH]
 

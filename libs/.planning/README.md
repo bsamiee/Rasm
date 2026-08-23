@@ -8,15 +8,17 @@ This planning corpus widens by scope: a folder owns one package, a branch aggreg
 
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
+- Generated-bindings folder (`<pkg>/`): the full folder doc set with ONE `.api/` generator-grammar catalogue; generation authors the emission alone.
 - Cross-`libs/` core (`libs/.planning/`): the branch doc-set beside `campaign-method.md` and `planning-targets.md`.
 
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
 - Catalogues document external distributions and host SDK assemblies alone; a corpus package declares its members on its own design pages.
+- Generated-bindings packages carry ONE catalogue — generator grammar and roster censused against the descriptor set — and no hand-authored member.
 - Cross-folder member use verifies at the owning design page under `docs/laws/topology.md` `[FENCE_SEAM]`.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - Folder `.api/`: carries the Domain tier for package-specific distributions and the Substrate tier for language-branch-wide ones.
 - Every folder consuming a substrate package reads the branch catalogue and lists the package in its README `## [03]-[SUBSTRATE_PACKAGES]` section.
-- Centralization is absolute: no per-package manifest exists, and every package and version lives in the one language manifest at monorepo root.
+- Resolution centralizes in the language root and its one lock; distribution manifests carry metadata and direct runtime closure, never resolution.
 
 ## [02]-[INDEX_DOCS]
 

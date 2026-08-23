@@ -29,7 +29,7 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 
 "Universal" names a contract `tests/contracts/` defines and freezes. Corpus definition is the whole discriminant: a concept several branches happen to spell carries no cross-language meaning until a manifest entry defines it, and an entry binds every branch it names.
 
-- Universal owners exist only for corpus-defined contracts; `[07]-[CROSS_LANGUAGE_WIRE]` splits them into the infrastructure and domain classes.
+- Universal owners exist only for corpus-defined contracts, and `[07]-[CROSS_LANGUAGE_WIRE]` carries the obligation each authority class imposes.
 - Branch-local owners retain host, toolchain, and native capability no contract carries, at full richness.
 - Host-boundary packages own their host's native surface whole — exchange, drafting, sheet layout, and file IO stay rich and thin toward no contract.
 - One semantic implementation per runtime conforms to a portable domain contract, and neither implementation reads the other.
@@ -73,19 +73,28 @@ Within each language one organization principle holds: real higher-order domain 
 
 ## [07]-[CROSS_LANGUAGE_WIRE]
 
-`tests/contracts/` owns every cross-language contract: the seam schema defines the shape, the frozen assets prove conformance, and `MANIFEST.md` binds each contract to its class. Each branch generates local bindings and owns its implementation adapters; no branch imports another's.
+`tests/contracts/` owns the wire registry: estate Protobuf and publisher sources define it, and `manifest.json` binds each atomic case to one authority class, that vocabulary and its admission predicates living at the `tests/contracts/README.md` `[01]-[AUTHORITY]` law. Each branch carries only the generated bindings its pages consume and owns its adapters; no branch imports another's.
 
-[INFRASTRUCTURE]: `MANIFEST.md` classes an entry infrastructure when every branch needs the shape to run alone.
-- Every branch mints its own instance from its own inputs; the corpus schema is the definition, and corpus parity is the proof.
+[INFRASTRUCTURE]: Independent minters each construct the value from their own inputs, and corpus parity across them is the proof.
+- Corpus definition fixes the shape; an unlisted branch owes no artificial mint.
 - No branch is a prerequisite for another — a single-language application resolves the contract whole with no peer present.
-- Drift defect: a second mint of one infrastructure contract inside one branch forks the parity the corpus proves.
+- Drift defect: one minter constructing the same case twice forks the parity the corpus proves.
 
-[DOMAIN]: `MANIFEST.md` classes an entry domain when one branch's capability originates the semantic model.
-- One producer emits the artifact, named by the domain capability it holds and never by language rank; peers decode and re-encode.
+[DOMAIN]: One semantic producer owns the value, and every peer decodes it.
+- Producers are named by the domain capability they hold, never by language rank; peers decode and re-encode.
 - Producers project a branch-local concept into a shared contract at the seam that contract declares, never before it.
 - Drift defect: a second producer for one domain contract forks the semantic model that contract carries.
 
-Every shape crossing a branch boundary carries a `MANIFEST.md` entry; a convention-aligned shape crossing without one is coincidence that forks on first edit, never interop. Composition merges branch contributions at the application root by artifact key under one total order. Content identity derives bit-identically in every branch from the `docs/laws/patterns.md` `[CONTENT_KEY]` law.
+[APPLICATION]: Deploying applications and external clients author the inbound value, and the estate names its readers alone.
+- No branch owes a producer, since the value enters from outside every branch's reach.
+- Readers bind the generated or package ingress decoding the value, and a proof-only reader establishes no public boundary.
+- Drift defect: reclassing a missing estate producer as application hides the gap behind a class that expects none.
+
+[PUBLISHER]: Immutable upstream publishers author the definition bytes, and the estate freezes them under recorded custody.
+- No branch mints the value, so no branch owes a producer or a parity mint.
+- Drift defect: respelling publisher bytes into an estate family forks the definition its publisher versions.
+
+Every peer-decoded shape carries one `manifest.json` case; a convention-aligned crossing without one is coincidence, never interop. Composition merges branch contributions at the application root by artifact key under one total order. Content identity derives per the `docs/laws/patterns.md` `[CONTENT_KEY]` law.
 
 ## [08]-[OBSERVABILITY_CONFORMANCE]
 
@@ -134,15 +143,15 @@ Transcription spells the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 - Receipts stay the truth: signals project from typed receipts through each branch's one instrument owner.
 - Metrics minted beside a receipt fan are a second truth.
 
-[HOOK_PLANE]: domain code fires typed facts at package-qualified `rasm.<pkg>.<domain>.<point>` rows on one scoped hook registry per runtime (the kernel signal capsule's `HookPoint` roster for C#, `python:runtime/observability/hooks`, `typescript:core/observe/tap`) under one closed `veto` | `observe` | `replay` modality vocabulary. Registration is composition-unique, a subscriber fault isolates as typed evidence with the emitter's value untouched, and a signal emitter is an observe subscription over fired facts, never an emit inside a domain fold.
+[HOOK_PLANE]: Domain code fires typed facts at package-qualified `rasm.<pkg>.<domain>.<point>` rows on one scoped hook registry per runtime (the kernel signal capsule's `HookPoint` roster for C#, `python:runtime/observability/hooks`, `typescript:core/observe/tap`) under one closed `veto` | `observe` | `replay` modality vocabulary. Registration is composition-unique, a subscriber fault isolates as typed evidence with the emitter's value untouched, and a signal emitter is an observe subscription over fired facts, never an emit inside a domain fold.
 
-[TENANT_COST_JOIN]: per-tenant cost attribution is one three-pin join: the C# grant-spend instrument family off the broker's cost vectors, the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the deploy plane's cost read against the selected store row. Past a store row's tenant series cap, attribution rides exemplar-sampled traces as trace-scoped spend evidence, never a second metering pipeline.
+[TENANT_COST_JOIN]: Per-tenant cost attribution is one three-pin join: the C# grant-spend instrument family off the broker's cost vectors, the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the deploy plane's cost read against the selected store row. Past a store row's tenant series cap, attribution rides exemplar-sampled traces as trace-scoped spend evidence, never a second metering pipeline.
 
-[EVIDENCE_RESIDENCE]: telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `csharp:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
+[EVIDENCE_RESIDENCE]: Telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `csharp:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
 
-[FLEET_ESCALATION]: every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at estate scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
+[FLEET_ESCALATION]: Every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at estate scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
 
-[PROFILE_SWAP]: profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
+[PROFILE_SWAP]: Profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
 
 ## [09]-[SCHEMA_STATE]
 
@@ -208,14 +217,14 @@ Every `libs/` package is an independently versioned library an unrelated applica
 
 One design language makes disparate estates read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant, and `docs/stacks/<language>/` owns its spelling.
 
-| [INDEX] | [INVARIANT]            | [LAW]                                                                                              |
-| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | one concept, one name  | One semantic name per bounded concept, spelled in the branch's casing law.                         |
-|  [02]   | one polymorphic entry  | One entry folds modality, arity, tenancy, topology, and provider off the request shape.            |
-|  [03]   | failure is a value     | Domain logic returns typed error rails; exception flow stays at the boundary.                      |
-|  [04]   | results carry receipts | Route, status, sampling, solver, and host evidence ride typed receipt fields.                      |
-|  [05]   | variation is data      | Rows, cases, tables, and policy values own variation; a bounded vocabulary dispatches.             |
-|  [06]   | refusal at admission   | An unservable axis value refuses with typed evidence naming the axis, once at the admission owner. |
+| [INDEX] | [INVARIANT]            | [LAW]                                                                                           |
+| :-----: | :--------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | one concept, one name  | One semantic name per bounded concept, spelled in the branch's casing law.                      |
+|  [02]   | one polymorphic entry  | One entry folds modality, arity, tenancy, topology, and provider off the request shape.         |
+|  [03]   | failure is a value     | Domain logic returns typed error rails; exception flow stays at the boundary.                   |
+|  [04]   | results carry receipts | Route, status, sampling, solver, and host evidence ride typed receipt fields.                   |
+|  [05]   | variation is data      | Rows, cases, tables, and policy values own variation; a bounded vocabulary dispatches.          |
+|  [06]   | refusal at admission   | Unservable axis values refuse with typed evidence naming the axis, once at the admission owner. |
 
 - `Get`/`GetMany`/`GetBy<Key>` families, per-topology entries, and boolean knob pairs each push the fold onto every caller; the entry folds instead.
 - Growth is one row, arm, or case on the owner; a new consumer shape never widens the public surface.
@@ -228,13 +237,13 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 | [INDEX] | [RUNG]                | [EARNED_BY]                                                                                                    |
 | :-----: | :-------------------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | row or case           | A new instance of a settled concept whose vocabulary already admits it.                                        |
-|  [02]   | adapter               | A foreign surface reaching an existing port, translating that surface's vocabulary at the boundary.            |
+|  [01]   | row or case           | New instance of a settled concept whose vocabulary already admits it.                                          |
+|  [02]   | adapter               | Foreign surface reaching an existing port, translating its own vocabulary at the boundary.                     |
 |  [03]   | design page           | One owner inside a settled sub-domain, under that sub-domain's invariants.                                     |
 |  [04]   | sub-domain            | New nouns under the package's existing invariants and published boundary.                                      |
 |  [05]   | package               | Own nouns, own invariants, and a published boundary an unrelated application adopts alone — a bounded context. |
-|  [06]   | host-boundary package | A host's native surface, referencing the branch base alone and composed at a product root.                     |
-|  [07]   | branch                | A target runtime no existing branch reaches.                                                                   |
+|  [06]   | host-boundary package | Host's native surface, referencing the branch base alone and composed at a product root.                       |
+|  [07]   | branch                | Target runtime no existing branch reaches.                                                                     |
 
 - Packages name concepts: a host name, a provider name, a verb, or a size-driven split each names something other than a bounded context.
 - Hosts enter as one host-boundary package beside descriptor rows and cases on the owners their demands prove; domain packages never name a host.
@@ -247,7 +256,7 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 ## [13]-[APPEARANCE]
 
-Surface appearance crosses the runtimes as two domain documents under one frozen vocabulary. `tests/contracts/appearance-vocabulary.schema.json` is the definition and `tests/contracts/MANIFEST.md` `[01]-[LEDGER]` states what it carries; each branch transcribes that definition in its own casing law and validates its own projection against it, and the two corpus entries reference it, neither restating a row.
+Surface appearance crosses as generated `rasm.contracts.appearance.v1.Set` and `Material` messages under the estate Protobuf definition. Their two domain cases name distinct producers, exact messages, and peer consumers in `tests/contracts/manifest.json`; no hand JSON Schema or branch transcription stands beside the generated vocabulary.
 
 | [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
 | :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |
@@ -271,11 +280,11 @@ Surface appearance crosses the runtimes as two domain documents under one frozen
 
 ## [14]-[EVENT_FABRIC]
 
-Domain facts cross the runtimes as CloudEvents message envelopes under one attribute grammar, one extension roster, and one format contract, each branch transcribing them in its own casing law. Message envelopes announce a fact and never gain authority over it: the producing receipt stays the evidence truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
+Domain facts cross the runtimes as CloudEvents message envelopes under the official attribute grammar, the publisher formats, and the generated estate extension vocabulary. Message envelopes announce a fact and never gain authority over it: the producing receipt stays the evidence truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
 
-[AUTHORITY]: the specification is the semantic owner and an SDK is an admitted acceleration. Every binding, format, filter, and extension row derives from the specification, delegating to an SDK member where one exists and standing branch-owned where none does. Package surfaces narrower than the specification state a fact about that package, never a ceiling on what the estate carries.
+[AUTHORITY]: Specification is the semantic owner and an SDK is an admitted acceleration. Libraries expose a generic, strict CloudEvents capability first; the Rasm type grammar, content-key subject, classification, and generated extension message compose as one profile rather than narrowing the generic envelope. Bindings, formats, and filters delegate to SDK members where available and stay branch-owned where absent.
 
-[KERNEL_BOUNDARY]: the message envelope, the extension roster, the attribute grammar, and the format contract reach S0, and nothing else does. Bindings, filters, and subscriptions seat at their consuming owners under `[12]-[ADMISSION]`, carry no seam constraint, and reach the message envelope as consumers of it.
+[KERNEL_BOUNDARY]: Generic message envelope, strict admission, Rasm profile, and format contract reach S0. Bindings, filters, and subscriptions seat at their consuming owners under `[12]-[ADMISSION]`, carry no seam constraint, and consume that capability.
 
 [SEATING]:
 - C# seats the message-envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, rails, and telemetry owners.
@@ -292,82 +301,79 @@ Domain facts cross the runtimes as CloudEvents message envelopes under one attri
 |  [03]   | `subject`         | the payload's content key                 |
 |  [04]   | `id`              | the producer's operation identity         |
 |  [05]   | `time`            | the occurrence instant, RFC 3339          |
-|  [06]   | `recordedtime`    | the receiver's ingest instant             |
-|  [07]   | `dataschema`      | the registry subject and version          |
+|  [06]   | `recordedtime`    | the producer's event-recording instant    |
+|  [07]   | `dataschema`      | optional absolute URI for the data schema |
 |  [08]   | `datacontenttype` | the serdes arrow's own row data           |
 |  [09]   | extension names   | lowercase `[a-z0-9]` within 20 characters |
 
 - `<domain>` is the capability subject `[08]-[OBSERVABILITY_CONFORMANCE]` fixes for metric names, so a board and a subscription join one vocabulary.
 - That subject and the package segment a `[HOOK_PLANE]` id spells are two grammars, so a `type` derives from the roster, never the firing hook id.
-- `<fact>` reads past tense, and `v<N>` moves only on a breaking `dataschema` change, so a compatible widening leaves every subscription standing.
-- `source` names the producing capability, never a host, package, or deployment, since a redeployment re-authors the identity consumers keyed on.
+- `<fact>` reads past tense; its major versions event semantics independently of the optional payload schema URI.
+- `source` names the producing capability context and survives redeployment rather than naming a host, process, package, or deployment.
+- `source.capability` and `type.subject` are independent axes: one stable capability may emit several event families.
+- Producers sharing one capability source draw `id` values from one uniqueness namespace, preserving the specification's `(source, id)` invariant.
 - `id` is operation identity and never a content digest, and `(source, id)` is the uniqueness composite every dedup and idempotency key reads.
-- `time` mints at the branch clock owner and `recordedtime` at the receiver, so the pair measures the queue that collapsing them erases.
-- `subject` carries the content key in one spelling, the same spelling `dataref` publishes where the payload externalizes.
+- `time` states occurrence time and `recordedtime` the producer's event-recording instant.
+- Receiver arrival remains receiver evidence rather than an envelope attribute.
+- `subject` carries the content key in one spelling; `dataref` independently locates externalized data.
 - Peer extension names unknown or past the ceiling are ignored, never a whole-message fault.
-- Extension-map digests read a canonical order the message-envelope owner publishes, under `docs/laws/scars.md` `[DIGEST_OVER_UNORDERED_CONTAINER]`.
 
-[EXTENSION_ROSTER]: each branch spells the roster once and hands it at construction and at every decode, since a decoder without it reads a declared extension as an unknown string. Where an SDK helper owns a row the branch composes that helper's own `AllAttributes`, never a hand-spelled twin beside it.
+[EXTENSION_ROSTER]: `rasm.contracts.event.v1.Extensions` is the sole estate extension vocabulary, field roster, wire numbering, and validation authority. Each branch generates it, projects SDK values from the descriptor's field kinds, and hands the whole generated message through construction and decode; official SDK members hold that same authority over standard CloudEvents attributes, and a branch restates neither vocabulary.
 
-| [INDEX] | [EXTENSION]                | [CARRIES]                                    |
-| :-----: | :------------------------- | :------------------------------------------- |
-|  [01]   | `traceparent` `tracestate` | the creation-time W3C trace                  |
-|  [02]   | `baggage`                  | the creation-time W3C baggage                |
-|  [03]   | `partitionkey`             | the member a transport partitions on         |
-|  [04]   | `sequence` `sequencetype`  | the per-source position and its domain       |
-|  [05]   | `sampledrate`              | the producer's sampling denominator          |
-|  [06]   | `dataref`                  | the externalized payload's content key       |
-|  [07]   | `dataclassification`       | the handling class gating each binding       |
-|  [08]   | `recordedtime`             | the receiver's ingest instant                |
-|  [09]   | `expirytime`               | the instant past which delivery is moot      |
-|  [10]   | `severity`                 | the fact's own operational grade             |
-|  [11]   | `correlation`              | the causal chain a consumer joins on         |
-|  [12]   | `deprecation`              | the superseding `type` and its window        |
-|  [13]   | `authcontext`              | the producer's asserted principal            |
-|  [14]   | `dssematerial`             | the DSSE material over the attribute digests |
+[TWO_TRACE]: Distributed-tracing extension carries the CREATION-time trace and the transport carrier carries the CURRENT hop, so both ship and folding either onto the other loses the leg it alone records.
 
-[TWO_TRACE]: the distributed-tracing extension carries the CREATION-time trace and the transport carrier carries the CURRENT hop, so both ship and folding either onto the other loses the leg it alone records.
+[VARIATION]: Format, binding, filter, and content mode are rows on their owners, never types a consumer switches on; growth is one row, arm, or case, and every consumer stands untouched.
 
-[VARIATION]: format, binding, filter, and content mode are rows on their owners, never types a consumer switches on; growth is one row, arm, or case, and every consumer stands untouched.
+- Event media identity compares the parsed type and subtype case-insensitively; parameters never widen a prefix match.
 
-[DATAREF]: one policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` is the digest under `docs/laws/patterns.md` `[CONTENT_KEY]`, published under the addressing law `[13]-[APPEARANCE]` states for a content-keyed set.
+[DATAREF]: One policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` is the URI-reference the bound residence returns and the subscribed receiver can acquire through its resolver, with any access credential supplied outside the event. `subject` remains the independent content-key integrity join.
 
 | [INDEX] | [COLUMN]    | [ANSWERS]                               |
 | :-----: | :---------- | :-------------------------------------- |
 |  [01]   | `threshold` | the binding's own negotiated limit      |
 |  [02]   | `residence` | the content-keyed store bound as a port |
-|  [03]   | `ref`       | the content key in the chosen spelling  |
+|  [03]   | `ref`       | the receiver-resolvable URI-reference   |
 |  [04]   | `retain`    | the declared retention class            |
 |  [05]   | `dual`      | whether the reference ships alone       |
 
-- `residence` binds at the composition root as a port, and an unbound port refuses at admission rather than shipping a reference nothing resolves.
+- `residence` binds at the composition root as a port.
+- Unbound residence refuses before a producer ships a reference no receiver resolver can acquire.
+- `data` and the value acquired through `dataref` carry identical information when both exist; neither duplicates the content key in `subject`.
 - `retain` declares a class and never a window, ledger, or groom, so the producing folder's standing obligation reaches the wire unchanged.
 - `dual` gates reference-alone shipping on the subscription's `protocolsettings`, since the specification carries no capability negotiation.
 
 [BATCH]:
+- JSON and Protobuf formats define batch envelopes; Avro defines no batch.
+- Empty decoded batches are valid wire documents; a sender refuses one only as a local no-op policy.
+- Bindings admit batch only where their specification defines it; MQTT, Kafka, and NATS refuse batch even where an SDK helper constructs one.
 - Batches settle per event, and the receipt carries accepted beside matched-duplicate as separate halves.
-- `sequence` survives batching, and no re-batch reorders events inside one `source`.
-- Framing reads the batch media-type prefix, so a format's batch sibling needs no second dispatch.
-- Batches past the transport budget split at the producer, since a relay re-framing one cannot re-sign it.
+- Batch position carries no event order: an intermediary may add, remove, or reassign batches, while each event keeps its own `sequence` attribute.
+- Transport budgets split batches at any admitted sending leg; each resulting body is encoded and accounted independently.
 
-[HOOK_ORDER]: a message-envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold; `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
+[HOOK_ORDER]: Message-envelope emitter is an `observe` subscription over fired hook facts, never an emit inside a domain fold; `[08]-[OBSERVABILITY_CONFORMANCE]` `[HOOK_PLANE]` owns the modality vocabulary, and this join fixes the emitter's rung on it.
 
-[AXIS_REFUSAL]: a binding a deployment cannot serve refuses on the `providers` open axis as one `[10]-[CONSUMPTION_MODEL]` `[CONSUMPTION_DESCRIPTOR]` row, since a boolean knob re-mints the assumed consumer that roster forecloses.
+[AXIS_REFUSAL]: Binding a deployment cannot serve refuses on the `providers` open axis as one `[10]-[CONSUMPTION_MODEL]` `[CONSUMPTION_DESCRIPTOR]` row, since a boolean knob re-mints the assumed consumer that roster forecloses.
 
-[SECURITY]: signing is DSSE over SHA-256 digests of the core and extension attribute sets, carried in the `dssematerial` binary extension; the format registry carries no JWS member, so a signature travels as an attribute or not at all.
-- Webhook legs sign the encoded bytes once, before any reserialization, since a re-encode respells what the signer never saw.
-- Abuse protection rides the HTTP `OPTIONS` handshake — `WebHook-Request-Origin` required, `WebHook-Request-Callback` and `-Rate` optional.
-- Targets answer `WebHook-Allowed-Origin` beside `WebHook-Allowed-Rate`, and a target handling `OPTIONS` while declining validation answers 405.
-- `WebHook-Request-Origin` rides every delivery request, so a target re-reads the claimed origin per message rather than trusting one handshake.
-- Authorization uses the specification's own header field or query parameter, since a third scheme forks what every peer target implements.
+[SECURITY]: CloudEvents defines no authorization, integrity, or confidentiality mechanism, so an app-declared webhook dialect verifies the exact body octets received under that delivery leg's header, prefix, and hash row; the envelope carries no second signature, attribute preimage, or unverifiable security claim.
+- Verification precedes parsing, and its receipt remains paired with the same held octets through ingress.
+- Reformatting or re-batching changes the body and cannot inherit its inbound signature.
+- Outbound legs sign final body octets only where destination policy requires it and signer authority exists.
+- Relays carry no blanket re-sign duty.
+- Abuse protection, when a target opts in, rides the HTTP `OPTIONS` handshake.
+- Request origin is a DNS name expression; callback is optional, and requested rate is an optional positive integer.
+- Immediate consent carries both `WebHook-Allowed-Origin` and `WebHook-Allowed-Rate`; status alone grants nothing.
+- Targets not handling `OPTIONS` answer 405, and a target handling it while declining permission omits the grant headers.
+- After a grant, the sender repeats the matching `WebHook-Request-Origin` on every protected delivery, so the target re-reads the claim per message.
+- Authorization is token-based: targets accept header and query transport, senders elect the header, and challenge-based schemes refuse.
+- Application signatures supply added body integrity and never substitute for delivery authorization.
 - Ingress admits through the tenancy owner and inherits nothing, so a decoded message envelope carries no authority its transport happened to hold.
-- `source` and `authcontext` are producer claims verified against the trust row before any routing decision reads them.
+- `source` is a producer claim verified against the trust row before any routing decision reads it.
 - `dataclassification` gates which binding a fact crosses, so a classification a binding cannot honor refuses at that binding.
 
 [EVOLUTION]:
-- `dataschema` resolves the registry subject and its version, and the `type` major `v<N>` moves with that version rather than beside it.
-- Divergent generations refuse at the CONSUMER on every decode, so a producer never negotiates a peer's pinned generation downward.
-- Retiring `type` values carry `deprecation` for a window that is a policy row, never a date literal a page goes stale against.
+- `dataschema` is an optional absolute URI identifying `data`'s schema; it never carries a registry subject, package coordinate, or generation.
+- Registry subject/version and protobuf package/generation remain transport or contract configuration outside the CloudEvents attribute map.
+- Divergent contract generations refuse at the CONSUMER, so a producer never negotiates a peer's pinned generation downward.
 
 [OWNERS]: one message-envelope owner per branch, and a second mint inside one branch is the `[07]-[CROSS_LANGUAGE_WIRE]` drift defect.
 

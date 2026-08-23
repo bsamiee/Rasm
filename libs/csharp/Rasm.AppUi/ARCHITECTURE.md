@@ -224,11 +224,11 @@ flowchart LR
     Core([typescript:core])
     Ui([typescript:ui])
     Shell e1@-->|"[WIRE]: CommandPayloadWire"| Core
-    Render e2@-->|"[WIRE]: GeometryResidencyWire"| Core
+    Render e2@-->|"[WIRE]: GeometryResidency"| Core
     Diagnostics e3@-->|"[WIRE]: EvidenceTimelineWire"| Core
-    Shell e4@-->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Ui
+    Shell e4@-->|"[WIRE]: AppUiSurfaceProgram + CommandGateWire"| Ui
     AppHost e5@-->|"[PORT]: DeterminismContext"| Document
-    Diagnostics e6@<-->|"[FAULT]: FaultBand + FaultObservationWire"| AppHost
+    Diagnostics e6@<-->|"[FAULT]: FaultBand + generated FaultObservation"| AppHost
     Rasm e7@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| Diagnostics
     AppHost e8@-->|"[PORT]: HookRail"| Diagnostics
     AppHost e9@-->|"[PORT]: ProfileSampleSource"| Diagnostics
@@ -256,7 +256,7 @@ flowchart LR
 - `[TRANSPORT]: CollabWireContext` — `Collab/presence` frames each delta with its W3C carrier beside the Loro bytes on bounded lanes.
 - Merge extracts the originating correlation, and `CollabCarrier` binds the frame's getter and setter pair onto the AppHost `TraceContext` spine.
 - AppHost's reciprocal is landed data: durable deltas ride `Topic.Collab` on the outbox leg and awareness frames ride `Topic.Presence`.
-- `[FAULT]: FaultBand + FaultObservationWire` — AppHost pins the reciprocal range and every AppUi wire arm carries refusal as that observation.
+- `[FAULT]: FaultBand + generated FaultObservation` — AppHost pins the reciprocal range and every AppUi wire arm carries refusal as that observation.
 
 ## [04]-[INTERNAL]
 

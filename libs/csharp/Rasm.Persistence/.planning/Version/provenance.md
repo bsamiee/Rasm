@@ -273,7 +273,7 @@ public static class CausalDag {
             // an Activity, so the predecessor is its produced op-key entities, resolved one hop through `resolve`, NEVER the
             // parent commit key itself which would mistype an activity as the used entity). A root commit (no parents) emits
             // no revision edge — the genesis is generation-only.
-            Seq<ProvEdge> lineage = entry.Kind.Tombstone
+            Seq<ProvEdge> lineage = entry.Kind.Ops.Admits(SyncCapability.Tombstone)
                 ? commit.ToSeq().Map(activityKey => ProvEdge.Of(ProvRelation.WasInvalidatedBy, entry.ContentKey, activityKey, entry.Stamp))
                 : from current in node.ToSeq()
                   from parent in current.Parents
@@ -475,21 +475,21 @@ public static class CausalDag {
 
 - Owner: `AttestedEntry` the hash-chained, KMS-signed ledger row; `MerkleAudit` the per-head Merkle tree over the rolling addresses; `InclusionProof`/`ConsistencyProof` the third-party audit paths; `WitnessedHead` the KMS-signed tree-head publication row an EXTERNAL witness caches; `AttestVerdict` the closed chain-validity verdict; `AttestedLedger` the static surface owning the chain append, the rolling-address fold, the Merkle head seal, the audit-proof projections, the `Witness`/`Corroborate` external-witness pair, and the `Custody`-composed chain verification that is the one tamper-evidence authority.
 - Cases: an `AttestedEntry` carries the entry content key, the `Prior` back-link, the rolling `Chain` address (`XxHash128` over `Prior ++ ContentKey ++ authorship signature ++ attestation instant` — authorship BINDS the address, so a signature or time rewrite moves every downstream address and the audit root), and the optional `SignedAuthorship`; `AttestVerdict` is `Authentic | Broken(at) | Unsigned | Mixed(signed, unsigned) | Unauthored(at) | Forged(at) | CustodyRejected(at, cause)` — `Authentic` the verified chain, `Broken` a back-link/rolling-address discontinuity, `Unsigned` a local-tier chain with no KMS signature, `Unauthored` a signed entry whose `OpDigest` does not bind its content (the `CustodyVerdict.Unauthored` arm), `Forged` a signature that fails KMS verification (the `CustodyVerdict.Forged` arm), `CustodyRejected` every remaining non-authentic custody arm (`DigestWidth`/`UnsupportedAlgorithm`/`AlgorithmMismatch` — a custody rejection can NEVER finalize `Authentic`), `Mixed` a chain carrying both signed and unsigned entries (partial custody is its own verdict, never an `Authentic` masquerade); the verdict cases mirror the `Element/identity#KMS_CUSTODY` `CustodyVerdict` cryptographic arms so verification never re-classifies what `Custody.Verify` already decided.
-- Entry: `public static AttestedEntry Append(Option<AttestedEntry> prior, UInt128 contentKey, Option<SignedAuthorship> authorship)` extends the chain with the new rolling address; `public static IO<AttestVerdict> Verify(Seq<AttestedEntry> chain, Func<SignedAuthorship, SigningKeyring> keyringFor, Func<AttestedEntry, OpDigest> digestOf)` re-folds the chain, confirms every back-link and rolling address, and runs `Custody.Verify` over the per-entry resolved keyring with the INDEPENDENTLY recomputed expected digest (so `Unauthored` — a signature over a digest that does not bind the entry's content — is reachable, never self-compared against the stored digest); `public static MerkleAudit Seal(Seq<AttestedEntry> chain)` folds the rolling addresses into a balanced Merkle tree whose root is the audit head; `public static Option<InclusionProof> Prove(MerkleAudit audit, int leaf)` projects the sibling-hash path proving one entry's membership; `public static bool Includes(InclusionProof proof, UInt128 leaf, UInt128 root)` re-folds the path to the root; `public static ConsistencyProof Extend(MerkleAudit older, MerkleAudit newer)` issues the proof the newer head append-only-extends the older; `public static bool Consistent(ConsistencyProof proof, MerkleAudit newer)` confirms it by re-sealing the newer's leaf prefix to the old root; `public static IO<WitnessedHead> Witness(MerkleAudit audit, Func<ReadOnlyMemory<byte>, IO<Option<SignedAuthorship>>> sign, Func<WitnessedHead, IO<OpLogEntry>> stamp, Instant at)` seals the KMS-signed tree head for publication BEYOND the store it audits — the threaded `stamp` (the `OpLog.Stamp` partial application) lands the head as one `attest`-lane `Version/ledger#CHANGEFEED` `OpLogEntry` (`Payload` the lane-codec-encoded `WitnessedHead`, `ContentKey` the kernel `ContentHash.Of` over the `WitnessedHead.Canonical` bytes) so the ordinary `Version/egress` pump drains it to the witness's sink at cadence with zero bespoke message envelope — and `public static bool Corroborate(WitnessedHead cached, MerkleAudit newer)` is the external witness's probe — a newly published audit must append-only-extend the head the witness cached, composed wholly over the one `Consistent` check.
+- Entry: `Append` extends the rolling chain; `Verify` re-folds it and composes `Custody.Verify` over independently recomputed digests; `Seal`, `Prove`, `Includes`, `Extend`, and `Consistent` own the Merkle audit proofs. `Witness(audit, sign, at)` seals and signs a head, while `Corroborate(cached, newer)` proves append-only extension. Publication belongs to a real application binding; this owner claims no `attest`-lane producer.
 - Auto: the ledger is the AUTHENTICITY authority distinct from the reproducibility chain — the `Version/timetravel#TIME_TRAVEL` `Checkpoint.Hash` is a non-cryptographic content chain that proves a checkpoint reproduces from the op stream, while THIS chain's `SignedAuthorship` proves the entry was authored by a verified actor and not rewritten; verification re-folds the rolling address over the back-links and routes each signed entry through `Custody.Verify` so the cryptographic verdict is the SAME KMS dispatch (`Authentic`/`Forged`/`Unauthored`/`Unsigned`) that gates every signed op, never a hand-rolled boolean; the Merkle head seals the rolling addresses so a third party verifies one entry's `InclusionProof` and an append-only `ConsistencyProof` between two heads without replaying the whole chain.
-- Receipt: a chain append rides `store.attest.append`; a verification rides `store.attest.verify` carrying the verdict and the break locus when broken; an audit-proof projection rides `store.attest.prove` carrying the leaf index and the proof path length; a witnessed-head publication rides `store.attest.witness` carrying the root, the leaf count, and the delivering sink key.
-- Packages: System.IO.Hashing (`XxHash128.Append`/`Clone`/`GetCurrentHashAsUInt128`), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox (the KMS verify rides `Element/identity#KMS_CUSTODY` `Custody.Verify` over the resolved `SigningKeyring`, never a direct provider call here).
+- Receipt: a chain append rides `store.attest.append`; verification rides `store.attest.verify`; proof projection rides `store.attest.prove`. No publication receipt is claimed without a bound publisher.
+- Packages: Rasm (`Rasm.Domain` `ContentHash.Of<TState>` + `CanonicalWriter.Optional`/`U128`/`Ordinal`/`I64`/`Raw` + `CanonicalWriter.Retaining`/`ToBytes` — the rolling chain, the Merkle pair, and the witnessed-head canonical bytes all on the one alphabet; `XxHash128` reaches no call site), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox (the KMS verify rides `Element/identity#KMS_CUSTODY` `Custody.Verify` over the resolved `SigningKeyring`, never a direct provider call here).
 - Growth: a new verdict is one `AttestVerdict` case mirroring a `CustodyVerdict` arm; a richer audit proof is one projection over `MerkleAudit`; zero new surface — a second tamper-evidence scheme, a hand-rolled signature check beside `Custody.Verify`, a Merkle-tree audit log built on a second hasher, or a content chain claiming authenticity is the deleted form because this ledger owns authenticity and the checkpoint chain owns reproducibility, two distinct concerns.
-- Boundary: the attested ledger is the ONE tamper-evidence authority — the `Version/timetravel#TIME_TRAVEL` `Checkpoint` hash chain explicitly defers here and carries no authenticity claim, so a content chain standing in for tamper-evidence is the deleted form; the chain is hash-chained off the prior rolling address so any inserted, deleted, or reordered entry breaks every downstream address (a `Broken` verdict naming the discontinuity); the per-entry cryptographic verdict COMPOSES `Element/identity#KMS_CUSTODY` `Custody.Verify(authorship, digest, keyring)` with the `digest` being the INDEPENDENTLY recomputed expected digest off the entry's content (`digestOf`, never the stored `authorship.Digest` self-compared — that self-comparison makes `Unauthored` unreachable, the illusory-verify deleted form) — a verified `CustodyVerdict.Authentic` proves the actor and the order, an `Unsigned` chain (the local/Personal tier on `KmsProvider.None`) proves order only, an `Unauthored` names a signed entry whose digest does not bind its content (the recomputed digest differs from the signed one), and a `Forged` names the entry whose KMS signature fails, so a second boolean signature predicate beside the one `Custody` verifier is the deleted form; the Merkle audit head is the transparency-log discipline — `InclusionProof` lets an external auditor confirm one entry is in the ledger from its sibling path and root alone, and `ConsistencyProof` confirms a later head only appended (never rewrote) so a regulator audits a slice without the whole history; the Merkle tree composes the one `XxHash128` the rolling chain and the content address already use (the `Version/commits#COMMIT_DAG` `MerkleRange` is the peer anti-entropy digest, this the per-entry authenticity audit — two altitudes of the one Merkle discipline, never a second hasher); a signed head held ONLY inside the store it audits proves nothing against a compromised operator, so `Witness` publishes the KMS-signed head at cadence through one `Version/egress` sink to an independent residence (a peer store, a second cloud, a notarization endpoint — riding the `attest` changefeed lane, never a bespoke message envelope beside the one pump) and `Corroborate` lets that witness reject a rewritten history from its cached head alone — tamper evidence that holds against the store's own operator, the difference between self-audit and counterparty audit a multi-party construction contract demands.
+- Boundary: the attested ledger is the ONE tamper-evidence authority; the reproducibility checkpoint carries no authenticity claim. The rolling address exposes insertion, deletion, and reorder, while `Custody.Verify` alone distinguishes authentic, unsigned, unauthored, forged, and rejected custody. Inclusion and consistency proofs let an external auditor verify membership and append-only extension without replaying the chain. A signed head held only inside its own store proves nothing against that operator, so an application must bind publication to an independent residence; this package does not fabricate that binding or claim an `attest` op-log producer.
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AttestedEntry(UInt128 ContentKey, Option<UInt128> Prior, UInt128 Chain, Option<SignedAuthorship> Authorship, Instant At);
 
 // `MerkleAudit` balances the Merkle tree over the chain's rolling addresses — Levels[0] the leaves (one per entry's
-// Chain address), each higher level the pairwise XxHash128 of its children (a lone right child carried up),
+// Chain address), each higher level the pairwise kernel digest of its children (a lone right child carried up),
 // Levels[^1] the single audit-head root: the transparency-log structure the inclusion/consistency proofs descend,
-// composing the one XxHash128 the rolling chain already uses.
+// composing the one `ContentHash.Of` the rolling chain already uses.
 public readonly record struct MerkleAudit(Seq<Seq<UInt128>> Levels, int Leaves) {
     public UInt128 Root => Levels.Last.Bind(static top => top.Head).IfNone(UInt128.Zero);
 }
@@ -508,15 +508,10 @@ public readonly record struct ConsistencyProof(int OldSize, int NewSize, UInt128
 // canonical head bytes — published beyond the store so an independent witness caches it and rejects any rewrite. `Signature`
 // is None on the local KmsProvider.None tier (order-only witness, the same Unsigned stance the chain carries).
 public readonly record struct WitnessedHead(UInt128 Root, int Leaves, Option<SignedAuthorship> Signature, Instant At) {
-    public static ReadOnlyMemory<byte> Canonical(UInt128 root, int leaves, Instant at) {
-        ArrayBufferWriter<byte> buffer = new(28);
-        Span<byte> span = buffer.GetSpan(28);
-        BinaryPrimitives.WriteUInt128LittleEndian(span[..16], root);
-        BinaryPrimitives.WriteInt32LittleEndian(span[16..20], leaves);
-        BinaryPrimitives.WriteInt64LittleEndian(span[20..28], at.ToUnixTimeTicks());
-        buffer.Advance(28);
-        return buffer.WrittenMemory;
-    }
+    // The head bytes are SIGNED and WIRED, so the mint is the retaining leg: `U128`, `Ordinal`, `I64` on the kernel
+    // writer, closed through `ToBytes` — the one seat that hands bytes back, and it answers on the rail.
+    public static Fin<ReadOnlyMemory<byte>> Canonical(UInt128 root, int leaves, Instant at, Op key) =>
+        CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance).U128(root).Ordinal(leaves).I64(at.ToUnixTimeTicks()).ToBytes(key);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -538,23 +533,18 @@ public abstract partial record AttestVerdict {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AttestedLedger {
-    public static AttestedEntry Append(Option<AttestedEntry> prior, UInt128 contentKey, Option<SignedAuthorship> authorship) {
-        using XxHash128 rolling = new();
-        Span<byte> word = stackalloc byte[16];
-        prior.Iter(p => { BinaryPrimitives.WriteUInt128LittleEndian(word, p.Chain); rolling.Append(word); });
-        using XxHash128 next = rolling.Clone();
-        BinaryPrimitives.WriteUInt128LittleEndian(word, contentKey);
-        next.Append(word);
-        // Authorship BINDS the address: the signature bytes and the attestation instant fold into the rolling
-        // hash, so a valid authorship or attestation-time rewrite moves every downstream chain address and the
-        // Merkle audit root — a chain bound only to (prior, content key) is the rewritable deleted form.
-        authorship.Iter(a => {
-            next.Append(a.Signature.Span);
-            BinaryPrimitives.WriteInt64LittleEndian(word[..8], a.At.ToUnixTimeTicks());
-            next.Append(word[..8]);
-        });
-        return new AttestedEntry(contentKey, prior.Map(static p => p.Chain), next.GetCurrentHashAsUInt128(), authorship, authorship.Map(static a => a.At).IfNone(Instant.MinValue));
-    }
+    // Authorship BINDS the address: the signature bytes and the attestation instant fold into the rolling hash, so a
+    // valid authorship or attestation-time rewrite moves every downstream chain address and the Merkle audit root —
+    // a chain bound only to (prior, content key) is the rewritable deleted form. `Optional` presence-frames both
+    // absent halves and the signature rides `Ordinal` + `Raw`, so a genesis entry, an unsigned entry, and a signed
+    // entry occupy three disjoint preimage spaces on the one kernel alphabet.
+    public static AttestedEntry Append(Option<AttestedEntry> prior, UInt128 contentKey, Option<SignedAuthorship> authorship) =>
+        new(contentKey, prior.Map(static p => p.Chain),
+            ContentHash.Of((Prior: prior, Key: contentKey, Authorship: authorship), static (link, w) =>
+                w.Optional(link.Prior, static (p, x) => { x.U128(p.Chain); })
+                 .U128(link.Key)
+                 .Optional(link.Authorship, static (a, x) => { x.Ordinal(a.Signature.Length).Raw(a.Signature.Span).I64(a.At.ToUnixTimeTicks()); })),
+            authorship, authorship.Map(static a => a.At).IfNone(Instant.MinValue));
 
     // Verification COMPOSES Element/identity#KMS_CUSTODY Custody.Verify over the resolved keyring — the
     // SAME KMS dispatch that gates every signed op, so the chain folds the CustodyVerdict arms (Authentic/
@@ -621,14 +611,12 @@ public static class AttestedLedger {
     // Corroborate is the witness's own probe over its CACHED head — it needs no stored older audit, because
     // consistency reduces to re-sealing the newer's leaf prefix against the cached root through the one
     // Consistent check.
-    // `stamp` is the ledger `OpLog.Stamp` partial application: it lands the lane-codec-encoded head as ONE
-    // `ColumnFamily.Attest` `OpLogEntry` (`ContentKey` the kernel `ContentHash.Of` over the canonical bytes),
-    // so the changefeed and the ordinary egress pump observe and drain the publication — a Witness that only
-    // returns the head has no durable producer, the deleted form.
-    public static IO<WitnessedHead> Witness(MerkleAudit audit, Func<ReadOnlyMemory<byte>, IO<Option<SignedAuthorship>>> sign, Func<WitnessedHead, IO<OpLogEntry>> stamp, Instant at) =>
-        sign(WitnessedHead.Canonical(audit.Root, audit.Leaves, at))
-            .Map(signature => new WitnessedHead(audit.Root, audit.Leaves, signature, at))
-            .Bind(head => stamp(head).Map(_ => head));
+    // Publication belongs to an application binding; this owner seals and signs the head without inventing an
+    // unattached op-log producer.
+    public static IO<WitnessedHead> Witness(MerkleAudit audit, Func<ReadOnlyMemory<byte>, IO<Option<SignedAuthorship>>> sign, Instant at) =>
+        IO.liftFin(WitnessedHead.Canonical(audit.Root, audit.Leaves, at, Op.Of()))
+            .Bind(sign)
+            .Map(signature => new WitnessedHead(audit.Root, audit.Leaves, signature, at));
 
     public static bool Corroborate(WitnessedHead cached, MerkleAudit newer) =>
         Consistent(new ConsistencyProof(cached.Leaves, newer.Leaves, cached.Root, newer.Root), newer);
@@ -649,13 +637,9 @@ public static class AttestedLedger {
     // through, composing the one `Seal` pairing over synthetic chain-address leaves.
     static MerkleAudit Reseal(Seq<UInt128> leaves) => Seal(leaves.Map(static leaf => new AttestedEntry(default, None, leaf, None, Instant.MinValue)));
 
-    static UInt128 Pair(UInt128 left, UInt128 right) {
-        using XxHash128 node = new();
-        Span<byte> word = stackalloc byte[16];
-        BinaryPrimitives.WriteUInt128LittleEndian(word, left); node.Append(word);
-        BinaryPrimitives.WriteUInt128LittleEndian(word, right); node.Append(word);
-        return node.GetCurrentHashAsUInt128();
-    }
+    // Two fixed-width `U128` words concatenate injectively, so the pair needs no frame and no second alphabet.
+    static UInt128 Pair(UInt128 left, UInt128 right) =>
+        ContentHash.Of((Left: left, Right: right), static (pair, w) => { w.U128(pair.Left).U128(pair.Right); });
 }
 ```
 
@@ -665,7 +649,7 @@ public static class AttestedLedger {
 |  [02]   | chain break       | rolling-address/back-link discontinuity              | any insert/delete/reorder breaks every downstream address |
 |  [03]   | signature verdict | `Custody.Verify(digestOf(entry))` → `CustodyVerdict` | one KMS dispatch; `Unauthored` (recompute vs signed)      |
 |  [04]   | audit proof       | Merkle `InclusionProof`/`ConsistencyProof`           | a third party audits one entry without the whole chain    |
-|  [05]   | Merkle hasher     | the one `XxHash128`                                  | the `MerkleRange` peer digest is the other altitude       |
+|  [05]   | Merkle hasher     | kernel `ContentHash.Of` on `CanonicalWriter`         | the `MerkleRange` peer digest is the other altitude       |
 |  [06]   | external witness  | `Witness` signed head + `Corroborate` probe          | published via one egress sink; holds against the operator |
 
 ## [04]-[RESEARCH]

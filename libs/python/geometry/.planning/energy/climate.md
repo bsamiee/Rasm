@@ -360,7 +360,9 @@ class EnergyFault(Exception):
     # facts into a string every consumer re-parses and forks the refusal vocabulary against the mesh peers.
     tag: Literal[
         "empty_model", "index_constant", "unknown_output", "unresolved_output", "unsupported_target",
-        "district_defects", "authored_sun", "shading_fidelity", "map_operands", "regime_factor",
+        "district_defects", "authored_sun", "shading_fidelity", "shading_census",
+        "artifact_integrity", "artifact_admission",
+        "map_operands", "regime_factor",
     ] = tag()
     empty_model: tuple[str, int] = case()  # (admission modality, check-row census) — a model with no rooms
     index_constant: tuple[str, str] = case()  # (index model, the demanded constant slot no source answers)
@@ -370,6 +372,13 @@ class EnergyFault(Exception):
     district_defects: tuple[int, tuple[tuple[str, int], ...]] = case()  # (defect rows, the per-code roster)
     authored_sun: tuple[str, str] = case()  # (recipe, the sited coordinate a manual-control sun never carries)
     shading_fidelity: tuple[str, float, float] = case()  # (refused bound, declared value, the ceiling it crossed)
+    shading_census: tuple[str, int, int] = case()  # (count coordinate, descriptor value, decoded GLB value)
+    # Two cases, not one two-slot case: the artifact arm measures a failed aggregate proof and NO admission phase,
+    # while the admission arm measures a refused phase and NO artifact proof. One pair forced each arm to fabricate
+    # the half it could not measure, and the two fabrications sat in opposite slots, so slot 0 read as a phase on
+    # one arm and as a literal on the other.
+    artifact_integrity: str = case()  # the `ArtifactProof` aggregate law that failed
+    artifact_admission: str = case()  # the `AdmissionPhase` half Protovalidate refused
     map_operands: tuple[str, int, int] = case()  # (map kind, operands supplied, the slot roster they overflow)
     regime_factor: tuple[str, str] = case()  # (regime action, the factor shape its consuming site cannot read)
 
@@ -401,6 +410,12 @@ class EnergyFault(Exception):
                 return f"{recipe}[{coordinate}]"
             case EnergyFault(tag="shading_fidelity", shading_fidelity=(bound, declared, ceiling)):
                 return f"{bound}[{declared:.6g}>{ceiling:.6g}]"
+            case EnergyFault(tag="shading_census", shading_census=(coordinate, declared, decoded)):
+                return f"{coordinate}[{declared}!={decoded}]"
+            case EnergyFault(tag="artifact_integrity", artifact_integrity=proof):
+                return f"integrity[{proof}]"
+            case EnergyFault(tag="artifact_admission", artifact_admission=phase):
+                return f"admission[{phase}]"
             case EnergyFault(tag="map_operands", map_operands=(kind, supplied, roster)):
                 return f"{kind}[{supplied}>{roster}]"
             case EnergyFault(tag="regime_factor", regime_factor=(action, shape)):
@@ -1034,4 +1049,3 @@ INDEX: Final[Map[IndexModel, IndexRow]] = Map.of_seq([
 -->
 
 (none)
-

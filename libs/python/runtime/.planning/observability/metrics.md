@@ -20,10 +20,9 @@ Observable instruments read one frozen `MetricSnapshot` per collection and each 
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from enum import StrEnum
-from functools import wraps
 from importlib.util import find_spec
 from threading import RLock
 from time import perf_counter
@@ -41,7 +40,7 @@ from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Counter, Histogram, Meter, Observation, UpDownCounter, _Gauge
 from stamina.instrumentation import RetryDetails, RetryHook
 
-from rasm.runtime.faults import METRICS_INSTRUMENT, SCOPES, BoundaryFault, FaultTag, RuntimeRail, Scope, boundary, latched, scoped
+from rasm.runtime.faults import METRICS_INSTRUMENT, SCOPES, FaultTag, Scope, boundary, latched, scoped
 from rasm.runtime.receipts import DEFAULT_SCOPE, DRAIN_DISPOSITIONS, PROCESS_FAULTS, DrainOutcome, DrainReceipt, ScopeKey
 
 lazy from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor  # train rows reify on first install, never at import
@@ -221,8 +220,8 @@ DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("virtual", "virtual-dataset source composition and branch selection"),
 ])
 
-# serve-rail FaultTag -> DrainOutcome projection: `deadline` lands `cancelled`, every other
-# tag defaults `rejected` through the `try_find` fold, an Ok rail folds `completed` at the call site.
+# serve-rail FaultTag -> DrainOutcome projection: `deadline` lands `cancelled`, every other tag defaults `rejected` through the
+# `try_find` fold; the serve interceptor re-keys it onto the Connect status a fault mapped to and folds `completed` for a clean call.
 FAULT_OUTCOME: Final[Map[FaultTag, DrainOutcome]] = Map.of_seq([("deadline", "cancelled")])
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -431,8 +430,8 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     # Transitions alone land, so an arc that never trips exports nothing and a board reads the edges.
     InstrumentSpec("rasm.circuit.transitions", InstrumentKind.COUNTER, "{transition}", mapped=True, dimensions=(Dimension.TARGET, Dimension.OUTCOME)),
     InstrumentSpec("rasm.rate.wait", InstrumentKind.HISTOGRAM, "ms", mapped=True, advisory=DURATION_BUCKETS_MS, dimensions=(Dimension.TARGET,)),
-    # Broker crossings take three edges. `ingest_lag` is `recordedtime - time` measured at the RECEIVER, the one
-    # reading collapsing the two stamps erases — a distribution rather than a counter, because a queue's shape is what
+    # Broker crossings take three edges. `ingest_lag` is local arrival minus producer `recordedtime`, measured at the
+    # receiver while arrival remains interior — a distribution rather than a counter, because a queue's shape is what
     # an operator reads and a mean over it hides the tail that actually breaks a subscription. `settled` and `shed`
     # stay two monotonic series rather than one counter under an outcome fan: a matched duplicate is not an acceptance
     # and a shed is neither, so folding the three into one total erases exactly the exactly-once evidence
@@ -802,30 +801,6 @@ class Metrics:
             return admitted
 
     @classmethod
-    def timed[**P, T](
-        cls, method: str, *, scope: ScopeKey = DEFAULT_SCOPE
-    ) -> Callable[[Callable[P, Awaitable[RuntimeRail[T]]]], Callable[P, Awaitable[RuntimeRail[T]]]]:
-        # DURATION aspect, named apart from the receipts-owned `measured` evidence weave: one spelling binds one
-        # bounded concept, so a seam census over `measured` returns the span/fault/receipt weave alone and never this
-        # handler timer, which opens no span and harvests no contributor.
-        def aspect(serve: Callable[P, Awaitable[RuntimeRail[T]]]) -> Callable[P, Awaitable[RuntimeRail[T]]]:
-            @wraps(serve)
-            async def timed_serve(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
-                start = perf_counter()
-                rail = await serve(*args, **kwargs)
-                outcome = rail.swap().to_option().map(cls._outcome).default_value("completed")
-                cls.record((perf_counter() - start) * 1000.0, method=method, outcome=outcome, scope=scope)
-                return rail
-
-            return timed_serve
-
-        return aspect
-
-    @staticmethod
-    def _outcome(fault: BoundaryFault) -> DrainOutcome:
-        return FAULT_OUTCOME.try_find(fault.tag).default_value("rejected")
-
-    @classmethod
     def _callback(cls, spec: InstrumentSpec) -> ObservableCallback:
         # One snapshot, one call: each row owns its whole projection, so nothing here re-wraps a row's observations to
         # finish them and no row's attribute set is decided at two sites. Process readings refresh HERE, under the
@@ -855,7 +830,7 @@ class Metrics:
 - Cases: the DBAPI rows (`PsycopgInstrumentor`, `SQLite3Instrumentor`) patch the drivers the data query surfaces ride; `HTTPXClientInstrumentor` spans the transport client legs; `Jinja2Instrumentor` spans the artifacts template render/compile/load legs — renders happen at artifacts altitude, activation stays here; `ThreadingInstrumentor` and `AsyncioInstrumentor` propagate context across the thread and coroutine hops the worker crossing drives; `SystemMetricsInstrumentor` runs the `_SYSTEM_SLICE` — the `system.*` and `cpython.gc.*` families alone, because the `rasm.process.*` gauges own the process family off the snapshot's own cached reading and one fact keeps one owner.
 - Entry: `install(scope=)` latches per composition over the one `latched`-guarded train activation and takes no profile argument — the gate is the installed provider, the same law the instrument fold holds — so a PACKAGE/TEST process patches against the no-op providers at zero export cost, a later composition's receipt truthfully records zero newly activated rows, and activation happens once at the composition root, never at library altitude. `_verdict` partitions the whole roster in one pass: the `wraps` presence probe runs before a row's thunk reifies, so one absent driver skips instead of raising out of the composition root and taking every later row with it, and the row's own dependency gate arms its raising arm behind the fence, so a driver whose version falls outside the instrumentor's requirement rows is REFUSED by name rather than silently unpatched under a receipt claiming otherwise. Its columns sum to the roster, so a support bundle reads what this host ships, what it declined, and what it patched off one receipt. DBAPI wrapping likewise activates at the composition root alone: the data-side consumer hands its own admitted driver module in (duckdb, ADBC DBAPI), so this folder imports and patches nothing it does not admit.
 - Growth: a new instrumentor is one `lazy from` line and one `TRAIN` row naming the driver it wraps; a new system-metrics family is one `_SYSTEM_SLICE` key; a new dedicated-instrumentor-less driver is one `DbapiSeam` value the composition root threads through `Instrumentation.dbapi`.
-- Boundary: the gRPC legs stay the serve interceptor's — the serve page's context authority forbids a second server-leg patch — and no sibling package activates an instrumentor. DBAPI spans complement the receipts data plane, never replace it: `QueryReceipt.profile` stays the data owner's truth, `capture_parameters` stays `False` as the export posture, and a driver carrying its own contrib instrumentor never routes through the generic seam.
+- Boundary: the Connect server legs stay the serve page's `OpenTelemetryMiddleware` and `Admission` interceptor — its context authority forbids a second server-leg patch — and no sibling package activates an instrumentor. DBAPI spans complement the receipts data plane, never replace it: `QueryReceipt.profile` stays the data owner's truth, `capture_parameters` stays `False` as the export posture, and a driver carrying its own contrib instrumentor never routes through the generic seam.
 
 ```python signature
 # each row lands in exactly one column, so the three sum to `TRAIN` and the receipt is total over the roster. The

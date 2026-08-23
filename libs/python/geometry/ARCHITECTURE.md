@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_ARCHITECTURE]
 
-`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and the `graduation` spine mints the content-keyed evidence receipt every producer graduates through. Alignment travels through the `ComputeService`/`ArtifactSyncService` contract and the content-keyed GLB tessellation rail, never a shared reference.
+`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and the `graduation` spine mints the content-keyed evidence receipt every producer graduates through. Alignment travels through the `ComputeService`/`ArtifactService` contract and the content-keyed GLB tessellation rail, never a shared reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -19,11 +19,11 @@ geometry/
 │   ├── authoring.py      # AuthorCarry left-fold under @transactional/@stamped, hop-keyed footprint merge; apply_async twin
 │   └── structural.py     # MOMENT_KERNELS and the EnrichmentTier policy over IfcProfileDef sections
 ├── mesh/                 # Tessellation-and-mesh band: exact kernels behind one content-keyed GLB rail
-│   ├── daemon.py         # TessellationSource ADT; per-element mesh rails keyed by source bytes and policy
+│   ├── daemon.py         # Generated tessellation request; cross-runtime canonical key and per-element mesh rail
 │   ├── serve.py          # Tessellation servicer registered at the runtime serve entry
-│   ├── cad.py            # B-rep-to-GLB lowering over the OCCT XCAF bridge
+│   ├── cad.py            # Generated CadService tessellation client and streamed GLB admission
 │   ├── repair.py         # MeshRepairOp, ManifoldTier, and the to_manifold build the graders compose
-│   ├── brep.py           # Boolean, sew, NURBS conditioning, and cross-section offset arms on the OCCT kernel
+│   ├── brep.py           # Generated CadService execution client and geometry evidence projection
 │   ├── spatial.py        # SpatialQuery/SpatialResult family and the one _dispatch body
 │   └── quality.py        # Conditioning ops and the metric receipt family; exactness carried as evidence
 ├── graph/                # Non-manifold topology, AEC computational geometry, and network analytics
@@ -35,7 +35,7 @@ geometry/
     ├── climate.py        # LateBound AGPL table binding and the ClimateQuery dispatch body
     ├── model.py          # BuildingModel and EnergySpec owners over the .properties.energy spine
     ├── district.py       # District admission, auto-zoning, and the to-honeybee model explosion
-    └── simulate.py       # Translation weave, the RecipeInterface port seat, and the rasm.scene.v1 decode arm
+    └── simulate.py       # Translation weave, the RecipeInterface port seat, and the rasm.contracts.scene.v1 decode arm
 ```
 
 ## [02]-[STRATA]
@@ -78,11 +78,11 @@ flowchart TB
 - S1→S0 producers import the spine and return receipts through its `evidence_run` weave as values, so the return leg adds no edge.
 - S1 `mesh` + `ifc` + `graph` + `energy` — producers over the spine alone; no import crosses them, each interior acyclic at one vocabulary owner.
 - S1 each graduating owner folds its evidence onto `GeometryHandoff`; engine and gate owners stream typed receipts without a subject.
-- S1 `mesh` interior: `cad` mints `TessellationPolicy`/`GlbArtifact` for the daemon, serve, and brep legs; `repair` serves both graders.
+- S1 `mesh` interior: `cad` admits provider receipts and `ArtifactRef`, `brep` projects kernel receipts, and `repair` serves both graders.
 - S1 `ifc` interior: `selector` seats `IfcFault` for the analysis, costing, structural, and authoring legs, importing no band sibling itself.
 - S1 `graph/analytic` seats `AnalyticValue`/`ranked` for the nonmanifold and features producers.
 - S1 `energy/district` explodes onto `model`'s one assignment fold, minting no second energy model.
-- S2 `scan` — sole cross-producer consumer; its one drawn edge collapses the `QualityMetrics`, `GlbArtifact`, and `MeshSpatial` reads it composes.
+- S2 `scan` — sole cross-producer consumer whose one drawn edge collapses the `QualityMetrics`, artifact-path, and `MeshSpatial` reads it composes.
 
 ## [03]-[SEAMS]
 
@@ -109,14 +109,13 @@ flowchart LR
     Compute{{Rasm.Compute}}
     Element{{Rasm.Element}}
     Rhino([Rasm.Rhino])
-    Mesh e1@<-->|"[WIRE]: ComputeService"| Compute
+    Mesh e1@<-->|"[WIRE]: ComputeService / ArtifactService"| Compute
     Mesh e2@<-->|"[CONTENT_KEY]: ContentIdentity"| Compute
     Mesh e3@<-->|"[WIRE]: GlbContentHash"| Element
     Ifc e4@<-->|"[WIRE]: IfcWire"| Bim
-    Ifc e5@-->|"[BOUNDARY]: IdsVerdict"| Bim
     Bim e6@-->|"[CONTENT_KEY]: RepresentationContentHash"| Scan
     Energy e7@<-->|"[WIRE]: Hbjson"| Bim
-    Rhino e8@-->|"[WIRE]: rasm.scene.v1"| Energy
+    Rhino e8@-->|"[WIRE]: rasm.contracts.scene.v1"| Energy
 ```
 
 ```mermaid
@@ -141,9 +140,10 @@ flowchart LR
     Runtime{{python:runtime}}
     Data{{python:data}}
     Artifacts([python:artifacts])
+    Cad([python:cad])
     Graduation e1@-->|"[GRADUATION]: GeometryHandoff"| Compute
     Graduation e2@-->|"[BOUNDARY]: arrow_bytes"| Data
-    Mesh e3@<-->|"[WIRE]: TessellationRequest"| Runtime
+    Mesh e3@<-->|"[WIRE]: TessellateRequest"| Runtime
     Mesh e4@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
     Data e5@-->|"[SHAPE]: MeshPayload"| Mesh
     Mesh e6@-->|"[BOUNDARY]: Trimesh"| Data
@@ -163,11 +163,14 @@ flowchart LR
     Runtime e20@-->|"[PORT]: measured"| Graduation
     Runtime e21@-->|"[PORT]: Hooks"| Graduation
     Runtime e22@-->|"[TRANSPORT]: TransportResource"| Ifc
+    Mesh e23@<-->|"[WIRE]: CadService"| Cad
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, per-contract wiring on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner; geometry interior pages spell only the `ContentKey` mint beneath both. Scene facts cross one-way as GLB bytes the artifacts `SceneGrid.of_glb` admits; nothing returns.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: generated ArtifactService custody, the IFC projection, and the payload shapes fold into the one labeled rail, with per-contract wiring on the owning implementation pages.
 
-`rasm.scene.v1` is the other one-way inbound crossing: `Rasm.Rhino`'s emitter captures the whole descriptor, sun band stacked downward, and `energy/simulate#SIMULATE`'s `scene` arm decodes it into shade meshes, a point-in-time sky, and an authority-ranked light roster, grading declared fidelity rather than re-solving the producer's own sun angles.
+`GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner, while geometry interior pages spell only the semantic `ContentKey` mint beneath both. Scene shading crosses one-way as an `ArtifactRef`, and `energy/simulate` resolves and proves its SHA-256 body onto a helper-owned path for the decode scope.
+
+`rasm.contracts.scene.v1` is the other one-way inbound crossing: `Rasm.Rhino`'s emitter captures the whole descriptor, sun band stacked downward, and `energy/simulate#SIMULATE`'s `scene` arm fetches the descriptor's shading reference and decodes the verified path into shade meshes, a point-in-time sky, and an authority-ranked light roster, grading declared fidelity rather than re-solving the producer's own sun angles.
 
 `GeoreferenceFact` crosses one-way from the IFC band to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it. That band decodes off the single `util.geolocation` transform seam collapsing every coordinate-operation subtype, the write side riding the `AuthorVerb` vocabulary as ordinary rows. Ungeoreferenced models cross as typed absence, an identity transform reading as map coordinates the moment the prelude composes it. This producer declares the georeference roster and the data decoder mirrors it arm-for-arm.
 
@@ -207,7 +210,7 @@ flowchart LR
 - Compiled bands cross worker seams as `KernelTrait.HOSTILE` kernels on the warm pool, and a live native handle never meets the pickle seam.
 - Sealed evidence crosses instead: shapes as STEP octets, clouds as the scan `Cloud` carrier, models as document bytes.
 - Each compiled band binds one module-scope `lazy` import behind its floor gate; eager natives and unearned function-local binds are deleted forms.
-- Intra-kernel parallelism binds from `LanePolicy.capacity`, so the lane's slot allocator and the kernel's own thread budget share one capacity.
+- Native kernels enter with `LaneGrant.width`, thread-count APIs binding it exactly; Boolean-only OCCT parallelism runs under whole-lane custody.
 
 AGPL Ladybug Tools bands (`ladybug-*`, `honeybee-*` with its standards backends, `dragonfly-*`) ride the `energy/` owners with function-local boundary imports, and evidence exchanges at the process boundary: HBJSON, dfjson, EPW document bytes, and result frames cross the wire, never a distributed link. Simulation engines stay external process-boundary services: Radiance, OpenStudio, and EnergyPlus behind the runtime recipe rail; URBANopt, Modelica, RNM, and REopt behind the district translation rows.
 

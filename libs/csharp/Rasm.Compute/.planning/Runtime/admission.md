@@ -18,7 +18,7 @@ Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, 
 - Auto: the intent digest derives from the operation symbol and payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm (project), Rasm.AppHost (project), BCL inbox
 - Growth: one intent case breaks every total Switch at compile time; a new shared policy value lands as one column on the spine's `Spec` and reaches every fold here untouched; zero new surface.
-- Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — so name suffixes and mode flags never arise; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; `Budget` couples every deadline override to non-empty provenance and admission rejects non-positive durations; a pipeline shares one `Spec`, digest, deadline, scope, and correlation while `Projected` re-measures each child for substrate payload gates without minting new boundary evidence; the adopted `Spec` crosses DOWNWARD only — this owner reads its columns and never widens them, so a Compute-only policy axis is a column on a Compute shape rather than a field on the platform's request record; the intent's model field is the XxHash128 checksum, its rich identity record a model-lane concern; `Generate` carries that checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token streaming admits through the one fold like every intent — a separate `GenerateRequest` path or a chat-client surface never arises; the boundary takes the one `ClockPolicy` record its AppHost owner declares rather than a hand-picked `(IClock, TimeProvider)` pair, because `CancelScope.Derive` reads that record and the derived deadline source, the semantic instant, and the kernel `MonotonicTimeline` — minted once off the provider at the app root — are three legs of one temporal fact that must not disagree; a raw provider mark/elapsed pair below the root is the deleted form, an admission-latency reading brackets through `ClockPolicy.Gauged` on its own `DeadlineClass` lane, and the semantic instant stays NodaTime's alone.
+- Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — so name suffixes and mode flags never arise; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; `Budget` couples every deadline override to non-empty provenance and admission rejects non-positive durations; a pipeline shares one `Spec`, digest, deadline, scope, and correlation while `Projected` re-measures each child for substrate payload gates without minting new boundary evidence; the adopted `Spec` crosses DOWNWARD only — this owner reads its columns and never widens them, so a Compute-only policy axis is a column on a Compute shape rather than a field on the platform's request record; the intent's model field is the XxHash128 checksum, its rich identity record a model-lane concern; `Generate` carries that checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token streaming admits through the one fold like every intent — a separate remote generate request or a chat-client surface never arises; the boundary takes the one `ClockPolicy` record its AppHost owner declares rather than a hand-picked `(IClock, TimeProvider)` pair, because `CancelScope.Derive` reads that record and the derived deadline source, the semantic instant, and the kernel `MonotonicTimeline` — minted once off the provider at the app root — are three legs of one temporal fact that must not disagree; a raw provider mark/elapsed pair below the root is the deleted form, an admission-latency reading brackets through `ClockPolicy.Gauged` on its own `DeadlineClass` lane, and the semantic instant stays NodaTime's alone.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -199,45 +199,32 @@ public sealed record AdmittedIntent {
             static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements)))))
             .MapFail(static _ => new ComputeFault.PayloadOverBounds("<pipeline-overflow>"));
 
+    // ONE alphabet: every intent digest is a kernel `ContentHash.Of` fold over `CanonicalWriter` — length-framed
+    // text, count-framed collections, exact double bits — so no interpolated `|`-joined seed, no host-endian byte
+    // view of a double array, and no per-arm seeded accumulator survives beside the federation writer. Map-keyed
+    // members fold through the writer's own `Sorted`, the published order `DIGEST_OVER_UNORDERED_CONTAINER` names.
     private static UInt128 Derived(ComputeIntent intent) =>
         intent.Switch(
-            tensorOp: static op => Seeded(op.Family.Key, op.Operands.Span),
-            modelInfer: static op => Seeded(op.Model.ToString("x32", CultureInfo.InvariantCulture), op.Input.Span),
-            remoteCall: static op => Seeded(op.Method, op.Payload.Span),
-            unitProject: static op => Scalar(op),
+            tensorOp: static op => ContentHash.Of(op, static (o, w) => w.String(o.Family.Key).Raw(o.Operands.Span)),
+            modelInfer: static op => ContentHash.Of(op, static (o, w) => w.U128(o.Model).Raw(o.Input.Span)),
+            remoteCall: static op => ContentHash.Of(op, static (o, w) => w.String(o.Method).Raw(o.Payload.Span)),
+            unitProject: static op => ContentHash.Of(op, static (o, w) =>
+                w.String(o.Family.Key).String(o.Unit).String(o.TargetUnit).Bits(o.Value)),
             // Formula identity folds the canonical expression content key, the ordinal-sorted declarations and
             // bindings, and the target unit — two structurally identical projections share one digest.
-            symbolicProject: static op => Seeded(
-                $"{op.Formula.ContentKey:x32}|{string.Join(',', toSeq(op.Dimensions.OrderBy(static d => d.Key, StringComparer.Ordinal)).Map(static d => $"{d.Key}={d.Value}"))}>{op.TargetUnit}",
-                MemoryMarshal.AsBytes<double>([.. toSeq(op.Bindings.OrderBy(static b => b.Key, StringComparer.Ordinal)).Map(static b => CanonicalForm.Scalar(b.Value))])),
-            generate: static op => Seeded(op.Model.ToString("x32", CultureInfo.InvariantCulture), Encoding.UTF8.GetBytes(op.Prompt)),
-            // Sensor identity is the sample's own content — signal row, instant, and the canonical
-            // operating-point vector beside the measurement — so a broker replay carries the digest its first
-            // delivery carried and the job graph's content-keyed cone re-scores nothing.
-            sensorAdmit: static op => Seeded(
-                $"{op.Reading.Data.SignalId}@{op.Reading.Data.At}",
-                MemoryMarshal.AsBytes<double>([
-                    .. op.Reading.Data.OperatingPoint.Select(CanonicalForm.Scalar),
-                    CanonicalForm.Scalar(op.Reading.Data.Measured)])),
-            pipeline: static line => Combined(line.Stages.Map(Derived)));
-
-    private static UInt128 Seeded(string operation, ReadOnlySpan<byte> payload) =>
-        XxHash128.HashToUInt128(payload, unchecked((long)XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(operation))));
-
-    private static UInt128 Scalar(ComputeIntent.UnitProject op) {
-        Span<byte> payload = stackalloc byte[sizeof(double)];
-        BinaryPrimitives.WriteDoubleLittleEndian(payload, CanonicalForm.Scalar(op.Value));
-        return Seeded($"{op.Family.Key}|{op.Unit}>{op.TargetUnit}", payload);
-    }
-
-    private static UInt128 Combined(Seq<UInt128> digests) {
-        byte[] payload = new byte[digests.Count * 16];
-        ignore(digests.Fold(0, (offset, digest) => {
-            BinaryPrimitives.WriteUInt128LittleEndian(payload.AsSpan(offset, 16), digest);
-            return offset + 16;
-        }));
-        return XxHash128.HashToUInt128(payload);
-    }
+            symbolicProject: static op => ContentHash.Of(op, static (o, w) => w
+                .U128(o.Formula.ContentKey)
+                .Sorted(toSeq(o.Dimensions), static d => d.Key, StringComparer.Ordinal, static (d, x) => x.String(d.Key).String(d.Value))
+                .String(o.TargetUnit)
+                .Sorted(toSeq(o.Bindings), static b => b.Key, StringComparer.Ordinal, static (b, x) => x.String(b.Key).Bits(b.Value))),
+            generate: static op => ContentHash.Of(op, static (o, w) => w.U128(o.Model).String(o.Prompt)),
+            // Sensor identity is the sample's own content — signal row, instant, and the operating-point vector
+            // beside the measurement — so a broker replay carries the digest its first delivery carried and the
+            // job graph's content-keyed cone re-scores nothing.
+            sensorAdmit: static op => ContentHash.Of(op.Reading.Data, static (d, w) => w
+                .String(d.SignalId).I64(d.At.ToUnixTimeTicks()).Doubles(d.OperatingPoint.AsSpan()).Bits(d.Measured)),
+            pipeline: static line => ContentHash.Of(line.Stages.Map(Derived), static (digests, w) =>
+                w.Rows(digests, static (digest, x) => x.U128(digest))));
 }
 ```
 

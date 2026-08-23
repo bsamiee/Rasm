@@ -280,10 +280,7 @@
         }
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "Rasm.Bridge.Contract": {
         "type": "Project",

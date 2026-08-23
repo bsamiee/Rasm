@@ -1,275 +1,278 @@
 # [ELEMENT_WIRE_PAYLOAD]
 
-`WireCodec`'s node and edge ENVELOPE plane of the `rasm.element.v1` crossing: the `NodeWire` eight-payload fold minting each node's authoritative content address, the `RelationshipWire` six-arm fold, the header family (`Header`/`StepHeader` with the S-E2 four-face `UnitScheme` lowering), and the object-payload codecs (`Object` shell with its presence writes, `Placement`, `Classification`, `SchemaSpan`, `OwnerHistory`, `Appearance`, `Compose`/`Assign`/`Associate`/`Void`/`Connect`/`Generic`). Decode dispatch rides the generated `PayloadCase`/`EdgeCase` closed enums; every payload re-admits through its seam factory.
+`WireCodec` transcribes the generated `NodeWire` and its payload closure without a hand-owned DTO or graph snapshot format. Closed generated enums drive every decode arm; Celly evaluates the embedded corpus rules before projection, and every value then re-enters its domain owner's admission.
 
 ## [01]-[INDEX]
 
-- [02]-[NODE_PAYLOAD]: `NodeWire`/`RelationshipWire` envelope folds, the header and object-payload transcriptions, and their `ToNode`/`ToEdge`/`ToHeader`/`ToObject` re-admissions.
+- [02]-[NODE_PAYLOAD]: exact generated-message transcriptions for nodes and object payloads.
 
 ## [02]-[NODE_PAYLOAD]
 
-- Cases: `Node` 8 arms and `Relationship` 6 arms — census rows [01]/[02] at `Graph/wire#WIRE_CODEC`.
-- Law: this page is one PARTIAL PART of the `Graph/wire#WIRE_CODEC` `[Mapper]` family — the `[Mapper]` attribute, the `[UNION_PARITY]` census, the `[KEY_CODECS]`, the shared decode gates (`Present`/`Opt`/`Row`/`Named`/`Iso`/`ToInterval`/`ToDate`/`BothOrNeither`/`OptMeasure`/`OptCurve`), the `[PRESENCE_SHELLS]` and carrier-codec laws, `ElementWire`, and the frozen-number ledger all live THERE; a member landing here lands its census/ledger row there in the same edit.
-- Law: every decoded value re-crosses its OWNER's admission gate — the decoder constructs no case directly and trusts no carried invariant (the `ContentAddress.Verify` distrust posture); every optional column crosses by EXPLICIT presence, never a defaulted zero, blank, or sentinel.
-- Packages: Google.Protobuf, Riok.Mapperly, NodaTime.Serialization.Protobuf, LanguageExt.Core, Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch and `TryGet` row gates) — the manifest triad rides `Graph/wire#WIRE_CODEC`.
-- Growth: a new column on a family this page owns is one append-only numbered field at the corpus proto, one ledger row at `Graph/wire#WIRE_CODEC`, and one transcription member here; a new union case also lands its `CrossingFamily` arm count and its oneof mirror in the same edit — the parity census refuses a half-landed pair.
+- Owner: one partial part of `Graph/wire#NODE_CODEC`; the generated `GraphReflection` descriptor owns `NodeWire` validation and this page owns only generated-message to domain projection.
+- Cases: eight `NodeWire.PayloadCase` arms, eleven `RepresentationKind` rows, and the closed object vocabularies.
+- Law: node ids and content keys cross as sixteen bytes through `ContentHash`; graph topology remains native and has no generated relationship mirror.
+- Law: enum correspondence is explicit or numeric where both owners publish the same closed ordinal. No `Enum.ToString`, case folding, token parsing, or duplicate registry sits between the generated vocabulary and the domain rows.
+- Law: Celly owns corpus-authored required, enum, scalar, and CEL rules. Local uniqueness gates exist only after domain admission narrows a key space, such as case-insensitive property names.
+- Packages: Celly.Protovalidate, Google.Protobuf, NodaTime.Serialization.Protobuf, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Contracts, Rasm.
+- Growth: a corpus enum or oneof change breaks an exhaustive conversion here; a domain-only invariant remains at its owner's factory, never copied into a protobuf-shaped validator.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.Buffers.Binary;
+using System.Diagnostics;
+using Celly.Protovalidate;
 using Google.Protobuf;
-using Google.Protobuf.Collections;
-using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
+using Rasm.Contracts.Element.V1;
 using Rasm.Domain;
-using Rasm.Element.Assessment;
-using Rasm.Element.Classification;
-using Rasm.Element.Geospatial;
 using Rasm.Element.Properties;
-using Rasm.Element.Relations;
-using Riok.Mapperly.Abstractions;
-using Band = Rasm.Numerics.Band;
+using WireChangeAction = Rasm.Contracts.Element.V1.ChangeAction;
+using WireObjectKind = Rasm.Contracts.Element.V1.ObjectKind;
+using WireObjectState = Rasm.Contracts.Element.V1.ObjectState;
+using WireReleaseVersion = Rasm.Contracts.Element.V1.ReleaseVersion;
+using WireRepresentationKind = Rasm.Contracts.Element.V1.RepresentationKind;
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
 using static Rasm.Element.Graph.SeamConverters;
 
 namespace Rasm.Element.Graph;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#WIRE_CODEC`; this part owns the node/edge envelope and header/object payload transcriptions.
 internal static partial class WireCodec {
- internal static partial AppearanceWire ToWire(AppearanceSummary summary);
+ static readonly Validator GraphRules = new([GraphReflection.Descriptor]);
 
- [MapProperty(nameof(Relationship.Assign.Subject), nameof(AssignWire.SubjectId))]
- [MapProperty(nameof(Relationship.Assign.Definition), nameof(AssignWire.DefinitionId))]
- internal static partial AssignWire ToWire(Relationship.Assign edge);
+ internal static Fin<T> Validate<T>(T wire, Op key) where T : class, IMessage =>
+  key.Catch(() => GraphRules.Validate(wire) switch {
+   [] => Fin.Succ(wire),
+   _ => Fin.Fail<T>(key.InvalidInput(wire.Descriptor.FullName)),
+  });
 
- [MapProperty(nameof(Relationship.Associate.Subject), nameof(AssociateWire.SubjectId))]
- [MapProperty(nameof(Relationship.Associate.Resource), nameof(AssociateWire.ResourceId))]
- internal static partial AssociateWire ToWire(Relationship.Associate edge);
-
- [MapProperty(nameof(Relationship.Void.Host), nameof(VoidWire.HostId))]
- [MapProperty(nameof(Relationship.Void.Feature), nameof(VoidWire.FeatureId))]
- internal static partial VoidWire ToWire(Relationship.Void edge);
-
- // Hand-owned since the S-E2 widening: the UnitScheme lowers onto THREE wire faces (the Overrides map, the axes
- // run, the culture/format pair) and a generated member map cannot fan one source member across them.
- [UserMapping] internal static HeaderWire ToWire(Header header) {
-  HeaderWire w = new() {
-   Schema = header.Schema.Key, View = header.View.Key, GeoReference = ToWire(header.Reference),
-   Tolerance = header.Tolerance, At = header.At.ToTimestamp(), Step = ToWire(header.Step),
-   Culture = header.Units.CultureName, Format = header.Units.Format,
+ internal static ObjectWire ToWire(Node.Object node) {
+  ObjectWire wire = new() {
+   Kind = ToWire(node.Kind),
+   Classification = ToWire(node.Classification),
+   PredefinedType = node.PredefinedType.Token,
+   Name = node.Name,
+   Tag = node.Tag,
+   Span = ToWire(node.Span),
   };
-  ToWire(header.Units, w.UnitScheme);
-  w.Axes.AddRange(toSeq(header.Units.Axes).Map(static pair => new UnitAxisWire {
-   Axis = pair.Key.Key, Factor = pair.Value.Factor, Offset = pair.Value.Offset, Token = pair.Value.Token,
-  }));
-  return w;
- }
-
- internal static partial StepHeaderWire ToWire(StepHeader step);
-
- // --- [PRESENCE_SHELLS] — the seven cases carrying proto3 optional SCALAR/STRING columns. Those columns land on
- // protoc's Has*/Clear* pattern behind a NULL-REJECTING setter, so no nullable-return carrier can leave one unset —
- // a generated assignment fails on the scalar shape and throws on the string shape — and each such column is
- // [MapperIgnoreSource]-named on its generated Shell as a HAND-CROSSED member (the roster comment discriminates it
- // from a non-crossing ignore) while the ONE wrapper owns its IfSome presence writes; [UserMapping(Default = true)]
- // keeps the wrapper the pair's selected mapping beside its Shell. Envelope owns Id (NodeWire.id), so both node
- // payload mappings exclude it; AllClassifications is the node's own COMPUTED union of the primary and secondary
- // columns, both of which already cross on their own fields, so mapping it would double-store the primary.
- [MapperIgnoreSource(nameof(Node.Object.Id))]
- [MapperIgnoreSource(nameof(Node.Object.AllClassifications))]
- [MapperIgnoreSource(nameof(Node.Object.ExternalId))]
- [MapperIgnoreSource(nameof(Node.Object.ObjectType))]
- private static partial ObjectWire Shell(Node.Object node);
- [UserMapping(Default = true)] internal static ObjectWire ToWire(Node.Object node) {
-  ObjectWire w = Shell(node); node.ExternalId.IfSome(v => w.ExternalId = v); node.ObjectType.IfSome(v => w.ObjectType = v); return w;
- }
-
- [MapProperty(nameof(Relationship.Connect.From), nameof(ConnectWire.FromId))]
- [MapProperty(nameof(Relationship.Connect.To), nameof(ConnectWire.ToId))]
- [MapperIgnoreSource(nameof(Relationship.Connect.Realizing))]
- [MapperIgnoreSource(nameof(Relationship.Connect.Interface))]
- private static partial ConnectWire Shell(Relationship.Connect edge);
- [UserMapping(Default = true)] internal static ConnectWire ToWire(Relationship.Connect edge) {
-  ConnectWire w = Shell(edge); edge.Realizing.IfSome(r => w.RealizingId = r.Value); edge.Interface.IfSome(k => w.InterfaceKey = ToWire(k)); return w;
- }
-
- [UserMapping] internal static void ToWire(UnitScheme scheme, [MappingTarget] MapField<string, string> wire) { foreach (var (quantity, unit) in scheme.Overrides) { wire[quantity.Value] = unit; } }
-
- [UserMapping] internal static ClassificationWire ToWire(Classification c) {
-  ClassificationWire w = new() { System = c.System, Code = c.Code, Edition = c.Edition };
-  c.Source.IfSome(s => w.Source = s); c.EditionDate.IfSome(d => w.EditionDate = NodaTime.Text.LocalDatePattern.Iso.Format(d)); c.Title.IfSome(t => w.Title = t); return w;
- }
-
- [UserMapping] internal static void ToWire(RepresentationContentHash representations, [MappingTarget] MapField<string, ByteString> wire) { foreach (var (id, hash) in representations.ByIdentifier) { wire[id] = ToWire(hash); } }
-
- [UserMapping] internal static SchemaSpanWire ToWire(SchemaSpan span) {
-  SchemaSpanWire w = new() { IntroducedIn = span.IntroducedIn.Key }; span.RemovedIn.IfSome(r => w.RemovedIn = r.Key); return w;
- }
-
- // Every column is a plain crossing once the static temporal mappers and the Option<Instant> carrier are registered,
- // so the audit row generates whole and only its ABSENCE decision stays hand-owned.
- internal static partial OwnerHistoryWire ToWire(OwnerHistory history);
-
- [UserMapping] internal static OwnerHistoryWire? ToWire(Option<OwnerHistory> history) => history.Match<OwnerHistoryWire?>(static h => ToWire(h), static () => null);
-
- // The placement frame flattens to its nine ordered columns by AUTO-FLATTEN — LocationX binds the Location.X source
- // path with zero configuration — and the frame's ABSENCE rides the same nullable-return carrier every optional
- // message crossing takes.
- internal static partial PlacementWire ToWire(PlacementTransform placement);
-
- [UserMapping] internal static PlacementWire? ToWire(Option<PlacementTransform> placement) => placement.Match<PlacementWire?>(static p => ToWire(p), static () => null);
-
- [UserMapping] internal static ComposeWire ToWire(Relationship.Compose edge) {
-  ComposeWire wire = new() { WholeId = edge.Whole.Value, PartId = edge.Part.Value, SubKind = edge.SubKind.Key };
-  edge.Ordinal.IfSome(ordinal => wire.Ordinal = ordinal); return wire;
- }
-
- [UserMapping] internal static GenericWire ToWire(Relationship.Generic edge) {
-  GenericWire wire = new() { WireName = edge.WireName.Value, RelatingId = edge.Source.Value, RelatedId = edge.Target.Value };
-  ToWire(edge.Attributes, wire.Attributes);
-  wire.Participants.AddRange(edge.Participants.Map(participant => {
-   RelationshipParticipantWire row = new() { NodeId = participant.Node.Value, Role = participant.Role.Value };
-   participant.Ordinal.IfSome(ordinal => row.Ordinal = ordinal); return row;
+  node.ExternalId.IfSome(value => wire.ExternalId = value);
+  node.ObjectType.IfSome(value => wire.ObjectType = value);
+  node.History.IfSome(value => wire.History = ToWire(value));
+  node.Placement.IfSome(value => wire.Placement = ToWire(value));
+  wire.Classifications.AddRange(node.Classifications.Map(ToWire));
+  wire.Representations.AddRange(node.Representations.ByIdentifier.Map(static pair => new RepresentationWire {
+   Kind = ToWire(pair.Key),
+   Key = ToWire(pair.Value),
   }));
   return wire;
  }
 
- // One envelope fold per union uses generated total Switch; a new case breaks compilation.
- internal static NodeWire ToWire(Node node, double tolerance) {
-  NodeWire wire = node.Switch<NodeWire>(
-   @object: o => new() { Id = o.Id.Value, Object = ToWire(o) },
-   material: m => new() { Id = m.Id.Value, Material = ToWire(m) },
-   propertySet: p => new() { Id = p.Id.Value, PropertySet = ToWire(p.Bag) },
-   quantitySet: q => new() { Id = q.Id.Value, QuantitySet = ToWire(q.Bag) },
-   assessment: a => new() { Id = a.Id.Value, Assessment = ToWire(a.Payload) },
-   appearance: a => new() { Id = a.Id.Value, Appearance = ToWire(a.Summary) },
-   coverage: c => new() { Id = c.Id.Value, Coverage = ToWire(c.Grid) },
-   observation: o => new() { Id = o.Id.Value, Observation = ToWire(o.Series) });
-  wire.ContentAddress = ToWire(ContentAddress.Of(node, tolerance).Value);
-  return wire;
- }
-
- internal static RelationshipWire ToWire(Relationship edge) => edge.Switch<RelationshipWire>(
-  compose: e => new() { Compose = ToWire(e) },
-  assign: e => new() { Assign = ToWire(e) },
-  associate: e => new() { Associate = ToWire(e) },
-  connect: e => new() { Connect = ToWire(e) },
-  @void: e => new() { Void = ToWire(e) },
-  generic: e => new() { Generic = ToWire(e) });
-
- // --- [DECODE_DISPATCH] — the generated closed PayloadCase/EdgeCase/ValueCase/UsageCase enums own decode
- // dispatch (an unset case rails the kernel representation fault, and a new oneof arm surfaces as an unhandled enum member); every
- // value re-crosses the SAME seam gates an in-process author does — admitted, never trusted raw.
- internal static Fin<Node> ToNode(NodeWire w, Op key) {
-  NodeId id = NodeId.Create(w.Id);                                     // verbatim — never re-derived
-  return w.PayloadCase switch {
-   NodeWire.PayloadOneofCase.Object => ToObject(id, w.Object, key),
-   NodeWire.PayloadOneofCase.Material => ToMaterial(id, w.Material, key),
-   NodeWire.PayloadOneofCase.PropertySet => ToBag(w.PropertySet, key).Map(bag => (Node)new Node.PropertySet(id, bag)),
-   NodeWire.PayloadOneofCase.QuantitySet => ToBag(w.QuantitySet, key).Map(bag => (Node)new Node.QuantitySet(id, bag)),
-   NodeWire.PayloadOneofCase.Assessment => ToAssessment(w.Assessment, key).Map(payload => (Node)new Node.Assessment(id, payload)),
-   NodeWire.PayloadOneofCase.Appearance => AppearanceSummary.Rehydrate(
-    ToKey(w.Appearance.AppearanceKey),
-    AppearanceVector.Create(w.Appearance.BaseColorR, w.Appearance.BaseColorG, w.Appearance.BaseColorB,
-     w.Appearance.Metallic, w.Appearance.Roughness, w.Appearance.Opacity, w.Appearance.Transmissive), key)
-    .Map(summary => (Node)new Node.Appearance(id, summary)),
-   NodeWire.PayloadOneofCase.Coverage => ToCoverage(w.Coverage, key).Map(grid => (Node)new Node.Coverage(id, grid)),
-   NodeWire.PayloadOneofCase.Observation => ToObservation(w.Observation, key).Map(series => (Node)new Node.Observation(id, series)),
-   _ => new KernelFault.InvalidValue("element-wire.node.payload", "one payload arm is required", Some(key)),
-  };
- }
-
- internal static Fin<Relationship> ToEdge(RelationshipWire w, Op key) => w.EdgeCase switch {
-  RelationshipWire.EdgeOneofCase.Compose => key.Row<string, ComposeKind>(w.Compose.SubKind)
-   .Map(k => (Relationship)new Relationship.Compose(
-    NodeId.Create(w.Compose.WholeId), NodeId.Create(w.Compose.PartId), k,
-    Opt(w.Compose.HasOrdinal, w.Compose.Ordinal))),
-  RelationshipWire.EdgeOneofCase.Assign => key.Row<string, AssignKind>(w.Assign.SubKind)
-   .Map(k => (Relationship)new Relationship.Assign(NodeId.Create(w.Assign.SubjectId), NodeId.Create(w.Assign.DefinitionId), k)),
-  RelationshipWire.EdgeOneofCase.Associate => ToUsage(w.Associate.Usage, key)
-   .Map(u => (Relationship)new Relationship.Associate(NodeId.Create(w.Associate.SubjectId), NodeId.Create(w.Associate.ResourceId), u)),
-  RelationshipWire.EdgeOneofCase.Connect => key.Row<string, ConnectKind>(w.Connect.SubKind)
-   .Map(k => (Relationship)new Relationship.Connect(NodeId.Create(w.Connect.FromId), NodeId.Create(w.Connect.ToId), k,
-    Opt(w.Connect.HasRealizingId, w.Connect.RealizingId).Map(NodeId.Create),
-    Opt(w.Connect.HasInterfaceKey, w.Connect.InterfaceKey).Map(ToKey))),
-  RelationshipWire.EdgeOneofCase.Void => key.Row<string, VoidKind>(w.Void.SubKind)
-   .Map(k => (Relationship)new Relationship.Void(NodeId.Create(w.Void.HostId), NodeId.Create(w.Void.FeatureId), k)),
-  RelationshipWire.EdgeOneofCase.Generic =>
-   from name in key.AcceptValidated<WireName>(w.Generic.WireName)
-   from attributes in ToValueMap(w.Generic.Attributes, key)
-   from participants in toSeq(w.Generic.Participants).TraverseM(participant =>
-    key.AcceptValidated<RoleName>(participant.Role).Map(role => new RelationshipParticipant(
-     NodeId.Create(participant.NodeId), role, Opt(participant.HasOrdinal, participant.Ordinal)))).As()
-   select (Relationship)new Relationship.Generic(
-    name, NodeId.Create(w.Generic.RelatingId), NodeId.Create(w.Generic.RelatedId), attributes, participants),
-  _ => new KernelFault.InvalidValue("element-wire.edge", "one edge arm is required", Some(key)),
+ static AppearanceWire ToWire(AppearanceSummary summary) => new() {
+  AppearanceKey = ToWire(summary.AppearanceKey),
+  BaseColorR = summary.BaseColorR,
+  BaseColorG = summary.BaseColorG,
+  BaseColorB = summary.BaseColorB,
+  Metallic = summary.Metallic,
+  Roughness = summary.Roughness,
+  Opacity = summary.Opacity,
+  Transmissive = summary.Transmissive,
  };
 
- // The three required header messages are INDEPENDENT admissions gated by name — proto3 message presence is
- // nullness, so each rides Present before its read — the axes run re-crosses the DimensionAxis row gate, and the
- // unit map lands through toMap: both key spaces are ordinal and the parser already deduped, so no narrowing
- // exists to gate. Units rides the INIT property (the positional slot died at the owner), the four wire faces
- // rebuilding the one S-E2 scheme; a blank format reads as the owner's own "G" default.
- internal static Fin<Header> ToHeader(HeaderWire w, Op key) =>
-  (key.Row<string, ReleaseVersion>(w.Schema).ToValidation(),
-     key.Row<string, ModelView>(w.View).ToValidation(),
-     Present(w.GeoReference, "header.geo_reference", key).Bind(geo => ToGeoReference(geo, key)).ToValidation(),
-     Present(w.At, "header.at", key).ToValidation(),
-     Present(w.Step, "header.step", key).ToValidation(),
-     toSeq(w.Axes).Traverse(axis =>
-      key.Row<int, DimensionAxis>(axis.Axis).ToValidation()
-       .Map(r => (Axis: r, Value: new UnitAxis(axis.Factor, axis.Offset, axis.Token)))).As(),
-     toSeq(w.UnitScheme).Traverse(pair => key.AcceptValidated<QuantityType>(pair.Key).ToValidation()
-      .Map(type => (Type: type, pair.Value))).As(),
-     In(w.Tolerance, Band.Positive, "header-tolerance", key))
-    .Apply((schema, view, geo, at, step, axes, units, tolerance) => new Header(schema, view, geo, tolerance, at.ToInstant(),
-     new StepHeader(toSeq(step.Descriptions), step.Name, step.TimeStamp.ToInstant(), toSeq(step.Authors),
-      toSeq(step.Organizations), step.Preprocessor, step.OriginatingSystem, toSeq(step.Schema))) {
-     Units = new UnitScheme(
-      toMap(units.Map(static pair => (pair.Type, pair.Value))),
-      toMap(axes.Map(static pair => (pair.Axis, pair.Value))),
-      w.Culture, w.Format.Length == 0 ? "G" : w.Format),
-    }).As();
+ static SchemaSpanWire ToWire(SchemaSpan span) {
+  SchemaSpanWire wire = new() { IntroducedIn = ToWire(span.IntroducedIn) };
+  span.RemovedIn.IfSome(value => wire.RemovedIn = ToWire(value));
+  return wire;
+ }
 
- // --- [DECODE_PAYLOADS] — per-payload re-admission over the verified seam factories.
- static Fin<Node> ToObject(NodeId id, ObjectWire w, Op key) =>
-  key.Row<string, ObjectKind>(w.Kind).Bind(kind =>
-   Present(w.Classification, "object.classification", key).Bind(row => ToClassification(row, key)).Bind(primary =>
-    toSeq(w.Classifications).TraverseM(c => ToClassification(c, key)).As().Bind(secondary =>
-     Present(w.Span, "object.span", key).Bind(s => ToSpan(s, key)).Map(span => (Node)new Node.Object(
-      id, kind, Opt(w.HasExternalId, w.ExternalId), primary, PredefinedType.Create(w.PredefinedType),
-      Opt(w.HasObjectType, w.ObjectType), w.Name, w.Tag,
-      new RepresentationContentHash(toMap(toSeq(w.Representations).Map(static p => (p.Key, ToKey(p.Value))))),
-      Optional(w.History).Map(h => new OwnerHistory(h.OwningUser, h.OwningApplication, h.Created.ToInstant(),
-       Optional(h.Modified).Map(static m => m.ToInstant()), h.ChangeAction, h.State)),
-      span, secondary, ToPlacement(w.Placement))))));
+ static OwnerHistoryWire ToWire(OwnerHistory history) {
+  OwnerHistoryWire wire = new() {
+   OwningUser = history.OwningUser,
+   OwningApplication = history.OwningApplication,
+   Created = history.Created.ToTimestamp(),
+   ChangeAction = ToChangeAction(history.ChangeAction),
+   State = ToObjectState(history.State),
+  };
+  history.Modified.IfSome(value => wire.Modified = value.ToTimestamp());
+  return wire;
+ }
 
- // The frame re-admits through its own kernel factory: the nine columns are free reals under no seam gate (a placement
- // carries no tolerance and no invariant — the canonical-bytes exclusion at its owner is what makes it free), so
- // message presence answers the whole decision and no rail is owed. The bare Vector3 is the enclosing namespace's
- // seam coordinate, never the System.Numerics carrier the prelude also has in scope.
- static Option<PlacementTransform> ToPlacement(PlacementWire? w) =>
-  w is null
-   ? None
-   : Some(PlacementTransform.Create(
-      new Vector3(w.LocationX, w.LocationY, w.LocationZ),
-      new Vector3(w.AxisX, w.AxisY, w.AxisZ),
-      new Vector3(w.RefDirectionX, w.RefDirectionY, w.RefDirectionZ)));
+ internal static Fin<NodeWire> ToWire(Node node, double tolerance, Op key) =>
+  key.Catch(() => node.Switch<Fin<NodeWire>>(
+   @object: value => Fin.Succ(new() { Id = ToWire(value.Id), Object = ToWire(value) }),
+   material: value => ToWire(value, key).Map(payload => new NodeWire { Id = ToWire(value.Id), Material = payload }),
+   propertySet: value => Fin.Succ(new() { Id = ToWire(value.Id), PropertySet = ToWire(value.Bag) }),
+   quantitySet: value => Fin.Succ(new() { Id = ToWire(value.Id), QuantitySet = ToWire(value.Bag) }),
+   assessment: value => Fin.Succ(new() { Id = ToWire(value.Id), Assessment = ToWire(value.Payload) }),
+   appearance: value => Fin.Succ(new() { Id = ToWire(value.Id), Appearance = ToWire(value.Summary) }),
+   coverage: value => Fin.Succ(new() { Id = ToWire(value.Id), Coverage = ToWire(value.Grid) }),
+   observation: value => Fin.Succ(new() { Id = ToWire(value.Id), Observation = ToWire(value.Series) }))
+  .Map(wire => {
+   wire.ContentAddress = ToWire(ContentAddress.Of(node, tolerance).Value);
+   return wire;
+  }));
 
- static Fin<Classification> ToClassification(ClassificationWire w, Op key) =>
-  ToDate(w.HasEditionDate, w.EditionDate, key).Bind(editionDate =>
-   Classification.Of(w.System, w.Code, key, w.Edition,
-    source: Opt(w.HasSource, w.Source), editionDate: editionDate, title: Opt(w.HasTitle, w.Title)));
+ internal static Fin<Node> ToNode(NodeWire wire, Op key) =>
+  ToNodeId(wire.Id, key).Bind(id => wire.PayloadCase switch {
+   NodeWire.PayloadOneofCase.Object => ToObject(id, wire.Object, key),
+   NodeWire.PayloadOneofCase.Material => ToMaterial(id, wire.Material, key),
+   NodeWire.PayloadOneofCase.PropertySet => ToBag(wire.PropertySet, key).Map(bag => (Node)new Node.PropertySet(id, bag)),
+   NodeWire.PayloadOneofCase.QuantitySet => ToBag(wire.QuantitySet, key).Map(bag => (Node)new Node.QuantitySet(id, bag)),
+   NodeWire.PayloadOneofCase.Assessment => ToAssessment(wire.Assessment, key).Map(payload => (Node)new Node.Assessment(id, payload)),
+   NodeWire.PayloadOneofCase.Appearance => ToAppearance(id, wire.Appearance, key),
+   NodeWire.PayloadOneofCase.Coverage => ToCoverage(wire.Coverage, key).Map(grid => (Node)new Node.Coverage(id, grid)),
+   NodeWire.PayloadOneofCase.Observation => ToObservation(wire.Observation, key).Map(series => (Node)new Node.Observation(id, series)),
+   _ => new KernelFault.InvalidValue("element-wire.node.payload", "one payload arm is required", Some(key)),
+  });
 
- static Fin<SchemaSpan> ToSpan(SchemaSpanWire w, Op key) =>
-  from introduced in key.Row<string, ReleaseVersion>(w.IntroducedIn)
-  from removed in Optional(w.HasRemovedIn ? w.RemovedIn : null).Traverse(value => key.Row<string, ReleaseVersion>(value)).As()
+ static Fin<Node> ToAppearance(NodeId id, AppearanceWire wire, Op key) =>
+  from appearanceKey in ToKey(wire.AppearanceKey, key)
+  from summary in AppearanceSummary.Rehydrate(appearanceKey, AppearanceVector.Create(
+   wire.BaseColorR, wire.BaseColorG, wire.BaseColorB, wire.Metallic, wire.Roughness,
+   wire.Opacity, wire.Transmissive), key)
+  select (Node)new Node.Appearance(id, summary);
+
+ static Fin<Node> ToObject(NodeId id, ObjectWire wire, Op key) =>
+  from kind in ToObjectKind(wire.Kind, key)
+  from classificationWire in Present(wire.Classification, "object.classification", key)
+  from classification in ToClassification(classificationWire, key)
+  from classifications in toSeq(wire.Classifications).TraverseM(row => ToClassification(row, key)).As()
+  from spanWire in Present(wire.Span, "object.span", key)
+  from span in ToSpan(spanWire, key)
+  from representations in toSeq(wire.Representations).TraverseM(row =>
+   from slot in ToRepresentationSlot(row.Kind, key)
+   from hash in ToKey(row.Key, key)
+   select (Key: slot, Value: hash)).As()
+  from representationMap in UniqueMap(representations, "object.representations", key)
+  from history in Optional(wire.History).Traverse(value => ToHistory(value, key)).As()
+  from placement in Optional(wire.Placement).Traverse(value => ToPlacement(value, key)).As()
+  select (Node)new Node.Object(
+   id, kind, Opt(wire.HasExternalId, wire.ExternalId), classification,
+   PredefinedType.Create(wire.PredefinedType), Opt(wire.HasObjectType, wire.ObjectType),
+   wire.Name, wire.Tag, new RepresentationContentHash(representationMap), history, span,
+   classifications, placement);
+
+ static Fin<SchemaSpan> ToSpan(SchemaSpanWire wire, Op key) =>
+  from introduced in ToReleaseVersion(wire.IntroducedIn, key)
+  from removed in Opt(wire.HasRemovedIn, wire.RemovedIn).Traverse(value => ToReleaseVersion(value, key)).As()
   select new SchemaSpan(introduced, removed);
+
+ static Fin<OwnerHistory> ToHistory(OwnerHistoryWire wire, Op key) =>
+  from created in Present(wire.Created, "owner-history.created", key)
+  from modified in Optional(wire.Modified).Traverse(value => Fin.Succ(value.ToInstant())).As()
+  from action in ToChangeAction(wire.ChangeAction, key)
+  from state in ToObjectState(wire.State, key)
+  select new OwnerHistory(wire.OwningUser, wire.OwningApplication, created.ToInstant(), modified, action, state);
+
+ static Fin<Map<TKey, TValue>> UniqueMap<TKey, TValue>(Seq<(TKey Key, TValue Value)> rows, string column, Op key)
+  where TKey : notnull => rows.Fold(
+   Fin.Succ(Map<TKey, TValue>()),
+   (state, row) => state.Bind(map => map.ContainsKey(row.Key)
+    ? Fin.Fail<Map<TKey, TValue>>(new KernelFault.InvalidValue(
+     $"element-wire.{column}", "keys remain unique after domain admission", Some(key)))
+    : Fin.Succ(map.Add(row.Key, row.Value))));
+
+ static WireObjectKind ToWire(ObjectKind value) => value == ObjectKind.Occurrence
+  ? WireObjectKind.Occurrence
+  : value == ObjectKind.Type
+   ? WireObjectKind.Type
+   : throw new UnreachableException();
+
+ static Fin<ObjectKind> ToObjectKind(WireObjectKind value, Op key) => value switch {
+  WireObjectKind.Occurrence => Fin.Succ(ObjectKind.Occurrence),
+  WireObjectKind.Type => Fin.Succ(ObjectKind.Type),
+  _ => Fin.Fail<ObjectKind>(key.InvalidInput(nameof(ObjectWire.Kind))),
+ };
+
+ static WireReleaseVersion ToWire(ReleaseVersion value) => value == ReleaseVersion.Ifc2X3
+  ? WireReleaseVersion.Ifc2X3
+  : value == ReleaseVersion.Ifc4
+   ? WireReleaseVersion.Ifc4
+   : value == ReleaseVersion.Ifc4X1
+    ? WireReleaseVersion.Ifc4X1
+    : value == ReleaseVersion.Ifc4X3
+     ? WireReleaseVersion.Ifc4X3
+     : value == ReleaseVersion.Ifc4X3Add2
+      ? WireReleaseVersion.Ifc4X3Add2
+      : value == ReleaseVersion.Ifc5
+       ? WireReleaseVersion.Ifc5
+       : throw new UnreachableException();
+
+ static Fin<ReleaseVersion> ToReleaseVersion(WireReleaseVersion value, Op key) => value switch {
+  WireReleaseVersion.Ifc2X3 => Fin.Succ(ReleaseVersion.Ifc2X3),
+  WireReleaseVersion.Ifc4 => Fin.Succ(ReleaseVersion.Ifc4),
+  WireReleaseVersion.Ifc4X1 => Fin.Succ(ReleaseVersion.Ifc4X1),
+  WireReleaseVersion.Ifc4X3 => Fin.Succ(ReleaseVersion.Ifc4X3),
+  WireReleaseVersion.Ifc4X3Add2 => Fin.Succ(ReleaseVersion.Ifc4X3Add2),
+  WireReleaseVersion.Ifc5 => Fin.Succ(ReleaseVersion.Ifc5),
+  _ => Fin.Fail<ReleaseVersion>(key.InvalidInput(nameof(SchemaSpanWire.IntroducedIn))),
+ };
+
+ static WireRepresentationKind ToWire(RepresentationSlot value) => value.Key switch {
+  1 => WireRepresentationKind.Body,
+  2 => WireRepresentationKind.Axis,
+  3 => WireRepresentationKind.FootPrint,
+  4 => WireRepresentationKind.Box,
+  5 => WireRepresentationKind.Annotation,
+  6 => WireRepresentationKind.Surface,
+  7 => WireRepresentationKind.Profile,
+  8 => WireRepresentationKind.Clearance,
+  9 => WireRepresentationKind.Cog,
+  10 => WireRepresentationKind.Lighting,
+  11 => WireRepresentationKind.Reference,
+  _ => throw new UnreachableException(),
+ };
+
+ static Fin<RepresentationSlot> ToRepresentationSlot(WireRepresentationKind value, Op key) => value switch {
+  WireRepresentationKind.Body => Fin.Succ(RepresentationSlot.Body),
+  WireRepresentationKind.Axis => Fin.Succ(RepresentationSlot.Axis),
+  WireRepresentationKind.FootPrint => Fin.Succ(RepresentationSlot.FootPrint),
+  WireRepresentationKind.Box => Fin.Succ(RepresentationSlot.Box),
+  WireRepresentationKind.Annotation => Fin.Succ(RepresentationSlot.Annotation),
+  WireRepresentationKind.Surface => Fin.Succ(RepresentationSlot.Surface),
+  WireRepresentationKind.Profile => Fin.Succ(RepresentationSlot.Profile),
+  WireRepresentationKind.Clearance => Fin.Succ(RepresentationSlot.Clearance),
+  WireRepresentationKind.Cog => Fin.Succ(RepresentationSlot.Cog),
+  WireRepresentationKind.Lighting => Fin.Succ(RepresentationSlot.Lighting),
+  WireRepresentationKind.Reference => Fin.Succ(RepresentationSlot.Reference),
+  _ => Fin.Fail<RepresentationSlot>(key.InvalidInput(nameof(RepresentationWire.Kind))),
+ };
+
+ static WireChangeAction ToChangeAction(string value) => value switch {
+  "NOCHANGE" => WireChangeAction.Nochange,
+  "MODIFIED" => WireChangeAction.Modified,
+  "ADDED" => WireChangeAction.Added,
+  "DELETED" => WireChangeAction.Deleted,
+  "NOTDEFINED" => WireChangeAction.Notdefined,
+  _ => throw new InvalidOperationException($"<owner-history-change-action:{value}>"),
+ };
+
+ static Fin<string> ToChangeAction(WireChangeAction value, Op key) => value switch {
+  WireChangeAction.Nochange => Fin.Succ("NOCHANGE"),
+  WireChangeAction.Modified => Fin.Succ("MODIFIED"),
+  WireChangeAction.Added => Fin.Succ("ADDED"),
+  WireChangeAction.Deleted => Fin.Succ("DELETED"),
+  WireChangeAction.Notdefined => Fin.Succ("NOTDEFINED"),
+  _ => Fin.Fail<string>(key.InvalidInput(nameof(OwnerHistoryWire.ChangeAction))),
+ };
+
+ static WireObjectState ToObjectState(string value) => value switch {
+  "READWRITE" => WireObjectState.Readwrite,
+  "READONLY" => WireObjectState.Readonly,
+  "LOCKED" => WireObjectState.Locked,
+  "READWRITELOCKED" => WireObjectState.Readwritelocked,
+  "READONLYLOCKED" => WireObjectState.Readonlylocked,
+  _ => throw new InvalidOperationException($"<owner-history-state:{value}>"),
+ };
+
+ static Fin<string> ToObjectState(WireObjectState value, Op key) => value switch {
+  WireObjectState.Readwrite => Fin.Succ("READWRITE"),
+  WireObjectState.Readonly => Fin.Succ("READONLY"),
+  WireObjectState.Locked => Fin.Succ("LOCKED"),
+  WireObjectState.Readwritelocked => Fin.Succ("READWRITELOCKED"),
+  WireObjectState.Readonlylocked => Fin.Succ("READONLYLOCKED"),
+  _ => Fin.Fail<string>(key.InvalidInput(nameof(OwnerHistoryWire.State))),
+ };
 }
 ```
 

@@ -19,7 +19,29 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[COMPUTE_SERVICE_GROWTH]-[BLOCKED]: the compute services carry every verb a peer fence dials, and no verb without both fences.
+- Capability: a service rpc exists exactly where a server fence and a peer client fence both name it, so progress, capability inventory, document events, and capture streaming arrive as rpc rows with their message owners rather than as declared gaps.
+- Shape: `tests/contracts/proto/rasm/contracts/compute/v1/{compute,control}.proto` service blocks; `.planning/Runtime/wire.md` `[02]-[PROTO_VOCABULARY]` roster and law lines; the owning request/reply message rows.
+- Unlocks: `Runtime/progress#PROGRESS_CELL` marks reach a remote subscriber, a companion advertises its compute and document capabilities, and a live document stream replaces host-callback polling.
+- Anchors: `Runtime/progress#PROGRESS_CELL` `ProgressMark`; `Rasm.AppHost/Observability/bundles#MANIFEST_RECEIPT`; `Rasm.AppUi/Editing/livedata#DATA_SOURCES`; wire-contract law — a service rpc survives only with a server fence AND a peer client fence.
+- Arms: a peer branch lands the client fence for a verb and the corpus source gains its rpc row in the same pass.
+- Ripple: corpus `[COMPUTE_SERVICE_GROWTH]` (coordinator); `python:geometry/mesh/serve` and `typescript:core` client fences.
+
+[BOARD_PACK_FAMILY]-[BLOCKED]: the dashboard-and-reliability pack crosses to the deploy plane as a generated message.
+- Capability: one corpus family carries panels, indicators, burn rows, and alert specs so the compile leg reads a generated schema and the kernel roster's arms never mirror by hand in a peer.
+- Shape: new `tests/contracts/proto/rasm/contracts/board/v1/board.proto`; `.planning/Runtime/board.md` `[06]-[TS_PROJECTION]` binds the generated messages and `ComputeDescriptors` gains one `[Mapper]` seam onto them.
+- Unlocks: `typescript:iac/operate/observe#BOARD_APPLY` compiles dashboards and rule groups off the generated schema, and a kernel `Sli` arm added in C# breaks the peer build rather than drifting.
+- Anchors: `Runtime/board#PANEL_PROJECTION` `BoardPack`; kernel `Sli`/`AlertSpec`/`BurnRow`/`PanelSpec` rosters; `typescript:core/observe/board#PACKS`.
+- Arms: the corpus mints the family and the TS compile leg names its consumer fence.
+- Ripple: corpus `[BOARD_PACK_FAMILY]` (coordinator); `typescript:iac` `[BOARD_APPLY]`.
+
+[COMPUTE_RECEIPT_FAMILY]-[BLOCKED]: a Compute receipt rides the generated host envelope as a packed generated message.
+- Capability: the receipt payload union gains a corpus family so `Receipt.V1.ReceiptEnvelopeWire.payload` packs one generated message per case and the spine formats Compute facts through the one ProtoJSON owner.
+- Shape: new `tests/contracts/proto/rasm/contracts/compute/v1/receipt.proto` over the `ComputeReceipt` case roster; `.planning/Runtime/receipts.md` `[02]-[RECEIPT_UNION]` gains one `[Mapper]` seam per case and `[05]-[TS_PROJECTION]` binds the generated envelope.
+- Unlocks: a peer dashboard decodes Compute receipts off the generated schema, and `ReceiptFolds.Journal` rehydrates a host envelope through `Any.Unpack` rather than the STJ `ComputeWireContext`.
+- Anchors: `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface`; `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`; `Receipt.V1.ReceiptEnvelopeWire`.
+- Arms: a peer branch names a Compute receipt consumer fence and the corpus mints the family.
+- Ripple: corpus `[COMPUTE_RECEIPT_FAMILY]` (coordinator); `Rasm.AppHost` envelope producer (Writer D).
 
 ## [02]-[CLOSED]
 

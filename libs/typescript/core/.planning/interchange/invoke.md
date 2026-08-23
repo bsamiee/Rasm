@@ -13,18 +13,23 @@
 
 - Owner: `Invoke.Transport` maps each Connect failure into exactly one `Wire.InvokeFault` outcome.
 - Law: one valid recognized detail becomes `Remote`; zero recognized details become `Transport`; malformed or multiple recognized details become terminal `MalformedDetail`.
+- Law: the detail is the generated `rasm.contracts.fault.v1.FaultDetail` read off `ConnectError.findDetails` against the one descriptor registry and decoded through `Wire.Remote.FromWire`; a `Transport` carries the class `Wire.Hops` rows for its code, the one table every hop grades through.
 - Boundary: only `Transport(connectivity | deadline | ceiling)` may drive topology; remote recovery may retry only on the current lane.
 
 ```typescript signature
 import type { Client, ContextValues, Interceptor, Transport as ConnectTransport } from "@connectrpc/connect"
 import { Code, ConnectError, createClient, createContextKey, createContextValues } from "@connectrpc/connect"
-import type { CommonTransportOptions, Compression, UniversalClientFn } from "@connectrpc/connect/protocol"
-import { createFetchClient } from "@connectrpc/connect/protocol"
-import { createTransport as createConnectProtocol } from "@connectrpc/connect/protocol-connect"
-import { createTransport as createGrpcProtocol } from "@connectrpc/connect/protocol-grpc"
-import { createTransport as createGrpcWebProtocol } from "@connectrpc/connect/protocol-grpc-web"
-import { isMessage, type DescMethod, type DescService, type MessageInitShape } from "@bufbuild/protobuf"
-import { Headers, HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from "@effect/platform"
+import { createConnectTransport, createGrpcWebTransport } from "@connectrpc/connect-web"
+import {
+  isMessage,
+  type DescMethod,
+  type DescService,
+  type JsonValue,
+  type MessageInitShape,
+  type MessageValidType,
+} from "@bufbuild/protobuf"
+import * as ui from "@rasm\/contracts/rasm/contracts/ui/v1/commands_pb"
+import { Headers, MsgPack, Ndjson, Socket } from "@effect/platform"
 import {
   Array,
   Cause,
@@ -46,7 +51,6 @@ import {
   Predicate,
   Queue,
   Record,
-  Runtime,
   Schema,
   Scope,
   Stream,
@@ -61,20 +65,19 @@ import { Identity } from "../value/identity.ts"
 import { Shape } from "../value/schema.ts"
 import { Carrier } from "./carrier.ts"
 import { Wire } from "./codec.ts"
-import { Contract } from "./contract.ts"
 import { Format } from "./format.ts"
 
 const Transport: {
   readonly expired: (detail: string) => Wire.InvokeFault
   readonly fault: (caught: unknown) => Wire.InvokeFault
 } = {
-  expired: (detail) => new Wire.Transport({ kind: "deadline", detail }),
+  expired: (detail) => new Wire.Transport({ kind: "deadline", class: Wire.Transport.classOf(Code.DeadlineExceeded), detail }),
   fault: (caught) => {
     const error = ConnectError.from(caught, Code.Unknown)
     const details = error.findDetails(Format.proto.registry)
       .filter((detail) => isMessage(detail, Format.proto.suite.FaultDetail))
     if (details.length === 0) {
-      return new Wire.Transport({ kind: Wire.Transport.kindOf(error.code), detail: error.rawMessage })
+      return new Wire.Transport({ kind: Wire.Transport.kindOf(error.code), class: Wire.Transport.classOf(error.code), detail: error.rawMessage })
     }
     if (details.length !== 1) {
       return new Wire.MalformedDetail({ detail: `<recognized-details:${details.length}>` })
@@ -92,81 +95,41 @@ const Transport: {
 
 ## [03]-[DIAL_AXIS]
 
-- Owner: `Invoke.Dial` builds one typed Connect client per configured protocol-and-carrier lane.
+- Owner: `Invoke.Dial` builds one typed Connect client per configured supported adapter lane.
 - Law: `Dial.sdk` takes `Capability.Admitted` and mints every client, so an unadmitted pin is a type error and never a guarded path.
 - Law: no second entry reaches a transport.
-- Law: `tenancy` carries no column on either Dial family because NEITHER decides it — a profile selects the row and tenancy realizes through `Carrier.promote`, so a cell here states by guess what a live owner already answers.
-- Law: protocol rows decide framing alone — `admit` is uniform (every row takes one `CommonTransportOptions` through `transport`) and `lifetime` belongs to the carrier row beneath, so each rides this lead rather than repeating itself or guessing down a column.
-- Law: carrier rows answer `admit` and `lifetime` per row because both DIVERGE — the two carriers take different handles and end a connection under different owners, which is the whole difference the axis exists to state.
+- Law: `tenancy` carries no column on any Dial family because NEITHER decides it — a profile selects the row and tenancy realizes through `Carrier.promote`, so a cell here states by guess what a live owner already answers.
+- Law: one discriminated adapter family closes supported pairs at construction — `web` admits Connect and gRPC-Web, `node` admits Connect, gRPC-Web, and gRPC; `web + grpc` has no schema arm, no type, and no runtime guard.
+- Law: adapters expose the package's public `Transport` factories behind one typed capability; `web` binds `@connectrpc/connect-web`, while runtime supplies the scoped `node` capability built with `@connectrpc/connect-node` and its HTTP/2 manager.
+- Law: a lane naming an adapter the seam did not hand in refuses at `Dial` construction as `drift` on the `adapter` arm — a capability refusal naming the axis, never a guarded path a lane falls through at first dial.
+- Law: every adapter, protocol, and hop grades through `Wire.Hops` — the retry gate reads `Fault.Class.retryable` off that one row, so a `Code.Unauthenticated` spends no attempt and a second grading beside it is unspellable.
 - Law: a lane names the `value/fault#RETRY_BUDGET` row it recovers on, so recovery geometry has one owner and the ladder spends that row's compiled schedule and attempt ceiling.
 - Law: Deadlines end a call at the attempt bound and the plan at the total bound; a stream ends with the scope its caller opened.
-- Law: protocol and carrier are orthogonal rows over one `CommonTransportOptions`; no lane branches on a name.
-- Law: every lane reads one ingress ceiling, so failover never widens the bound a primary lane proved.
+- Law: protocol selection occurs once inside the chosen adapter's total factory record; no caller selects a package factory and no protocol × host knob matrix exists.
+- Law: the Node adapter passes the one ingress ceiling to all three public factories; the web factories expose no frame-cap option, so no hand wrapper pretends to enforce one.
 - Law: unary failover uses `ExecutionPlan`; server streams never retry after an emitted value.
 - Law: remote recovery retries only in place; transport connectivity, deadline, or ceiling may advance the execution plan; malformed detail stops.
 - Law: carrier headers, tenant scope, HLC, deadlines, and telemetry remain typed Effect context.
-- Boundary: the runtime supplies fetch, interceptors, compression algorithms, and the platform HTTP client.
+- Boundary: the root supplies browser/Bun `fetch`, the optional scoped Node adapter, and the interceptor chain. GET routing is foreclosed because no service this branch binds declares `NO_SIDE_EFFECTS`, so no `useHttpGet` knob exists to misread.
 
 ```typescript signature
-// Protocol and carrier are ORTHOGONAL axes the package itself keeps apart: all three `createTransport` factories take
-// ONE `CommonTransportOptions`, whose `httpClient` field IS the carrier. Folding them into one enumeration stranded
-// every unbuilt pair, left gRPC no seat at all, and let one row alone read the ingress ceiling.
-const _protocols = ["connect", "grpc", "grpc-web"] as const
-const _carriers = ["fetch", "platform"] as const
+const _webProtocols = ["connect", "grpc-web"] as const
+const _nodeProtocols = ["connect", "grpc-web", "grpc"] as const
 
-// `fits` is the sentence a composition root selects on and `degrade` the forfeit it accepts by selecting; `httpGet`
-// and `trailers` are the two capabilities the protocols genuinely differ on, so a caller reads a column instead of
-// inferring framing from a name.
-//
-// ADMIT, LIFETIME, and TENANCY carry no column here. Every row admits exactly one `CommonTransportOptions` through
-// its own `transport` member, so a column would repeat one answer three times rather than separate anything. A
-// protocol row is a pure framing factory holding nothing across calls: connection lifetime rides `_carrierRows`
-// below, which genuinely ends one, and tenancy realizes at `Carrier.promote`, which genuinely scopes one. Stating
-// either here states a guess, and neither non-decision is a forfeit, so neither reaches `degrade`.
-const _protocolRows = {
-  connect: {
-    transport: createConnectProtocol,
-    httpGet: true,
-    trailers: false,
-    fits: "<browser-and-service-peers-speaking-connect>",
-    degrade: "<no-grpc-peer-interop>",
-  },
-  grpc: {
-    transport: createGrpcProtocol,
-    httpGet: false,
-    trailers: true,
-    fits: "<service-peers-behind-an-http2-carrier>",
-    degrade: "<carrier-must-carry-http2-trailers>",
-  },
-  "grpc-web": {
-    transport: createGrpcWebProtocol,
-    httpGet: false,
-    trailers: true,
-    fits: "<grpc-peers-reachable-only-through-a-web-proxy>",
-    degrade: "<proxy-required-for-every-grpc-peer>",
-  },
-} as const satisfies { readonly [P in Dial.Protocol]: Dial.ProtocolRow }
+// The schema union IS the support matrix. There is no generic protocol field paired with a generic host field, so
+// a browser or Bun lane can never carry `grpc`; adding a host or protocol widens one owned arm and breaks every
+// adapter capability that has not supplied its public factory.
+const _WebLane = Schema.Struct({
+  adapter: Schema.Literal("web"),
+  protocol: Schema.Literal(..._webProtocols),
+  budget: Fault.Budget.schema,
+})
 
-// Carriers differ in ONE fact the options record spends, and each ends a connection under a different owner: `fetch`
-// leaves pooling to the ambient global this package never closes, while `platform` re-enters the rail so the shared
-// client's scope, retry, proxy, and tracing posture govern every dial. `admit` names the handle a composition root
-// hands in, and it diverges exactly as `lifetime` does — one carrier takes what the host already carries and the
-// other takes a constructed pair — so a root reading `lifetime` alone could not tell what it owes to get it.
-// TENANCY carries no column: `Carrier.promote` scopes every dial and no row here decides one.
-const _carrierRows = {
-  fetch: {
-    fits: "<bundles-that-must-not-load-the-platform-client>",
-    admit: "<the-ambient-globalThis.fetch-the-host-already-carries>",
-    lifetime: "<ambient-global-pool-this-package-never-ends>",
-    degrade: "<no-shared-client-policy>",
-  },
-  platform: {
-    fits: "<runtimes-composing-the-shared-http-client>",
-    admit: "<a-composed-HttpClient-beside-the-runtime-this-package-re-enters-per-request>",
-    lifetime: "<shared-client-scope-ends-it>",
-    degrade: "<one-runtime-re-entry-per-request>",
-  },
-} as const satisfies { readonly [C in Dial.Carrier]: Dial.CarrierRow }
+const _NodeLane = Schema.Struct({
+  adapter: Schema.Literal("node"),
+  protocol: Schema.Literal(..._nodeProtocols),
+  budget: Fault.Budget.schema,
+})
 
 const _PositiveDuration = Schema.DurationFromMillis.pipe(
   Schema.filter((duration) => Duration.toMillis(duration) > 0, { identifier: "PositiveDialDuration" }),
@@ -175,21 +138,14 @@ const _PositiveDuration = Schema.DurationFromMillis.pipe(
 // Each lane names its retry OWNER and carries no curve: `budget` is the `value/fault#RETRY_BUDGET` row whose
 // compiled schedule and attempt ceiling this ladder spends, so a proxy row and a direct row differ by which row
 // they name.
-const _LanePolicy = Schema.Struct({
-  protocol: Schema.Literal(..._protocols),
-  carrier: Schema.Literal(..._carriers),
-  budget: Fault.Budget.schema,
-})
+const _LanePolicy = Schema.Union(_WebLane, _NodeLane)
 
 const _TransportPolicy = Schema.Struct({
   attempt: _PositiveDuration,
   total: _PositiveDuration,
-  compressMinBytes: Shape.Refined.OrdinalKey.pipe(Schema.positive()),
-  useHttpGet: Schema.optionalWith(Schema.Boolean, { default: () => false }),
 })
 
-const _key = (lane: { readonly protocol: Dial.Protocol; readonly carrier: Dial.Carrier }): Dial.Key =>
-  `${lane.protocol}:${lane.carrier}`
+const _key = (lane: Dial.Lane): Dial.Key => `${lane.adapter}:${lane.protocol}`
 
 const _DialConfig = Schema.Struct({
   lanes: Schema.NonEmptyArray(_LanePolicy).pipe(
@@ -204,96 +160,62 @@ const _DialConfig = Schema.Struct({
 })
 
 declare namespace Dial {
-  type Protocol = (typeof _protocols)[number]
-  type Carrier = (typeof _carriers)[number]
-  type Key = `${Protocol}:${Carrier}`
-  type ProtocolRow = {
-    readonly transport: (options: CommonTransportOptions) => ConnectTransport
-    readonly httpGet: boolean
-    readonly trailers: boolean
-    readonly fits: string
-    readonly degrade: string
+  type WebProtocol = (typeof _webProtocols)[number]
+  type NodeProtocol = (typeof _nodeProtocols)[number]
+  type AdapterKind = "web" | "node"
+  type Protocol<K extends AdapterKind> = K extends "web" ? WebProtocol : NodeProtocol
+  type Lane = Schema.Schema.Type<typeof _LanePolicy>
+  type Key = `${AdapterKind}:${WebProtocol | NodeProtocol}`
+  type Policy = {
+    readonly baseUrl: string
+    readonly useBinaryFormat: boolean
+    readonly interceptors: ReadonlyArray<Interceptor>
+    readonly defaultTimeoutMs: number
+    readonly readMaxBytes: number
+    readonly writeMaxBytes: number
   }
-  type CarrierRow = {
-    readonly fits: string
-    readonly admit: string
-    readonly lifetime: string
-    readonly degrade: string
+  type Factories<K extends AdapterKind> = { readonly [P in Protocol<K>]: (policy: Policy) => ConnectTransport }
+  type Adapter<K extends AdapterKind> = {
+    readonly kind: K
+    readonly factories: Factories<K>
   }
   type Config = Schema.Schema.Type<typeof _DialConfig>
   type Seam = {
-    readonly fetch: typeof globalThis.fetch
+    readonly web: Option.Option<Adapter<"web">>
+    readonly node: Option.Option<Adapter<"node">>
     readonly interceptors: ReadonlyArray<Interceptor>
-    readonly compression: ReadonlyArray<Compression>
-    readonly sendCompression: Option.Option<Compression>
   }
-  type Gear = {
-    readonly config: Config
-    readonly seam: Seam
-    readonly clients: Readonly<Record<Carrier, UniversalClientFn>>
-    readonly timeoutMs: number
-  }
-  type _Protocols<T extends Record<Protocol, ProtocolRow> = typeof _protocolRows> = T
-  type _Carriers<T extends Record<Carrier, CarrierRow> = typeof _carrierRows> = T
 }
 
-const _universal = (client: HttpClient.HttpClient, runtime: Runtime.Runtime<never>): UniversalClientFn =>
-  (request) => // BOUNDARY ADAPTER: connect's UniversalClientFn is promise-shaped — the captured runtime re-enters the rail here and nowhere else
-    Runtime.runPromise(runtime)(
-      Effect.gen(function* () {
-        const scope = yield* Scope.make()
-        const opened = HttpClientRequest.post(request.url, { headers: Headers.fromInput(request.header) })
-        const response = yield* Scope.extend(
-          client.execute(
-            request.body === undefined
-              ? opened
-              : HttpClientRequest.bodyStream(opened, Stream.fromAsyncIterable(request.body, (defect) => defect)),
-          ),
-          scope,
-        ).pipe(Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause))))
-        return {
-          status: response.status,
-          header: new globalThis.Headers(Object.entries(response.headers)),
-          body: Stream.toAsyncIterableRuntime(Stream.ensuring(response.stream, Scope.close(scope, Exit.void)), runtime),
-          trailer: new globalThis.Headers(),
-        }
-      }),
-      { signal: request.signal },
-    )
-
-// One options record serves every pair, so a lane differs from its sibling in the two fields the axes name and in
-// nothing else. Compression algorithms are host code the seam carries, and an empty roster is the option's own
-// documented opt-out rather than a silent default.
-const _options = (gear: Dial.Gear, protocol: Dial.Protocol, carrier: Dial.Carrier): CommonTransportOptions => ({
-  httpClient: gear.clients[carrier],
-  baseUrl: gear.config.baseUrl,
-  useBinaryFormat: gear.config.useBinaryFormat,
-  interceptors: [...gear.seam.interceptors],
-  acceptCompression: [...gear.seam.compression],
-  sendCompression: Option.getOrNull(gear.seam.sendCompression),
-  compressMinBytes: gear.config.transport.compressMinBytes,
-  // EVERY lane reads ONE ingress ceiling. A ladder whose fallback row keeps the package's ~4GiB default silently
-  // removes the bound its primary row proved, so the failover itself becomes the way around the limit.
-  readMaxBytes: Shape.Ingress.floor.bytes,
-  writeMaxBytes: Shape.Ingress.floor.bytes,
-  defaultTimeoutMs: gear.timeoutMs,
-  // GET routing is Connect's capability alone, so the row column gates the policy and a caller never spells a protocol.
-  useHttpGet: _protocolRows[protocol].httpGet && gear.config.transport.useHttpGet,
+const _web = (fetch: typeof globalThis.fetch): Dial.Adapter<"web"> => ({
+  kind: "web",
+  factories: {
+    connect: (policy) => createConnectTransport({
+      baseUrl: policy.baseUrl,
+      useBinaryFormat: policy.useBinaryFormat,
+      interceptors: [...policy.interceptors],
+      defaultTimeoutMs: policy.defaultTimeoutMs,
+      fetch,
+    }),
+    "grpc-web": (policy) => createGrpcWebTransport({
+      baseUrl: policy.baseUrl,
+      useBinaryFormat: policy.useBinaryFormat,
+      interceptors: [...policy.interceptors],
+      defaultTimeoutMs: policy.defaultTimeoutMs,
+      fetch,
+    }),
+  },
 })
 
-const _transport = (gear: Dial.Gear, protocol: Dial.Protocol, carrier: Dial.Carrier): ConnectTransport =>
-  _protocolRows[protocol].transport(_options(gear, protocol, carrier))
-
-const _built = (gear: Dial.Gear): HashMap.HashMap<Dial.Key, ConnectTransport> =>
-  HashMap.fromIterable(
-    Array.flatMap(_protocols, (protocol) =>
-      Array.map(_carriers, (carrier) => [_key({ protocol, carrier }), _transport(gear, protocol, carrier)] as const)),
-  )
+const _unserved = (lane: Dial.Lane): Wire.Fault =>
+  new Wire.Fault({
+    family: "FaultDetail",
+    case: { reason: "drift", divergence: { subject: "adapter", lane: _key(lane) } },
+  })
 
 class Lane extends Context.Tag("@rasm/ts/core/Lane")<Lane, {
   readonly key: Dial.Key
-  readonly protocol: Dial.Protocol
-  readonly carrier: Dial.Carrier
+  readonly lane: Dial.Lane
   readonly transport: ConnectTransport
 }>() {}
 
@@ -347,29 +269,46 @@ const _openStream = <O>(
   )
 
 // Remote recovery spends attempts on the current lane only. Transport is the sole topology signal, while malformed
-// detail is terminal; no remote numeric code is interpreted as a route decision.
+// detail is terminal; no remote domain case is interpreted as a route decision. A transport hop re-drives on the
+// ONE code table's class — `Wire.Hops` — so a caller-blamed code spends no attempt on any lane.
 const _failsOver = (fault: Wire.InvokeFault): boolean => fault instanceof Wire.Transport
-const _retries: Predicate.Predicate<unknown> = (fault) => fault instanceof Wire.Remote && fault.retryable
+const _retries: Predicate.Predicate<unknown> = (fault) =>
+  (fault instanceof Wire.Remote && fault.retryable)
+  || (fault instanceof Wire.Transport && Fault.Class.retryable(fault.class))
+
+const _policy = (config: Dial.Config, seam: Dial.Seam): Dial.Policy => ({
+  baseUrl: config.baseUrl,
+  useBinaryFormat: config.useBinaryFormat,
+  interceptors: seam.interceptors,
+  defaultTimeoutMs: Duration.toMillis(config.transport.attempt),
+  readMaxBytes: Shape.Ingress.floor.bytes,
+  writeMaxBytes: Shape.Ingress.floor.bytes,
+})
+
+const _selected = (
+  policy: Dial.Policy,
+  seam: Dial.Seam,
+  lane: Dial.Lane,
+): Option.Option<ConnectTransport> =>
+  Match.value(lane).pipe(
+    Match.discriminatorsExhaustive("adapter")({
+      web: (selected) => Option.map(seam.web, (adapter) => adapter.factories[selected.protocol](policy)),
+      node: (selected) => Option.map(seam.node, (adapter) => adapter.factories[selected.protocol](policy)),
+    }),
+  )
 
 class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
   effect: (config: Dial.Config, seam: Dial.Seam) =>
     Effect.gen(function* () {
-      const client = yield* HttpClient.HttpClient
-      const runtime = yield* Effect.runtime<never>()
-      const gear: Dial.Gear = {
-        config,
-        seam,
-        clients: { fetch: createFetchClient(seam.fetch), platform: _universal(client, runtime) },
-        timeoutMs: Duration.toMillis(config.transport.attempt),
-      }
-      const transports = _built(gear)
-      const ladder = Array.map(config.lanes, (row) => ({
-        provide: Layer.succeed(Lane, {
-          key: _key(row),
-          protocol: row.protocol,
-          carrier: row.carrier,
-          transport: Option.getOrElse(HashMap.get(transports, _key(row)), () => _transport(gear, row.protocol, row.carrier)),
-        }),
+      const policy = _policy(config, seam)
+      const resolved = yield* Effect.forEach(config.lanes, (row) =>
+        Option.match(_selected(policy, seam, row), {
+          onNone: () => Effect.fail(_unserved(row)),
+          onSome: (transport) => Effect.succeed([row, transport] as const),
+        }))
+      const transports = HashMap.fromIterable(Array.map(resolved, ([row, transport]) => [_key(row), transport] as const))
+      const ladder = Array.map(resolved, ([row, transport]) => ({
+        provide: Layer.succeed(Lane, { key: _key(row), lane: row, transport }),
         attempts: Fault.Budget.at(row.budget).attempts,
         schedule: Fault.Budget.schedule(row.budget, _retries),
         while: (fault: Wire.InvokeFault) => Effect.succeed(_failsOver(fault)),
@@ -388,21 +327,30 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
   static readonly Config: typeof _DialConfig = _DialConfig
   static readonly Context: typeof _CONTEXT = _CONTEXT
   static readonly Lane: typeof Lane = Lane
-  // The admitted capability is the FIRST argument because it is the precondition, not a decoration: a caller holding
-  // only raw descriptor bytes cannot reach this entry at all, so `Contract.Descriptor` rides in transitively through
-  // the value's own provenance rather than as a second Tag every composition root must remember to provide.
+  static readonly web: typeof _web = _web
+  // `admitted` rides FIRST because it is the precondition, not a decoration: a caller holding
+  // only raw descriptor bytes cannot reach this entry at all, so the canonical-pin proof rides in through the value's
+  // own provenance rather than as a guard every composition root must remember to run.
   static readonly sdk = <T extends DescService>(admitted: Capability.Admitted, service: T): Effect.Effect<
     Dial.Sdk<T>, ParseResult.ParseError | Wire.Fault, Dial
   > => _sdkOf(admitted, service)
 }
+
+type _DialAdapterKind = Dial.AdapterKind
+type _DialAdapter<K extends _DialAdapterKind> = Dial.Adapter<K>
+type _DialConfig = Dial.Config
+type _DialLane = Dial.Lane
+type _DialPolicy = Dial.Policy
+type _DialSeam = Dial.Seam
 ```
 
 ## [04]-[CAPABILITY_BIND]
 
-- Owner: `Invoke.Capability.admit` mints `Capability.Admitted`, the one value `Invoke.Dial.sdk` derives Connect members from.
+- Owner: `Invoke.Capability.admit` mints `Capability.Admitted`, the one value `Invoke.Dial.sdk` derives Connect members from under the generated contract identity handshake.
 - Law: pin admission hashes the carried document bytes, and admission order is a type fact rather than a caller convention.
-- Law: `Capability.Admitted` spends `Contract.Descriptor.canonical(pin)` as its construction filter, so count and order hold one owner and no consumer re-checks either.
-- Law: unit order is the descriptor row's own refinement, so this owner relates a pin to the rows it addresses and restates neither.
+- Law: `Capability.Admitted` is the ONE canonical-document gate — its construction filter relates the pin's descriptor count and roster order to the rows it addresses, so no consumer re-checks either and unit order stays the row's own refinement.
+- Law: the pin lands through `Wire.decode("DescriptorPinWire", …)` and this owner re-derives its digest over the document bytes, so the codec landing states shape alone and admission adjudicates here.
+- Law: `Capability.Source.contract` records the peer's advertised protobuf package and service family; `Dial.sdk` compares both with the generated `DescService`, and the admitted pin digest names the generation in any refusal.
 - Law: parsed rows authorize semantic reads only; the original UTF-8 document remains the identity preimage.
 - Law: Connect derivation reads only `DescService`; no descriptor row is inferred as a service or method coordinate.
 - Law: derivation spends the admitted pin as PROVENANCE alone — the derived decoder's identifier and every binding refusal name that digest.
@@ -410,15 +358,41 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
 - Law: server-stream fallback stops after the first emitted value.
 
 ```typescript signature
-const _descriptorDocument = Format.json.schema(Schema.Array(Contract.Descriptor.Row))
+const _capabilityEffects = ["pure", "read", "write", "external", "irreversible"] as const
+const _capabilityIdempotency = ["idempotent", "keyed", "single-shot", "non-idempotent"] as const
+const _capabilityUnits = ["cpu-millis", "wall-millis", "bytes-egress", "model-tokens", "calls"] as const
+
+const _strictlyOrdered = (values: ReadonlyArray<string>): boolean =>
+  Array.every(Array.zip(values, Array.drop(values, 1)), ([was, is]) => was < is)
+
+// One canonical capability-document row: per-row unit order is the ROW's own filter, so no consumer restates it.
+const _DescriptorRow = Schema.Struct({
+  descriptor: Schema.NonEmptyString,
+  surface: Schema.NonEmptyString,
+  effect: Schema.Literal(..._capabilityEffects),
+  idempotency: Schema.Literal(..._capabilityIdempotency),
+  scope: Schema.NonEmptyString,
+  units: Schema.Array(Schema.Literal(..._capabilityUnits)).pipe(
+    Schema.filter((units) => _strictlyOrdered(units) || "<capability-units-order>"),
+  ),
+})
+
+// DOCUMENT-level half of canonicality — the pin's own descriptor count and the roster ordering no single row can
+// witness; the per-row half is `_DescriptorRow`'s own filter, so the admission class below spends each half once.
+const _canonical = (pin: Wire.Decoded<"DescriptorPinWire">, rows: ReadonlyArray<typeof _DescriptorRow.Type>): boolean =>
+  rows.length === pin.descriptors && _strictlyOrdered(Array.map(rows, (row) => row.descriptor))
+
+const _descriptorDocument = Format.json.schema(Schema.Array(_DescriptorRow))
 const _descriptorBytes = new TextEncoder()
 
-// Both halves arrive ALREADY decoded — the pin through `Wire.decode` and the rows through `_descriptorDocument` — so
-// each field re-reads its owner's TYPE side rather than minting a second encoded shape nothing writes. This value is an
-// in-process admission witness that crosses no wire, and `typeSchema` states that at the field instead of in prose.
+// Every field arrives ALREADY decoded — the pin through `Wire.decode`, the rows through `_descriptorDocument`, the
+// contract as the peer's advertised package and service family — so each re-reads its owner's TYPE side rather than minting
+// a second encoded shape nothing writes. This value is an in-process admission witness that crosses no wire, and
+// `typeSchema` states that at the field instead of in prose.
 const _admission = Schema.Struct({
-  pin: Schema.typeSchema(Contract.Pin),
-  descriptors: Schema.Array(Schema.typeSchema(Contract.Descriptor.Row)),
+  pin: Schema.typeSchema(Wire.schema("DescriptorPinWire")),
+  descriptors: Schema.Array(Schema.typeSchema(_DescriptorRow)),
+  contract: Schema.Struct({ package: Schema.NonEmptyString, family: Schema.NonEmptyString }),
 })
 
 // THE resolved type. Evaluation takes this owner and nothing else, so a descriptor that never met the network step is
@@ -426,32 +400,32 @@ const _admission = Schema.Struct({
 // this branch admits — `docs/stacks/typescript/shapes.md` makes a standalone exported brand the named defect, so the
 // admission fact rides the owner, whose constructor and decode both re-run the filter set below.
 class CapabilityAdmitted extends Schema.Class<CapabilityAdmitted>("Capability.Admitted")(
-  // Canonicality has ONE owner: `Contract.Descriptor.canonical(pin)` states the descriptor count and the roster
-  // ordering no single row can witness, and this owner RELATES its two fields by spending that gate. Restating the
-  // predicates here gave one law a second declaration to drift under, and a third canonical rule now lands at the
-  // contract owner with every consumer inheriting it unmoved.
+  // Canonicality has ONE owner: `_canonical` relates the pin's count and ordering to the rows, so this class spends it
+  // once at construction and at decode alike and restates no predicate.
   _admission.pipe(Schema.filter(
-    ({ descriptors, pin }) =>
-      Schema.is(Contract.Descriptor.canonical(pin))(descriptors) || "<noncanonical-descriptor-pin>",
+    ({ descriptors, pin }) => _canonical(pin, descriptors) || "<noncanonical-descriptor-pin>",
     { identifier: "CanonicalAdmission" },
   )),
 ) {}
 
-const _admitCapability = ({ descriptor, pinned }: Capability.Source): Effect.Effect<
+const _admitCapability = ({ contract, descriptor, pinned }: Capability.Source): Effect.Effect<
   Capability.Admitted,
-  ParseResult.ParseError | Wire.Fault,
-  Context.Tag.Service<typeof Contract.Descriptor>
+  ParseResult.ParseError | Wire.Fault
 > => Effect.gen(function* () {
   const pin = yield* Wire.decode("DescriptorPinWire", descriptor)
   const octets = _descriptorBytes.encode(pin.document)
   yield* Wire.Parity.verified("DescriptorPinWire", pin.digest, octets)
   yield* Wire.Parity.matched("DescriptorPinWire", pin.digest, pinned)
   const descriptors = yield* Schema.decodeUnknown(_descriptorDocument)(octets)
-  return yield* Schema.decode(CapabilityAdmitted)({ pin, descriptors })
+  return yield* Schema.decode(CapabilityAdmitted)({ contract, descriptors, pin })
 })
 
 declare namespace Capability {
-  type Source = { readonly descriptor: Uint8Array; readonly pinned: Digest.Key<"content"> }
+  type Source = {
+    readonly contract: { readonly package: string; readonly family: string }
+    readonly descriptor: Uint8Array
+    readonly pinned: Digest.Key<"content">
+  }
   type Admitted = CapabilityAdmitted
 }
 
@@ -466,7 +440,7 @@ declare namespace Dial {
   }
 }
 
-// The identifier carries the derivation's PROVENANCE: a service name alone answers for every generation that ever
+// `identifier` carries the derivation's PROVENANCE: a service name alone answers for every generation that ever
 // shipped it, so a binding refusal could not say which pinned document its members were derived against.
 const _sdkSchema = <T extends DescService>(admitted: Capability.Admitted, service: T): Schema.Schema<Dial.Sdk<T>> =>
   Schema.declare(
@@ -476,23 +450,25 @@ const _sdkSchema = <T extends DescService>(admitted: Capability.Admitted, servic
     { identifier: `${service.typeName}Sdk@${admitted.pin.digest}` },
   )
 
-// The closed boundary roster preregisters, so a posture nothing has raised yet reports zero rather than a panel hole.
+// Closed boundary rosters preregister, so a posture nothing has raised yet reports zero rather than a panel hole.
 const _calls = Convention.mount(Convention.metric.invokeCalls) // module scope: Effect keys an instrument by name and tag set, so a mount inside a fold re-derives one registry entry per call
 const _clock = Convention.mount(Convention.metric.invokeDuration)
-// The owner is the ARM that raised, read off the same closed union the reason projection dispatches on, so a governed
+// `owner` is the ARM that raised, read off the same closed union the reason projection dispatches on, so a governed
 // dimension carries a rostered word rather than a coinage: a fourth arm breaks HERE instead of stamping `admission`,
 // a name no member of `Wire.InvokeFault` answers to and no query resolves.
 const _faultOwner = (fault: Wire.InvokeFault): "malformed-detail" | "remote" | "transport" =>
   fault instanceof Wire.Remote ? "remote" : fault instanceof Wire.Transport ? "transport" : "malformed-detail"
 
-// `code` is the whole routing key this branch derives a reason from and `posture` the producer's own re-drive verdict,
-// so the compact detail publishes exactly the two columns a reader dispatches or re-drives on and nothing beside them.
+// `domain` plus `case` is the generated fault identity and `posture` the producer's own re-drive verdict, so the
+// compact detail publishes exactly the columns a reader dispatches or re-drives on and nothing beside them. Connect
+// `Code` remains the transport classification on `Wire.Transport` and never aliases either semantic identity column.
 // Every key comes off `Convention.rasm`, so an unrostered `rasm.fault.*` spelling is unspellable at this raise and the
 // record types as `Convention.Attributes` rather than as a free string map a sink cannot resolve.
 const _faultEvidence = (fault: Wire.InvokeFault): Convention.Attributes =>
   fault instanceof Wire.Remote
     ? {
-        [Convention.rasm.faultCode]: fault.detail.code,
+        [Convention.rasm.faultCase]: fault.detail.case,
+        [Convention.rasm.faultDomain]: fault.detail.domain,
         [Convention.rasm.faultOwner]: _faultOwner(fault),
         [Convention.rasm.faultPosture]: fault.recovery.kind,
       }
@@ -546,7 +522,7 @@ const _observedStream = (span: string, tags: Convention.Attributes) =>
       Stream.withSpan(span, { attributes: tags }),
     )
 
-// A method kind Connect cannot bind is drift between the generated service and the capability that admitted it, so the
+// Method kinds Connect cannot bind are drift between the generated service and the capability that admitted it, so the
 // refusal names BOTH coordinates. Naming the method alone leaves an operator holding the failure without the pinned
 // document that declared the surface it failed against, which is the one fact a re-pin acts on.
 const _unbindable = (admitted: Capability.Admitted, method: DescMethod): Wire.Fault =>
@@ -562,22 +538,44 @@ const _unbindable = (admitted: Capability.Admitted, method: DescMethod): Wire.Fa
     },
   })
 
+// Contract identity is package plus service family under the admitted generation digest. Both coordinates compare
+// before one method derives; `buf breaking` FILE remains the field-level compatibility authority, so no descriptor
+// walk or CloudEvents `dataschema` vocabulary enters this handshake.
+const _diverged = (admitted: Capability.Admitted, service: DescService): Wire.Fault =>
+  new Wire.Fault({
+    family: "FaultDetail",
+    case: {
+      reason: "drift",
+      divergence: {
+        subject: "contract",
+        advertised: admitted.contract,
+        generated: { package: service.file.proto.package, family: service.typeName },
+        generation: admitted.pin.digest,
+      },
+    },
+  })
+
 const _laneClient = <T extends DescService>(
-  service: T,
   clients: HashMap.HashMap<Dial.Key, Client<T>>,
-): Effect.Effect<Client<T>, never, Lane> =>
+): Effect.Effect<Client<T>, Wire.Fault, Lane> =>
   Effect.flatMap(Lane, (lane) =>
-    Effect.as(
-      Effect.annotateCurrentSpan(Convention.rasm.invokeLane, lane.key),
-      // Plans provide only keys `_built` generated, so the memo answers every lane; the lane's own transport closes
-      // the remaining branch, keeping resolution total without a die the execution plan could never report.
-      Option.getOrElse(HashMap.get(clients, lane.key), () => createClient(service, lane.transport)),
-    ))
+    Option.match(HashMap.get(clients, lane.key), {
+      onNone: () => Effect.fail(_unserved(lane.lane)),
+      onSome: (client) => Effect.as(
+        Effect.annotateCurrentSpan(Convention.rasm.invokeLane, lane.key),
+        client,
+      ),
+    }))
 
 const _sdkOf = <T extends DescService>(admitted: Capability.Admitted, service: T): Effect.Effect<
   Dial.Sdk<T>, ParseResult.ParseError | Wire.Fault, Dial
 > =>
     Effect.gen(function* () {
+      yield* Effect.filterOrFail(
+        Effect.succeed(service),
+        (dialed) => dialed.file.proto.package === admitted.contract.package && dialed.typeName === admitted.contract.family,
+        () => _diverged(admitted, service),
+      )
       const dial = yield* Dial
       const clients = dial.client(service)
       const rows = yield* Effect.forEach(service.methods, (method) =>
@@ -588,7 +586,7 @@ const _sdkOf = <T extends DescService>(admitted: Capability.Admitted, service: T
                 unary.localName,
                 (input: MessageInitShape<typeof unary.input>) =>
                   Effect.withExecutionPlan(
-                      Effect.flatMap(_laneClient(service, clients), (client) =>
+                      Effect.flatMap(_laneClient(clients), (client) =>
                         dial.unary((options) => client[unary.localName](input, options))),
                       dial.plan,
                     ).pipe(
@@ -608,7 +606,7 @@ const _sdkOf = <T extends DescService>(admitted: Capability.Admitted, service: T
                 (input: MessageInitShape<typeof streaming.input>) =>
                   pipe(
                     Stream.unwrap(
-                      Effect.map(_laneClient(service, clients), (client) =>
+                      Effect.map(_laneClient(clients), (client) =>
                         dial.stream((options) => client[streaming.localName](input, options))),
                     ),
                     Stream.withExecutionPlan(dial.plan, { preventFallbackOnPartialStream: true }),
@@ -625,7 +623,7 @@ const _sdkOf = <T extends DescService>(admitted: Capability.Admitted, service: T
       return yield* Schema.decodeUnknown(_sdkSchema(admitted, service))(Record.fromEntries(rows))
     })
 
-// The owner publishes its resolved type beside its mint: a caller with no live peer — a test double, a loopback —
+// `Capability` publishes its resolved type beside its mint: a caller with no live peer — a test double, a loopback —
 // declares a fixture through `Capability.Admitted` and dials on it, which is a visible act at a named decode rather
 // than an admission step quietly skipped.
 abstract class Capability {
@@ -639,40 +637,17 @@ abstract class Capability {
 - Owner: `Gateway.make` compiles one command table into value, JSON-byte, MessagePack-socket, and NDJSON-socket adapters.
 - Law: each row binds one payload schema, output schema, and handler; the row table derives both closed wire unions.
 - Law: every adapter decodes an invocation, delegates to `dispatch`, and encodes the full `Granted | Refused` outcome.
-- Law: command bodies contain only the five-arm payload; tenant and clock context remain on the carrier and interceptor rails.
+- Law: command bodies are the generated `CommandInvocation` — the corpus's five-arm `CommandPayloadWire` and nothing beside it; tenant and clock context remain on the carrier and interceptor rails.
 - Boundary: `Invoke.AvailabilityGate` supplies verdicts, and the runtime supplies socket acquisition and serving lifetime.
 
 ```typescript signature
-const CommandPayload = Schema.Union(
-  Schema.Struct({ kind: Schema.Literal("none") }),
-  Schema.Struct({ kind: Schema.Literal("single"), id: Schema.NonEmptyString }),
-  Schema.Struct({
-    kind: Schema.Literal("many"),
-    ids: Schema.NonEmptyArray(Schema.NonEmptyString).pipe(
-      Schema.filter((ids) =>
-        ids.length <= Shape.Ingress.floor.collection && Array.dedupe(ids).length === ids.length
-          || "<command-id-census>"),
-    ),
-  }),
-  Schema.Struct({ kind: Schema.Literal("text"), value: Schema.String }),
-  Schema.Struct({
-    kind: Schema.Literal("fields"),
-    values: Shape.Record(Schema.NonEmptyString, Shape.Json).pipe(
-      Schema.filter((values) => {
-        const members = Object.keys(values).length
-        return members > 0 && members <= Shape.Ingress.floor.members || "<command-field-census>"
-      }),
-    ),
-  }),
-)
-
-class CommandInvocation extends Schema.Class<CommandInvocation>("CommandInvocation")({
-  key: Schema.NonEmptyString,
-  payload: CommandPayload,
-}) {
-  static readonly Payload: typeof CommandPayload = CommandPayload
-  static readonly FromBytes: Schema.Schema<CommandInvocation, Uint8Array> = Format.json.schema(CommandInvocation)
-}
+// The invocation is the GENERATED `CommandInvocation` — its payload the corpus's five-arm `CommandPayloadWire`
+// oneof, whose `fields` arm is the one open `Struct` on this plane — decoded through its generated descriptor under
+// the JSON posture every contract document shares. A row's own payload schema decodes that generated face into the
+// row's domain, so the hand five-arm union that once restated the oneof is gone and a sixth arm lands at the corpus.
+const CommandInvocation = ui.CommandInvocationSchema
+type CommandInvocation = MessageValidType<typeof CommandInvocation>
+type CommandPayload = MessageValidType<typeof ui.CommandPayloadWireSchema>
 
 type Dispatched<A> = Data.TaggedEnum<{
   Granted: { readonly verb: string; readonly receipt: A }
@@ -716,7 +691,9 @@ class SupportIntake extends Context.Tag("@rasm/ts/core/SupportIntake")<SupportIn
 
 declare namespace Gateway {
   type Row<B, A, I> = {
-    readonly invocation: Schema.Schema<B, unknown>
+    // the row decodes the generated payload face; an unset oneof arm refuses here because the row's own schema
+    // admits no `undefined`, and the corpus rule already refused it at the frame
+    readonly invocation: Schema.Schema<B, CommandPayload>
     readonly output: Schema.Schema<A, I>
     readonly handler: (invocation: CommandInvocation, payload: B) => Effect.Effect<A, Wire.Fault>
   }
@@ -743,7 +720,7 @@ declare namespace Gateway {
     unknown
   >
   type Shape<A> = {
-    readonly invocation: Schema.Schema<CommandInvocation, unknown>
+    readonly invocation: Schema.Schema<CommandInvocation, JsonValue>
     readonly output: Schema.Schema<Dispatched<A>, unknown>
     readonly dispatch: (invocation: CommandInvocation) => Effect.Effect<Dispatched<A>, ParseResult.ParseError | Wire.Fault>
     readonly bytes: (octets: Uint8Array) => Effect.Effect<Dispatched<A>, ParseResult.ParseError | Wire.Fault>
@@ -755,13 +732,15 @@ declare namespace Gateway {
   }
 }
 
+// Socket frames carry the invocation as its ProtoJSON tree — the same document the bytes arm reads — so one
+// generated codec serves the byte seam and both socket dialects.
 const _frames = {
-  msgpack: <A>(invocation: Schema.Schema<CommandInvocation, unknown>, output: Schema.Schema<Dispatched<A>, unknown>) =>
+  msgpack: <A>(invocation: Schema.Schema<CommandInvocation, JsonValue>, output: Schema.Schema<Dispatched<A>, unknown>) =>
     (socket: Socket.Socket): Gateway.Duplex<A> =>
     MsgPack.duplexSchema({ inputSchema: output, outputSchema: invocation })(
       Socket.toChannel<MsgPack.MsgPackError | ParseResult.ParseError>(socket),
     ),
-  ndjson: <A>(invocation: Schema.Schema<CommandInvocation, unknown>, output: Schema.Schema<Dispatched<A>, unknown>) =>
+  ndjson: <A>(invocation: Schema.Schema<CommandInvocation, JsonValue>, output: Schema.Schema<Dispatched<A>, unknown>) =>
     (socket: Socket.Socket): Gateway.Duplex<A> =>
     Ndjson.duplexSchema({ inputSchema: output, outputSchema: invocation })(
       Socket.toChannel<Ndjson.NdjsonError | ParseResult.ParseError>(socket),
@@ -782,9 +761,6 @@ const _emitted = <A>(exit: Exit.Exit<Dispatched<A>, ParseResult.ParseError | Wir
           }),
     onSuccess: (outcome) => outcome._tag,
   })
-
-const _command = <const K extends string, B extends Invoke.Payload>(key: K, payload: Schema.Schema<B, unknown>) =>
-  Schema.Struct({ key: Schema.Literal(key), payload }).pipe(Schema.compose(CommandInvocation, { strict: false }))
 
 const _make = <
   const Kinds extends readonly [string, ...string[]],
@@ -807,7 +783,9 @@ const _make = <
         return [key, compiled] as const
       }),
     )
-    const invocation = Schema.Union(...Array.map(keys, (key) => _command(key, rows[key].invocation)))
+    // ONE decoder for every verb: the verb roster gates at `dispatch`, where an unrostered key is the `drift` fault
+    // below, so the invocation schema admits the generated message and re-spells no per-verb union beside it.
+    const invocation: Schema.Schema<CommandInvocation, JsonValue> = Format.proto.json(CommandInvocation)
     const output: Schema.Schema<Dispatched<A[Kinds[number]]>, unknown> = Schema.Union(...Array.map(keys, (key) => Schema.Union(
       Schema.Struct({ _tag: Schema.Literal("Granted"), verb: Schema.Literal(key), receipt: rows[key].output }),
       Schema.Struct({ _tag: Schema.Literal("Refused"), verb: Schema.Literal(key), verdict: Evidence.Availability.Verdict }),
@@ -817,7 +795,7 @@ const _make = <
         yield* Effect.annotateCurrentSpan(Convention.rasm.gatewayVerb, command.key)
         const row = yield* Option.match(HashMap.get(table, command.key), {
           onNone: () => Effect.fail(new Wire.Fault({
-            family: "CommandPayloadWire",
+            family: "CommandInvocation",
             case: { reason: "drift", divergence: { subject: "verb", key: command.key } },
           })),
           onSome: Effect.succeed,
@@ -835,7 +813,7 @@ const _make = <
       invocation,
       output,
       dispatch,
-      bytes: (octets) => Effect.flatMap(Schema.decodeUnknown(Format.json.schema(invocation))(octets), dispatch),
+      bytes: (octets) => Effect.flatMap(Schema.decodeUnknown(Format.proto.frame(CommandInvocation, "json"))(octets), dispatch),
       serve: (socket, frame) => Effect.gen(function* () {
         yield* Effect.makeSpanScoped("gateway/serve", { attributes: { [Convention.rasm.gatewayFrame]: frame } })
         const responses = yield* Queue.bounded<Dispatched<A[Kinds[number]]>>(Shape.Ingress.floor.frames)
@@ -869,8 +847,16 @@ const Invoke = {
 } as const
 
 declare namespace Invoke {
-  type Payload = Schema.Schema.Type<typeof CommandPayload>
-  type Invocation = InstanceType<typeof CommandInvocation>
+  namespace Dial {
+    type AdapterKind = _DialAdapterKind
+    type Adapter<K extends AdapterKind> = _DialAdapter<K>
+    type Config = _DialConfig
+    type Lane = _DialLane
+    type Policy = _DialPolicy
+    type Seam = _DialSeam
+  }
+  type Payload = CommandPayload
+  type Invocation = CommandInvocation
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

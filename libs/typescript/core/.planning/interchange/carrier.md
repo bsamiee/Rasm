@@ -2,14 +2,14 @@
 
 W3C propagation crosses the interchange plane as ONE typed `traceparent`/`tracestate`/`baggage` value, total parse/print folds, `rasm.tenant` promotion, a closed transport table, and the Connect `-bin` typed-metadata lane. HTTP, Connect, NATS, MQTT v5, CloudEvents, and Kafka inject and extract through one codec. Malformed input folds to absence under the restart posture, while ordered, bounded folds keep output byte-stable. Module `core/src/interchange/carrier.ts` admits a transport as one dialect row, a baggage axis as one member key, and a typed family as one name row.
 
-One module seats both owners, since a message envelope's extension slot IS a carrier frame. `Carrier` composes only the `value` floor's `Identity.Tenant` and hands dialect frames to the runtime wave as data. `Event` composes `Digest.Key`, `observe`'s severity vocabulary, and the `cloudevents` message-envelope class, then publishes the grammar, the roster, and the ONE mint entry every producer reaches. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
+One module seats both owners, since a message envelope's extension slot IS a carrier frame. `Carrier` composes only the `value` floor's `Identity.Tenant` and hands dialect frames to the runtime wave as data. `Event` composes `Digest.Key`, the local classification policy, and the `cloudevents` message-envelope class, then publishes the generic admission bridge and the Rasm profile's grammar, generated extension roster, and mint. Kafka, NATS, MQTT, and CloudEvents realize their rows, while `interchange/invoke` composes Connect. Frame values recover the dialect discriminant, so one mapped handler record owns dispatch.
 
 ## [01]-[INDEX]
 
 - [02]-[CONTEXT_VALUE]: typed triple, brands, total parse/print folds, span lift; `Carrier`.
 - [03]-[TENANT_BAGGAGE]: `rasm.tenant` promotion and scoped recovery decode; `Carrier`.
 - [04]-[DIALECT_TABLE]: closed frame rows, inject/extract dispatch, `-bin` typed-metadata lane; `Carrier`.
-- [05]-[EVENT_ENVELOPE]: attribute grammar, closed extension roster, and the mint and read pair; `Event`.
+- [05]-[EVENT_ENVELOPE]: generic SDK admission and generated protobuf bridge beside the closed Rasm profile; `Event`.
 
 ## [02]-[CONTEXT_VALUE]
 
@@ -17,11 +17,12 @@ One module seats both owners, since a message envelope's extension slot IS a car
 - Law: Malformed parents restart; invalid state or baggage members drop independently, and every drop RETURNS as a `Fault.Drop` occurrence.
 - Law: Baggage properties prove delimiter-safe W3C grammar before entering context.
 - Law: Baggage admits 64 members, 4096 encoded bytes per member, and 8192 encoded bytes total.
-- Law: Version `ff`, invalid version-zero flags, extensions on version zero, and all-zero identities refuse.
-- Law: Parent print emits the supported version-zero spelling and sampled flag.
+- Law: Version `ff`, extensions on version zero, and all-zero identities refuse; current sampled/random flag bits are retained and reserved input bits are ignored as the W3C receiver rule requires.
+- Law: Parent print emits the supported version-zero spelling with sampled and random-trace-id flags, clearing every input bit this implementation does not understand.
 - Law: `_stateRows` enforces grammar, first-key-wins uniqueness, member count, and aggregate text bounds in one fold, each arm naming its own drop reason.
 - Law: Baggage print uses Effect `Encoding` before member and aggregate encoded-byte admission.
 - Law: `Carrier.span` lifts structural span fields; `Carrier.Current` scopes ingress; `Carrier.current` overlays the live parent and preserves lists.
+- Tests: version-zero flags `00` through `03` preserve sampled/random bits, reserved bits admit then clear on print, version-zero extension tails refuse, higher-version tails admit, and `ff`/all-zero identities refuse.
 - Growth: a new context list (a fourth W3C header) is one field on the triple with its parse/print row; a new parse bound is one `_CEILING` field.
 - Boundary: Tracer owns the live span; data owns persisted contexts; `Carrier` owns pure context values and folds.
 - Packages: `effect` (`Array`, `Effect`, `Either`, `Encoding`, `Option`, `Schema`, `String`, `pipe`); `../value/fault.ts` (`Fault.Drop`, `Fault.Ledger`); `../value/identity.ts` (`Identity.Tenant`).
@@ -30,7 +31,7 @@ One module seats both owners, since a message envelope's extension slot IS a car
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
 import type { Wire } from "./codec.ts" // type-only: the census family union, carrying no runtime edge to the codec owner
 import { Headers, HttpTraceContext } from "@effect/platform"
-import { Array, Context, Effect, Either, Encoding, Option, Predicate, Record, Schema, String, pipe } from "effect"
+import { Array, Context, Effect, Either, Encoding, HashSet, Option, ParseResult, Predicate, Record, Schema, String, pipe } from "effect"
 import { Convention } from "../observe/convention.ts"
 import { Fault } from "../value/fault.ts"
 import { Identity } from "../value/identity.ts"
@@ -44,6 +45,7 @@ class Traceparent extends Schema.Class<Traceparent>("Traceparent")({
   traceId: _TraceId,
   spanId: _SpanId,
   sampled: Schema.Boolean,
+  random: Schema.Boolean,
 }) {}
 
 const _PARENT = /^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})(-.+)?$/
@@ -64,10 +66,11 @@ const _encodeUri = (value: string): Option.Option<string> => Either.getRight(Enc
 const _parent = (text: string): Option.Option<Traceparent> =>
   pipe(
     Option.fromNullable(_PARENT.exec(String.trim(text))),
-    Option.filter(([, version, , , flags, extension]) =>
-      version !== "ff" && (version !== "00" || (extension === undefined && (flags === "00" || flags === "01")))),
+    Option.filter(([, version, , , , extension]) =>
+      version !== "ff" && (version !== "00" || extension === undefined)),
     Option.flatMap(([, , traceId, spanId, flags]) =>
-      _decodedParent({ traceId, spanId, sampled: (Number.parseInt(flags ?? "00", 16) & 1) === 1 })),
+      pipe(Number.parseInt(flags ?? "00", 16), (bits) =>
+        _decodedParent({ traceId, spanId, sampled: (bits & 1) === 1, random: (bits & 2) === 2 }))),
   )
 
 // Property tails re-print verbatim, so grammar is admission: a malformed tail drops here exactly as a malformed
@@ -175,7 +178,7 @@ const _baggage = (text: string): Carrier.Sifted<ReadonlyArray<Carrier.Member>> =
       )
 
 const _printedParent = (parent: Traceparent): string =>
-  `00-${parent.traceId}-${parent.spanId}-${parent.sampled ? "01" : "00"}`
+  `00-${parent.traceId}-${parent.spanId}-${(Number(parent.sampled) | (Number(parent.random) << 1)).toString(16).padStart(2, "0")}`
 
 // Print re-applies the SAME admission to material the CALLER already holds, so its discards need no census here: the
 // caller reads them off `Carrier.parse` over its own text, and every transport row states the forfeiture on `degrade`.
@@ -218,6 +221,7 @@ const _printedBaggage = (members: ReadonlyArray<Carrier.Member>): string =>
 - Owner: `promote` upserts `Identity.Tenant`; `tenant` decodes it through `Identity.Tenant.FromScope`.
 - Law: `promote` replaces `rasm.tenant` with `Identity.Tenant.scope`, reserves its slot, and enforces member and byte ceilings.
 - Law: `Identity.Tenant.FromScope` re-proves both key alphabets; malformed scope folds to `Option.none`.
+- Law: `withoutTenant` removes only the promoted tenant member when a transport authenticates no tenant inverse; the remaining baggage and its occurrence evidence survive unchanged.
 - Law: Resource stamping and propagation carry the same identity value.
 - Growth: a second promoted axis (a deployment ring, a request class) is one member-key constant with its promote/read pair beside this one.
 - Boundary: `Dial.Ambient` holds fiber tenancy; security consumes the recovered `Identity.Tenant`.
@@ -256,6 +260,11 @@ const _tenant = (context: Carrier.Context): Option.Option<Identity.Tenant> =>
     Array.findFirst(context.baggage, (member) => member.key === _TENANT),
     (member) => _decodedTenant(member.value),
   )
+
+const _withoutTenant = (context: Carrier.Context): Carrier.Context => ({
+  ...context,
+  baggage: Array.filter(context.baggage, (member) => member.key !== _TENANT),
+})
 ```
 
 ## [04]-[DIALECT_TABLE]
@@ -334,6 +343,7 @@ declare namespace Carrier {
     readonly empty: Context
     readonly extract: <K extends Dialect>(dialect: K, frame: Frame[K]) => Extraction
     readonly inject: <K extends Dialect>(dialect: K, context: Context, frame: Frame[K]) => Frame[K]
+    readonly keys: typeof _KEYS
     readonly record: {
       readonly read: (headers: RecordHeaders) => Frame["kafka"]
       readonly write: (frame: Frame["kafka"]) => Record.ReadonlyRecord<string, string>
@@ -351,6 +361,7 @@ declare namespace Carrier {
     readonly promote: (context: Context, tenant: Identity.Tenant) => Context
     readonly span: (span: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }) => Context
     readonly tenant: (context: Context) => Option.Option<Identity.Tenant>
+    readonly withoutTenant: (context: Context) => Context
   }
   type _Rows<T extends { readonly [K in Dialect]: Row<Frame[K]> } = typeof _dialects> = T
 }
@@ -515,7 +526,8 @@ const _current: Effect.Effect<Carrier.Context> = Effect.map(
 
 const _span = (span: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }): Carrier.Context => ({
   ..._empty,
-  parent: _decodedParent({ traceId: span.traceId, spanId: span.spanId, sampled: span.sampled }),
+  // Effect exposes sampled but not W3C's generation provenance, so a live span cannot assert the random flag.
+  parent: _decodedParent({ traceId: span.traceId, spanId: span.spanId, sampled: span.sampled, random: false }),
 })
 
 const Carrier: Carrier.Shape = {
@@ -533,61 +545,111 @@ const Carrier: Carrier.Shape = {
   empty: _empty,
   extract: _extract,
   inject: _inject,
+  keys: _KEYS,
   record: _record,
   parse: { baggage: _baggage, traceparent: _parent, tracestate: _state },
   print: { baggage: _printedBaggage, traceparent: _printedParent, tracestate: _printedState },
   promote: _promote,
   span: _span,
   tenant: _tenant,
+  withoutTenant: _withoutTenant,
 }
 ```
 
 ## [05]-[EVENT_ENVELOPE]
 
-- Owner: `Event` owns the attribute grammar, the closed extension roster, the branch's ONE mint entry, and the typed read.
-- Owner: `_classes` closes the handling grades `dataclassification` names, carrying the redaction and broker-crossing gate each binding row reads.
-- Law: `mint` supplies `id`, `time`, and `specversion` at every call, so the package never reaches `uuid.v4()` or the wall clock from a constructor no `Clock` or `Random` service enters.
-- Law: `mint` catches `TypeError`, since `ValidationError` extends it and the package's cross-version guard throws the base class alone.
+- Owner: `Event.admit` and `Event.mint` are the strict SDK boundary; `Event.rasm` owns the estate profile without narrowing generic CloudEvents.
+- Owner: `Event.schema` is the semantic Schema boundary; consumers may add generation metadata but never another predicate or admission transform over a CloudEvents envelope.
+- Owner: `Event.fromProto` and `Event.toProto` are the generated-message ↔ SDK semantic bridge; `Event.format.protobuf` owns publisher Protobuf single/batch octets and `Event.format.json` owns JSON, each with strict admission once for every binding.
+- Entry: `_eventProtobuf` is the publisher-Protobuf semantic adapter published as `Event.format.protobuf`; `Event.fromProto` and `Event.toProto` preserve the generated publisher message semantics on either side of it.
+- Owner: `_gradePolicy` is the Rasm profile's one closed classification policy over the standard open-string `dataclassification` extension; the generated contract owns the extension's spelling and validation, not the estate policy.
+- Law: generic `mint` supplies `id` and `specversion` and preserves optional CloudEvents `time`; Rasm mint requires `Fact.time`. Neither path reaches `uuid.v4()` or the wall clock from a constructor no `Clock` or `Random` enters.
+- Law: SDK construction remains strict on mint and admission; admission refuses absent `id` or `specversion` before the SDK can synthesize either, rejects non-v1 events the SDK reports as merely false, and keeps malformed required attributes or non-absolute `dataschema` values on `EventRefusal`.
+- Law: raw `data` and `data_base64` are exclusive. Admission decodes the base64 arm into canonical `Uint8Array` before SDK construction and repairs binding-produced non-byte typed arrays from that authoritative arm.
 - Law: `mint` writes the addressed attributes AFTER the injected carrier record, so a peer's `traceparent` can never shadow an addressed attribute.
-- Law: `type` reads `rasm.<domain>.<subject>.<fact>.v<N>` and its `<domain>` segment CLOSES against `Convention.domain`, so an announced fact and a board join one vocabulary by proof rather than by prose; `v<N>` moves only with a breaking `dataschema` generation, and `deprecation` names a superseding `type` through the same refinement.
-- Law: `id` is the producer's operation identity and never a digest, so `(source, id)` is the uniqueness composite every dedup and idempotency key reads.
-- Law: `subject` and `dataref` publish the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched, so an externalized payload's reference IS the digest its residence resolves and one spelling crosses every peer.
+- Law: the Rasm profile admits `rasm.<domain>.<subject>.<fact>.v<N>` only when `<domain>` is a `Convention.domain` capability; event-type evolution remains independent of the payload-schema URI.
+- Law: generic admission delegates the required `source` URI-reference to the strict SDK; `Event.rasm.source(type, capability)` derives the profile's absolute `rasm:<domain>/<capability>` identity from two admitted axes, and `Fact` requires only that source and type share their domain. The event-type subject never re-authors producer capability.
+- Law: `id` is the producer's operation identity and never a digest, so `(source, id)` is the uniqueness composite every dedup and idempotency key reads. `Event.address` length-frames those UTF-8 arms and digests the frame into the bounded branch coordinate; transports and ingress consume that one mint rather than maintaining private concatenations.
+- Law: `subject` publishes the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched. Generated `dataref` remains the standard open URI-reference on generic and Rasm events; core validates and preserves the attribute but owns no residence, authorization, dereference, or inline/reference equality policy. A binding that spends it composes the data plane's confined capability before application settlement.
 - Law: `datacontenttype` and `dataschema` arrive as row data off the caller's serdes arrow; a literal at either field states a payload encoding the arrow already decided.
-- Law: the roster IS the name ceiling — every row conforms to `[a-z0-9]` within 20 characters by declaration, since the package proves the alphabet alone and only names the ceiling inside the message it throws.
-- Law: `read` decodes the whole roster on every call and returns every unrostered peer name as a `Fault.Drop` occurrence, dropping it rather than faulting the message.
-- Law: `severity` admits the one branch severity vocabulary, so an announced fact's grade routes through the same rows an objective's burn does.
-- Law: `signed` marks every row the DSSE digest folds; `dssematerial` is the one exclusion, because a signature cannot cover the attribute carrying it.
-- Law: roster declaration order IS the published canonical digest order, alphabetical so three branches transcribe one sequence rather than each sorting its own map at signing time.
-- Law: binding and content-mode selection stays typed data at the consuming seat, since `emitterFor` reads both off an unchecked options bag where a misspelled key silently takes its HTTP-binary default.
-- Growth: an extension is one `_extensionRows` row; a handling grade is one `_classRows` row; an addressed attribute is one `Fact` field with its projection.
-- Boundary: bindings, content modes, batch framing, filters, and subscriptions seat at their consuming packages; this cluster owns the message envelope, the roster, and the grammar alone.
-- Packages: `cloudevents` (`CloudEvent`, `CloudEventV1`, `V1`); `effect`; `../observe/convention.ts` (`Convention`); `../observe/slo.ts` (`Reliability`); `../value/contentKey.ts` (`Digest`); `../value/fault.ts` (`Fault`); `../value/schema.ts` (`Shape`).
+- Law: `ExtensionsSchema` is the only extension roster and validator; mint and read cross its generated ProtoJSON mapping through `Format.proto`, so no field schema or name table exists here.
+- Law: descriptor field kinds project a validated extension message into SDK-native scalars, bytes, timestamps, and generated enum names; ProtoJSON remains the inverse admission mapping, never the in-memory extension type model.
+- Law: `read` decodes the whole generated message on every call and returns every unrostered peer name as a `Fault.Drop` occurrence, dropping it rather than faulting the message.
+- Law: Protobuf conversion reads every official attribute-value arm; egress accepts the SDK-native scalar kinds plus binary data, text data, or `Any`, and refuses arbitrary payloads.
+- Law: the publisher descriptor derives the SDK core-property set used by conversion and drop census; no hand core roster can misclassify a later publisher field as an extension.
+- Law: the generated codec is the lossless Protobuf wire surface; the SDK bridge keeps URI and URI-reference arm provenance in a private `WeakMap` keyed by the admitted SDK envelope, and `Event.clone` propagates only that publisher-owned oneof fact. Decode then encode therefore preserves every generic URI arm without a second envelope object, while newly minted SDK strings still derive their arm from the addressed core/profile fields.
+- Growth: an extension changes `event.proto`; a Rasm handling grade changes the single policy projection here; an addressed attribute is one `Fact` field.
+- Tests: strict mint/admit reject synthesized required identity, non-v1 events, malformed source, and relative `dataschema`; the Rasm profile admits distinct type-subject/source-capability pairs in one rostered domain, refuses unrostered or mismatched domains, dual body arms, malformed `dataref`, and an unrostered `dataclassification`; base64 admission lands exact `Uint8Array`; generated conversion covers all seven attribute arms, preserves generic URI-arm identity through repository-owned clones, binary/text/`Any` data, batch members, unsupported-data refusal, and structural-then-semantic refusal.
+- Boundary: binding and media routing seat at runtime; this cluster owns strict SDK admission, generated conversion, the Rasm profile, and no transport.
+- Packages: `cloudevents`; `@bufbuild/protobuf`; `effect`; generated CloudEvents and estate event modules; `./format.ts`; `../value/contentKey.ts`; `../value/fault.ts`.
 
 ```typescript signature
 import { CloudEvent, type CloudEventV1, V1 } from "cloudevents"
-import { DateTime, type ParseResult } from "effect"
-import { Reliability } from "../observe/slo.ts"
+import { isMessage, type MessageInitShape, type MessageShape, type MessageValidType } from "@bufbuild/protobuf"
+import {
+  CloudEvent_CloudEventAttributeValueSchema,
+  CloudEventBatchSchema,
+  CloudEventSchema,
+} from "@rasm\/contracts/io/cloudevents/v1/cloudevents_pb"
+import { ExtensionsSchema } from "@rasm\/contracts/rasm/contracts/event/v1/event_pb"
+import { AnySchema, TimestampSchema, timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt"
+import { DateTime } from "effect"
+import { Format } from "./format.ts"
 import { Digest } from "../value/contentKey.ts"
-import { Shape } from "../value/schema.ts"
 
-// `<domain>` is the capability subject `Convention` fixes for metric names, so a board and a subscription read one
-// vocabulary; `<fact>` reads past tense and `v<N>` moves only with a breaking `dataschema` generation.
-const _TYPE = /^rasm\.([a-z0-9]+)\.[a-z0-9]+\.[a-z0-9]+\.v[1-9][0-9]*$/
-const _SEQUENCE = /^-?(0|[1-9][0-9]*)$/
+// Type subject and producer capability are independent axes inside one Convention-owned capability domain; `<fact>`
+// reads past tense and `v<N>` versions the event contract independently of its payload schema.
+const _SEGMENT = "[a-z0-9]+(?:-[a-z0-9]+)*"
+const _TYPE = new RegExp(`^rasm\\.(${_SEGMENT})\\.(${_SEGMENT})\\.(${_SEGMENT})\\.v[1-9][0-9]*$`)
+const _SOURCE = new RegExp(`^rasm:(${_SEGMENT})/(${_SEGMENT})$`)
 
-// Grammar alone proves the SHAPE; closing the domain segment against the roster is what makes the join a fact rather
-// than a claim, so a type naming a segment no capability mints refuses at the mint instead of reaching a subscription
-// that keys on it and a board that can never answer it.
+const _typeDomain = (type: string): string => {
+  const matched = _TYPE.exec(type)
+  return matched?.[1] ?? ""
+}
+const _eventDomains = HashSet.fromIterable<string>(Record.keys(Convention.domain))
 const _EVENT_TYPE = Schema.String.pipe(
   Schema.pattern(_TYPE),
-  Schema.filter((type: string) => Record.has(Convention.domain, _TYPE.exec(type)?.[1] ?? ""), {
-    message: () => "<type-domain-unrostered>",
-  }),
+  Schema.filter((type) => HashSet.has(_eventDomains, _typeDomain(type)) || "<unrostered-event-domain>"),
+)
+const _EVENT_CAPABILITY = Schema.String.pipe(Schema.pattern(new RegExp(`^${_SEGMENT}$`)))
+const _EVENT_SOURCE = Schema.String.pipe(
+  Schema.pattern(_SOURCE),
+  Schema.brand("EventSource"),
+)
+const _sourceDomain = (source: string): string => {
+  const matched = _SOURCE.exec(source)
+  return matched?.[1] ?? ""
+}
+const _source = (type: string, capability: string) =>
+  Effect.flatMap(
+    Effect.all({
+      type: Schema.decode(_EVENT_TYPE)(type),
+      capability: Schema.decode(_EVENT_CAPABILITY)(capability),
+    }),
+    (admitted) => Schema.decode(_EVENT_SOURCE)(`rasm:${_typeDomain(admitted.type)}/${admitted.capability}`),
+  )
+
+const _datarefName = Option.map(
+  Array.findFirst(ExtensionsSchema.fields, (field) => field.name === "dataref"),
+  (field) => field.localName,
 )
 
-// BOUNDARY MAPPING: the event wire carries the content key in 32 LOWERCASE hex, because the C# `EventKey` renders
-// `x32` and the python `WireKey` admits `[0-9a-f]{32}` — one spelling reaches a `subject` join, a `dataref` tail, and
-// a dedup key, all compared as text. `Digest.codecs.content` ENCODES upper for the interchange frame, so mapping here
+const _addressUtf8 = new TextEncoder()
+const _addressTag = _addressUtf8.encode("rasm:event-address:v1")
+const _address = (envelope: CloudEventV1<unknown>): Effect.Effect<Digest.Key<"content">> => {
+  const source = _addressUtf8.encode(envelope.source)
+  const id = _addressUtf8.encode(envelope.id)
+  const lengths = new Uint8Array(8)
+  const view = new DataView(lengths.buffer)
+  view.setUint32(0, source.byteLength)
+  view.setUint32(4, id.byteLength)
+  return Digest.mint("content", [_addressTag, lengths, source, id])
+}
+
+// BOUNDARY MAPPING: the event wire carries the content key in 32 LOWERCASE hex, because C# `ContentHash.Hex` renders
+// `x32` and the python `WireKey` admits `[0-9a-f]{32}` — one spelling reaches a `subject` join and a dedup key, both
+// compared as text. `Digest.codecs.content` ENCODES upper for the interchange frame, so mapping here
 // keeps the shared codec's own spelling intact; re-casing that row respells every appearance address the corpus
 // already froze. Decode lowercases exactly as the shared codec does, so the branded key stays one value.
 const _EVENT_KEY = Schema.transform(Schema.String.pipe(Schema.pattern(/^[0-9a-f]{32}$/)), Digest.Key.content, {
@@ -596,71 +658,39 @@ const _EVENT_KEY = Schema.transform(Schema.String.pipe(Schema.pattern(/^[0-9a-f]
   encode: (key) => key.toLowerCase(),
 })
 
-const _classKinds = ["public", "internal", "restricted", "secret"] as const
-const _classRows = {
+const _gradePolicy = {
   public: { redact: false, broker: true },
   internal: { redact: false, broker: true },
   restricted: { redact: true, broker: true },
-  // Secret payloads cross no broker at all: a binding refuses this grade at admission and ships the `dataref`
-  // alone, so the classification gate is a row a binding reads rather than a check it re-implements.
   secret: { redact: true, broker: false },
+} as const satisfies Record<string, {
+  readonly redact: boolean
+  readonly broker: boolean
+}>
+
+type _EventClass = keyof typeof _gradePolicy
+const _classKinds = Record.keys(_gradePolicy)
+const _isClass = (value: string): value is _EventClass =>
+  Record.has(_gradePolicy, value)
+const _Class = Schema.String.pipe(Schema.filter(_isClass, { message: () => "<unrostered-data-grade>" }))
+const _classes = {
+  kinds: _classKinds,
+  schema: _Class,
+  at: (name: _EventClass) => _gradePolicy[name],
 } as const
-const _classes = Shape.vocabulary(_classKinds, _classRows)
 
-const _extensionNames = [
-  "authcontext", "baggage", "correlation", "dataclassification", "dataref", "deprecation", "dssematerial",
-  "expirytime", "partitionkey", "recordedtime", "sampledrate", "sequence", "sequencetype", "severity",
-  "traceparent", "tracestate",
-] as const
-
-// Declaration order IS the published canonical order the DSSE digest folds, spelled alphabetically so the C# and
-// Python rosters transcribe one sequence instead of each sorting an unordered map at its own signing seam.
-const _extensionRows = {
-  authcontext: { admit: Schema.NonEmptyString, signed: true },
-  baggage: { admit: Schema.String, signed: true },
-  correlation: { admit: Schema.NonEmptyString, signed: true },
-  dataclassification: { admit: _classes.schema, signed: true },
-  dataref: { admit: _EVENT_KEY, signed: true },
-  deprecation: { admit: _EVENT_TYPE, signed: true },
-  // No signature covers the attribute carrying it, so this row is the roster's ONE digest exclusion.
-  dssematerial: { admit: Schema.Uint8ArrayFromBase64, signed: false },
-  expirytime: { admit: Schema.DateTimeUtc, signed: true },
-  partitionkey: { admit: Schema.NonEmptyString, signed: true },
-  recordedtime: { admit: Schema.DateTimeUtc, signed: true },
-  sampledrate: { admit: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)), signed: true },
-  sequence: { admit: Schema.String.pipe(Schema.pattern(_SEQUENCE)), signed: true },
-  // Exactly one sequence domain is registered, so the value is a literal rather than an open string.
-  sequencetype: { admit: Schema.Literal("Integer"), signed: true },
-  severity: { admit: Reliability.Alert.Severity.schema, signed: true },
-  // W3C context arrives and leaves through the dialect row's own folds; these rows admit the printed text and
-  // leave the parse to `Carrier.parse`, so no second grammar exists beside it.
-  traceparent: { admit: Schema.String, signed: true },
-  tracestate: { admit: Schema.String, signed: true },
-} as const
-const _extensions = Shape.vocabulary(_extensionNames, _extensionRows)
-
-// Each reason renders its OWN subject, so the attribute column stops riding an `Option` that only the envelope arm
-// ever leaves empty: an attribute refusal NAMES its attribute by declaration and an envelope refusal has no attribute
-// to name. `attribute` grades `invalid` because the value refused the schema its own roster row declares, while
-// `extension` grades `malformed` because the NAME reached a roster that holds no row for it.
-const _refusals = Fault.Class.family(["attribute", "envelope", "extension"] as const, {
-  attribute: Fault.Class.row({
-    class: "invalid",
-    leg: "admission",
-    detail: Schema.Struct({ attribute: Schema.NonEmptyString, issue: Schema.NonEmptyString }),
-    render: ({ attribute, issue }) => `${attribute} refused the schema its roster row declares — ${issue}`,
-  }),
+type _EventExtension = Exclude<keyof MessageValidType<typeof ExtensionsSchema>, "$typeName">
+const _isExtension = (name: string): name is _EventExtension =>
+  Array.some(ExtensionsSchema.fields, (field) => field.localName === name)
+const _extensionNames = Array.filter(Array.map(ExtensionsSchema.fields, (field) => field.localName), _isExtension)
+const _extensionSet = HashSet.fromIterable<string>(_extensionNames)
+const _extensions = { kinds: _extensionNames, is: _isExtension } as const
+const _refusals = Fault.Class.family(["envelope"] as const, {
   envelope: Fault.Class.row({
     class: "invalid",
-    leg: "mint",
-    detail: Schema.Struct({ issue: Schema.NonEmptyString }),
-    render: ({ issue }) => `envelope construction refused — ${issue}`,
-  }),
-  extension: Fault.Class.row({
-    class: "malformed",
     leg: "admission",
-    detail: Schema.Struct({ attribute: Schema.NonEmptyString, issue: Schema.NonEmptyString }),
-    render: ({ attribute, issue }) => `${attribute} names no rostered extension — ${issue}`,
+    detail: Schema.Struct({ issue: Schema.NonEmptyString }),
+    render: ({ issue }) => `event envelope refused — ${issue}`,
   }),
 })
 
@@ -675,126 +705,497 @@ class EventRefusal extends Schema.TaggedError<EventRefusal>()("EventRefusal", {
   }
 }
 
-class Fact extends Schema.Class<Fact>("Event.Fact")({
+const _refused = (issue: unknown): EventRefusal =>
+  new EventRefusal({ case: { reason: "envelope", issue: String(issue) } })
+
+const _strict = (envelope: unknown): Effect.Effect<CloudEvent<unknown>, EventRefusal> => {
+  if (
+    !Predicate.isRecord(envelope)
+    || !Object.hasOwn(envelope, "id")
+    || !Predicate.isString(envelope.id)
+    || envelope.id.length === 0
+    || !Object.hasOwn(envelope, "specversion")
+    || envelope.specversion !== V1
+  ) return Effect.fail(_refused("<required-attributes-must-be-explicit>"))
+  if (!(envelope instanceof CloudEvent) && Object.hasOwn(envelope, "data") && Object.hasOwn(envelope, "data_base64")) {
+    return Effect.fail(_refused("<data-and-data_base64-are-exclusive>"))
+  }
+  const canonical = Predicate.isString(envelope.data_base64) && !(envelope.data instanceof Uint8Array)
+    ? Effect.mapError(
+      Effect.map(Effect.fromEither(Encoding.decodeBase64(envelope.data_base64)), (data) => ({
+        ...envelope,
+        data,
+        data_base64: undefined,
+      })),
+      _refused,
+    )
+    : Effect.succeed(envelope)
+  return Effect.flatMap(canonical, (offered) => Effect.try({
+      try: () => {
+        const admitted = new CloudEvent<unknown>(offered as Partial<CloudEventV1<unknown>>, true)
+        return envelope instanceof CloudEvent && offered === envelope ? envelope : admitted
+      },
+      catch: _refused,
+    }))
+}
+
+const _admit = (envelope: unknown): Effect.Effect<CloudEvent<unknown>, EventRefusal> => _strict(envelope)
+const _mintEvent = <T>(attributes: CloudEventV1<T>): Effect.Effect<CloudEvent<unknown>, EventRefusal> => _strict(attributes)
+
+class _Fact extends Schema.Class<_Fact>("Event.Fact")({
   // Brands refine IN PLACE, so no branded scalar exports beside the owner that admits it.
   id: Schema.NonEmptyString.pipe(Schema.brand("EventId")),
-  source: Schema.NonEmptyString.pipe(Schema.brand("EventSource")),
+  source: _EVENT_SOURCE,
   type: _EVENT_TYPE.pipe(Schema.brand("EventType")),
   time: Schema.DateTimeUtc,
   subject: Schema.optionalWith(_EVENT_KEY, { as: "Option" }),
-  dataschema: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-  datacontenttype: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  dataschema: Schema.optionalWith(Schema.URL, { as: "Option" }),
+  datacontenttype: Schema.optionalWith(Format.event.Media, { as: "Option" }),
   data: Schema.Unknown,
 }) {}
 
+const Fact = _Fact.pipe(
+  Schema.filter((fact) =>
+    _sourceDomain(fact.source) === _typeDomain(fact.type) || "<source-and-type-domain-must-agree>"),
+)
+
 declare namespace Event {
-  type Class = (typeof _classKinds)[number]
-  type ClassRow = (typeof _classRows)[Class]
-  type Extension = (typeof _extensionNames)[number]
-  type Value<Name extends Extension> = Schema.Schema.Type<(typeof _extensionRows)[Name]["admit"]>
-  type Held = { readonly [Name in Extension]?: Value<Name> }
-  type Roster = { readonly [Name in Extension]: Option.Option<Value<Name>> }
+  type Class = _EventClass
+  type ClassRow = ReturnType<typeof _classes.at>
+  type Extension = _EventExtension
+  type Value<Name extends Extension> = NonNullable<Roster[Name]>
+  type Held = Omit<MessageInitShape<typeof ExtensionsSchema>, "dataclassification"> & {
+    readonly dataclassification?: Class
+  }
+  type Roster = Omit<MessageValidType<typeof ExtensionsSchema>, "dataclassification"> & {
+    readonly dataclassification?: Class
+  }
   type Read = { readonly roster: Roster; readonly dropped: ReadonlyArray<Fault.Drop.Fact> }
   type Refusal = EventRefusal
-  type Shape = {
+  type Json = {
+    readonly media: typeof Format.event.json.media
+    readonly single: Schema.Schema<CloudEvent<unknown>, typeof Format.event.json.single.Encoded>
+    readonly batch: Option.Option<{
+      readonly media: string
+      readonly codec: Schema.Schema<ReadonlyArray<CloudEvent<unknown>>, Uint8Array>
+    }>
+  }
+  type Protobuf = {
+    readonly media: typeof Format.event.protobuf.media
+    readonly single: Schema.Schema<CloudEvent<unknown>, Uint8Array>
+    readonly batch: Option.Option<{
+      readonly media: string
+      readonly codec: Schema.Schema<ReadonlyArray<CloudEvent<unknown>>, Uint8Array>
+    }>
+  }
+  type Format = { readonly json: Json; readonly protobuf: Protobuf }
+  type Rasm = {
     readonly Fact: typeof Fact
-    readonly Refusal: typeof EventRefusal
     readonly classes: typeof _classes
     readonly extensions: typeof _extensions
-    readonly digested: ReadonlyArray<Extension> // the signed rows in published order, the DSSE fold's own input
-    readonly mint: (fact: Fact, held: Held, context: Carrier.Context) => Effect.Effect<CloudEvent<unknown>, Refusal>
-    readonly at: <Name extends Extension>(envelope: CloudEventV1<unknown>, name: Name) => Option.Option<Value<Name>>
-    readonly read: (envelope: CloudEventV1<unknown>) => Read
+    readonly source: typeof _source
+    readonly subject: typeof _EVENT_KEY
+    readonly mint: (fact: Schema.Schema.Type<typeof Fact>, held: Held, context: Carrier.Context) => Effect.Effect<CloudEvent<unknown>, Refusal>
+    readonly extend: (envelope: CloudEvent<unknown>, held: Held) => Effect.Effect<CloudEvent<unknown>, Refusal>
+    readonly at: <Name extends Extension>(
+      envelope: CloudEvent<unknown>,
+      name: Name,
+    ) => Effect.Effect<Option.Option<Value<Name>>, Refusal>
+    readonly read: (envelope: CloudEvent<unknown>) => Effect.Effect<Read, Refusal>
+  }
+  type Shape = {
+    readonly Refusal: typeof EventRefusal
+    readonly address: typeof _address
+    readonly admit: typeof _admit
+    readonly clone: typeof _clone
+    readonly fromProto: (
+      wire: MessageValidType<typeof CloudEventSchema>,
+    ) => Effect.Effect<CloudEvent<unknown>, EventRefusal>
+    readonly mint: typeof _mintEvent
+    readonly schema: Schema.Schema<CloudEvent<unknown>, unknown>
+    readonly format: Format
+    readonly rasm: Rasm
+    readonly toProto: (
+      offered: CloudEvent<unknown>,
+    ) => Effect.Effect<MessageValidType<typeof CloudEventSchema>, EventRefusal>
   }
 }
 
-// Each row's codec pair derives at the ONE table where its schema is still concrete, so no call site re-reads a
-// union of schemas and no arm spells its own encode.
-type _Printers = { readonly [Name in Event.Extension]: (value: unknown) => Effect.Effect<unknown, ParseResult.ParseError> }
-type _Readers = { readonly [Name in Event.Extension]: (value: unknown) => Option.Option<Event.Value<Name>> }
-const _printers = Record.map(_extensionRows, (row) => Schema.encodeUnknown(row.admit)) as unknown as _Printers
-const _readers = Record.map(_extensionRows, (row) => Schema.decodeUnknownOption(row.admit)) as unknown as _Readers
+const _extensionMessage = (held: Event.Held) => Format.proto.create(ExtensionsSchema, held)
 
-const _held = (held: Event.Held): Effect.Effect<Record.ReadonlyRecord<string, unknown>, Event.Refusal> =>
-  Effect.map(
-    Effect.forEach(
-      Array.filterMap(_extensionNames, (name) =>
-        Option.map(Option.fromNullable(held[name]), (value) => [name, value] as const)),
-      ([name, value]) =>
-        Effect.mapBoth(_printers[name](value), {
-          onFailure: (issue) =>
-            new EventRefusal({ case: { reason: "attribute", attribute: name, issue: issue.message } }),
-          onSuccess: (encoded) => [name, encoded] as const,
-        }),
-    ),
-    Record.fromEntries,
+const _held = (held: Event.Held): Effect.Effect<Record.ReadonlyRecord<string, unknown>, Event.Refusal> => {
+  if (Option.isNone(_datarefName) && Object.hasOwn(held, "dataref")) {
+    return Effect.fail(_refused("<dataref-descriptor-absent>"))
+  }
+  return Schema.decode(Format.proto.message(ExtensionsSchema))(_extensionMessage(held)).pipe(
+    Effect.flatMap((roster) => Effect.try({
+      try: () => Record.fromEntries(Array.filterMap(ExtensionsSchema.fields, (field) => {
+        if (!_isExtension(field.localName)) return Option.none()
+        const value = roster[field.localName]
+        if (value === undefined) return Option.none()
+        return Option.some([
+          field.localName,
+          isMessage(value, TimestampSchema) ? timestampDate(value) : value,
+        ] as const)
+      })),
+      catch: _refused,
+    })),
+    Effect.mapError(_refused),
   )
+}
+
+type _UriArm = "ceUri" | "ceUriRef"
+type _UriArms = Record.ReadonlyRecord<string, _UriArm>
+const _uriArms = new WeakMap<CloudEvent<unknown>, _UriArms>()
+
+const _rememberUriArms = (envelope: CloudEvent<unknown>, arms: _UriArms): CloudEvent<unknown> => {
+  if (Object.keys(arms).length > 0) _uriArms.set(envelope, arms)
+  return envelope
+}
+
+const _clone = (
+  envelope: CloudEvent<unknown>,
+  changed: Record.ReadonlyRecord<string, unknown>,
+  removed: ReadonlyArray<string> = [],
+): Effect.Effect<CloudEvent<unknown>, Event.Refusal> =>
+  Effect.flatMap(_admit(envelope), (admitted) =>
+    Effect.flatMap(
+      Effect.try({ try: () => admitted.cloneWith(changed, true), catch: _refused }),
+      (cloned) => Effect.map(_admit(removed.length === 0
+        ? cloned
+        : Record.fromEntries(Array.filter(Object.entries(cloned), ([key]) => !Array.contains(removed, key)))), (strict) => {
+        const inherited = _uriArms.get(admitted)
+        return inherited === undefined
+          ? strict
+          : _rememberUriArms(strict, Record.fromEntries(Array.filter(
+            Object.entries(inherited),
+            ([key]) => !Object.hasOwn(changed, key) && !Array.contains(removed, key),
+          )))
+      }),
+    ))
+
+const _extend = (envelope: CloudEvent<unknown>, held: Event.Held): Effect.Effect<CloudEvent<unknown>, EventRefusal> =>
+  Effect.flatMap(_admit(envelope), (admitted) =>
+    Effect.flatMap(_held(held), (extensions) =>
+      _clone(admitted, extensions)))
 
 const _mint = (
-  fact: Fact,
+  fact: Schema.Schema.Type<typeof Fact>,
   held: Event.Held,
   context: Carrier.Context,
 ): Effect.Effect<CloudEvent<unknown>, Event.Refusal> =>
   Effect.flatMap(_held(held), (extensions) =>
-    Effect.try({
-      // Every addressed attribute is supplied: an omitted `id` mints a v4 UUID and an omitted `time` reads the
-      // wall clock, both inside a constructor no service can reach, so absence here is an unowned identity.
-      // Addressed fields land LAST so an injected carrier key cannot shadow one.
-      try: () =>
-        new CloudEvent<unknown>({
-          ...Carrier.inject("cloudevents", context, extensions),
-          ...Record.getSomes({
-            datacontenttype: fact.datacontenttype,
-            dataschema: fact.dataschema,
-            subject: fact.subject,
-          }),
-          data: fact.data,
-          id: fact.id,
-          source: fact.source,
-          specversion: V1,
-          time: DateTime.formatIso(fact.time),
-          type: fact.type,
-        }),
-      // `ValidationError` extends `TypeError` and the specversion guard throws the base class, so the wider
-      // narrowing is the only one keeping both arms on the rail.
-      catch: (caught) =>
-        new EventRefusal({
-          case: { reason: "envelope", issue: caught instanceof Error ? caught.message : String(caught) },
-        }),
+    _mintEvent({
+      ...Carrier.inject("cloudevents", context, extensions),
+      ...Record.getSomes({
+        datacontenttype: fact.datacontenttype,
+        dataschema: Option.map(fact.dataschema, (uri) => uri.href),
+        subject: fact.subject,
+      }),
+      data: fact.data,
+      id: fact.id,
+      source: fact.source,
+      specversion: V1,
+      time: DateTime.formatIso(fact.time),
+      type: fact.type,
     }))
+
+type _Attribute = MessageValidType<typeof CloudEvent_CloudEventAttributeValueSchema>
+type _DecodedAttribute = { readonly value: unknown; readonly uriArm: Option.Option<_UriArm> }
+
+const _attributeDecoded = (attribute: _Attribute): Effect.Effect<_DecodedAttribute, EventRefusal> => {
+  switch (attribute.attr.case) {
+    case "ceBoolean": return Effect.succeed({ value: attribute.attr.value, uriArm: Option.none() })
+    case "ceInteger": return Effect.succeed({ value: attribute.attr.value, uriArm: Option.none() })
+    case "ceString": return Effect.succeed({ value: attribute.attr.value, uriArm: Option.none() })
+    case "ceBytes": return Effect.succeed({ value: attribute.attr.value, uriArm: Option.none() })
+    case "ceUri": return Effect.succeed({ value: attribute.attr.value, uriArm: Option.some("ceUri") })
+    case "ceUriRef": return Effect.succeed({ value: attribute.attr.value, uriArm: Option.some("ceUriRef") })
+    case "ceTimestamp": return Effect.try({
+      try: () => ({ value: timestampDate(attribute.attr.value), uriArm: Option.none() }),
+      catch: _refused,
+    })
+    case undefined: return Effect.fail(_refused("<attribute-value-absent>"))
+  }
+}
+
+const _attributeEncoded = (key: string, value: unknown, uriArm: _UriArm | undefined) => {
+  const attr =
+    uriArm !== undefined && Predicate.isString(value) ? { case: uriArm, value }
+        : Predicate.isBoolean(value) ? { case: "ceBoolean" as const, value }
+        : Predicate.isNumber(value) && Number.isSafeInteger(value) && value >= -2_147_483_648 && value <= 2_147_483_647
+          ? { case: "ceInteger" as const, value }
+          : value instanceof Date
+            ? { case: "ceTimestamp" as const, value: timestampFromDate(value) }
+            : value instanceof Uint8Array
+              ? { case: "ceBytes" as const, value }
+              : value instanceof URL
+                ? { case: "ceUri" as const, value: value.href }
+                : Predicate.isString(value) && key === "time"
+                  ? { case: "ceTimestamp" as const, value: timestampFromDate(new Date(value)) }
+                : Predicate.isString(value) && key === "dataschema"
+                    ? { case: "ceUri" as const, value }
+                    : Predicate.isString(value) && Option.contains(_datarefName, key)
+                      ? { case: "ceUriRef" as const, value }
+                    : Predicate.isString(value)
+                      ? { case: "ceString" as const, value }
+                      : undefined
+  return attr === undefined
+    ? Effect.fail(_refused(`<unsupported-attribute:${key}>`))
+    : Effect.succeed(Format.proto.create(CloudEvent_CloudEventAttributeValueSchema, { attr }))
+}
+
+// Publisher descriptors own the core field roster. Map fields are the generated attribute container rather than an
+// SDK property; oneof members collapse onto their generated oneof name and its SDK JSON base64 companion.
+const _sdkCore = HashSet.fromIterable(Array.flatMap(CloudEventSchema.fields, (field) =>
+  field.fieldKind === "map"
+    ? Array.empty<string>()
+    : field.oneof === undefined
+      ? [field.name.replaceAll("_", "")]
+      : [field.oneof.localName, `${field.oneof.localName}_base64`],
+))
+
+const _attributesDecoded = (
+  attributes: MessageValidType<typeof CloudEventSchema>["attributes"],
+): Effect.Effect<{
+  readonly values: Record.ReadonlyRecord<string, unknown>
+  readonly uriArms: _UriArms
+}, EventRefusal> =>
+  Effect.map(
+    Effect.forEach(
+      Object.entries(attributes),
+      ([key, attribute]) => Effect.map(_attributeDecoded(attribute), ({ value, uriArm }) => ({
+        key,
+        uriArm,
+        value: key === "time" && value instanceof Date ? value.toISOString() : value,
+      })),
+    ),
+    (decoded) => ({
+      values: Record.fromEntries(Array.map(decoded, ({ key, value }) => [key, value] as const)),
+      uriArms: Record.fromEntries(Array.filterMap(decoded, ({ key, uriArm }) =>
+        Option.map(uriArm, (arm) => [key, arm] as const))),
+    }),
+  )
+
+const _attributesEncoded = (
+  envelope: CloudEvent<unknown>,
+): Effect.Effect<Record.ReadonlyRecord<string, MessageShape<typeof CloudEvent_CloudEventAttributeValueSchema>>, EventRefusal> =>
+  pipe(_uriArms.get(envelope), (remembered) => Effect.map(
+    Effect.forEach(
+      Array.filterMap(
+        Object.entries(envelope),
+        ([key, value]) => HashSet.has(_sdkCore, key) || value === undefined
+          ? Option.none()
+          : Option.some([key, value] as const),
+      ),
+      ([key, value]) => Effect.map(
+        _attributeEncoded(key, value, remembered?.[key]),
+        (attribute) => [key, attribute] as const,
+      ),
+    ),
+    Record.fromEntries,
+  ))
+
+const _dataDecoded = (
+  data: MessageValidType<typeof CloudEventSchema>["data"],
+): Effect.Effect<unknown, EventRefusal> => {
+  switch (data.case) {
+    case "binaryData": return Effect.succeed(data.value)
+    case "textData": return Effect.succeed(data.value)
+    case "protoData": return Effect.succeed(data.value)
+    case undefined: return Effect.succeed(undefined)
+  }
+}
+
+const _dataEncoded = (
+  envelope: CloudEvent<unknown>,
+): Effect.Effect<MessageInitShape<typeof CloudEventSchema>["data"], EventRefusal> => {
+  if (Predicate.isString(envelope.data_base64)) {
+    return Effect.mapError(
+      Effect.map(Effect.fromEither(Encoding.decodeBase64(envelope.data_base64)),
+        (value) => ({ case: "binaryData" as const, value })),
+      _refused,
+    )
+  }
+  if (envelope.data === undefined) return Effect.succeed({ case: undefined })
+  if (envelope.data instanceof Uint8Array) {
+    return Effect.succeed({ case: "binaryData", value: envelope.data })
+  }
+  if (Predicate.isString(envelope.data)) return Effect.succeed({ case: "textData", value: envelope.data })
+  if (isMessage(envelope.data, AnySchema)) return Effect.succeed({ case: "protoData", value: envelope.data })
+  return Effect.fail(_refused("<protobuf-data-requires-bytes-text-or-any>"))
+}
+
+const _fromProtobuf = (
+  wire: MessageValidType<typeof CloudEventSchema>,
+): Effect.Effect<CloudEvent<unknown>, EventRefusal> =>
+  Effect.flatMap(
+    Effect.all({ attributes: _attributesDecoded(wire.attributes), data: _dataDecoded(wire.data) }),
+    ({ attributes, data }) => Effect.map(_admit({
+      ...attributes.values,
+      data,
+      id: wire.id,
+      source: wire.source,
+      specversion: wire.specVersion,
+      type: wire.type,
+    }), (envelope) => _rememberUriArms(envelope, attributes.uriArms)),
+  )
+
+const _toProtobuf = (
+  offered: CloudEvent<unknown>,
+): Effect.Effect<MessageValidType<typeof CloudEventSchema>, EventRefusal> =>
+  Effect.flatMap(_admit(offered), (envelope) =>
+    Effect.flatMap(
+      Effect.all({ attributes: _attributesEncoded(envelope), data: _dataEncoded(envelope) }),
+      ({ attributes, data }) => Schema.decode(Format.proto.message(CloudEventSchema))(
+        Format.proto.create(CloudEventSchema, {
+          attributes,
+          data,
+          id: envelope.id,
+          source: envelope.source,
+          specVersion: envelope.specversion,
+          type: envelope.type,
+        }),
+      ).pipe(Effect.mapError(_refused)),
+    ))
+
+const _EventDomain = Schema.declare(
+  (input: unknown): input is CloudEvent<unknown> => input instanceof CloudEvent,
+  { identifier: "CloudEventSdkObject" },
+)
+
+const _eventSchema = Schema.transformOrFail(Schema.Unknown, _EventDomain, {
+  strict: true,
+  decode: (offered, _options, ast) =>
+    Effect.mapError(_admit(offered), (refusal) => new ParseResult.Type(ast, offered, refusal.message)),
+  encode: (envelope, _options, ast) =>
+    Effect.mapError(_admit(envelope), (refusal) => new ParseResult.Type(ast, envelope, refusal.message)),
+})
+
+const _eventJsonSingle = Format.event.json.single.pipe(Schema.compose(_eventSchema, { strict: false }))
+const _eventJsonBatch = Option.map(Format.event.json.batch, ({ media, codec }) => ({
+  media,
+  codec: codec.pipe(Schema.compose(Schema.Array(_eventSchema), { strict: false })),
+}))
+
+const _eventJson: Event.Json = {
+  media: Format.event.json.media,
+  single: _eventJsonSingle,
+  batch: _eventJsonBatch,
+}
+
+const _protobufSingle = Schema.transformOrFail(Format.proto.message(CloudEventSchema), _EventDomain, {
+  strict: true,
+  decode: (wire, _options, ast) =>
+    Effect.mapError(_fromProtobuf(wire), (refusal) => new ParseResult.Type(ast, wire, refusal.message)),
+  encode: (envelope, _options, ast) =>
+    Effect.mapError(_toProtobuf(envelope), (refusal) => new ParseResult.Type(ast, envelope, refusal.message)),
+})
+
+const _protobufBatch = Schema.transformOrFail(
+  Format.proto.message(CloudEventBatchSchema),
+  Schema.Array(_EventDomain),
+  {
+    strict: true,
+    decode: (wire, _options, ast) =>
+      Effect.mapError(
+        Effect.forEach(wire.events, _fromProtobuf),
+        (refusal) => new ParseResult.Type(ast, wire, refusal.message),
+      ),
+    encode: (events, _options, ast) =>
+      Effect.mapError(
+        Effect.flatMap(Effect.forEach(events, _toProtobuf), (held) =>
+          Schema.decode(Format.proto.message(CloudEventBatchSchema))(
+            Format.proto.create(CloudEventBatchSchema, { events: held }),
+          )),
+        (issue) => new ParseResult.Type(ast, events, String(issue)),
+      ),
+  },
+)
+
+const _eventProtobuf: Event.Protobuf = {
+  media: Format.event.protobuf.media,
+  single: Format.event.protobuf.single.pipe(Schema.compose(_protobufSingle, { strict: false })),
+  batch: Option.map(Format.event.protobuf.batch, ({ media, codec }) => ({
+    media,
+    codec: codec.pipe(Schema.compose(_protobufBatch, { strict: false })),
+  })),
+}
+
+const _eventFormat: Event.Format = { json: _eventJson, protobuf: _eventProtobuf }
+
+// Construction writes `specversion`, `data`, and `data_base64` beside the fields `Fact` addresses, so the drop
+// census subtracts both owned sets and reports only names neither this roster nor `Fact` itself holds.
+const _addressed = HashSet.union(_sdkCore, HashSet.fromIterable(Record.keys(_Fact.fields)))
+
+const _extensionJson = (envelope: CloudEventV1<unknown>): Record.ReadonlyRecord<string, unknown> =>
+  Record.fromEntries(Array.filterMap(
+    _extensionNames,
+    (name) => Option.map(Option.fromNullable(envelope[name]), (value) => [
+      name,
+      value instanceof Date
+        ? value.toISOString()
+        : value instanceof Uint8Array
+          ? Encoding.encodeBase64(value)
+          : value,
+    ] as const),
+  ))
+
+const _profileRoster = (
+  roster: MessageValidType<typeof ExtensionsSchema>,
+): Effect.Effect<Event.Roster, Event.Refusal> => {
+  const { dataclassification, ...held } = roster
+  return Option.match(Option.fromNullable(dataclassification), {
+    onNone: () => Effect.succeed(held),
+    onSome: (offered) => Schema.decode(_Class)(offered).pipe(
+      Effect.map((admitted) => ({ ...held, dataclassification: admitted })),
+      Effect.mapError(_refused),
+    ),
+  })
+}
+
+const _read = (envelope: CloudEventV1<unknown>): Effect.Effect<Event.Read, Event.Refusal> =>
+  Schema.decode(Format.proto.json(ExtensionsSchema))(_extensionJson(envelope)).pipe(
+    Effect.flatMap(_profileRoster),
+    Effect.map((roster) => ({
+      roster,
+      dropped: Array.filterMap(
+        Object.entries(envelope),
+        ([key, value]) => value === undefined || HashSet.has(_extensionSet, key) || HashSet.has(_addressed, key)
+          ? Option.none()
+          : Option.some(Fault.Drop.fact("foreign", key, 1)),
+      ),
+    })),
+    Effect.mapError(_refused),
+  )
 
 const _at = <Name extends Event.Extension>(
   envelope: CloudEventV1<unknown>,
   name: Name,
-): Option.Option<Event.Value<Name>> => _readers[name](envelope[name])
-
-// Construction writes `specversion`, `data`, and `data_base64` beside the fields `Fact` addresses, so the drop
-// census subtracts both owned sets and reports only names neither this roster nor `Fact` itself holds.
-const _addressed: ReadonlyArray<string> = ["data", "data_base64", "specversion", ...Record.keys(Fact.fields)]
-
-// Decoders without the roster read every declared extension as an unknown string, so the whole roster decodes on
-// every read and the drop band carries what the peer sent that this roster does not name. Names alone said only THAT
-// something went missing; each name now returns as a `Fault.Drop` occurrence carrying its measured extent, so a
-// consumer folds the band through `Fault.Ledger` and reads one census rather than sizing an anonymous list.
-const _read = (envelope: CloudEventV1<unknown>): Event.Read => ({
-  roster: Record.map(_readers, (read, name) => read(envelope[name])) as unknown as Event.Roster,
-  dropped: Array.filterMap(
-    Object.keys(envelope),
-    (key) => _extensions.is(key) || Array.contains(_addressed, key)
-      ? Option.none()
-      : Option.some(Fault.Drop.fact("foreign", key, 1)),
-  ),
-})
+): Effect.Effect<Option.Option<Event.Value<Name>>, Event.Refusal> =>
+  Effect.map(_read(envelope), ({ roster }) => Option.fromNullable(roster[name]))
 
 const Event: Event.Shape = {
-  Fact,
   Refusal: EventRefusal,
-  classes: _classes,
-  extensions: _extensions,
-  digested: Array.filter(_extensionNames, (name) => _extensions.at(name).signed),
-  mint: _mint,
-  at: _at,
-  read: _read,
+  address: _address,
+  admit: _admit,
+  clone: _clone,
+  format: _eventFormat,
+  fromProto: _fromProtobuf,
+  mint: _mintEvent,
+  schema: _eventSchema,
+  rasm: {
+    Fact,
+    classes: _classes,
+    extensions: _extensions,
+    source: _source,
+    subject: _EVENT_KEY,
+    mint: _mint,
+    extend: _extend,
+    at: _at,
+    read: _read,
+  },
+  toProto: _toProtobuf,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

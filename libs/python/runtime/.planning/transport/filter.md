@@ -12,7 +12,7 @@ Evaluation is TOTAL by specification: every operator, function, and cast answers
 ## [02]-[CESQL]
 
 - Owner: `Cesql` is the compiled expression — one built-once `Lark` grammar, one `_Lower` transformer folding each production straight into a total closure, and that closure as the held value. `CesqlValue` closes the specification's three value spaces, `Outcome` pairs a value with its accumulated faults, and `CesqlFault` closes the seven specification error types. `FUNCTIONS`, `OPERATORS`, and `CASTS` are the three tables every arm reads.
-- Cases: the seven error types are `parse`, `math`, `cast`, `attribute`, `function`, `evaluation`, and `generic`, each carrying the evidence its own diagnosis needs. Collapsing two onto one passes the value half of a conformance vector while failing its fault half, which is exactly what `tests/contracts/MANIFEST.md` `[02.39]` grades.
+- Cases: the seven error types are `parse`, `math`, `cast`, `attribute`, `function`, `evaluation`, and `generic`, each carrying the evidence its own diagnosis needs. Collapsing two onto one passes the value half of a conformance vector while failing its fault half, which is exactly what the `tests/contracts/manifest.json` `cesql-conformance/cesql-conformance` publisher case grades through this page's `python:runtime/transport/filter#CESQL` consumer actor.
 - Law: `Integer` is 32-BIT and Python's is not, so the width is BRANCH-owned outright. `_bounded` is the one guard every arithmetic arm and `ABS` reads, answering the wrapped value beside a `math` fault where the true result leaves the range. `ABS(-2147483648)` is the discriminating vector — the negation of the minimum has no 32-bit representation, and an unguarded Python `abs` answers `2147483648` silently, the inverse of the C# peer's checked throw and a value every naive test passes. Specification overflow answers a fault row beside a defined value, never a raise and never a widened answer.
 - Law: `CesqlValue` is a `@tagged_union` and never a `str | int | bool` union, because `bool` SUBCLASSES `int` in Python — a structural match routes `True` through the number arm and an `isinstance` ladder depends on a bool-first ordering every later editor must remember. `tag` makes that misread unspellable and IS the key the cast matrix reads.
 - Law: evaluation compiles to CLOSURES rather than to a node family beside an evaluator. `_Lower` runs INSIDE the LALR parse and answers a `Callable[[Reading], Outcome]` per production, so the parser's own discrimination is the only dispatch and no second `match` re-reads a tree it already resolved. Growth lands as one rule beside one method, one `FUNCTIONS` row, or one `OPERATORS` row, with the parser, the cast matrix, and the evaluator untouched.
@@ -311,7 +311,7 @@ def _pattern(literal: str, /) -> re.Pattern[str]:
 def _reading(envelope: MessageEnvelope, /) -> Reading:
     # ONE projection per event into the three spaces: the specification's context-attribute type space IS CESQL's,
     # so the numeric carve derives from the codec each extension slot already answers rather than a second roster
-    # this owner keeps parallel. Core attributes are text by specification.
+    # this owner keeps parallel. D20 `sequence` stays text here; an explicitly numeric operator parses it at the cast.
     return Map.of_seq(
         (name, CesqlValue(number=int(held)) if name in NUMERIC_EXTENSIONS else CesqlValue(text=str(held)))
         for name, held in envelope.attributes().items()

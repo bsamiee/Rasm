@@ -9,6 +9,11 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - `python_version` markers gate a REPRODUCED break alone — a gate-every-native sweep reverses resolution `forge-scientific-env` builds at the floor.
 - Overlay residency grows at `Parametric_Forge`, never a repo admission — venv path order shadows it, so the `.pth` tail overrides no manifest row.
 - Floor-unreachable distributions never hold open — a peer re-owning the arms retires the row; a sole capability states its PERMANENT typed degrade.
+- Root `pyproject.toml` and `uv.lock` are the ONE authority for the Python 3.15 platform and its workspace members.
+- Native distributions whose wheels stop below the platform floor ride the Forge python-overlay `.pth`; one root marker row states it.
+- Installed workspace distributions carry generated sources; analyzer and test search paths never substitute for package admission.
+- Hand-authored `.pth`, `-P`, and `sys.path` edits are refused; uv owns the development link and wheels own external installation.
+- `connectrpc` KEEP against its `asyncio` primitives — both ends run them, so the Connect rail pins asyncio and no `hypercorn.trio` host.
 
 ## [02]-[SHAPE]
 
@@ -20,6 +25,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.
 - Floor gates refuse through one `find_spec` map onto a rostered `import_` row raised by its door — every surface naming a gated coordinate binds it.
 - Folder `<Folder>Leg` rosters seat at the one module importing no sibling — a roster reached through a back-edge inverts the strata.
+- Descriptor-backed wires cross as their generated `rasm.contracts` class in every folder — a msgspec struct restating one is the deleted mirror.
 
 ## [03]-[COLLAPSE]
 
@@ -37,7 +43,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - Mesh intake spells `load_scene`/`load_mesh` — the `force` shim erases the static return and its unset arm hands one site four geometry kinds.
 - `lark` stays dual-registered — runtime's `[PARSING]` seat and geometry's `[IFC_BIM]` seat each hold their own stratum's role, never one shared row.
 - Native-gated workers cross the `workers` `shipped` gate under a `covered(module, names)` witness — a `getattr` twin defers misspellings to offload.
-- Import deferral is the module-top `lazy` proxy, never function-local — `banned-module-level-imports` bans EAGER, a floor gate leads dereference.
+- Import deferral is the module-top `lazy` proxy, never function-local — `require-lazy` refuses the EAGER form, and a floor gate leads dereference.
 - Function-local imports ride a marker comment naming their module-scope ban — AGPL isolation, or a call-seam side effect the import must fire.
 - AGPL isolation refuses `lazy` — a static audit reads the module-scope proxy as coupling, and LICENSE class decides the ban, never a roster.
 

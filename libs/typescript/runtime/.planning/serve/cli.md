@@ -22,12 +22,11 @@ Terminal entry rides one front-door assembly law: a verb family is a `Command` V
 
 ```typescript signature
 import { Args, Command, HelpDoc, Options, Prompt, ValidationError } from "@effect/cli"
-import { CONSTANTS, HTTP } from "cloudevents"
 import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
 import { Doc, Optimize } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
 import { Array, Config, Context, Effect, Layer, Option, Predicate, Pretty, Record, Schema, Struct } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Event, Fault, Format } from "@rasm/ts/core"
 import { Fanout } from "../net/pubsub.ts"
 import { Life } from "../proc/life.ts"
 
@@ -84,7 +83,7 @@ const Verb = { completions: _completions, main: _main, wizard: _wizard } as cons
 - Owner: `Ops.family(sources)` — the lib runbook family built over app-supplied capability sources so the verbs stay composition-free: `doctor` folds the health anchor and the app's check rows, `replay` re-publishes a captured fanout envelope, `inspect` emits the canonical spec artifact — one record, three verbs, every handler rendering through the role and structure rows.
 - Law: `doctor` accumulates, never aborts — the shipped floor probes are the `proc/life#PROBE_ROUTES` report per kind beside the app's `checks` rows (each a named `Effect<string, OpsFault>` verdict — config resolution, engine reachability, dependency versions through `Proc.run`), folded with `Effect.partition` so every probe runs and the rendered table shows the whole verdict surface in one pass; the three independent life reports run concurrently, and the exit is non-zero when any probe failed, which makes the command a CI gate. Partitioning is refusal against everything else, so an anchor row grading `warn` rides the passing arm carrying its own grade as detail rather than minting a third exit posture. Engine census reads are check rows, never new verbs — a fanout row folds `Fanout.consumers(topic)` (the durable-consumer census with its reap arm withheld from CI), and a coordination row folds `Accord.census(filter)` whose record answers `names` beside `Option<Accord.Health>`, so a name-list render folds the record rather than assuming a bare list. One reason-discriminated `OpsFault` carries both refusal routes off one core family mint — `probe` classifies `unavailable` (the dependency answered no), `gate` classifies `breached` (this process refusing its own run) — because a primitive, class-less, or literal-asserted error reopens an ungoverned rail that folds to `defect` at the public contribution boundary.
 - Law: narrowing never costs the gate its default — `--check` repeats to name probes and an EMPTY roster is the whole surface, so a script and CI pass nothing and are never prompted, while `--pick` opens `Prompt.multiSelect` over the same resolved probe names for an operator narrowing at a terminal; an abort at that prompt is a clean exit through `Verb.main`'s quit fold, not a doctor failure.
-- Law: `replay` re-drives a captured delivery — a capture file is the announcement in the ONE structured JSON spelling `Format.event` names, so `Args.fileText` reads the TEXT at the argv boundary and the package's own structured deserializer admits it, which keeps the grammar at `interchange/carrier` where it belongs; a Schema over the attribute record re-models that grammar here and admits a shape no binding ever produced. Its handler publishes straight through `Fanout.publish`, the receipt's `duplicate` flag rendered as the idempotent-noop evidence; a missing topic prompts through `Prompt.select` over the app's declared topic roster, and the mutation gates on `Prompt.confirm` through the same fallback bridge — a `--yes`/`-y` flag pre-answers both for CI, so interactive safety costs scripts nothing.
+- Law: `replay` re-drives a captured delivery — a capture file is the announcement in the ONE structured JSON spelling `Event.format` names, so `Args.fileText` reads text at argv and the core codec decodes plus admits its bytes. Fabricating HTTP framing or a second attribute Schema invents grammar this page does not own. Its handler publishes through `Fanout.publish`; topic selection and mutation confirmation stay on the prompt bridge, with `--yes`/`-y` pre-answering both for CI.
 - Law: `inspect` emits derivations — the `api#EMIT` artifact to a path or stdout — so the served contract's canonical bytes are one verb away for diffing; the `--out` flag falls back to the `INSPECT_OUT` config row through the bridge, this page's own demonstration of the flag-config law.
 - Law: runbooks are code — a new runbook is one `Command` row in this family with its probe or effect, never a document; the family is `Command.provide`-scoped with its exec Layer by the app when it needs elevated capability.
 - Boundary: process execution mechanics are `proc/exec#COMMAND_SPEC`'s; fanout semantics are `net/pubsub#PORT_SHAPE`'s; what checks exist beyond the shipped floor is app data through `sources.checks`.
@@ -389,21 +388,11 @@ const _text = (doc: AnsiDoc.AnsiDoc, mode: keyof typeof _MODES, width: number): 
 
 // Captures cross back through the ONE structured spelling they were written in, so a replay re-publishes the fact
 // it holds rather than a re-modelling of it; a file that is not one lawful announcement refuses at the flag.
+const _captureUtf8 = new TextEncoder()
+
 const _captured = (text: string): Effect.Effect<Fanout.Announced, ValidationError.ValidationError> =>
-  Effect.flatMap(
-    Effect.try({
-      try: () =>
-        HTTP.toEvent<unknown>({
-          headers: { [CONSTANTS.HEADER_CONTENT_TYPE]: CONSTANTS.MIME_CE_JSON },
-          body: text,
-        }),
-      catch: (cause) => ValidationError.invalidValue(HelpDoc.p(String(cause))),
-    }),
-    (decoded) =>
-      Option.match(globalThis.Array.isArray(decoded) ? Array.head(decoded) : Option.some(decoded), {
-        onNone: () => Effect.fail(ValidationError.invalidValue(HelpDoc.p("<empty-capture>"))),
-        onSome: Effect.succeed,
-      }),
+  Schema.decodeUnknown(Event.format.json.single)(_captureUtf8.encode(text)).pipe(
+    Effect.mapError((issue) => ValidationError.invalidValue(HelpDoc.p(issue.message))),
   )
 
 // One position rendering over the closed coordinate family, so a stream sequence and a partition offset print under

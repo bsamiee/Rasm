@@ -1,4 +1,4 @@
-"""Environment-double laws for dispatch, SSH/SFTP, filesystem, object-store, and loopback behavior."""
+"""Environment-double laws for dispatch, SSH/SFTP, filesystem, and object-store behavior."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -6,11 +6,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 lazy import asyncssh
-lazy import grpc
 lazy import httpx
 
 from tests.python._testkit.env import ObjectStore, provision, RemoteFS, SshHost
-from tests.python._testkit.seams import grpc_loopback
 
 
 if TYPE_CHECKING:
@@ -219,26 +217,3 @@ def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled
         first.teardown()
         first.teardown()  # idempotent: a second stop of a dead server is a no-op
         second.teardown()
-
-
-# --- [GRPC_LOOPBACK]
-
-
-@pytest.mark.anyio
-async def test_grpc_loopback_serves_generic_unary_and_tears_down(socket_enabled: None) -> None:
-    """The grpc.aio capsule binds an ephemeral port and serves a raw-bytes unary handler."""
-    _ = socket_enabled
-
-    async def _reverse(request: bytes, context: object) -> bytes:  # ruff:ignore[unused-async]  # no await; grpc.aio drives the handler coroutine
-        _ = context
-        return bytes(reversed(request))
-
-    def _bind(server: grpc.aio.Server) -> None:
-        server.add_generic_rpc_handlers((
-            grpc.method_handlers_generic_handler("kit.Echo", {"Reverse": grpc.unary_unary_rpc_method_handler(_reverse)}),
-        ))
-
-    async with grpc_loopback(_bind) as (endpoint, channel):
-        assert endpoint.port > 0, "capsule failed to bind an ephemeral loopback port"
-        reply: bytes = await channel.unary_unary("/kit.Echo/Reverse")(b"abc")
-        assert reply == b"cba", f"unary echo broke: {reply!r}"

@@ -8,7 +8,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 
 [SHELL]:
 - [01]-[NAVIGATION](.planning/Shell/navigation.md): Routing spine with a typed deep-link grammar over dockable layouts.
-- [02]-[SCREENS](.planning/Shell/screens.md): Screen catalog with ref-counted activation and OAPH-paced state.
+- [02]-[SCREENS](.planning/Shell/screens.md): Screen catalog, activation state, and the generated AppUi surface-program projection.
 - [03]-[HOSTS](.planning/Shell/hosts.md): Host-neutral surface mounting under the host class a supplied profile row states.
 - [04]-[COMMANDS](.planning/Shell/commands.md): One command rail — every menu, hotkey, palette, and remote verb derives from one intent table.
 - [05]-[PALETTE](.planning/Shell/palette.md): Command palette and shortcut editor presenting the one intent table.
@@ -210,12 +210,19 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `UnitsNet`
 - `CommunityToolkit.HighPerformance` — Word-level bit reads in the cross-filter index and pooled `SpanOwner` scratch on the decode paths.
 - `QuikGraph` — Acyclicity proof and topological order behind every dependency closure this folder admits, and the render-graph pass DAG.
-- `Riok.Mapperly` — Generates every wire and projection seam mapper this folder declares.
+- `Riok.Mapperly` — Generates compatible object projections; generated protobuf oneofs retain explicit seating.
 - `System.Threading.Channels` — Bounded lanes carrying every live transport this folder opens.
 - `Wacton.Unicolour` — Selector vocabulary alone; the kernel `PerceptualColor` owner is the perceptual model every token, ramp, and proof reads.
 
 [NUMERIC_SUBSTRATE]:
 - `MathNet.Numerics` — Exact order statistics over a materialized sorted sample behind every bench distribution column.
+
+[WIRE_CODEGEN]:
+- `Google.Api.CommonProtos` — Generated `google.type.Date` calendar fields projected by the control contract boundary.
+- `Rasm.AppHost` — Shared descriptor-backed `WireJson` validation and canonical ProtoJSON; referenced by project.
+- `Rasm.Contracts` — Generated `Ui.V1` and `Render.V1` messages and enums consumed by AppUi contract projections; referenced by project.
+- `Google.Protobuf` — Generated semantic-package messages and the descriptor-backed ProtoJSON surface consumed through `WireJson`.
+- `NodaTime.Serialization.Protobuf` — Exact Noda Time conversion at generated timestamp and calendar boundaries.
 
 [GPU_DEVICE]:
 - `Silk.NET.WebGPU` — Presented-viewport device this folder mints and every peer plane binds.

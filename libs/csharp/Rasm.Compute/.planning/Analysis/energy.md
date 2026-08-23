@@ -700,7 +700,7 @@ public static partial class EnergySimulation {
                     from sqlPath in Reads.Lift(RunSubprocess(binary, build.IdfPath, request, scratch))
                     from readout in ReadResults(sqlPath, graph, request, new ResultContext(key, build.Model, build.Zones))
                     // eplusout.sql bytes land through AssessmentSink before the lease releases them —
-                    // content-addressed onto the Persistence blob lane, the key riding ResultBlob.
+                    // content-addressed onto the Persistence blob lane, the key riding ResultArtifact.
                     from blob in Reads.Lift(sink.Store(File.ReadAllBytes(sqlPath)).Run())
                     // Typed rows egress on the success rail alone, so a failed read never lands a partial result
                     // set the Bim admission would treat as the run's whole answer.
@@ -712,11 +712,11 @@ public static partial class EnergySimulation {
     const string LocalScratch = "rasm-eplus-";
 
     // ONE result mint for both routes: the summary stream, the governing ratio, and the artifact key.
-    static Fin<AssessmentResult> Publish(AssessmentRequest.Energy request, EnergyReadout readout, BlobKey blob, Seq<AssessmentFact> notes, Instant at, WeatherRef weather) =>
+    static Fin<AssessmentResult> Publish(AssessmentRequest.Energy request, EnergyReadout readout, ArtifactContent blob, Seq<AssessmentFact> notes, Instant at, WeatherRef weather) =>
         AssessmentResult.Of(request.Route,
             readout.Facts + notes + Seq(AssessmentFact.Text(WeatherStationFact, weather.Station)),
             GoverningEui(readout.Facts, request.Policy),
-            at, RunKey, resultBlob: Some(blob));
+            at, RunKey, resultArtifact: Some(blob));
 
     const string WeatherStationFact = "weather-station";
 

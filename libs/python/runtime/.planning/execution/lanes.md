@@ -1,8 +1,8 @@
 # [PY_RUNTIME_LANES]
 
-Bounded structured-concurrency lanes and stage orchestration: `LanePolicy.drain` is the one polymorphic bounded drain over the three-case `Admit[T]` admission union, `LanePolicy.offload` the one kernel-isolation hop over the `execution/workers#CROSSING` `Kernel` crossing, `StagePlan.execute` the concurrent-front stage DAG over that same drain, and `LaneSource` the one `scheduled`/`watched` feeder union — one budget, one receipt shape, one owner for every bounded lane the branch runs.
+Bounded structured-concurrency lanes and stage orchestration: `LanePolicy.drain` is the one polymorphic bounded drain over the `Admit[T]` admission union, `LanePolicy.whole` the direct whole-capacity grant, `LanePolicy.offload` the one kernel-isolation hop over the `execution/workers#CROSSING` `Kernel` crossing, `StagePlan.execute` the concurrent-front stage DAG over that same drain, and `LaneSource` the one `scheduled`/`watched` feeder union — one budget, one receipt shape, one owner for every bounded lane the branch runs.
 
-`drain` and `offload` share one deadline budget and one isolation axis, so the deadline contract is total across both hops, and a caller supplies its kernel — the lane never imports one. `LanePolicy.of` projects capacity and deadline from the admitted `execution/admission#CONTEXT` profile row and scopes one pulse actor across the lane lifetime, so a consumer mints neither bounds nor actor custody. Offload isolation, worker-death retry, wire, shipping, and per-offload deadline all arrive on the `Kernel` value — the workers owner answers the isolation question once, this page owns the thread and subinterpreter crossing arms and routes both process arms onto the `execution/workers#POOL` capsule. Cross-cutting concerns ride aspects, never inline call sites: the OTel trace context stitches across every crossing, content-keyed work short-circuits on a cache hit that threads forward across `StagePlan` fronts, `reliability/resilience#RESILIENCE` `guard` rides each unit's `RetryClass`, and the `Metrics.observe`/`Signals.emit_async` pair rides one `drained` aspect under the lane's own composition scope. Occupancy is the one lane fact no aspect carries: a drain reports what finished, so the live borrowed-slot level registers once at the scoped constructor and the metric export cycle samples it — the per-lane limiter under the `lane` band and the process-wide `THREAD_BAND` under a refcounted single registration the same bracket owns. Mid-operation kernel facts ride one `PulseConduit` per lane into a parent-side serialized drain folding `Hooks.fire` under the conduit's own composition `ScopeKey`, so hook taps observe long-running kernels without polling receipts and a non-default composition's registered points receive their own beats. Bare `asyncio` is never imported — `anyio` owns every concurrency primitive, and cron is solely `apscheduler`.
+`drain`, `whole`, and `offload` share one deadline budget and one isolation axis, so the deadline contract is total across every hop, and a caller supplies its kernel — the lane never imports one. `LanePolicy.of` projects capacity and deadline from the admitted `execution/admission#CONTEXT` profile row and scopes one pulse actor across the lane lifetime, so a consumer mints neither bounds nor actor custody. `LaneCapacity` is the one allocator: shared admissions claim one slot, the `whole` admission and direct `LanePolicy.whole` claim every slot and receive a `LaneGrant.width`, so a native kernel retains full single-model parallelism without multiplying an outer lane width by an inner thread count. Offload isolation, worker-death retry, wire, shipping, and per-offload deadline all arrive on the `Kernel` value — the workers owner answers the isolation question once, this page owns the thread and subinterpreter crossing arms and routes both process arms onto the `execution/workers#POOL` capsule. Cross-cutting concerns ride aspects, never inline call sites: the OTel trace context stitches across every crossing, content-keyed work short-circuits on a cache hit that threads forward across `StagePlan` fronts, `reliability/resilience#RESILIENCE` `guard` rides each unit's `RetryClass`, and the `Metrics.observe`/`Signals.emit_async` pair rides one `drained` aspect under the lane's own composition scope. Occupancy is the one lane fact no aspect carries: a drain reports what finished, so the live borrowed-slot level registers once at the scoped constructor and the metric export cycle samples it — the per-lane allocator under the `lane` band and the process-wide `THREAD_BAND`/`INTERPRETER_BAND` pair under one refcounted custody bracket. Mid-operation kernel facts ride one `PulseConduit` per lane into a parent-side serialized drain folding `Hooks.fire` under the conduit's own composition `ScopeKey`, so hook taps observe long-running kernels without polling receipts and a non-default composition's registered points receive their own beats. Bare `asyncio` is never imported — `anyio` owns every concurrency primitive, and cron is solely `apscheduler`.
 
 ## [01]-[INDEX]
 
@@ -10,9 +10,9 @@ Bounded structured-concurrency lanes and stage orchestration: `LanePolicy.drain`
 
 ## [02]-[LANE]
 
-- Owner: `Admit[T]` discriminates a plain coroutine, a content-keyed cache unit, and a resilience-guarded unit by case, so one `drain` serves all three rather than three parallel methods, and `ADMIT_TABLE` folds each case through one behavior row — a new admission modality is one row, never a new method. `DrainReceipt[T]`/`DrainOutcome` and the `DRAIN_COLUMNS`/`DRAIN_DISPOSITIONS` pair derived from it are the one canonical drain taxonomy IMPORTED from their `observability/receipts#RECEIPT` owner: a drain receipt is local evidence, so the vocabulary lives one tier down and this page, the `observability/metrics#METRIC` counter, and the receipts emit all read that one owner. `LaneSource` is a feeder union over the one drain, never a separate scheduler surface.
+- Owner: `Admit[T]` discriminates a plain coroutine, a content-keyed cache unit, a resilience-guarded unit, and a whole-capacity unit by case, so one `drain` serves every admission geometry rather than parallel methods, and `ADMIT_TABLE` folds each case through one behavior row. `LaneWork` is the private shared-versus-whole execution fold the table returns; `LaneGrant` is the public width fact only whole work receives. `DrainReceipt[T]`/`DrainOutcome` and the `DRAIN_COLUMNS`/`DRAIN_DISPOSITIONS` pair derived from it are the one canonical drain taxonomy IMPORTED from their `observability/receipts#RECEIPT` owner: a drain receipt is local evidence, so the vocabulary lives one tier down and this page, the `observability/metrics#METRIC` counter, and the receipts emit all read that one owner. `LaneSource` is a feeder union over the one drain, never a separate scheduler surface.
 - Law: mid-operation kernel facts cross `LanePolicy.pulses`, one `PulseConduit` per lane — a spawn-context manager-queue proxy every arm pickles as an ordinary kernel argument, written through `pulsed` alone, lossy by design: a full conduit or dead broker drops the pulse, so telemetry never back-pressures or faults a kernel. Every authorized drop counts onto its own `rasm.runtime.pulse.*` census row under the conduit's own composition scope — the same identity the drained aspect stamps — so the lossy paths stay measured rather than silent, two embedded conduits' drops never merge into one unlabeled series, and the drain actor cannot fault on its own accounting. One parent-side lane actor serializes the fold — a `THREAD_BAND` pump relays the proxy through `anyio.from_thread.run_sync` onto a bounded anyio stream (`send_nowait` `WouldBlock` is the authorized drop) and ONE consumer posts each fact to `Hooks.fire`, so taps observe pulses in conduit order and no worker reaches the hook registry or a live span. Conduit-member verdict: the `pebble` map-iterator streams per-chunk terminals, never mid-operation facts, and `pebble` ships no pipe member; the `expression` `MailboxProcessor` inbox reaches `asyncio` against the anyio law — the manager proxy with the anyio single-consumer drain is the ruled conduit. Folder pulse vocabularies stay folder-owned `HookPoint` rows; the spine carries only the crossing and the drain, and the scoped constructor retires the actor with one shielded, grace-bounded close token after producers stop — a live pump admits the token inside the grace window with no data evicted, a dead pump's full conduit unblocks by evicting one pulse as the authorized counted drop — so teardown always returns and no concurrent drain consumes another drain's terminus.
-- Entry: `LanePolicy.of(context)` is the one scoped constructor — capacity reads the profile row's `lane_capacity`, deadline the context budget, `pulses` opens one lane-lifetime conduit actor, and `Metrics.occupied` registers the limiter's borrowed-slot read for that same lifetime — so bounds, actor custody, and occupancy visibility trace to one admitted owner. The same bracket refcounts the process-wide `THREAD_BAND` registration: that limiter bounds every thread crossing, guest, and `on_thread` hop yet owns no lifecycle, so one probe object opens its series on the first lane and retires it with the last, where a per-lane probe would sum one borrowed count once per live lane. Concurrent `drain` calls share that single consumer; only the constructor's exit closes it after all composing work has stopped. `offload` accepts a `Kernel` or a bare callable it lifts through `Kernel.of`, passes the workers-owned `admitted` gate before the span export so a refused guest module never reaches a worker or a band token; the kernel's trait row supplies isolation kind and worker-death retry, its `deadline` tightens the lane budget to whichever bound is sooner, its `wire` selects the shared-memory span export around the whole hop, and its `TERMINAL` enforcement routes the hop through the workers pebble arm regardless of trait — process isolation is the kill-capable substrate for native code, so a hung native kernel dies at wall-clock instead of outliving a cooperative cancel, while a `SANDBOXED` kernel already dies in-process at its guest epoch deadline and rides the thread arm with no pebble re-route. Cooperative `HOSTILE` kernels ride the warm loky pool, whose `submit` owns the carrier stitch, the `WORKER_BAND` bound, and the in-band worker-death retry. Each `StagePlan` stage picks its own admission case — a cacheable stage mints `keyed` units, a transient-prone stage `retried`, a plain stage `bare` — and each front's `DrainReceipt.cache` threads forward, so a `keyed` unit re-admitted downstream replays the upstream `Ok` rather than recomputing.
+- Entry: `LanePolicy.of(context)` is the one scoped constructor — capacity reads the profile row's `lane_capacity`, deadline the context budget, `pulses` opens one lane-lifetime conduit actor, and `Metrics.occupied` registers the allocator's borrowed-slot read for that same lifetime — so bounds, actor custody, and occupancy visibility trace to one admitted owner. `LaneCapacity.claim` serializes acquisition, not work: a whole claimant waits for existing shared holders while the gate prevents new ones cutting in, then the one AnyIO `CapacityLimiter` carries the full lease; no second limiter, consumer lock, or copied width exists. The same bracket refcounts the process-wide `THREAD_BAND` and `INTERPRETER_BAND` registrations: each crossing rides its own named runtime band and never re-acquires the lane allocator a surrounding drain already holds. Concurrent `drain` and `whole` calls share the allocator and conduit; only the constructor's exit closes the actor after all composing work has stopped. `offload` accepts a `Kernel` or a bare callable it lifts through `Kernel.of`, passes the workers-owned `admitted` gate before the span export so a refused guest module never reaches a worker or a band token; the kernel's trait row supplies isolation kind and worker-death retry, its `deadline` tightens the lane budget to whichever bound is sooner, its `wire` selects the shared-memory span export around the whole hop, and its `TERMINAL` enforcement routes the hop through the workers pebble arm regardless of trait — process isolation is the kill-capable substrate for native code, so a hung native kernel dies at wall-clock instead of outliving a cooperative cancel, while a `SANDBOXED` kernel already dies in-process at its guest epoch deadline and rides the thread arm with no pebble re-route. Cooperative `HOSTILE` kernels ride the warm loky pool, whose `submit` owns the carrier stitch, the `WORKER_BAND` bound, and the in-band worker-death retry. Each `StagePlan` stage picks its own admission case — a cacheable stage mints `keyed` units, a transient-prone stage `retried`, a plain stage `bare`, and a native stage `whole` — and each front's `DrainReceipt.cache` threads forward, so a keyed whole unit re-admitted downstream replays the upstream `Ok` rather than recomputing.
 - Auto: a tripped deadline is contained — the drain runs inside `move_on_after`, never a bare `fail_after` whose `TimeoutError` escapes as a raw `BaseExceptionGroup` — so a deadline trip cancels in-flight units and the receipt reports them as `cancelled` with the partial `values`/`faults` intact; no exception escapes a bounded lane without a receipt. Each unit sends its full `RuntimeRail[T]` over the stream rather than a pre-collapsed bool, so the typed fault survives into the receipt and the drain is lossless in both directions. Every schedule geometry the package ships is one `Trigger` member on the one `AsyncIOScheduler` — no `croniter`, no `aiocron`, no hand-rolled sleep cron.
 - Auto: session cache state is an immutable `Map[ContentKey, T]` threaded on `DrainReceipt.cache` — a hit reproduces the exact `Ok` value and counts as `hit` distinct from `completed`, only an `Ok` folds back, and an `Error` re-runs while its fault accumulates. This cache is session-local in-memory, never a durable store: durable identity federation stays the C# `Rasm.Persistence` owner consumed at the wire. The receipts-owned `Cost` brackets the whole drain window — two own-process reads landing the drain's spend envelope on `DrainReceipt.cost`, kernel-grain attribution staying the worker gate's own bracket.
 - Auto: trace stitching parents per the arm's module-state reality — every crossing carries the injected carrier, the anyio arms through `traced_kernel` directly and the pooled arms through `WorkerPool.submit`'s own injection. `THREAD` shares the interpreter, so the installed composite propagator is present and the kernel parents unconditionally; the process and subinterpreter workers hold independent module state, so a worker that has not run the `observability/telemetry#TELEMETRY` install resolves the default text-map and runs unparented while the carrier still holds the parent for any span the kernel opens. Pickled arms pay the IPC hop the `THREAD` arm skips — the arm keys off the kernel's declared trait, never a pickle-versus-no-pickle guess, and a closure crosses the pickled arms by value because `Kernel.of` ships it. A worker death retries under the kernel's trait-supplied retry row or crosses the one `async_boundary` conversion, never a local catch.
@@ -21,7 +21,7 @@ Bounded structured-concurrency lanes and stage orchestration: `LanePolicy.drain`
 - Law: the front source is ONE input discriminant and never a sibling method — a graph admission resolves its own topological waves, a resolved admission walks the labelled fronts it was handed, and `declared` answers the unit total only where the source honestly holds one, so a progress reader never takes a graph's unknown count for a whole job.
 - Law: mid-operation pulse payloads are the `observability/hooks#HOOKS` `StageMark` — position, units closed, and an `Option` total — so this conduit carries ONE mark shape for every producing lane and a folder closes its own `<Lane>Stage(StrEnum)` at the site rather than minting a mark of its own.
 - Growth: a new lane source is one `LaneSource` case with one `_events` arm; a new mid-operation fact is one folder-owned `HookPoint` row written through `pulsed`, never a drain or conduit edit; a new admission modality one `Admit` case with one `ADMIT_TABLE` row; a new anyio-substrate isolation kind one workers-owned `WorkerKind` member with one `_ISOLATION` row, a new pooled kind one workers arm — every offload call site untouched either way, and a kind whose row has not landed rails a typed `config` refusal at the offload, never a lookup raise; a new trigger one `Trigger` member; a new stage one `StagePlan` edge; a new watch tuning one `Watch` field; a new drain outcome dimension one member on the receipts-owned `DrainOutcome` with its field, reaching the receipt emit through the imported `DRAIN_COLUMNS` and the metrics counter through that owner's `DRAIN_DISPOSITIONS` carve.
-- Boundary: no daemon scheduler beside the one `AsyncIOScheduler` the `scheduled` case mints, no second cron owner, no app lifecycle hook, no background loop without a drain receipt, and no unbounded task creation; a blocking leg outside a lane rides `on_thread`, so every plain thread hop in the branch is `THREAD_BAND`-bounded by construction, and the pooled settle hop rides the workers-owned `WORKER_BAND`. Consumer contract on the receipt is column-driven: the receipts line reads every count off `DRAIN_COLUMNS` and the metrics counter off the `DRAIN_DISPOSITIONS` carve, per column and never a full-struct `asdict` allocating the receipt's containers per export cycle.
+- Boundary: no daemon scheduler beside the one `AsyncIOScheduler` the `scheduled` case mints, no second cron owner, no app lifecycle hook, no background loop without a drain receipt, and no unbounded task creation. A scheduling model may read `LanePolicy.slots.total` as the outer concurrency geometry it estimates; an executing native kernel never does — whole work receives `LaneGrant.width`, shared work receives no width, and a literal thread count or folder-local limiter is the rejected capacity twin. A blocking leg outside a lane rides `on_thread`, so every plain thread hop in the branch is `THREAD_BAND`-bounded by construction, and the pooled settle hop rides the workers-owned `WORKER_BAND`. Consumer contract on the receipt is column-driven: the receipts line reads every count off `DRAIN_COLUMNS` and the metrics counter off the `DRAIN_DISPOSITIONS` carve, per column and never a full-struct `asdict` allocating the receipt's containers per export cycle.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -40,7 +40,7 @@ import anyio
 import anyio.from_thread
 import anyio.to_interpreter
 import anyio.to_thread
-from anyio import BrokenResourceError, CapacityLimiter, WouldBlock, move_on_after
+from anyio import BrokenResourceError, CapacityLimiter, Lock, WouldBlock, move_on_after
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED, JobExecutionEvent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -79,9 +79,14 @@ from rasm.runtime.workers import Enforcement, Kernel, WorkerKind, WorkerPool, ad
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+class LaneGrant(Struct, frozen=True):
+    width: int
+
+
 type Work[T] = Callable[[], Awaitable[RuntimeRail[T]]]
+type GrantedWork[T] = Callable[[LaneGrant], Awaitable[RuntimeRail[T]]]
 type Trigger = CronTrigger | IntervalTrigger | DateTrigger | CalendarIntervalTrigger | AndTrigger | OrTrigger
-type AdmitTag = Literal["bare", "keyed", "retried"]
+type AdmitTag = Literal["bare", "keyed", "retried", "whole"]
 type IsolationArm = Callable[..., Awaitable[object]]
 type PulseFact = tuple[HookId, Struct]  # registered HookPoint member + its payload — `StageMark` for every long-fold pulse point
 type Front[T] = tuple[str, Block[Admit[T]]]  # a LABELLED front: the label names the wave a gate mark and a deadline refusal both carry
@@ -93,6 +98,14 @@ class Admit[T]:
     bare: Work[T] = case()
     keyed: tuple[ContentKey, Work[T]] = case()
     retried: tuple[RetryClass, Work[T]] = case()
+    whole: tuple[Option[ContentKey], GrantedWork[T]] = case()
+
+
+@tagged_union(frozen=True)
+class LaneWork[T]:
+    tag: Literal["shared", "whole"] = tag()
+    shared: Work[T] = case()
+    whole: GrantedWork[T] = case()
 
 
 @tagged_union(frozen=True)
@@ -156,10 +169,11 @@ FIRE_BUFFER: Final[int] = 64
 PULSE_BUFFER: Final[int] = 256  # bounds the conduit proxy and the drain stream alike; overflow is the authorized lossy drop
 CLOSE_GRACE_S: Final[float] = 2.0  # bounded close window: a live pump admits the control token well inside it; expiry proves the pump dead
 
-# process-wide thread band: bounds every THREAD-kind crossing and every `on_thread` hop; its process-pool counterpart
-# `WORKER_BAND` lives with the pool owner at execution/workers#POOL, and consumers arrive as ledger `python:` rows,
-# never as sibling-minted limiters beside these bands.
+# Process-wide crossing bands: a plain thread/guest hop and a subinterpreter hop consume distinct runtime resources,
+# while `WORKER_BAND` lives with the process-pool owner at execution/workers#POOL. Consumers arrive as ledger
+# `python:` rows, never as sibling-minted limiters beside these bands.
 THREAD_BAND: Final[CapacityLimiter] = CapacityLimiter(2 * (process_cpu_count() or 4))
+INTERPRETER_BAND: Final[CapacityLimiter] = CapacityLimiter(process_cpu_count() or 4)
 
 # the two raise surfaces this page fences, each named once. Span export reaches the shared-memory allocator and the
 # buffer protocol, so its classes enumerate. A kernel body does NOT: it is caller-supplied work whose raise surface no
@@ -173,7 +187,40 @@ _GUEST_RAISES: Final[Catch] = Exception
 
 class AdmitRow[T](Struct, frozen=True):
     key: Callable[[Admit[T]], Option[ContentKey]]
-    make: Callable[[Admit[T]], Work[T]]
+    make: Callable[[Admit[T]], LaneWork[T]]
+
+
+class LaneCapacity(Struct, frozen=True):
+    total: int
+    limiter: CapacityLimiter
+    gate: Lock
+
+    @classmethod
+    def of(cls, total: int) -> Self:
+        return cls(total=total, limiter=CapacityLimiter(total), gate=Lock())
+
+    @property
+    def borrowed(self) -> int:
+        return self.limiter.borrowed_tokens
+
+    @asynccontextmanager
+    async def claim(self, width: int) -> AsyncIterator[LaneGrant]:
+        # The gate serializes ACQUISITION only. A whole-lane claimant therefore waits for existing shared holders
+        # while preventing a later one-token claimant from cutting in; two whole claimants can never each retain a
+        # partial width and deadlock. Once acquired, the gate opens and the CapacityLimiter remains the one live
+        # capacity truth. Distinct borrower tokens let one task hold the declared width through AnyIO's supported
+        # on-behalf-of surface; cancellation during acquisition releases the prefix already held.
+        borrowers = tuple(object() for _ in range(width))
+        held: list[object] = []
+        try:
+            async with self.gate:
+                for borrower in borrowers:
+                    await self.limiter.acquire_on_behalf_of(borrower)
+                    held.append(borrower)
+            yield LaneGrant(width=width)
+        finally:
+            for borrower in reversed(held):
+                self.limiter.release_on_behalf_of(borrower)
 
 
 class Watch(Struct, frozen=True):
@@ -199,14 +246,12 @@ def _pulse_manager() -> SyncManager:
     return get_context("spawn").Manager()
 
 
-# --- [THREAD_BAND_CUSTODY]
+# --- [CROSSING_BAND_CUSTODY]
 
-# `THREAD_BAND` is ONE process-wide limiter, so exactly one probe may ever hold its `thread` series: a per-lane
-# registration sums the SAME borrowed count once per live lane and publishes a saturation no limiter is carrying —
-# the defect the pool's single `worker` registration already forecloses across its arms. Custody therefore refcounts
-# across concurrent lanes: the first lane opens the series, the last one out retires it, and a band nobody bounds
-# publishes no point. The registration takes no `scope` because the limiter is process-global — its level belongs to
-# the default sink rather than to whichever composition happened to open the first lane.
+# `THREAD_BAND` and `INTERPRETER_BAND` are each ONE process-wide limiter, so exactly one probe may hold each series:
+# a per-lane registration would sum the SAME borrowed count once per live lane and publish saturation no limiter is
+# carrying. Custody refcounts across concurrent lanes: the first lane opens both series, the last retires them, and a
+# band nobody bounds publishes no point. Neither registration takes `scope` because both levels belong to the process.
 _BAND_GATE: Final[threading.Lock] = threading.Lock()
 _BAND_PROBES: Final[ExitStack] = ExitStack()
 _BAND_HOLDERS: Final[list[object]] = []
@@ -218,15 +263,20 @@ def _thread_occupancy() -> int:
     return THREAD_BAND.borrowed_tokens
 
 
+def _interpreter_occupancy() -> int:
+    return INTERPRETER_BAND.borrowed_tokens
+
+
 @contextmanager
-def _thread_band() -> Iterator[None]:
-    # lane-entry refcount under a plain thread lock, not an anyio primitive: a sibling daemon's own event loop opens
-    # lanes against this same process-global band, so the gate has to hold across loops.
+def _crossing_bands() -> Iterator[None]:
+    # lane-entry refcount under a plain thread lock, not an anyio primitive: sibling daemons can open lanes from
+    # distinct event loops while the process-wide thread and interpreter bands remain one shared resource pair.
     token = object()
     with _BAND_GATE:
         _BAND_HOLDERS.append(token)
         if len(_BAND_HOLDERS) == 1:
             _BAND_PROBES.enter_context(Metrics.occupied(_thread_occupancy, band="thread"))
+            _BAND_PROBES.enter_context(Metrics.occupied(_interpreter_occupancy, band="interpreter"))
     try:
         yield
     finally:
@@ -237,14 +287,13 @@ def _thread_band() -> Iterator[None]:
 
 
 class LanePolicy(Struct, frozen=True):
-    # `limiter` is lane-LIFETIME state exactly as `pulses` is, so it mints at the scoped constructor and rides the
+    # `slots` is lane-LIFETIME state exactly as `pulses` is, so it mints at the scoped constructor and rides the
     # value — never a `@cache` keyed on this struct. That memo pinned the whole policy, its conduit, and its manager
     # queue proxy for the process's life: `of`'s `finally` retired the actor while the cache still held the proxy, so
     # every lane a daemon opened leaked one limiter and one live broker handle with no eviction and no drain row. It
     # also made hashability load-bearing on a struct carrying a proxy object, which is a constraint the field deletes.
-    capacity: int
     pulses: "PulseConduit"
-    limiter: CapacityLimiter
+    slots: LaneCapacity
     deadline: Option[float] = Nothing
 
     @classmethod
@@ -261,8 +310,8 @@ class LanePolicy(Struct, frozen=True):
         # every `on_thread` hop, yet owns no lifecycle of its own, so its custody refcounts here — one registration
         # for the one limiter, opened by the first lane and retired by the last.
         capacity = context.policy.lane_capacity
-        policy = cls(capacity=capacity, pulses=PulseConduit.opened(scope), limiter=CapacityLimiter(capacity), deadline=context.budget)
-        with _thread_band(), Metrics.occupied(lambda: policy.limiter.borrowed_tokens, band="lane", scope=scope):
+        policy = cls(pulses=PulseConduit.opened(scope), slots=LaneCapacity.of(capacity), deadline=context.budget)
+        with _crossing_bands(), Metrics.occupied(lambda: policy.slots.borrowed, band="lane", scope=scope):
             async with anyio.create_task_group() as actors:
                 actors.start_soon(policy.pulses.drain)
                 try:
@@ -278,16 +327,25 @@ class LanePolicy(Struct, frozen=True):
         return self.pulses.scope
 
     async def drain[T](self, units: Block[Admit[T]], cache: Map[ContentKey, T] = Map.empty()) -> DrainReceipt[T]:
-        limiter = self.limiter
         opened = Cost.own()  # drain-window envelope: two own-process reads bracket the whole drain, never a sampling loop
         send, receive = anyio.create_memory_object_stream[tuple[Option[ContentKey], RuntimeRail[T]]](max_buffer_size=len(units) or 1)
         probed = units.map(lambda unit: probe(ADMIT_TABLE[unit.tag], unit, cache))
         hits, live = probed.partition(lambda p: p[1].is_some())
         replayed = hits.choose(lambda p: p[0].map2(p[1], lambda key, value: (key, value)))
 
-        async def lane(key: Option[ContentKey], fn: Work[T], sink: MemoryObjectSendStream[tuple[Option[ContentKey], RuntimeRail[T]]]) -> None:
-            async with sink, limiter:
-                await sink.send((key, await fn()))
+        async def lane(
+            key: Option[ContentKey], work: LaneWork[T], sink: MemoryObjectSendStream[tuple[Option[ContentKey], RuntimeRail[T]]]
+        ) -> None:
+            async with sink:
+                match work:
+                    case LaneWork(tag="shared", shared=fn):
+                        async with self.slots.claim(1):
+                            await sink.send((key, await fn()))
+                    case LaneWork(tag="whole", whole=fn):
+                        async with self.slots.claim(self.slots.total) as grant:
+                            await sink.send((key, await fn(grant)))
+                    case _ as unreachable:
+                        assert_never(unreachable)
 
         with move_on_after(self.deadline.default_value(float("inf"))):
             async with anyio.create_task_group() as group, send:
@@ -347,6 +405,16 @@ class LanePolicy(Struct, frozen=True):
             return Error(expired(LANES_FRONT, self.deadline, f"front-cancelled:{label}"))
         return gate.map(lambda point: Hooks.fire(point, mark, scope=self.scope)).default_value(Ok(mark)).map(lambda _passed: receipt)
 
+    async def whole[T](self, work: GrantedWork[T]) -> RuntimeRail[T]:
+        # Direct native work enters the same allocator as drain admissions. The lane deadline spans BOTH the wait
+        # for whole-lane custody and the work, so a saturated lane cannot consume the entire budget in admission and
+        # then start a fresh full-budget kernel. The grant is the only public inner-width fact: callers never read
+        # the allocator total and cannot multiply outer slots by an independently copied thread count.
+        with move_on_after(self.deadline.default_value(float("inf"))):
+            async with self.slots.claim(self.slots.total) as grant:
+                return await work(grant)
+        return Error(expired(LANES_OFFLOAD, self.deadline, "whole-lane-cancel"))
+
     async def offload[T](self, work: "Kernel[T] | Callable[..., T]", *args: object) -> RuntimeRail[T]:
         kernel = work if isinstance(work, Kernel) else Kernel.of(work)
         if (gated := admitted(kernel)).is_some():
@@ -389,8 +457,7 @@ class LanePolicy(Struct, frozen=True):
             case (_, Option(tag="some", some=kind)) if (row := _ISOLATION.try_find(kind)).is_some():
                 carrier: dict[str, str] = {}
                 propagate.inject(carrier)
-                arm, band = row.value
-                limiter = band.default_value(self.limiter)
+                arm, limiter = row.value
 
                 async def run() -> T:
                     return await arm(traced_kernel, carrier, kernel, *crossed, limiter=limiter)
@@ -499,7 +566,7 @@ class PulseConduit(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def probe[T](row: AdmitRow[T], unit: Admit[T], cache: Map[ContentKey, T]) -> tuple[Option[ContentKey], Option[T], Work[T]]:
+def probe[T](row: AdmitRow[T], unit: Admit[T], cache: Map[ContentKey, T]) -> tuple[Option[ContentKey], Option[T], LaneWork[T]]:
     key = row.key(unit)
     return key, key.bind(cache.try_find), row.make(unit)
 
@@ -603,21 +670,24 @@ async def feed[T](policy: LanePolicy, source: LaneSource[T], owner: str, redacti
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 ADMIT_TABLE: Final[Map[AdmitTag, AdmitRow[object]]] = Map.of_seq([
-    ("bare", AdmitRow(key=lambda _: Nothing, make=lambda unit: unit.bare)),
-    ("keyed", AdmitRow(key=lambda unit: Some(unit.keyed[0]), make=lambda unit: unit.keyed[1])),
-    ("retried", AdmitRow(key=lambda _: Nothing, make=lambda unit: lambda: guard(unit.retried[0])(unit.retried[1]))),
+    ("bare", AdmitRow(key=lambda _: Nothing, make=lambda unit: LaneWork(shared=unit.bare))),
+    ("keyed", AdmitRow(key=lambda unit: Some(unit.keyed[0]), make=lambda unit: LaneWork(shared=unit.keyed[1]))),
+    (
+        "retried",
+        AdmitRow(key=lambda _: Nothing, make=lambda unit: LaneWork(shared=lambda: guard(unit.retried[0])(unit.retried[1]))),
+    ),
+    ("whole", AdmitRow(key=lambda unit: unit.whole[0], make=lambda unit: LaneWork(whole=unit.whole[1]))),
 ])
 
-# anyio isolation arms as data: one row binds each anyio-substrate `WorkerKind` to its arm and band — `Nothing` selects the
-# per-lane memoised limiter, the `Some` row the thread band. PROCESS rides the workers pool capsule, DAEMON is spawned and
+# anyio isolation arms as data: one row binds each anyio-substrate `WorkerKind` to its own runtime band. PROCESS rides the workers pool capsule, DAEMON is spawned and
 # supervised, never called, and REMOTE and GPU are fleet/device placement acquired on the pool arms, never trait-derived,
 # so none carries a row here; WASM rides the thread band because the guest arm's own epoch deadline is its in-process kill.
 # A deadline-free guest runs on `UNBOUNDED_TICKS` and parks its THREAD_BAND token for as long as it runs, and the band's own
 # level series is the ONLY reading that exposes it — no arm, receipt, or fault reports a crossing that never terminates.
-_ISOLATION: Final[Map[WorkerKind, tuple[IsolationArm, Option[CapacityLimiter]]]] = Map.of_seq([
-    (WorkerKind.INTERPRETER, (anyio.to_interpreter.run_sync, Nothing)),
-    (WorkerKind.THREAD, (anyio.to_thread.run_sync, Some(THREAD_BAND))),
-    (WorkerKind.WASM, (anyio.to_thread.run_sync, Some(THREAD_BAND))),
+_ISOLATION: Final[Map[WorkerKind, tuple[IsolationArm, CapacityLimiter]]] = Map.of_seq([
+    (WorkerKind.INTERPRETER, (anyio.to_interpreter.run_sync, INTERPRETER_BAND)),
+    (WorkerKind.THREAD, (anyio.to_thread.run_sync, THREAD_BAND)),
+    (WorkerKind.WASM, (anyio.to_thread.run_sync, THREAD_BAND)),
 ])
 ```
 

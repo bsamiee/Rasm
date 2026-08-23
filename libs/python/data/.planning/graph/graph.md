@@ -7,7 +7,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 ## [01]-[INDEX]
 
 - [02]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed result receipts, content-keyed egress.
-- [03]-[TOPOLOGY]: `organization_graph` containment fold — wire-carried organizational entities and containment edges folded onto the one kernel, `OrganizationIndex` carrying one address-to-index map per key space.
+- [03]-[TOPOLOGY]: `organization_graph` recursive-forest fold — ordered entities and nested members folded onto one kernel after one bounded admission.
 
 ## [02]-[GRAPH]
 
@@ -36,6 +36,7 @@ from expression import Error, Ok, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
+from protovalidate import CompilationError, EvaluationError, ValidationError, validate
 
 lazy import igraph
 lazy import pyarrow as pa
@@ -57,7 +58,7 @@ from rasm.runtime.faults import (
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
-from rasm.runtime.transport.shapes import OrganizationWire
+from rasm.contracts.gen.rasm.contracts.organization.v1.organization_pb import Entity, Organization
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -125,6 +126,7 @@ _RX_RAISES: Final[Catch] = (
     TypeError,
     ValueError,
 )
+_ORG_RAISES: Final[Catch] = (*_RX_RAISES, TypeError, ValueError, CompilationError, EvaluationError, ValidationError)
 
 # this module's whole raise roster under its one `DataLeg` member. Every row is TERMINAL: a kernel run, a frame
 # lowering, and a codec are pure transforms over an admitted graph, so a re-issue over the same payload refuses
@@ -144,10 +146,10 @@ GRAPH_EGRESS: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GRAPH, point="egress", arm="boundary", defect="codec", retriability=TERMINAL
 )
 ORG_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
-    leg=DataLeg.GRAPH, point="organization", arm="boundary", defect="containment-build", retriability=TERMINAL
+    leg=DataLeg.GRAPH, point="organization", arm="boundary", defect="forest-build", retriability=TERMINAL
 )
-ORG_ORPHANED: Final[FaultRow[DataLeg]] = FaultRow(
-    leg=DataLeg.GRAPH, point="organization.containment", arm="config", defect="orphan-containment", retriability=TERMINAL, slots=("keys",)
+ORG_INVALID: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.GRAPH, point="organization.forest", arm="config", defect="invalid-forest", retriability=TERMINAL, slots=("reason",)
 )
 RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
     GRAPH_ANALYZE,
@@ -155,7 +157,7 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
     GRAPH_UNFRAMED,
     GRAPH_EGRESS,
     ORG_BUILD,
-    ORG_ORPHANED,
+    ORG_INVALID,
 ]))
 
 
@@ -774,20 +776,21 @@ flowchart TD
 
 ## [03]-[TOPOLOGY]
 
-- Owner: `organization_graph` folds one decoded `OrganizationWire` into the graph plane's node-link source — nodes the organizational addresses and the federation member keys, directed edges the nesting and membership containment — returning the `GraphPayload` beside the `OrganizationIndex` a caller keys its queries and the `GraphResult.frame` left-join through.
-- Law: schema and codec MINT in C# beside `csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION`, and `runtime/transport/shapes#VOCABULARY` is this branch's ONE wire-shape owner, so no struct mirrors the document here. Names on that wire state the host-free organizational concept, so this fold reads organizational addresses and federation keys and never a host layer handle, table index, or joined path.
+- Owner: `organization_graph` folds one decoded generated `Organization` forest into the graph plane's node-link source — nodes are organizational addresses and authority-issued member keys, directed edges are recursive parent-child and member containment — returning `GraphPayload` beside `OrganizationIndex`.
+- Law: schema and codec mint in C# beside `csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION`; the generated class is this branch's ONE wire shape. Recursive occurrence makes parentage and acyclicity structural, ordered child lists carry sibling order, and members/view overrides cannot detach from their owner.
 - Law: key SPACES stay separated — `OrganizationIndex.entities` maps content-addressed organizational addresses and `OrganizationIndex.members` federation keys the producing authority issued. One merged map lets an authority-issued key spelling a 32-hex address collide with an entity, silently re-pointing a containment query at the wrong node.
 - Law: content-key spelling lowers exactly once at this decode — the wire carries 16 big-endian bytes and this branch's own key face is lowercase hex, so a consumer joining an address against any peer lowers and never uppercases.
-- Entry: containment ancestry is `analyze(GraphAlgorithm(ancestors=(key, bound)))`, membership closure `descendants`, and nesting depth the `depth` column those walks and `bfs` publish on `layered` — a measured hop count off `bfs_layers`, never the position a flattened order once stood in for — so the existing kernel answers every organizational query with zero new algorithm surface and the node-keyed frame left-joins organization onto the scan plane by `node` exactly as every enrichment does.
-- Growth: one `ContainmentWire` target arm carries a new containment relation as one edge-payload literal and one dispatch row; a new presentation axis rides the decoded overrides untouched, since presentation evidence enters no edge.
-- Boundary: decode only — this plane re-mints no wire and answers no render or print product query, which stays producer-side evidence. Sibling ordinal rides the decoded entity rows rather than a node payload, because rank orders siblings and carries no edge. Overrides stay detached on the decoded value, so containment analysis reads one topology whichever view a consumer audits.
-- Boundary: containment edges naming an absent container or an absent entity target refuse typed at the fold, mirroring the emitter's own orphan refusal; a member target names a FOREIGN key space and always mints its node, since an unresolvable member is the consuming plane's join miss rather than wire damage.
+- Entry: `organization_graph` performs the single schema-gap admission while flattening depth-first in sibling-list order: global entity-key uniqueness, at most 65,536 entities, depth at most 64, and exact current-path resolution. Only then does it allocate graph indexes; no dictionary insertion can overwrite a prior entity.
+- Growth: one appended nested entity field carries a new axis; presentation evidence enters no graph edge.
+- Boundary: generated Protovalidate already owns field, list, member, and view-row constraints. This fold proves only cross-node limits and selection resolution, re-mints no wire, and exposes the resolved current node as typed optional index evidence.
 
 ```python signature
 class OrganizationIndex(Struct, frozen=True):
     # one address-to-index map per key space the wire discriminates — never one merged map a foreign key can shadow.
     entities: Map[str, NodeId]
     members: Map[str, NodeId]
+    views: Map[str, Block[tuple[str, bool]]]
+    current: NodeId | None
 
 
 # edge payload literals: the containment vocabulary the organizational queries and the frame join read.
@@ -800,30 +803,59 @@ def _address(key: bytes) -> str:
     return key.hex()
 
 
-def organization_graph(wire: OrganizationWire) -> "RuntimeRail[tuple[GraphPayload, OrganizationIndex]]":
+def organization_graph(payload: bytes) -> "RuntimeRail[tuple[GraphPayload, OrganizationIndex]]":
     def build() -> "RuntimeRail[tuple[Any, OrganizationIndex]]":
-        graph = rx.PyDiGraph(multigraph=False)
-        entities = {_address(entity.key): graph.add_node(_address(entity.key)) for entity in wire.entities}
-        nests = tuple((edge.container, edge.entity) for edge in wire.containment if edge.entity)
-        holds = tuple((edge.container, edge.member) for edge in wire.containment if edge.member)
-        orphans = tuple(
-            _address(container)
-            for container, target in nests + holds
-            if _address(container) not in entities
-        ) + tuple(_address(target) for _, target in nests if _address(target) not in entities)
-        if orphans:
-            # mirror of the emitter's own orphan refusal: a containment key outside the entity set is wire damage,
-            # never a droppable edge. It refuses on the RAIL under this owner's own row — a caller keys recovery on
-            # the named coordinate, where a raise the fence re-keys would arrive wearing a provider's shape.
-            return Error(ORG_ORPHANED.raised(",".join(orphans)))
-        # distinct-first: a member key two entities both hold mints ONE node — a per-occurrence add_node strands
-        # duplicates behind the last-written index, and sorted assignment keeps indices stable across reads.
-        members = {key: graph.add_node(key) for key in sorted({member for _, member in holds} - set(entities))}
-        graph.add_edges_from([(entities[_address(c)], entities[_address(t)], NESTS) for c, t in nests])
-        graph.add_edges_from([(entities[_address(c)], members[m], MEMBER) for c, m in holds])
-        return Ok((graph, OrganizationIndex(entities=Map.of_seq(entities.items()), members=Map.of_seq(members.items()))))
+        wire = Organization.from_binary(payload)
+        rows: list[tuple[str, str | None, Entity]] = []
+        keys: set[str] = set()
+        holdings: list[tuple[str, str]] = []
+        stack = [(root, None, 1) for root in reversed(wire.roots)]
+        while stack:
+            entity, parent, depth = stack.pop()
+            if depth > 64:
+                return Error(ORG_INVALID.raised("depth"))
+            if len(rows) >= 65_536:
+                return Error(ORG_INVALID.raised("nodes"))
+            address = _address(entity.key)
+            if address in keys:
+                return Error(ORG_INVALID.raised(f"duplicate:{address}"))
+            keys.add(address)
+            rows.append((address, parent, entity))
+            holdings.extend((address, member) for member in entity.members)
+            stack.extend((child, address, depth + 1) for child in reversed(entity.children))
 
-    return boundary(ORG_BUILD, build, catch=_RX_RAISES).bind(lambda railed: railed).bind(
+        selected: str | None = None
+        if wire.current is not None:
+            level = wire.roots
+            for index in wire.current.indexes:
+                if index >= len(level):
+                    return Error(ORG_INVALID.raised("current"))
+                current = level[index]
+                selected = _address(current.key)
+                level = current.children
+
+        validate(wire)
+        graph = rx.PyDiGraph(multigraph=False)
+        entities = {address: graph.add_node(address) for address, _, _ in rows}
+        members = {key: graph.add_node(key) for key in sorted({member for _, member in holdings})}
+        views = {
+            address: Block.of_seq((override.view, override.visible) for override in entity.overrides)
+            for address, _, entity in rows
+        }
+        graph.add_edges_from([
+            (entities[parent], entities[address], NESTS)
+            for address, parent, _ in rows
+            if parent is not None
+        ])
+        graph.add_edges_from([(entities[parent], members[member], MEMBER) for parent, member in holdings])
+        return Ok((graph, OrganizationIndex(
+            entities=Map.of_seq(entities.items()),
+            members=Map.of_seq(members.items()),
+            views=Map.of_seq(views.items()),
+            current=None if selected is None else entities[selected],
+        )))
+
+    return boundary(ORG_BUILD, build, catch=_ORG_RAISES).bind(lambda railed: railed).bind(
         lambda built: GraphPayload.of(built[0]).map(lambda payload: (payload, built[1]))
     )
 ```

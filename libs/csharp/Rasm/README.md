@@ -9,7 +9,7 @@
 [DOMAIN]:
 - [01]-[RAILS](.planning/Domain/rails.md): Kernel ROP substrate — result union, fault-band registry, re-drive, lease, and transition rails.
 - [02]-[CONTEXT](.planning/Domain/context.md): Tolerance/units substrate — the tolerance-lane vocabulary, admitted carrier, and context bundle.
-- [03]-[IDENTITY](.planning/Domain/identity.md): Determinism owner — the seed-zero content key, its canonical preimage writer, and the one draw.
+- [03]-[IDENTITY](.planning/Domain/identity.md): XXH semantic keys, SHA-256 artifact coordinates, canonical preimages, and deterministic draws.
 - [04]-[VALIDATION](.planning/Domain/validation.md): Acceptance oracle — the admission vocabulary, readiness algebra, and capability-set idiom.
 - [05]-[NORMALIZATION](.planning/Domain/normalization.md): Rhino-kind taxonomy and coercion owner — capability-carrying kinds and their carrier.
 - [06]-[EVALUATION](.planning/Domain/evaluation.md): Closest-point evaluation lattice — one request union over frames, sampling, and signed distance.
@@ -19,7 +19,7 @@
 - [10]-[INSTRUMENT](.planning/Domain/instrument.md): Measurement plane — instrument specs, mounts, the write entry, and the tally read.
 - [11]-[OBJECTIVE](.planning/Domain/objective.md): Reliability policy — indicator family, burn table, board pack, and the bench claim ledger.
 - [12]-[TELEMETRY](.planning/Domain/telemetry.md): Signal capsule — bounded fault observation, fact union, span band, cost tap, contributor port.
-- [13]-[EVENT](.planning/Domain/event.md): CloudEvents message-envelope owner — mint boundary, attribute grammar, extension roster, format contract.
+- [13]-[EVENT](.planning/Domain/event.md): CloudEvents grammar, source-scoped operation identity, mint/admission, fields, and formats.
 
 [NUMERICS]:
 - [14]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
@@ -153,8 +153,10 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `CSparse` — Sparse direct-solve substrate under the matrix owner.
 
 [EVENT_TRANSPORT]:
+- `Celly.Protovalidate` — Generated event-schema constraint validation at protobuf admission.
 - `CloudNative.CloudEvents` — Behind the one branch mint at `Domain/event`; kernel-only construction surface.
 - `CloudNative.CloudEvents.SystemTextJson` — One `JsonEventFormatter` identity across structured, binary, and batch mode.
+- `Google.Protobuf` — Generated event messages, descriptor reflection, and strict protobuf encode/decode substrate.
 
 [RUNTIME_INBOX]:
 - `System.Text.Json` — `[JsonDerivedType]` receipt-union roster and the frozen evidence-wire options identity.

@@ -145,7 +145,7 @@ const _host = (
     Option.getOrElse(adapter, () => ({ vendor: "unreachable", architecture: "unreachable" })),
     (info) =>
       // Browsers expose no operating-system name through a stable surface, so `os` takes the seam's one
-      // `unreachable` sentinel (frozen with the C# minter at [02.15]), and `stamps` stays empty here
+      // `unreachable` sentinel (frozen with the manifest `benchmark-claim/host-fingerprint` C# minter), and `stamps` stays empty here
       // because every host fact this probe reaches already fills a column of its own.
       new Board.Claim.Host({
         print,
@@ -162,10 +162,10 @@ const _host = (
 ## [04]-[CLAIM_BOARD]
 
 [CLAIM_BOARD]:
-- Owner: `Probe.board` performs a full label-keyed join of claim and local metrics.
+- Owner: `Probe.board` admits `BenchmarkClaimWire` bytes through `Wire.decode`, then performs the full label-keyed join against local metrics.
 - Law: units must agree before a row receives a numeric delta.
 - Law: display formats through `Format` number rows (`system/intl`); tones key off delta sign through the `[6]` table.
-- Boundary: claims arrive already admitted; persisting local runs as new claims is app egress through wire encode.
+- Boundary: `Probe.board` is the claim byte-ingress seam; persisting local runs as new claims is app egress through wire encode.
 
 ```typescript
 import { Array, HashMap, HashSet } from "effect"
@@ -179,48 +179,65 @@ declare namespace Probe {
   }
 }
 
-const _board = (claim: Board.Claim, local: ReadonlyArray<Metric>): ReadonlyArray<Probe.BoardRow> => {
-  const mine = HashMap.fromIterable(Array.map(local, (row) => [row.label, row] as const))
-  const named = HashSet.fromIterable(Array.map(claim.metrics, (row) => row.label))
-  return Array.appendAll(
-    Array.map(claim.metrics, (row) => {
-      const held = HashMap.get(mine, row.label)
-      return {
-        label: row.label,
-        claimed: Option.some(row),
-        local: held,
-        delta: Option.flatMap(held, (near) => (near.unit === row.unit ? Option.some(near.value - row.value) : Option.none())),
-      }
-    }),
-    Array.filterMap(local, (row) =>
-      HashSet.has(named, row.label)
-        ? Option.none()
-        : Option.some({ label: row.label, claimed: Option.none<Metric>(), local: Option.some(row), delta: Option.none<number>() })),
+const _board = (
+  claim: Uint8Array,
+  local: ReadonlyArray<Metric>,
+): Effect.Effect<ReadonlyArray<Probe.BoardRow>, Wire.Fault | ParseResult.ParseError> =>
+  Effect.map(
+    Wire.decode("BenchmarkClaimWire", claim),
+    (admitted) => {
+      const mine = HashMap.fromIterable(Array.map(local, (row) => [row.label, row] as const))
+      const named = HashSet.fromIterable(Array.map(admitted.metrics, (row) => row.label))
+      return Array.appendAll(
+        Array.map(admitted.metrics, (row) => {
+          const held = HashMap.get(mine, row.label)
+          return {
+            label: row.label,
+            claimed: Option.some(row),
+            local: held,
+            delta: Option.flatMap(held, (near) =>
+              near.unit === row.unit ? Option.some(near.value - row.value) : Option.none()),
+          }
+        }),
+        Array.filterMap(local, (row) =>
+          HashSet.has(named, row.label)
+            ? Option.none()
+            : Option.some({ label: row.label, claimed: Option.none<Metric>(), local: Option.some(row), delta: Option.none<number>() })),
+      )
+    },
   )
-}
 ```
 
 ## [05]-[CAPTURE_FOLD]
 
 [CAPTURE_FOLD]:
-- Owner: `Probe.capture` normalizes one controlled RGBA8 readback and compares its canonical pixel hash with timeline evidence.
+- Owner: `Probe.capture` admits `EvidenceTimelineWire` bytes through `Wire.decode`, then normalizes one controlled RGBA8 readback and compares its canonical pixel hash with timeline evidence.
 - Law: the preimage is the producer kernel's `CanonicalWriter` framing — the version's int32-LE UTF-8 byte count then its bytes, width and height as int32-LE ordinals, then the tightly packed top-left RGBA8 sRGB straight-alpha plane as the trailing raw leaf whose extent those two ordinals already recover.
 - Law: `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` owns that framing and the branch carries no `CanonicalWriter` peer — `core/value/contentKey` publishes `Digest.mint` and `Digest.Session` alone — so this page is the ONE site that spells it and a second framing helper elsewhere forks the law.
 - Law: capture compares only `pixels.hash`; `frameHash` identifies encoded artifact bytes and `drawHash` identifies draw attribution.
 - Law: `Probe.packed` publishes that normalization, so the hash preimage and `view/export#SERIALIZER_MATRIX`'s readback arm read one buffer — the preimage streams its framed segments and hands that packed plane as its trailing leaf rather than re-buffering it, and a second repack forks the pixel identity.
-- Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, and `Wire` owns timeline decoding.
+- Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, `Wire` owns timeline decoding, and the packed receipt unpacks through `Format.proto.any` against the one registry.
 
 ```typescript
-import { Digest, Wire } from "@rasm/ts/core"
-import { Array, DateTime, Effect, Equal, Option } from "effect"
+import { Digest, Format, Wire } from "@rasm/ts/core"
+import { EvidenceReceiptWireSchema } from "@rasm\/contracts/rasm/contracts/ui/v1/evidence_pb"
+import { Array, DateTime, Effect, Equal, Option, type ParseResult, Schema } from "effect"
 
 const _PIXEL_VERSION = "rgba8-srgb-straight-top-left-v2" as const
 const _CAPTURE = { width: 1024, height: 1024, version: _PIXEL_VERSION } as const
 
-type Evidence = Wire.EvidenceTimeline["rows"][number]["envelope"]["payload"]
-type RenderEvidence = Extract<Evidence, { readonly kind: "render" }>
+// a timeline row's envelope carries its receipt packed as `Any`; the evidence receipt unpacks against the one
+// descriptor registry through the typed arm, so a row whose payload packs another family answers none here and
+// is never read as a render it is not
+type Receipt = Schema.Schema.Type<ReturnType<typeof Format.proto.message<typeof EvidenceReceiptWireSchema>>>
+type RenderEvidence = Extract<Receipt["kind"], { readonly case: "render" }>["value"]
 
-const _isRender = (evidence: Evidence): evidence is RenderEvidence => evidence.kind === "render"
+const _receipt = (row: Wire.EvidenceTimeline["rows"][number]): Option.Option<Receipt> =>
+  Option.flatMap(Option.fromNullable(row.envelope?.payload), (payload) =>
+    Format.proto.any.unpack(payload, EvidenceReceiptWireSchema))
+
+const _render = (receipt: Receipt): Option.Option<RenderEvidence> =>
+  receipt.kind.case === "render" ? Option.some(receipt.kind.value) : Option.none()
 
 declare namespace Probe {
   type Pixels = {
@@ -276,42 +293,50 @@ const _preimage = (capture: Probe.Pixels, width: number, height: number): Readon
 
 // The search RETURNS the pixel identity it proved present, so the caller never re-reads the column and never
 // asserts it: a predicate that finds a receipt carrying pixels and hands back the receipt alone forces the one
-// unwrap the finder already did, and the `!` that unwrap needed was an assertion where evidence was in hand.
-const _render = (
+// unwrap the finder already did. The identity's hash crosses as the producer's sixteen bytes and lands through the
+// digest owner's own byte codec, so the compare below is brand against brand.
+const _rendered = (
   timeline: Wire.EvidenceTimeline,
   view: string,
-): RenderEvidence["pixels"] =>
+): Option.Option<{ readonly width: number; readonly height: number; readonly hash: Digest.Key<"content"> }> =>
   Option.flatMap(
     Array.findFirst(
-      Array.filterMap(timeline.rows, (row) =>
-        _isRender(row.envelope.payload) ? Option.some(row.envelope.payload) : Option.none()),
-      (receipt) => receipt.slot === view && Option.isSome(receipt.pixels),
+      Array.filterMap(timeline.rows, (row) => Option.flatMap(_receipt(row), _render)),
+      (receipt) => receipt.slot === view && receipt.pixels !== undefined,
     ),
-    (receipt) => receipt.pixels,
+    (receipt) =>
+      Option.flatMap(Option.fromNullable(receipt.pixels), (pixels) =>
+        Option.map(Schema.decodeOption(Digest.codecs.content.bytes)(pixels.hash), (hash) => ({ width: pixels.width, height: pixels.height, hash }))),
   )
 
 const _capture = (
   view: string,
   readback: Probe.Readback,
-  timeline: Wire.EvidenceTimeline,
-): Effect.Effect<Option.Option<Probe.Verdict>> =>
-  Option.match(_render(timeline, view), {
-    onNone: () => Effect.succeed(Option.none()),
-    onSome: (identity) => Effect.gen(function* () {
-    const capture = yield* readback(identity.width, identity.height)
-    const actual = yield* Digest.mint("content", _preimage(capture, identity.width, identity.height))
-    const at = yield* DateTime.now
-    return Option.some({
-      view,
-      expected: identity.hash,
-      actual,
-      matched: Equal.equals(actual, identity.hash),
-      at,
-    })
-  }).pipe(
+  timeline: Uint8Array,
+): Effect.Effect<Option.Option<Probe.Verdict>, Wire.Fault | ParseResult.ParseError> =>
+  Effect.flatMap(
+    Wire.decode("EvidenceTimelineWire", timeline),
+    (admitted) =>
+      Option.match(_rendered(admitted, view), {
+        onNone: () => Effect.succeed(Option.none()),
+        onSome: (identity) =>
+          Effect.gen(function* () {
+            const capture = yield* readback(identity.width, identity.height)
+            const actual = yield* Digest.mint("content", _preimage(capture, identity.width, identity.height))
+            const at = yield* DateTime.now
+            return Option.some({
+              view,
+              expected: identity.hash,
+              actual,
+              matched: Equal.equals(actual, identity.hash),
+              at,
+            })
+          }),
+      }),
+  ).pipe(
     Effect.withSpan("rasm.ui.probe.capture", { attributes: { "probe.view": view } }),
     Effect.annotateLogs({ view }),
-  )})
+  )
 ```
 
 ## [06]-[EVIDENCE_ROWS]

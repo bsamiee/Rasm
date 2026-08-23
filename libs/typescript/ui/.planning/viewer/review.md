@@ -14,38 +14,41 @@ Review joins `ModelDiff` changes and BCF issues by `GlobalId`, folds each topic'
 [CHANGE_VOCABULARY]:
 - Owner: `Review` closes presentation against `Wire.ModelDiff` change kinds and `Wire.BcfTopic` statuses.
 - Law: each row carries token tone and every selection, residency, blocking, and ordering decision that consumes the key.
-- Boundary: core decodes the values; review only joins and projects them.
+- Law: both vocabularies are the corpus's own — the change roster is the generated `kind` oneof's case names, the status roster the `BcfStatus` members `viewer/mark` narrows — so every table keys on a generated spelling, closes against it both ways, and mints no token of its own.
+- Boundary: `Review.rows` is the model-diff byte-ingress seam; BCF topics arrive decoded from their owning admission path.
 
 ```typescript signature
 import { Wire } from "@rasm/ts/core"
+import { BcfStatus } from "@rasm\/contracts/rasm/contracts/bcf/v1/bcf_pb"
 import { Record } from "effect"
 import type { LucideIcon } from "lucide-react"
 import { CircleMinus, CirclePlus, Combine, GitBranch, Move3d, PencilLine } from "lucide-react"
 import type { Theme } from "../../src/system/token.ts"
-import type { Selection } from "./mark.ts"
+import { Mark, type Selection } from "./mark.ts"
 
-const _changes = ["Added", "Removed", "Modified", "Moved", "Split", "Merged"] as const
+// the change roster IS the generated oneof's case space: a row per case, keyed on the case name the corpus emits
 const _changeRows = {
-  Added: { icon: CirclePlus, tone: "success", resident: true, op: "Add", rank: 2 },
-  Removed: { icon: CircleMinus, tone: "danger", resident: false, op: "Subtract", rank: 0 },
-  Modified: { icon: PencilLine, tone: "accent", resident: true, op: "Add", rank: 3 },
-  Moved: { icon: Move3d, tone: "accent", resident: true, op: "Add", rank: 4 },
-  Split: { icon: GitBranch, tone: "warning", resident: true, op: "Add", rank: 1 },
-  Merged: { icon: Combine, tone: "warning", resident: true, op: "Add", rank: 1 },
-} as const
+  added: { icon: CirclePlus, tone: "success", resident: true, op: "Add", rank: 2 },
+  removed: { icon: CircleMinus, tone: "danger", resident: false, op: "Subtract", rank: 0 },
+  modified: { icon: PencilLine, tone: "accent", resident: true, op: "Add", rank: 3 },
+  moved: { icon: Move3d, tone: "accent", resident: true, op: "Add", rank: 4 },
+  split: { icon: GitBranch, tone: "warning", resident: true, op: "Add", rank: 1 },
+  merged: { icon: Combine, tone: "warning", resident: true, op: "Add", rank: 1 },
+} as const satisfies { readonly [K in Review.Change]: Review.ChangeRow }
 
-const _statuses = ["open", "in-progress", "resolved", "closed", "reopened"] as const
 const _statusRows = {
-  open: { tone: "danger", blocking: true },
-  "in-progress": { tone: "warning", blocking: true },
-  resolved: { tone: "success", blocking: false },
-  closed: { tone: "neutral", blocking: false },
-  reopened: { tone: "danger", blocking: true },
-} as const
+  [BcfStatus.OPEN]: { tone: "danger", blocking: true },
+  [BcfStatus.IN_PROGRESS]: { tone: "warning", blocking: true },
+  [BcfStatus.RESOLVED]: { tone: "success", blocking: false },
+  [BcfStatus.CLOSED]: { tone: "neutral", blocking: false },
+  [BcfStatus.REOPENED]: { tone: "danger", blocking: true },
+} as const satisfies { readonly [K in Review.Status]: { readonly tone: Theme.Tone; readonly blocking: boolean } }
 
 declare namespace Review {
-  type Change = Wire.ModelDiff["changes"][number]["kind"]
-  type Status = Wire.BcfTopic["status"]
+  // the set arm `{ case: undefined }` the corpus's `oneof required` rule refuses is excluded at the type, so the
+  // table closes over the six cases a producer can emit
+  type Change = Exclude<Wire.ModelDiff["changes"][number]["kind"]["case"], undefined>
+  type Status = Mark.Status
   type ChangeRow = {
     readonly icon: LucideIcon
     readonly tone: Theme.Tone
@@ -53,36 +56,36 @@ declare namespace Review {
     readonly op: Selection.Op["_tag"]
     readonly rank: number
   }
-  // effect's `Record` namespace shadows the global utility type across this whole module, so every record shape
-  // here spells `Record.ReadonlyRecord` — a bare `Record<K, V>` resolves to a non-generic namespace and fails
-  type _Changes<T extends Record.ReadonlyRecord<Change, ChangeRow> = typeof _changeRows> = T
-  type _Statuses<
-    T extends Record.ReadonlyRecord<Status, { readonly tone: Theme.Tone; readonly blocking: boolean }> = typeof _statusRows,
-  > = T
+  // both tables close BOTH ways: `satisfies` refuses an excess row and these aliases refuse a generated case or
+  // member without one. effect's `Record` namespace shadows the global utility type across this whole module, so
+  // every string-keyed record shape here spells `Record.ReadonlyRecord`
+  type _ChangeGap<K extends keyof typeof _changeRows = Change> = K
+  type _StatusGap<K extends keyof typeof _statusRows = Status> = K
 }
 ```
 
 ## [03]-[ROW_JOIN]
 
 [ROW_JOIN]:
-- Owner: `Review.rows` folds all change and viewpoint anchors into one branded-key map.
+- Owner: `Review.rows` admits `ModelDiffWire` bytes through `Wire.decode`, then folds all change and viewpoint anchors into one branded-key map.
 - Law: `Option<Change>` represents issue-only rows; ordering reads the change registry through `_rank` and falls back to the admitted `GlobalId`, so the board's ordering and its sortable rank column read one function.
 - Law: `Review.census` counts changes, statuses, and blocking issues in the row fold.
 - Law: comments fold into ONE reply tree off `replyToGuid` — a root comment carries `None`, and a reply whose parent left the topic, or whose chain reaches no root at all, re-roots instead of vanishing: the wire admits a deleted parent, asserts no acyclicity, and a comment dropped from the tree is evidence lost.
 - Law: siblings hold wire time order at every depth, so a thread reads as it was written and no consumer re-sorts it.
 
 ```typescript signature
-import { Array, DateTime, HashMap, Option, Order } from "effect"
+import { Array, DateTime, Effect, HashMap, Match, Option, Order, type ParseResult, pipe } from "effect"
 
-type GlobalId = typeof Wire.BcfViewpoint.GlobalId.Type
+type GlobalId = Selection.Id
 type Comment = Wire.BcfTopic["comments"][number]
+type Change = Wire.ModelDiff["changes"][number]
 
 declare namespace Review {
   type Note = {
     readonly guid: string
     readonly author: string
     readonly text: string
-    readonly at: DateTime.Utc
+    readonly at: Option.Option<DateTime.Utc> // absent exactly where the producer omitted the comment's instant
     readonly replies: ReadonlyArray<Review.Note>
   }
   type Issue = {
@@ -99,7 +102,7 @@ declare namespace Review {
   }
   type Census = {
     readonly changes: Record.ReadonlyRecord<Change, number>
-    readonly statuses: Record.ReadonlyRecord<Status, number>
+    readonly statuses: HashMap.HashMap<Status, number> // enum members key a map, never a string-keyed record
     readonly blocking: number
   }
 }
@@ -122,25 +125,33 @@ const _touch = (
   HashMap.modifyAt(held, anchor, (slot) =>
     Option.some(edit(Option.getOrElse(slot, () => ({ ..._SEED, anchor })))))
 
-const _attributes = (change: Wire.ModelDiff["changes"][number]): ReadonlyArray<string> => {
-  switch (change.kind) {
-    case "Added":
-    case "Removed":
-      return [change.class.code, change.predefined]
-    case "Modified":
-      return Array.map(change.deltas, (delta) => delta.path)
-    case "Moved":
-      return ["placement"]
-    case "Split":
-      return change.into
-    case "Merged":
-      return change.from
-  }
-}
+// the wire's own oneof face routes the fold: every case reads its own value column by name, the end arms share
+// one projection because they share one message, and the unset arm the corpus rule refuses contributes nothing
+const _ends = (end: Extract<Change["kind"], { readonly case: "added" | "removed" }>["value"]): ReadonlyArray<string> =>
+  Array.appendAll(Array.fromNullable(end.classification?.code), [end.predefined])
+
+const _attributes = (change: Change): ReadonlyArray<string> =>
+  Match.value(change.kind).pipe(
+    Match.when({ case: "added" }, ({ value }) => _ends(value)),
+    Match.when({ case: "removed" }, ({ value }) => _ends(value)),
+    Match.when({ case: "modified" }, ({ value }) => Array.map(value.deltas, (delta) => delta.path)),
+    Match.when({ case: "moved" }, () => ["placement"]),
+    Match.when({ case: "split" }, ({ value }) => value.counterparts),
+    Match.when({ case: "merged" }, ({ value }) => value.counterparts),
+    Match.orElse(() => Array.empty<string>()),
+  )
+
+// the anchor and the case ride every arm's own `globalId`; the decode is the brand narrowing onto the set's
+// element and the unset arm answers none, which is exactly the member the corpus rule refused
+const _changed = (change: Change): Option.Option<{ readonly anchor: GlobalId; readonly kind: Review.Change }> =>
+  pipe(change.kind, (face) =>
+    face.case === undefined
+      ? Option.none()
+      : Option.map(Selection.decode(face.value.globalId), (anchor) => ({ anchor, kind: face.case })))
 
 const _ROOT = "" // a wire comment guid is NonEmptyString, so the empty key can only ever be the synthetic root bucket
 
-const _byWritten = Order.mapInput(DateTime.Order, (comment: Comment) => comment.date)
+const _byWritten = Order.mapInput(Option.getOrder(DateTime.Order), (comment: Comment) => Mark.instant(comment.date))
 
 const _thread = (comments: ReadonlyArray<Comment>): ReadonlyArray<Review.Note> => {
   const held = Record.fromIterableWith(comments, (comment) => [comment.guid, comment] as const)
@@ -149,55 +160,64 @@ const _thread = (comments: ReadonlyArray<Comment>): ReadonlyArray<Review.Note> =
     Option.match(Record.get(held, guid), {
       onNone: () => false,
       onSome: (comment) =>
-        Option.match(comment.replyToGuid, {
+        Option.match(Option.fromNullable(comment.replyToGuid), {
           onNone: () => true,
           onSome: (parent) => budget > 0 && anchored(parent, budget - 1),
         }),
     })
   const branch = Array.groupBy(Array.sort(comments, _byWritten), (comment) =>
-    anchored(comment.guid, comments.length) ? Option.getOrElse(comment.replyToGuid, () => _ROOT) : _ROOT)
+    anchored(comment.guid, comments.length) ? (comment.replyToGuid ?? _ROOT) : _ROOT)
   const grow = (guid: string): ReadonlyArray<Review.Note> =>
     Array.map(Option.getOrElse(Record.get(branch, guid), (): ReadonlyArray<Comment> => []), (comment) => ({
       guid: comment.guid,
       author: comment.author,
       text: comment.text,
-      at: comment.date,
+      at: Mark.instant(comment.date),
       replies: grow(comment.guid),
     }))
   return grow(_ROOT)
 }
 
-const _rows = (diff: Wire.ModelDiff, issues: ReadonlyArray<Wire.BcfTopic>): ReadonlyArray<Review.Row> => {
-  const changed = Array.reduce(
-    diff.changes,
-    HashMap.empty<GlobalId, Review.Row>(),
-    (held, change) => _touch(held, change.globalId, (row) => ({
-      ...row,
-      change: Option.some(change.kind),
-      attributes: _attributes(change),
-    })),
+const _rows = (
+  diff: Uint8Array,
+  issues: ReadonlyArray<Wire.BcfTopic>,
+): Effect.Effect<ReadonlyArray<Review.Row>, Wire.Fault | ParseResult.ParseError> =>
+  Effect.map(
+    Wire.decode("ModelDiffWire", diff),
+    (admitted) => {
+      const changed = Array.reduce(
+        Array.filterMap(admitted.changes, (change) => Option.map(_changed(change), (keyed) => ({ ...keyed, change }))),
+        HashMap.empty<GlobalId, Review.Row>(),
+        (held, { anchor, kind, change }) => _touch(held, anchor, (row) => ({
+          ...row,
+          change: Option.some(kind),
+          attributes: _attributes(change),
+        })),
+      )
+      return Array.sort(
+        HashMap.values(
+          // the status narrowing is `viewer/mark`'s one seat; an issue it refuses is the member the corpus rule already
+          // refused, so the fold is total over every document a producer emits
+          Array.reduce(Array.filterMap(issues, (issue) => Option.map(Mark.keys(issue), (keys) => ({ issue, status: keys.status }))), changed, (held, { issue, status }) => {
+            // reply tree folds once per topic, never once per anchor: a topic naming forty elements would otherwise rebuild
+            // that same thread forty times and hand each row a different object identity for one discussion
+            const thread = _thread(issue.comments)
+            return Array.reduce(issue.viewpoints, held, (topics, viewpoint) =>
+              Array.reduce(Array.filterMap(viewpoint.selectedGlobalIds, Selection.decode), topics, (rows, anchor) =>
+                _touch(rows, anchor, (row) => ({
+                  ...row,
+                  issues: [...row.issues, { guid: issue.guid, title: issue.title, status, thread }],
+                }))))
+          }),
+        ),
+        _order,
+      )
+    },
   )
-  return Array.sort(
-    HashMap.values(
-      Array.reduce(issues, changed, (held, issue) => {
-        // reply tree folds once per topic, never once per anchor: a topic naming forty elements would otherwise rebuild
-        // that same thread forty times and hand each row a different object identity for one discussion
-        const thread = _thread(issue.comments)
-        return Array.reduce(issue.viewpoints, held, (topics, viewpoint) =>
-          Array.reduce(viewpoint.selectedGlobalIds, topics, (rows, anchor) =>
-            _touch(rows, anchor, (row) => ({
-              ...row,
-              issues: [...row.issues, { guid: issue.guid, title: issue.title, status: issue.status, thread }],
-            }))))
-      }),
-    ),
-    _order,
-  )
-}
 
 const _ZERO: Review.Census = {
   changes: Record.map(_changeRows, () => 0),
-  statuses: Record.map(_statusRows, () => 0),
+  statuses: HashMap.fromIterable(Array.map(Mark.statuses.members, (status) => [status, 0] as const)),
   blocking: 0,
 }
 
@@ -211,7 +231,7 @@ const _census = (rows: ReadonlyArray<Review.Row>): Review.Census =>
       }),
     }, (inner, issue) => ({
       ...inner,
-      statuses: { ...inner.statuses, [issue.status]: inner.statuses[issue.status] + 1 },
+      statuses: HashMap.modify(inner.statuses, issue.status, (held) => held + 1),
       blocking: inner.blocking + (_statusRows[issue.status].blocking ? 1 : 0),
     })))
 ```
@@ -315,6 +335,7 @@ const _columns: ReadonlyArray<ColumnDef<Grid.Features, Review.Row, unknown>> = [
 
 ```typescript signature
 import { Camera } from "./geo.ts"
+import { Selection } from "./mark.ts"
 
 type Extent = typeof Wire.GeoFeature.Extent.Type
 
@@ -342,7 +363,7 @@ const _reveal = (
       // with no viewpoint the board frames what it tints, and a non-resident change frames nothing, so the tint set
       // doubles as the fit set; a viewpoint carrying its own camera yields nothing here and the restore fold answers
       onNone: () => Option.some(Array.map(_tint(rows), ([anchor]) => anchor)),
-      onSome: (held) => Option.isSome(held.camera) ? Option.none() : Option.some(held.selectedGlobalIds),
+      onSome: (held) => held.camera === undefined ? Option.some(Array.filterMap(held.selectedGlobalIds, Selection.decode)) : Option.none(),
     }),
     (ids) => Option.map(extent(ids), (bounds) => Camera.Intent.FitBounds({ bounds, padding })),
   )
@@ -350,9 +371,7 @@ const _reveal = (
 declare namespace Review {
   type Shape = {
     readonly change: typeof _changeRows
-    readonly changes: typeof _changes
     readonly status: typeof _statusRows
-    readonly statuses: typeof _statuses
     readonly rows: typeof _rows
     readonly rank: typeof _rank
     readonly order: typeof _order
@@ -367,9 +386,7 @@ declare namespace Review {
 
 const Review: Review.Shape = {
   change: _changeRows,
-  changes: _changes,
   status: _statusRows,
-  statuses: _statuses,
   rows: _rows,
   rank: _rank,
   order: _order,

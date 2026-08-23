@@ -4,15 +4,16 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 
 ## [01]-[INDEX]
 
-- [02]-[PORT_SHAPE]: the engine-neutral port — lease, elect, cas, read, watch, trail, census — receipts and the faults; `Accord`, `AccordFault`.
+- [02]-[PORT_SHAPE]: the engine-neutral port — lease, elect, cas, fence, read, watch, trail, census — receipts and the faults; `Accord`, `AccordFault`.
 - [03]-[KV_ROW]: the distributed engine: TTL-clocked claims, heartbeat holds, revision-CAS, watch tail; `Accord.kv`.
 - [04]-[LOCKS_ROW]: the browser engine: Web Locks arbiter bridge, arbiter census, honest ledger degradation; `Accord.locks`.
 
 ## [02]-[PORT_SHAPE]
 
 [PORT_SHAPE]:
-- Owner: the `Accord` Tag — seven members over the coordination name. `lease(name, mode)` is the scoped exclusive hold answering an `Accord.Lease` receipt: the scope opens holding the lock and closing it releases, `mode` selecting `wait` (suspend until granted), `try` (fail `busy` instantly), or `steal` (evict the holder — the operator's recovery arm); `elect(name)` is the scoped seat claim answering an `Accord.Seat` — a leader's seat stays alive for the scope's lifetime and a follower composes `watch` to react to succession; `cas(key, expected, next)` writes shared state only when the ledger still holds the expected fact (`Option.none()` is create-if-absent), answering the settled fact; `read(key, at?)` answers a fact as `Option`, the optional revision pinning which generation is read; `watch(key)` tails the fact's forward changes and `trail(key)` reads its recorded succession, both as the same `Option<Fact>` stream; `census(filter)` answers the coordinated names beside the engine's own health — the doctor read `serve/cli` ops verbs consume.
-- Law: the receipts carry fencing evidence — `Lease.token` and a leader `Seat.token` hold the claim revision as `Option` (the `locks` arbiter mints none), so a guarded downstream write spells `cas(key, expected, next)` seniority off the token, and `read(key, token)` is what makes that seniority provable: a slow holder reading only the current fact folds against a SUCCESSOR's write and fences the wrong generation, while the pinned read answers the fact its own token was minted against. A lease consumed as a bare grant with no fenced write is legal; a fenced write minted from anything but the receipt is not.
+- Owner: the `Accord` Tag — eight members over the coordination name. `lease(name, mode)` is the scoped exclusive hold answering an `Accord.Lease` receipt: the scope opens holding the lock and closing it releases, `mode` selecting `wait` (suspend until granted), `try` (fail `busy` instantly), or `steal` (evict the holder — the operator's recovery arm); `elect(name)` is the scoped seat claim answering an `Accord.Seat` — a leader's seat stays alive for the scope's lifetime and a follower composes `watch` to react to succession; `cas(key, expected, next)` writes shared state only when the ledger still holds the expected fact (`Option.none()` is create-if-absent), answering the settled fact; `fence(key, lease, next)` is the same write under a holder's token, refusing a claimant the ledger has already outranked; `read(key, at?)` answers a fact as `Option`, the optional revision pinning which generation is read; `watch(key)` tails the fact's forward changes and `trail(key)` reads its recorded succession, both as the same `Option<Fact>` stream; `census(filter)` answers the coordinated names beside the engine's own health — the doctor read `serve/cli` ops verbs consume.
+- Law: seniority is proved by CARRYING the token into the write, never by pinning a read — `fence(key, lease, next)` stores the holder's token beside the value under one length-framed layout and refuses `stale` when the ledger already holds a HIGHER one, so a slow holder whose lease expired loses structurally against its successor. `Lease.token` and a leader `Seat.token` hold the claim revision as `Option` (the `locks` arbiter mints none), and bucket revisions are one monotonic stream sequence, which is exactly what makes a plain comparison total. Consuming a lease as a bare grant with no fenced write is legal; minting a fenced write from anything but the receipt is not.
+- Law: `read(key, at)` pins a generation of THAT KEY and answers absence for anything else — the bucket numbers every revision out of one stream sequence, and the point read re-checks the fetched message's key against the one asked for, so a revision belonging to a different key reads as `Option.none()` rather than a foreign fact. Holders therefore prove seniority through `fence` and never through a pinned read of the state key, which answers absence on every call.
 - Law: succession is auditable, not inferred — `trail(key)` is the bucket's recorded history for one key, so a leadership handover reads as the sequence of claims and tombstones that produced it; the forward tail cannot answer a question about the past, and reconstructing one from a downstream projection re-derives evidence the bucket already holds under its own history depth.
 - Law: the census answers health or honest absence — an engine holding a state ledger reports its own bucket facts (values, history depth, byte size, TTL) so an operator reads saturation and retention rather than a name list, and an engine holding none answers `Option.none()`, the same honest absence its receipt token already carries; a zero-filled health record would publish a measurement no engine took.
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `busy` (a `try` lease found the lock held, class `unavailable` — retryable by the caller's own schedule), `stale` (a CAS lost its race, class `conflicted` — re-read then re-fold, never blind retry), `ledger` (the engine carries no state ledger, class `absent` — the locks row's honest answer to `cas`/`read`/`watch`/`trail`) — so the core budget gate re-drives the transient rows and a lost CAS routes to a re-read.
@@ -20,7 +21,7 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 - Law: state is versioned facts — `Accord.Fact` is value plus revision; a caller that writes without a prior fact spells `Option.none()` and gets create-if-absent semantics, so an unguarded overwrite is unspellable through this port.
 - Law: the port is engine-blind — no member names NATS or the Web Locks API; a per-app lease is a name prefix and `census(filter)` scopes the same way, so a surface change never follows a new namespace.
 - Law: `_ENGINES` answers the consumption descriptor per engine as data — `fits`, `admit`, `tenancy`, `lifetime`, `degrade` — and the cells are where the two engines part: a bucket fences tenants by name prefix under one server clock, an origin's arbiter fences nothing beyond the origin and holds no clock at all, so one value repeated across both marks a row that stopped reading its engine; where an engine cannot express a coordinate its cell records the divergence on `degrade` rather than dropping the column.
-- Entry: `yield* Accord` then the six members; engines land as `Accord.kv(bucket)` / `Accord.locks()` root Layers.
+- Entry: `yield* Accord` then the eight members; engines land as `Accord.kv(bucket, window)` / `Accord.locks()` root Layers.
 - Packages: `effect` (`Context`, `Option`, `Schema`, `Stream`), `@rasm/ts/core` (`Fault.Class`).
 
 ```typescript signature
@@ -95,9 +96,22 @@ declare namespace Accord {
   }
   type Seat = _Seat
   type Lease = _Lease
+  type Window = _Window
   type Fact = _Fact
   type Health = _Health
   type Census = _Census
+}
+
+// Lease WINDOWS are deployment state: one must outlive the worst pause a holder takes between heartbeats, which no
+// library knows, so a frozen constant vacates every claim on a machine slower than the one it was written for.
+// Heartbeat cadence DERIVES at half the window instead of standing beside it, since two numbers admit a pairing
+// whose beat never lands inside the window and one number cannot.
+class _Window extends Schema.Class<_Window>("Accord/Window")({
+  ttl: Schema.optionalWith(Schema.Duration, { default: () => Duration.seconds(30) }),
+}) {
+  get beat(): Duration.Duration {
+    return Duration.times(this.ttl, 0.5)
+  }
 }
 
 class _Seat extends Schema.Class<_Seat>("Accord/Seat")({
@@ -142,7 +156,7 @@ const _ENGINES = {
     admit: "<Accord.locks()-over-the-host-navigator.locks-arbiter;-no-dial-and-no-configuration>",
     tenancy: "single",
     lifetime: "<host-owned-and-expiry-free:-context-teardown-by-the-agent-cluster-is-the-only-release-this-package-can-name>",
-    degrade: "<no-ledger-at-all-—-cas,-read,-watch,-and-trail-fold-`ledger`,-the-receipt-token-is-none-so-no-fenced-write-is-spellable,-census-health-is-none,-and-the-origin-is-an-isolation-no-prefix-widens>",
+    degrade: "<no-ledger-at-all-—-cas,-fence,-read,-watch,-and-trail-fold-`ledger`,-the-receipt-token-is-none-so-no-fenced-write-is-spellable,-census-health-is-none,-and-the-origin-is-an-isolation-no-prefix-widens>",
   },
 } as const satisfies { readonly [Name: string]: Accord.Descriptor }
 
@@ -150,6 +164,7 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
   readonly lease: (name: string, mode?: Accord.Mode) => Effect.Effect<Accord.Lease, AccordFault, Scope.Scope>
   readonly elect: (name: string) => Effect.Effect<Accord.Seat, AccordFault, Scope.Scope>
   readonly cas: (key: string, expected: Option.Option<Accord.Fact>, next: Uint8Array) => Effect.Effect<Accord.Fact, AccordFault>
+  readonly fence: (key: string, lease: Accord.Lease | Accord.Seat, next: Uint8Array) => Effect.Effect<Accord.Fact, AccordFault>
   readonly read: (key: string, at?: number) => Effect.Effect<Option.Option<Accord.Fact>, AccordFault>
   readonly watch: (key: string) => Stream.Stream<Option.Option<Accord.Fact>, AccordFault>
   readonly trail: (key: string) => Stream.Stream<Option.Option<Accord.Fact>, AccordFault>
@@ -161,7 +176,8 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
   static readonly Lease = _Lease
   static readonly Seat = _Seat
   static readonly engines = _ENGINES
-  static readonly kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> => _kv(bucket)
+  static readonly Window = _Window
+  static readonly kv = (bucket: string, window: Accord.Window = new _Window({})): Layer.Layer<Accord, AccordFault, Broker> => _kv(bucket, window)
   static readonly locks = (): Layer.Layer<Accord> => _locks()
 }
 ```
@@ -173,14 +189,37 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
 - Law: ownership is revision-guarded at both ends — a heartbeat that loses its revision stops renewing, and the scope finalizer issues `delete(name, { previousSeq })` at its latest revision, so a stolen or expired holder cannot purge its successor. A REVISION-lost heartbeat interrupts its fiber because two writers at one name is exactly what the revision guard exists to prevent, while a transport-lost beat keeps trying: the server clock owns expiry, so surrendering a still-held claim over a blip hands the name away for nothing. A release refusal is explicitly ignored because the server TTL remains the authoritative release fallback.
 - Law: every write's refusal reads its own evidence — one `_refused` projector folds the rejection through `JetStreamApiError.code` against the server's wrong-last-sequence pair, so `create` answers `busy` and `update` answers `stale` only where the server proved the race, and `dial` carries every transport failure; the claim, the CAS, and the heartbeat share that one discriminator, so an outage can never masquerade as contention on any of the three.
 - Law: CAS is the write mode — `cas` compiles `Option.none()` to `create` and a held fact to `update(key, next, revision)`; the server rejects a stale revision and the engine folds it to `stale`, so the caller re-reads and re-folds; a blind `put` is not reachable through this engine.
-- Law: reads are facts — `get` folds `null` and tombstone operations (`DEL`, `PURGE`) to `Option.none()`, a live entry to `{ value, revision }`, and a supplied revision pins `get(key, { revision })` to that generation; `watch` and `trail` are one `iterated` bracket over two bucket iterators — the live tail and the recorded history — so the forward feed, the backward feed, and the point read agree on one shape and one teardown; `census` lifts `kv.keys(filter)` the same way and joins `kv.status()`, so a bounded key enumeration and the bucket's own facts land in one read, never a value scan.
-- Law: bucket ensure is Layer construction — `kvm.create(bucket, { ttl, markerTTL })` at engine build from the root's bucket name: `ttl` arms the lease clock, `markerTTL` keeps removals notifying the watch tail; bucket shape never lives beside a call site, and the bucket is bounded coordination state whose history depth is a bucket option, never an audit log.
+- Law: `fence` needs BOTH guards and states why — the token guard refuses a holder the ledger already outranked, the revision guard refuses a concurrent write that landed between the read and this one. Checking the token alone lets two writes from one holder race; checking the revision alone lets an expired holder overwrite its successor, which is the exact failure a fencing token exists to make structural. Tokens ride an eight-byte big-endian prefix ahead of the value so seniority and payload settle in ONE guarded write, since a sibling key holding the token takes two writes the bucket cannot make atomic and a successor lands between them; absence and an unfenced value both read as token zero, which every live holder outranks. Receipts carrying no token — the `locks` arbiter's — fold `ledger` rather than writing unfenced.
+- Law: reads are facts — `get` folds `null` and tombstone operations (`DEL`, `PURGE`) to `Option.none()`, a live entry to `{ value, revision }`, and a supplied revision pins `get(key, { revision })` to that key's own generation, because the bucket numbers every revision out of ONE stream sequence and the point read re-checks the fetched message's key, so a revision belonging to another key answers absence rather than a foreign fact; `watch` and `trail` are one `iterated` bracket over two bucket iterators — the live tail and the recorded history — so the forward feed, the backward feed, and the point read agree on one shape and one teardown; `census` lifts `kv.keys(filter)` the same way and joins `kv.status()`, so a bounded key enumeration and the bucket's own facts land in one read, never a value scan.
+- Law: bucket ensure is Layer construction — `kvm.create(bucket, { ttl, markerTTL })` at engine build from the root's bucket name and lease row: `ttl` arms the lease clock, `markerTTL` keeps removals notifying the watch tail; bucket shape never lives beside a call site, and the bucket is bounded coordination state whose history depth is a bucket option, never an audit log.
+- Law: the lease window is a ROW the root supplies, never a literal — it must outlive the worst pause any holder takes between heartbeats, which is a deployment fact no library knows, and a frozen constant silently vacates every claim on a machine slower than the one it was written for. Its heartbeat cadence is DERIVED at half the window rather than carried beside it: two numbers admit a combination where the beat never lands inside the window, and one number cannot.
 - Law: this row's cells in `_ENGINES` are the caller's recovery contract — the bucket `ttl` this engine sets bounds every hold, the server's own clock ends it, and a tenant fence is a name prefix inside one bucket, so recovery reasoning reads the row rather than the holder's own liveness.
 - Boundary: the connection is `pubsub#JETSTREAM_ROW`'s `Broker` — this engine never dials; the ordered watch iterator carries no ack surface, exactly as the fanout ordered lane.
 - Packages: `@nats-io/kv` (`Kvm`, `KV`), `@nats-io/jetstream` (`JetStreamApiCodes`, `JetStreamApiError`), `effect` (`Chunk`, `Duration`, `Effect`, `Layer`, `Random`, `Ref`, `Schedule`, `Stream`), `./pubsub.ts` (`Broker`).
 
 ```typescript signature
-const _LEASE = { ttl: Duration.seconds(30), beat: Duration.seconds(15) } as const
+// Fenced writes carry the holder's token in a fixed eight-byte big-endian prefix ahead of the value, so seniority
+// and payload settle in ONE revision-guarded write. Splitting the token onto a sibling key takes two writes the
+// bucket cannot make atomic, and a successor lands between them.
+const _FENCE = { width: 8 } as const
+
+const _fenced = (token: number, value: Uint8Array): Uint8Array => {
+  const framed = new Uint8Array(_FENCE.width + value.byteLength)
+  new DataView(framed.buffer).setBigUint64(0, BigInt(token))
+  framed.set(value, _FENCE.width)
+  return framed
+}
+
+// Absence and an unfenced value read alike as token ZERO: nothing has claimed this key, so every live holder outranks
+// it, which is exactly the ordering a first fenced write needs.
+const _held = (fact: Option.Option<Accord.Fact>): number =>
+  Option.match(fact, {
+    onNone: () => 0,
+    onSome: ({ value }) =>
+      value.byteLength < _FENCE.width
+        ? 0
+        : Number(new DataView(value.buffer, value.byteOffset, value.byteLength).getBigUint64(0)),
+  })
 
 const _fact = (
   entry: { readonly value: Uint8Array; readonly revision: number; readonly operation: "PUT" | "DEL" | "PURGE" } | null,
@@ -198,14 +237,14 @@ const _raced = (cause: unknown): boolean =>
 const _refused = (name: string, lost: AccordFault.Reason) => (cause: unknown): AccordFault =>
   new AccordFault({ case: { reason: _raced(cause) ? lost : "dial", name } })
 
-const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
+const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordFault, Broker> =>
   Layer.scoped(
     Accord,
     Effect.gen(function* () {
       const nc = yield* Broker
       const kv: KV = yield* Effect.tryPromise({
         // ttl arms the server-clocked lease expiry; markerTTL keeps TTL removals notifying the watch tail
-        try: () => new Kvm(nc).create(bucket, { ttl: Duration.toMillis(_LEASE.ttl), markerTTL: Duration.toMillis(_LEASE.ttl) }),
+        try: () => new Kvm(nc).create(bucket, { ttl: Duration.toMillis(window.ttl), markerTTL: Duration.toMillis(window.ttl) }),
         catch: () => new AccordFault({ case: { reason: "dial", name: bucket } }),
       })
       const nonce = Effect.map(Random.nextInt, (seed) => new TextEncoder().encode(seed.toString(36)))
@@ -265,7 +304,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
                   Effect.catchIf((fault) => fault.case.reason === "stale", () => Effect.interrupt),
                   Effect.catchTag("AccordFault", () => Effect.void),
                 ),
-              Schedule.spaced(_LEASE.beat),
+              Schedule.spaced(window.beat),
             ),
           )
           return revision
@@ -281,7 +320,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
                 return Effect.catchIf(
                   claimed(name, id),
                   (fault) => fault.case.reason === "busy",
-                  () => Effect.zipRight(Effect.race(parked(name), Effect.sleep(_LEASE.ttl)), Effect.suspend(attempt)),
+                  () => Effect.zipRight(Effect.race(parked(name), Effect.sleep(window.ttl)), Effect.suspend(attempt)),
                 )
               })
 
@@ -314,10 +353,44 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
             }),
             (revision) => new _Fact({ value: next, revision }),
           ),
+        // Two guards, and the write needs BOTH: the token guard refuses a holder the ledger already outranked, while
+        // its revision guard refuses a concurrent write that landed between the read and this one. Checking the
+        // token alone lets two writes from one holder race; checking the revision alone lets an expired holder
+        // overwrite its successor, which is the exact failure a fencing token exists to make structural.
+        fence: (key, lease, next) =>
+          Effect.flatMap(
+            Option.match(lease.token, {
+              onNone: () => Effect.fail(new AccordFault({ case: { reason: "ledger", name: key } })),
+              onSome: Effect.succeed,
+            }),
+            (token) =>
+              Effect.flatMap(
+                Effect.map(
+                  Effect.tryPromise({ try: () => kv.get(key), catch: () => new AccordFault({ case: { reason: "dial", name: key } }) }),
+                  _fact,
+                ),
+                (current) =>
+                  _held(current) > token
+                    ? Effect.fail(new AccordFault({ case: { reason: "stale", name: key } }))
+                    : Effect.map(
+                        Option.match(current, {
+                          onNone: () =>
+                            Effect.tryPromise({ try: () => kv.create(key, _fenced(token, next)), catch: _refused(key, "stale") }),
+                          onSome: (fact) =>
+                            Effect.tryPromise({
+                              try: () => kv.update(key, _fenced(token, next), fact.revision),
+                              catch: _refused(key, "stale"),
+                            }),
+                        }),
+                        (revision) => new _Fact({ value: _fenced(token, next), revision }),
+                      ),
+              ),
+          ),
         read: (key, at) =>
           Effect.map(
-            // A pinned revision reads the generation the caller's token was minted against, so a slow holder folds
-            // against what it actually saw instead of a successor's fact; absent, the read is the current one.
+            // Pinned revisions read a generation OF THIS KEY: the bucket numbers every revision out of one stream
+            // sequence and the member re-checks the fetched message's key, so a revision minted against another key
+            // answers absence. Seniority therefore rides `fence`, never a read pinned at a lease token.
             Effect.tryPromise({
               try: () => (at === undefined ? kv.get(key) : kv.get(key, { revision: at })),
               catch: () => new AccordFault({ case: { reason: "dial", name: key } }),
@@ -362,7 +435,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
 
 [LOCKS_ROW]:
 - Owner: `Accord.locks()` — the browser engine over the origin's own lock arbiter. A lease bridges `navigator.locks.request(name, { mode: "exclusive", ifAvailable, steal }, grant)` to the scope: the grant callback settles a granted `Deferred` and then parks on a release `Deferred` the scope's finalizer resolves, so the platform holds the lock exactly as long as the scope lives and an orphaned hold is unspellable; a `try` miss (the callback receives `null`) folds to `busy`. `elect` is the `try` lease read as a seat — the arbiter's own queue is the succession order, so a follower simply re-elects when its own later request is granted. The receipt carries a tab-minted holder id and `Option.none()` for the token, because the arbiter mints no revision — a fenced write from this row is honestly unspellable.
-- Law: the ledger members answer honestly — `cas`, `read`, `watch`, and `trail` fold to the `ledger` fault because the arbiter holds no state and records no history, exactly as this row's `_ENGINES` `degrade` cell declares; `census` still answers truthfully from `navigator.locks.query()` — held and pending names filtered by prefix, health `Option.none()` because no bucket exists to be healthy — so the doctor read works on both rows.
+- Law: the ledger members answer honestly — `cas`, `fence`, `read`, `watch`, and `trail` fold to the `ledger` fault because the arbiter holds no state and records no history, exactly as this row's `_ENGINES` `degrade` cell declares; `census` still answers truthfully from `navigator.locks.query()` — held and pending names filtered by prefix, health `Option.none()` because no bucket exists to be healthy — so the doctor read works on both rows.
 - Law: a workload this row's cells refuse dials the other engine — shared facts, a fencing token, or a claim vacating on a declared schedule are the `kv` row's over websockets, and a session cell is `browser/persist`'s concern, never this port's; the arbiter holds a name until the agent cluster tears its context down, so a wedged tab is the honest cost of the expiry-free lifetime.
 - Law: the callback seam is the platform-forced boundary — the grant callback runs `Effect.runPromise` over pure `Deferred` settles only (no capability, no domain logic crosses), the sanctioned bridge spelling. Exemption: the grant callback is the one statement kernel.
 - Boundary: cross-tab exclusion only — the arbiter scopes to the origin's agent cluster; process-plane coordination is the `kv` row's.
@@ -409,6 +482,7 @@ const _locks = (): Layer.Layer<Accord> =>
             ),
           ),
         cas: (key) => Effect.fail(absent(key)),
+        fence: (key) => Effect.fail(absent(key)),
         read: (key) => Effect.fail(absent(key)),
         watch: (key) => Stream.fail(absent(key)),
         trail: (key) => Stream.fail(absent(key)),

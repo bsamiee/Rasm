@@ -6,22 +6,21 @@
 
 - [02]-[CHANGEFEED]: `OpLogEntry` projects Marten events, with the `OpSlot` sign boundary, HLC stamping, the trace slot, the closure manifest, and the `ReplayWindow` windowed read.
 - [03]-[MERGE_LAW]: LWW adjudication, conflict receipts, the idempotent apply fold, CRDT dispatch, and the conservation invariant.
-- [04]-[SYNC_TRANSPORTS]: `SyncTransport` closes the transport family over its `SyncFlow` capability set, the subtree-checkout diff algebra, and the Speckle marshal seam.
+- [04]-[SYNC_TRANSPORTS]: `SyncTransport` closes the transport family over its `SyncFlow` capability set, the subtree checkout over `OpLog.TransferSet`, and the Speckle marshal seam.
 - [05]-[PRESENCE]: ephemeral presence rows, the lossy awareness lane, and the working-set checkout.
 
 ## [02]-[CHANGEFEED]
 
-- Owner: `SyncCapability` the write-verb capability vocabulary and `SyncOps` its legal corners; `SyncOpKind` the write-verb axis carrying its capability set and its `Fact` announcement spelling; `OpCapability`/`OpLaws` and `OpLaw` the estate's one commutation vocabulary; `ColumnFamily` the merge-lane axis carrying `MergeStance` AND `SnapshotCodec` as one row, so the lane selects adjudication algebra and payload codec together; `TraceSlot` the changefeed W3C trace-id carrier; `OpSlot` the ONE sign boundary between the `long` version-vector slot space and the `ulong` dot space; `OperationId` the dot-plus-frontier operation identity; `DotSource` the store's one dot minter; `EventFacts` the admitted Marten-event evidence; `OpLogMapper` the generated `EventFacts`→`OpLogEntry` transcription; `OpLogEntry` the changefeed record; `ReplayWindow` the one windowed-read parameterization; `ChangefeedSubscription` the `SubscriptionBase` batched drain; the `OpLog` project-stamp-replay surface.
+- Owner: `SyncCapability` the write-verb capability vocabulary and `SyncOps` its legal corners; `SyncOpKind` the write-verb axis carrying its capability set and its `Fact` announcement spelling; `OpCapability`/`OpLaws` and `OpLaw` the estate's one commutation vocabulary; `ColumnFamily` the merge-lane axis carrying `MergeStance` AND `SnapshotCodec` as one row, so the lane selects adjudication algebra and payload codec together; `TraceSlot` the changefeed W3C trace-id carrier; `OpSlot` the ONE sign boundary between the `long` version-vector slot space and the `ulong` dot space; `OperationId` the dot-plus-frontier operation identity; `DotSource` the store's one dot minter; `EventFacts` the admitted Marten-event evidence; `OpLogMapper` the generated `EventFacts`→`OpLogEntry` transcription; `OpLogEntry` the interior changefeed record; `OpLogEntryWire` and `OpLogWire` the explicit primitive thirteen-slot MessagePack boundary; `ReplayWindow` the one windowed-read parameterization; `ChangefeedSubscription` the `SubscriptionBase` batched drain; the `OpLog` project-stamp-replay surface.
 - Cases: `SyncOpKind` is `Upsert | Delete | Truncate | Presence`, each carrying its past-tense `Fact` and its held `SyncCapability` set — `{}`, `{Tombstone}`, `{Tombstone, WholeRelation}` are the three legal corners, so a whole-relation verb that is not a tombstone is unrepresentable rather than merely unwritten. `OpLaw` is `Ordered | Commutative | Semilattice`, the same triple `Version/commits#CRDT_ALGEBRA` `Crdt.Law` returns and `typescript:core/state/merge` `Merge.Law` spells, each row holding its `OpCapability` corner. `MergeStance` is `Lww(Ordered) | Crdt(Semilattice) | FirstWriter(Ordered)` and derives `Convergent` off the law. `ColumnFamily` closes at `Scalar | Crdt | Geometry | Presence | Commit | Branch | Attest`, each carrying stance, codec, and durability, so a consumer dispatches on the row and never a string compare.
-- Entry: `ProcessEventsAsync` is the `SubscriptionBase` override reserving the range's dots in one swap, projecting the WHOLE delivered range into one `Seq<OpLogEntry>`, and draining it once — per-event awaits inside a range are the deleted form; `DotSource.Reserve(count)` is the ONE identity mint both the projection and the authoring path take and the ONE place a `long` vector slot is admitted; `OperationId.Mint(origin, prior, context)` derives the dot as the frontier's next slot and `Order(left, right)` answers happened-before from two ids alone; `OpLog.Project(dots, events)` accumulates the range's admissions applicatively; `Replay(feed, window)` is the ONE windowed changefeed read; `Stamp(sink, dots, frame, build)` is the authoring-path mint; `Appended(deltas, basis, dots, carrier, frame)` composes the seam `GraphCrossing.Mint` per crossing; `TransferSet(entry, holds)` projects the closure-minus-held missing-key set.
-- Auto: a Marten async subscription projects each committed model event into the one feed; triggers, secondary op-log tables, and per-payload records are inadmissible (`H11`). Every projected `GraphEvent` is a structural `geometry`-lane change carrying the codec-encoded `GraphDelta`, adjudicated by `(Hlc, OriginStoreId)` LWW; `crdt` and `commit` payloads enter through their owners' `Stamp`. `Closure` carries descendant geometry content keys, so transfer is set difference rather than a tree walk. Every foreign column of a Marten event admits ONCE into `EventFacts` — stream key, actor header, correlation, and stream version each on the `Validation` rail — so a malformed event reports every bad column at once and the generated mapper builds the entry from evidence alone.
-- Law: message envelopes ANNOUNCE an entry and gain no authority over it. `OpLogEntry` and its codec-encoded `Payload` stay the evidence truth the corpus `tests/contracts` `OPLOG_ENTRY` entry freezes — the thirteen-slot record in declaration order under its lane's `SnapshotCodec` — while a `CloudEvent` PROJECTS that entry: `subject` re-renders the payload content key and `id` the dot. Envelope columns never enter the corpus preimage and never re-key an entry; a divergence convicts the projection, never the ledger, because only one of the two holds bytes anyone signed.
+- Entry: `ProcessEventsAsync` reserves a range's dots once, projects the whole delivered range, and drains it once. `DotSource.Reserve(count)` is the one identity mint for projection and authoring. `OpLog.Project(dots, events)` accumulates admissions; `Replay(feed, window)` owns windowed reads; `Stamp(sink, dots, frame, build)` owns authoring; `OpLogWire.Encode` and `OpLogWire.Decode` own the native thirteen-slot MessagePack boundary; `TransferSet(entry, holds)` projects closure-minus-held keys.
+- Auto: a Marten async subscription projects each committed model event into the one feed; triggers, secondary op-log tables, and per-payload records are inadmissible (`H11`). Every connected `GraphEvent` producer is a structural `geometry`-lane change carrying the codec-encoded `GraphDelta`, adjudicated by `(Hlc, OriginStoreId)` LWW. `Closure` carries descendant geometry content keys, so transfer is set difference rather than a tree walk. Every foreign column of a Marten event admits ONCE into `EventFacts` — stream key, actor header, correlation, and stream version each on the `Validation` rail — so a malformed event reports every bad column at once and the generated mapper builds the entry from evidence alone.
 - Receipt: changefeed position and queue depth ride `SyncApplyReceipt`; the projected-segment evidence rides `ReceiptSinkPort`.
-- Packages: Marten (`SubscriptionBase`/`ProcessEventsAsync`/`EventRange`/`ISubscriptionController`/`IDocumentOperations`/`IChangeListener`/`NullChangeListener`/`IEvent<T>`), Rasm.Element (`GraphDelta.Address` — the streamed order-independent delta address; `Node`/`Node.Object`/`RepresentationContentHash`; `Graph/wire#EVENT_ENVELOPE` `GraphCrossing.Mint`/`GraphEventType`/`CrossingPorts`), Rasm (`Rasm.Domain` `ContentHash.Of` — the one federation hasher; `CapabilitySet`/`CapabilityLaw`; `FaultBand`), Riok.Mapperly (`[Mapper]` + `[MapperConstructor]` + `[MapProperty]`/`[MapValue]` — the entry transcription), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.Diagnostics.DiagnosticSource, BCL inbox.
+- Packages: Marten owns event-range subscription; MessagePack owns the explicit primitive op-log envelope; Rasm.Element supplies native `GraphDelta.Address`, `Node`, and representation keys; Rasm supplies content hashing, capabilities, and faults; Mapperly supplies admitted entry transcription; NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, DiagnosticSource, and BCL inbox complete the substrate.
 - Growth: a new synced concern is one `SyncOpKind` verb with its capability corner, one `ColumnFamily` lane carrying its stance and codec columns, or one payload kind keyed by the lane row's `Codec`; a new windowed-read consumer is one `ReplayWindow` parameterization; a new admitted event column is one `EventFacts` member and one `[MapProperty]` row. Zero new surface — a per-entity-kind outbox table, a bespoke op-log store beneath Marten, a per-payload-kind parallel record, a second dot minter, a second sign boundary, or a per-lane string literal in the merge fold is the deleted form.
 - Boundary: `OperationId` is the entry key and `ContentKey` the payload key, and the two never merge — two peers stamping the identical `Set("name", "North Wing")` share one `ContentKey` and carry two dots, so the second edit survives where a content-keyed log drops it and reads the drop as successful dedup. `Counter` is the origin's own `VersionVector` slot rather than a second counter, and `Context` is the pre-mint frontier, so `Order` is total from two ids with no feed walk and `Applied` is the exact replay test the merge fold takes. `Sequence` survives as the store-local drain cursor ALONE — a resumable position, never an identity, because two stores mint sequence 41 and one entry cannot answer to both. `DotSource` is the store's single minter, so the gap-free dot law holds across the projection and the authoring path, and a restart re-seeds its atom from the durable head joined with the tail past the cursor.
-- Boundary: `OpSlot` is the ONE sign boundary this feed carries. Version vectors publish `long` slots while every dot is `ulong`, and an unchecked `(long)Counter` past `long.MaxValue` reads NEGATIVE — a dominance test then answers "already applied" for an operation nobody applied, silently dropping it. Construction caps the carrier at `long.MaxValue`, so `Signed` is total and no cast survives anywhere on the page; the mirror of the AppHost port-side `[ValueObject<ulong>]` admission, landed store-side because no AppHost type crosses down. `Counter` still projects the identical `ulong` onto the wire and the identical eight little-endian bytes into the preimage, so the frozen thirteen-slot roster is untouched.
-- Boundary: Marten's `origin` header no longer reaches the entry — `OriginStoreId` reads the dot's own `Id.Origin`, so the LWW tie-break is deterministic across peers and no missing header fabricates the `Guid.Empty` bucket that collapsed every origin into one. Marten events PROJECT the changefeed (`H11`): a projected `GraphEvent` is the structural `geometry`-lane `GraphDelta`, never a `crdt` op, while the `crdt` lane carries a `CrdtOp`, the `commit` lane a `CommitNode`, and the `attest` lane a `WitnessedHead` its owner `Stamp`s. Persistence only READS `Activity.Current` and projects to the `TraceSlot` VALUE, never re-minting the propagator the AppHost `TraceContext` fold owns; the 16-byte trace-id admits once through the TOTAL `TraceSlot.FromHex`, so an arbitrary correlation string yields `Empty` rather than faulting the subscription daemon. `OpLogEntry` carries no correlation field: correlation rides the session frame and receipts.
+- Boundary: `OpSlot` is the ONE sign boundary this feed carries. Version vectors publish `long` slots while every dot is `ulong`, and an unchecked `(long)Counter` past `long.MaxValue` reads NEGATIVE — a dominance test then answers "already applied" for an operation nobody applied, silently dropping it. Construction caps the carrier at `long.MaxValue`, so `Signed` is total and no cast survives anywhere on the page; the mirror of the AppHost port-side `[ValueObject<ulong>]` admission, landed store-side because no AppHost type crosses down. `Counter` still projects the identical `ulong` onto the wire and ONE eight-byte `CanonicalWriter.I64` word into the preimage — the sixteen-byte `U128` twin that once disagreed with it is gone — so the frozen thirteen-slot roster is untouched.
+- Boundary: Marten's `origin` header no longer reaches the entry — `OriginStoreId` reads the dot's own `Id.Origin`, so the LWW tie-break is deterministic across peers and no missing header fabricates the `Guid.Empty` bucket that collapsed every origin into one. Marten events PROJECT the changefeed (`H11`): the connected `GraphEvent` producer is the structural `geometry`-lane `GraphDelta`, never a `crdt` op. The remaining closed lane keys reserve protocol space but claim no producer until an application binding supplies one. Persistence only READS `Activity.Current` and projects to the `TraceSlot` VALUE, never re-minting the propagator the AppHost `TraceContext` fold owns; the 16-byte trace-id admits once through the TOTAL `TraceSlot.FromHex`, so an arbitrary correlation string yields `Empty` rather than faulting the subscription daemon. `OpLogEntry` carries no correlation field: correlation rides the session frame and receipts.
 - Boundary: the durable lanes (`Family.Durable`) are the exactly-once CDC row source the `Version/egress` pump drains past the `Store/coordination#OUTBOX_CURSOR`, and `ReplayWindow.DurableOps` is that drain's parameterization; the presence/awareness lane (`durable: false`) stays the lossy `DrainSurface` channel and NEVER the exactly-once CDC envelope.
 
 ```csharp signature
@@ -34,6 +33,7 @@ using System.Text;
 using LanguageExt;
 using Marten.Events;
 using Marten.Subscriptions;
+using MessagePack;
 using NodaTime;
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
@@ -121,13 +121,11 @@ public sealed partial class MergeStance {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColumnFamily {
     public static readonly ColumnFamily Scalar = new("scalar", MergeStance.Lww, SnapshotCodec.JsonStj, durable: true);
-    public static readonly ColumnFamily Crdt = new("crdt", MergeStance.Crdt, SnapshotCodec.MessagePackBinary, durable: true);
+    public static readonly ColumnFamily Crdt = new("crdt", MergeStance.Crdt, SnapshotCodec.ProtoBinary, durable: true);
     public static readonly ColumnFamily Geometry = new("geometry", MergeStance.Lww, SnapshotCodec.JsonStj, durable: true);
     public static readonly ColumnFamily Presence = new("presence", MergeStance.FirstWriter, SnapshotCodec.MessagePackBinary, durable: false);
     public static readonly ColumnFamily Commit = new("commit", MergeStance.Lww, SnapshotCodec.MessagePackBinary, durable: true);
     public static readonly ColumnFamily Branch = new("branch", MergeStance.Lww, SnapshotCodec.MessagePackBinary, durable: true);
-    // One durable row carries a `Version/provenance#ATTESTED_LEDGER` `WitnessedHead`, so the ORDINARY pump carries
-    // it.
     public static readonly ColumnFamily Attest = new("attest", MergeStance.Lww, SnapshotCodec.MessagePackBinary, durable: true);
     public MergeStance Stance { get; }
     public SnapshotCodec Codec { get; }
@@ -206,8 +204,14 @@ public sealed partial class OperationId {
 
     // Gap-free: a skipped counter is a lost operation refused at admission, never a hole a later test reads as met.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid origin, ref OpSlot counter, ref VersionVector context) {
+        if (counter == OpSlot.Zero) {
+            validationError = origin == Guid.Empty && context.Slots.IsEmpty
+                ? null
+                : new ValidationError("<operation-genesis-shape>");
+            return;
+        }
         validationError = OpSlot.Of(context.At(origin)).Match(
-            Succ: prior => counter == prior.Next || counter == OpSlot.Zero ? null : new ValidationError($"<operation-dot-gap:{counter.Value}>"),
+            Succ: prior => counter == prior.Next ? null : new ValidationError($"<operation-dot-gap:{counter.Value}>"),
             Fail: faults => new ValidationError(string.Join(" | ", faults.Map(static fault => fault.Message))));
     }
 
@@ -229,18 +233,13 @@ public sealed partial class OperationId {
     public UInt128 Key => ContentHash.Of(this, static (id, writer) => id.CanonicalBytes(writer));
     public string Wire => string.Create(CultureInfo.InvariantCulture, $"{Origin:N}.{Counter.Value}");
 
-    // Framed origin, LE counter, then the vector through the SAME writer the commit preimage takes, so a slot-order
-    // edit cannot land on one key and not the other. `Counter.Value` is the frozen eight bytes.
+    // Framed origin, ONE eight-byte counter word, then the vector through the SAME writer the commit key takes, so a
+    // slot-order edit cannot land on one key and not the other. `Counter.Value` rides `I64` `unchecked` — the
+    // `OpSlot` cap already holds it under `long.MaxValue`, so the reinterpretation is identity — and the parity
+    // corpus pins THIS eight-byte form; a second width beside it was the live divergence this member deletes.
     public void CanonicalBytes(CanonicalWriter writer) {
-        writer.String(Origin.ToString("N")).U128(Counter.Value);
+        writer.String(Origin.ToString("N")).I64(unchecked((long)Counter.Value));
         Context.CanonicalBytes(writer);
-    }
-
-    public void WriteTo(IBufferWriter<byte> sink) {
-        CommitGraph.Framed(sink, Origin.ToString("N"));
-        BinaryPrimitives.WriteUInt64LittleEndian(sink.GetSpan(8), Counter.Value);
-        sink.Advance(8);
-        Context.WriteTo(sink);
     }
 }
 
@@ -267,6 +266,156 @@ public sealed record OpLogEntry(
     public SnapshotCodec Codec => Family.Codec;
 }
 
+// The cross-runtime envelope is an explicit primitive MessagePack DTO, not `OpLogEntry` handed to a contractless
+// resolver. Every peer therefore sees the same thirteen positional cells: GUIDs and UInt128 values are sixteen
+// network-order bytes, roster members are their string keys, and the payload remains a bin value no envelope
+// decoder opens. Domain carriers never leak their generated formatter choices into this seam.
+[MessagePackObject]
+public sealed record VectorSlotWire(
+    [property: Key(0)] byte[] Origin,
+    [property: Key(1)] ulong Sequence);
+
+[MessagePackObject]
+public sealed record OperationIdWire(
+    [property: Key(0)] byte[] Origin,
+    [property: Key(1)] ulong Counter,
+    [property: Key(2)] VectorSlotWire[] Context);
+
+[MessagePackObject]
+public sealed record TraceSlotWire(
+    [property: Key(0)] byte[] TraceId,
+    [property: Key(1)] byte[] Tracestate);
+
+[MessagePackObject]
+public sealed record OpLogEntryWire(
+    [property: Key(0)] ulong Sequence,
+    [property: Key(1)] OperationIdWire Id,
+    [property: Key(2)] byte[] Model,
+    [property: Key(3)] string EntityKey,
+    [property: Key(4)] string Family,
+    [property: Key(5)] string Kind,
+    [property: Key(6)] byte[] Payload,
+    [property: Key(7)] byte[] ContentKey,
+    [property: Key(8)] TraceSlotWire Trace,
+    [property: Key(9)] byte[][] Closure,
+    [property: Key(10)] string Actor,
+    [property: Key(11)] ulong PhysicalTicks,
+    [property: Key(12)] ulong Logical);
+
+public static class OpLogWire {
+    const int Fixed = 16;
+    static readonly MessagePackSerializerOptions Options = SnapshotCodec.Binary.WithCompression(MessagePackCompression.None);
+
+    public static Fin<byte[]> Encode(OpLogEntry entry) =>
+        Op.Of().Catch(() => Project(entry))
+            .Bind(Admit)
+            .Bind(admitted => Op.Of().Catch(() => MessagePackSerializer.Serialize(Project(admitted), Options)))
+            .MapFail(static error => new SyncFault.TransferEncode("oplog", error));
+
+    public static Fin<OpLogEntry> Decode(ReadOnlyMemory<byte> payload) =>
+        Op.Of().Catch(() => MessagePackSerializer.Deserialize<OpLogEntryWire>(payload, Options))
+            .Bind(Admit)
+            .MapFail(static error => new SyncFault.TransferDecode("oplog", error));
+
+    static OpLogEntryWire Project(OpLogEntry entry) => new(
+        checked((ulong)entry.Sequence),
+        new OperationIdWire(
+            Uuid(entry.Id.Origin),
+            entry.Id.Counter.Value,
+            [.. entry.Id.Context.Ordered.Map(static slot => new VectorSlotWire(Uuid(slot.Origin), checked((ulong)slot.Seq)))]),
+        Uuid(entry.Model.Value),
+        entry.EntityKey,
+        entry.Family.Key,
+        entry.Kind.Key,
+        entry.Payload.ToArray(),
+        Wide(entry.ContentKey),
+        new TraceSlotWire(entry.Trace.TraceId.ToArray(), entry.Trace.Tracestate.ToArray()),
+        [.. entry.Closure.Map(Wide)],
+        entry.Actor,
+        checked((ulong)entry.Physical.ToUnixTimeTicks()),
+        entry.Logical);
+
+    static Fin<OpLogEntry> Admit(OpLogEntryWire wire) =>
+        from _shape in Shape(wire)
+        from sequence in I63(wire.Sequence, "sequence")
+        from counterValue in I63(wire.Id.Counter, "counter")
+        from counter in OpSlot.Of(counterValue).ToFin()
+        from context in Context(wire.Id.Context)
+        let origin = Uuid(wire.Id.Origin)
+        from _ordinary in origin != Guid.Empty && counter != OpSlot.Zero
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Error.New("<oplog-operation-id>"))
+        from family in Family(wire.Family)
+        from kind in Kind(wire.Kind)
+        from physical in I63(wire.PhysicalTicks, "physical")
+        from logicalValue in I63(wire.Logical, "logical")
+        from logical in OpSlot.Of(logicalValue).ToFin()
+        let content = BinaryPrimitives.ReadUInt128BigEndian(wire.ContentKey)
+        from _key in content == ContentHash.Of(wire.Payload.AsSpan())
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Error.New("<oplog-content-key>"))
+        from admitted in Op.Of().Catch(() => new OpLogEntry(
+                sequence,
+                OperationId.Create(origin, counter, context),
+                ModelId.Create(Uuid(wire.Model)),
+                wire.EntityKey,
+                family,
+                kind,
+                wire.Payload,
+                content,
+                TraceSlot.Create(wire.Trace.TraceId, wire.Trace.Tracestate),
+                toSeq(wire.Closure.Select(BinaryPrimitives.ReadUInt128BigEndian)),
+                wire.Actor,
+                Instant.FromUnixTimeTicks(physical),
+                logical.Value))
+        select admitted;
+
+    static Fin<Unit> Shape(OpLogEntryWire wire) {
+        if (wire is null || wire.Id is null || wire.Id.Origin is null || wire.Id.Context is null || wire.Model is null
+            || wire.EntityKey is null || wire.Family is null || wire.Kind is null || wire.Payload is null
+            || wire.ContentKey is null || wire.Trace is null || wire.Trace.TraceId is null || wire.Trace.Tracestate is null
+            || wire.Closure is null || wire.Actor is null || wire.Id.Context.Any(static row => row is null || row.Origin is null)
+            || wire.Closure.Any(static key => key is null)) {
+            return Fin.Fail<Unit>(Error.New("<oplog-envelope-null>"));
+        }
+        bool context = wire.Id.Context.All(static row => row.Origin.Length == Fixed)
+            && wire.Id.Context.Zip(wire.Id.Context.Skip(1), static (left, right) => left.Origin.AsSpan().SequenceCompareTo(right.Origin) < 0).All(static ordered => ordered);
+        bool fixedWidths = wire.Id.Origin.Length == Fixed && wire.Model.Length == Fixed && wire.ContentKey.Length == Fixed
+            && wire.Trace.TraceId.Length is 0 or Fixed && wire.Closure.All(static key => key.Length == Fixed);
+        bool closure = wire.Closure.Zip(wire.Closure.Skip(1), static (left, right) => left.AsSpan().SequenceCompareTo(right) < 0)
+            .All(static ordered => ordered)
+            && !wire.Closure.Any(key => key.AsSpan().SequenceEqual(wire.ContentKey));
+        return fixedWidths && context && closure
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Error.New("<oplog-envelope-contract>"));
+    }
+
+    static Fin<long> I63(ulong value, string field) => value <= (ulong)long.MaxValue
+        ? Fin.Succ((long)value)
+        : Fin.Fail<long>(Error.New($"<oplog-{field}-unsigned:{value}>"));
+
+    static Fin<VersionVector> Context(VectorSlotWire[] rows) =>
+        rows.Traverse(static row => I63(row.Sequence, "vector").Map(sequence => (Uuid(row.Origin), sequence)))
+            .Map(static slots => new VersionVector(toHashMap(slots)));
+
+    static Fin<ColumnFamily> Family(string key) =>
+        toSeq(ColumnFamily.Items).Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
+            .ToFin(Error.New($"<oplog-family:{key}>"));
+
+    static Fin<SyncOpKind> Kind(string key) =>
+        toSeq(SyncOpKind.Items).Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
+            .ToFin(Error.New($"<oplog-kind:{key}>"));
+
+    static byte[] Uuid(Guid value) {
+        byte[] bytes = new byte[Fixed];
+        value.TryWriteBytes(bytes, bigEndian: true, out _);
+        return bytes;
+    }
+
+    static Guid Uuid(byte[] value) => new(value, bigEndian: true);
+    static byte[] Wide(UInt128 value) { byte[] bytes = new byte[Fixed]; BinaryPrimitives.WriteUInt128BigEndian(bytes, value); return bytes; }
+}
+
 public sealed record SyncCursor(Guid OriginStoreId, long Sequence, Instant Physical, ulong Logical) {
     public static readonly SyncCursor Genesis = new(Guid.Empty, 0L, Instant.MinValue, 0UL);
 }
@@ -290,6 +439,11 @@ public readonly record struct ReplayWindow(Option<Guid> Origin, Option<string> E
 // holds; a caller keeping its own frontier copy diverges on first mint.
 public sealed class DotSource(Guid origin, Atom<VersionVector> frontier) {
     public VersionVector Frontier => frontier.Value;
+
+    public static Fin<DotSource> Boot(Guid origin, VersionVector durableHead, Seq<OpLogEntry> undrainedTail) =>
+        origin == Guid.Empty
+            ? Fin.Fail<DotSource>(Error.New("<dot-source-empty-origin>"))
+            : Fin.Succ(new DotSource(origin, Atom(undrainedTail.Fold(durableHead, static (held, entry) => held.Join(entry.Id.Frontier)))));
 
     // ONE swap per range: a per-entry swap lets the other path interleave a dot into the middle, which is exactly the
     // gap the id refuses. This is also the ONE place a `long` vector slot admits into the dot space, and BOTH
@@ -317,9 +471,16 @@ public sealed class ChangefeedSubscription(DotSource dots, Func<Seq<OpLogEntry>,
     }
 }
 
+public sealed record OpLogRuntime(DotSource Dots, ChangefeedSubscription Subscription) {
+    public static Fin<OpLogRuntime> Boot(
+        Guid origin, VersionVector durableHead, Seq<OpLogEntry> undrainedTail, Func<Seq<OpLogEntry>, IO<Unit>> drain) =>
+        DotSource.Boot(origin, durableHead, undrainedTail)
+            .Map(dots => new OpLogRuntime(dots, new ChangefeedSubscription(dots, drain)));
+}
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
-// Every divergence is one attribute row and zero assignment statements survive. The positional ctor is PINNED
-// because the msgpack roster is the canonical thirteen-slot order three runtimes decode positionally.
+// Every interior divergence is one attribute row and zero assignment statements survive. The cross-runtime
+// positional order belongs to `OpLogEntryWire`; Mapperly never decides a wire slot.
 [Mapper]
 [MapperRequiredMapping(RequiredMappingStrategy.Both)]
 public static partial class OpLogMapper {
@@ -360,23 +521,6 @@ public static class OpLog {
     static string HeaderValue(IEvent<GraphEvent> e, string key) =>
         e.Headers is { } h && h.TryGetValue(key, out object? value) ? value?.ToString() ?? string.Empty : string.Empty;
 
-    // This SEAM mints the envelope over the SAME delta the `Payload` encodes, so `subject` IS the identity this feed
-    // and the broker lane agree on; `id` takes a reserved DOT, because two peers appending the identical delta share
-    // one `subject` and carry two operations. `Address` streams — no byte buffer materializes.
-    public static Fin<Seq<CloudEvent>> Appended(
-        Seq<GraphDelta> deltas, Header basis, DotSource dots, Func<ActivityContext, TraceCarrier> carrier, ProjectionContext frame) =>
-        from reserved in dots.Reserve(deltas.Count).ToFin()
-        from envelopes in deltas.Zip(reserved).Traverse(pair => GraphCrossing.Mint(
-                GraphEventType.Delta,
-                pair.Item1.Address(basis.Tolerance),
-                frame.Now(),
-                ElementWire.Encode(pair.Item1, basis),
-                new CrossingPorts(pair.Item2.Wire, None, TraceSlot.Capture().Continue().Map(carrier).IfNone(default(TraceCarrier)), Seq<(EventExtension, object)>()),
-                Op.Of())).As()
-        // Batch dedup keys on `subject` ALONE — a re-published crossing of identical content IS one announcement —
-        // and keeps the first, because the changefeed already arrives sequence-ordered.
-        select toSeq(envelopes.AsEnumerable().DistinctBy(static envelope => envelope.Subject));
-
     // Composition binds `feed` to the durable row source; every consumer dials a `ReplayWindow` value.
     public static Seq<OpLogEntry> Replay(Seq<OpLogEntry> feed, ReplayWindow window) =>
         toSeq(feed.Filter(window.Admits).OrderBy(static entry => entry.Sequence).Take(window.Take));
@@ -387,7 +531,8 @@ public static class OpLog {
         toSeq((delta.AddedNodes + delta.RevisedNodes.Map(static r => r.After))
             .Choose(static n => Optional(n as Node.Object))
             .SelectMany(static o => o.Representations.ByIdentifier.Values)
-            .Distinct());
+            .Distinct()
+            .OrderBy(static key => key));
 
     // Authoring mints a NON-structural lane entry: one HLC stamp, one dot, one captured trace, the `build`
     // continuation closing over its owner's lane and payload. A caller minting its own dot invents a causal position.
@@ -396,6 +541,18 @@ public static class OpLog {
             Succ: reserved => IO.lift(() => (Wall: frame.Now(), Trace: TraceSlot.Capture()))
                 .Map(captured => (Cell: sink.Hlc.Swap(last => ReceiptSinkPort.Advance(last, captured.Wall)), Id: reserved[0], captured.Trace))
                 .Map(stamped => build((stamped.Id, stamped.Cell.Physical, stamped.Cell.Logical, stamped.Trace))),
+            Fail: IO.fail<OpLogEntry>);
+
+    // The sole CRDT authoring path: generated protobuf bytes, their exact seed-zero payload key, then the generic
+    // positional envelope. No caller can select the CRDT lane while supplying MessagePack-union bytes.
+    public static IO<OpLogEntry> Crdt(
+        long sequence, ModelId model, string entityKey, SyncOpKind kind, CrdtOp op, string actor,
+        ReceiptSinkPort sink, DotSource dots, ProjectionContext frame) =>
+        CrdtWire.Encode(op).Match(
+            Succ: payload => Stamp(sink, dots, frame, stamped => new OpLogEntry(
+                sequence, stamped.Id, model, entityKey, ColumnFamily.Crdt, kind,
+                payload, CrdtWire.ContentKey(payload), stamped.Trace, Seq<UInt128>(), actor,
+                stamped.Physical, stamped.Logical)),
             Fail: IO.fail<OpLogEntry>);
 
     public static Seq<UInt128> TransferSet(OpLogEntry entry, Func<UInt128, bool> holds) =>
@@ -410,26 +567,25 @@ public static class OpLog {
 |  [03]   | payload shape       | `(Family, Codec)` discriminates              | `Codec` is the lane row's column, `Family`-derived, never stored    |
 |  [04]   | windowed read       | `ReplayWindow` origin/entity/family/window   | AppUi edit-intent, AppHost determinism, egress CDC drain — one case |
 |  [05]   | lane → merge stance | `ColumnFamily.Stance`                        | dispatch reads the lane row, never a `"crdt"` string compare        |
-|  [06]   | HLC cell            | event `Timestamp` + `Version`                | physical Unix-tick first, logical second, both LE (kernel law)      |
+|  [06]   | HLC cell            | event `Timestamp` + `Version`                | physical Unix-tick first, logical second, two `I64` words           |
 |  [07]   | sign boundary       | `OpSlot` — the one `long`↔`ulong` admission  | `Signed` total by the cap; zero unchecked casts on the page         |
 |  [08]   | origin tie-break    | `Id.Origin` — the dot's own store id         | LWW `(Hlc, OriginStoreId)` deterministic; never a zero              |
 |  [09]   | trace slot          | top-level `TraceSlot` field                  | never inside `Payload`; distinct from AppHost `TraceContext` fold   |
-|  [10]   | crossing envelope   | seam `GraphCrossing.Mint`                    | `subject` is the content key; `id` the reserved dot                 |
-|  [11]   | operation identity  | `OperationId` dot over its pre-mint frontier | equal payloads stay distinct; `Order` needs no feed walk            |
-|  [12]   | payload identity    | `ContentKey` — `ContentHash.Of` the payload  | transfer set difference and blob dedup; never the entry key         |
-|  [13]   | drain position      | `Sequence` — the store-local Marten cursor   | resumable read alone; two stores mint one sequence value            |
-|  [14]   | dot custody         | one `DotSource` atom per store               | projection and authoring reserve together; gap-free by law          |
-|  [15]   | entry transcription | `[Mapper]` over admitted `EventFacts`        | pinned positional ctor; the thirteen-slot roster cannot re-order    |
+|  [10]   | operation identity  | `OperationId` dot over its pre-mint frontier | equal payloads stay distinct; counter is ONE `I64` word in the key  |
+|  [11]   | payload identity    | `ContentKey` — `ContentHash.Of` the payload  | transfer set difference and blob dedup; never the entry key         |
+|  [12]   | drain position      | `Sequence` — the store-local Marten cursor   | resumable read alone; two stores mint one sequence value            |
+|  [13]   | dot custody         | one `DotSource` atom per store               | projection and authoring reserve together; gap-free by law          |
+|  [14]   | entry transcription | `[Mapper]` over admitted `EventFacts`        | interior record only; `OpLogEntryWire` pins the thirteen wire slots |
 
 ## [03]-[MERGE_LAW]
 
 - Owner: `ConflictReceipt` with option-carried `ConflictSide` evidence; `ConflictVerdict`; `ConflictResult`; `SyncApplyReceipt` the `IValidityEvidence` conservation receipt; `SyncFault` the closed `[Union]` deriving from the KERNEL `Rasm.Domain.Fault` in the 825x band; `SyncSession` the one session capsule carrying the injected `ProjectionContext` frame with its delegate rows; `SyncMerge` the fold surface routing each entry by its `ColumnFamily.Stance` — `Lww`/`FirstWriter` through `Adjudicate`, `Crdt` into `Crdt.Apply`, a winning whole-relation entry through the `Truncate` delegate.
-- Cases: four verdict rows — `LocalWin | RemoteWin | Merged | Rejected` — collapse into one `ConflictResult(Verdict, Receipt, Conflicted, Held)` where `Conflicted` separates a genuine divergence from an idempotent-replay `LocalWin` or a fresh `Merged`, and `Held` carries the held content key the fork fault reads without a second lookup. `Rejected` is reachable only on an equal `(stamp, origin)` over divergent content — the causal fork `Apply` lifts to `SyncFault.Forked` and halts on — never a soft conflict bucket. Faults close at `SchemaMismatch | ReplicationFaulted | SpeckleMarshal | TransferDecode | Unconserved | Forked | Unobserved | SlotOutOfSpace`, the last two carrying a compaction whose minter never observed its horizon and a vector slot outside the dot space.
-- Entry: `SyncMerge.Apply(session, incoming)` carries commit effects; replay skips on IDENTITY against the fold's advancing frontier, and the receipt proves applied, skipped, conflicted, converged, and pushed counts under its own `IValidityEvidence` conservation fold, an auto-resolved LWW divergence counting as `Conflicted` and recording its receipt whether the winner committed or the local kept, with a non-closing batch failing `SyncFault.Unconserved`; `Admissible(id, op)` is the causal gate the `Converge` binding runs over its decoded op, refusing a `Maintain` whose quiescence vector its own context fails to dominate.
+- Cases: four verdict rows — `LocalWin | RemoteWin | Merged | Rejected` — collapse into one `ConflictResult(Verdict, Receipt, Conflicted, Held)` where `Conflicted` separates a genuine divergence from an idempotent-replay `LocalWin` or a fresh `Merged`, and `Held` carries the held content key the fork fault reads without a second lookup. `Rejected` is reachable only on an equal `(stamp, origin)` over divergent content — the causal fork `Apply` lifts to `SyncFault.Forked` and halts on — never a soft conflict bucket. Faults close at `SchemaMismatch | ReplicationFaulted | SpeckleMarshal | TransferDecode | TransferEncode | Unconserved | Forked | Unobserved | SlotOutOfSpace`; the last pair carries a compaction whose minter never observed its horizon and a vector slot outside the dot space, while transfer directions remain distinct.
+- Entry: `SyncMerge.Apply(session, incoming)` skips only an identity already applied, refuses a non-redelivery whose causal context the advancing frontier does not dominate, and then dispatches merge. Its receipt proves applied, skipped, conflicted, converged, and pushed counts under `IValidityEvidence`; `Converged(entry, apply)` retains the outer dot through generated-protobuf admission and the state fold.
 - Receipt: `ConflictReceipt` is the typed fork evidence the `Forked` halt carries and the inspector projects; `SyncApplyReceipt` is the per-run apply evidence, self-attesting through the kernel `ValidityClaim.All` fold over its own carried `Batch` — the parameterized `Conserves(long)` knob and a hand `&&` chain are the deleted forms, since the receipt reconstructs the check from its own fields.
 - Packages: Rasm (`Rasm.Domain` `Fault` — the federation fault base; `IValidityEvidence`/`ValidityClaim` — the receipt-validity floor; `FaultBand`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new merge stance is one `MergeStance` row carrying its `OpLaw`; a fifth `ConflictVerdict` row is the named defect; a new fault cause is one `SyncFault` case; a new replicated data type is a `Version/commits#CRDT_ALGEBRA` `CrdtField` case with its `Crdt.Law` row, dispatched by this fold, never a fifth scalar arm.
-- Boundary: replay dedup is IDENTITY-proven and never content-proven — `entry.Id.Applied(frontier)` is the whole test, so two operations carrying identical bytes both land and a redelivery lands once, where a content-equality test reports the second real edit as a replay and skips it. Each landed entry joins its own `Frontier` inside the fold, so a batch carrying its own duplicate settles without a second lookup. Commutation is per mutation kind and reads ONE vocabulary: the lane answers `Stance.Law` and the crdt op answers `Crdt.Law`, both `OpLaw` rows, so an `Ordered` arm losing its total order counts `Conflicted` while an absorbing arm counts `Skipped` — a distinction one `Convergent` boolean cannot carry, and the reason the whole crdt lane once counted `Converged` over its genuine `set` conflicts.
+- Boundary: replay dedup is IDENTITY-proven and never content-proven — `entry.Id.Applied(frontier)` skips a redelivery, while `frontier.Dominates(entry.Id.Context)` gates every new entry before its dot advances the fold. Without that second gate, receiving same-origin counter two before counter one advances the scalar frontier and later misclassifies counter one as replay. Each landed entry joins its own `Frontier`; commutation still reads the lane's `Stance.Law` and the CRDT arm's `Crdt.Law`.
 - Boundary: LWW per column family is the default. `Held` resolves the competing local entry per model and family; content-key equality adjudicates `LocalWin` as an idempotent replay; an ABSENT competitor adjudicates `Merged` through `Fresh`, whose held half is `None` rather than a zero-stamp sentinel — the HLC's own physical half is a Unix-tick `long` whose minimum lies outside the wire domain, so absence rides the option and never a value any writer may carry. Any HLC-resolved win over differing content is a genuine divergence the fold counts and receipts, and an equal `(stamp, origin)` over divergent content is the fork `Apply` halts on. Lane `FirstWriter` (`Presence`) is EARLIEST-wins, the INVERSE direction of the LWW default, so the tuple switch flips both arms for it rather than silently keeping a later row over the genuine first writer.
 - Boundary: `Maintain` is the one arm whose admissibility outlives its fold — compaction commutes and absorbs as a filter, yet it is a MEET where every sibling is a JOIN, so a horizon its minter never observed reclaims a tombstone a concurrent insert still needs. Only the entry's own `OperationId.Context` evidences that check, so the gate lives at the entry: `Crdt.Apply`, holding no frontier, structurally cannot run it. Family `crdt` routes its `Payload` through `Crdt.Apply` so a concurrent edit converges by the join-semilattice least-upper-bound rather than scalar LWW — the multi-writer offline and IFC three-way merge substrate. Winning whole-relation entries commit through the session `Truncate` delegate, their capability row selecting the relation-wide lane rather than a dead flag.
 
@@ -480,6 +636,8 @@ public abstract partial record SyncFault : Fault {
     public sealed partial record Unobserved(string Field, Guid Origin) : SyncFault();
     [FaultCase(7)]
     public sealed partial record SlotOutOfSpace(long Slot) : SyncFault();
+    [FaultCase(8)]
+    public sealed partial record TransferEncode(string Peer, Error Cause) : SyncFault(), ICausedFault;
 
     public override string Message => Switch(
         schemaMismatch:     static c => $"{c.Local}:{c.Remote}",
@@ -489,7 +647,8 @@ public abstract partial record SyncFault : Fault {
         unconserved:        static c => $"{c.Batch}!={c.Settled}",
         forked:             static c => $"{c.Receipt.EntityKey}@{c.Receipt.Incoming.Map(static side => side.Stamp.Physical.ToString()).IfNone("<unstamped>")}:{c.Held}!={c.Incoming}",
         unobserved:         static c => $"{c.Field}@{c.Origin:N}",
-        slotOutOfSpace:     static c => $"<vector-slot:{c.Slot}>");
+        slotOutOfSpace:     static c => $"<vector-slot:{c.Slot}>",
+        transferEncode:     static c => $"<transfer-encode:{c.Peer}>:{c.Cause.Message}");
 }
 
 // --- [SERVICES] --------------------------------------------------------------------------
@@ -512,8 +671,8 @@ public sealed record SyncSession(
     Func<UInt128, bool> Holds, Func<OpLogEntry, Option<OpLogEntry>> Held, Func<OpLogEntry, IO<Unit>> Commit, Func<OpLogEntry, IO<Unit>> Truncate, Func<OpLogEntry, IO<ConflictResult>> Converge,
     Func<SyncCursor, Seq<OpLogEntry>> Pending, Func<long> QueueDepth, Func<UInt128, IO<OpLogEntry>> Fetch,
     Func<Seq<OpLogEntry>, IO<Unit>> Spool, Func<ulong, IO<(ulong Head, Seq<OpLogEntry> Entries)>> Unspool, Func<UInt128, IO<bool>> LocalHas,
-    Func<string, SyncCursor, IO<(ulong SchemaFingerprint, Seq<OpLogEntry> Entries, SyncCursor Cursor)>> Pull,
-    Func<string, Seq<OpLogEntry>, IO<SyncCursor>> Push, Func<string, Seq<UInt128>, IO<Seq<UInt128>>> HasObjects,
+    Func<string, SyncCursor, IO<(ulong SchemaFingerprint, Seq<ReadOnlyMemory<byte>> Frames, SyncCursor Cursor)>> Pull,
+    Func<string, Seq<ReadOnlyMemory<byte>>, IO<SyncCursor>> Push, Func<string, Seq<UInt128>, IO<Seq<UInt128>>> HasObjects,
     Func<string, Seq<OpLogEntry>, IO<(UInt128 RootContentKey, long ConvertedReferences)>> SpeckleSend,
     Func<string, UInt128, IO<Seq<OpLogEntry>>> SpeckleReceive);
 
@@ -554,6 +713,18 @@ public static class SyncMerge {
             ? Fin.Fail<Unit>(new SyncFault.Unobserved(compaction.Field, id.Origin))
             : Fin.Succ(unit);
 
+    // Composition binds `SyncSession.Converge` through this adapter. Integrity was verified on the held envelope
+    // bytes before parsing; generated-message admission and the entry-level compaction gate both run before the
+    // state owner receives an operation.
+    public static IO<ConflictResult> Converged(OpLogEntry entry, Func<OperationId, CrdtOp, IO<ConflictResult>> apply) =>
+        entry.Family != ColumnFamily.Crdt
+            ? IO.fail<ConflictResult>(new SyncFault.TransferDecode("crdt", Error.New($"<crdt-family:{entry.Family.Key}>")))
+            : entry.ContentKey != CrdtWire.ContentKey(entry.Payload)
+            ? IO.fail<ConflictResult>(new SyncFault.TransferDecode("crdt", Error.New("<crdt-content-key>")))
+            : CrdtWire.Decode(entry.Payload)
+                .Bind(op => Admissible(entry.Id, op).Map(_ => op))
+                .Match(Succ: op => apply(entry.Id, op), Fail: IO.fail<ConflictResult>);
+
     // Dots under the applied frontier settle `Skipped`, identity-proven: content equality cannot separate a
     // redelivery from a second real edit carrying identical bytes. Every surviving entry lands through ONE
     // `ConflictResult` and in EXACTLY ONE counter, which is what makes the conservation fold exact.
@@ -562,6 +733,9 @@ public static class SyncMerge {
             new Counts(session.Frontier(), Applied: 0L, Skipped: 0L, Conflicted: 0L, Converged: 0L, Conflicts: Seq<ConflictReceipt>()),
             (counts, entry) => entry.Id.Applied(counts.Frontier)
                 ? IO.pure(counts with { Skipped = counts.Skipped + 1L })
+                : !counts.Frontier.Dominates(entry.Id.Context)
+                ? IO.fail<Counts>(new SyncFault.ReplicationFaulted(
+                    "oplog-context", Error.New($"<causal-gap:{entry.Id.Wire}>")))
                 : (entry.Family.Stance.Convergent ? session.Converge(entry) : IO.pure(Adjudicate(session, entry)))
                     .Bind(result => Landed(session, entry, result, counts)))
             .Map(c => new SyncApplyReceipt(incoming.Count, c.Applied, c.Skipped, c.Conflicted, c.Converged, Pushed: 0L, session.QueueDepth(), c.Conflicts, session.Cursor, session.Acked, session.Frame.Correlation, session.Frame.Now()))
@@ -599,14 +773,14 @@ public static class SyncMerge {
 
 ## [04]-[SYNC_TRANSPORTS]
 
-- Owner: `FlowCapability`/`SyncFlows` the exchange-direction vocabulary and `SyncFlow` its keyless disposition; `SyncTransport` the closed transport family; the `SyncPump` dispatch surface with the `SubtreeFetch` graph-checkout bridge and the `Offer` Speckle-diff arm; `GraphDiff` the named set-difference algebra both dial.
+- Owner: `FlowCapability`/`SyncFlows` the exchange-direction vocabulary and `SyncFlow` its keyless disposition; `SyncTransport` the closed transport family; the `SyncPump` dispatch surface with the `Checkout` graph-checkout bridge and the `Offer` Speckle-diff arm; `OpLog.TransferSet` the ONE set-difference algebra both dial.
 - Cases: three transport cases — `HttpDelta`, `SpeckleLikeDiff`, `SubtreeCheckout` — widened by the one `SyncFlow` field whose capability set the `Exchange` fold reads; fan-in, fan-out, and bidirectional are `SyncFlow` rows, never new transport cases, and the empty corner is barred because a transport that neither pulls nor pushes exchanges nothing.
-- Entry: `SyncPump.Run(session, transport)` is one total state-threaded dispatch; `GraphDiff(root, holds)` projects the missing geometry-BLOB-key manifest — the closure with the root payload key, minus held; `SubtreeFetch(source, target, root)` fetches the root entry, applies it onto the target, and accounts the blob manifest on the receipt.
-- Auto: intra-cluster replication is Marten's own daemon over the shared PostgreSQL, so this axis is the CROSS-store and offline lane — a disconnected editor, a Speckle hub, a peer holding a subgraph — never a re-implementation of single-cluster replication. `HttpDelta` pulls a cursor-bounded segment of the peer's feed and pushes the pending set past the peer-acked frontier; `SubtreeCheckout` fetches the root entry, APPLIES it, and accounts its closure as the blob-transfer set; `SpeckleLikeDiff` folds the pending set through `GraphDiff` over the peer's membership answer and hands the missing set to the marshal.
+- Entry: `SyncPump.Run(session, transport)` is one total state-threaded dispatch; `OpLog.TransferSet(root, holds)` projects the missing geometry-BLOB-key manifest — the closure with the root payload key, minus held; `Checkout(source, target, root)` fetches the root entry, applies it onto the target, and accounts the blob manifest on the receipt.
+- Auto: intra-cluster replication is Marten's own daemon over the shared PostgreSQL, so this axis is the CROSS-store and offline lane — a disconnected editor, a Speckle hub, a peer holding a subgraph — never a re-implementation of single-cluster replication. `HttpDelta` pulls a cursor-bounded segment of the peer's feed and pushes the pending set past the peer-acked frontier; `SubtreeCheckout` fetches the root entry, APPLIES it, and accounts its closure as the blob-transfer set; `SpeckleLikeDiff` folds the pending set through `OpLog.TransferSet` over the peer's membership answer and hands the missing set to the marshal.
 - Receipt: every transport run yields one `SyncApplyReceipt`; the subtree-checkout transfer count rides the same receipt.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm (`CapabilitySet`/`CapabilityLaw`), NodaTime, Speckle.Sdk (companion, outside-Rhino), BCL inbox.
-- Growth: a new transport is one case with one dispatch arm; a new exchange direction is one `SyncFlows` corner; a new graph-checkout shape is one entry over `GraphDiff`, never a second diff algebra.
-- Boundary: `HttpDelta` rides the AppHost `OutboundHop` keyed pipeline, so retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law. `GraphDiff` is the ONE set-difference algebra — the closure GEOMETRY-blob manifest with the root payload key, minus what the target holds — and it is the BLOB-transfer set the content-addressed store moves, NOT an op-log-entry fetch input; feeding that manifest to `Fetch`, which resolves an entry and never a geometry blob, or running a second walk-and-diff, is the deleted form. `Rasm.Compute/Runtime/wire#PROTO_VOCABULARY`, so the remote rpc dials it rather than re-implementing the difference.
+- Growth: a new transport is one case with one dispatch arm; a new exchange direction is one `SyncFlows` corner; a new graph-checkout shape is one entry over `OpLog.TransferSet`, never a second diff algebra.
+- Boundary: `HttpDelta` rides the AppHost `OutboundHop` keyed pipeline, so retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law. Its injected transport exchanges MessagePack frames and admits every frame through `OpLogWire.Decode` after pull and `OpLogWire.Encode` before push; typed entries never cross that boundary. `OpLog.TransferSet` is the ONE set-difference algebra — the closure GEOMETRY-blob manifest with the root payload key, minus what the target holds — and it is the BLOB-transfer set the content-addressed store moves, NOT an op-log-entry fetch input; feeding that manifest to `Fetch`, which resolves an entry and never a geometry blob, or running a second walk-and-diff, is the deleted form. No corpus RPC is claimed: transport remains an injected application port until a real RPC owner binds it.
 - Boundary: the two cursor SPACES thread the exchange — the pull leg advances this store's position in the PEER's feed and the push leg the peer-returned confirmation in OURS — and overwriting one with the other resumes the next pull from this store's push frontier inside the PEER's sequence space, silently skipping every entry between. Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run.
 
 ```csharp signature
@@ -660,30 +834,40 @@ public static class SyncPump {
             // Deltas ARE the change, so the root entry APPLIES; its closure blobs ride the content-keyed store, and
             // feeding that manifest to `Fetch` — the ENTRY resolver — would resolve nothing.
             subtreeCheckout: static (s, row) => s.Fetch(row.Root).Bind(entry =>
-                SyncMerge.Apply(s, Seq(entry)).Map(receipt => receipt with { Pushed = GraphDiff(entry, s.Holds).Count })));
+                SyncMerge.Apply(s, Seq(entry)).Map(receipt => receipt with { Pushed = OpLog.TransferSet(entry, s.Holds).Count })));
 
-    public static Seq<UInt128> GraphDiff(OpLogEntry root, Func<UInt128, bool> holds) => OpLog.TransferSet(root, holds);
-
-    public static IO<SyncApplyReceipt> SubtreeFetch(SyncSession source, SyncSession target, UInt128 root) =>
+    // Cross-session checkout: the root entry applies onto the target and the transfer set accounts on the receipt.
+    // `OpLog.TransferSet` is dialed directly — a forwarding static under a second name was the deleted alias.
+    public static IO<SyncApplyReceipt> Checkout(SyncSession source, SyncSession target, UInt128 root) =>
         source.Fetch(root).Bind(entry =>
-            SyncMerge.Apply(target, Seq(entry)).Map(receipt => receipt with { Pushed = GraphDiff(entry, target.Holds).Count }));
+            SyncMerge.Apply(target, Seq(entry)).Map(receipt => receipt with { Pushed = OpLog.TransferSet(entry, target.Holds).Count }));
 
     static IO<SyncApplyReceipt> Exchange(SyncSession s, SyncTransport.HttpDelta row) =>
         from pulled in row.Flow.Pulls
             ? s.Pull(row.Peer, s.Cursor).Bind(segment => segment.SchemaFingerprint == s.SchemaFingerprint
-                ? SyncMerge.Apply(s, segment.Entries).Map(receipt => receipt with { Cursor = segment.Cursor })
+                ? DecodeFrames(segment.Frames).Bind(entries => SyncMerge.Apply(s, entries))
+                    .Map(receipt => receipt with { Cursor = segment.Cursor })
                 : IO.fail<SyncApplyReceipt>(new SyncFault.SchemaMismatch(s.SchemaFingerprint, segment.SchemaFingerprint)))
             : IO.pure(Idle(s))
         let pending = s.Pending(s.Acked)
         from receipt in row.Flow.Pushes
-            ? s.Push(row.Peer, pending).Map(acked => pulled with { Pushed = pending.Count, Acked = acked })
+            ? EncodeFrames(pending).Bind(frames => s.Push(row.Peer, frames))
+                .Map(acked => pulled with { Pushed = pending.Count, Acked = acked })
             : IO.pure(pulled)
         select receipt;
+
+    static IO<Seq<OpLogEntry>> DecodeFrames(Seq<ReadOnlyMemory<byte>> frames) =>
+        frames.Traverse(OpLogWire.Decode).Match(Succ: IO.pure, Fail: IO.fail<Seq<OpLogEntry>>);
+
+    static IO<Seq<ReadOnlyMemory<byte>>> EncodeFrames(Seq<OpLogEntry> entries) =>
+        entries.Traverse(OpLogWire.Encode)
+            .Map(static frames => frames.Map(static frame => (ReadOnlyMemory<byte>)frame))
+            .Match(Succ: IO.pure, Fail: IO.fail<Seq<ReadOnlyMemory<byte>>>);
 
     // `Acked` advances to the LAST offered entry's real coordinates, never a `Sequence + count` advance.
     static IO<SyncApplyReceipt> Offer(SyncSession s, SyncTransport.SpeckleLikeDiff row) =>
         from pending in IO.pure(s.Pending(s.Acked))
-        from held in s.HasObjects(row.Peer, toSeq(pending.Fold(Seq<UInt128>(), static (set, entry) => set + GraphDiff(entry, static _ => false)).Distinct()))
+        from held in s.HasObjects(row.Peer, toSeq(pending.Fold(Seq<UInt128>(), static (set, entry) => set + OpLog.TransferSet(entry, static _ => false)).Distinct()))
         let missing = pending.Filter(entry => !held.Contains(entry.ContentKey))
         from sent in s.SpeckleSend(row.Peer, missing)
         from receipt in missing.Head.Map(h => h.ContentKey) is { IsSome: true, Case: UInt128 root } && root != sent.RootContentKey
@@ -699,13 +883,13 @@ public static class SyncPump {
 }
 ```
 
-| [INDEX] | [POLICY]                  | [VALUE]                                            | [BINDING]                                               |
-| :-----: | :------------------------ | :------------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | intra-cluster replication | Marten daemon `HotCold`                            | this axis is the cross-store/offline lane only          |
-|  [02]   | graph checkout            | fetch+apply root; `GraphDiff` is the BLOB manifest | closure set via the blob store, not an op-log `Fetch`   |
-|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`                 | outside-Rhino; `rootObjId` → `ContentKey`; drift faults |
-|  [04]   | http delta                | AppHost `OutboundHop` pipeline                     | database excluded from the hop law                      |
-|  [05]   | exchange direction        | `CapabilitySet<FlowCapability>` under its law      | the empty corner is barred, never merely unwritten      |
+| [INDEX] | [POLICY]                  | [VALUE]                                         | [BINDING]                                               |
+| :-----: | :------------------------ | :---------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | intra-cluster replication | Marten daemon `HotCold`                         | this axis is the cross-store/offline lane only          |
+|  [02]   | graph checkout            | fetch+apply root; `TransferSet` is the manifest | closure set via the blob store, not an op-log `Fetch`   |
+|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`              | outside-Rhino; `rootObjId` → `ContentKey`; drift faults |
+|  [04]   | http delta                | AppHost `OutboundHop` pipeline                  | database excluded from the hop law                      |
+|  [05]   | exchange direction        | `CapabilitySet<FlowCapability>` under its law   | the empty corner is barred, never merely unwritten      |
 
 Per-transport descriptor: the sentence a row is chosen on, its guarantee, and what settles a leg. `admit` is `SyncPump.Run` for all three and `tenancy` is the peer identity the session carries, so both stay uniform and only the differing coordinates earn columns.
 

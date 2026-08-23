@@ -2,17 +2,17 @@
 
 `Rasm.Element` owns the neutral thing-model: the canonical property-graph element model at the lowest AEC-DOMAIN seam. One authoritative `ElementGraph` folds header, neutral node-and-relationship vocabulary, and a built-once incidence index; the consumer element is a memoized `Bake` over the reachable subgraph, never a second stored record; and the typed payload vocabularies are the one currency every discipline's data lands in, so a new discipline, payload, or relationship lands as a case on the neutral vocabulary, never a provider type.
 
-Every AEC peer projects its foreign source through `IElementProjection`, Persistence holds the system of record, and the peer runtimes decode the wire bit-identically.
+Every AEC peer projects its foreign source through `IElementProjection`, and Persistence holds the system of record. Generated `NodeWire` exists only as semantic support beneath the cross-language `EntityEditWire` actor.
 
 ## [01]-[ROUTER]
 
 [GRAPH]:
 - [01]-[GRAPH](.planning/Graph/element.md): Property-graph spine — the frozen graph and the memoized `Bake` every consumer reads flat.
 - [02]-[DELTA](.planning/Graph/delta.md): Mutation algebra — the live working graph, the edge law, and the persistable `GraphDelta` body.
-- [03]-[WIRE](.planning/Graph/wire.md): Proto-first `rasm.element.v1` graph crossing — valid values lower, hostile input re-admits on `Fin<T>`.
-- [04]-[WIRE_PAYLOAD](.planning/Graph/wirepayload.md): Node and edge envelope folds beside the header and object payload transcription arms.
+- [03]-[WIRE](.planning/Graph/wire.md): Generated node-edit support — native `Node` lowers to `NodeWire` for persistence member patches.
+- [04]-[WIRE_PAYLOAD](.planning/Graph/wirepayload.md): Node and object payload transcription arms.
 - [05]-[WIRE_VALUE](.planning/Graph/wirevalue.md): Recursive value, measure, bag, and evidence-envelope transcription arms.
-- [06]-[WIRE_SUBSTANCE](.planning/Graph/wiresubstance.md): Material composition, usage, and engineering-property transcription arms.
+- [06]-[WIRE_SUBSTANCE](.planning/Graph/wiresubstance.md): Material composition and engineering-property transcription arms.
 - [07]-[WIRE_EVIDENCE](.planning/Graph/wireevidence.md): Assessment and observation evidence transcription arms.
 - [08]-[WIRE_RASTER](.planning/Graph/wireraster.md): Coverage, lattice, and georeference transcription arms.
 - [09]-[CORPUS](.planning/Graph/corpus.md): Deterministic synthetic models — `CorpusProfile` closes the graded roster benchmarks and parity share.
@@ -59,6 +59,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/csharp/.api/` holds the shared API evidence.
 
 [CORE_SUBSTRATE]:
+- `CommunityToolkit.HighPerformance` — `ArrayPoolBufferWriter<byte>`, the pooled encode sink the corpus hot path writes and releases.
 - `Generator.Equals` — Structural equality and member diff feeding the 3-way merge.
 - `JetBrains.Annotations`
 - `LanguageExt.Core`
@@ -70,13 +71,8 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.
 - `UnitsNet` — Quantity-type registry and SI-coercion boundary.
 
-[OBSERVABILITY]:
-- `Microsoft.Extensions.Compliance.Abstractions` — `rasm.element` taxonomy over the wire's classified columns; contract-only, no redactor resolves.
-
 [WIRE_CODEGEN]:
-- `Google.Protobuf` — `rasm.element.v1` message flow and payload-limit gate.
-- `Grpc.Tools` — Build-only proto codegen; never a runtime surface.
-- `NodaTime.Serialization.Protobuf` — `Instant` wire crossing on the `Graph/wire` headers.
-
-[EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — `CloudEvent` values behind the kernel message-envelope owner, minted per consuming binding.
+- `Celly.Protovalidate` — Validates generated `NodeWire` support messages from corpus-authored rules before domain projection.
+- `Google.Protobuf` — Generated node-edit support messages and the descriptor-driven `FieldMask` seam.
+- `NodaTime.Serialization.Protobuf` — Temporal values reachable through the generated node payload closure.
+- `Rasm.Contracts` — Generated `NodeWire` support closure for Persistence `EntityEditWire`; referenced by project.

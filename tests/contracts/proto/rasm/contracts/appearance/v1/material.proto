@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package rasm.contracts.appearance.v1;
+
+import "buf/validate/validate.proto";
+import "rasm/contracts/appearance/v1/set.proto";
+
+message Color {
+  double r = 1 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double g = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double b = 3 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+}
+
+// The OpenPBR Surface 1.1 parameter vector, flattened one-for-one so a peer reconstructs the exact slab stack.
+message OpenPbr {
+  double base_weight = 1 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  Color base_color = 2 [(buf.validate.field).required = true];
+  double base_metalness = 3 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double base_diffuse_roughness = 4 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double base_specular_tint = 5 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double specular_weight = 6 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  Color specular_color = 7 [(buf.validate.field).required = true];
+  double specular_roughness = 8 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double specular_ior = 9 [(buf.validate.field).double = {
+    finite: true
+    gte: 1
+  }];
+  double specular_anisotropy = 10 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double specular_rotation = 11 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double transmission_weight = 12 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double transmission_roughness = 13 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double subsurface_weight = 14 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  Color subsurface_radius = 15 [(buf.validate.field).required = true];
+  double coat_weight = 16 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  Color coat_color = 17 [(buf.validate.field).required = true];
+  double coat_roughness = 18 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double coat_anisotropy = 19 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double coat_rotation = 20 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double coat_ior = 21 [(buf.validate.field).double = {
+    finite: true
+    gte: 1
+  }];
+  double fuzz_weight = 22 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  Color fuzz_color = 23 [(buf.validate.field).required = true];
+  double fuzz_roughness = 24 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double thin_film_weight = 25 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  double thin_film_thickness = 26 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double thin_film_ior = 27 [(buf.validate.field).double = {
+    finite: true
+    gte: 1
+  }];
+  Color emission_color = 28 [(buf.validate.field).required = true];
+  double emission_luminance = 29 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double geometry_opacity = 30 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  bool geometry_thin_walled = 31;
+}
+
+message EmissionReadout {
+  Provenance.Chromaticity chromaticity = 1;
+  double relative_luminance = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  bool gamut_mapped = 3;
+}
+
+// `unit` is the UCUM code its producing channel row declares as the wire token, so the open code system stays the
+// key and no ordinal re-keys the correspondence.
+message Emission {
+  string unit = 1 [(buf.validate.field).string.min_len = 1];
+  double value = 2 [(buf.validate.field).double.finite = true];
+  EmissionReadout readout = 3;
+}
+
+message Material {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  OpenPbr open_pbr = 2 [(buf.validate.field).required = true];
+  optional string conductor = 3 [(buf.validate.field).string.min_len = 1];
+  Provenance provenance = 4 [(buf.validate.field).required = true];
+  Color preview = 5 [(buf.validate.field).required = true];
+  Emission emission = 6;
+}

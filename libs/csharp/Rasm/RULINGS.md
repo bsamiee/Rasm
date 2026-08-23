@@ -88,6 +88,9 @@ Every reopen predicate rides the license gate.
 - `Fire` is the ONE raise and `Ring<T>` the ONE bounded fault cell — a second raise path skips veto admission and bounded fault custody.
 - Hook fact unions declare their own seating — `IHookFact.Seats` derives from the fact→point map and `Fire` gates entry and veto-product on it.
 - `CanonicalWriter` reads zero tolerance as no-snap identity — `EpsilonPolicy.ZeroTolerance` stays the content quantum, `Bits` the bit framing.
+- `ContentHash.Wire`/`Admit(bytes)` are the ONE 16-byte big-endian key crossing — a seam spelling `WriteUInt128BigEndian` forks the byte order.
+- `ArtifactContent` is the ONE native stored-payload coordinate: SHA-256 with positive extent; `ArtifactRef` rides the wire, XXH never substituting.
+- `EventGrammar` is the ONE profile admission — hyphenated lowercase-alphanumeric words and a positive major; `EventSource` axes ignore `EventType`.
 - `LevelCells.Reader<T>` is the ONE pulled projection — a sibling pull surface forks the level read from its owner's lifetime binding.
 - `AlertSeverity` is the one routing vocabulary contact rows key on — a second severity ladder forks alert routing at the sink seam.
 - `PanelSpec`'s constructor is the ONE board-descriptor spelling — a hand-built descriptor bypasses the vocabulary the board compile validates.

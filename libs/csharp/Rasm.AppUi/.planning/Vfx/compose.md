@@ -330,8 +330,8 @@ public sealed partial class ComposeTrack {
         holds ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComposeFault.TrackRefused(requirement));
 }
 
-// Plane, key, and outcome are the fan's own partitions; the resolved token rides the wire's magnitude column,
-// which the evidence union declares as a byte count or a token key by producer.
+// Plane, key, and outcome are the fan's own partitions; the resolved token rides the typed coordinate measure,
+// so no scalar evidence column changes meaning between producers.
 public readonly record struct ComposeReceipt(string Slot, string Resolved, RunOutcome Outcome, bool Reduced, int Frames);
 ```
 

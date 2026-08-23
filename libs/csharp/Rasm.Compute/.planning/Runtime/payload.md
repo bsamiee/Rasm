@@ -2,7 +2,7 @@
 
 Rasm.Compute streaming-residency lane: the content-keyed GPU-ready payload codec a web viewer streams cell-by-cell. Four encode arms ride one `ResidencyKind` axis — meshlet-cluster partitions an octree-leaf `ImportedGeometry` into cone-cullable clusters, quantized-vertex exponent-filters and level-compresses a leaf for a low-VRAM tile, point-splat decimates a reality-capture point set, and gaussian-splat octahedral/quaternion/exponent-filters a companion-decoded `SplatScan`. One `Encode` fold over the safe `Meshopt` span surface owns every arm, so a per-kind encoder sibling is the collapsed form. This lane produces payload bytes and the self-describing `StreamSpan` bufferView layout only, never a manifest or a scene-graph.
 
-Payload bytes address through the suite `Runtime/codecs#CONTENT_ADDRESSING` `XxHash128` key, read the `Runtime/tiles#TILE_PARTITION` `ImportedGeometry` octree leaf (never a second partition), and ride the `Runtime/receipts#RECEIPT_UNION` `StreamSegment` slot (never a new receipt case). `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` `ResidencyManifest.Mint` mints the `WEB_GEOMETRY_RESIDENCY_WIRE` manifest once, projecting each payload 1:1 from its `StreamSpan` layout, `ResidencyMeshlet` clusters, and content key — a Compute-side `ResidencyManifest` is the named drift defect. Encoded blobs land content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` at the app-platform seam. Splat scans arrive from the Python `realitycapture` companion as `ArtifactFrame` bytes at the `Runtime/wire#PROTO_VOCABULARY` `ArtifactSyncService` seam, never an in-process splat fit or SPZ/SOG decoder. HOST-LOCAL, no TS_PROJECTION.
+Payload bytes address through the suite `Runtime/codecs#CONTENT_ADDRESSING` `XxHash128` key, read the `Runtime/tiles#TILE_PARTITION` `ImportedGeometry` octree leaf (never a second partition), and ride the `Runtime/receipts#RECEIPT_UNION` `StreamSegment` slot (never a new receipt case). `csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION` `ResidencyMap.Mint` projects each payload's `StreamSpan` layout, `ResidencyMeshlet` clusters, and content key directly into generated `Render.V1.GeometryResidency`; a Compute-side manifest or generated-message mirror is the named drift defect. Encoded blobs land content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` at the app-platform seam. Splat scans arrive from the Python `realitycapture` companion as `ArtifactFrame` bytes at the `Runtime/wire#PROTO_VOCABULARY` `ArtifactService.Fetch` seam, never an in-process splat fit or SPZ/SOG decoder. HOST-LOCAL, no TS_PROJECTION.
 
 ## [01]-[INDEX]
 
@@ -290,15 +290,16 @@ public sealed record SplatScan(
 // Span containment now holds by construction and the interior re-proves nothing.
 public sealed record ResidencyPayload {
     internal ResidencyPayload(
-        ResidencyKind kind, UInt128 contentKey, ReadOnlyMemory<byte> blob,
+        ResidencyKind kind, UInt128 contentKey, ArtifactContent artifact, ReadOnlyMemory<byte> blob,
         FrozenDictionary<ResidencyStream, StreamSpan> layout, Seq<ResidencyMeshlet> clusters,
         int residentCount, Vector3 center, float radius, int harmonicDegree) {
-        (Kind, ContentKey, Blob, Layout) = (kind, contentKey, blob, layout);
+        (Kind, ContentKey, Artifact, Blob, Layout) = (kind, contentKey, artifact, blob, layout);
         (Clusters, ResidentCount, Center, Radius, HarmonicDegree) = (clusters, residentCount, center, radius, harmonicDegree);
     }
 
     public ResidencyKind Kind { get; }
     public UInt128 ContentKey { get; }
+    public ArtifactContent Artifact { get; }
     public ReadOnlyMemory<byte> Blob { get; }
     public FrozenDictionary<ResidencyStream, StreamSpan> Layout { get; }
     public Seq<ResidencyMeshlet> Clusters { get; }
@@ -703,7 +704,9 @@ public static class Residency {
         }
 
         UInt128 key = InterchangeIdentity.Key($"{formatKey}:{kind.Key}", blob, policy.Vector);
-        return Fin.Succ(new ResidencyPayload(kind, key, blob, layout.ToFrozenDictionary(), clusters, residentCount, bounds.Center, bounds.Radius, harmonicDegree));
+        return ArtifactContent.Of(blob, Op.Of(name: "compute.residency.artifact")).Map(artifact =>
+            new ResidencyPayload(kind, key, artifact, blob, layout.ToFrozenDictionary(), clusters,
+                residentCount, bounds.Center, bounds.Radius, harmonicDegree));
     }
 
     // An optional lane contributes a draft or nothing: two `Has*` forwarders and two `if`-append statements per

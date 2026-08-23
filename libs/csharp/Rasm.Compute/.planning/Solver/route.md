@@ -1224,7 +1224,7 @@ public abstract partial record SolveHistory : IDisposable {
     public static Fin<SolveHistory> Open(Option<SolveArchive> archive, SolveProblem problem, SolveRoute.Transient grid, int dofs, bool kinematic) =>
         archive.Match(
             None: () => Fin.Succ<SolveHistory>(new Inert()),
-            Some: capability => ChunkGrid.Derive([grid.Steps.Value], components: dofs, FieldCodec.ChunkElementTarget).ToFin()
+            Some: capability => ChunkGrid.Derive([grid.Steps.Value], components: dofs, FieldPack.ChunkElementTarget).ToFin()
                 .Bind(chunks => Op.Of(name: "solve.archive-open").Catch(() => {
                     H5DatasetCreation creation = capability.Policy.Creation();
                     H5Dataset<double[]> u = new(chunks.FileDims.ToArray(), chunks.Chunk.ToArray(), datasetCreation: creation);
@@ -1271,7 +1271,7 @@ public static class SolveModes {
          from values in result.EigenValues
          select (Capability: capability, Values: values)).Match(
             None: () => Fin.Succ(unit),
-            Some: row => ChunkGrid.Derive([row.Values.Length], components: checked((int)result.Dofs), FieldCodec.ChunkElementTarget).ToFin()
+            Some: row => ChunkGrid.Derive([row.Values.Length], components: checked((int)result.Dofs), FieldPack.ChunkElementTarget).ToFin()
                 .Bind(grid => Op.Of(name: "solve.archive-modes").Catch(() => {
                     int pairs = row.Values.Length, dofs = checked((int)result.Dofs);
                     H5Dataset<double[]> modes = new(grid.FileDims.ToArray(), grid.Chunk.ToArray(), datasetCreation: row.Capability.Policy.Creation());

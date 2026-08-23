@@ -9,7 +9,8 @@
 - [04]-[REFERENCE_GC]: reference ledger, owner vocabulary with its mint and ingress admission, derived retention tag and the held posture, If-Match CAS sweep with the transitive derivative cascade, archive ladder and lifecycle, multipart reap, restore deferral.
 - [05]-[INSTRUMENT_ROWS]: Convention projections — dedup outcome, bytes written, GC reclaim off the receipts.
 - [06]-[GRANT_MINT]: one presign entry, TTL narrowing, header policy, typed grant.
-- [07]-[CUSTODY_CONTRACT]: object-plane half of the backend generation — custody descriptor artifact, capability rows, realized-state observation.
+- [07]-[EVENT_DATAREF]: confined CloudEvents claim-check externalize/resolve over the content-addressed store.
+- [08]-[CUSTODY_CONTRACT]: object-plane half of the backend generation — custody descriptor artifact, capability rows, realized-state observation.
 
 ## [02]-[CLIENT_SEAM]
 
@@ -497,6 +498,7 @@ const _REAP_FLOOR = Duration.days(1)
 const _OWNERS = {
   derivative: { grammar: "derivative:<sourceKey>", role: "cascade", coined: "object/file#FANOUT" },
   disk: { grammar: "disk:<path>", role: "custody", coined: "object/file#FILE_PLANE" },
+  event: { grammar: "event:<source>:<id>", role: "custody", coined: "object/store#EVENT_DATAREF" },
   lake: { grammar: "lake:<catalog>", role: "custody", coined: "lane/olap#ARROW_WIRE" },
   remote: { grammar: "remote:<scheme>:<host>:<path>", role: "custody", coined: "object/remote#OP_SURFACE" },
   subject: { grammar: "subject:<app>:<tenant>:<subject>", role: "dsar", coined: "journal/retain#SHREDDER" },
@@ -1115,13 +1117,147 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
 export { ObjectFault, ObjectStore }
 ```
 
-## [07]-[CUSTODY_CONTRACT]
+## [07]-[EVENT_DATAREF]
 
-- Owner: the object plane's half of the branch backend generation — `_descriptor`, the declared custody document whose canonical bytes derive from the settled retention and conformance tables alone; `ObjectStore.custody`, the `Backend.Source` row with the capability rows the branch composition folds into `Backend.compose`; and `ObjectStore.observed`, the realized-state read answering the membership a `Backend.Reading` unions.
-- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`, `GetBucketEncryptionCommand`); `lane/capability.md` (`Backend.Source` — the row shape; the compose, merge, and admit machinery stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths` — the tables the descriptor derives from).
-- Entry: the branch composition root appends `ObjectStore.custody()` to its `Backend.Sources` beside the relational artifacts, and folds `ObjectStore.observed` into the one `Backend.Reading` it hands `Backend.observe` — one admission verdict then covers relational and object state together.
+- Owner: `Dataref` is the future-app claim-check port over `ObjectStore`: one construction policy fixes an HTTPS root and retention class; `externalize` proves the offered bytes mint the event's subject before conditionally landing and referring them, while `resolve` accepts only the exact canonical reference this root would mint, reads through the store's verified `get`, and proves an inline twin byte-equal when one was carried.
+- Law: the reference is a receiver-resolvable URI-reference and never an object key alias: the canonical HTTPS URL derives from the configured root plus the lower-case subject, while the store key remains `Digest.Key<"content">`. Resolution performs no caller-directed fetch; a foreign origin, credentials, query, fragment, path escape, or reference whose terminal coordinate differs from `subject` refuses before the object plane reads.
+- Law: `dataref` permits reference-only and dual carriage. Reference-only returns the verified resident bytes; dual carriage additionally remints the inline content and compares the complete octet sequence, so a digest collision cannot certify unequal information. The receipt states `reference | dual`; absence of both is unrepresentable.
+- Law: `externalize` derives the ledger owner from `(source,id)` through the closed `event:` owner row and reads the retention posture from construction. Callers can neither invent an object-owner prefix nor shorten custody after publishing a reference. The application serving the configured HTTPS root authorizes retrieval; this data owner supplies custody and resolution only and never widens a principal.
+- Growth: another residence engine satisfies `Dataref` behind the same port; another URI scheme is a policy case only when it preserves confinement and receiver resolution, never a branch inside a webhook.
+- Packages: existing `effect`, core `Digest`, `ObjectStore`, and `Retain`; no new package or codec is admitted.
+
+```typescript signature
+import { Context, Effect, Layer, Option, type ParseResult, Schema } from "effect"
+import { Digest, Fault } from "@rasm/ts/core"
+
+const _datarefFamily = Fault.Class.family(["address", "integrity"] as const, {
+  address: Fault.Class.row({
+    class: "denied",
+    leg: "admission",
+    detail: Schema.Struct({ reference: Schema.String }),
+    render: ({ reference }) => `data reference refused — ${reference}`,
+  }),
+  integrity: Fault.Class.row({
+    class: "breached",
+    leg: "admission",
+    detail: Schema.Struct({ reference: Schema.String }),
+    render: ({ reference }) => `data reference content diverged — ${reference}`,
+  }),
+})
+
+class DatarefFault extends Schema.TaggedError<DatarefFault>()("DatarefFault", {
+  case: _datarefFamily.payload,
+}) {
+  get class(): Fault.Class.Kind {
+    return _datarefFamily.classOf(this.case.reason)
+  }
+  override get message(): string {
+    return _datarefFamily.render(this.case)
+  }
+}
+
+const _DatarefRoot = Schema.URL.pipe(Schema.filter((root) => (
+  root.protocol === "https:"
+  && root.username.length === 0
+  && root.password.length === 0
+  && root.search.length === 0
+  && root.hash.length === 0
+  && root.pathname.endsWith("/")
+) || "<dataref-root-must-be-clean-https-directory>"))
+
+class _DatarefPolicy extends Schema.Class<_DatarefPolicy>("Dataref.Policy")({
+  root: _DatarefRoot,
+  retention: Retain.Class,
+}) {}
+
+declare namespace Dataref {
+  type Address = { readonly source: string; readonly id: string }
+  type Externalize = Address & { readonly subject: Digest.Key<"content">; readonly bytes: Uint8Array }
+  type Resolve = Address & {
+    readonly subject: Digest.Key<"content">
+    readonly reference: string
+    readonly inline: Option.Option<Uint8Array>
+  }
+  type Receipt = {
+    readonly subject: Digest.Key<"content">
+    readonly reference: string
+    readonly bytes: Uint8Array
+    readonly carriage: "reference" | "dual"
+  }
+  type Externalized = ObjectStore.Receipt & { readonly reference: string }
+  type Policy = typeof _DatarefPolicy.Type
+  type Shape = {
+    readonly externalize: (offered: Externalize) => Effect.Effect<Externalized, DatarefFault | ObjectFault>
+    readonly resolve: (offered: Resolve) => Effect.Effect<Receipt, DatarefFault | ObjectFault>
+  }
+}
+
+const _datarefFault = (reason: "address" | "integrity", reference: string): DatarefFault =>
+  new DatarefFault({ case: { reason, reference } })
+
+const _reference = (root: URL, subject: Digest.Key<"content">): string =>
+  new URL(subject.toLowerCase(), root).href
+
+const _sameBytes = (left: Uint8Array, right: Uint8Array): boolean =>
+  left.byteLength === right.byteLength && left.every((byte, at) => right[at] === byte)
+
+const _dataref = (store: ObjectStore, policy: Dataref.Policy): Dataref.Shape => ({
+  externalize: (offered) => Effect.gen(function* () {
+    const minted = yield* Digest.mint("content", offered.bytes)
+    if (minted !== offered.subject) return yield* Effect.fail(_datarefFault("integrity", offered.subject))
+    const landed = yield* store.put(offered.bytes)
+    if (landed.key !== offered.subject) return yield* Effect.fail(_datarefFault("integrity", landed.key))
+    yield* store.refer(
+      offered.subject,
+      ObjectStore.owner("event", offered.source, offered.id),
+      policy.retention,
+    )
+    return { ...landed, reference: _reference(policy.root, offered.subject) }
+  }),
+  resolve: (offered) => Effect.gen(function* () {
+    const expected = _reference(policy.root, offered.subject)
+    if (offered.reference !== expected) return yield* Effect.fail(_datarefFault("address", offered.reference))
+    const bytes = yield* store.get(offered.subject)
+    yield* Option.match(offered.inline, {
+      onNone: () => Effect.void,
+      onSome: (inline) => Effect.flatMap(
+        Digest.mint("content", inline),
+        (minted) => minted === offered.subject && _sameBytes(inline, bytes)
+          ? Effect.void
+          : Effect.fail(_datarefFault("integrity", offered.reference)),
+      ),
+    })
+    return {
+      subject: offered.subject,
+      reference: offered.reference,
+      bytes,
+      carriage: Option.isSome(offered.inline) ? "dual" : "reference",
+    }
+  }),
+})
+
+class Dataref extends Context.Tag("data/Dataref")<Dataref, Dataref.Shape>() {
+  static readonly Policy = _DatarefPolicy
+  static readonly live = (offered: unknown): Layer.Layer<Dataref, ParseResult.ParseError, ObjectStore> =>
+    Layer.effect(
+      Dataref,
+      Effect.flatMap(Schema.decodeUnknown(_DatarefPolicy)(offered), (policy) =>
+        Effect.map(ObjectStore, (store) => _dataref(store, policy))),
+    )
+}
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Dataref, DatarefFault }
+```
+
+## [08]-[CUSTODY_CONTRACT]
+
+- Owner: the object plane's half of the branch backend generation — `_descriptor`, the declared custody document whose stable bytes derive from the settled retention and conformance tables alone; `ObjectStore.custody`, the generated `Artifact` and `Capability` messages the branch composition folds into `Backend.compose`; and `ObjectStore.observed`, the realized-state read answering the membership a `Backend.Reading` unions.
+- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`, `GetBucketEncryptionCommand`); `@rasm\/contracts/rasm/contracts/parity/v1/parity_pb` (`ArtifactRole.OBJECT_CUSTODY`, `Provider.OBJECT_STORE`, `ArtifactSchema`, `CapabilitySchema`, `FailureRank`, `RestartClass`); `@rasm/ts/core` (`Format.proto`); `lane/capability.md` (`Backend.Artifact`, `Backend.Capability` — contract authority stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths`).
+- Entry: the branch composition root appends `ObjectStore.custody().artifact` to `Backend.Sources.artifacts` and its capabilities to `Backend.Sources.capabilities`, then folds `ObjectStore.observed` into the one `Backend.Reading` it hands `Backend.observe` — one admission verdict covers relational and object state together.
 - Law: the descriptor is DECLARED custody, never provider state — conditional-put demand, unversioned posture, the reap floor, and one lifecycle row per retention class (transitions off the ladder, expiry off the bound) derive from `Retain.Policy`, `_STORAGE`'s ladder, and `_REAP_FLOOR`; operator coordinates — endpoint, bucket, region, credentials, and the engine row a deployment selects — never enter the preimage, so the generation moves only when the custody contract moves and a redeployment re-keys nothing.
-- Law: the descriptor rows sort by class at encode, because canonical bytes read a published order, never a container's own enumeration.
+- Law: the descriptor rows sort by class at encode, because the artifact content preimage reads a published order, never a container's own enumeration.
 - Law: the engine is a REALIZATION fact — `observed` reads the conformance cell, the bucket's versioning status, and the realized lifecycle rule set, then answers granted canonical keys (`object.conditional`, `object.archive`, `object.lifecycle`) beside the custody artifact's presence; a bucket provisioned outside the generation therefore stops reading as compliant, which is the whole point of seating custody inside it.
 - Law: a missing lifecycle configuration reads as EMPTY rules, never a fault — the engine answers 404 on a bucket that has none, and an absent rule set is exactly the unrealized state observation exists to report; a bucket carrying no default encryption answers 404 on the same shape and folds to the `none` posture, which is absence SPELLED rather than a mode fabricated for a read no probe took; every other fault stays on the rail.
 - Law: the encryption axis is a MODE and never a key — the descriptor demands one of `none`, `AES256`, or `aws:kms`, because a KMS master key id is an operator coordinate exactly like the endpoint and the bucket, and admitting one into the preimage re-keys the whole generation on every rotation; `KMSMasterKeyID` and `BucketKeyEnabled` ride the OBSERVATION side alone, where realized state is read rather than declared, and the grant compares the observed default against the declared mode rather than narrowing a foreign algorithm into this vocabulary.
@@ -1132,6 +1268,15 @@ export { ObjectFault, ObjectStore }
 
 ```typescript signature
 import { GetBucketEncryptionCommand, GetBucketLifecycleConfigurationCommand, GetBucketVersioningCommand } from "@aws-sdk/client-s3"
+import {
+  ArtifactRole,
+  ArtifactSchema,
+  CapabilitySchema,
+  FailureRank,
+  Provider,
+  RestartClass,
+} from "@rasm\/contracts/rasm/contracts/parity/v1/parity_pb"
+import { Format } from "@rasm/ts/core"
 import type { Backend } from "../lane/capability.ts"
 
 const _CUSTODY_KEY = "object/custody"
@@ -1156,23 +1301,37 @@ const _DEEPEST = Array.last(
     Array.some(Record.values(Retain.Policy), (row) => Array.some(row.transitions, (rung) => rung.depth === depth))),
 )
 
-const _CUSTODY_CAPABILITIES: ReadonlyArray<{
-  readonly key: string
-  readonly lane: string
-  readonly requirement: string
-  readonly requirementValue: string
-  readonly failureRank: Backend.FailureRank
-  readonly restartClass: Backend.RestartClass
-}> = [
+const _capability = (
+  key: string,
+  requirement: string,
+  requirementValue: string,
+  failureRank: Backend.FailureRank,
+  restartClass: Backend.RestartClass,
+): Backend.Capability => Format.proto.create(CapabilitySchema, {
+  key,
+  lane: "object",
+  requirement,
+  requirementValue,
+  failureRank,
+  restartClass,
+})
+
+const _CUSTODY_CAPABILITIES: ReadonlyArray<Backend.Capability> = [
   // repairing a refused conditional means re-pointing the store: restart; the lifecycle push is a runtime verb: session
-  { key: "object.conditional", lane: "object", requirement: "conditional-put", requirementValue: "if-none-match-*", failureRank: "required", restartClass: "restart" },
-  { key: "object.archive", lane: "object", requirement: "archive-depth", requirementValue: Option.getOrElse(_DEEPEST, () => "none"), failureRank: "degradable", restartClass: "restart" },
+  _capability("object.conditional", "conditional-put", "if-none-match-*", FailureRank.REQUIRED, RestartClass.RESTART),
+  _capability(
+    "object.archive",
+    "archive-depth",
+    Option.getOrElse(_DEEPEST, () => "none"),
+    FailureRank.DEGRADABLE,
+    RestartClass.RESTART,
+  ),
   // a bucket's default encryption is provisioned state, so repairing a short mode re-points the store: restart
-  { key: "object.encryption", lane: "object", requirement: "sse-mode", requirementValue: _SSE, failureRank: "degradable", restartClass: "restart" },
-  { key: "object.lifecycle", lane: "object", requirement: "lifecycle-rules", requirementValue: "retain-classes", failureRank: "degradable", restartClass: "session" },
+  _capability("object.encryption", "sse-mode", _SSE, FailureRank.DEGRADABLE, RestartClass.RESTART),
+  _capability("object.lifecycle", "lifecycle-rules", "retain-classes", FailureRank.DEGRADABLE, RestartClass.SESSION),
 ]
 
-// DECLARED custody alone: settled tables in, canonical bytes out, sorted by class so the encode reads a published
+// DECLARED custody alone: settled tables in, stable content out, sorted by class so the encode reads a published
 // order. No operator coordinate can reach this preimage by construction.
 const _descriptor = () => ({
   conditional: "if-none-match-*",
@@ -1192,14 +1351,17 @@ const _descriptor = () => ({
   ),
 })
 
-const _custody = (): { readonly source: Backend.Source; readonly capabilities: typeof _CUSTODY_CAPABILITIES } => ({
-  source: {
+const _custody = (): {
+  readonly artifact: Backend.Artifact
+  readonly capabilities: ReadonlyArray<Backend.Capability>
+} => ({
+  artifact: Format.proto.create(ArtifactSchema, {
     key: _CUSTODY_KEY,
-    role: "custody",
-    bytes: new TextEncoder().encode(JSON.stringify(_descriptor())),
-    providers: Array.map(_CUSTODY_CAPABILITIES, (row) => row.key),
+    role: ArtifactRole.OBJECT_CUSTODY,
+    content: new TextEncoder().encode(JSON.stringify(_descriptor())),
+    providers: [Provider.OBJECT_STORE],
     dependsOn: [],
-  },
+  }),
   capabilities: _CUSTODY_CAPABILITIES,
 })
 
@@ -1262,6 +1424,6 @@ const _observed = (client: S3Client, bucket: string, engine: ObjectStore.Engine)
   })
 ```
 
-## [08]-[RESEARCH]
+## [09]-[RESEARCH]
 
 (none)

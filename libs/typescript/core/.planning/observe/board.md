@@ -21,7 +21,11 @@
 - Packages: `effect` (`Data`, `Duration`, `Match`, `Schema`); `./convention.ts` (`Convention`); `./slo.ts` (`Reliability`).
 
 ```typescript signature
-import { Array, Data, Duration, Effect, Match, Metric, MetricPair, MetricState, Number, Option, Order, Predicate, Record, RegExp as Regex, Schema, Struct, pipe } from "effect"
+import { create, isMessage, type MessageShape } from "@bufbuild/protobuf"
+import { EmptySchema, timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt"
+import * as evidence from "@rasm\/contracts/rasm/contracts/benchmark/v1/claim_pb"
+import * as fingerprint from "@rasm\/contracts/rasm/contracts/benchmark/v1/fingerprint_pb"
+import { Array, Data, DateTime, Duration, Effect, Either, Match, Metric, MetricPair, MetricState, Number, Option, Order, ParseResult, Predicate, Record, RegExp as Regex, Schema, type SchemaAST, Struct, pipe } from "effect"
 import type { measure as MitataMeasure } from "mitata"
 import { Digest } from "../value/contentKey.ts"
 import { Identity } from "../value/identity.ts"
@@ -664,8 +668,29 @@ declare namespace _DashboardModel {
 - Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`); `../value/schema.ts` (`Shape.Record`).
 
 ```typescript signature
+// Rungs: the branch record keys a band by rung NAME and the wire carries `RungCell{rung: BenchRung, value}` rows, so
+// ONE correspondence declares the name→member pair and both the roster and the inverse read derive from it — a rung
+// the corpus adds lands as one row here and breaks every consumer that enumerates the record.
+type _Defined<E extends { readonly UNSPECIFIED: 0 }> = Exclude<E[keyof E], E["UNSPECIFIED"]>
+const _RUNG_WIRE = {
+  min: evidence.BenchRung.MIN,
+  max: evidence.BenchRung.MAX,
+  avg: evidence.BenchRung.AVG,
+  p25: evidence.BenchRung.P25,
+  p50: evidence.BenchRung.P50,
+  p75: evidence.BenchRung.P75,
+  p95: evidence.BenchRung.P95,
+  p99: evidence.BenchRung.P99,
+  p999: evidence.BenchRung.P999,
+  stdDev: evidence.BenchRung.STD_DEV,
+} as const
+const _RUNGS = Record.keys(_RUNG_WIRE)
+type _RungsClosed<K extends _Defined<typeof evidence.BenchRung> = (typeof _RUNG_WIRE)[keyof typeof _RUNG_WIRE]> = K
+type _RungsWhole<K extends (typeof _RUNG_WIRE)[keyof typeof _RUNG_WIRE] = _Defined<typeof evidence.BenchRung>> = K
+const _RUNG_NAME = Record.fromEntries(
+  Array.map(Record.toEntries(_RUNG_WIRE), ([name, member]) => [member, name] as const),
+) as { readonly [M in _Defined<typeof evidence.BenchRung>]: Extract<keyof typeof _RUNG_WIRE, string> }
 const _MITATA_RUNGS = ["min", "max", "avg", "p25", "p50", "p75", "p99", "p999"] as const
-const _RUNGS = ["min", "max", "avg", "p25", "p50", "p75", "p95", "p99", "p999", "stdDev"] as const
 const _GRADES = ["improved", "steady", "regressed"] as const
 const _Rung = Shape.vocabulary(_RUNGS, {
   min: {}, max: {}, avg: {}, p25: {}, p50: {}, p75: {}, p95: {}, p99: {}, p999: {}, stdDev: {},
@@ -684,10 +709,26 @@ const _Grade = Shape.vocabulary(_GRADES, {
   steady: { accepts: (ratio: number, slack: number) => ratio >= 1 - slack && ratio <= 1 + slack },
   regressed: { accepts: (ratio: number, slack: number) => ratio > 1 + slack },
 })
+// Polarity is the branch's grading vocabulary and the wire's `BenchPolarity` enum is its spelling: ONE correspondence
+// declares the pair and the inverse read derives from it, exactly as the rungs do. Modality and the payload band ARE
+// corpus enums with no branch algebra over them, so their schemas take the generated members directly; mitata spells
+// its own modality words, so one correspondence carries them onto the wire's members.
 const _Polarity = Shape.vocabulary(["minimize", "maximize"] as const, {
   minimize: { ratio: (fresh: number, base: number) => fresh / base },
   maximize: { ratio: (fresh: number, base: number) => base / fresh },
 })
+const _POLARITY_WIRE = { minimize: evidence.BenchPolarity.MINIMIZE, maximize: evidence.BenchPolarity.MAXIMIZE } as const
+type _PolarityClosed<K extends _Defined<typeof evidence.BenchPolarity> = (typeof _POLARITY_WIRE)[keyof typeof _POLARITY_WIRE]> = K
+const _POLARITY_NAME = {
+  [evidence.BenchPolarity.MINIMIZE]: "minimize",
+  [evidence.BenchPolarity.MAXIMIZE]: "maximize",
+} as const satisfies Record<_Defined<typeof evidence.BenchPolarity>, keyof typeof _POLARITY_WIRE>
+const _polarityOf = Schema.is(Schema.Literal(evidence.BenchPolarity.MINIMIZE, evidence.BenchPolarity.MAXIMIZE))
+const _modalities = [evidence.BenchModality.FN, evidence.BenchModality.ITER, evidence.BenchModality.YIELD] as const
+const _MODALITY = { fn: evidence.BenchModality.FN, iter: evidence.BenchModality.ITER, yield: evidence.BenchModality.YIELD } as const
+type _ModalityClosed<K extends _Defined<typeof evidence.BenchModality> = (typeof _modalities)[number]> = K
+const _bands = [evidence.PayloadBand.MICRO, evidence.PayloadBand.SMALL, evidence.PayloadBand.MEDIUM, evidence.PayloadBand.LARGE] as const
+type _BandClosed<K extends _Defined<typeof evidence.PayloadBand> = (typeof _bands)[number]> = K
 type _MitataStats = Awaited<ReturnType<typeof MitataMeasure>>
 
 const _BenchAggregate = Schema.Struct({ avg: _BandValue, min: _BandValue, max: _BandValue, total: _BandValue })
@@ -708,21 +749,21 @@ const _BenchBand = Schema.Struct({
   heap: Schema.optionalWith(_BenchAggregate, { as: "Option" }),
   counters: Schema.optionalWith(_BenchCounters, { as: "Option" }),
 })
+// The input carries what the producer declares — rank IS `shape.length` and contiguity IS the stride order — so the
+// two derived columns the prior mirror stored are read off the shape they were derived from.
 const _BenchInput = Schema.Struct({
-  payloadBytes: Schema.BigIntFromString,
-  band: Schema.Literal("micro", "small", "medium", "large"),
+  payloadBytes: Schema.BigIntFromSelf,
+  band: Schema.Literal(..._bands),
   dtype: Schema.NonEmptyString,
-  shape: Schema.Array(Schema.BigIntFromString),
-  strides: Schema.Array(Schema.BigIntFromString),
+  shape: Schema.Array(Schema.BigIntFromSelf),
+  strides: Schema.Array(Schema.BigIntFromSelf),
   batch: Schema.Int.pipe(Schema.positive()),
   density: Schema.Number.pipe(Schema.between(0, 1)),
-  rank: Schema.Int.pipe(Schema.nonNegative()),
-  contiguous: Schema.Boolean,
 })
 const _ProfileArtifact = Schema.Union(
-  Schema.TaggedStruct("chrome-trace", { content: Digest.codecs.content.wire, startNs: Schema.BigIntFromString }),
-  Schema.TaggedStruct("benchmark-export", { content: Digest.codecs.content.wire, exporter: Schema.NonEmptyString }),
-  Schema.TaggedStruct("ep-context", { content: Digest.codecs.content.wire, ep: Schema.NonEmptyString }),
+  Schema.TaggedStruct("chrome-trace", { content: Digest.codecs.content.bytes, startNs: Schema.BigIntFromSelf }),
+  Schema.TaggedStruct("benchmark-export", { content: Digest.codecs.content.bytes, exporter: Schema.NonEmptyString }),
+  Schema.TaggedStruct("ep-context", { content: Digest.codecs.content.bytes, ep: Schema.NonEmptyString }),
 )
 const _BenchSubject = Schema.Union(
   Schema.Struct({ subject: Schema.Literal("probe") }),
@@ -734,7 +775,7 @@ const _BenchSubject = Schema.Union(
     case: Schema.NonEmptyString,
     route: Schema.NonEmptyString,
     provider: Schema.NonEmptyString,
-    corpus: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+    corpus: Schema.optionalWith(Digest.codecs.content.bytes, { as: "Option" }),
     artifactKey: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
     equivalenceMaxDeviation: _BandValue,
     toleranceClass: Schema.NonEmptyString,
@@ -744,24 +785,47 @@ const _BenchSubject = Schema.Union(
 const _BenchMetric = Schema.Struct({
   label: Schema.NonEmptyString,
   unit: Schema.NonEmptyString,
-  modality: Schema.Literal("fn", "iter", "yield"),
+  modality: Schema.Literal(..._modalities),
   polarity: _Polarity.schema,
   subject: _BenchSubject,
   band: _BenchBand,
   warmups: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { as: "Option" }),
-  allocatedBytes: Schema.optionalWith(Schema.BigIntFromString, { as: "Option" }),
-  operations: Schema.optionalWith(Schema.BigIntFromString, { as: "Option" }),
+  allocatedBytes: Schema.optionalWith(Schema.BigIntFromSelf, { as: "Option" }),
+  operations: Schema.optionalWith(Schema.BigIntFromSelf, { as: "Option" }),
 })
 
+// The host lands off the generated `HostFingerprintWire`: every scalar rule is protovalidate's at the frame, and what
+// this owner adds is the one law no field rule states — `stamps` cross as label pairs and land as the closed-key
+// record a print is compared against, so a duplicated label refuses rather than last-wins.
 class _BenchHost extends Schema.Class<_BenchHost>("HostFingerprint")({
-  print: Schema.NonEmptyString,
-  machine: Schema.NonEmptyString,
-  os: Schema.NonEmptyString,
-  arch: Schema.NonEmptyString,
-  processors: Schema.Int.pipe(Schema.positive()),
-  runtime: Schema.NonEmptyString,
+  print: Schema.String,
+  machine: Schema.String,
+  os: Schema.String,
+  arch: Schema.String,
+  processors: Schema.Int,
+  runtime: Schema.String,
   stamps: Shape.Record(Schema.NonEmptyString, Schema.String),
 }) {}
+
+const _pairs = (stamps: ReadonlyArray<fingerprint.LabelPair>, ast: SchemaAST.AST): Either.Either<Readonly<Record<string, string>>, ParseResult.ParseIssue> =>
+  Array.dedupe(Array.map(stamps, (pair) => pair.key)).length === stamps.length
+    ? Either.right(Record.fromEntries(Array.map(stamps, (pair) => [pair.key, pair.value] as const)))
+    : Either.left(new ParseResult.Type(ast, stamps, "<duplicate-stamp-label>"))
+
+const _hostOf = (wire: fingerprint.HostFingerprintWire, ast: SchemaAST.AST): Either.Either<_BenchHost, ParseResult.ParseIssue> =>
+  Either.flatMap(_pairs(wire.stamps, ast), (stamps) =>
+    Either.mapLeft(
+      Schema.decodeUnknownEither(_BenchHost)({
+        print: wire.print, machine: wire.machine, os: wire.os, arch: wire.arch, processors: wire.processors, runtime: wire.runtime, stamps,
+      }),
+      (error) => error.issue,
+    ))
+
+const _hostWire = (host: _BenchHost): fingerprint.HostFingerprintWire =>
+  create(fingerprint.HostFingerprintWireSchema, {
+    print: host.print, machine: host.machine, os: host.os, arch: host.arch, processors: host.processors, runtime: host.runtime,
+    stamps: Array.map(Record.toEntries(host.stamps), ([key, value]) => create(fingerprint.LabelPairSchema, { key, value })),
+  })
 
 class _Claim extends Schema.Class<_Claim>("Claim")({
   suite: Schema.NonEmptyString,
@@ -773,8 +837,192 @@ class _Claim extends Schema.Class<_Claim>("Claim")({
   static readonly Band: typeof _BenchBand = _BenchBand
   static readonly Subject: typeof _BenchSubject = _BenchSubject
   static readonly Host: typeof _BenchHost = _BenchHost
+  static readonly FromWire: Schema.Schema<_Claim, MessageShape<typeof evidence.BenchmarkClaimWireSchema>> = Schema.suspend(() => _ClaimFromWire)
   static readonly matches = (claim: _Claim, identity: Identity.App): boolean => claim.host.print === identity.host
 }
+
+// --- [CLAIM_WIRE]
+
+// The crossing is total both ways over the generated `BenchmarkClaimWire`: the descriptor proves every column and
+// protovalidate every scalar rule at the frame, so this transform carries only the lifts no rule states — rung
+// cells onto the named record, `Empty`/kernel onto the subject union, artifact oneofs onto tagged structs, sixteen
+// byte keys onto the content brand, optional magnitudes onto the branch carrier, and the instant off the well-known
+// stamp. Decode projects the wire onto the class's ENCODED face and runs the class once, so no domain rule is
+// restated here; encode rebuilds the message through `create` and never a hand object.
+const _Wire: Schema.Schema<MessageShape<typeof evidence.BenchmarkClaimWireSchema>> = Schema.declare(
+  (input: unknown): input is MessageShape<typeof evidence.BenchmarkClaimWireSchema> =>
+    isMessage(input, evidence.BenchmarkClaimWireSchema),
+  { identifier: evidence.BenchmarkClaimWireSchema.typeName },
+)
+const _rungOf = Schema.is(Schema.Literal(..._RUNGS.map((name) => _RUNG_WIRE[name])))
+const _bandOf = Schema.is(Schema.Literal(..._bands))
+const _present = <A>(value: A | undefined): A | undefined => value
+const _nonEmpty = <A>(values: ReadonlyArray<A>): ReadonlyArray<A> | undefined => (values.length === 0 ? undefined : values)
+
+const _artifactOf = (wire: evidence.ProfileArtifactWire, ast: SchemaAST.AST): Either.Either<typeof _ProfileArtifact.Encoded, ParseResult.ParseIssue> =>
+  Match.value(wire.kind).pipe(
+    Match.when({ case: "chromeTrace" }, ({ value }) => Either.right({ _tag: "chrome-trace" as const, content: value.content, startNs: value.startNs })),
+    Match.when({ case: "benchmarkExport" }, ({ value }) => Either.right({ _tag: "benchmark-export" as const, content: value.content, exporter: value.exporter })),
+    Match.when({ case: "epContext" }, ({ value }) => Either.right({ _tag: "ep-context" as const, content: value.content, ep: value.ep })),
+    Match.orElse(() => Either.left(new ParseResult.Type(ast, wire, "<artifact-unset>"))),
+  )
+
+const _subjectOf = (wire: evidence.BenchMetric, ast: SchemaAST.AST): Either.Either<typeof _BenchSubject.Encoded, ParseResult.ParseIssue> =>
+  Match.value(wire.subject).pipe(
+    Match.when({ case: "probe" }, () => Either.right({ subject: "probe" as const })),
+    Match.when({ case: "kernel" }, ({ value }) =>
+      Either.flatMap(
+        Option.match(Option.fromNullable(value.input), {
+          onNone: () => Either.left(new ParseResult.Type(ast, value, "<input-unset>")),
+          onSome: (input) =>
+            _bandOf(input.band)
+              ? Either.right({ payloadBytes: input.payloadBytes, band: input.band, dtype: input.dtype, shape: input.shape, strides: input.strides, batch: input.batch, density: input.density })
+              : Either.left(new ParseResult.Type(ast, input, "<band-undefined>")),
+        }),
+        (input) =>
+          Either.map(Either.all(Array.map(value.artifacts, (artifact) => _artifactOf(artifact, ast))), (artifacts) => ({
+            subject: "kernel" as const,
+            input,
+            substrate: value.substrate,
+            family: value.family,
+            case: value.case,
+            route: value.route,
+            provider: value.provider,
+            corpus: _present(value.corpus),
+            artifactKey: _present(value.artifactKey),
+            equivalenceMaxDeviation: value.equivalenceMaxDeviation,
+            toleranceClass: value.toleranceClass,
+            artifacts,
+          })),
+      )),
+    Match.orElse(() => Either.left(new ParseResult.Type(ast, wire, "<subject-unset>"))),
+  )
+
+const _bandWireOf = (band: evidence.BenchBandWire, ast: SchemaAST.AST): Either.Either<typeof _BenchBand.Encoded, ParseResult.ParseIssue> =>
+  Either.map(
+    Either.all(Array.map(band.rungs, (cell) =>
+      _rungOf(cell.rung)
+        ? Either.right([_RUNG_NAME[cell.rung], cell.value] as const)
+        : Either.left(new ParseResult.Type(ast, cell, "<rung-undefined>")))),
+    (cells) => ({
+      sampleCount: band.sampleCount,
+      rungs: Record.fromEntries(cells),
+      ticks: _present(band.ticks),
+      samples: _nonEmpty(band.samples),
+      gc: _present(band.gc),
+      heap: _present(band.heap),
+      counters: Struct.keys(band.counters).length === 0 ? undefined : band.counters,
+    }),
+  )
+
+const _metricOf = (wire: evidence.BenchMetric, ast: SchemaAST.AST): Either.Either<typeof _BenchMetric.Encoded, ParseResult.ParseIssue> =>
+  Either.map(
+    Either.all({
+      polarity: _polarityOf(wire.polarity) ? Either.right(wire.polarity) : Either.left(new ParseResult.Type(ast, wire, "<polarity-undefined>")),
+      subject: _subjectOf(wire, ast),
+      band: Option.match(Option.fromNullable(wire.band), {
+        onNone: () => Either.left(new ParseResult.Type(ast, wire, "<band-unset>")),
+        onSome: (band) => _bandWireOf(band, ast),
+      }),
+    }),
+    ({ polarity, subject, band }) => ({
+      label: wire.label,
+      unit: wire.unit,
+      modality: wire.modality,
+      polarity: _POLARITY_NAME[polarity],
+      subject,
+      band,
+      warmups: _present(wire.warmups),
+      allocatedBytes: _present(wire.allocatedBytes),
+      operations: _present(wire.operations),
+    }),
+  )
+
+const _artifactWire = (artifact: typeof _ProfileArtifact.Encoded): evidence.ProfileArtifactWire =>
+  create(evidence.ProfileArtifactWireSchema, {
+    kind: Match.valueTags(artifact, {
+      "chrome-trace": ({ content, startNs }) => ({ case: "chromeTrace" as const, value: create(evidence.ChromeTraceWireSchema, { content, startNs }) }),
+      "benchmark-export": ({ content, exporter }) => ({ case: "benchmarkExport" as const, value: create(evidence.BenchmarkExportWireSchema, { content, exporter }) }),
+      "ep-context": ({ content, ep }) => ({ case: "epContext" as const, value: create(evidence.EpContextWireSchema, { content, ep }) }),
+    }),
+  })
+
+const _metricWire = (metric: typeof _BenchMetric.Encoded): evidence.BenchMetric =>
+  create(evidence.BenchMetricSchema, {
+    label: metric.label,
+    unit: metric.unit,
+    modality: metric.modality,
+    polarity: _POLARITY_WIRE[metric.polarity],
+    subject: metric.subject.subject === "probe"
+      ? { case: "probe", value: create(EmptySchema) }
+      : {
+        case: "kernel",
+        value: create(evidence.BenchKernelWireSchema, {
+          input: create(evidence.BenchInputWireSchema, { ...metric.subject.input, shape: [...metric.subject.input.shape], strides: [...metric.subject.input.strides] }),
+          substrate: metric.subject.substrate,
+          family: metric.subject.family,
+          case: metric.subject.case,
+          route: metric.subject.route,
+          provider: metric.subject.provider,
+          corpus: metric.subject.corpus,
+          artifactKey: metric.subject.artifactKey,
+          equivalenceMaxDeviation: metric.subject.equivalenceMaxDeviation,
+          toleranceClass: metric.subject.toleranceClass,
+          artifacts: Array.map(metric.subject.artifacts, _artifactWire),
+        }),
+      },
+    band: create(evidence.BenchBandWireSchema, {
+      sampleCount: metric.band.sampleCount,
+      rungs: Array.filterMap(_RUNGS, (name) =>
+        Option.map(Option.fromNullable(metric.band.rungs[name]), (value) => create(evidence.RungCellSchema, { rung: _RUNG_WIRE[name], value }))),
+      ticks: metric.band.ticks,
+      samples: [...(metric.band.samples ?? [])],
+      gc: metric.band.gc,
+      heap: metric.band.heap,
+      counters: { ...(metric.band.counters ?? {}) },
+    }),
+    warmups: metric.warmups,
+    allocatedBytes: metric.allocatedBytes,
+    operations: metric.operations,
+  })
+
+const _ClaimFromWire: Schema.Schema<_Claim, MessageShape<typeof evidence.BenchmarkClaimWireSchema>> = Schema.transformOrFail(
+  _Wire,
+  _Claim,
+  {
+    strict: true,
+    decode: (wire, _options, ast) =>
+      Either.flatMap(
+        Either.all({
+          host: Option.match(Option.fromNullable(wire.host), {
+            onNone: () => Either.left(new ParseResult.Type(ast, wire, "<host-unset>")),
+            onSome: (host) => _hostOf(host, ast),
+          }),
+          minted: Option.match(Option.fromNullable(wire.minted), {
+            onNone: () => Either.left(new ParseResult.Type(ast, wire, "<minted-unset>")),
+            onSome: (stamp) => Either.right(DateTime.formatIso(DateTime.unsafeMake(timestampMs(stamp)))),
+          }),
+          metrics: Either.all(Array.map(wire.metrics, (metric) => _metricOf(metric, ast))),
+        }),
+        ({ host, minted, metrics }) =>
+          Either.mapLeft(
+            Schema.decodeUnknownEither(_Claim)({ suite: wire.suite, host: Schema.encodeSync(_BenchHost)(host), minted, metrics }),
+            (error) => error.issue,
+          ),
+      ),
+    encode: (claim) =>
+      Either.map(
+        Either.mapLeft(Schema.encodeEither(Schema.NonEmptyArray(_BenchMetric))(claim.metrics), (error) => error.issue),
+        (metrics) =>
+          create(evidence.BenchmarkClaimWireSchema, {
+            suite: claim.suite,
+            host: _hostWire(claim.host),
+            minted: timestampFromMs(DateTime.toEpochMillis(claim.minted)),
+            metrics: Array.map(metrics, _metricWire),
+          }),
+      ),
+  },
+)
 
 // `_COUNTER_PATHS` carries BOTH platform planes — linux perf events and darwin kperf publish different leaves, with
 // only `cycles` and `instructions` shared — and the filterMap keeps exactly what the measuring host answered; per-leaf
@@ -812,7 +1060,7 @@ const _fromMitata = (stats: _MitataStats, mint: _Bench.Mint): _Claim =>
     metrics: [{
       label: mint.label,
       unit: mint.unit,
-      modality: stats.kind,
+      modality: _MODALITY[stats.kind],
       polarity: mint.polarity,
       subject: mint.subject,
       band: {

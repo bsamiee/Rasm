@@ -153,6 +153,11 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [PLANAR_GEOSPATIAL]:
 - `Clipper2` — Line-space lanes behind the `FillOf` seam; offset, boolean, and morphology lower onto the `Rasm` kernel owners.
 
+[WIRE_CODEGEN]:
+- `Rasm.Contracts` — Generated fabrication messages consumed by the feature-control egress, referenced by project.
+- `Google.Protobuf` — Official protobuf binary emission of the generated feature-control message.
+- `Celly.Protovalidate` — Descriptor-compiled `buf.validate` evaluation at feature-control egress.
+
 [SERVICE_CONTRACTS]:
 - `Microsoft.Extensions.Caching.Hybrid` — Solver memo seat behind `HybridCache`; durable L2 federates at the Persistence cache seam.
 

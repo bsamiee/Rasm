@@ -1,13 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Dependency-zero RhinoWIP stub with one reflective activation hop into the shell ALC.</Description>
-        <CspScope>Boundary</CspScope>
         <AssemblyName>rasm-bridge</AssemblyName>
         <RootNamespace>Rasm.Bridge.Stub</RootNamespace>
         <RhinoPluginAssemblyGuid>23898819-e84f-4fd3-bb2c-85b208718cba</RhinoPluginAssemblyGuid>
         <YakPackageSlug>rasm-bridge</YakPackageSlug>
         <!-- InformationalVersion identifies the loaded host build. -->
         <InformationalVersion>0.1.0-stub</InformationalVersion>
-        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
     </PropertyGroup>
 </Project>

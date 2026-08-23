@@ -86,10 +86,10 @@ class StatusCarrier(Protocol):
     status_code: Enum
 
 
-# structural slot of a gRPC `AioRpcError`: `code()` returns the `grpc.StatusCode` member.
+# structural slot of a Connect `ConnectError`: `code` carries the `connectrpc.code.Code` member the peer answered.
 @runtime_checkable
 class StatusCoded(Protocol):
-    def code(self) -> Enum: ...
+    code: Enum
 
 
 # structural slot of a librdkafka `KafkaError`, which `KafkaException` carries at `args[0]`: the client answers the
@@ -137,7 +137,7 @@ class RetryClass(StrEnum):
     @property
     def policy(self) -> "Policy":
         # RAW index because `POLICY` is TOTAL over this vocabulary, and that totality is a BOOT PROOF rather than a
-        # convention: the `transport/shapes#SHAPES` census the serve boot fold runs ahead of every custody-claiming
+        # convention: the `transport/shapes#BOOT_CENSUS` census the serve boot fold runs ahead of every custody-claiming
         # install carries the closed-roster arm that refuses a member holding no row, so an unrostered class kills the
         # boot instead of raising `KeyError` at a caller's first dial. `CIRCUIT`/`RATES` index through `try_find`
         # because their partiality is DECLARED — absence IS the no-op — so no census may ever close them.
@@ -164,7 +164,7 @@ class RetryMode(StrEnum):
 
 # optional schedule columns whose `UNSET` value defers to the `stamina` default.
 _WAIT_COLUMNS: Final[tuple[str, ...]] = ("wait_initial", "wait_max", "wait_jitter", "wait_exp_base")
-# transient gRPC status trio the grpcio client-fault law names retriable.
+# transient Connect status trio the `connectrpc` client-fault law names retriable; the `Code` member names ARE the wire spelling.
 _WIRE_STATUS: Final[frozenset[str]] = frozenset({"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED"})
 # adbc transport statuses a re-issue can clear; every other status names a request the driver refuses identically.
 _ADBC_STATUS: Final[frozenset[str]] = frozenset({"TIMEOUT", "IO"})
@@ -290,9 +290,9 @@ class CircuitPolicy(Struct, frozen=True):
 
 class RatePolicy(Struct, frozen=True):
     # steady-state permits per second beside the burst a quiet window banks. `permits` is the DEFAULT a destination
-    # opens at; a peer's own stated wait — a `Retry-After`, a librdkafka throttle window, the reciprocal of a
-    # `WebHook-Allowed-Rate` answer — re-seats it through `RateGate.directed` off the `throttled` verdict the metered
-    # settle reads, so the negotiated rate is the operating one and this row is the floor a silent destination keeps.
+    # opens at; a peer's own stated wait — a `Retry-After` or librdkafka throttle window — re-seats it through
+    # `RateGate.directed` off the `throttled` verdict the metered settle reads, so the negotiated rate is the operating
+    # one and this row is the floor a silent destination keeps.
     permits: float
     burst: float
 
@@ -328,11 +328,11 @@ def _statused(exc: Exception) -> Option[Recovery]:
 
 
 def _coded(exc: Exception) -> Option[Recovery]:
-    # an `AioRpcError` re-offers only on the transient status trio; the qualname guard keeps a foreign class that
-    # happens to answer `code()` out of this verdict, and every other raise defers to the row's own roster.
+    # a `ConnectError` re-offers only on the transient status trio; the qualname guard keeps a foreign class that
+    # happens to carry a `code` out of this verdict, and every other raise defers to the row's own roster.
     match exc:
-        case StatusCoded() as coded if type(exc).__qualname__ == "AioRpcError":
-            return Some(TRANSIENT if coded.code().name in _WIRE_STATUS else TERMINAL)
+        case StatusCoded(code=Enum() as code) if type(exc).__qualname__ == "ConnectError":
+            return Some(TRANSIENT if code.name in _WIRE_STATUS else TERMINAL)
         case _:
             return Nothing
 
@@ -611,7 +611,20 @@ RAISES: Final[Block[FaultRow[RuntimeLeg]]] = rostered(Block.of_seq([CIRCUIT_OPEN
 # keyed by the `RetryClass` member itself (a `.value` string key is the deleted spelling); a new class is one member plus one row.
 POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
     # obstore transients raise as subclasses of `obstore.exceptions.BaseError` — MRO-matched.
-    (RetryClass.OBJECT_STORE, Policy(attempts=4, timeout=30.0, target=_backoff("obstore.exceptions.BaseError", TimeoutError))),
+    (
+        RetryClass.OBJECT_STORE,
+        Policy(
+            attempts=4,
+            timeout=30.0,
+            target=_backoff(
+                "obstore.exceptions.BaseError",
+                TimeoutError,
+                # transport/roots lifts provider NotFound onto its typed StoreFault before this envelope sees it;
+                # absence is terminal and must cross whole, never burn four attempts or collapse into boundary text.
+                refuse=("rasm.runtime.roots.StoreFault",),
+            ),
+        ),
+    ),
     # the origin's own `Retry-After` outranks the roster and rides back as the window `stamina` waits and the bucket re-seats on.
     (RetryClass.HTTP, Policy(attempts=3, timeout=20.0, target=_backoff(TimeoutError, ConnectionError, probe=Some(_windowed)))),
     # asyncssh transients (`ConnectionLost`/`DisconnectError`) subclass `asyncssh.Error`, never builtin `ConnectionError` —
@@ -630,7 +643,7 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
             wait_initial=0.5,
         ),
     ),
-    # consumer trailer fence owns the terminal `AioRpcError` lift so the typed detail survives.
+    # the serve page's dial fence owns the terminal `ConnectError` lift so the typed `FaultDetail` detail survives.
     (RetryClass.WIRE, Policy(attempts=5, timeout=15.0, target=_backoff(ConnectionError, probe=Some(_coded)))),
     (RetryClass.SCAN, Policy(attempts=2, timeout=60.0, target=_backoff(OSError), wait_max=30.0)),
     # secret-derivation band: the keystore lock and file-mount hiccups match by class, while the three cloud
@@ -816,9 +829,8 @@ CIRCUIT: Final[Map[RetryClass, CircuitPolicy]] = Map.of_seq([
     (RetryClass.SSH, CircuitPolicy(trips=3, cooldown=30.0)),
 ])
 
-# rate rows reach the classes whose peer PUBLISHES a rate — a webhook target answering `WebHook-Allowed-Rate`, a
-# broker raising `ThrottleEvent`, an origin answering `Retry-After` — so the floor here is what a destination
-# negotiating nothing keeps and `directed` seats whatever it does negotiate. A class with no row spends no permits.
+# rate rows reach the classes whose peer publishes pacing evidence or whose local floor bounds admission. Broker
+# `ThrottleEvent` and HTTP `Retry-After` re-seat through `directed`; a silent destination keeps its row floor.
 RATES: Final[Map[RetryClass, RatePolicy]] = Map.of_seq([
     (RetryClass.BROKER, RatePolicy(permits=2000.0, burst=4000.0)),
     (RetryClass.HTTP, RatePolicy(permits=50.0, burst=100.0)),
@@ -975,7 +987,7 @@ class Breaker:
 ## [04]-[RATE]
 
 - Owner: `RateGate` holds one token bucket per `Dependency` beside `RATES`, the per-class default rate — the SAME key the breaker holds, so one destination's pacing and one destination's failure window can never name two different peers. A peer that states its own wait re-seats that bucket through `directed`, so the negotiated rate is the operating one and the row is the floor a destination negotiating nothing keeps.
-- Cases: three peers state a wait this branch must honor — a webhook target answering `WebHook-Allowed-Rate` on the abuse-protection handshake, a broker raising a throttle event carrying its own throttle window, and an origin answering `Retry-After`. All three reach `directed` through ONE producer: the `throttled` verdict a class's own target answers, read once at the metered settle, so a stated window becomes pacing rather than three per-protocol sleeps at three call sites.
+- Cases: two peer directives state a wait this branch must honor — a broker throttle event carrying its window and an origin answering `Retry-After`. Both reach `directed` through ONE producer: the `throttled` verdict a class's own target answers, read once at the metered settle, so a stated window becomes pacing rather than per-protocol sleeps at call sites.
 - Law: the directive arrives as the WINDOW the peer stated, and the steady rate it seats is that window's reciprocal — one dial per window — because a wait is what every one of the three producers actually publishes and a rate answer converts to it at the seam that decoded it. A peer stating NO wait re-seats the row's own floor, never an unbounded rate no ceiling then holds.
 - Law: `delay` is a PURE debit answering seconds, and the caller performs its own wait — the async envelope through `anyio.sleep` and the sync mirror through `time.sleep`. One bucket therefore serves both arms with one law, and the wait is a cancellation checkpoint the caller's scope reaches rather than a block inside a provider call it cannot interrupt.
 - Law: the gate WAITS and never refuses. Any ceiling here is a second refusal beside the deadline `execution/admission#CONTEXT` already carries, and two refusals over one queue disagree the moment either moves; the caller's own budget bounds the wait, and the waited seconds publish as evidence so a saturated bucket reads as a measured queue rather than a silent stall.

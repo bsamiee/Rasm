@@ -127,7 +127,7 @@ public readonly record struct ObservationRun(
 // the seam's one seed forecloses. Two loose delegates on the lane made that inversion invisible at the call site;
 // one record makes the pair a seam a composition binds whole.
 public sealed record ObservationSink(
-    Func<BlobKey, ReadOnlyMemory<byte>, Fin<Unit>> Blob,
+    Func<ArtifactContent, ReadOnlyMemory<byte>, Fin<Unit>> Blob,
     Func<GraphDelta, Fin<Unit>> Land);
 
 public sealed record ObservationLane(
@@ -204,7 +204,7 @@ public sealed record ObservationLane(
 
     private Fin<ObservationSeries> Produced(SensorBinding binding, ObservationRun run) =>
         ObservationChunk.Encode(run.Claimed, Key).Bind(block =>
-            Sink.Blob(block.Chunk.SeriesKey, block.Bytes)
+            Sink.Blob(block.Chunk.Series, block.Bytes)
                 .Bind(_ => SeriesStatistics.From(run.Claimed, run.Series.Sampling, run.Series.Quantity, Key))
                 .Bind(window => SeriesStatistics.Fold(run.Series.Statistics, window, Key))
                 .Bind(whole => run.Series.Append(block.Chunk, whole, Key))

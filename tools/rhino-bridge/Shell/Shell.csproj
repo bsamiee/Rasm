@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Shell-private ALC resident for pipe serving, StreamJsonRpc targeting, idle-pump UI marshaling, and collectible cargo gating.</Description>
-        <CspScope>Boundary</CspScope>
         <AssemblyName>Rasm.Bridge.Shell</AssemblyName>
         <RootNamespace>Rasm.Bridge.Shell</RootNamespace>
         <!-- The stub owns the .rhp; ShellLoadContext loads the shell and its restored deploy set. -->

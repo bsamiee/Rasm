@@ -53,7 +53,8 @@
 - `Bake` is a name this folder does NOT take — `Rasm.Rhino` `TextureBake` and the seam fold hold it; generation is `TexturePress`/`Press` throughout.
 - `SolarFrame` names the FRAME the sun adapter projects into, never the ephemeris — a `SolarPosition` twin forces qualified calls at every site.
 - `gpu#PRESS_DEVICE` is the SOLE `Silk.NET.WebGPU` composer here — `press#TEXTURE_PRESS` names a `PressBackend` row, so a binding swap is one page.
-- Inbound corpus contracts admit ONCE through a generated reader over the required keys — tokens ride as TEXT and cross rosters at one admission.
+- Admit each completed corpus message ONCE through descriptor rules; project Protobuf enums directly or through one proved domain bridge.
+- Appearance Set keys identify the document alone; each stored level projects its own blob address into `PlaneRef.digest`.
 
 ## [03]-[COLLAPSE]
 

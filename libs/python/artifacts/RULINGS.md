@@ -40,13 +40,20 @@
 - Durable-fact construction collapses at `core/receipt#RECEIPT` — a finer producer diff appends positional `Change` entries, never widening its case.
 - Retention class follows what the FACT attests — seals, credentials, and delivery records are REGULATORY, and every produced artifact OPERATIONAL.
 - `ArtifactWork.cost` is a MILLISECOND work-weight fixed by the `COMPUTE` series — a dimensionless rank exports a rescaled charge nothing raises on.
+- CPM contention and makespan read `lane.slots.total` as estimates — executing kernels receive `LaneGrant.width` and never inspect the allocator.
 - `Actor.USER` is earned by a NAMED party's act under a protocol — the ISO 19650 issue is that one leg, and the only one carrying real `subjects`.
 - Announced-payload width is the ANNOUNCEMENT's, never the receipt's — identity fields carry `ContentKey` renders, a tap projecting payloads whole.
-- Announcement boundaries read sensitivity off the ISO 19650 confidentiality header, unspelled reading INTERNAL — unclassified is not publishable.
+- Announcement boundaries admit ISO 19650 confidentiality into the closed grade vocabulary; absent or unknown spelling refuses without downgrade.
+- Transmittal event `id` is the producer-minted issue UUIDv7 scope; pre-run aggregate and payload content keys remain separate identities.
 - Packed PCM times on the FRAME axis — every window, pick, and reversal reshapes to `(frames, channels)`, since a last-axis index rotates the lanes.
 - libavfilter drains catch the `av.error` LEAVES — each subclasses `FFmpegError`, so an outer capture reads a leaked drain sentinel as a codec fault.
 - Container colour declarations read through the admitted metadata surface that parses them — the declared row tag is the floor on readback silence.
 - Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — block encode takes an 8-bit store on BOTH toolchain legs.
+- `GdtFrame.decode` folds `FeatureControl.from_binary` once — corpus enums land by member name, `Material` through `_MATERIAL`; no hand reader.
+- Texture planes cross as `appearance.v1.Set` rows by member name — a container or lane count the corpus lacks refuses at assembly by its own token.
+- Plane residence keys on `PlaneRef.digest` — the set key orders the document and never aliases blobs already written under their own content keys.
+- Completed appearance documents validate from their generated descriptor, and refusals retain the generated violations message alone.
+- `Ibl.luminance_cdf` follows generated presence — unguided environments omit the guide from assembly, address walks, and byte census.
 
 ## [03]-[COLLAPSE]
 

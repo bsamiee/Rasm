@@ -9,16 +9,17 @@ This branch registry admits a package only where two or more folders share it; a
 Package roots in strata order; each root README routes its own design pages, and the host-boundary shells reference only `Rasm`.
 
 - [01]-[KERNEL]: [Rasm](../Rasm/README.md) — RhinoCommon-aware geometry/numeric kernel.
-- [02]-[AEC_DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — canonical property-graph element model; the lowest AEC seam.
-- [03]-[AEC_DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — architectural substance, appearance, and buildable component type.
-- [04]-[AEC_DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — openBIM object model and IFC/glTF/STEP exchange.
-- [05]-[AEC_DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — host-neutral design-to-fabrication making-domain owner.
-- [06]-[APP_PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — host-neutral runtime spine every app root folds.
-- [07]-[APP_PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured-execution engine and discipline-assessment authority.
-- [08]-[APP_PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — content-addressed durable system of record.
-- [09]-[APP_PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product surface over the receipt spine.
-- [10]-[HOST_BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/README.md) — RhinoCommon + Eto host boundary.
-- [11]-[HOST_BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/README.md) — GH2 + Eto host boundary.
+- [02]-[WIRE]: [Rasm.Contracts](../Rasm.Contracts/README.md) — generated bindings distribution and its NuGet identity.
+- [03]-[AEC_DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — canonical property-graph element model; the lowest AEC seam.
+- [04]-[AEC_DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — architectural substance, appearance, and buildable component type.
+- [05]-[AEC_DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — openBIM object model and IFC/glTF/STEP exchange.
+- [06]-[AEC_DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — host-neutral design-to-fabrication making-domain owner.
+- [07]-[APP_PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — host-neutral runtime spine every app root folds.
+- [08]-[APP_PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured-execution engine and discipline-assessment authority.
+- [09]-[APP_PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — content-addressed durable system of record.
+- [10]-[APP_PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product surface over the receipt spine.
+- [11]-[HOST_BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/README.md) — RhinoCommon + Eto host boundary.
+- [12]-[HOST_BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/README.md) — GH2 + Eto host boundary.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
@@ -95,15 +96,17 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `Microsoft.Extensions.Compliance.Redaction` — Classified-data redaction at the logging and persistence boundary.
 
 [WIRE_CODEGEN]:
-- `Google.Protobuf` — Carries the `rasm.element.v1` graph wire messages.
-- `Grpc.AspNetCore` — gRPC server hosting for measured-execution endpoints.
+- `Google.Api.CommonProtos` — `google.rpc.Status` and its error details, `google.type` calendar scalars the fault, element, and host families import.
+- `Google.Protobuf` — Runtime under the `Rasm.Contracts` emission: message codec, descriptors, well-known types, and the ProtoJSON pair.
+- `Grpc.AspNetCore.Server` — gRPC server hosting for measured-execution endpoints.
 - `Grpc.Core.Api` — Method descriptors, marshallers, and the per-call server context every hosted service binds.
 - `Grpc.Net.Client` — Outbound gRPC channels with retry and hedging.
-- `Grpc.Tools` — Build-only `<Protobuf>` codegen under `PrivateAssets=all`; each consumer sets its `GrpcServices` mode, server codegen at app roots.
-- `MessagePack` — Schemaless binary wire with in-codec LZ4 framing; per-folder resolver profiles over one codec.
+- `Grpc.StatusProto` — `google.rpc.Status` carriage on the status trailer: `ToRpcException` at the producer, `GetRpcStatus` at the client.
+- `MessagePack` — Explicit primitive op-log envelope and branch-interior photo-to-PBR stage crossing; generated protobuf fills its raw CRDT slot.
 - `MessagePackAnalyzer` — Build-only source generator and `MsgPack###` contract gate under `PrivateAssets=all`.
-- `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 - `NodaTime.Serialization.Protobuf` — NodaTime instant and duration mapping onto the protobuf well-known types.
+- `Celly.Protovalidate` — Runtime evaluator of the `buf.validate` rules the emission embeds; one concurrent `Validator` at each branch admission.
+- `Rasm.Contracts` — Generated bindings over `Google.Protobuf` and `Grpc.Core.Api`, project-referenced in the workspace and NuGet-installed outside.
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — CloudEvents 1.0 message envelope and typed attribute algebra.
@@ -118,7 +121,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `System.Diagnostics.Metrics` — In-box `Meter`/`Instrument` emission surface behind every minted meter.
 - `System.Threading.Channels` — Bounded producer-consumer transport behind host callbacks and work lanes.
 - `System.Net.Http` — Outbound handler chain, message pair, and connection pool behind every dial-out hop and exporter egress.
-- `System.Security.Cryptography` — PEM, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
+- `System.Security.Cryptography` — DER, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
 - `System.Runtime.InteropServices` — POSIX signal registration behind drain traps and reload.
 - `System.Xml` — LINQ-to-XML, streaming reader/writer, schema, and XSLT behind MaterialX, BCF, and SVG payloads.
 - `System.Text.Json` — Contract-frozen JSON wire: source-generated contracts, converter dispatch, node models, and the schema exporter.

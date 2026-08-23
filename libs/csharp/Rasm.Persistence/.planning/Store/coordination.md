@@ -5,22 +5,23 @@ Rasm.Persistence owns the token-VALIDATING fenced-lease coordination store — t
 ## [01]-[INDEX]
 
 - [02]-[COORDINATION_OP]: `CoordinationOp`'s closed case family, the key/token/state vocabularies, the `LockRank` containment ladder every acquisition sorts on, the ONE fenced-CAS fold consuming the `CaseSql` data rows under one savepoint, the per-unit-vector Budget debit/credit, the durable-signal cases, the `CoordinationReceipt` validity fold, and the 8430 fault band with its `Lift` throw crossing, its per-case retriability discriminant, and its emitted refusal fact.
-- [03]-[OUTBOX_CURSOR]: `outbox_cursor`'s per-sink row under the `ONE_OUTBOX_EGRESS_SPINE` law, the `OutboxAdvance` at-least-once advance CAS, and the LISTEN/NOTIFY pump wake.
+- [03]-[OUTBOX_CURSOR]: Per-sink cursor and deferred-head state, exact pending read, fenced advance, and LISTEN/NOTIFY wake.
 
 ## [02]-[COORDINATION_OP]
 
-- Owner: `CoordinationOp` is the closed interaction family; every case — write, read, and cursor advance alike — folds through ONE `Bracket`. `LeaseToken` carries the monotone generation; the key and state vocabularies close their domains. `LockRank` is the containment ladder over the advisory-lock families and `LockScope` pairs a rank with its scope text, so the lock key's own prefix IS the rank key and the two cannot drift. `CoordRow` is the canonical `(key, state, fence, value, until, payload)` projection: `Fence` never aliases a budget balance or cursor sequence, and `Value` carries those case scalars. `CaseSql.For` is the total parameterized SQL generator over the op family, carrying lock scopes, token requirement, guarded statement, truth statement, and binds as data. `CoordinationReceipt`, `CoordinationFault`, and `Coordinate` own evidence, failures, and execution.
+- Owner: `CoordinationOp` is the closed interaction family; every case — write, read, and cursor advance alike — folds through ONE `Bracket`. `LeaseToken` carries the monotone generation; the key and state vocabularies close their domains. `LockRank` is the containment ladder over the advisory-lock families and `LockScope` pairs a rank with its scope text, so the lock key's own prefix IS the rank key and the two cannot drift. `CoordRow` is the canonical `(key, state, fence, value, until, payload)` projection: `Fence` never aliases a budget balance or cursor sequence, and `Value` carries those case scalars. `PendingOutbox` and `OutboxDeferred` admit the outbox read into its typed state instead of leaking the row projection. `CaseSql.For` is the total parameterized SQL generator over the op family, carrying lock scopes, token requirement, guarded statement, truth statement, and binds as data. `CoordinationReceipt`, `CoordinationFault`, and `Coordinate` own evidence, failures, and execution.
 - Cases: `BudgetDebit(HashMap<string, long> Debit)` the per-unit-vector fenced compare-and-decrement (`capability.md` `MeterVector` crosses as its `[SmartEnum<string>]` STRING key, so the row is `HashMap<string, long>` per unit and AppHost maps its smart-enum at the boundary — a scalar debit is falsified by the multi-unit consumer); `BudgetCredit(HashMap<string, long> Credit)` the fenced vector increment — the compensation inverse a workflow that must RETURN budget rides, the same one-statement vector shape with no sufficiency gate, and the SEED for a unit no row yet holds because its `ON CONFLICT` establishes the absent row; the vector's polarity is REMAINING balance per unit and never cumulative spend, so the ceiling never crosses this seam and a consumer reporting spend derives it as `ceiling - remaining`; `StepStateCas(WorkflowKey, StepKey, StepState Expected, StepState Next)` the orchestration step transition; `StepStateInFlight(WorkflowKey)` READ (the `CrashResume` scan — every non-terminal step of a workflow); `StepStateLoad(WorkflowKey, StepKey)` READ; `SignalPut(WorkflowKey Instance, SignalKey Channel, JsonElement Payload)` the fenced durable-signal upsert the AppHost `Runtime/orchestration#STEP_STATE_SEAM` `StepStateSeam.SignalPut` decodes — one `signal` row per `(workflow, channel)` under the same tenant fence, so a waiting `Signal` step's wake-or-fault decision survives crash, resume, and peer handoff; `SignalLoad(WorkflowKey Instance, SignalKey Channel)` READ (the `StepStateSeam.SignalOf` leg — the loaded row's `Payload` slot carries the channel JSON); `LeaseAcquire(LeaseKey, HolderId, Duration Ttl)` MINTS the generation monotonically (`generation + 1` via PG row-CAS `RETURNING generation` — the mint side that makes the token VALIDATED); `LeaseRenew(LeaseKey, LeaseToken, Duration Ttl)` and `LeaseRelease(LeaseKey, LeaseToken)` re-validate the held token; `ExpiredScan` READ (orphan-reclaim — every lease whose deadline trails `frame.Now()`); `MembershipUpsert(MembershipKey, MemberId, Duration Ttl)` the lease-expiring membership row (`MembershipView.Serving`, `Rasm.AppHost/Wire/coordination.md`, is the in-process consumer); `MembershipRelease(MembershipKey, MemberId)` the explicit fenced departure — a clean shutdown removes its row NOW instead of waiting out the TTL lapse, the AppHost `MembershipView` `Departed` transition's durable half; `MembershipScan(MembershipKey)` READ; `OutboxAdvance(SinkKey Sink, long Through)` the `#OUTBOX_CURSOR` case; `OutboxPending(SinkKey Sink, long After, int Take)` READ (the relay's bounded drain window off the committed op-log) and `OutboxPark(SinkKey Sink, long Sequence, int Attempt, string Status)` the fenced head-of-line failure written onto the sink's OWN cursor row; `LeaseGuard(LeaseKey Lease, LeaseToken Token)` READ (advisory detection a holder reads before spending work, never a gate); `BudgetLoad` and `BudgetToken` the two nullary ledger READs whose tenant rides the frame. `CoordinationFault` closes over the seven deterministic refusals and the three provider classes `CoordinationFault.Lift` folds — `Contended(SqlState, Cause)` and `Unreachable(Cause)` overriding the kernel `Retriability` to `Transient`, `Unmapped(SqlState, Cause)` inheriting `Terminal`, and `LeaseFenced`/`CasConflict` publishing the `Rescoped` route their wider re-plan takes — while unknown errors remain exact.
 - Entry: `public static IO<Fin<Seq<CoordinationReceipt>>> Run(IDocumentSession session, ReceiptSinkPort sink, Seq<CoordinationOp> ops, Option<LeaseToken> held, ProjectionContext frame, CancellationToken cancellationToken)` is the ONE rail at every arity — a port passes one op, a composed unit passes several, and the trailing frame and token parameters are why arity rides `Seq` rather than a `params` tail. One entry makes the transaction boundary and the acquisition set the SAME value; a second single-op entry beside it leaves the unsafe composition reachable, since two calls on one session are two transactions no ordering law reaches across. `Bracket` force-opens the Marten session transaction, then composes ONE direct `NpgsqlBatch` on the session's live connection: `SELECT pg_advisory_xact_lock(hashtext(@tenant || ':' || @key))` per DISTINCT `LockScope` every row names, sorted by `(Rank.Depth, Scope)` and tenant-prefixed so one tenant's hot key never stalls a sibling's; `SAVEPOINT rasm_coord`; then per op in CALLER order the guarded `UPDATE … WHERE tenant = @tenant AND fence <= @token AND <case predicate> … RETURNING` from `CaseSql.Guarded`, the tenant-guarded current-truth `SELECT` from `CaseSql.Truth`, and the optional `pg_notify` wake. `QueueSqlCommand` cannot carry this batch because it defers to `SaveChangesAsync` and returns no rows. Read ops name no `LockScope` and carry no guarded statement, so reads and writes ride one leg. `Verified` is the truth-only replay the relational retry owner passes as `verifySucceeded` — same ops, same `CaseSql`, same `Verdict`, no lock and no guarded statement. `SaveChangesAsync(cancellationToken)` commits WITH any same-session domain events, so a step transition and the event it consequences are one transaction; a refusal `ROLLBACK TO SAVEPOINT rasm_coord` first, so the batch commits nothing of its own and the caller's unit of work stays the caller's to decide.
 - Auto: the fencing law is structural — a guarded row carries the highest lease generation it has observed (`fence`), the write predicate `fence <= @token` rejects a token older than that watermark and the write stamps `fence = @token`, so a paused holder resuming with a superseded token is `LeaseFenced(stale, current)` read off the zero-row CAS and the batch's trailing current-truth `SELECT` (one round trip, never a follow-up read), never a silent overwrite; `LeaseAcquire` takes the advisory lock on the lease key, then `UPDATE lease SET generation = generation + 1, holder = @holder, until = @until WHERE key = @key AND (holder = @holder OR until < @now) RETURNING generation` — an unexpired foreign hold returns zero rows and rails `LeaseExpired`-inverse refusal as `LeaseFenced`, an expired hold is reclaimed in the same statement; the Budget debit is ONE `UPDATE … FROM unnest(@units, @amounts) … WHERE b.balance >= r.amount AND b.fence <= @token RETURNING unit, balance` whose guard PostgreSQL RE-EVALUATES against the concurrent writer's committed row version once the block clears, so the decrement cannot overdraw and takes no lock of any kind; the units array binds SORTED and its keys are unique by `HashMap` construction, so every caller walks the ledger's row locks in one order and a repeated unit — a hard `ON CONFLICT` error on one statement family and a silently dropped amount on the other — is unrepresentable; that re-check is per-ROW atomic and nothing further, so a unit failing it leaves the result set while its siblings COMMIT, and all-or-nothing is the rail's own count gate — applied rows short of requested units rolls back to the savepoint and rails `BudgetExhausted(unit, requested, available)` off the trailing truth `SELECT`, whose row for the refusing unit was never written and reads true either side of the undo (an absent ledger row is a structural zero balance, the domain's own reading of an unheld unit, never an unmeasured one); a snapshot-computed whole-vector sufficiency predicate is the DELETED form; `BudgetCredit` is that shape with the sufficiency term dropped and the sign flipped, establishing an absent unit through `INSERT … ON CONFLICT (tenant, unit) DO UPDATE SET balance = budget_ledger.balance + excluded.balance WHERE budget_ledger.fence <= @token` — the one construct guaranteeing insert-or-update across the absent/present split — so debit and credit stay one statement family, never a sibling rail; `SignalPut` is a fenced `(workflow, channel)` upsert — `INSERT … ON CONFLICT (tenant, workflow, channel) DO UPDATE SET payload = excluded.payload, fence = @token WHERE signal.fence <= @token RETURNING` — so a paused holder's stale re-signal is the typed `LeaseFenced` refusal, never a silent payload overwrite, and `SignalLoad` reads the row's `payload` back through the canonical row's `Payload` slot; `MembershipRelease` is the fenced row delete whose `RETURNING` proves the departure (zero rows on an already-lapsed member is the benign `MembershipLapsed` the caller treats as done); every op ends with a trailing tenant-guarded current-truth `SELECT`, so a missed guarded `UPDATE` still returns the row's current generation/state and every typed refusal (`LeaseFenced` current, `CasConflict` found) populates from the ONE round trip; every READ carries `tenant = @tenant` structurally (the same guard the writes hold); the receipts project PER-OP with zero follow-up reads — `BudgetDebit` returns the POST-debit balance vector the metering consumer needs, a CAS/lease/membership write returns its committed row, a READ returns its loaded rows.
 - Receipt: a debit rides `store.coordination.debit` and a credit `store.coordination.credit`, both carrying the post-op balance vector; a step CAS rides `store.coordination.step`; a signal upsert rides `store.coordination.signal`; a lease verb rides `store.coordination.lease` carrying the generation; a membership upsert or release rides `store.coordination.member`; a READ rides `store.coordination.read` carrying the row count; the cursor advance rides `store.coordination.outbox` (`#OUTBOX_CURSOR`); every typed refusal rides `store.coordination.fault` carrying its generated numeric identity and retry route. Emission is `Run`'s OWN fold — `SlotOf` resolves each op's verb slot off the op discriminant and the fold sends through the injected `ReceiptSinkPort`.
 - Packages: Marten (`IDocumentSession.SaveChangesAsync`/transaction control — the fenced batch rides the session's transacted connection; `QueueSqlCommand` only for no-RETURNING side-writes such as the `pg_notify` wake), Npgsql (`NpgsqlBatch` — `pg_advisory_xact_lock` + guarded `UPDATE … RETURNING` + current-truth `SELECT` in one round trip, `pg_notify`; `PostgresException.IsTransient`/`SqlState`/`MessageText` and `NpgsqlException.IsTransient` — the provider's own retriable classification the `Lift` fold reads instead of a re-spelled SQLSTATE roster), Rasm (`IValidityEvidence`/`ValidityClaim`), LanguageExt.Core (`IO`/`Fin`/`HashMap`/`Seq`), NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new coordination concern is one `CoordinationOp` case, one arm in the generated total `Switch`, and one `CaseSql` row carrying its predicate and its `LockScope` as data; a new lock family is one `LockRank` row seated at its depth in the containment ladder, and every acquisition orders on it with zero call-site edits; a new budget unit is one ledger row (the vector statement already spans N units); a new step lifecycle state is one `StepState` row; a new boundary cause is one `CoordinationFault` case stating a posture or a route only where it departs from Terminal, with zero `Lift` edits where the provider already classifies it; a new write shape is one `CoordinationReceipt` case while every READ answers `Loaded`; zero new surface — a second lease store, a distributed-lock sidecar, a per-port service family, a message-envelope outbox table, a scalar-debit sibling beside the vector, a single-op entry beside the sequence one, a per-case advisory lock minted outside the rank, a re-spelled SQLSTATE retry roster beside the provider's own `IsTransient`, a caller-side message parse standing in for the discriminant, or a read surface per consumer is the deleted form because the op family discriminates by value shape, the fold and its ordering law are owned once, and the four AppHost ports decode ONE op-union.
+- Growth: a coordination concern is one `CoordinationOp` case, total dispatch arm, and `CaseSql` row. Uniform reads return `Loaded`; `OutboxPending` earns its typed receipt because cursor state and envelope must stay one snapshot. A second lease store, message table, scalar budget twin, single-op entry, or caller-side parse is rejected.
 - Boundary: the four PORT rows are AppHost→Persistence READs/decodes (correct HOST-BOUNDARY→APP-PLATFORM direction) — `Agent/capability` debits and credits the Budget vector, `Runtime/orchestration` drives `StepStateCas`+`StepStateInFlight`+`SignalPut`/`SignalLoad` (`CrashResume` reads the in-flight scan; the `StepStateSeam.SignalPut`/`SignalOf` delegates decode the signal cases), `Wire/outbox` rides the same-transaction outbox spine, `Wire/coordination` drives CAS+lease+membership and `MembershipView.Serving` folds the membership rows in-process — no AppHost type crosses down and no Persistence signature names `ClockPolicy` or `Principal` ([A.1] — the kernel `CorrelationId`/`TenantContext` pair is S0 vocabulary this package composes directly off the frame); the fenced-CAS is strictly stronger than any lease library because the token is VALIDATED at every guarded write rather than held — `DistributedLock.Postgres` (no fencing token) and `WolverineFx` (message-envelope outbox table beside the stream-IS-outbox law) stay the recorded rejections; the advisory lock is the `_xact_` family (auto-released at transaction end AND at rollback — a session lock survives its own transaction's rollback and requires explicit unlock, the leak form); `LockRank` is the CONTAINMENT ladder the AppHost ports compose along — a node's membership encloses the leases it may hold, a lease fences the work beneath it, a step is that work's unit, a signal is a channel detail inside one instance, and the cursor advance is the terminal drain position nothing nests inside — so acquiring in rank order is a discipline every caller shares by construction rather than by convention, and the budget seats NO rank because its grain is row-level inside its own statement, ordered by the sorted unit array; row-level locking cannot serve that vector at all, since a unit's ledger row may be absent and `FOR UPDATE` over the requested-vector `LEFT JOIN` is refused at PLAN time (`0A000`, the nullable side of an outer join) while a lock on an absent row is a lock on nothing — the engine's own conditional-`UPDATE` re-check is what replaces it, and it is strictly stronger than the whole-ledger advisory key it deletes because it neither serializes unrelated units nor depends on a lock domain the server does not enforce; `hashtext` is a 32-bit digest, so two distinct keys can share one advisory slot and serialize needlessly — a throughput cost the rank ordering never turns into a correctness one; deadline comparisons read `frame.Now()` (the injected clock value), never a wall-clock call; a failed `OutboxAdvance` cursor-CAS is `CoordinationFault.OutboxDrain` — the coordination-side write fault, kept inside this fenced store's rail, NEVER a `Version/egress` `EgressFault` delivery fault; this tier CLASSIFIES and executes nothing, publishing the kernel `Retriability` its cases OVERRIDE and the `RetryShape` route beside it exactly as the object plane's `RemoteStoreFault` does, and the two discriminants are what make the classification legible to a caller whose refusal arrives as a result rather than a throw — a bare `Error` on the rail leaves the whole retriable class unreadable to every predicate, the deleted form `Lift` closes, and a single bool spanning both axes drops the distinction between a fenced token recovering under a WIDER re-plan and a contended one recovering under a wait; the executing rail is the STORE EXECUTION STRATEGY (`docs/stacks/csharp/domain/resilience.md` `[04]-[LAYER_SPLIT]` row `[01]` — this callee owns transactional semantics, so no hop pipeline may bracket it, since a pipeline there replays from the wrong boundary), seated at the relational owner `Element/identity#IDENTITY_RAIL` holds under the `StoreCapability.StrategyRedrive` row that profile carries, ABOVE `Run` because `Lift` converts a throw to a value and a strategy beneath it has nothing left to classify; every guarded statement here is a conditional write, so that strategy admits this rail only under `verifySucceeded` and `Verified` is the probe it passes; the discriminant then drives a WIDER-scope caller re-offer, re-planning the step rather than re-executing one statement.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 using System.Text.Json;
+using NodaTime.Text;
 using Npgsql;
 using Rasm.Domain;                                // CorrelationId/TenantContext — the S0 causal pair the frame seats
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
@@ -146,15 +147,20 @@ public readonly record struct CoordRow(string Key, string State, long Fence, Opt
 // envelope stamps the HLC.
 public readonly record struct CoordinationFact(FaultId Identity, string Route);
 
-// Per-sink durable drain cursor (#OUTBOX_CURSOR): one row per sink, advanced only by the fenced `OutboxAdvance` CAS
-// — distinct from the per-origin `SyncCursor` (Version/ledger#CHANGEFEED). `Parked`/`Attempt`/`Status` carry the
-// sink's head-of-line failure on this SAME row rather than a second table: the committed op-log IS the outbox
-// (`Rasm.AppHost/RULINGS.md` `[02]-[SHAPE]`), so per-event delivery state has no message-envelope row to occupy, and the
-// attempt count is PER SINK — writing it onto the shared event row would let one sink's retries overwrite another's.
-// Forward-only draining means at most one parked head per sink, so one slot is the whole shape.
-public sealed record OutboxCursor(SinkKey Sink, long Sequence, long Parked, int Attempt, string Status) {
-    public static OutboxCursor Genesis(SinkKey sink) => new(sink, 0L, 0L, 0, "clear");
+// Per-sink durable drain cursor (#OUTBOX_CURSOR). A deferred head is one value, not four nullable-or-sentinel
+// columns crossing separately: sequence, earned attempt, exact store status, and the park instant move together.
+// The op-log remains the message owner; this state belongs to the sink cursor and can never leak one sink's retry
+// history into another's view of the same event.
+public sealed record OutboxDeferred(long Sequence, int Attempt, string Status, Instant At);
+
+public sealed record OutboxCursor(SinkKey Sink, long Sequence, Option<OutboxDeferred> Deferred) {
+    public static OutboxCursor Genesis(SinkKey sink) => new(sink, 0L, None);
 }
+
+// The coordination SQL projection remains internal. The pending boundary returns the envelope JSON beside the
+// exact deferred state read from the same cursor snapshot; the AppHost adapter alone decodes that pair into its
+// `PendingRelay`. `Sequence` is a store-local drain position, never an HLC and never a portable event order.
+public sealed record PendingOutbox(long Sequence, JsonElement Envelope, Option<OutboxDeferred> Deferred);
 
 // Per-op typed evidence on the kernel validity floor: `IsValid` is ONE `ValidityClaim.All` fold over the
 // case's own claims — the post-debit vector is non-negative per unit, a committed write carries a positive
@@ -173,11 +179,12 @@ public abstract partial record CoordinationReceipt : IValidityEvidence {
     public sealed record Signaled(WorkflowKey Instance, SignalKey Channel, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Leased(LeaseKey Lease, LeaseToken Token, Instant Until, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Member(MembershipKey Group, MemberId Id, Instant Until, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
-    public sealed record Advanced(SinkKey Sink, long Through, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
+    public sealed record Advanced(OutboxCursor Cursor, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     // Parking is a WRITE and gets its own evidence: an advance and a park move different columns of one row, so
     // reporting a park as an `Advanced` would publish a drain position the cursor never reached. Every READ still
     // answers `Loaded`, so the receipt family grows per write shape and never per verb.
     public sealed record Parked(SinkKey Sink, long Sequence, int Attempt, string Status, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
+    public sealed record Pending(SinkKey Sink, OutboxCursor Cursor, Seq<PendingOutbox> Rows, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Loaded(Seq<CoordRow> Rows, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
 
     // Each predicate crosses as a CLAIM through the kernel's own implicit lift, so no arm wraps a bool it already
@@ -188,8 +195,15 @@ public abstract partial record CoordinationReceipt : IValidityEvidence {
         signaled: static c => ValidityClaim.All(!string.IsNullOrEmpty(c.Channel.Value)),
         leased:   static c => ValidityClaim.All(c.Token.Value > 0L, c.Until > c.At),
         member:   static c => ValidityClaim.All(c.Until >= c.At),
-        advanced: static c => ValidityClaim.All(ValidityClaim.Nonnegative(c.Through)),
+        advanced: static c => ValidityClaim.All(ValidityClaim.Nonnegative(c.Cursor.Sequence)),
         parked:   static c => ValidityClaim.All(ValidityClaim.Nonnegative(c.Sequence), ValidityClaim.Nonnegative(c.Attempt)),
+        pending:  static c => ValidityClaim.All(
+            ValidityClaim.Nonnegative(c.Cursor.Sequence),
+            c.Rows.ForAll(row => row.Sequence > c.Cursor.Sequence),
+            c.Cursor.Deferred.Match(
+                Some: deferred => c.Rows.Head.Exists(row => deferred.Sequence == row.Sequence),
+                None: static () => true),
+            c.Rows.Tail.ForAll(static row => row.Deferred.IsNone)),
         loaded:   static c => ValidityClaim.All(ValidityClaim.CountAtLeast(c.Rows.Count, 0)));
 }
 
@@ -313,9 +327,36 @@ public static class Coordinate {
         from sql in IO.lift(() => ops.Map(op => CaseSql.For(op, frame.Now())))
         from outcome in sql.Exists(static row => row.RequiresToken) && held.IsNone
             ? IO.pure(Fin<Seq<CoordinationReceipt>>.Fail(new CoordinationFault.Refused("<missing-fence-token>")))
-            : Bracket(session, ops, sql, held, frame, mark, cancellationToken)
+            : Bracket(session, ops, sql, held, frame, mark, None, cancellationToken)
         from _ in Emit(sink, ops, outcome, frame)
         select outcome;
+
+    // The sole first-terminal operation. The cursor CAS runs first; only its successful verdict queues the stable
+    // dead-letter document, and `SaveChangesAsync` commits both on this session. AppHost's terminal delegate maps
+    // directly here, never to a `Store(letter)` call followed by a separately callable advance.
+    public static IO<Fin<OutboxCursor>> QuarantineAndAdvance(
+        IDocumentSession session,
+        ReceiptSinkPort sink,
+        global::Rasm.Persistence.Version.DeadLetterRow letter,
+        LeaseToken held,
+        ProjectionContext frame,
+        CancellationToken cancellationToken) {
+        CoordinationOp op = new CoordinationOp.OutboxAdvance(letter.Sink, letter.Sequence);
+        Seq<CoordinationOp> ops = Seq(op);
+        return from mark in IO.lift(frame.Mark)
+               from sql in IO.lift(() => ops.Map(value => CaseSql.For(value, frame.Now())))
+               from outcome in Bracket(
+                   session, ops, sql, Some(held), frame, mark,
+                   Some<Action<IDocumentSession>>(opened => opened.Store(letter)), cancellationToken)
+               from _ in Emit(sink, ops, outcome, frame)
+               select outcome.Bind(receipts => receipts.Head.Match(
+                   Some: receipt => receipt is CoordinationReceipt.Advanced { Cursor: var cursor }
+                       && cursor.Sink == letter.Sink
+                       && cursor.Sequence >= letter.Sequence
+                           ? Fin<OutboxCursor>.Succ(cursor)
+                           : Fin<OutboxCursor>.Fail(new CoordinationFault.OutboxDrain(letter.Sink, letter.Sequence)),
+                   None: () => Fin<OutboxCursor>.Fail(new CoordinationFault.OutboxDrain(letter.Sink, letter.Sequence))));
+    }
 
     // Verb slot resolves off the OP, never the receipt: `Debited` is the receipt shape BOTH budget verbs project,
     // so only the op discriminant separates a debit fact from a credit one.
@@ -357,7 +398,15 @@ public static class Coordinate {
     // reach the caller as a retriable BAND case rather than a bare `Error` no result-shaped predicate classifies.
     // HERE is also this rail's OUTERMOST edge: a strategy composed beneath it would receive a completed `Fin` and have
     // nothing left to classify, so any re-drive owner seats ABOVE `Run` and pairs with `Verified`.
-    static IO<Fin<Seq<CoordinationReceipt>>> Bracket(IDocumentSession session, Seq<CoordinationOp> ops, Seq<CaseSql> sql, Option<LeaseToken> held, ProjectionContext frame, long mark, CancellationToken cancellationToken) =>
+    static IO<Fin<Seq<CoordinationReceipt>>> Bracket(
+        IDocumentSession session,
+        Seq<CoordinationOp> ops,
+        Seq<CaseSql> sql,
+        Option<LeaseToken> held,
+        ProjectionContext frame,
+        long mark,
+        Option<Action<IDocumentSession>> commit,
+        CancellationToken cancellationToken) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async token => {
             await session.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = new((NpgsqlConnection)session.Connection!);
@@ -373,6 +422,7 @@ public static class Coordinate {
             Seq<Seq<CoordRow>> sets = await Sets(batch, token).ConfigureAwait(false);
             Fin<Seq<CoordinationReceipt>> outcome = Project(ops, sql, sets.Skip(locks.Count + 1), held, frame, mark);
             if (outcome.IsFail) { await Rollback(batch.Connection!, token).ConfigureAwait(false); }
+            else { commit.IfSome(apply => apply(session)); }
             await session.SaveChangesAsync(token).ConfigureAwait(false);
             return outcome;
         }, cancellationToken).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
@@ -503,20 +553,83 @@ public static class Coordinate {
                 : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held, Some(r.Fence))),
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.MembershipLapsed(m.Group, m.Member))),
         membershipScan: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
-        outboxAdvance: a => rows.Head.Bind(static row => row.Value).Match(
-            Some: value => value >= a.Through
-                ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Advanced(a.Sink, value, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
-                : Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(a.Sink, a.Through)),
+        outboxAdvance: a => rows.Head.Match(
+            Some: row => Cursor(row, a.Sink).Bind(cursor => cursor.Sequence >= a.Through
+                ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Advanced(
+                    cursor, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
+                : Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(a.Sink, a.Through))),
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(a.Sink, a.Through))),
-        outboxPending: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
-        outboxPark: k => rows.Head.Match(
-            Some: r => r.State == "parked"
-                ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Parked(k.Sink, k.Sequence, k.Attempt, k.Status, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
-                : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held, Some(r.Fence))),
-            None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(k.Sink, k.Sequence))),
+        outboxPending: p => Pending(p, rows, frame, mark),
+        outboxPark: k => Parked(k, rows, held, frame, mark),
         leaseGuard:  _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
         budgetLoad:  _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
         budgetToken: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))));
+
+    // The first row is the cursor snapshot the same statement joined against. It makes an empty healthy read
+    // distinguishable from a stale caller watermark and keeps the parked attempt/status/instant attached to the
+    // exact head row. JSON is the SQL projection's envelope carrier only; it is admitted once here.
+    static Fin<CoordinationReceipt> Pending(
+        CoordinationOp.OutboxPending op, Seq<CoordRow> rows, ProjectionContext frame, long mark) =>
+        rows.Head.Match(
+            Some: cursor => cursor.State == "cursor" && cursor.Value.IsSome
+                ? Cursor(cursor, op.Sink).Bind(held => held.Sequence == op.After
+                    ? rows.Tail.Traverse(PendingRow).As().Map(pending =>
+                        (CoordinationReceipt)new CoordinationReceipt.Pending(
+                            op.Sink, held, pending, frame.Now(), frame.Correlation, frame.Elapsed(mark)))
+                    : Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.After)))
+                : Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.After)),
+            None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.After)));
+
+    static Fin<OutboxCursor> Cursor(CoordRow row, SinkKey sink) => row.Payload.Match(
+        Some: payload => row.Value.Match(
+            Some: sequence => Deferred(payload).Map(deferred => new OutboxCursor(sink, sequence, deferred)),
+            None: () => Fin<OutboxCursor>.Fail(new CoordinationFault.Refused($"<outbox-cursor-sequence:{sink.Value}>"))),
+        None: () => Fin<OutboxCursor>.Fail(new CoordinationFault.Refused($"<outbox-cursor-payload:{sink.Value}>")));
+
+    static Fin<PendingOutbox> PendingRow(CoordRow row) => row.Payload.Match(
+        Some: payload => row.Value.Match(
+            Some: sequence => payload.TryGetProperty("envelope", out JsonElement envelope)
+                ? Deferred(payload).Bind(deferred => deferred.ForAll(state => state.Sequence == sequence)
+                    ? Fin<PendingOutbox>.Succ(new PendingOutbox(sequence, envelope.Clone(), deferred))
+                    : Fin<PendingOutbox>.Fail(new CoordinationFault.Refused($"<outbox-deferred-mismatch:{sequence}>")))
+                : Fin<PendingOutbox>.Fail(new CoordinationFault.Refused($"<outbox-envelope-missing:{sequence}>")),
+            None: () => Fin<PendingOutbox>.Fail(new CoordinationFault.Refused($"<outbox-sequence-missing:{row.Key}>"))),
+        None: () => Fin<PendingOutbox>.Fail(new CoordinationFault.Refused($"<outbox-payload-missing:{row.Key}>")));
+
+    static Fin<Option<OutboxDeferred>> Deferred(JsonElement payload) {
+        if (!payload.TryGetProperty("parked", out JsonElement parked) || parked.ValueKind == JsonValueKind.Null) {
+            return Fin<Option<OutboxDeferred>>.Succ(None);
+        }
+        return parked.TryGetInt64(out long sequence)
+            && payload.TryGetProperty("attempt", out JsonElement attemptElement)
+            && attemptElement.TryGetInt32(out int attempt)
+            && attempt > 0
+            && payload.TryGetProperty("status", out JsonElement statusElement)
+            && statusElement.ValueKind == JsonValueKind.String
+            && statusElement.GetString() is { Length: > 0 } status
+            && payload.TryGetProperty("parkedAt", out JsonElement atElement)
+            && atElement.ValueKind == JsonValueKind.String
+            && InstantPattern.ExtendedIso.Parse(atElement.GetString() ?? "").TryGetValue(default, out Instant at)
+                ? Fin<Option<OutboxDeferred>>.Succ(Some(new OutboxDeferred(sequence, attempt, status, at)))
+                : Fin<Option<OutboxDeferred>>.Fail(new CoordinationFault.Refused("<outbox-deferred-malformed>"));
+    }
+
+    static Fin<CoordinationReceipt> Parked(
+        CoordinationOp.OutboxPark op, Seq<CoordRow> rows, Option<LeaseToken> held, ProjectionContext frame, long mark) =>
+        rows.Head.Match(
+            Some: row => row.Payload.Match(
+                Some: payload => Deferred(payload).Bind(deferred => deferred.Match(
+                    Some: state => row.State == "parked"
+                        && state.Sequence == op.Sequence
+                        && state.Attempt == op.Attempt
+                        && StringComparer.Ordinal.Equals(state.Status, op.Status)
+                            ? Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Parked(
+                                op.Sink, state.Sequence, state.Attempt, state.Status, state.At,
+                                frame.Correlation, frame.Elapsed(mark)))
+                            : Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(held, Some(row.Fence))),
+                    None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.Sequence)))),
+                None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.Sequence))),
+            None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.Sequence)));
 
     // Both budget verbs fold through this shared verdict: an unapplied unit is the refusal, and its identity comes
     // from the requested vector rather than a count comparison, so the success arm is "every unit applied" stated
@@ -610,22 +723,21 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
             "SELECT member,'serving',fence,NULL::bigint,until,NULL::jsonb FROM membership WHERE tenant=@tenant AND group_key=@group AND until>=@now ORDER BY member",
             ("group", value.Group.Value), ("now", now)),
         outboxAdvance: value => WriteWake(new LockScope(LockRank.Outbox, value.Sink.Value),
-            "INSERT INTO outbox_cursor(tenant,sink,sequence,updated_at,fence) VALUES(@tenant,@sink,@through,@now,@token) ON CONFLICT(tenant,sink) DO UPDATE SET sequence=excluded.sequence,updated_at=excluded.updated_at,fence=excluded.fence WHERE outbox_cursor.fence<=@token AND outbox_cursor.sequence<@through RETURNING sink,'advanced',fence,sequence,updated_at,NULL::jsonb",
-            "SELECT sink,'current',fence,sequence,updated_at,NULL::jsonb FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink",
+            "INSERT INTO outbox_cursor(tenant,sink,sequence,parked,attempt,status,parked_at,updated_at,fence) VALUES(@tenant,@sink,@through,NULL,0,NULL,NULL,@now,@token) ON CONFLICT(tenant,sink) DO UPDATE SET sequence=excluded.sequence,parked=NULL,attempt=0,status=NULL,parked_at=NULL,updated_at=excluded.updated_at,fence=excluded.fence WHERE outbox_cursor.fence<=@token AND outbox_cursor.sequence<@through RETURNING sink,'advanced',fence,sequence,updated_at,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at)",
+            "SELECT sink,'current',fence,sequence,updated_at,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at) FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink",
             "rasm_outbox",
             ("sink", value.Sink.Value), ("through", value.Through), ("now", now)),
-        // Pending rows come off the COMMITTED op-log the outbox spine already owns — no message-envelope table, so the read is
-        // a bounded window past the sink's own cursor and `Take` is caller-supplied because only the relay knows the
-        // batch it can deliver. `After` binds separately from the cursor row so a relay may re-drain behind its own
-        // position under at-least-once without a second case.
+        // The cursor row and the op-log window are one snapshot. The cursor row is projected first even when the
+        // window is empty, so a stale `After` refuses rather than masquerading as a healthy empty drain. The parked
+        // row remains the first sequence after the cursor, and its exact attempt/status/instant travel with it.
         outboxPending: value => Read(
-            "SELECT id::text,'pending',fence,sequence,committed_at,envelope FROM op_log WHERE tenant=@tenant AND sequence>@after ORDER BY sequence LIMIT @take",
-            ("after", value.After), ("take", value.Take)),
-        // Parking writes the head-of-line failure onto the sink's OWN cursor row under the same fence every advance
-        // takes, so delivery state stays per sink and the committed event row keeps one owner.
+            "WITH held AS (SELECT sink,sequence,parked,attempt,status,parked_at,updated_at,fence FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink), position AS (SELECT * FROM held UNION ALL SELECT @sink,0,NULL,0,NULL,NULL,'epoch'::timestamptz,0 WHERE NOT EXISTS (SELECT 1 FROM held)), projected AS (SELECT sink::text AS key,'cursor'::text AS state,fence,sequence AS value,updated_at AS until,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at) AS payload FROM position UNION ALL SELECT entry.id::text,CASE WHEN position.parked=entry.sequence THEN 'deferred' ELSE 'pending' END,entry.fence,entry.sequence,CASE WHEN position.parked=entry.sequence THEN position.parked_at ELSE entry.committed_at END,jsonb_build_object('envelope',entry.envelope,'parked',CASE WHEN position.parked=entry.sequence THEN position.parked END,'attempt',CASE WHEN position.parked=entry.sequence THEN position.attempt END,'status',CASE WHEN position.parked=entry.sequence THEN position.status END,'parkedAt',CASE WHEN position.parked=entry.sequence THEN position.parked_at END) FROM position JOIN LATERAL (SELECT id,fence,sequence,committed_at,envelope FROM op_log WHERE tenant=@tenant AND sequence>position.sequence AND @after=position.sequence ORDER BY sequence LIMIT @take) entry ON true) SELECT key,state,fence,value,until,payload FROM projected ORDER BY value",
+            ("sink", value.Sink.Value), ("after", value.After), ("take", value.Take)),
+        // Parking may only move the current head, and attempts are strictly monotone for that same head. The
+        // persisted timestamp is the park instant, not the cursor's generic update stamp.
         outboxPark: value => Write(new LockScope(LockRank.Outbox, value.Sink.Value),
-            "INSERT INTO outbox_cursor(tenant,sink,sequence,parked,attempt,status,updated_at,fence) VALUES(@tenant,@sink,0,@sequence,@attempt,@status,@now,@token) ON CONFLICT(tenant,sink) DO UPDATE SET parked=excluded.parked,attempt=excluded.attempt,status=excluded.status,updated_at=excluded.updated_at,fence=excluded.fence WHERE outbox_cursor.fence<=@token RETURNING sink,'parked',fence,parked,updated_at,NULL::jsonb",
-            "SELECT sink,'current',fence,parked,updated_at,NULL::jsonb FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink",
+            "INSERT INTO outbox_cursor(tenant,sink,sequence,parked,attempt,status,parked_at,updated_at,fence) SELECT @tenant,@sink,0,@sequence,@attempt,@status,@now,@now,@token WHERE @attempt>0 AND @sequence=(SELECT min(sequence) FROM op_log WHERE tenant=@tenant AND sequence>0) ON CONFLICT(tenant,sink) DO UPDATE SET parked=excluded.parked,attempt=excluded.attempt,status=excluded.status,parked_at=excluded.parked_at,updated_at=excluded.updated_at,fence=excluded.fence WHERE outbox_cursor.fence<=@token AND (outbox_cursor.parked IS NULL OR outbox_cursor.parked=excluded.parked) AND excluded.attempt>outbox_cursor.attempt AND excluded.parked=(SELECT min(sequence) FROM op_log WHERE tenant=@tenant AND sequence>outbox_cursor.sequence) RETURNING sink,'parked',fence,parked,parked_at,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at)",
+            "SELECT sink,CASE WHEN parked IS NULL THEN 'current' ELSE 'parked' END,fence,parked,coalesce(parked_at,updated_at),jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at) FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink",
             ("sink", value.Sink.Value), ("sequence", value.Sequence), ("attempt", value.Attempt), ("status", value.Status), ("now", now)),
         leaseGuard: value => Read(
             "SELECT key,holder,generation,NULL::bigint,until,NULL::jsonb FROM lease WHERE tenant=@tenant AND key=@lease",
@@ -705,20 +817,20 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
 
 ## [03]-[OUTBOX_CURSOR]
 
-- Owner: `OutboxCursor` the per-sink durable drain cursor row — `(Sink, Sequence, Parked, Attempt, Status)`, one row per sink, so each sink drains the ONE Marten stream independently and carries its own head-of-line failure on that same row; the `ONE_OUTBOX_EGRESS_SPINE` law this section NAMES; the `OutboxAdvance`, `OutboxPending`, and `OutboxPark` cases (`#COORDINATION_OP`), whose fenced CAS and fenced upsert are the only cursor writers; the `pg_notify` pump wake emitted in the same transaction.
-- Entry: the `Version/egress` pump reads `OutboxCursor.Sequence`, drains `Version/ledger#CHANGEFEED` `ReplayWindow.DurableOps(cursor.Sequence, take)` rows, delivers, and calls `Coordinate.Run(session, sink, Seq<CoordinationOp>(new OutboxAdvance(egress, through)), held, frame, cancellationToken)` through its session-closed `EgressPorts.Coordinate` arrow — the advance CAS is `UPDATE outbox_cursor SET sequence = @through WHERE sink = @sink AND tenant = @tenant AND sequence < @through RETURNING sequence`, so a concurrent pump instance's stale advance returns zero rows and rails `CoordinationFault.OutboxDrain(sink, through)` (at-least-once law: the cursor advances only forward, only after delivery confirmation, and a crash between delivery and advance re-drains — the sink's dedup composition absorbs the replay).
-- Auto: the Marten event stream IS the outbox — a domain commit and its egress obligation are ONE `SaveChangesAsync` because the committed event itself is the drainable row (`OpLogEntry` projects from it), so no message-envelope table fills, no relay polls, and no dual-write gap opens; the same transaction that advances a cursor or commits an event `pg_notify('rasm_outbox', @sink)`s the channel, and the egress pump's idle connection `WaitAsync` wakes on it (the low-latency wake beside the bounded poll floor — a missed NOTIFY is absorbed by the next poll, so the wake is latency, never correctness); the cursor is PER-SINK so a slow webhook never holds back the NATS drain, and DISTINCT from the per-origin `SyncCursor` (`ledger.md` `#CHANGEFEED`) which positions peer replication, not sink delivery.
+- Owner: `OutboxCursor(Sink, Sequence, Deferred)` is the per-sink durable drain row. `OutboxDeferred(Sequence, Attempt, Status, At)` is its one optional head state; no sentinel or per-event delivery row exists. `OutboxPending` returns the cursor snapshot plus typed `PendingOutbox` rows, `OutboxPark` moves only the exact head with a strictly larger attempt, and `OutboxAdvance` clears the deferred value while moving forward. These are the only cursor writers under `ONE_OUTBOX_EGRESS_SPINE`.
+- Entry: `OutboxPending(Sink, After, Take)` joins the named sink cursor and op-log in one snapshot. The cursor row is always returned, so `After` must equal its sequence even when the event window is empty. The first op-log sequence after it carries the persisted deferred attempt, status, and park instant when present; later rows remain ordered behind that head. Delivered prefixes call `Coordinate.Run(... OutboxAdvance ...)`. Terminal rows call `Coordinate.QuarantineAndAdvance`, which stores one `DeadLetterRow` and advances that exact sequence in the same session commit.
+- Auto: the Marten event stream IS the outbox — a domain commit and its egress obligation are one `SaveChangesAsync`, so no message-envelope table or dual-write gap exists. Park requires the current op-log head and a monotone attempt. Advance clears `parked`, `attempt`, `status`, and `parked_at`; the dead-letter document is the terminal evidence, never residue on an already-advanced cursor. The same transaction emits `pg_notify('rasm_outbox', @sink)`; bounded polling owns correctness. Cursor `Sequence` is a store-local drain position, not an HLC or portable order.
 - Receipt: a cursor advance rides `store.coordination.outbox` carrying the sink and the through-sequence; the held-cursor stall evidence is the egress pump's (`Version/egress#EGRESS_PUMP` `CursorStall`), never minted here.
-- Growth: a new egress sink is ONE `outbox_cursor` row minted on first drain (advance and park both upsert), zero coordination edits; zero new surface — a message-envelope outbox table, a per-event delivery-state table, a per-sink advance verb, a trigger-based cursor writer, or a coordination-side read of the pump is the deleted form.
+- Growth: a new egress sink is one cursor row minted on first read, park, or advance. A second deferred store, terminal-status residue, per-event delivery row, trigger writer, or coordination-side pump read is rejected.
 - Boundary: forward-only intra-leg edge — `Version/egress` drains this cursor and coordination NEVER reads the pump (the acyclicity proof's one intra-leg egress edge); the cursor is keyed PER SINK, so that pump and the AppHost relay are two consumers holding two rows of one table rather than two writers of one row, and the edge stays forward-only for each; delivery attempt and status ride the sink's own row, the committed op-log being the outbox; a caller composing an advance crosses WIRE-STABLE PRIMITIVES — the sink NAME beside the through-sequence, the shape the sibling dead-letter arrow already takes — because a relay holding no `SinkKey` cannot mint one and a port demanding it forecloses its own consumer; the failed advance CAS stays `CoordinationFault.OutboxDrain` in THIS band (the cursor write is fenced-store work) while every delivery fault is the pump's `EgressFault`; the presence/awareness lane (`ColumnFamily.Presence`, `durable: false`) never has a cursor row — only `Family.Durable` lanes drain past this cursor.
 
-| [INDEX] | [POLICY]       | [VALUE]                                            | [BINDING]                                                     |
-| :-----: | :------------- | :------------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | outbox spine   | the Marten stream IS the outbox                    | same-`IDocumentSession`; message-envelope tables are deleted  |
-|  [02]   | cursor grain   | per-sink `outbox_cursor(SinkKey, Sequence)`        | distinct from the per-origin `SyncCursor`; slow sinks isolate |
-|  [03]   | advance law    | forward-only CAS, post-confirmation                | at-least-once; replay absorbed by sink dedup                  |
-|  [04]   | pump wake      | `pg_notify('rasm_outbox', sink)` same-tx           | latency only — the bounded poll floor owns correctness        |
-|  [05]   | edge direction | egress reads cursor; coordination never reads pump | the one forward-only intra-leg egress edge                    |
+| [INDEX] | [POLICY]       | [VALUE]                                            | [BINDING]                                                    |
+| :-----: | :------------- | :------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | outbox spine   | the Marten stream IS the outbox                    | same-`IDocumentSession`; message-envelope tables are deleted |
+|  [02]   | cursor grain   | per sink, one optional deferred head               | distinct from `SyncCursor`; no sentinel or delivery table    |
+|  [03]   | advance law    | forward-only CAS; clear deferred state             | quarantine and exact advance share one session commit        |
+|  [04]   | pump wake      | `pg_notify('rasm_outbox', sink)` same-tx           | latency only — the bounded poll floor owns correctness       |
+|  [05]   | edge direction | egress reads cursor; coordination never reads pump | the one forward-only intra-leg egress edge                   |
 
 ## [04]-[RESEARCH]
 

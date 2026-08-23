@@ -7,7 +7,7 @@ Rasm.Compute prices every measured fact once. The rate table enters at the compo
 - [02]-[COST_ALGEBRA]: `CostVector` — the decomposed per-axis cost monoid and its billing diff rail.
 - [03]-[RATE_POLICY]: `CostPolicy` — the composition-admitted rate table and its total substrate coverage proof.
 - [04]-[CHARGEBACK_EGRESS]: `ChargebackRow`, `ChargebackDataset` — the tenant-partitioned billing rows and their canonical content key.
-- [05]-[TS_PROJECTION]: Cost vector and chargeback wire shapes.
+- [05]-[TS_PROJECTION]: the dataset leaves as the Arrow lake landing; the tenant column rides the generated host envelope.
 
 ## [02]-[COST_ALGEBRA]
 
@@ -151,17 +151,7 @@ public sealed record ChargebackDataset(Instant WindowStart, Instant WindowEnd, S
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `CostVectorWire`, `ChargebackRowWire`, `ChargebackDatasetWire` — the chargeback rows as the billing reader consumes them.
-- Packages: BCL inbox
-- Growth: a new cost axis is one field on `CostVectorWire` and one metering-kind row at the `Runtime/codecs#ARROW_BATCH` lane vocabulary.
-- Boundary: this wire mirrors the PRICED DECOMPOSITION and never the AppHost `MeterVector`, which crosses `Runtime/wire#PROTO_VOCABULARY` as a `map<string,int64>` under its own `CostUnit` keys — two shapes, two names, two readers, and neither renders as the other.
-- Boundary: an absent route crosses as explicit null, matching the C# `Option<Substrate>` column; instants use their invariant textual forms and long values cross as decimal strings.
-
-```ts signature
-interface CostVectorWire { elapsedUnits: number; tokenUnits: number; byteUnits: number; remoteUnits: number; }
-interface ChargebackRowWire { tenant: TenantContextWire; route: string | null; vector: CostVectorWire; facts: string; }
-interface ChargebackDatasetWire { windowStart: string; windowEnd: string; rows: ChargebackRowWire[]; contentKey: string; }
-```
+- Law: the chargeback dataset leaves this package ONLY through the `Runtime/codecs#ARROW_BATCH` lake landing — `ArrowBatch.Landing(new LakeDataset.Chargeback(dataset), tenant, allocator)` — so no hand TS interface for the priced decomposition or the dataset lives here; the tenant column on any host receipt rides the generated `Receipt.V1.TenantContextWire` (`tenant = ContentHash.Wire(TenantId.Value)`, `slug = TenantContext.Slug`) formatted through AppHost `WireJson`, never a Compute-minted JSON row. The AppHost `Agent/capability#DESCRIPTOR_AXIS` `MeterVector` crosses `Runtime/wire#PROTO_VOCABULARY` as generated `Meter` rows under its own `CostUnit` keys — two shapes, two names, two readers, and neither renders as the other. NAMED LOSS: no JSON projection of `CostVector` exists. Witness: the retired `CostVectorWire`/`ChargebackRowWire` mirror named no reader, and the billing reader consumes the landed Arrow generation.
 
 ## [06]-[RESEARCH]
 

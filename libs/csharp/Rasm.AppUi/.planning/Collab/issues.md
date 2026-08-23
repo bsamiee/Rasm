@@ -18,7 +18,7 @@ Coordination rides the openBIM issue board: `Issue` composes the AppUi `Viewpoin
 - Cases: `IssueStatus` = open, in-progress, resolved, closed, reopened; `[FaultCase]` = TopicMalformed | ViewpointUnbound | CommentConflict | Degenerate | Unwritten | ToolRefused | RasterFailed.
 - Entry: `Issue.FromTopic(BcfTopic topic, IClock clock)` — ADMITS the `Rasm.Bim` BCF topic at the boundary on a `Validation` applicative, so a blank title, an unknown status, and an unbound comment viewpoint all report in ONE refusal; `Issue.ToTopic()` — `with`-updates the carried source row (board-edited columns only) or mints a core-column topic for a board-authored issue; `IssueMap.ToEntry`/`ToComment`/`ToTile` — the generated member correspondences.
 - Auto: each issue carries the BCF topic identity beside its bound `Viewpoint` set, its comment projection, and the consumed source row, so the widened `BcfTopic` columns the board never edits survive the round-trip untouched; the status correspondence is ROW DATA — `FromBcf` is the `Items`-derived frozen index over the `Bcf` column and `ToTopic` reads `Status.Bcf`, so zero hand-enumerated mapping switches exist; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf`, whose refusal of a camera-less viewpoint accumulates beside the other admission gates, so the issue mints no second camera-snapshot shape; transition authority is the DESTINATION row's own `Needs` set, read by `Collab/session#ADMISSION_GATE`.
-- Packages: Rasm (project — `FaultBand`, `[FaultCase]`, `CapabilitySet`), Rasm.Bim (project), Riok.Mapperly, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
+- Packages: Rasm (project — `FaultBand`, `[FaultCase]`, `CapabilitySet`), Rasm.Bim (project), Rasm.Contracts (project — generated `Bcf.V1.BcfStatus`), Riok.Mapperly, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new issue field is one `Issue` member and, where it crosses, one `IssueMap` row; a new lifecycle state is one `IssueStatus` row carrying its three columns; a new fault is one `[FaultCase]` leaf; zero new surface.
 - Boundary: the issue composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract at the package edge — a second BCF model or a direct `.bcfzip`/BCF-XML writer inside `Collab/` is the rejected form; `ToTopic` stays a HAND `with`-update by construction — the correspondence copies board-edited columns over a CARRIED immutable source row, which a generator constructs and cannot copy-with, so Mapperly's refusal is named here and the constructing correspondences ride `IssueMap` instead; the EXCHANGE line runs where a column means something to a foreign reader — assignment and labels cross because a CDE acts on them, while the attachment key, the comment editor peer, and the tile's last-editor ordinal stop at the board; `FromTopic` accumulates — its identity, status, comment-closure, and viewpoint-decode gates are INDEPENDENT, so a monadic chain reporting the first defect is the deleted form; the admitted identity IS the issue's own column and the exchange text parses ONCE at that gate, so the register level, the intent row, and every board verb take the typed value instead of re-parsing a string at each seam; `CommentEntry.Resolved` stays a bare bool — a measured thread fact with both states legal and no sibling flag sharing its regime.
 
@@ -27,20 +27,20 @@ Coordination rides the openBIM issue board: `Issue` composes the AppUi `Viewpoin
 // Closing requires resolve authority; reopening is ordinary authoring.
 [SmartEnum<string>]
 public sealed partial class IssueStatus {
-    public static readonly IssueStatus Open = new("open", bit: 0, bcf: Rasm.Bim.Coordination.BcfStatus.Open, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
-    public static readonly IssueStatus InProgress = new("in-progress", bit: 1, bcf: Rasm.Bim.Coordination.BcfStatus.InProgress, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
-    public static readonly IssueStatus Resolved = new("resolved", bit: 2, bcf: Rasm.Bim.Coordination.BcfStatus.Resolved, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
-    public static readonly IssueStatus Closed = new("closed", bit: 3, bcf: Rasm.Bim.Coordination.BcfStatus.Closed, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
-    public static readonly IssueStatus Reopened = new("reopened", bit: 4, bcf: Rasm.Bim.Coordination.BcfStatus.Reopened, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
+    public static readonly IssueStatus Open = new("open", bit: 0, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Open, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
+    public static readonly IssueStatus InProgress = new("in-progress", bit: 1, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.InProgress, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
+    public static readonly IssueStatus Resolved = new("resolved", bit: 2, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Resolved, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
+    public static readonly IssueStatus Closed = new("closed", bit: 3, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Closed, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
+    public static readonly IssueStatus Reopened = new("reopened", bit: 4, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Reopened, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
 
     public int Bit { get; }
-    public Rasm.Bim.Coordination.BcfStatus Bcf { get; }
+    public Rasm.Contracts.Bcf.V1.BcfStatus Bcf { get; }
     public CapabilitySet<SessionCapability> Needs { get; }
 
-    private static readonly Lazy<FrozenDictionary<Rasm.Bim.Coordination.BcfStatus, IssueStatus>> ByBcf =
+    private static readonly Lazy<FrozenDictionary<Rasm.Contracts.Bcf.V1.BcfStatus, IssueStatus>> ByBcf =
         new(static () => Items.ToFrozenDictionary(static row => row.Bcf));
 
-    public static Fin<IssueStatus> FromBcf(Rasm.Bim.Coordination.BcfStatus status) =>
+    public static Fin<IssueStatus> FromBcf(Rasm.Contracts.Bcf.V1.BcfStatus status) =>
         ByBcf.Value.TryGetValue(status, out IssueStatus? row)
             ? Fin.Succ(row)
             : Fin.Fail<IssueStatus>(new IssueFault.TopicMalformed($"unknown BCF status {status}"));

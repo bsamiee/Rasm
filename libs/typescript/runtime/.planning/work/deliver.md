@@ -38,20 +38,21 @@ Suppression is evidence on the record of truth: a bounce or gone endpoint append
 ```typescript signature
 import { VariantSchema } from "@effect/experimental"
 import {
-  Array, Context, DateTime, Duration, Effect, Encoding, Number, Option, Record, Redacted, Schema, Stream, pipe,
+  Array, Context, DateTime, Duration, Effect, Number, Option, Record, Redacted, Schema, Stream, pipe,
 } from "effect"
-import { HttpBody, HttpClientRequest, type HttpClientResponse } from "@effect/platform"
+import { Headers, HttpBody, HttpClientRequest, type HttpClientResponse } from "@effect/platform"
+import { RateLimiter as Fleet } from "@effect/experimental"
 import { Singleton } from "@effect/cluster"
 import { SqlClient, SqlError } from "@effect/sql"
 import { createTestAccount, createTransport, getTestMessageUrl, type Transporter } from "nodemailer"
 import type Mail from "nodemailer/lib/mailer"
 import type SMTPConnection from "nodemailer/lib/smtp-connection"
-import { CloudEvent, CONSTANTS, HTTP, type CloudEventV1, type Message } from "cloudevents"
+import { CONSTANTS, HTTP, type CloudEventV1, type Message } from "cloudevents"
 import { Buffer } from "node:buffer"
 import { Fact, Journal, Tenancy } from "@rasm/ts/data"
 import { Crypto } from "@rasm/ts/security"
 import { Event, Fault, type Identity } from "@rasm/ts/core"
-import { Client } from "../net/client.ts"
+import { Client, Lapse, WebhookOrigin } from "../net/client.ts"
 import { Propagation } from "../otel/emit.ts"
 import { Pulse } from "../otel/meter.ts"
 import { Setting } from "../proc/config.ts"
@@ -414,18 +415,21 @@ const _mailSettled = (
 
 ## [04]-[HOOK_ROW]
 
-- Owner: `Hook` — signed webhook egress under byte identity, carrying the projection, the attribute-set seal, the validation handshake, and the transmit: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
-- Law: the HTTP leg is the branch client — `Client` default-policy rows own timeout, retry pacing, and proxy; this row adds only the signed request construction and the settlement fold: 2xx settles to `Delivery`, and the refusing statuses read a ROW TABLE — 404/410 `bounced` (the endpoint is gone, suppression consumes it), 401/403 `refused`, 408 `timeout`, 429 `quota` carrying the response's own `Retry-After` as the measured window, everything else `dial` under the lease. A ladder whose arm order decides the answer is the rejected form, and a new status posture is one entry.
-- Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
+- Owner: `Hook` — signed webhook egress under byte identity, carrying the projection, the validation handshake, and the transmit: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
+- Law: the HTTP leg is the branch client's zero-redirect `batch` row — its total budget, retry pacing, circuit, and proxy apply while the signed POST stays pinned to the addressed origin. Webhook's 200/201/202/204 statuses settle; every other 2xx, every 3xx, and 405 refuse; 404/410 bounce; 401/403 refuse; 408 times out. The client alone admits a protocol-valid 429 `Retry-After`; one without it remains a dial refusal.
+- Law: endpoint registration is per-destination material resolved through `Hook.Registration` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
+- Law: the target's granted rate is SPENT, never merely proved — `Hook.validate` reads `webhook-allowed-rate` off the grant and the registration seats it, so every delivery paces against `queue#THROTTLE`'s `webhookGrant` row before the wire and the ceiling this sender accepted is one the receiver can hold it to; a `*` grant states no ceiling, seats no rate, and reaches the row never.
 - Law: content mode is an OWNED literal row — `Mode` is a TypeScript `enum` this branch cannot declare, so `_hookBindings` keys `binary`/`structured` to the package's own two serializers and the enum value crosses nowhere else.
 - Law: `Hook.project` is the relay's OWN step and runs at claim time over the announcement `data:journal/append#RELAY_ROWS` projects from the same claimed row — so the stored draft carries destination and signing material alone, a binding change re-frames every queued row, and no enqueue stores transport framing it must keep in step with a binding it never reached; projected binding headers and content type enter the projection exactly once, and `_signed` transmits the same detached octets that projection produced.
 - Law: `HookRow` is ONE field record the variant axis projects twice — the `draft` the enqueue stores and the `payload` the claim projects — so the framed octets and their media type restrict to the projected variant at the field and a second hand-spelled struct restating the shared eight columns is unspellable; the class decodes the default `draft` and carries the projection as its same-name static, which `Hook.row` alone exports.
 - Law: `body` crosses as base64, so the projected variant decodes from a JSON column exactly as it decodes from a projection — a `FromSelf` byte field arrives out of neither, which is what made a pre-projected outbox payload structurally unreadable at the claim seam.
-- Law: two signatures ship and neither substitutes for the other — `dssematerial` binds the ANNOUNCED attribute set over DSSE Pre-Authentication Encoding, folded in `Event.digested`'s published alphabetical order so a peer verifier reproduces the sequence from its own roster, while the transport triple binds the exact octets THIS hop carried; the attribute seal survives every rebinding and the triple survives none, so folding either onto the other loses the claim only it makes.
-- Law: abuse protection is the specification's own `OPTIONS` validation request and `Hook.validate` is its sender half — a target answering 405 is a REGISTRATION verdict, so a declined origin never queues delivery work, and `WebHook-Request-Origin` rides every delivery request so the target re-reads the claim per message.
+- Law: the transport triple is the sole webhook signature and binds this hop's exact octets; no CloudEvents extension claims a second signature or publishes an unverifiable attribute preimage.
+- Law: abuse protection is the specification's `OPTIONS` validation request and `Hook.validate` is its sender half. The DNS origin is independent of the HTTPS destination; the grant accepts that origin or `*` and requires the paired allowed-rate row. Missing or malformed grant evidence refuses registration, the origin rides every POST, and the granted rate lands on the registration the deliveries pace against.
+- Law: every delivery POST uses `Client.authorized`, so the audience-specific `MachinePrincipal` stamps its own authorization scheme or the delivery refuses before I/O. The exact-body signature remains independent integrity evidence and cannot substitute for receiver authorization.
+- Law: destinations are HTTPS and every POST body is non-empty — the row's destination schema refuses every other scheme, the direct validation entry crosses the same schema, and projection refuses an SDK frame with no payload instead of emitting a Webhook request the binding specification forbids.
 - Boundary: the announcement is `data:journal/append#RELAY_ROWS`'s projection and its grammar `core:interchange/carrier#EVENT_ENVELOPE`'s; this row seals, frames, signs, and transmits it and invents no envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
-- Packages: `cloudevents` (`HTTP`, `CloudEvent`, `CONSTANTS`), `@effect/experimental` (`VariantSchema.make`, `Class`, `FieldOnly`), `@effect/platform` (`HttpClientResponse` — the status and header read), `effect` (`Duration`, `Encoding`, `Number`, `Record`), `@rasm/ts/core` (`Event`), `@rasm/ts/security` (`Crypto`), and `../net/client.ts`.
+- Packages: `cloudevents` (`HTTP`, `CONSTANTS`), `@effect/experimental` (`VariantSchema.make`, `Class`, `FieldOnly`; `RateLimiter` — the store Tag the grant row spends), `@effect/platform` (`Headers`, `HttpBody`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Duration`, `Number`, `Record`), `@rasm/ts/core` (`Event`), `@rasm/ts/security` (`Crypto`), and `../net/client.ts`.
 
 ```typescript signature
 // Single-sourced framing: media alone mints the content type, the signer alone mints the triple, and the abuse-
@@ -448,6 +452,16 @@ const _band = Schema.optionalWith(
 // two serializers cross at this one table rather than an enum value travelling every signature.
 const _hookModes = ["binary", "structured"] as const
 const _hookBindings = { binary: HTTP.binary, structured: HTTP.structured } as const
+const _WebhookUrl = Schema.URL.pipe(
+  Schema.filter((url) =>
+    url.protocol === "https:"
+    && url.username === ""
+    && url.password === ""
+    && url.hash === ""
+    && !url.searchParams.has("access_token"), {
+    message: () => "webhook URLs require HTTPS and forbid embedded credentials, access tokens, and fragments",
+  }),
+)
 
 // ONE decoded truth the variant axis projects twice: the outbox stores the `draft` — destination, signing reference,
 // claimed origin, content mode — and never transport framing an enqueue must keep in step with a binding it never
@@ -458,9 +472,9 @@ const _hookVariants = VariantSchema.make({ variants: ["draft", "payload"], defau
 
 class HookRow extends _hookVariants.Class<HookRow>("HookRow")({
   tenant: Schema.NonEmptyString,
-  destination: Schema.URL,
+  destination: _WebhookUrl,
   deliverable: Schema.NonEmptyString,
-  origin: Schema.NonEmptyString,
+  origin: WebhookOrigin,
   mode: Schema.Literal(..._hookModes),
   headers: _band,
   keyRef: Schema.NonEmptyString,
@@ -474,6 +488,7 @@ class HookRow extends _hookVariants.Class<HookRow>("HookRow")({
 }) {}
 
 declare namespace Deliver {
+  type Registration = { readonly key: Redacted.Redacted<Uint8Array>; readonly rate: Option.Option<number> }
   type HookMode = (typeof _hookModes)[number]
   type HookDraft = typeof HookRow.Type
   type HookPayload = typeof HookRow.payload.Type
@@ -483,80 +498,18 @@ const _hookUtf8 = new TextEncoder()
 
 const _messageBody = (message: Message, target: string): Effect.Effect<Uint8Array, DeliverFault> =>
   message.body === undefined
-    ? Effect.succeed(new Uint8Array())
+    ? Effect.fail(_refuse({ reason: "schema", channel: "webhook", targets: [target], detail: "<empty-webhook-body>" }))
     : typeof message.body === "string"
-      ? Effect.succeed(_hookUtf8.encode(message.body))
+      ? pipe(_hookUtf8.encode(message.body), (body) => body.byteLength === 0
+        ? Effect.fail(_refuse({ reason: "schema", channel: "webhook", targets: [target], detail: "<empty-webhook-body>" }))
+        : Effect.succeed(body))
       : message.body instanceof Uint8Array
-        ? Effect.succeed(new Uint8Array(message.body))
+        ? message.body.byteLength === 0
+          ? Effect.fail(_refuse({ reason: "schema", channel: "webhook", targets: [target], detail: "<empty-webhook-body>" }))
+          : Effect.succeed(new Uint8Array(message.body))
         : Effect.fail(_refuse({
           reason: "schema", channel: "webhook", targets: [target], detail: "<message-envelope-body>",
         }))
-
-// DSSE Pre-Authentication Encoding: a fixed header and length-prefixed fields, so two adjacent operands cannot be
-// re-cut by a value containing the delimiter — the flaw every ad-hoc concatenation carries.
-const _pae = (payloadType: string, payload: Uint8Array): Uint8Array => {
-  // BOUNDARY ADAPTER: byte-join kernel — the draft detaches immutable at the return
-  const head = _hookUtf8.encode(`DSSEv1 ${payloadType.length} ${payloadType} ${payload.length} `)
-  const joined = new Uint8Array(head.length + payload.length)
-  joined.set(head)
-  joined.set(payload, head.length)
-  return joined
-}
-
-// Signing folds the roster's OWN published order — `Event.digested` is alphabetical by declaration, which is what
-// lets a C# or Python verifier fold the same sequence from its own roster instead of sorting an unordered map at its
-// signing seam — with the addressed attributes ahead of it and `dssematerial` excluded, since no signature covers
-// whichever attribute carries it.
-const _preimage = (envelope: CloudEventV1<unknown>): string =>
-  pipe(
-    [
-      ...Array.filterMap(
-        ["id", "source", "specversion", "type", "time", "subject", "dataschema", "datacontenttype"] as const,
-        (name) => Option.map(Option.fromNullable(envelope[name]), (value) => `${name}=${String(value)}`),
-      ),
-      ...Array.filterMap(Event.digested, (name) =>
-        Option.map(Option.fromNullable(envelope[name]), (value) => `${name}=${String(value)}`)),
-    ],
-    Array.join("\n"),
-  )
-
-// Both signatures ship because they cover DIFFERENT things: DSSE binds the announced attributes so any consumer past
-// any binding re-verifies them, while the transport triple binds the exact octets THIS hop carried. Folding either
-// onto the other loses the claim only it makes.
-const _sealed = (
-  envelope: CloudEventV1<unknown>,
-  key: Redacted.Redacted<Uint8Array>,
-  keyRef: string,
-  target: string,
-): Effect.Effect<CloudEventV1<unknown>, DeliverFault, Crypto> =>
-  Effect.gen(function* () {
-    const crypto = yield* Crypto
-    const payload = _hookUtf8.encode(_preimage(envelope))
-    const signature = yield* crypto.sign(key, _pae(_DSSE.payloadType, payload)).pipe(
-      Effect.mapError((fault) => _refuse({
-        reason: "refused", channel: "webhook", targets: [target], detail: fault.reason,
-      })),
-    )
-    const material = yield* Schema.encode(Event.extensions.at("dssematerial").admit)(
-      _hookUtf8.encode(JSON.stringify({
-        payloadType: _DSSE.payloadType,
-        payload: Encoding.encodeBase64(payload),
-        signatures: [{ keyid: keyRef, sig: signature }],
-      })),
-    ).pipe(Effect.mapError((refusal) => _refuse({
-      reason: "schema", channel: "webhook", targets: [target], detail: refusal.message,
-    })))
-    return yield* Effect.try({
-      // `cloneWith` is the owner's own re-attribution and re-runs the whole admission, so a sealed envelope proves
-      // its mint's own grammar; `strict` raises a bare `TypeError`, which this conversion is the seam for.
-      try: () => envelope instanceof CloudEvent ? envelope.cloneWith({ dssematerial: material }) : envelope,
-      catch: (cause) => _refuse({
-        reason: "schema", channel: "webhook", targets: [target], detail: String(cause),
-      }),
-    })
-  })
-
-const _DSSE = { payloadType: "application/vnd.rasm.cloudevents-attributes" } as const
 
 const _hookProject = (
   envelope: CloudEventV1<unknown>,
@@ -596,8 +549,12 @@ const _hookProject = (
         }))),
   )
 
-class _HookSecret extends Context.Tag("runtime/work/Hook/Secret")<_HookSecret, {
-  readonly resolve: (keyRef: string) => Effect.Effect<Redacted.Redacted<Uint8Array>, DeliverFault>
+// One registration read per delivery, because a destination's registration holds TWO facts that rotate together —
+// signing material beside the rate that endpoint's own `OPTIONS` grant stated — and a second port keyed by the same
+// reference lets them rotate apart. `rate` is absent where the target granted `*`, the specification's own "no stated
+// ceiling", never a zero a sender would read as a stop.
+class _HookRegistry extends Context.Tag("runtime/work/Hook/Registration")<_HookRegistry, {
+  readonly resolve: (keyRef: string) => Effect.Effect<Deliver.Registration, DeliverFault>
 }>() {}
 
 const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
@@ -607,6 +564,24 @@ const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
   joined.set(prefix)
   joined.set(body, prefix.length)
   return joined
+}
+
+const _hookLapseReasons = {
+  binding: "refused",
+  break: "dial",
+  budget: "timeout",
+  credential: "refused",
+  throttled: "quota",
+} as const satisfies Record<Lapse["case"]["reason"], Deliver.Reason>
+
+const _hookAccepted: ReadonlyArray<number> = [200, 201, 202, 204]
+
+const _hookLapse = (fault: Lapse, target: string): Effect.Effect<never, DeliverFault> => {
+  const reason = _hookLapseReasons[fault.case.reason]
+  return Effect.fail(_refuse(
+    { reason, channel: "webhook", targets: [target], detail: fault.message },
+    reason === "quota" ? Fault.Class.statedOf(fault) : Option.none(),
+  ))
 }
 
 // `consumed` is the announcement identity this hop SPENDS: the relay's own transmit threads the claimed row's
@@ -621,7 +596,7 @@ const _signed = (payload: Deliver.HookPayload, key: Redacted.Redacted<Uint8Array
         _refuse({ reason: "refused", channel: "webhook", targets: [payload.destination.toString()], detail: fault.reason })
       ),
     )
-    return yield* Effect.timed(Effect.scoped(Client.dial(
+    return yield* Effect.timed(Effect.scoped(Client.authorized(
       "batch",
       HttpClientRequest.post(payload.destination.toString()).pipe(
         HttpClientRequest.setHeaders({
@@ -638,8 +613,9 @@ const _signed = (payload: Deliver.HookPayload, key: Redacted.Redacted<Uint8Array
     ))).pipe(
       // The request round trip IS this settlement's span, so the receipt states a duration this hop measured; the
       // `webhook-id` doubles as the produced identity because that word is what the receiver dedups on.
-      Effect.flatMap(([span]) =>
-        Effect.map(DateTime.now, (at) =>
+      Effect.flatMap(([span, response]) =>
+        Array.contains(_hookAccepted, response.status)
+          ? Effect.map(DateTime.now, (at) =>
           new Delivery({
             partition: "whole",
             provenance: { consumed, produced: payload.deliverable },
@@ -654,6 +630,7 @@ const _signed = (payload: Deliver.HookPayload, key: Redacted.Redacted<Uint8Array
               envelope: Option.none(),
             },
           }))
+          : _hookSettle(response, payload.destination.toString())
       ),
       Effect.catchTags({
         ResponseError: (fault) => _hookSettle(fault.response, payload.destination.toString()),
@@ -661,57 +638,112 @@ const _signed = (payload: Deliver.HookPayload, key: Redacted.Redacted<Uint8Array
           Effect.fail(_refuse({
             reason: "dial", channel: "webhook", targets: [payload.destination.toString()], detail: "<transport>",
           })),
-        Lapse: () =>
-          Effect.fail(_refuse({
-            reason: "timeout", channel: "webhook", targets: [payload.destination.toString()], detail: "<budget>",
-          })),
+        Lapse: (fault) => _hookLapse(fault, payload.destination.toString()),
       }),
     )
   })
 
-// One key resolution serves both signatures: the attribute-set seal and the transport triple sign under the SAME
-// per-destination material, so a rotation moves one reference and neither claim is left signed by a retired key.
+// Quota STORE faults measure no window, and this row's `transmit` closes its channel on `DeliverFault`, so that
+// arm folds to the transient `dial` refusal whose lease IS the wait — the identical posture the relay's own store arm
+// takes, spelled here because a foreign tag reaching `transmit` would arrive with no row to render it.
+const _paced = <A, R>(
+  granted: Deliver.Registration,
+  draft: { readonly tenant: string; readonly destination: URL; readonly weight: number },
+  self: Effect.Effect<A, DeliverFault, R>,
+): Effect.Effect<A, DeliverFault, R | Fleet.RateLimiter> =>
+  Option.match(granted.rate, {
+    onNone: () => self,
+    onSome: (rate) =>
+      Throttle.pace(Throttle.webhookGrant, {
+        tenant: draft.tenant,
+        destination: draft.destination.toString(),
+        weight: draft.weight,
+        rate,
+      })(self).pipe(
+        Effect.catchTag("RateLimiterError", (fault) =>
+          Effect.fail(_refuse({
+            reason: "dial", channel: "webhook", targets: [draft.destination.toString()], detail: fault.message,
+          }))),
+      ),
+  })
+
+// The stable key reference resolves at transmission, so rotation changes the material behind queued drafts without
+// rewriting them or changing the byte-identical signature input.
 const _hook = (payload: Deliver.HookPayload) =>
-  Effect.flatMap(_HookSecret, (secrets) => Effect.flatMap(secrets.resolve(payload.keyRef), (key) => _signed(payload, key, [])))
+  Effect.flatMap(_HookRegistry, (registry) =>
+    Effect.flatMap(registry.resolve(payload.keyRef), (granted) =>
+      _paced(granted, payload, _signed(payload, granted.key, []))))
 
 // This is the channel's own transmit and the whole webhook order: resolve the material once, recover the
-// announcement, seal its attribute set, project the wire payload through the mode's binding, and sign the encoded
-// octets exactly once. Every step composes an owner — the mint's roster, the package's binding, the security wave's
-// signer — so this row adds routing and nothing cryptographic of its own.
+// announcement, project the wire payload through the mode's binding, and sign the encoded octets exactly once. Every
+// step composes an owner — the admitted envelope, the package's binding, and the security wave's signer — so this row
+// adds routing and no second signature dialect.
 const _hookDeliver = (draft: Deliver.HookDraft, announced: Deliver.Announcement) =>
   Effect.gen(function* () {
-    const secrets = yield* _HookSecret
-    const key = yield* secrets.resolve(draft.keyRef)
-    const sealed = yield* _sealed(announced, key, draft.keyRef, draft.destination.toString())
-    const payload = yield* _hookProject(sealed, draft)
-    return yield* _signed(payload, key, [announced.id])
+    const registry = yield* _HookRegistry
+    const granted = yield* registry.resolve(draft.keyRef)
+    const payload = yield* _hookProject(announced, draft)
+    // Registration ACCEPTED the target's own ceiling, so this delivery spends that grant before the wire over
+    // whichever store every other quota rides; a grant proved once and never spent is a promise the receiver has no
+    // way to hold this sender to, and the handshake exists for nothing else.
+    return yield* _paced(granted, draft, _signed(payload, granted.key, [announced.id]))
   })
 
 // Abuse protection is the specification's own validation request and this member is its sender half: the target
 // answers a grant or 405, and a refusing target is a registration verdict rather than a delivery fault, so the
 // roster never queues work for an endpoint that already declined the origin.
-const _hookValidate = (destination: URL, origin: string) =>
-  Client.dial(
-    "batch",
-    HttpClientRequest.options(destination.toString()).pipe(
-      HttpClientRequest.setHeaders({ "webhook-request-origin": origin }),
-    ),
-  ).pipe(
-    Effect.scoped,
-    Effect.map((response) => ({
-      origin: Option.fromNullable(response.headers["webhook-allowed-origin"]),
-      rate: Option.fromNullable(response.headers["webhook-allowed-rate"]),
+const _hookGrant = (
+  response: HttpClientResponse.HttpClientResponse,
+  destination: string,
+  claimed: string,
+): Effect.Effect<{ readonly origin: string; readonly rate: "*" | number }, DeliverFault> =>
+  Option.match(Headers.get(response.headers, "webhook-allowed-origin"), {
+    onNone: () => Effect.fail(_refuse({
+      reason: "refused", channel: "webhook", targets: [destination], detail: "<webhook-consent-absent>",
     })),
+    onSome: (origin) => {
+      if (origin !== "*" && origin.toLowerCase() !== claimed.toLowerCase()) return Effect.fail(_refuse({
+        reason: "refused", channel: "webhook", targets: [destination], detail: "<webhook-origin-mismatch>",
+      }))
+      return Option.match(Headers.get(response.headers, "webhook-allowed-rate"), {
+        onNone: () => Effect.fail(_refuse({
+          reason: "refused", channel: "webhook", targets: [destination], detail: "<webhook-rate-absent>",
+        })),
+        onSome: (stated) => stated === "*"
+          ? Effect.succeed({ origin, rate: stated })
+          : Option.match(
+            Option.filter(Number.parse(stated), (rate) => globalThis.Number.isInteger(rate) && rate > 0),
+            {
+              onNone: () => Effect.fail(_refuse({
+                reason: "refused", channel: "webhook", targets: [destination], detail: "<webhook-rate-invalid>",
+              })),
+              onSome: (rate) => Effect.succeed({ origin, rate }),
+            },
+          ),
+      })
+    },
+  })
+
+const _hookValidate = (destination: URL, origin: string) =>
+  Effect.all({ destination: Schema.decodeUnknown(_WebhookUrl)(destination), origin: Schema.decodeUnknown(WebhookOrigin)(origin) }).pipe(
+    Effect.mapError((issue) => _refuse({
+      reason: "refused", channel: "webhook", targets: [destination.toString()], detail: issue.message,
+    })),
+    Effect.flatMap((admitted) => Client.dial(
+      "batch",
+      HttpClientRequest.options(admitted.destination.toString()).pipe(
+        HttpClientRequest.setHeaders({ "webhook-request-origin": admitted.origin }),
+      ),
+    )),
+    Effect.scoped,
+    Effect.flatMap((response) => _hookGrant(response, destination.toString(), origin)),
     Effect.catchTags({
       ResponseError: (fault) => _hookSettle(fault.response, destination.toString()),
       RequestError: () =>
         Effect.fail(_refuse({
           reason: "dial", channel: "webhook", targets: [destination.toString()], detail: "<transport>",
         })),
-      Lapse: () =>
-        Effect.fail(_refuse({
-          reason: "timeout", channel: "webhook", targets: [destination.toString()], detail: "<budget>",
-        })),
+      Lapse: (fault) => _hookLapse(fault, destination.toString()),
     }),
   )
 
@@ -723,27 +755,28 @@ const _hookStatuses: Record.ReadonlyRecord<string, Deliver.Reason> = {
   "401": "refused",
   "403": "refused",
   "404": "bounced",
+  "405": "refused",
   "408": "timeout",
   "410": "bounced",
-  "429": "quota",
 }
 
-// The receiver's own stated window is the one wait this plane never guesses — a `429` carrying `Retry-After` rides
-// the refusal as `after`, so `Lane.judge` seats it on the verdict through `Fault.Class.statedOf` and the re-offer
-// spends `Fault.Budget.schedule`'s `stated` slot instead of a lease width nobody measured. A malformed or absent
-// header stays absent rather than collapsing to zero, which would tell the drain to re-offer immediately.
+// `Client` already consumed every 429 carrying a protocol-valid `Retry-After` and raised a typed throttled lapse.
+// Reaching this fold means the response stated no admissible window, so it remains a dial refusal; parsing the header
+// again here would fork the grammar and make HTTP-date windows unreachable.
 const _hookSettle = (
   response: HttpClientResponse.HttpClientResponse,
   target: string,
 ): Effect.Effect<never, DeliverFault> =>
   Effect.fail(_refuse(
     {
-      reason: Option.getOrElse(Record.get(_hookStatuses, String(response.status)), () => "dial" as const),
+      reason: response.status >= 200 && response.status < 400
+        ? "refused"
+        : Option.getOrElse(Record.get(_hookStatuses, String(response.status)), () => "dial" as const),
       channel: "webhook",
       targets: [target],
       detail: String(response.status),
     },
-    Option.map(Option.flatMap(Option.fromNullable(response.headers["retry-after"]), Number.parse), Duration.seconds),
+    Option.none(),
   ))
 ```
 
@@ -908,9 +941,9 @@ const _channels = {
     lifetime: "<ends-at-the-receiver-2xx-which-the-receiver-itself-issues>",
     deliver: "<at-least-once-past-2xx:-a-redrive-repeats-the-event-id-and-the-receiver-owns-the-dedup>",
     order: "<none:-skip-locked-claiming-drains-unordered-and-HookRow-carries-no-key-selecting-a-domain>",
-    settle: "<the-receiver's-2xx-status-alone;-the-response-body-is-never-read-as-evidence,-and-the-OPTIONS-grant-settles-registration-not-delivery>",
+    settle: "<the-receiver's-200/201/202/204-status-alone;-the-response-body-is-never-read-as-evidence,-and-the-OPTIONS-grant-settles-registration-not-delivery>",
     replay: "<queue#LANE_POLICY-re-offers-a-parked-row-under-its-stable-webhook-id,-so-the-receiver's-dedup-absorbs-it>",
-    bound: "<queue#THROTTLE-tenantEgress-and-the-Client-lane's-http-concurrency;-this-row-spells-neither-ceiling>",
+    bound: "<queue#THROTTLE-tenantEgress-and-webhookGrant-plus-the-Client-lane's-http-concurrency;-this-row-spells-no-ceiling>",
     refuse: "<a-reason-classed-DeliverFault-folded-from-the-response-status;-nothing-returns-once-the-request-closes>",
     degrade: "<no-ack-past-2xx:-a-receiver-answering-then-dropping-the-work-reads-identically-to-one-that-kept-it>",
     payload: HookRow,
@@ -923,11 +956,12 @@ const _channels = {
   }),
 } as const
 
-// Routing reads the ANNOUNCED grammar, not a second prefix vocabulary beside it: a claim tag is the announced `type`
-// `rasm.<domain>.<subject>.<fact>.v<N>`, so a channel key IS that `<subject>` segment and `rasm.deliver.webhook.queued.v1`
-// routes with no per-row predicate to drift and no parallel tag dialect for the outbox to carry.
+// Routing reads the ANNOUNCED grammar through its one owner: `queue#PARK_REPLAY`'s `Lane.channel` reads `<subject>`
+// off the claim tag `data:journal/append#RELAY_ROWS` mints as the envelope's own `type`, so `rasm.deliver.webhook.queued.v1`
+// routes here and fans the park series there under one reading. Re-splitting the tag beside that owner is how a
+// routing predicate and a metric dimension come to disagree about what a channel is.
 const _routed = (tag: string): Option.Option<Deliver.Kind> =>
-  Option.flatMap(Array.get(tag.split("."), 2), (subject) => Array.findFirst(_kinds, (kind) => kind === subject))
+  Option.flatMap(Lane.channel(tag), (subject) => Array.findFirst(_kinds, (kind) => kind === subject))
 
 const _sent = <A extends { readonly tenant: string }, I, R, R2>(
   kind: Deliver.Kind,
@@ -1092,11 +1126,11 @@ const Deliver = {
 }
 
 const Hook = {
-  Secret: _HookSecret,
+  Origin: WebhookOrigin,
+  Registration: _HookRegistry,
   modes: _hookModes,
   project: _hookProject,
   row: HookRow,
-  seal: _sealed,
   transmit: _hook,
   validate: _hookValidate,
 }

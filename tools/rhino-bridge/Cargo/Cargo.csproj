@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Collectible-ALC cargo for in-host scenario discovery, capability probes, crash-durable evidence spooling, and GH2 rendering.</Description>
-        <CspScope>Boundary</CspScope>
         <AssemblyName>Rasm.Bridge.Cargo</AssemblyName>
         <RootNamespace>Rasm.Bridge.Cargo</RootNamespace>
         <!-- Cargo isolates workspace libraries per swap; host assemblies resolve through bridge classification. -->

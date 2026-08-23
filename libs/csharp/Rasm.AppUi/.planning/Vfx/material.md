@@ -681,8 +681,8 @@ public sealed record WashPlane(WashRow From, WashRow To, UnitInterval Aim) {
 
 // The row the capsule MINTS on every completed draw. Time stays off it because the envelope HLC is the sole
 // evidence-time authority, and every column carries ONE fact: `Outcome` takes the glazing verdict the receipt
-// exists to prove, the sample case rides `Flag`, and the ground arm rides `Magnitude` — the prior spelling put the
-// ground and the scope on `Outcome` together, which is a counted lie on the fan's own dimension (`RULINGS.md:86`).
+// exists to prove, the sample case rides `Flag`, and the ground arm rides the typed coordinate measure — the prior
+// spelling put ground and scope on `Outcome` together, which is a counted lie on the fan's dimension (`RULINGS.md:86`).
 public readonly record struct TreatmentReceipt(
     MaterialTier Tier, Glazing Glaze, LayerGround Ground, SampleScope Scope, int Filters);
 ```

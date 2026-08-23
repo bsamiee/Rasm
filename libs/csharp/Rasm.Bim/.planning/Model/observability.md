@@ -133,7 +133,7 @@ public sealed partial class GlobalIdSet {
 }
 
 // ContentKeySet holds that same law over the content-key space: sorted-distinct at construction, with the wire
-// form the fixed-width 32-hex rendering `Rasm/Domain/event#EVENT_GRAMMAR` `EventKey` owns — hex-text ordering
+// form the fixed-width 32-hex rendering `Rasm/Domain/identity#CONTENT_KEY` `ContentHash` owns — hex-text ordering
 // agrees with the numeric ordering only because that rendering is fixed-width.
 [ValueObject<Seq<UInt128>>]
 public sealed partial class ContentKeySet {
@@ -217,7 +217,7 @@ public abstract partial record BimFact : IHookFact<BimPoint> {
     public sealed record Committed(Op Key, UInt128 CommitKey, ContentKeySet Parents, string Branch, int Elements) : BimFact(Key);
     public sealed record IssueMutated(Op Key, string Topic, BimIssueMutation Mutation, Option<string> Comment, GlobalIdSet GlobalIds) : BimFact(Key);
     // Specification and Spec ride together because IDS v1.0 spec names are NOT unique: the ordinal
-    // disambiguates two same-named specifications the `IdsAudit.Reconcile` join already separates, and a
+    // disambiguates two same-named specifications, and a
     // name-keyed verdict silently merges their findings into one.
     public sealed record Verdict(
         Op Key, string Specification, int Spec, ContentAddress Model, string Tier, string Outcome, string Severity,

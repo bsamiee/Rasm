@@ -14,7 +14,7 @@
 - ONE `TilePlan` grid carries every product a forward pass emits — a flow per output name re-infers the whole image once per produced plane.
 - `Model/providers#EP_AXIS` rows own each wire spelling as a `WireKey` column — a later row crosses by declaring one string, never a translation map.
 - `ExecutionProvider` degrades to the floor and `ModelPrecision` refuses — the consuming record reports what RAN, else run and receipt fork.
-- `FieldMask` mints at `WireServices.Mask` and applies at `FrameEdge.Patch` — folding the twin `Union`/`Normalize` couples framing to wire admission.
+- `FieldMask` unions, normalizes, validates, and merges at `FrameEdge.Patch` alone — `Normalize` never sorts, so no mask carries an order.
 - Modal solve condenses onto the inertia-bearing rows before this lane's dense `Evd` — no eigensolver reaches a pencil with singular inertia.
 - Condensation is EXACT, never an approximation of a better route — a lumped-mass frame has no rotary inertia, so condensed rows hold exact zeros.
 - Reduced pencils ride Compute's dense funnel, never kernel sparse re-entry — the blocks are `Matrix<double>` and kernel eigen densifies whole.
@@ -36,7 +36,10 @@
 - Foreign vocabularies transcribe WHOLE under one stated admission rule — a hand subset refuses real declarations by omission alone.
 - Chunk emission under fan-out is ORDERED-AWAIT — producers run parallel, one cursor writer consuming in order, the index law faulting otherwise.
 - Face attribution rides no `RESIDENCY` column — `Rasm.Fabrication` owns that join a stratum up; reopens on a lane ingesting a boolean product.
-- `Runtime/wire#PROTO_VOCABULARY` rows carry a `minted`/`unminted` state — a verb whose message set has no owner reads as a declared gap, not drift.
+- Unknown fields are ONE posture — binary `WithDiscardUnknownFields(false)` at `ParseGuard`, JSON `WithIgnoreUnknownFields(true)` at `WireJson`.
+- `WireLimits.Artifact` is the ONE ceiling over a reassembled artifact — `Drain` parses under `CreateWithLimits`; `ParseGuard` gates `Inbound` alone.
+- `StatusRail` is the CLIENT fold `StatusCode → WireFault`, the inverse of AppHost's producer `FaultWire.Status` — it packs no detail.
+- Stage crossing is branch-interior MessagePack no peer runtime decodes — `StageCrossing.Checksum` is the law both ends compute, never a boot probe.
 - Closed C# vocabularies cross `compute.proto` as KEY text or a `[SmartEnum<int>]` value — a proto enum owes an `_UNSPECIFIED` arm none holds.
 - `Analysis/daylight` `SurveyRay` is the ONE survey-frame narrowing into the clash float coordinate — a per-ray `(float)` cast forks the floor.
 - Integration's floor is the kernel's and Compute holds only the layer above — the adaptive driver, the scaled error norm, the receipt projection.
@@ -64,14 +67,13 @@
 ## [04]-[STRUCTURE]
 
 - Kernel spellings freeze and the Compute end moves — the line-search axis is `LineSearch` because the kernel owns `StepControl` as step-size policy.
-- Upstream services this estate never mints stay unimported — `grpc.health.v1` and `google.rpc.Status` ship generated, and a copy forks them.
-- `rasm/<family>/v1/` seats ONE descriptor source whose directory spells its package — two packages in one directory break every path-keyed tool.
-- Each family freezes its `FileDescriptorSet` snapshot beside its source — the parity digest and the breaking baseline are two artifacts, never one.
+- Upstream services this estate never mints stay unimported — `grpc.health.v1` and `google.rpc.Status` ship pre-generated; a copy forks them.
+- `proto/rasm/contracts/<family>/v1/` seats ONE descriptor source per package directory — two packages in one directory break every path-keyed tool.
 - Service names carry the `Service` suffix — the corpus `buf` gate holds `SERVICE_SUFFIX` unwaived, so no sibling reads by a different rule.
 - Compute's payload messages carry NO `Wire` suffix — nothing co-resident collides, so a suffix binds a name `compute.proto` never mints.
 - Wire messages spell `<Verb>Request`/`<Verb>Receipt` and the domain shape keeps its name — a rename moves a wire name and forks the roster.
-- `...Wire` TS mirrors name the WIRE message, never the domain capsule — a capsule-named mirror binds a spelling no descriptor declares.
-- `compute.proto` stamps `Rasm.Compute`, deriving its namespace from its own package — sharing a sibling's forfeits the family coordinate.
+- TypeScript consumes the generated `@rasm\/contracts` schemas — no Compute page mints a TS interface, alias, or method-shape roster.
+- `ContractGuard`/`ContractSurface`/`ContractDrift` do NOT re-enter — `buf breaking` FILE and the generation compare at `Discovery` own compatibility.
 
 ## [05]-[PROCESS]
 

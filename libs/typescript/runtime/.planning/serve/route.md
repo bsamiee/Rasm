@@ -1,6 +1,6 @@
 # [RUNTIME_ROUTE]
 
-This serving assembly: routes are Layers under `HttpLayerRouter` — the app-assembled `HttpApi` mounts through `addHttpApi` beside raw routes, foreign realtime protocols mount through the `Mount` port fold, the resumable-upload rail mounts its tus dispatchers, the health trio serves the probe anchor, the webhook intake holds raw octets for signature verification, and the auth ceremonies lift the security wave's redirect and passkey round-trips into HTTP — all under ONE seam: mark mint, ambient provision, trace continuation, the one credential lift and its tenancy binding, the upload ceiling, the priced admission the matched pattern selects, the export-derived shield headers, route attribution, and the respondable net composed once as middleware so no handler, group, or app root re-states the cross-cutting stack and the served app's error channel is `never`. Host and header dispatch across several apps is a `HttpMultiplex` catch-all route; static assets serve under an address-first immutable cache selector, list-aware revalidation, traversal refusal, and the weak `Etag.Generator` that row mounts for itself. This engine is never named here — `HttpLayerRouter.serve` demands the `HttpServer` the boot module provides from `proc/exec#RUNTIME_ROWS`, so a runtime change is a row selection at the root and the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same route Layers. This module ships on the `./server` exports subpath as `runtime/src/serve/route.ts`.
+This serving assembly: routes are Layers under `HttpLayerRouter` — the app-assembled `HttpApi` mounts through `addHttpApi` beside raw routes, foreign realtime protocols mount through the `Mount` port fold, the resumable-upload rail mounts its tus dispatchers, the health trio serves the probe anchor, the webhook intake holds raw octets for signature verification, and the auth ceremonies lift the security wave's redirect and passkey round-trips into HTTP. One global seam owns mark, ambient provision, trace continuation, general credential admission, tenancy, upload bounds, priced admission, shield headers, route attribution, and the respondable net; the webhook's protocol-mandated query token composes the same auth owner at its matched route. Host and header dispatch across several apps is a `HttpMultiplex` catch-all route; static assets serve under an address-first immutable cache selector, list-aware revalidation, traversal refusal, and the weak `Etag.Generator` that row mounts for itself. This engine is never named here — `HttpLayerRouter.serve` demands the `HttpServer` the boot module provides from `proc/exec#RUNTIME_ROWS`, so a runtime change is a row selection at the root and the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same route Layers. This module ships on the `./server` exports subpath as `runtime/src/serve/route.ts`.
 
 ## [01]-[INDEX]
 
@@ -33,26 +33,30 @@ This serving assembly: routes are Layers under `HttpLayerRouter` — the app-ass
 import { Buffer } from "node:buffer"
 import { context } from "@opentelemetry/api"
 import { getRPCMetadata, RPCType } from "@opentelemetry/core"
-import { CONSTANTS, HTTP, type CloudEventV1, type Message } from "cloudevents"
+import { CONSTANTS, type CloudEvent, HTTP, type Message } from "cloudevents"
 import { RateLimiter as Fleet } from "@effect/experimental"
 import {
-  type Cookies, Etag, FileSystem, type HttpApi, type HttpApiGroup, HttpApiMiddleware, HttpLayerRouter,
-  HttpMiddleware, HttpMultiplex, type HttpPlatform, HttpServerRequest, HttpServerResponse, Multipart, Path,
+  type Cookies, Etag, FileSystem, type HttpApi, type HttpApiGroup, HttpApiMiddleware, HttpIncomingMessage,
+  HttpLayerRouter, HttpMiddleware, HttpMultiplex, type HttpPlatform, HttpServerRequest, HttpServerResponse, Multipart, Path,
 } from "@effect/platform"
 import { type RpcGroup, RpcServer } from "@effect/rpc"
 import {
-  Array, Context, Data, DateTime, Duration, Effect, Layer, Number, Option, Predicate, Record, Redacted, Schema,
+  Array, Context, Data, DateTime, Duration, Effect, Encoding, Layer, Match, Number, Option, Predicate, Record, Redacted, Schema,
   identity, pipe,
 } from "effect"
 import { Carrier, Event, Format, type Identity } from "@rasm/ts/core"
-import { Cookie, CookieSpec, Departed, type MacKey, OAuth, TenantScope, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
-import { Journal, Rail } from "@rasm/ts/data"
+import { Claim, Cookie, CookieSpec, Departed, Jwt, type MacKey, OAuth, TenantScope, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
+import { Dataref, Journal, Rail } from "@rasm/ts/data"
 import { Avro } from "../net/channel.ts"
+import { WebhookOrigin } from "../net/client.ts"
+import { InboundHeaders } from "../proc/exec.ts"
 import { Life } from "../proc/life.ts"
 import { type Export, Propagation } from "../otel/emit.ts"
 import { Current, Emit, Gate, GateFault, type Principal } from "./api.ts"
 import { Mount } from "./live.ts"
 import { Problem } from "./problem.ts"
+
+type _Idempotency = InstanceType<typeof Gate.Idempotency>
 
 const _FIXED = {
   "strict-transport-security": "max-age=63072000; includeSubDomains",
@@ -74,12 +78,14 @@ declare namespace Seam {
     readonly route: string
     readonly weight: number
   }
-  // Four columns every rate posture in the branch shares, beside the two projections a row's axis mints
+  // Four columns every rate posture in the branch shares, three of them projections a row's axis mints — `limit`
+  // reads the subject exactly as `key` and `cost` do, matching `work/queue#THROTTLE`'s row so a ceiling this estate
+  // fixes and a ceiling a peer states inhabit one grammar, and a row this estate bounds answers a constant.
   type Quota = {
     readonly scope: string
     readonly algorithm: "fixed-window" | "token-bucket"
     readonly window: Duration.DurationInput
-    readonly limit: number
+    readonly limit: (subject: Subject) => number
     readonly key: (subject: Subject) => string
     readonly cost: (subject: Subject) => number
   }
@@ -256,9 +262,31 @@ const _keyed = (axis: keyof typeof _AXES): Pick<Seam.Quota, "cost" | "key"> => (
 // against the two coordinates a request carries, while the ceilings stay policy because a fleet tunes them per
 // environment and a row is named so a deployment can drop one without re-deriving the other
 const _QUOTA = {
-  principal: { scope: "edge-principal", algorithm: "token-bucket", window: Duration.minutes(1), limit: 600, ..._keyed("principal") },
-  route: { scope: "edge-route", algorithm: "fixed-window", window: Duration.minutes(1), limit: 120, ..._keyed("route") },
+  principal: { scope: "edge-principal", algorithm: "token-bucket", window: Duration.minutes(1), limit: () => 600, ..._keyed("principal") },
+  route: { scope: "edge-route", algorithm: "fixed-window", window: Duration.minutes(1), limit: () => 120, ..._keyed("route") },
 } as const satisfies Record<string, Seam.Quota>
+
+// What a caller carrying this pattern's declared weight actually gets per minute under one row: the row's own
+// ceiling divided by what the pattern costs, normalized off the row's window so a five-second row and a one-minute
+// row answer in one unit. This is the figure the webhook handshake grants, so the promise and the enforcement read
+// one arithmetic rather than a number an app typed beside the table.
+const _perMinute = (row: Seam.Quota, subject: Seam.Subject): number =>
+  Math.max(1, Math.floor(row.limit(subject) / Math.max(1, row.cost(subject)) / Math.max(Duration.toMinutes(row.window), 1 / 60)))
+
+// This grant PROMISES what the edge enforces, so it derives from the rows enforcing it: an app free to
+// type a rate beside the quota table would advertise a ceiling the seam never keeps, and pacing against that
+// advertised figure is the only thing the specification's rate half exists for. The TIGHTEST row governs, because
+// that is the one a sender meets first, and a pattern the weight record never names spends nothing at all — `*` is
+// then the truthful grant rather than a cap guessed over an unpriced route.
+const _granted = (policy: Seam.Policy, route: string): string =>
+  Option.match(Option.fromNullable(policy.quota.weight[route]), {
+    onNone: () => "*",
+    onSome: (weight) =>
+      Array.match(Array.map(policy.quota.rows, (row) => _perMinute(row, { holder: "", route, weight })), {
+        onEmpty: () => "*",
+        onNonEmpty: (rates) => String(Array.reduce(rates, rates[0], (held, rate) => Math.min(held, rate))),
+      }),
+  })
 
 // `Fleet.RateLimiter` takes `key` verbatim and namespaces nothing, so the row's scope joins its projection HERE — the
 // identical join the work plane folds, which is what keeps one declared row on one bucket across both postures
@@ -298,7 +326,7 @@ const _quota = (policy: Seam.Policy) =>
                 algorithm: row.algorithm,
                 cost: row.cost(subject),
                 key: _bucket(row, subject),
-                limit: row.limit,
+                limit: row.limit(subject),
                 window: row.window,
               }))
           }),
@@ -327,47 +355,40 @@ const Seam = {
 ## [03]-[LAYER_ROUTES]
 
 [LAYER_ROUTES]:
-- Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api, docs)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` and selects its reference UI through `api#EMIT`'s `_uis` roster, so the derived document and the UI ride the same router and the docs choice lives at one owner; `Router.rpc(group, prefix)` mounts a contributed RPC group beside the raw routes through the fused `RpcServer.layerHttpRouter` owner, so one router serves api, RPC, and raw rows without a second server; `Router.health` mounts the probe trio from `proc/life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts every provided foreign-protocol row at its prefix under the `"*"` catch-all method literal — presence-as-data, an unwired port serves nothing and never crashes.
+- Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api, docs)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` and selects its reference UI through `api#EMIT`'s `_uis` roster, so the derived document and the UI ride the same router and the docs choice lives at one owner; `Router.rpc(group, mount)` mounts a contributed RPC group beside the raw routes through the fused `RpcServer.layerHttpRouter` owner — the package's own composition of the server Layer with whichever router-native protocol row the mount elects — so one router serves api, RPC, and raw rows without a second server and `api#CONTRIBUTION`'s protocol roster keeps only the rows that ARE their own listener; `Router.health` mounts the probe trio from `proc/life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts every provided foreign-protocol row at its prefix under the `"*"` catch-all method literal — presence-as-data, an unwired port serves nothing and never crashes.
 - Law: every raw route on this page mounts through `Seam.routed`, never `HttpLayerRouter.add` directly, so the matched pattern reaches the RED plane's route dimension from the one place that knows it; a bare `add` is the drift defect this constructor forecloses. Its api half is the assembly's one `HttpApi.middleware(Seam.Routed)` declaration against the Layer `Router.api` already merges, so every endpoint stamps its own pattern without a per-endpoint hook the platform does not publish; `HttpApi.middleware(Seam.Priced)` is that same seat spent a second time for the quota, and it declares beside the stamp because both read the one coordinate a match produces — the difference is that pricing carries a policy, so its Layer merges at the root rather than inside `Router.api`.
 - Law: the tus rail mounts as dispatchers, never re-frames — `Router.rail(spec)` builds the data rail (`Rail.of(spec)`) and delegates its value to `Router.RailMount`, the port whose selected runtime row routes every method under the spec's route prefix into the rail's own dispatchers and schedules `rail.groom` through the lifecycle plane; the node lift is NOT this port's, it is `live#MOUNT_PORT`'s one `Mount.node` member, so a fetch engine drives `rail.web(request)` through `HttpApp.fromWebHandler` or `BunHttpServerRequest.toRequest` while the node engine composes that one adapter, and offset semantics, staging custody, and finalize stay the data rail's while this module names no binding.
-- Law: `Inbound` is the held-octet webhook row — the raw body reads ONCE as bytes through the platform's own `arrayBuffer` accessor (`HttpIncomingMessage`'s byte member, lifted to `Uint8Array` at the seam) and is held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases `settle` through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and settle is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
-- Law: the spec's `ceiling` gates BEFORE the read — `Inbound` is by design the one route admitting unauthenticated bytes and its held-octets law forces full materialization before any verification, so the declared `content-length` is probed against the ceiling and refused as `invalid` before `arrayBuffer` allocates, and an absent or unparseable length is itself the refusal. Status 413 has no core fault class and a serve-local status override is the fork `problem#STATUS_RECORD` forecloses, so the governed 422 answers; the multipart ceiling every other route inherits is `[02]`'s `uploads` policy row.
-- Law: detection precedes decode and reads the FRAME, never a trial parse — `Format.event.framed` recovers format and arity from one media-type prefix comparison and the binding's own `ce-specversion` header names a binary frame whose `content-type` belongs to the data, so a frame naming neither refuses before any body is parsed; the package's `isEvent` pair runs a full deserialize inside `try`/`catch`, so a detect-then-decode pair over it parses every arriving frame twice.
-- Law: the avro structured frame decodes through `net/channel`'s `Avro.event` — the `Lane`-seat admission the core avro row's empty arm declares — so both intakes read the one lane-minted codec and the package's JSON-only decoder never receives a media type it refuses.
-- Law: the header band is SANITIZED at the seam, never handed raw — node lowercases nothing it did not receive lowercased and repeats a header as an array, and the package's own `sanitize` sits behind a `dist/` path this branch refuses, so `_sanitized` lowercases every name and takes the first repeated value before any binding reads it; a binding fed a mixed-case or repeated `ce-` name silently drops the attribute it was looking for.
-- Law: intake mints NOTHING — the decoded message envelope admits through `Event.Fact` and `Event.read` at the core owner, so the grammar, the roster, and the dropped-name census arrive typed and this route constructs no message envelope of its own; a refusal is a `ParseError` the `Problem` rail already renders.
-- Law: tenancy admits through the authenticated inverse, never inherits — where the seam's one credential lift produced a scope, `Journal.carrier` answers `Journal.Carried` and its `context` half re-proves the announcement's own tenant claim against that scope, a mismatch refusing `denied` before the fact enters, so a valid credential can never carry a peer's tenant across; an unauthenticated intake has no scope to compare, so the signature is that route's whole gate.
+- Law: `Inbound` is the held-octet webhook row — `Gate.Authn.webhook` first admits either the bearer header or `access_token` query carriage through the one credential owner, then the raw body reads once through the platform's byte accessor. The selected signature dialect verifies those exact octets before `settle`; authorization and signature remain independent proofs.
+- Law: the spec's `ceiling` gates BEFORE and DURING the read — `HttpIncomingMessage.withMaxBodySize` scopes the platform collector itself and refuses an actual-byte overrun before an unbounded `arrayBuffer` can materialize. `Content-Length` is neither trusted nor required: chunked delivery remains legal and a lying declaration cannot bypass the bound. The platform read fault re-spells as the governed `malformed` class and answers 400; no local 413 override forks `problem#STATUS_RECORD`. The multipart ceiling every other route inherits is `[02]`'s `uploads` policy row.
+- Law: detection precedes decode and reads the FRAME, never a trial parse — `Format.event.framed` recovers the core format owner's row-derived `Single | Batch` frame from one exact parsed media-type identity and the binding's own `ce-specversion` header names a binary frame whose `content-type` belongs to the data, so a frame naming neither refuses before any body is parsed. No route-owned `{ format, batch: boolean }` mirror exists; the package's `isEvent` pair runs a full deserialize inside `try`/`catch`, so a detect-then-decode pair parses every arrival twice.
+- Law: binary and structured evidence are exclusive. A request carrying both refuses typed before decode; an unrecognized structured media type exits through `Problem.media` as 415 rather than malformed 400.
+- Law: structured routing is explicit — JSON and Protobuf consume the admitted codecs under `Event.format`, while Avro consumes its bound singular codec; HTTP accepts only the optional batches those owners publish.
+- Law: the header band is SANITIZED at the seam, never handed platform `Headers` — that abstraction has already lowercased names and comma-joined repeated field lines, so an array check over `request.headers` is dead code and cannot defend signature, origin, or CloudEvents attributes. `InboundHeaders` is the runtime row's duplicate-preserving capability: `_sanitized` refuses every value array whose cardinality is not exactly one and every case-fold collision before any binding read. Node supplies `IncomingMessage.headersDistinct`; Bun's Fetch source cannot recover the lost identity and fails this strict route closed rather than splitting commas that may belong to one legal value.
+- Law: intake mints NOTHING — every structured codec crosses strict admission inside `Event.format`, binary binding results cross `Event.admit`, and `Event.rasm.Fact` plus `Event.rasm.read` supply the profile without a second model.
+- Law: tenancy admits through the authenticated inverse, never inherits — the admitted webhook token supplies the scope, `Journal.carrier` re-proves the announcement's tenant claim against it, and the route seats that same `Admitted` value and `TenantScope` for downstream settlement regardless of token carriage.
+- Law: authenticated identity does not prove event origin. Every `Inbound.Spec` supplies a `trust(principal, fact)` row that must admit the exact `(source,type)` claim before propagation or settlement; an app cannot omit source custody and a signature cannot authorize a producer namespace.
+- Law: the application also supplies a nonempty classification roster. Missing or disallowed generated `dataclassification` refuses before source trust, propagation, or settlement.
+- Law: webhook intake consumes the data plane's `Dataref` port before profile admission or application settlement. The port accepts only its configured HTTPS residence, verifies the resolved bytes against `subject`, and compares an inline twin byte-for-byte; a reference-only event is materialized through `Event.clone`, while a proved dual event retains its original carriage. No arbitrary URL fetch or route-local object client exists.
 - Law: this route is the ONE ingress receiving W3C context as first-class ATTRIBUTES, so it runs `Carrier.extract("cloudevents", …)` over each admitted message envelope and hands the extraction WHOLE — parse census included — to `otel/emit#CONTINUATION`'s one ingress transformer, which continues that CREATION-time trace and spends the census once; the transport hop's own context already crossed at `Seam.guard`, and the two-trace law keeps both rather than folding either onto the other.
-- Law: a batch settles per event — `Inbound.Spec.settle` receives ONE admitted event beside the signature receipt and the route folds the frame's members through it, so an accepted member and a refused member are separate halves and no batch arm re-proves an arity the frame already decided.
-- Law: abuse protection is the specification's own `OPTIONS` handshake and nothing beside it — the request's `WebHook-Request-Origin` is required, an origin outside the spec's declared roster answers 405 rather than a validation grant, and a grant answers `WebHook-Allowed-Origin` with `WebHook-Allowed-Rate` where the spec declares a ceiling; the same origin header rides every delivery request, so the target re-reads the claimed origin per message instead of trusting one handshake.
-- Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; the rail spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
+- Law: a batch settles per event — each admitted member first enters `Gate.Idempotency` under core `Event.address`, the one injective length-framed digest of `(source,id)`. A fresh address executes `Inbound.Spec.settle`; a replay bypasses it and answers `duplicate`. The 202 response carries one `Inbound.Settlement` per member, so accepted and duplicate members remain distinct, and a valid empty JSON batch answers an empty roster without inventing a refusal.
+- Tests: HTTP admits JSON and generated Protobuf as single and batch, including an empty JSON batch; admits the exact Avro asset as single only; rejects Avro batch; re-admits every SDK/Avro result strictly; and compares cross-format event semantics rather than encoded bytes.
+- Law: this route opts into the Webhook specification's abuse-protection handshake through its application-owned DNS-origin roster, and the granted RATE derives from `[02]`'s quota rows rather than standing as a field beside them — a promise about pacing is worth exactly what the edge enforces, so the same rows that refuse a burst caller state the ceiling a sender paces to, and an unpriced pattern grants `*` because it truthfully spends nothing. Origin is required and DNS-admitted on validation and delivery; a grant always carries allowed origin and rate together. Delivery supports both mandated bearer-token methods, refuses simultaneous or repeated token carriages, and stamps `Cache-Control: private` on a successful query-token response. Every delivery also carries a non-empty payload and `Content-Type`.
+- Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; `InboundHeaders` is the selected `proc/exec#RUNTIME_ROWS` capability; the rail spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
-- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/data`, `@rasm/ts/security`, and `../net/channel.ts` (`Avro` — the lane-minted `Lane`-seat admission).
+- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/data`, `@rasm/ts/security`, and `../net/channel.ts` (`Avro` — the lane-owned Avro codec).
 
 ```typescript signature
-const _oversize = (detail: string): Problem =>
-  // 413 has no core class; the governed record answers 422 and no serve-local status override exists to fork it
-  Problem.of({ class: "invalid", message: detail })
-
-// Declared length is the ONLY bound available before the body materializes, so an absent or unparseable
-// one refuses rather than admitting an unbounded read on the one route that admits unauthenticated bytes
+// The platform body collector reads this fiber-local ceiling while materializing `arrayBuffer`, so the bound applies
+// to actual bytes (including chunked delivery) and a missing or lying Content-Length can neither refuse nor bypass it.
 const _octets = (
   request: HttpServerRequest.HttpServerRequest,
   ceiling: FileSystem.SizeInput,
 ): Effect.Effect<Uint8Array, Problem> =>
-  Option.match(
-    Option.filter(
-      Option.flatMap(Option.fromNullable(request.headers["content-length"]), Number.parse),
-      (declared) => FileSystem.Size(Math.trunc(declared)) <= FileSystem.Size(ceiling),
-    ),
-    {
-      onNone: () => Effect.fail(_oversize("inbound body exceeds the declared ceiling")),
-      onSome: () =>
-        Effect.mapError(
-          Effect.map(request.arrayBuffer, (buffer) => new Uint8Array(buffer)),
-          (fault) => Problem.of(fault),
-        ),
-    },
+  HttpIncomingMessage.withMaxBodySize(
+    Effect.map(request.arrayBuffer, (buffer) => new Uint8Array(buffer)),
+    Option.some(ceiling),
+  ).pipe(
+    Effect.mapError(() => Problem.of({ class: "malformed", message: "webhook body refused" })),
   )
 
 const _health: Layer.Layer<never, never, Life | HttpLayerRouter.HttpRouter> = Layer.mergeAll(
@@ -407,15 +428,15 @@ declare namespace Inbound {
   // One admitted member carries the arriving message envelope, its grammar-proven addressed record, the whole
   // roster read, every peer name this roster misses, and the CREATION-time context its extensions held.
   type Admitted = {
-    readonly envelope: CloudEventV1<unknown>
-    readonly fact: Event.Fact
+    readonly envelope: CloudEvent<unknown>
+    readonly fact: Schema.Schema.Type<typeof Event.rasm.Fact>
     readonly roster: Event.Roster
-    readonly dropped: ReadonlyArray<string>
+    readonly dropped: Event.Read["dropped"]
     // the extraction WHOLE — its parse census rides beside the context, and `Propagation.ingress` is what spends it
     readonly carrier: Carrier.Extraction
   }
   type Frame = Data.TaggedEnum<{
-    Structured: { readonly format: Format.Event; readonly batch: boolean }
+    Structured: { readonly frame: Format.Event.Frame }
     Binary: {}
   }>
   type Spec = {
@@ -425,17 +446,27 @@ declare namespace Inbound {
     readonly header: string
     readonly mac: Option.Option<MacKey>
     readonly tolerance: Duration.Duration
-    // This roster and its optional rate ceiling drive the handshake: an origin outside the roster never receives a
-    // grant, and the same roster gates every delivery request rather than one validation exchange.
-    readonly origins: Array.NonEmptyReadonlyArray<string>
-    readonly rate: Option.Option<string>
+    readonly classes: Array.NonEmptyReadonlyArray<Event.Class>
+    // Application policy opts this route into abuse protection: one admitted DNS expression roster gates both the
+    // validation grant and every delivery request.
+    readonly origins: Array.NonEmptyReadonlyArray<typeof WebhookOrigin.Type>
+    readonly trust: (
+      principal: Principal.Shape,
+      fact: Schema.Schema.Type<typeof Event.rasm.Fact>,
+    ) => Effect.Effect<void, Problem>
     readonly settle: (admitted: Inbound.Admitted, verified: Verified) => Effect.Effect<void, Problem>
   }
+  type Settlement = _Settlement
 }
 
 const _Frame = Data.taggedEnum<Inbound.Frame>()
 
-// Abuse protection is the specification's own vocabulary, so these five names live in one row and no route spells one.
+class _Settlement extends Schema.Class<_Settlement>("Inbound.Settlement")({
+  source: Schema.NonEmptyString,
+  id: Schema.NonEmptyString,
+  disposition: Schema.Literal("accepted", "duplicate"),
+}) {}
+// Abuse protection uses the specification's vocabulary; the origin roster, rate, and signature policy remain app data.
 const _WEBHOOK = {
   origin: "webhook-request-origin",
   callback: "webhook-request-callback",
@@ -445,162 +476,333 @@ const _WEBHOOK = {
 } as const
 
 const _eventProblem = (detail: string): Problem => Problem.of({ class: "malformed", message: detail })
+const _eventRefused = (refusal: Event.Refusal): Problem => _eventProblem(refusal.message)
 
-const _eventText = new TextDecoder()
-
-// Node hands header names in whatever case a peer sent and a repeat as an array, and the package's own sanitizer
-// sits behind a `dist/` path this branch refuses — so the band normalizes HERE, once, before any binding reads it.
-const _sanitized = (headers: HttpServerRequest.HttpServerRequest["headers"]): Message["headers"] =>
-  Record.fromEntries(
-    Array.filterMap(Object.entries(headers), ([name, value]) =>
-      Option.map(
-        globalThis.Array.isArray(value) ? Array.head(value) : Option.fromNullable(value),
-        (held) => [name.toLowerCase(), held] as const,
-      )),
+// Platform `Headers` has already joined duplicates. The selected runtime row must expose the field-line arrays before
+// that lossy normalization; this fold then admits exactly one value per case-folded name.
+const _sanitized: Effect.Effect<Message["headers"], Problem, InboundHeaders | HttpServerRequest.HttpServerRequest> =
+  Effect.flatMap(InboundHeaders, ({ distinct }) => distinct).pipe(
+    Effect.mapError((fault) => _eventProblem(fault.message)),
+    Effect.flatMap((headers) => {
+      const held = Array.filterMap(Object.entries(headers), ([name, values]) =>
+        values === undefined ? Option.none() : Option.some({ name: name.toLowerCase(), values }))
+      const names = Array.map(held, ({ name }) => name)
+      const repeated = Array.findFirst(held, ({ name, values }) =>
+        values.length !== 1 || values[0] === undefined || names.indexOf(name) !== names.lastIndexOf(name))
+      return Option.match(repeated, {
+        onSome: ({ name }) => Effect.fail(_eventProblem(`<repeated-header:${name}>`)),
+        onNone: () => Effect.succeed(Record.fromEntries(Array.filterMap(held, ({ name, values }) =>
+          Option.map(Option.fromNullable(values[0]), (value) => [name, value] as const)))),
+      })
+    }),
   )
 
 const _header = (headers: Message["headers"], name: string): Option.Option<string> =>
-  Option.filter(Option.fromNullable(headers[name]), Predicate.isString)
+  Option.filter(Option.fromNullable(headers[name.toLowerCase()]), Predicate.isString)
 
-// Detection reads the frame and nothing else: the media-type prefix carries format AND arity for a structured or
-// batch frame, while a binary frame declares itself with the binding's own specversion header and leaves
-// `content-type` to the DATA — so a frame naming neither refuses before a single body byte is parsed.
-const _framing = (headers: Message["headers"]): Option.Option<Inbound.Frame> =>
-  Option.orElse(
-    Option.map(
-      Option.flatMap(_header(headers, CONSTANTS.HEADER_CONTENT_TYPE), Format.event.framed),
-      ({ format, batch }) => _Frame.Structured({ format, batch }),
-    ),
-    () => Option.map(_header(headers, CONSTANTS.CE_HEADERS.SPEC_VERSION), () => _Frame.Binary()),
-  )
-
-// Structured frames carry their envelope as TEXT and binary frames carry opaque DATA bytes, so the frame the
-// detector already recovered selects the body shape and no second media-type read decides it again. The package's
-// decoder learns JSON alone, so the avro structured frame routes through the lane-seat admission the node lane
-// mints — one codec for this intake and the MQTT seam both.
-const _decoded = (headers: Message["headers"], body: Uint8Array, frame: Inbound.Frame) =>
-  _Frame.$is("Structured")(frame) && frame.format === "avro"
-    ? Effect.mapError(Schema.decodeUnknown(Avro.event)(body), (issue) => _eventProblem(`<avro-rejected:${issue.message}>`))
-    : Effect.try({
-      try: () =>
-        HTTP.toEvent<unknown>({
-          headers,
-          body: _Frame.$is("Structured")(frame) ? _eventText.decode(body) : Buffer.from(body),
-        }),
-      catch: (caught) => _eventProblem(String(caught)),
-    })
-
-// `data:journal/append#RELAY_ROWS` owns the authenticated inverse and this route is its consumer: where the seam
-// admitted a credential, an arriving announcement's own tenant claim must EQUAL that scope before the fact enters,
-// so a peer announcing another tenant's fact under a valid credential refuses HERE rather than at the projection it
-// would otherwise reach. An unauthenticated intake carries no scope to compare against, so the signature is the whole
-// gate there and the raw extraction stands. Either arm answers the EXTRACTION whole: the tenancy proof decides the
-// context alone, so the census the parse measured survives a proved claim exactly as it survives an unauthenticated
-// intake, and `Propagation.ingress` at the settle seam is the one place it is spent.
-const _carried = (
-  envelope: CloudEventV1<unknown>,
-  scope: Option.Option<Identity.Tenant>,
-): Effect.Effect<Carrier.Extraction, Problem> =>
-  Option.match(scope, {
-    onNone: () => Effect.succeed(Carrier.extract("cloudevents", envelope)),
-    onSome: (held) =>
-      pipe(Journal.carrier(envelope, held), ({ context, dropped }) =>
-        Option.match(context, {
-          onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<tenant-claim-mismatch>" })),
-          onSome: (proved): Effect.Effect<Carrier.Extraction, Problem> => Effect.succeed({ context: proved, dropped }),
-        })),
+const _requestRate = (headers: Message["headers"]): boolean =>
+  Option.match(_header(headers, _WEBHOOK.rate), {
+    onNone: () => true,
+    onSome: (value) => Option.exists(Number.parse(value), (rate) => globalThis.Number.isInteger(rate) && rate > 0),
   })
 
-// Admission is the core owner's: the addressed record decodes through `Event.Fact` and the roster reads whole, so a
-// grammar refusal is one `ParseError` and every peer name this roster does not name leaves as census rather than fault.
-const _admitted = (
-  envelope: CloudEventV1<unknown>,
-  scope: Option.Option<Identity.Tenant>,
-): Effect.Effect<Inbound.Admitted, Problem> =>
-  Effect.all({
-    carrier: _carried(envelope, scope),
-    fact: Effect.mapError(Schema.decodeUnknown(Event.Fact)(envelope, { errors: "all" }), (issue) =>
-      _eventProblem(issue.message)),
-  }).pipe(
-    Effect.map(({ carrier, fact }) =>
-      pipe(Event.read(envelope), ({ roster, dropped }) => ({ envelope, fact, roster, dropped, carrier }))),
+const _delivery = (headers: Message["headers"], body: Uint8Array): Effect.Effect<void, Problem> =>
+  body.byteLength === 0 || Option.isNone(_header(headers, CONSTANTS.HEADER_CONTENT_TYPE))
+    ? Effect.fail(_eventProblem("<webhook-payload-and-content-type-required>"))
+    : Effect.void
+
+// Detection reads the frame and nothing else: exact parsed media identity carries the core owner's closed frame for
+// a structured or batch frame, while a binary frame declares itself with the binding's own specversion header and leaves
+// `content-type` to the DATA — so a frame naming neither refuses before a single body byte is parsed.
+const _framing = (headers: Message["headers"]): Effect.Effect<Inbound.Frame, Problem> => {
+  const binary = Option.isSome(_header(headers, CONSTANTS.CE_HEADERS.SPEC_VERSION))
+  const structured = Option.flatMap(_header(headers, CONSTANTS.HEADER_CONTENT_TYPE), Format.event.framed)
+  if (binary && Option.isSome(structured)) {
+    return Effect.fail(_eventProblem("<conflicting-binary-and-structured-event-evidence>"))
+  }
+  if (binary) return Effect.succeed(_Frame.Binary())
+  return Option.match(structured, {
+    onNone: () => Effect.fail(Problem.media("<unsupported-cloudevents-media>")),
+    onSome: (frame) => Effect.succeed(_Frame.Structured({ frame })),
+  })
+}
+
+const _jsonDecoded = (
+  body: Uint8Array,
+  frame: Extract<Format.Event.Frame, { readonly format: "json" }>,
+): Effect.Effect<ReadonlyArray<CloudEvent<unknown>>, Problem> =>
+  frame._tag === "Batch"
+    ? Option.match(Event.format.json.batch, {
+      onNone: () => Effect.fail(_eventProblem("<batch-unsupported:json>")),
+      onSome: ({ codec }) => Schema.decodeUnknown(codec)(body).pipe(
+        Effect.mapError((issue) => _eventProblem(`<json-rejected:${issue.message}>`)),
+      ),
+    })
+    : Schema.decodeUnknown(Event.format.json.single)(body).pipe(
+      Effect.mapError((issue) => _eventProblem(`<json-rejected:${issue.message}>`)),
+      Effect.map(Array.of),
+    )
+
+const _protobufDecoded = (
+  body: Uint8Array,
+  frame: Extract<Format.Event.Frame, { readonly format: "protobuf" }>,
+): Effect.Effect<ReadonlyArray<CloudEvent<unknown>>, Problem> =>
+  frame._tag === "Batch"
+    ? Option.match(Event.format.protobuf.batch, {
+      onNone: () => Effect.fail(_eventProblem("<batch-unsupported:protobuf>")),
+      onSome: ({ codec }) => Schema.decodeUnknown(codec)(body).pipe(
+        Effect.mapError((issue) => _eventProblem(`<protobuf-rejected:${issue.message}>`)),
+      ),
+    })
+    : Schema.decodeUnknown(Event.format.protobuf.single)(body).pipe(
+      Effect.mapError((issue) => _eventProblem(`<protobuf-rejected:${issue.message}>`)),
+      Effect.map(Array.of),
+    )
+
+const _avroDecoded = (
+  body: Uint8Array,
+  _frame: Extract<Format.Event.Frame, { readonly format: "avro" }>,
+): Effect.Effect<ReadonlyArray<CloudEvent<unknown>>, Problem> =>
+  Schema.decodeUnknown(Avro.single)(body).pipe(
+    Effect.mapError((issue) => _eventProblem(`<avro-rejected:${issue.message}>`)),
+    Effect.map(Array.of),
   )
+
+const _binaryDecoded = (
+  headers: Message["headers"],
+  body: Uint8Array,
+): Effect.Effect<ReadonlyArray<CloudEvent<unknown>>, Problem> =>
+  Effect.try({
+    try: () => HTTP.toEvent<unknown>({ headers, body: Buffer.from(body) }),
+    catch: (caught) => _eventProblem(String(caught)),
+  }).pipe(
+    Effect.flatMap((decoded) =>
+      globalThis.Array.isArray(decoded)
+        ? Effect.fail(_eventProblem("<batch-unsupported:binary>"))
+        : Event.admit(decoded)),
+    Effect.mapError((fault) => fault instanceof Problem ? fault : _eventRefused(fault)),
+    Effect.map(Array.of),
+  )
+
+// Detection decides routing once. Each structured format receives its exact codec, while binary mode remains the
+// official transport binding; no structured payload is fabricated into an HTTP message for a decoder that owns a
+// different format.
+const _decoded = (
+  headers: Message["headers"],
+  body: Uint8Array,
+  frame: Inbound.Frame,
+): Effect.Effect<ReadonlyArray<CloudEvent<unknown>>, Problem> =>
+  _Frame.$match(frame, {
+    Binary: () => _binaryDecoded(headers, body),
+    Structured: ({ frame: structured }) => Match.value(structured).pipe(
+      Match.when({ format: "json" }, (frame) => _jsonDecoded(body, frame)),
+      Match.when({ format: "protobuf" }, (frame) => _protobufDecoded(body, frame)),
+      Match.when({ format: "avro" }, (frame) => _avroDecoded(body, frame)),
+      Match.exhaustive,
+    ),
+  })
+
+const _datarefUtf8 = new TextEncoder()
+const _inline = (envelope: CloudEvent<unknown>): Effect.Effect<Option.Option<Uint8Array>, Problem> => {
+  if (envelope.data instanceof Uint8Array) return Effect.succeedSome(envelope.data)
+  if (Predicate.isString(envelope.data)) return Effect.succeedSome(_datarefUtf8.encode(envelope.data))
+  if (envelope.data === undefined && Predicate.isString(envelope.data_base64)) {
+    return Effect.mapError(
+      Effect.map(Effect.fromEither(Encoding.decodeBase64(envelope.data_base64)), Option.some),
+      () => _eventProblem("<dataref-inline-base64-refused>"),
+    )
+  }
+  return envelope.data === undefined
+    ? Effect.succeedNone
+    : Effect.fail(_eventProblem("<dataref-inline-data-must-be-octets-or-text>"))
+}
+
+const _resolved = (
+  envelope: CloudEvent<unknown>,
+  roster: Event.Roster,
+): Effect.Effect<CloudEvent<unknown>, Problem, Dataref> =>
+  roster.dataref === undefined
+    ? Effect.succeed(envelope)
+    : Effect.gen(function* () {
+      const subject = yield* Predicate.isString(envelope.subject)
+        ? Schema.decode(Event.rasm.subject)(envelope.subject).pipe(Effect.mapError((issue) => _eventProblem(issue.message)))
+        : Effect.fail(_eventProblem("<dataref-subject-required>"))
+      const residence = yield* Dataref
+      const receipt = yield* residence.resolve({
+        source: envelope.source,
+        id: envelope.id,
+        subject,
+        reference: roster.dataref,
+        inline: yield* _inline(envelope),
+      }).pipe(Effect.mapError((fault) => Problem.of(fault)))
+      return yield* receipt.carriage === "dual"
+        ? Effect.succeed(envelope)
+        : Effect.mapError(Event.clone(envelope, { data: receipt.bytes }, ["data_base64"]), _eventRefused)
+    })
+
+// `data:journal/append#RELAY_ROWS` owns the authenticated inverse and this route is its consumer: the arriving
+// announcement's tenant claim must EQUAL the admitted webhook token's scope before the fact enters, so a peer
+// announcing another tenant's fact refuses HERE rather than at the projection it would otherwise reach. The extraction stays
+// whole: the tenancy proof decides the context alone, the parse census survives it, and `Propagation.ingress` spends
+// that census once at the settle seam.
+const _carried = (
+  envelope: CloudEvent<unknown>,
+  scope: Identity.Tenant,
+): Effect.Effect<Carrier.Extraction, Problem> =>
+  pipe(Journal.carrier(envelope, scope), ({ context, dropped }) =>
+    Option.match(context, {
+      onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<tenant-claim-mismatch>" })),
+      onSome: (proved): Effect.Effect<Carrier.Extraction, Problem> => Effect.succeed({ context: proved, dropped }),
+    }))
+
+// Admission has already crossed the strict envelope boundary; the Rasm profile now projects its addressed record
+// and generated extension roster without another transport-specific interpretation.
+const _admitted = (
+  envelope: CloudEvent<unknown>,
+  scope: Identity.Tenant,
+  principal: Principal.Shape,
+  trust: Inbound.Spec["trust"],
+  classes: Inbound.Spec["classes"],
+): Effect.Effect<Inbound.Admitted, Problem, Dataref> =>
+  Effect.flatMap(Effect.mapError(Event.rasm.read(envelope), _eventRefused), ({ roster, dropped }) =>
+    Effect.flatMap(_resolved(envelope, roster), (resolved) => Effect.all({
+      carrier: _carried(resolved, scope),
+      fact: Effect.mapError(Schema.decodeUnknown(Event.rasm.Fact)(resolved, { errors: "all" }), (issue) =>
+        _eventProblem(issue.message)),
+    }).pipe(
+      Effect.flatMap(({ carrier, fact }) =>
+        Option.match(Option.fromNullable(roster.dataclassification), {
+          onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<dataclassification-required:webhook>" })),
+          onSome: (classification) => Array.contains(classes, classification)
+            ? Effect.as(trust(principal, fact), { envelope: resolved, fact, roster, dropped, carrier })
+            : Effect.fail(Problem.of({ class: "denied", message: `<dataclassification-refused:${classification}>` })),
+        })),
+    )))
 
 const _members = (
   headers: Message["headers"],
   body: Uint8Array,
-  scope: Option.Option<Identity.Tenant>,
-): Effect.Effect<Array.NonEmptyReadonlyArray<Inbound.Admitted>, Problem> =>
+  scope: Identity.Tenant,
+  principal: Principal.Shape,
+  trust: Inbound.Spec["trust"],
+  classes: Inbound.Spec["classes"],
+): Effect.Effect<ReadonlyArray<Inbound.Admitted>, Problem, Dataref> =>
   Effect.flatMap(
-    Option.match(_framing(headers), {
-      onNone: () => Effect.fail(_eventProblem("<no-event-frame>")),
-      onSome: (frame) => _decoded(headers, body, frame),
-    }),
-    (decoded) =>
-      pipe(
-        globalThis.Array.isArray(decoded) ? decoded : [decoded],
-        Option.liftPredicate(Array.isNonEmptyReadonlyArray),
-        Option.match({
-          onNone: () => Effect.fail(_eventProblem("<empty-batch-frame>")),
-          onSome: (envelopes) => Effect.forEach(envelopes, (envelope) => _admitted(envelope, scope)),
-        }),
-      ),
+    Effect.flatMap(_framing(headers), (frame) => _decoded(headers, body, frame)),
+    (decoded) => Effect.forEach(decoded, (envelope) => _admitted(envelope, scope, principal, trust, classes)),
   )
+
+const _settled = (
+  admitted: Inbound.Admitted,
+  verified: Verified,
+  settle: Inbound.Spec["settle"],
+): Effect.Effect<Inbound.Settlement, Problem, _Idempotency> =>
+  Effect.gen(function* () {
+    const address = yield* Event.address(admitted.envelope)
+    const key = yield* Schema.decode(Gate.IdempotencyKey)(String(address)).pipe(
+      Effect.mapError((issue) => _eventProblem(issue.message)),
+    )
+    const idempotency = yield* Gate.Idempotency
+    const outcome = yield* idempotency.run(
+      key,
+      String(address),
+      Schema.Void,
+      Propagation.ingress(settle(admitted, verified), admitted.carrier),
+    ).pipe(Effect.mapError((fault) => Problem.of(fault)))
+    return new _Settlement({
+      source: admitted.envelope.source,
+      id: admitted.envelope.id,
+      disposition: outcome.disposition === "fresh" ? "accepted" : "duplicate",
+    })
+  })
 
 // Every delivery request rides its claimed origin, so this read gates the POST as well as the handshake and a target
 // that answered one validation exchange never inherits a trust the next message failed to re-present.
-const _origin = (request: HttpServerRequest.HttpServerRequest, spec: Inbound.Spec): Effect.Effect<string, Problem> =>
-  Option.match(
-    Option.filter(
-      Option.filter(Option.fromNullable(request.headers[_WEBHOOK.origin]), Predicate.isString),
-      (claimed) => Array.contains(spec.origins, claimed),
+const _originDenied = (): Problem => Problem.of({ class: "denied", message: "<unallowed-webhook-origin>" })
+const _origin = (
+  headers: Message["headers"],
+  spec: Inbound.Spec,
+): Effect.Effect<typeof WebhookOrigin.Type, Problem> =>
+  Option.match(_header(headers, _WEBHOOK.origin), {
+    onNone: () => Effect.fail(_originDenied()),
+    onSome: (claimed) => Schema.decode(WebhookOrigin)(claimed).pipe(
+      Effect.mapError(_originDenied),
+      Effect.flatMap((admitted) =>
+        Array.some(spec.origins, (allowed) => allowed.toLowerCase() === admitted.toLowerCase())
+          ? Effect.succeed(admitted)
+          : Effect.fail(_originDenied())),
     ),
-    {
-      onNone: () => Effect.fail(Problem.of({ class: "denied", message: "<unallowed-webhook-origin>" })),
-      onSome: Effect.succeed,
-    },
-  )
+  })
 
-const _inbound = (spec: Inbound.Spec): Layer.Layer<never, never, Verify | HttpLayerRouter.HttpRouter> =>
+const _inbound = (
+  identity: Identity.App,
+  spec: Inbound.Spec,
+  policy: Seam.Policy,
+): Layer.Layer<never, never, Claim | Jwt | Verify | Dataref | _Idempotency | InboundHeaders | HttpLayerRouter.HttpRouter> =>
   Layer.merge(
-    // This handshake answers on the SAME path a delivery posts to, since the specification's validation request is
-    // that delivery target's own `OPTIONS`; a declining target answers 405 rather than a grant no origin earned.
-    _routed("OPTIONS", spec.route, (request) =>
-      Effect.match(_origin(request, spec), {
-        onFailure: () => HttpServerResponse.empty({ status: 405 }),
+    // This handshake answers on the SAME path a delivery posts to. A handled but denied validation returns no grant
+    // headers; status is not consent, and 405 belongs only to targets that do not handle OPTIONS at all.
+    _routed("OPTIONS", spec.route, () =>
+      Effect.match(Effect.flatMap(_sanitized, (headers) =>
+        _requestRate(headers)
+          ? _origin(headers, spec)
+          : Effect.fail(_eventProblem("<invalid-webhook-request-rate>"))), {
+        onFailure: () => HttpServerResponse.setHeader("allow", "POST, OPTIONS")(
+          HttpServerResponse.empty({ status: 204 }),
+        ),
         onSuccess: (claimed) =>
           HttpServerResponse.setHeaders({
+            allow: "POST, OPTIONS",
             [_WEBHOOK.allowedOrigin]: claimed,
-            ...Option.match(spec.rate, { onNone: () => ({}), onSome: (rate) => ({ [_WEBHOOK.allowedRate]: rate }) }),
+            [_WEBHOOK.allowedRate]: _granted(policy, spec.route),
           })(HttpServerResponse.empty({ status: 200 })),
       })),
     _routed("POST", spec.route, () =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
-        yield* _origin(request, spec)
-        const held = yield* _octets(request, spec.ceiling)
-        const verify = yield* Verify
-        const presented = Option.fromNullable(request.headers[spec.header])
-        const verified = yield* verify.verify(spec.dialect, held, presented, spec.mac, spec.tolerance)
-        // Seam admission already performed the ONE credential lift, so this route projects it rather than re-verifying.
-        const admitted = yield* Current.Admitted
-        const members = yield* _members(
-          _sanitized(request.headers),
-          held,
-          Option.map(admitted, (credential) => credential.scope),
+        const headers = yield* _sanitized
+        const landed = yield* Effect.orDie(HttpServerRequest.toURL(request))
+        const credential = yield* Gate.Authn.webhook(identity, headers, landed)
+        const settled = Effect.gen(function* () {
+          yield* _origin(headers, spec)
+          const held = yield* _octets(request, spec.ceiling)
+          yield* _delivery(headers, held)
+          const verify = yield* Verify
+          const presented = _header(headers, spec.header)
+          const verified = yield* verify.verify(spec.dialect, held, presented, spec.mac, spec.tolerance)
+          const members = yield* _members(
+            headers,
+            held,
+            credential.admitted.scope,
+            credential.admitted.principal,
+            spec.trust,
+            spec.classes,
+          )
+          // Each member enters the one address bracket before settling under its OWN creation-time parent: a batch
+          // carries as many producer identities and traces as it has members, and every replay remains readable.
+          const outcomes = yield* Effect.forEach(
+            members,
+            (admitted) => _settled(admitted, verified, spec.settle),
+          )
+          const accepted = yield* HttpServerResponse.schemaJson(Schema.Array(_Settlement))(outcomes, { status: 202 }).pipe(Effect.orDie)
+          return credential.carriage === "query"
+            ? HttpServerResponse.setHeader("cache-control", "private")(accepted)
+            : accepted
+        }).pipe(
+          Effect.provideService(Current.Admitted, Option.some(credential.admitted)),
+          (effect) => TenantScope.bind(credential.admitted.scope, effect),
+          TenantScope.metered,
         )
-        // Each member settles under its OWN creation-time parent: a batch carries as many producing traces as it has
-        // members, so one continuation over the whole frame would attribute every member to the first one's minter.
-        yield* Effect.forEach(
-          members,
-          (admitted) => Propagation.ingress(spec.settle(admitted, verified), admitted.carrier),
-          { discard: true },
-        )
-        return HttpServerResponse.empty({ status: 202 })
+        return yield* settled
       })),
   )
 
-const Inbound = { of: _inbound, headers: _WEBHOOK } as const
+const Inbound = {
+  of: _inbound,
+  headers: _WEBHOOK,
+  Origin: WebhookOrigin,
+  Settlement: _Settlement,
+} as const
 ```
 
 ## [04]-[CEREMONY_ROWS]
@@ -909,6 +1111,16 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
 
 ```typescript signature
 declare namespace Router {
+  // One value carries the whole served-RPC selection: which front-door path the group answers on, which of the two
+  // router-native transports carries it, and the fan-out ceiling. `protocol` is data because BOTH transports mount
+  // through this one member and the package defaults it to websockets, so a caller elects its transport rather than
+  // inheriting one; `concurrency` is stated because the package's own default is unbounded, and an unbounded RPC
+  // fan-out is the one ceiling no route Layer above this mount can re-impose.
+  type RpcMount = {
+    readonly path: `/${string}`
+    readonly protocol: "http" | "websocket"
+    readonly concurrency: number
+  }
   // one type covers every predicate the multiplex publishes, because each is already a `self => self` transform
   // once its match and app are applied: `HttpMultiplex.hostRegex(/^api\./, app)` and
   // `HttpMultiplex.headerExact("x-canary", "1", app)` inhabit it identically
@@ -957,8 +1169,8 @@ const Router = {
   mounts: _mounts,
   rail: _rail,
   RailMount: _RailMount,
-  rpc: <G extends RpcGroup.RpcGroup.Any>(group: G, prefix: `/${string}`) =>
-    RpcServer.layerHttpRouter({ group, path: prefix, protocol: "http" }),
+  rpc: <G extends RpcGroup.RpcGroup.Any>(group: G, mount: Router.RpcMount) =>
+    RpcServer.layerHttpRouter({ group, path: mount.path, protocol: mount.protocol, concurrency: mount.concurrency }),
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

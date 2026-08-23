@@ -611,7 +611,7 @@ public static partial class StructuralAnalysis {
         let checks   = model.Members.Bind(m => Check(m, resp[m.Id], code, model.Policy))
         from folded in CheckFacts(checks)
         from result in AssessmentResult.Of(
-            request.Route, folded.Facts, folded.Governing, clock.GetCurrentInstant(), StaticKey, resultBlob: Some(blob))
+            request.Route, folded.Facts, folded.Governing, clock.GetCurrentInstant(), StaticKey, resultArtifact: Some(blob))
         select result;
 
     // One projection for both routes: a check with a resolved utilization emits its ratio, and a check whose
@@ -945,7 +945,7 @@ public static partial class StructuralAnalysis {
                               folded.Facts + evidence + Seq(
                                   AssessmentFact.Text(Analysis.CombinationFact, request.Spec.Combination.Key),
                                   AssessmentFact.Text(ExcitationFact, request.Spec.Direction.Key)),
-                              folded.Governing, clock.GetCurrentInstant(), SeismicKey, resultBlob: Some(blob))
+                              folded.Governing, clock.GetCurrentInstant(), SeismicKey, resultArtifact: Some(blob))
         select result;
 
     // Effective-mass floor gates PER EXCITATION AXIS: sum of Gamma_d^2 over the recovered modes against

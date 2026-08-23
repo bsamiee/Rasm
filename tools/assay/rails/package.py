@@ -13,7 +13,6 @@ from itertools import chain
 import os
 from pathlib import Path
 from shutil import copy2, rmtree
-from tempfile import mkdtemp
 from typing import ClassVar, Final, override, Self, TYPE_CHECKING
 
 from expression import Error, Ok, Result
@@ -26,7 +25,7 @@ from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import AssaySettings  # beartype resolves these at import time, not under TYPE_CHECKING
 from tools.assay.composition.store import ArtifactScope  # beartype resolves these at import time, not under TYPE_CHECKING
 from tools.assay.core.exec import Executor  # beartype resolves the executor-port annotation at runtime
-from tools.assay.core.govern import leased, proc_dead
+from tools.assay.core.govern import leased
 from tools.assay.core.model import (
     ArtifactKind,
     Base,
@@ -47,6 +46,7 @@ from tools.assay.core.model import (
     ToolArgs,
 )
 from tools.assay.core.routing import parse_csproj, Routed, Scope
+from tools.assay.core.transaction import SwapTransaction
 from tools.assay.diagnostics import fold
 from tools.assay.rails.bridge import bridge_lease, client_run
 
@@ -166,11 +166,6 @@ class PackageParams(BaseParams):
                 return bound_params
 
 
-class _CommitMarker(Base, frozen=True, gc=False):
-    pid: int
-    previous: str
-
-
 class _MsbuildProps(Base, frozen=True):
     Properties: dict[str, str] = msgspec.field(default_factory=dict)
 
@@ -256,7 +251,6 @@ class YakMeta(Base, frozen=True, gc=False):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
-_MARKER_DECODER: Final[msgspec.json.Decoder[_CommitMarker]] = msgspec.json.Decoder(_CommitMarker)
 
 # Keyed by (verb, is_rasm_bridge_slug); publish folds the full stage->install->push pipeline, and the
 # bridge slug additionally cycles the live host via quit before install and a status refresh after it.
@@ -412,68 +406,21 @@ def _pending_marker(package_dir: Path) -> Path:
     return package_dir.with_name(f"{package_dir.name}{_COMMIT_PENDING}")
 
 
-def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
-    """Heal an interrupted package-directory swap under the held stage lease.
-
-    Returns:
-        Recovery direction taken, or a BUSY fault while the marker pid is alive.
-    """
-
-    def decoded(raw: bytes) -> _CommitMarker | None:
-        try:
-            return _MARKER_DECODER.decode(raw)
-        except msgspec.DecodeError:
-            return None
-
-    def settle(marker: Path, mark: _CommitMarker | None) -> Result[str, Fault]:
-        match mark:
-            case None:
-                marker.unlink(missing_ok=True)
-                _LOG.warning("package.recover", slug=slug, direction="clear", reason="undecodable marker")
-                return Ok("clear")
-            case _ if not proc_dead(mark.pid):
-                return Error(Fault(("yak", "recover", slug), status=RailStatus.BUSY, message=f"package commit pending under live pid {mark.pid}"))
-            case _:
-                previous = Path(mark.previous)
-                sibling = previous.parent == meta.package_dir.parent and previous.name.startswith(f"{meta.package_dir.name}.previous.")
-                # Existing package_dir wins; missing package_dir plus sibling previous is the only rollback shape.
-                direction = "forward" if meta.package_dir.exists() else ("back" if sibling and previous.is_dir() else "clear")
-                try:
-                    rmtree(previous, ignore_errors=True) if direction == "forward" and sibling else None
-                    previous.replace(meta.package_dir) if direction == "back" else None
-                    marker.unlink(missing_ok=True)
-                except OSError as exc:
-                    return Error(Fault(("yak", "recover", slug), message=str(exc)[:1024]))
-                _LOG.warning("package.recover", slug=slug, direction=direction, pid=mark.pid, previous=mark.previous)
-                return Ok(direction)
-
-    marker = _pending_marker(meta.package_dir)
-    return _read_bytes(marker).bind(lambda raw: Ok("absent") if not marker.is_file() else settle(marker, decoded(raw)))
+def _transaction(meta: YakMeta, slug: str) -> SwapTransaction:
+    return SwapTransaction(marker=_pending_marker(meta.package_dir), argv=("yak", "recover", slug), targets=(meta.package_dir,))
 
 
 def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
-    # The sentinel brackets the swap so dead-pid recovery can distinguish forward and rollback shapes.
-    previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}")
-    marker = _pending_marker(meta.package_dir)
-    try:
-        rmtree(previous, ignore_errors=True)
-        marker.write_bytes(msgspec.json.encode(_CommitMarker(pid=os.getpid(), previous=str(previous))))
-        meta.package_dir.replace(previous) if meta.package_dir.exists() else None
-        staged.replace(meta.package_dir)
-        rmtree(previous, ignore_errors=True)
-    except OSError as exc:
-        previous.replace(meta.package_dir) if previous.exists() and not meta.package_dir.exists() else None
-        rmtree(staged, ignore_errors=True)
-        return Error(Fault(("yak", "build", slug), message=str(exc)[:1024]))
-    finally:
-        # Clear only after commit or rollback has settled the directory shape.
-        marker.unlink(missing_ok=True)
-    return Ok(
-        fold(
-            Claim.PACKAGE,
-            "stage",
-            (Completed(("yak", "build", slug), 0, status=RailStatus.OK),),
-            detail=PackageRun(stage=str(meta.package_dir), project=meta.project, pattern=meta.package_pattern, version=""),
+    return (
+        _transaction(meta, slug)
+        .commit(((staged, meta.package_dir),))
+        .map(
+            lambda _: fold(
+                Claim.PACKAGE,
+                "stage",
+                (Completed(("yak", "build", slug), 0, status=RailStatus.OK),),
+                detail=PackageRun(stage=str(meta.package_dir), project=meta.project, pattern=meta.package_pattern, version=""),
+            )
         )
     )
 
@@ -483,7 +430,9 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
     resource = f"{_PACKAGE_STAGE}-{meta.package_dir.name}"
 
     def staged_build() -> Result[Report, Fault]:
-        staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
+        staged = meta.package_dir.with_name(f"{meta.package_dir.name}.staged.{os.getpid()}.0")
+        rmtree(staged, ignore_errors=True)
+        staged.mkdir()
         outcome = _build_outputs(meta, settings, scope, slug, version, executor).bind(
             lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope, executor)
         )
@@ -496,7 +445,7 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
 
     def locked(_held: object) -> Result[Report, Fault]:
         meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
-        return _recover(meta, slug).bind(lambda _direction: staged_build())
+        return _transaction(meta, slug).recover().bind(lambda _direction: staged_build())
 
     return leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
 
@@ -521,7 +470,7 @@ def _build_outputs(  # structural staging slots; the executor rides last
         terminal = next((row for row in done if row.status in {RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT}), done[-1])
         return msgspec.structs.replace(
             terminal,
-            status=reduce(lambda status, row: RailStatus.dominant(status, row.status), done, RailStatus.OK),
+            status=RailStatus.fold(*(row.status for row in done)),
             notes=tuple(chain.from_iterable(row.notes for row in done)),
             artifacts=tuple(chain.from_iterable(row.artifacts for row in done)),
         )
@@ -653,9 +602,7 @@ def _merge_stage(staged: Report, steps: Report) -> Report:
     return msgspec.structs.replace(
         steps,
         status=RailStatus.dominant(staged.status, steps.status),
-        counts=Counts(
-            ok=staged.counts.ok + steps.counts.ok, failed=staged.counts.failed + steps.counts.failed, total=staged.counts.total + steps.counts.total
-        ),
+        counts=Counts.of(staged.counts, steps.counts),
         results=(*staged.results, *steps.results),
         artifacts=(*staged.artifacts, *steps.artifacts),
         notes=(*staged.notes, *steps.notes),

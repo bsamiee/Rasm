@@ -118,7 +118,7 @@ class RuntimeLeg(StrEnum):
 
 
 # every folder fault union is one `@tagged_union` over `BaseException` — `geometry/energy/climate#CLIMATE`'s
-# `EnergyFault`, `geometry/graph/analytic#ANALYTIC`'s `GraphFault`, `geometry/mesh/brep#BREP`'s `BrepFault` — so `tag`
+# `EnergyFault`, `geometry/graph/analytic#ANALYTIC`'s `GraphFault`, `geometry/mesh/repair#REPAIR`'s `RepairFault` — so `tag`
 # names the ACTIVE case and the attribute it names carries that case's kwargs. Structural admission is what keeps this
 # tier import-free: `runtime` is S0 and reaches no sibling, so a per-folder marker would invert the strata. `Protocol`
 # refuses a `BaseException` base, so this types the tag half alone and the raise site proves the exception half.
@@ -389,6 +389,25 @@ class BoundaryFault:
         # rather than filling with an empty string that names a series nobody fills.
         return _detail(self.subject).map(lambda row: row.leg.value)
 
+    @property
+    def ordinal(self) -> Option[int]:
+        # the wire ordinal `FaultDetail.case` carries: the seated row's 1-based position under its leg in DECLARATION
+        # order, so the producing family's closed ordinal crosses and a peer never reads a transport code back into a
+        # taxonomy; an unseated subject answers `Nothing`, which the serve egress writes as the unspecified zero.
+        return _SEATED.try_find(self.subject).map(lambda cell: cell.ordinal)
+
+    @property
+    def defect(self) -> Option[str]:
+        # the seated row's closed defect token — the `reason` a field violation carries across the wire.
+        return _detail(self.subject).map(lambda row: row.defect)
+
+    @property
+    def coordinates(self) -> Block[tuple[str, str]]:
+        # the raise's NAMED slots back out of the detail the row's door folded, recovered against that row's declared
+        # roster rather than split on a separator a value may carry; an unseated or slot-less fault answers empty. These
+        # are the coordinates a peer repairs on, and the one shape a field violation crosses as.
+        return _detail(self.subject).map(lambda row: _coordinates(row.slots, self.detail)).default_value(Block.empty())
+
     def retriability(self, codes: frozenset[FaultTag]) -> Recovery:
         # ONE predicate, two rungs, one DECLARED source each. An aggregate folds its members through `Recovery.widest`.
         # Rostered raises answer their OWN row's posture, because the defect — never the fence that caught it — knows
@@ -473,7 +492,7 @@ class FaultRow[L: Leg](msgspec.Struct, frozen=True):
                 assert_never(unreachable)
 
     @staticmethod
-    def seated(seat: "Map[str, FaultRow[Leg]]", row: "FaultRow[Leg]", /) -> "Map[str, FaultRow[Leg]]":
+    def seated(seat: "Map[str, Seat]", row: "FaultRow[Leg]", /) -> "Map[str, Seat]":
         # `RAISES` proves at IMPORT over the WHOLE table, in the `observability/metrics#METRIC` `MEASURES` idiom. The
         # seat is typed over the `Leg` PROTOCOL rather than one folder's roster, because the census spans every folder
         # that pushes rows through `rostered` and a per-roster map is the dead mirror that fold exists to retire.
@@ -487,7 +506,17 @@ class FaultRow[L: Leg](msgspec.Struct, frozen=True):
             raise ModuleNotFoundError(module)
         if row.subject in seat:
             raise KeyError(row.subject)
-        return seat.add(row.subject, row)
+        # the ordinal is the row's 1-based position under its OWN leg, counted in the declaration order the fold walks,
+        # so an appended row shifts no earlier ordinal and the wire `case` a peer already holds stays valid.
+        ordinal = 1 + sum(1 for cell in seat.values() if cell.row.leg.value == row.leg.value)
+        return seat.add(row.subject, Seat(row=row, ordinal=ordinal))
+
+
+class Seat(msgspec.Struct, frozen=True, gc=False):
+    # ONE census cell: the row beside the ordinal its leg assigned it, so `retriability`, `facts`, `owner`, and the
+    # wire `ordinal` all read one seat and no second map keys the same subject.
+    row: FaultRow[Leg]
+    ordinal: int
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -502,7 +531,7 @@ class FaultRow[L: Leg](msgspec.Struct, frozen=True):
 # spelled once, at the module's own `RAISES` binding, and `seated` kills the import on a duplicate coordinate.
 # The census is the estate's one mutable registry and mutates at IMPORT alone, under a gate because two module
 # imports race on a free-threading interpreter; the read stays lock-free, an immutable `Map` swap being atomic.
-_SEATED: Map[str, FaultRow[Leg]] = Map.empty()
+_SEATED: Map[str, Seat] = Map.empty()
 _SEAT_GATE: Final[Lock] = Lock()
 
 
@@ -515,10 +544,20 @@ def rostered[L: Leg](rows: Block[FaultRow[L]], /) -> Block[FaultRow[L]]:
     return rows
 
 
+def _coordinates(slots: tuple[str, ...], detail: str) -> Block[tuple[str, str]]:
+    # inverse of the `raised` fold: each declared slot heads its own `:<slot>=` cell, so the value of slot `i` runs from
+    # the end of its head to the start of slot `i + 1`'s head (or the detail's end), whatever characters it carries.
+    heads = tuple(detail.index(f":{slot}=") for slot in slots)
+    return Block.of_seq(
+        (slot, detail[head + len(slot) + 2 : heads[index + 1] if index + 1 < len(heads) else len(detail)])
+        for index, (slot, head) in enumerate(zip(slots, heads, strict=True))
+    )
+
+
 def _detail(subject: str) -> Option[FaultRow[Leg]]:
     # the ONE census read: `subject` is the `leg.point` coordinate `FaultRow.subject` derives, so a fault carrying a
     # subject no module seated answers `Nothing` and every consumer omits rather than filling a key nobody fills.
-    return _SEATED.try_find(subject)
+    return _SEATED.try_find(subject).map(lambda cell: cell.row)
 
 
 # row order is load-bearing: `TimeoutError` subclasses `OSError`, so the `deadline` row must precede the `resource` row
@@ -635,14 +674,13 @@ TENANCY_GRADE: Final[FaultRow[RuntimeLeg]] = FaultRow(
 TENANCY_ISSUER: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.ADMISSION, point="issuer", arm="config", defect="unrostered-issuer", retriability=TERMINAL, slots=("issuer",)
 )
-TENANCY_PRINCIPAL: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.ADMISSION, point="principal", arm="config", defect="unasserted-principal", retriability=TERMINAL, slots=("issuer",)
+TENANCY_SCOPE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.ADMISSION, point="scope", arm="config", defect="tenant-scope-mismatch", retriability=TERMINAL,
+    slots=("axis", "principal")
 )
 TENANCY_TENANT: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.ADMISSION, point="tenant", arm="config", defect="unclaimed-tenant", retriability=TERMINAL, slots=("issuer", "tenant")
-)
-TENANCY_UNTENANTED: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.ADMISSION, point="untenanted", arm="config", defect="tenant-claim-untenanted", retriability=TERMINAL
+    leg=RuntimeLeg.ADMISSION, point="tenant", arm="config", defect="issuer-ungranted-tenant", retriability=TERMINAL,
+    slots=("issuer", "tenant")
 )
 BUNDLE_ARCHIVE: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.BUNDLE, point="archive", arm="boundary", defect="archive-refused", retriability=TERMINAL
@@ -652,6 +690,52 @@ BUNDLE_COLLECT: Final[FaultRow[RuntimeLeg]] = FaultRow(
 )
 BUNDLE_EMIT: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.BUNDLE, point="emitted", arm="boundary", defect="capsule-sink-refused", retriability=TERMINAL
+)
+BINDING_ADMIT: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING,
+    point="admit",
+    arm="config",
+    defect="binding-content-refused",
+    retriability=TERMINAL,
+    slots=("binding", "content"),
+)
+BINDING_CONNECT: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING, point="connect", arm="resource", defect="binding-connect-failed", retriability=TRANSIENT
+)
+BINDING_DECODE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING,
+    point="decode",
+    arm="boundary",
+    defect="binding-decode-failed",
+    retriability=TERMINAL,
+    slots=("binding", "cause"),
+)
+BINDING_ENCODE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING, point="encode", arm="boundary", defect="binding-encode-failed", retriability=TERMINAL
+)
+BINDING_DRAIN: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING,
+    point="drain",
+    arm="boundary",
+    defect="binding-drain-failed",
+    retriability=TERMINAL,
+    slots=("binding", "cause"),
+)
+BINDING_SETTLE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING,
+    point="settle",
+    arm="boundary",
+    defect="binding-settlement-failed",
+    retriability=TRANSIENT,
+    slots=("binding", "cause"),
+)
+BINDING_TRANSACTION: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.BINDING,
+    point="transaction",
+    arm="boundary",
+    defect="binding-transaction-failed",
+    retriability=TRANSIENT,
+    slots=("binding", "cause"),
 )
 CLOCK_CARRIER: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.CLOCK, point="carrier", arm="boundary", defect="carrier-decode-failed", retriability=TERMINAL
@@ -668,17 +752,41 @@ EVENT_DOMAIN: Final[FaultRow[RuntimeLeg]] = FaultRow(
 EVENT_EXTENSION: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.EVENT, point="extension", arm="boundary", defect="extension-admit-failed", retriability=TERMINAL
 )
+EVENT_DECODE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.EVENT, point="decode", arm="boundary", defect="event-format-decode-failed", retriability=TERMINAL
+)
+EVENT_ENCODE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.EVENT, point="encode", arm="boundary", defect="event-format-encode-failed", retriability=TERMINAL
+)
+EVENT_FORMAT: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.EVENT,
+    point="format",
+    arm="config",
+    defect="event-format-unavailable",
+    retriability=TERMINAL,
+    slots=("format", "mode"),
+)
 EVENT_LAG: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.EVENT, point="lag", arm="config", defect="recorded-precedes-occurred", retriability=TERMINAL
 )
 EVENT_MINT: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.EVENT, point="mint", arm="boundary", defect="attribute-set-refused", retriability=TERMINAL
+    leg=RuntimeLeg.EVENT,
+    point="mint",
+    arm="boundary",
+    defect="attribute-set-refused",
+    retriability=TERMINAL,
+    slots=("attribute", "finding"),
 )
 EVENT_NAIVE: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.EVENT, point="naive", arm="config", defect="naive-stamp", retriability=TERMINAL
 )
 EVENT_SOURCE: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.EVENT, point="source", arm="config", defect="reference-carries-routing-state", retriability=TERMINAL
+    leg=RuntimeLeg.EVENT,
+    point="source",
+    arm="config",
+    defect="malformed-capability-reference",
+    retriability=TERMINAL,
+    slots=("reference",),
 )
 EVENT_TYPE: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.EVENT, point="type", arm="config", defect="malformed-type", retriability=TERMINAL, slots=("spelling",)
@@ -908,19 +1016,20 @@ SERVE_DIRECTION: Final[FaultRow[RuntimeLeg]] = FaultRow(
     slots=("credential", "direction")
 )
 SERVE_DISCOVERY: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.SERVE, point="discovery", arm="boundary", defect="discovery-decode-failed", retriability=TERMINAL
+    leg=RuntimeLeg.SERVE, point="discovery", arm="config", defect="descriptor-pin-diverged", retriability=TERMINAL,
+    slots=("expected", "actual")
 )
 SERVE_DRAIN: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SERVE, point="drain", arm="boundary", defect="host-drain-refused", retriability=TERMINAL
+)
+SERVE_ENCODE: Final[FaultRow[RuntimeLeg]] = FaultRow(
+    leg=RuntimeLeg.SERVE, point="encode", arm="config", defect="request-encode-refused", retriability=TERMINAL
 )
 SERVE_HOST: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SERVE, point="host", arm="boundary", defect="host-serve-refused", retriability=TERMINAL
 )
 SERVE_INPUTS: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SERVE, point="inputs", arm="boundary", defect="assignment-decode-failed", retriability=TERMINAL
-)
-SERVE_REGISTRY: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.SERVE, point="registry", arm="config", defect="unregistered-shape", retriability=TERMINAL, slots=("shape",)
 )
 SERVE_REMOTE: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SERVE, point="remote", arm="boundary", defect="peer-conflict", retriability=TERMINAL
@@ -934,9 +1043,6 @@ SERVE_SELECTOR: Final[FaultRow[RuntimeLeg]] = FaultRow(
 SERVE_SETTINGS: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SERVE, point="settings", arm="config", defect="settings-admission-refused", retriability=TERMINAL
 )
-SHAPES_ARMS: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.SHAPES, point="arms", arm="boundary", defect="recovery-arms-not-exclusive", retriability=TERMINAL
-)
 SHAPES_DOUBLED: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SHAPES, point="doubled", arm="config", defect="duplicate-row-name", retriability=TERMINAL
 )
@@ -946,9 +1052,6 @@ SHAPES_DRIFT: Final[FaultRow[RuntimeLeg]] = FaultRow(
 SHAPES_FORMAT: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SHAPES, point="format", arm="boundary", defect="format-key-unrostered", retriability=TERMINAL, slots=("key",)
 )
-SHAPES_RELEASE: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.SHAPES, point="release", arm="boundary", defect="release-unserved", retriability=TERMINAL, slots=("key", "cause")
-)
 SHAPES_SERVICES: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.SHAPES, point="services", arm="boundary", defect="service-name-unresolvable", retriability=TERMINAL
 )
@@ -957,9 +1060,6 @@ SHAPES_WINDOW: Final[FaultRow[RuntimeLeg]] = FaultRow(
 )
 TELEMETRY_STOP: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.TELEMETRY, point="stop", arm="boundary", defect="provider-shutdown-refused", retriability=TERMINAL
-)
-WIRE_CODEC: Final[FaultRow[RuntimeLeg]] = FaultRow(
-    leg=RuntimeLeg.WIRE, point="codec", arm="config", defect="unregistered-codec", retriability=TERMINAL, slots=("roster", "name")
 )
 WIRE_DECODE: Final[FaultRow[RuntimeLeg]] = FaultRow(
     leg=RuntimeLeg.WIRE, point="decode", arm="boundary", defect="decode-failed", retriability=TERMINAL
@@ -1028,9 +1128,13 @@ WORKERS_SHM: Final[FaultRow[RuntimeLeg]] = FaultRow(
 RAISES: Final[Block[FaultRow[RuntimeLeg]]] = rostered(Block.of_seq([
     DEPTH_BOUND, DEPTH_SPENT,
     ADMISSION_HOSTS, BACKEND_CLAIMANT, BACKEND_CONTRACT, BACKEND_MERGE, BACKEND_MINT, PROFILE_GRANT, PROFILE_HOST, SECRET_NAME,
-    SECRET_READ, TENANCY_GRADE, TENANCY_ISSUER, TENANCY_PRINCIPAL, TENANCY_TENANT, TENANCY_UNTENANTED, BUNDLE_ARCHIVE, BUNDLE_COLLECT,
-    BUNDLE_EMIT, CLOCK_CARRIER, CLOCK_LAYOUT, CLOCK_SEALED, EVENT_DOMAIN, EVENT_EXTENSION, EVENT_LAG, EVENT_MINT, EVENT_NAIVE,
-    EVENT_SOURCE, EVENT_TYPE, EVIDENCE_BUDGET, EVIDENCE_GRAMMAR, EVIDENCE_MATCHES, EVIDENCE_REFLECT, FILTER_PARSE, FILTER_SETTINGS,
+    SECRET_READ, TENANCY_GRADE, TENANCY_ISSUER, TENANCY_SCOPE, TENANCY_TENANT, BUNDLE_ARCHIVE, BUNDLE_COLLECT,
+    BUNDLE_EMIT, BINDING_ADMIT, BINDING_CONNECT, BINDING_DECODE, BINDING_DRAIN, BINDING_ENCODE, BINDING_SETTLE,
+    BINDING_TRANSACTION, CLOCK_CARRIER, CLOCK_LAYOUT,
+    CLOCK_SEALED, EVENT_DECODE,
+    EVENT_DOMAIN, EVENT_ENCODE, EVENT_EXTENSION, EVENT_FORMAT,
+    EVENT_LAG, EVENT_MINT, EVENT_NAIVE, EVENT_SOURCE, EVENT_TYPE, EVIDENCE_BUDGET, EVIDENCE_GRAMMAR, EVIDENCE_MATCHES,
+    EVIDENCE_REFLECT, FILTER_PARSE, FILTER_SETTINGS,
     HOOKS_ISOLATED, HOOKS_PAYLOAD, HOOKS_REGISTER, HOOKS_RELEASE, HOOKS_SUBSCRIBE, HOOKS_TAP, IDENTITY_DERIVE, IDENTITY_FMT, JOURNAL_APPEND, JOURNAL_CENSUS, JOURNAL_CHARGE, JOURNAL_CRYPTO, JOURNAL_CUSTODY, JOURNAL_DERIVED,
     JOURNAL_DRAIN, JOURNAL_HEX, JOURNAL_INSTANT, JOURNAL_KEK, JOURNAL_OFFER, JOURNAL_PERIOD, JOURNAL_PORT, JOURNAL_RATE, JOURNAL_RETIRED,
     JOURNAL_UNBOUND, JOURNAL_UNDRAINED, LANES_EXPORT, LANES_FRONT, LANES_INLINE, LANES_ISOLATION, LANES_OFFLOAD, LOGGING_DOOR, LOGGING_SHIP,
@@ -1038,9 +1142,9 @@ RAISES: Final[Block[FaultRow[RuntimeLeg]]] = rostered(Block.of_seq([
     BENCH_WARMUP, PROFILES_DRAIN, PROFILES_JOB, RECEIPTS_DISPATCH, RECEIPTS_EMIT, RECEIPTS_SCOPE, RECIPE_ASSET, RECIPE_ENGINE,
     RECIPE_ROOT, RECIPE_RUN, CORPUS_DOUBLED, CORPUS_FMT, ROOTS_DRAIN, ROOTS_FETCH, ROOTS_HTTP, ROOTS_SCAN, ROOTS_SSH, ROOTS_STORE,
     ROOTS_TRAVERSAL, ROOTS_UNSUPPORTED, SERVE_ANCHOR,
-    SERVE_BUNDLE, SERVE_CATALOG, SERVE_DIAL, SERVE_DIALS, SERVE_DIRECTION, SERVE_DISCOVERY, SERVE_DRAIN, SERVE_HOST, SERVE_INPUTS,
-    SERVE_REGISTRY, SERVE_REMOTE, SERVE_ROSTER, SERVE_SELECTOR, SERVE_SETTINGS, SHAPES_ARMS, SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_FORMAT,
-    SHAPES_RELEASE, SHAPES_SERVICES, SHAPES_WINDOW, TELEMETRY_STOP, WIRE_CODEC, WIRE_DECODE, WIRE_ENCODE,
+    SERVE_BUNDLE, SERVE_CATALOG, SERVE_DIAL, SERVE_DIALS, SERVE_DIRECTION, SERVE_DISCOVERY, SERVE_DRAIN, SERVE_ENCODE, SERVE_HOST, SERVE_INPUTS,
+    SERVE_REMOTE, SERVE_ROSTER, SERVE_SELECTOR, SERVE_SETTINGS, SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_FORMAT,
+    SHAPES_SERVICES, SHAPES_WINDOW, TELEMETRY_STOP, WIRE_DECODE, WIRE_ENCODE,
     WIRE_INSERT, WIRE_MAINTAIN, WIRE_ORDERED, LEASE_DRIFT, LEASE_EVIDENCE, LEASE_LOST, LEASE_VERDICT, SUPERVISE_CYCLE, WORKERS_COMMAND,
     WORKERS_COVERED, WORKERS_CROSSING, WORKERS_DAEMONS, WORKERS_ENDPOINT, WORKERS_GUEST, WORKERS_PHASE, WORKERS_POOL, WORKERS_REMOTE,
     WORKERS_SEAL, WORKERS_SHM,

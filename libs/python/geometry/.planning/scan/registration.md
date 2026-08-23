@@ -17,7 +17,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 - Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span. Kernels take the lane conduit's pickled tap as a trailing offload arg and beat the graduation `GeometryPulse.REGISTRATION` point through `pulsed` — one solve-start beat per mode, one per multiway edge — so a `Hooks` tap streams convergence progress under the lane's lossy drop law.
 - Auto: `_engine` folds ONE ordered provider map through one `find_spec` probe over BOTH engine families and answers `Option` — the caller names the members it admits, the whole bootstrap family or the single non-rigid row the policy picked, and the head that resolves wins. Every one of `kiss_matcher`, `open3d`, and `probreg` is interpreter-marked, so a probe that tests one and falls through to another as a floor reports a capability that floor cannot deliver; a `Nothing` refuses typed at the arm that needs it rather than raising `ModuleNotFoundError` inside a worker. The `NONRIGID` gate reads that same map PARENT-SIDE in `register`, before the crossing, onto `Error(REG_NONRIGID.raised(...))` naming `probreg` — module presence is identical on every floor of the one shared venv, so the probe picks a capability tier and never an offload route, and the kernel's non-rigid arm runs past a decision already made. Every arm (`GLOBAL`, each `MULTIWAY` edge, `NONRIGID`) reuses that one map; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
 - Auto: the coarse pose reaches EVERY fine arm through that arm's OWN initial-transform argument — the open3d tensor `init_source_to_target` slot on `icp` and `multi_scale_icp`, the `small_gicp.align` `init_T_target_source` slot — so `_seeded` builds one 4x4 and each solver seeds its correspondence search directly and returns the full source-to-target pose it already composed. The deleted mechanism is a whole-cloud copy per solve plus its normal rotation plus a post-solve matrix product, all of which the provider performs inside its own iteration for free. Every correspondence-search arm publishes that slot; the `NONRIGID` arm is the ONE stated exception, and it pays the pre-pose price knowingly: `registration_cpd` and `registration_filterreg` take the outlier weight, the iteration budget, the tolerance, and the objective term alone, so the seed applies ONCE at the arm's own admission as a pre-posed source array. That copy is bounded by the arm's shape — one EM pass over one pair, so one copy, where a multi-scale arm would have paid one per scale — and the pose it applied rides back in the result's own `transform` slot as the arm's rigid component, so the deformation field measures exactly what the pose could not explain. A local ICP started from identity diverges on any pair whose gross misalignment exceeds `max_correspondence`, which is the whole reason the `GLOBAL` arm exists and why an unseeded arm passes the identity those slots already default to rather than skipping the argument.
-- Auto: intra-kernel parallelism binds from `LanePolicy.capacity`, threaded as a trailing kernel argument beside the pulse tap — the daemon's law, one folder, one answer — because a literal thread count inside each of `capacity` concurrent process slots oversubscribes the machine by exactly that factor.
+- Auto: native registration enters `LanePolicy.whole`; runtime grants the lane once and `LaneGrant.width` becomes the provider thread count beside the pulse tap. Single-model parallelism stays available without multiplying a copied width by concurrent outer admissions or reading allocator internals.
 - Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `inlier_rmse` is OPTIONAL because the `KISS_MATCHER` arm measures none, so `graduates` derives its ceiling roster PER MEASURE: the `1 - fitness` misfit is graded on every arm and the RMSE bar joins only where an RMSE exists, since a fabricated `0.0` clears every ceiling and graduates a coarse pose as a converged alignment. The `NONRIGID` arm measures both on the WARPED cloud against the target through the same `evaluate_registration` fold the multiway edges read, so a probabilistic warp grades on the identical bars rather than on a mixture objective no other arm shares; `sigma2` and `q` ride the receipt as the EM's own convergence evidence beside them — with the EFFECTIVE FilterReg objective where that arm ran, since the pt2pt fallback on a normal-less target is solver evidence the policy bytes cannot recover — and the deformation magnitudes ride as a QUANTILE ladder — median, p95, extremum, mean — because a receipt never grows with rows and one extremum never replaces a distribution, the per-point field itself being the payload `scan/deviation#DEVIATION` consumes. `deformation_max` joins the graduation roster on that same per-measure derivation, against the `deformation_ceiling` monitoring bar: a field past it is the structural-deformation alarm, and an arm that recovered no field is never graded on a bar it was in no position to measure. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
 - Packages: `kiss_matcher`, `open3d`, `small_gicp`, `probreg` (the compiled registration backends, each a module-scope `lazy import`/`lazy from` so the marked distributions stay cold until their own arm runs — never an eager module-top import and never a function-local one the module-top roster hides), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold, `Block.collect` the session-preimage flat-map), `msgspec`, and the geometry graduation spine (`evidence_run`/`GeometryHandoff`/`GeometrySubject`, `charter_record` the charter measure authority, `bench_seam`/`bench_terminal`, `GeometryPulse` the pulse id roster) and runtime rails per the fence imports, the mid-operation payload being the runtime `StageMark` this page marks with its own closed `RegistrationStage` roster.
 - Growth: a new registration engine is one `RegistrationMode` row, one kernel arm inheriting the carrier pre-pose with no seeding edit, and — where its solver consumes a seed — one `_SEEDABLE` member; a new bootstrap backend is one `BootstrapEngine` member, one `_ENGINE_MODULE` probe row, and one `_bootstrap` arm; a new probabilistic estimator is one `NonRigidEngine` member, its `_ENGINE_MODULE` row, and one `_nonrigid` arm answering the same `DeformationField`; a feature-space correspondence is one `feature_fn` policy row on the `FILTERREG` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
@@ -53,7 +53,7 @@ from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, rostered
 from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
+from rasm.runtime.lanes import LaneGrant, LanePolicy, PulseFact, pulsed
 from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -811,19 +811,22 @@ class ScanRegistration(Struct, frozen=True):
             # install rather than as a worker death carrying a private module path.
             if mode is RegistrationMode.NONRIGID and _engine(self.policy.nonrigid).is_none():
                 return Error(REG_NONRIGID.raised("probreg", self.policy.nonrigid.value))
-            # HOSTILE is the declared trait because the compiled registration band imports under no isolated subinterpreter;
-            # `lane.capacity` is the intra-kernel thread budget the lane's own slot allocator already bounds, and the
-            # trailing tap is the lane conduit's pickled proxy the kernel's pulse beats write through.
+            # HOSTILE is the declared trait because the compiled registration band imports under no isolated
+            # subinterpreter. Whole-lane custody supplies the provider thread count; the trailing tap is the lane
+            # conduit's pickled proxy the kernel's pulse beats write through.
             coarse = seed.map(lambda held: held.transform)
-            offloaded = await self.lane.offload(
-                Kernel.of(_register_kernel, KernelTrait.HOSTILE),
-                session,
-                mode,
-                self.policy,
-                self.lane.capacity,
-                coarse,
-                self.lane.pulses.tap,
-            )
+            async def granted(grant: LaneGrant) -> "RuntimeRail[RegistrationResult]":
+                return await self.lane.offload(
+                    Kernel.of(_register_kernel, KernelTrait.HOSTILE),
+                    session,
+                    mode,
+                    self.policy,
+                    grant.width,
+                    coarse,
+                    self.lane.pulses.tap,
+                )
+
+            offloaded = await self.lane.whole(granted)
             return offloaded.map(lambda result: _distributed(result.keyed(session, coarse), self.composition))
 
         return await evidence_run(EvidenceScope.SCAN_REGISTRATION, f"register.{mode}", dispatch, composition=self.composition)

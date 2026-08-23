@@ -1,0 +1,690 @@
+syntax = "proto3";
+
+package rasm.contracts.ui.v1;
+
+import "buf/validate/validate.proto";
+import "google/type/date.proto";
+
+// --- [VOCABULARIES] ---------------------------------------------------------------------
+
+enum ControlEmphasis {
+  CONTROL_EMPHASIS_UNSPECIFIED = 0;
+  CONTROL_EMPHASIS_QUIET = 1;
+  CONTROL_EMPHASIS_SECONDARY = 2;
+  CONTROL_EMPHASIS_PRIMARY = 3;
+  CONTROL_EMPHASIS_DANGER = 4;
+  CONTROL_EMPHASIS_INVERTED = 5;
+  CONTROL_EMPHASIS_LINK = 6;
+}
+
+enum ControlTrigger {
+  CONTROL_TRIGGER_UNSPECIFIED = 0;
+  CONTROL_TRIGGER_ACTIVATE = 1;
+  CONTROL_TRIGGER_CHANGE = 2;
+  CONTROL_TRIGGER_COMMIT = 3;
+}
+
+enum IconPlacement {
+  ICON_PLACEMENT_UNSPECIFIED = 0;
+  ICON_PLACEMENT_LEFT = 1;
+  ICON_PLACEMENT_TOP = 2;
+  ICON_PLACEMENT_RIGHT = 3;
+  ICON_PLACEMENT_BOTTOM = 4;
+}
+
+enum NumericKind {
+  NUMERIC_KIND_UNSPECIFIED = 0;
+  NUMERIC_KIND_BYTE = 1;
+  NUMERIC_KIND_SBYTE = 2;
+  NUMERIC_KIND_SHORT = 3;
+  NUMERIC_KIND_USHORT = 4;
+  NUMERIC_KIND_INT = 5;
+  NUMERIC_KIND_UINT = 6;
+  NUMERIC_KIND_LONG = 7;
+  NUMERIC_KIND_ULONG = 8;
+  NUMERIC_KIND_FLOAT = 9;
+  NUMERIC_KIND_DOUBLE = 10;
+  NUMERIC_KIND_DECIMAL = 11;
+}
+
+enum TemporalKind {
+  TEMPORAL_KIND_UNSPECIFIED = 0;
+  TEMPORAL_KIND_DATE = 1;
+  TEMPORAL_KIND_TIME = 2;
+  TEMPORAL_KIND_DATETIME = 3;
+  TEMPORAL_KIND_RANGE = 4;
+}
+
+enum PickerMode {
+  PICKER_MODE_UNSPECIFIED = 0;
+  PICKER_MODE_OPEN_FILE = 1;
+  PICKER_MODE_SAVE_FILE = 2;
+  PICKER_MODE_OPEN_FOLDER = 3;
+}
+
+enum ColorPosture {
+  COLOR_POSTURE_UNSPECIFIED = 0;
+  COLOR_POSTURE_INLINE = 1;
+  COLOR_POSTURE_FLYOUT = 2;
+}
+
+enum SelectPosture {
+  SELECT_POSTURE_UNSPECIFIED = 0;
+  SELECT_POSTURE_CLOSED = 1;
+  SELECT_POSTURE_EDITABLE = 2;
+}
+
+enum MultiPosture {
+  MULTI_POSTURE_UNSPECIFIED = 0;
+  MULTI_POSTURE_BOUND = 1;
+  MULTI_POSTURE_FREE = 2;
+}
+
+enum SegmentPosture {
+  SEGMENT_POSTURE_UNSPECIFIED = 0;
+  SEGMENT_POSTURE_SELECT = 1;
+  SEGMENT_POSTURE_COMMAND = 2;
+}
+
+enum ChipPosture {
+  CHIP_POSTURE_UNSPECIFIED = 0;
+  CHIP_POSTURE_STATIC = 1;
+  CHIP_POSTURE_TOGGLE = 2;
+  CHIP_POSTURE_REMOVABLE = 3;
+}
+
+enum ProgressForm {
+  PROGRESS_FORM_UNSPECIFIED = 0;
+  PROGRESS_FORM_BAR = 1;
+  PROGRESS_FORM_RING = 2;
+  PROGRESS_FORM_SKELETON = 3;
+}
+
+enum MenuPosture {
+  MENU_POSTURE_UNSPECIFIED = 0;
+  MENU_POSTURE_COMMAND = 1;
+  MENU_POSTURE_CHECK = 2;
+  MENU_POSTURE_RADIO = 3;
+  MENU_POSTURE_SEPARATOR = 4;
+}
+
+enum OverflowMode {
+  OVERFLOW_MODE_UNSPECIFIED = 0;
+  OVERFLOW_MODE_AS_NEEDED = 1;
+  OVERFLOW_MODE_ALWAYS = 2;
+  OVERFLOW_MODE_NEVER = 3;
+}
+
+enum Orientation {
+  ORIENTATION_UNSPECIFIED = 0;
+  ORIENTATION_HORIZONTAL = 1;
+  ORIENTATION_VERTICAL = 2;
+}
+
+enum ExtentMode {
+  EXTENT_MODE_UNSPECIFIED = 0;
+  EXTENT_MODE_FIXED = 1;
+  EXTENT_MODE_MEASURED = 2;
+}
+
+enum ExtentUnit {
+  EXTENT_UNIT_UNSPECIFIED = 0;
+  EXTENT_UNIT_AUTO = 1;
+  EXTENT_UNIT_PIXEL = 2;
+  EXTENT_UNIT_STAR = 3;
+  EXTENT_UNIT_SIZE_TO_CELLS = 4;
+  EXTENT_UNIT_SIZE_TO_HEADER = 5;
+}
+
+enum ColumnAlign {
+  COLUMN_ALIGN_UNSPECIFIED = 0;
+  COLUMN_ALIGN_LEFT = 1;
+  COLUMN_ALIGN_CENTER = 2;
+  COLUMN_ALIGN_RIGHT = 3;
+  COLUMN_ALIGN_STRETCH = 4;
+}
+
+enum BannerSeverity {
+  BANNER_SEVERITY_UNSPECIFIED = 0;
+  BANNER_SEVERITY_INFORMATION = 1;
+  BANNER_SEVERITY_SUCCESS = 2;
+  BANNER_SEVERITY_WARNING = 3;
+  BANNER_SEVERITY_ERROR = 4;
+}
+
+enum BannerPlacement {
+  BANNER_PLACEMENT_UNSPECIFIED = 0;
+  BANNER_PLACEMENT_PAGE = 1;
+  BANNER_PLACEMENT_SECTION = 2;
+}
+
+enum OverviewAxis {
+  OVERVIEW_AXIS_UNSPECIFIED = 0;
+  OVERVIEW_AXIS_VERTICAL = 1;
+  OVERVIEW_AXIS_HORIZONTAL = 2;
+  OVERVIEW_AXIS_PLANE = 3;
+}
+
+enum TypographyRole {
+  TYPOGRAPHY_ROLE_UNSPECIFIED = 0;
+  TYPOGRAPHY_ROLE_MICRO = 1;
+  TYPOGRAPHY_ROLE_CAPTION = 2;
+  TYPOGRAPHY_ROLE_LABEL = 3;
+  TYPOGRAPHY_ROLE_OVERLINE = 4;
+  TYPOGRAPHY_ROLE_BODY = 5;
+  TYPOGRAPHY_ROLE_CODE = 6;
+  TYPOGRAPHY_ROLE_NUMERIC = 7;
+  TYPOGRAPHY_ROLE_SECTION = 8;
+  TYPOGRAPHY_ROLE_TITLE = 9;
+  TYPOGRAPHY_ROLE_HEADLINE = 10;
+  TYPOGRAPHY_ROLE_DISPLAY = 11;
+}
+
+// --- [CONTROLS] -------------------------------------------------------------------------
+
+message IconSlotWire {
+  string asset = 1 [(buf.validate.field).string.min_len = 1];
+  IconPlacement placement = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint32 size = 3 [(buf.validate.field).uint32.gt = 0];
+  optional string pending = 4 [(buf.validate.field).string.min_len = 1];
+}
+
+message HintRowWire {
+  string body = 1 [(buf.validate.field).string.min_len = 1];
+  optional string gesture = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// `role` is a growable theme roster each head resolves as a style class, so it stays an open key where
+// every closed table crosses as an enum.
+message IntentBindingWire {
+  string role = 1 [(buf.validate.field).string.min_len = 1];
+  ControlEmphasis emphasis = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional string command = 3 [(buf.validate.field).string.min_len = 1];
+  optional string value_key = 4 [(buf.validate.field).string.min_len = 1];
+  optional ControlTrigger trigger = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional IconSlotWire icon = 6;
+  optional HintRowWire hint = 7;
+}
+
+message OptionRowWire {
+  string value = 1 [(buf.validate.field).string.min_len = 1];
+  string label_key = 2 [(buf.validate.field).string.min_len = 1];
+  optional string group = 3 [(buf.validate.field).string.min_len = 1];
+  optional IconSlotWire icon = 4;
+}
+
+message OptionSourceWire {
+  oneof form {
+    option (buf.validate.oneof).required = true;
+
+    Inline inline = 1;
+    string bound = 2 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Inline {
+    option (buf.validate.message).cel = {
+      id: "appui_options.values_unique"
+      message: "inline option values must be unique"
+      expression: "this.rows.map(r, r.value).unique()"
+    };
+
+    repeated OptionRowWire rows = 1 [(buf.validate.field).repeated.max_items = 4096];
+  }
+}
+
+message CrumbRowWire {
+  string value = 1 [(buf.validate.field).string.min_len = 1];
+  string label_key = 2 [(buf.validate.field).string.min_len = 1];
+  optional IconSlotWire icon = 3;
+  optional string command = 4 [(buf.validate.field).string.min_len = 1];
+}
+
+message AvatarRowWire {
+  string label_key = 1 [(buf.validate.field).string.min_len = 1];
+  optional string portrait = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message FileFilterRowWire {
+  string label = 1;
+  repeated string patterns = 2 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 4096
+  }];
+}
+
+// A menu row recurses on itself, never on a child intent: check posture, submenu, gesture hint, and icon
+// are fields no control intent owns.
+message MenuRowWire {
+  // A separator draws a rule and renders no text, so it is the one posture carrying no label key. Ordinal 4 is
+  // MENU_POSTURE_SEPARATOR. The row ceiling bounds one level alone; recursion depth is admission's to refuse.
+  option (buf.validate.message).cel = {
+    id: "menu_row_wire.label_presence"
+    message: "label key is present for every posture but the separator"
+    expression: "has(this.label_key) == (this.posture != 4)"
+  };
+
+  string key = 1 [(buf.validate.field).string.min_len = 1];
+  optional string label_key = 2 [(buf.validate.field).string.min_len = 1];
+  MenuPosture posture = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated MenuRowWire rows = 4 [(buf.validate.field).repeated.max_items = 4096];
+  optional IconSlotWire icon = 5;
+  optional string gesture = 6;
+  optional string command = 7;
+  optional string checked_key = 8;
+}
+
+message ToolbarRowWire {
+  ControlIntentWire item = 1 [(buf.validate.field).required = true];
+  OverflowMode overflow = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+message SectionWire {
+  string header_key = 1 [(buf.validate.field).string.min_len = 1];
+  ControlIntentWire body = 2 [(buf.validate.field).required = true];
+}
+
+message ExtentWire {
+  double value = 1 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  ExtentUnit unit = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+message ColumnRowWire {
+  string header_key = 1 [(buf.validate.field).string.min_len = 1];
+  ControlIntentWire cell = 2 [(buf.validate.field).required = true];
+  ExtentWire extent = 3 [(buf.validate.field).required = true];
+  ColumnAlign align = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional ControlIntentWire editor = 5;
+  optional string sort_key = 6 [(buf.validate.field).string.min_len = 1];
+}
+
+message WindowWire {
+  double extent = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double overscan = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  ExtentMode mode = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Resolved nominal item measurement; the producer substitutes the shared row extent when its interior value is absent.
+  double nominal_item_extent = 4 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+}
+
+// Sixty-four-bit and decimal bounds cross on their own arms because a double cannot carry them exactly;
+// the decimal arm keeps ordinal decimal text, the one bound with no proto scalar.
+message NumericRangeWire {
+  oneof form {
+    option (buf.validate.oneof).required = true;
+
+    Integral integral = 1;
+    Unsigned unsigned = 2;
+    Real real = 3;
+    Precise precise = 4;
+  }
+
+  message Integral {
+    option (buf.validate.message).cel = {
+      id: "appui_numeric.integral_order"
+      message: "integral numeric bounds must be ordered"
+      expression: "this.min <= this.max"
+    };
+
+    int64 min = 1;
+    int64 max = 2;
+    int64 step = 3 [(buf.validate.field).int64.gt = 0];
+  }
+
+  message Unsigned {
+    option (buf.validate.message).cel = {
+      id: "appui_numeric.unsigned_order"
+      message: "unsigned numeric bounds must be ordered"
+      expression: "this.min <= this.max"
+    };
+
+    uint64 min = 1;
+    uint64 max = 2;
+    uint64 step = 3 [(buf.validate.field).uint64.gt = 0];
+  }
+
+  message Real {
+    option (buf.validate.message).cel = {
+      id: "appui_numeric.real_order"
+      message: "real numeric bounds must be ordered"
+      expression: "this.min <= this.max"
+    };
+
+    double min = 1 [(buf.validate.field).double.finite = true];
+    double max = 2 [(buf.validate.field).double.finite = true];
+    double step = 3 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+  }
+
+  message Precise {
+    string min = 1 [(buf.validate.field).string.pattern = "^-?\\d+(\\.\\d+)?$"];
+    string max = 2 [(buf.validate.field).string.pattern = "^-?\\d+(\\.\\d+)?$"];
+    string step = 3 [(buf.validate.field).string.pattern = "^(0*[1-9]\\d*(\\.\\d+)?|0*\\.\\d*[1-9]\\d*)$"];
+  }
+}
+
+// The closed product-shell widget family: one key and one binding on the root, one arm per widget kind.
+// The wire stays open for consumers — a peer decoding a subset of arms is lawful, a peer re-authoring the
+// vocabulary is not.
+message ControlIntentWire {
+  string key = 1 [(buf.validate.field).string.min_len = 1];
+  IntentBindingWire binding = 2 [(buf.validate.field).required = true];
+
+  oneof arm {
+    option (buf.validate.oneof).required = true;
+
+    Button button = 3;
+    Label label = 4;
+    TextInput text_input = 5;
+    NumberInput number_input = 6;
+    DateInput date_input = 7;
+    PathInput path_input = 8;
+    ColorInput color_input = 9;
+    Select select = 10;
+    MultiSelect multi_select = 11;
+    Slider slider = 12;
+    Range range = 13;
+    Toggle toggle = 14;
+    Radio radio = 15;
+    Segmented segmented = 16;
+    Chip chip = 17;
+    Progress progress = 18;
+    Avatar avatar = 19;
+    Breadcrumb breadcrumb = 20;
+    Tooltip tooltip = 21;
+    Banner banner = 22;
+    EmptyState empty_state = 23;
+    Grid grid = 24;
+    Tree tree = 25;
+    Overview overview = 26;
+    Menu menu = 27;
+    Toolbar toolbar = 28;
+    Tab tab = 29;
+    Accordion accordion = 30;
+    Panel panel = 31;
+    Dock dock = 32;
+    Splitter splitter = 33;
+  }
+
+  message Button {
+    string label_key = 1 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Label {
+    string text_key = 1 [(buf.validate.field).string.min_len = 1];
+    TypographyRole role = 2 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+  }
+
+  message TextInput {
+    string watermark = 1;
+    bool multiline = 2;
+  }
+
+  message NumberInput {
+    NumericKind kind = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    NumericRangeWire range = 2 [(buf.validate.field).required = true];
+  }
+
+  // Temporal bounds are plain calendar dates on every kind; a moment here would fabricate a zone the
+  // producer never states.
+  message DateInput {
+    TemporalKind kind = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    optional google.type.Date from = 2;
+    optional google.type.Date until = 3;
+    optional string upper_key = 4 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message PathInput {
+    option (buf.validate.message).cel = {
+      id: "appui_path.multiple_mode"
+      message: "multiple selection is available only when opening files"
+      expression: "!this.multiple || this.mode == 1"
+    };
+
+    PickerMode mode = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    repeated FileFilterRowWire filters = 2 [(buf.validate.field).repeated.max_items = 4096];
+    bool multiple = 3;
+  }
+
+  message ColorInput {
+    ColorPosture posture = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    bool alpha = 2;
+  }
+
+  message Select {
+    SelectPosture posture = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    OptionSourceWire options = 2 [(buf.validate.field).required = true];
+    WindowWire window = 3 [(buf.validate.field).required = true];
+  }
+
+  message MultiSelect {
+    MultiPosture posture = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    OptionSourceWire options = 2 [(buf.validate.field).required = true];
+    WindowWire window = 3 [(buf.validate.field).required = true];
+  }
+
+  message Slider {
+    option (buf.validate.message).cel = {
+      id: "appui_slider.order"
+      message: "slider bounds must be ordered"
+      expression: "this.min <= this.max"
+    };
+
+    double min = 1 [(buf.validate.field).double.finite = true];
+    double max = 2 [(buf.validate.field).double.finite = true];
+    double step = 3 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+  }
+
+  message Range {
+    option (buf.validate.message).cel = {
+      id: "appui_range.order"
+      message: "range bounds must be ordered"
+      expression: "this.min <= this.max"
+    };
+
+    double min = 1 [(buf.validate.field).double.finite = true];
+    double max = 2 [(buf.validate.field).double.finite = true];
+    double step = 3 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+    string upper_key = 4 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Toggle {
+    string label_key = 1 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Radio {
+    repeated OptionRowWire options = 1 [(buf.validate.field).repeated.max_items = 4096];
+  }
+
+  message Segmented {
+    SegmentPosture posture = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    repeated OptionRowWire options = 2 [(buf.validate.field).repeated.max_items = 4096];
+  }
+
+  message Chip {
+    string text_key = 1 [(buf.validate.field).string.min_len = 1];
+    ChipPosture posture = 2 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+  }
+
+  message Progress {
+    option (buf.validate.message).cel = {
+      id: "appui_progress.skeleton_fraction"
+      message: "skeleton progress carries no determinate fraction"
+      expression: "this.form != 3 || !has(this.fraction)"
+    };
+
+    ProgressForm form = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    optional double fraction = 2 [(buf.validate.field).double = {
+      finite: true
+      gte: 0
+      lte: 1
+    }];
+  }
+
+  message Avatar {
+    repeated AvatarRowWire members = 1 [(buf.validate.field).repeated.max_items = 4096];
+    uint32 visible_limit = 2 [(buf.validate.field).uint32.gt = 0];
+  }
+
+  message Breadcrumb {
+    repeated CrumbRowWire crumbs = 1 [(buf.validate.field).repeated.max_items = 4096];
+  }
+
+  message Tooltip {
+    HintRowWire hint = 1 [(buf.validate.field).required = true];
+  }
+
+  message Banner {
+    string headline_key = 1 [(buf.validate.field).string.min_len = 1];
+    string body_key = 2 [(buf.validate.field).string.min_len = 1];
+    BannerSeverity severity = 3 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    BannerPlacement placement = 4 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    repeated ControlIntentWire actions = 5 [(buf.validate.field).repeated.max_items = 4096];
+    optional ControlIntentWire evidence = 6;
+  }
+
+  message EmptyState {
+    string headline_key = 1 [(buf.validate.field).string.min_len = 1];
+    string body_key = 2 [(buf.validate.field).string.min_len = 1];
+    optional ControlIntentWire action = 3;
+  }
+
+  message Grid {
+    repeated ColumnRowWire columns = 1 [(buf.validate.field).repeated.max_items = 4096];
+    WindowWire window = 2 [(buf.validate.field).required = true];
+  }
+
+  message Tree {
+    ControlIntentWire item = 1 [(buf.validate.field).required = true];
+    string expansion_command = 2 [(buf.validate.field).string.min_len = 1];
+    WindowWire window = 3 [(buf.validate.field).required = true];
+  }
+
+  // A minimap strip names its frame producer and jump verb by key and mounts no child intent, so the
+  // recursion never enters it.
+  message Overview {
+    OverviewAxis axis = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    string source_key = 2 [(buf.validate.field).string.min_len = 1];
+    string jump_command = 3 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Menu {
+    repeated MenuRowWire rows = 1 [(buf.validate.field).repeated.max_items = 4096];
+  }
+
+  message Toolbar {
+    repeated ToolbarRowWire rows = 1 [(buf.validate.field).repeated.max_items = 4096];
+    Orientation orientation = 2 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+  }
+
+  message Tab {
+    repeated SectionWire pages = 1 [(buf.validate.field).repeated.max_items = 4096];
+  }
+
+  message Accordion {
+    repeated SectionWire sections = 1 [(buf.validate.field).repeated.max_items = 4096];
+  }
+
+  message Panel {
+    repeated ControlIntentWire children = 1 [(buf.validate.field).repeated.max_items = 4096];
+    string constraint_program = 2 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Dock {
+    repeated ControlIntentWire regions = 1 [(buf.validate.field).repeated.max_items = 4096];
+    string constraint_program = 2 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Splitter {
+    ControlIntentWire first = 1 [(buf.validate.field).required = true];
+    ControlIntentWire second = 2 [(buf.validate.field).required = true];
+    Orientation orientation = 3 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+  }
+}

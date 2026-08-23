@@ -9,11 +9,10 @@
 - `lexical` rejected — collab reaches only through a second yjs CRDT beside core's algebra, and its class roster carries no codec-derivable grammar.
 - `@tiptap/*` rejected on the license gate — comments, snapshots, tracked changes, and document conversion are payment-gated behind a token registry.
 - `platejs`/`slate` rejected — Slate carries no schema, so the document grammar lands estate-authored with zero engine enforcement.
-- `@milkdown/kit` rejected — ProseMirror behind a markdown-opinionated forwarding layer, so admitting it admits the engine behind a forwarder.
-- `remirror` rejected — dormant, with no publish in over a year on a surface whose engine moves weekly.
+- `@milkdown/kit` and `remirror` rejected — each forwards ProseMirror behind an opinionated layer, so either admits the engine behind a forwarder.
 - `prosemirror-schema-basic`/`prosemirror-example-setup` never land — a hardcoded node roster is seed data for the roster owner, never a dependency.
 - `yjs`/`y-prosemirror` never land — core owns merge, causality, and presence, and a second CRDT engine forks the one algebra.
-- `@xyflow/react` admitted — controlled nodes, edges, viewport via pure change folds; interior zustand seals per provider, never consumer-imported.
+- `@xyflow/react` admitted — its interior `zustand` seals per provider, never consumer-imported; nodes, edges, viewport cross as controlled folds.
 - `elkjs` admitted for compound nesting, ports, and routed edges as data — `elkjs/lib/elk-api` with a worker only; the bare entry bundles CJS.
 - `@dagrejs/dagre` rejected — a ports-less, polyline-only subset of what `elk.layered` already answers.
 - `tldraw` rejected — proprietary license with key enforcement and usage telemetry.
@@ -30,11 +29,10 @@
 
 - Contract vocabularies materialize field-for-field — a clamp, remap, or local default forks the peer's semantics, and `viewer/mark` is the instance.
 - Viewer animation reads ONE time authority, the rAF-fed `Clock` — a second clock un-reconciles the construction scrub mixer deltas derive from.
-- This floor measures no Core Web Vital — `runtime:otel/vital` owns capture, cutoffs, and instruments, so a local rating table forks the grades.
 - Windowing a family `runtime:otel/vital` reads is admitted — one buffer serves every observer, so a second reader costs a callback and grades none.
 - Every window bound and capture floor arrives on `Vital.Policy` from the root — a module constant assumes a consumer this package never meets.
 - Environment read policy lands on the scene's `_ENV` fields at the read — a repeated key re-commits over carried handles, decoding nothing.
-- One `KTX2Loader` serves a viewport PER BACKEND GENERATION — its transcoder bakes at worker creation and survives `dispose()`; a swap mints fresh.
+- Renderer-bound capability rides the acquisition record — one `KTX2Loader` per backend generation, since a captured bundle outlives the swap.
 - Byte ports feeding `.buffer` to a decoder take `Uint8Array<ArrayBuffer>` — the bare spelling widens to `ArrayBufferLike`, which decoders refuse.
 - Prefiltered domes bind their renderer while decoded sources do not — `Glb.Prefilter` re-derives the target at re-init, and a survivor is the leak.
 - Environment consumption is producer-agnostic — `_sniff` reads container magic, never a filename or producer, so a producer-keyed arm has no place.
@@ -55,13 +53,15 @@
 - Widened materials re-stamp `{ STANDARD, PHYSICAL }` over `MeshStandardMaterial.prototype.copy` — their `.copy` throws, `setValues` clobbers `uuid`.
 - Textures tag only the two working spaces `ColorManagement` registers — the WebGL upload hard-errors on others, so conversion stays producer-side.
 - `Texture.premultiplyAlpha` binds DOM sources alone — ArrayBufferView uploads ignore it, so associated payloads ride `Material.premultipliedAlpha`.
+- Generated `PlaneRef.artifact` carries blob identity and extent; `Set.key` identifies the document and `PlaneRef.file` stays metadata.
+- Appearance seating pairs each generated `Set` with its carrier appearance key — baked sets verify that key and environment kinds never seat.
 - Splat order is consumer-owned per view — the producer wire carries no ordering key, so back-to-front is a camera-epoch fold and never decode order.
-- Renderer-bound capability travels on the acquisition record alone — a codec bundle captured at construction survives the swap that disposed it.
 - Canvas keeps React Flow's own recognizers — the graph mirrors through one adapter atom; a second recognizer over its d3-zoom double-binds.
 - Persisted grain keys share ONE mint, `rasm.ui.<domain>.<grain>.v<N>` — `v<N>` is a DECLARED ordinal, never a schema hash, so no edit re-keys.
 - Editor quarantine is a STORED-doc decode mode alone — live collab refuses on the pinned generation; quarantine atoms shift shared position math.
 - Key chords spell `Control` or `Mod` — react-aria's parser holds no `ctrl` token, so `Ctrl` parses as a KEY and drops the modifier silently.
 - Multi-panel elements persist at the ELEMENT grain — layout, active panel, and cross-filter live in the workspace token a panel config patches.
+- `AppUiSurfaceProgram` seats one app input: partition, unique-key control tree, and exact structured-variable layout closure; leaves stay support.
 
 ## [03]-[COLLAPSE]
 

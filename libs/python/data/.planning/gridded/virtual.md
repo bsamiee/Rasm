@@ -17,7 +17,7 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 - Receipt: the census folds EVERY `ManifestArray`-backed variable — the `hasattr(var.data, "manifest")` guard skips eagerly-materialized `loadable_variables` slots, never a first-variable-only read that undercounts a multi-variable cube; the `engine="virtual"` stamp is the invariant the icechunk registration path asserts as the provable `Literal["virtual"]`.
 - Packages: `virtualizarr` and `h5py` import module-top (both ungated); `check_enum_dtype` returns only the values map, so the `inspect` inverse re-supplies the `"u1"` base.
 - Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new export target one `ManifestWrite` case; a new CF special type one `CFDtype` case; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.VIRTUAL` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
-- Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form. The `tests/contracts/MANIFEST.md` `[02.27]` raw field container virtualizes through the existing `hdf` parser arm with zero new case — the parser names the scale-less axes phony, so the entry's byte-range consumption is already this cluster's.
+- Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form. The `tests/contracts/manifest.json` `hdf5-exchange/field` raw-container case virtualizes through the existing `hdf` parser arm with zero new case — the parser names the scale-less axes phony, so the case's `python:data/gridded/virtual#MANIFEST` consumer actor already owns this byte-range leg.
 
 ```python signature
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -166,7 +166,7 @@ class CFDtype:
 @tagged_union(frozen=True)
 class VirtualParser:
     tag: Literal["hdf", "netcdf3", "zarr", "dmrpp", "fits", "kerchunk_json", "kerchunk_parquet", "icechunk"] = tag()
-    hdf: tuple[str | None, tuple[str, ...], object | None] = case()
+    hdf: tuple[str | None, tuple[str, ...]] = case()
     netcdf3: tuple[str | None, tuple[str, ...], dict[str, object] | None] = case()
     zarr: tuple[str | None, tuple[str, ...]] = case()
     dmrpp: tuple[str | None, tuple[str, ...]] = case()
@@ -191,12 +191,14 @@ class VirtualParser:
             case "parq" | "parquet":
                 return VirtualParser(kerchunk_parquet=(None, None, (), None))
             case _:
-                return VirtualParser(hdf=(None, (), None))
+                return VirtualParser(hdf=(None, ()))
 
     def build(self) -> object:
         match self:
-            case VirtualParser(tag="hdf", hdf=(group, drop, reader_factory)):
-                return HDFParser(group=group, drop_variables=list(drop), reader_factory=reader_factory)
+            case VirtualParser(tag="hdf", hdf=(group, drop)):
+                # Omission is load-bearing: VirtualiZarr supplies `BlockStoreReader`; an explicit `None` replaces the
+                # callable default and fails only when the parser first opens a source.
+                return HDFParser(group=group, drop_variables=list(drop))
             case VirtualParser(tag="netcdf3", netcdf3=(group, skip, reader_options)):
                 return NetCDF3Parser(group=group, skip_variables=list(skip), reader_options=reader_options)
             case VirtualParser(tag="zarr", zarr=(group, skip)):
@@ -345,17 +347,20 @@ class FieldVirtual(Struct, frozen=True):
 
 def _url(ref: ResourceRef) -> str:
     # the registry, the parsers, and every `open_virtual_*` positional take a URL string; the ref is what CARRIES it
-    # plus its credential, so one projection serves all three and no call site re-joins two values.
-    return str(ref.path)
+    # plus its credential, so one projection serves all three and no call site re-joins two values. `as_uri()` is
+    # load-bearing: obspec rejects a bare local path because every registry key requires an explicit scheme.
+    return ref.path.as_uri()
 
 
 def _registry(sources: "Sequence[ResourceRef]", config: StoreConfig | None) -> object:
-    # every per-source handle rides the runtime `store_handle` fold, so a manifest walk over archival sources
-    # inherits the branch retry envelope AND that source's OWN credential provider — a bare `from_url` here would
-    # open a second construction spelling whose reads carry neither, and a signed-catalog source would fail
-    # unauthenticated. Per-source is the honest grain: one page-level provider credentialed a mixed manifest with
-    # whichever token the first source needed.
-    return ObjectStoreRegistry({_url(ref): store_handle(_url(ref), config=config, provider=ref.credentials) for ref in sources})
+    # Registry keys are STORE prefixes while parser URLs are OBJECT coordinates. Registering `_url(ref)` against a
+    # handle opened at that same full object makes longest-prefix resolution return the empty object key. The ref's
+    # own root/relative split is the one authority for both sides, and `store_handle(ref)` retains its credential.
+    roots = tuple((ref.root, ref) for ref in sources)
+    if any(left == right and first.credentials is not second.credentials for index, (left, first) in enumerate(roots) for right, second in roots[index + 1 :]):
+        raise ValueError("one store root cannot carry multiple credential providers inside one ObjectStoreRegistry")
+    unique = {root: ref for root, ref in roots}
+    return ObjectStoreRegistry({root: store_handle(ref, config=config) for root, ref in unique.items()})
 
 
 def _open_virtual(spec: FieldVirtual) -> "xr.Dataset":

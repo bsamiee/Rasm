@@ -1,25 +1,25 @@
 # [APPHOST_COMPANION_SIDECAR]
 
-The inbound serving counterpart to the outbound boundary: three `ModalityRow` rows key on the Tier-0 `DeploymentTopology` closed axis and carry their spawn-attach-degrade-forward capability SET under one legal-corner law, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set through verdict-returning transitions, one `ControlVerb` roster folds the wire verbs onto the existing degradation, options, support, dispatch, config, and drain owners under one inbound continuation that audits, traces, fans, and fires in one place, one `ServiceHost` registration mounts the control service, the diagnostic service, the health service, every composition-supplied served plane, and the co-hosted asset seat over a Unix domain socket, one cross-process cascade writes a parent-observed level onto the child `DegradationCell.Cascade` floor, one `PeerAdmission` reads the connecting peer's credentials at accept over the managed raw-socket-option route, and one `HostBinding` owner acquires the serving endpoint through a policy table keyed on `(HostOs, ActivationSource, AddressKind)` that folds systemd socket activation, launchd socket activation, and a fresh bind into one acquisition through the `ServiceHost.Bind` listener seam. The page owns the modality rows, the attached-peer roster, the verb roster and its fold, the server-host registration, the cascade write, the peer-credential read, the host-binding acquisition, and the CloudEvents ingress door; it consumes `DegradationCell`, `OptionsAdmission`, `SupportTrigger`, `HostAttachPort`, `ReceiptSinkPort`, `FactSink<TSignal>`/`AppHostPoint`/`AppHostFact`, `ClockPolicy`, `TraceContext`/`TenantAdoption`, `RedactionRegistration`/`IRedactorProvider`, `CommandDispatch`/`CommandIntent`, `Membership.Contribute`, `HostCapability`/`BootVariable` from `Runtime/profiles`, `OutboxRow.Admit`/`EventBus.Dispatch` and the kernel `EventCarrier` accessor at the ingress door, and the `Discovery` UDS/manifest law as settled vocabulary, leaves SIGTERM/SIGQUIT/SIGHUP to `Runtime/lifecycle#FAULT_SPINE.ArmTraps` and readiness notify to `Runtime/profiles#LIFETIME_ADAPTERS.SystemdNotifier`, and mints no eighth port.
+The inbound serving counterpart to the outbound boundary: three `ModalityRow` rows key on the Tier-0 `DeploymentTopology` closed axis and carry their spawn-attach-degrade-forward capability set under one legal-corner law, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set through verdict-returning transitions, one `ControlVerb` roster folds local control transitions under one continuation, and one `ServiceHost` registration mounts control, capability discovery, health, every composition-supplied served plane, and the co-hosted asset seat over a Unix domain socket. The page also owns the cross-process degradation cascade, peer-credential admission, host-binding acquisition, and CloudEvents ingress door.
 
 ## [01]-[INDEX]
 
 - [02]-[PROCESS_MODALITY]: Three modality rows under one capability law, the lease-epoch attached-peer roster, and the fault and signal families this page owns.
 - [03]-[CONTROL_SERVICE]: The wire verb roster folded onto its existing owners under one audit-trace-fan-fire continuation.
-- [04]-[SERVICE_HOST]: Served-plane registration and mapping, the co-hosted asset seat, and the Unix-domain-socket intake.
+- [04]-[SERVICE_HOST]: Generated control and capability-discovery services, served-plane mounting, assets, and local intake.
 - [05]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
 - [06]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
 - [07]-[HOST_BINDING]: The `(HostOs, ActivationSource, AddressKind)` bind-policy table, its acquisition arms, reuse, and override.
-- [08]-[EVENT_INGRESS]: CloudEvents HTTP door — the abuse-protection handshake, per-delivery admission, and the semconv families every binding row stamps.
+- [08]-[EVENT_INGRESS]: Authenticated CloudEvents HTTP door — abuse handshake, exact-body custody, trust gates, and dispatch.
 
 ## [02]-[PROCESS_MODALITY]
 
 - Owner: `ModalityCapability` `[SmartEnum<string>]` realizing kernel `ICapability<ModalityCapability>` — the four peer-modality capabilities; `ModalityRow` the per-topology policy record carrying that capability SET; `ModalityRows` the frozen row set with its total dispatch and its `CapabilityLaw`; `CompanionPeer` the attached-child capsule the modality row produces; `PeerRoster` the attached-connection cell carrying a monotone lease epoch; `RosterEntry` the per-connection lease record; `RosterReceipt` the join/renew/drop transition projection; `CompanionFault` `[Union]` the page's own fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Companion`); `CompanionSignal` `[Union]` the rail fact every transition on this page carries.
-- Cases: three of the closed axis's six values carry a peer modality — `Companion` is the host-spawned single-shot child (`Spawn`, `Degrade`), `Sidecar` is the co-deployed attach-only peer this process never started (`Admit`, `Forward`), `Service` is the independently-managed peer this process dials and admits (`Spawn`, `Admit`, `Degrade`); `InHost`, `Edge`, and `Cli` reach no peer and refuse on the typed rail naming the axis; three roster transitions — join on accept, renew on heartbeat, drop on lease expiry or disconnect.
+- Cases: three of the closed axis's six values carry a peer modality — `Companion` is the host-spawned single-shot child (`Spawn`, `Degrade`), `Sidecar` is the co-deployed attach-only peer this process never started (`Admit`, `Forward`), `Service` is the independently-managed peer this process dials and admits (`Spawn`, `Admit`, `Degrade`); `InHost`, `Edge`, and `Cli` reach no peer and refuse on the typed rail naming the axis; three roster transitions — join on accept, renew on heartbeat, drop on lease expiry or disconnect; `CompanionSignal.Drain` carries the generated parent-side drain response, the peer pid, and its generated worst deadline outcome as one typed settled case.
 - Entry: `Fin<ModalityRow> Row` is the extension property total state-free `Switch` from topology value to frozen row, railing `CompanionFault.Excluded` on the three values this page serves no modality for and admitting the row's corner through `ModalityRows.Law`; `Attach(PeerRoster roster, ModalityRow row, OutboundRuntime outbound, ProcessStartInfo spec, RedrivePolicy attach, Func<Option<int>, Fin<DiscoveryManifest>> manifestOf, Func<DiscoveryManifest, CancellationToken, IO<Unit>> drainFan, GrpcChannelPolicy policy)` returns `IO<CompanionPeer>` and carries the gauged spawn-and-dial effect through `Wire/outbound#DELIVERY_FANOUT` `Discovery.Spawn`'s own five-parameter arity — the outbound runtime and the attach redrive ride the `HopRows.CompanionSpawn` hop — the manifest reader taking the started child's pid as an OPTION so the attach-only arm states that it spawned nothing; `ForwardWrite(PeerRoster roster, ModalityRow row, CommandIntent intent, Func<RosterEntry, CommandIntent, IO<CommandReceipt>> hop)` returns `IO<Option<Seq<CommandReceipt>>>` — the `Forward`-gated durable-write forward; `PeerRoster.Accept(ModalityRow row, ServerCallContext context, DiscoveryManifest manifest)` returns `IO<Fin<RosterReceipt>>` — the serving-side accept hop; `PeerRoster.Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now)`, `.Renew(int pid, Instant now)`, and `.Drop(int pid, Instant now)` each fold one transition over the cell and return `IO<Fin<RosterReceipt>>`, so a verb applied to a pid the roster does not hold answers a REFUSAL rather than a receipt naming a transition that never happened.
-- Auto: `Attach` reads the discovery manifest through the bound `Discovery.Read` projection and dials the control channel through `Discovery.Connect`, running the single-shot `Discovery.Spawn` only on rows admitting `Spawn` and the attach-only read only on rows admitting `Admit` — a row holding neither is unrepresentable because the law bars the empty corner — and both arms bracket the dial with the roster's own `ClockPolicy.Line` so one `ModalityReceipt` carries the real outcome, the MEASURED monotone elapsed, and the capability set the cascade consults; `Accept` reads the accepted socket off the connection's `IConnectionSocketFeature`, folds it through `PeerAdmission.Read`, and hands the credential to `Admit`, so the credential chain runs accept to admit with no prose hop between; `Admit` keys the entry by the kernel-reported `PeerCredential.Pid` — never the manifest's self-asserted pid — stamps the lease deadline from `LeasePolicy.Maintenance.CrashStaleness` so a peer's lease lapses on the same crash-staleness window the maintenance lease uses, and fires the bound `Contribute` edge so the local attach reaches the cluster view as a `Joining` row the probe sweep then grades; `Renew` extends the lease and `Sweep(Instant now)` drops every entry whose lease lapsed, so a vanished peer leaves the roster without an explicit disconnect; every landed transition mints one `RosterReceipt` fanned through the one `FactSink` and fired at `AppHostPoint.Companion`.
-- Receipt: `ModalityReceipt` — topology key, the peer pid as an `Option`, attach outcome, elapsed `Duration`, and the row's capability set with `CascadeEligible` DERIVED from it; `RosterReceipt` — transition kind, peer pid, the peer uid as an `Option`, lease epoch, attached-count after the fold, `Instant`.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (kernel `CapabilitySet`/`CapabilityLaw`/`Cell`/`Transition`), Grpc.Net.Client, Grpc.AspNetCore (`ServerCallContextExtensions.GetHttpContext`, `IConnectionSocketFeature`), BCL inbox
+- Auto: `Attach` reads the discovery manifest through the bound `Discovery.Read` projection and dials the control channel through `Discovery.Connect`, running the single-shot `Discovery.Spawn` only on rows admitting `Spawn` and the attach-only read only on rows admitting `Admit` — a row holding neither is unrepresentable because the law bars the empty corner — and both arms bracket the dial with the roster's own `ClockPolicy.Line` so one `ModalityReceipt` carries the real outcome, the MEASURED monotone elapsed, and the capability set the cascade consults; `Accept` reads the accepted socket off the connection's `IConnectionSocketFeature`, folds it through `PeerAdmission.Read`, and hands the credential to `Admit`, so the credential chain runs accept to admit with no prose hop between; `Admit` keys the entry by the kernel-reported `PeerCredential.Pid` — never the manifest's self-asserted pid — stamps the lease deadline from `LeasePolicy.Maintenance.CrashStaleness` so a peer's lease lapses on the same crash-staleness window the maintenance lease uses, and fires the bound `Contribute` edge so the local attach reaches the cluster view as a `Joining` row the probe sweep then grades; `Renew` extends the lease and `Sweep(Instant now)` drops every entry whose lease lapsed, so a vanished peer leaves the roster without an explicit disconnect; every landed transition mints one `RosterReceipt` fanned through the one `FactSink` and fired at `AppHostPoint.Companion`; the outbound drain consumer admits the generated reply once, folds its validated step outcomes onto the generated severity vocabulary, and fans the whole reply through the same sink before settling the hop.
+- Receipt: `ModalityReceipt` — topology key, the peer pid as an `Option`, attach outcome, elapsed `Duration`, and the row's capability set with `CascadeEligible` DERIVED from it; `RosterReceipt` — transition kind, peer pid, the peer uid as an `Option`, lease epoch, attached-count after the fold, `Instant`; generated `DrainRuntimeResponse` — the parent-side drain evidence, carried unchanged as ProtoJSON while `CompanionSignal.Drain` adds only in-process peer identity and the derived generated outcome.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (kernel `CapabilitySet`/`CapabilityLaw`/`Cell`/`Transition`), Grpc.Net.Client, Grpc.AspNetCore.Server (`ServerCallContextExtensions.GetHttpContext`, `IConnectionSocketFeature`), BCL inbox
 - Growth: one `ModalityRow` over an existing `DeploymentTopology` value absorbs a new peer shape — the axis roster is Tier-0's and grows there alone; a new peer capability is one `ModalityCapability` row with the legal corners that admit it, never a bool column; a new roster transition is one `RosterTransition` case with one fold arm; a new observable transition is one `CompanionSignal` case with no roster edit; a new refusal is one `CompanionFault` case and the owning `FaultBand` span edit; zero new surface.
 - Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` from the dial-out owner and never re-declares the spawn or connect mechanics — `Discovery.Spawn`, `Discovery.Connect`, and `Discovery.Read` carry the bytes; the row keys on `DeploymentTopology` and mints no vocabulary of its own — the closed axis at Tier-0 `[10]-[CONSUMPTION_MODEL]` already spells `companion` and `sidecar`, and a local re-mint of those two values is the anchoring defect `[CONSUMPTION_DESCRIPTOR]` forecloses; a fourth `paired-peer` value is the rejected form for a second reason — pairing DIRECTION is already two capabilities, so a set holding `Admit` without `Spawn` states the symmetric attach exactly and `Service` is the axis value that peer already carries; FOUR ADJACENT BOOLS WERE A CORNER LAW IN DISGUISE — three of sixteen corners are legal and the other thirteen name peers this page cannot serve (a row spawning without degrading, a row forwarding writes it never admitted, the empty row that inherits the attach arm), so the set rides `CapabilitySet<ModalityCapability>` under an UNCONDITIONAL `CapabilityLaw.Legal` roster and `ModalityRows.Law.Admit` refuses at the `Fin` mint; NAMED LOSS — per-column compile-time exhaustiveness, bought back twice by that admit and by every consumer stating the capability it needs as a value through `Admits`; `ModalityReceipt.CascadeEligible` DERIVES from the carried set rather than storing a copy of one column, because a stored mirror answers the question its source already answers and diverges the moment a row moves; the attach deadline is the `DeadlineClass.HopAttempt` row read by projection and the lease deadline is the `LeasePolicy.Maintenance.CrashStaleness` value, never a literal here; `CompanionPeer` carries the `CompanionChild` produced by the outbound spawn and the `GrpcChannel` produced by the control dial so one capsule owns both legs of an attached child; `PeerRoster` is the single host-side attached-connection owner — the lease epoch is a monotone `ulong` bumped on every join and drop so a stale peer reconnecting under a prior epoch is detectable, and the roster never re-mints presence: it is the beat PRODUCER of the `Rasm.Persistence` `Version/ledger#PRESENCE` EPHEMERAL awareness lane — each join and drop crosses as the Persistence-OWNED `PresenceRow(Actor, State, At, Ttl)` through `Awareness.Present(actor, state, ttl, frame)` on the `Runtime/resources#DRAIN_QUEUES` `DrainSurface` lane, `durable: false`, never the durable store, never the exactly-once CDC envelope, and no AppHost type crosses down; THE ABSENT IDENTIFIER IS AN OPTION, NOT A ZERO — a receipt for a pid the roster does not hold reported uid 0, which names root, and an attach that faulted before a manifest existed reported pid 0, which names the kernel's own scheduler, so both columns are `Option`-shaped and an audit reader can no longer read a fabricated superuser or a fabricated peer out of a missing entry; that same law bars the pid-0 SENTINEL an attach-only manifest read once passed as its argument, so the reader takes `Option<int>` and the absent child is a value rather than a number the callee must know to disbelieve; FOREIGN ERRORS ARE ADOPTED, NEVER LAUNDERED — `CompanionFault.Of` passes a companion fault through untouched and wraps anything else as `Foreign`, carrying the original `Error` so its numeric identity and retry semantics survive instead of being rebuilt from message text; NAMED LOSS — the `Verify` case the ingress signature gate once minted from a message, which `Foreign` replaces at its own offset: the verifier's typed refusal now reaches the delivery tally under the band code its own owner gave it, which is stronger than a companion-band name carrying that owner's text; `WireHealth` reads the attached-count for per-peer serving status, never a second roster; the two-tier membership law holds — `PeerRoster` is the LOCAL kernel-credentialed attach set contributing into `Wire/coordination#MEMBERSHIP_VIEW` through `Membership.Contribute`, `FleetRoll` reads `MembershipView.Serving` (cluster liveness) for its fleet wave while each node's actual roll dials local over this control hop, and `ForwardWrite` reads `PeerRoster.Attached` as the LOCAL forwarding set; the page is host-local and crosses no browser or peer TS wire of its own — the verb messages are Rasm.Compute/Runtime/wire#PROTO_VOCABULARY-owned protobuf consumed here, and `RosterReceipt`/`ModalityReceipt` reconstruct through the existing `ReceiptEnvelopeWire` at Runtime/ports#TS_PROJECTION, so the page authors no `TS_PROJECTION` cluster and mints no second wire shape.
 
@@ -31,34 +31,32 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Mime;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using CloudNative.CloudEvents;
-using CloudNative.CloudEvents.AspNetCore;
-using Google.Protobuf;
-using Google.Protobuf.WellKnownTypes;
 using Grpc.AspNetCore.Server;
 using Grpc.Core;
+using Grpc.Core.Interceptors;
 using Grpc.Health.V1;
 using Grpc.HealthCheck;
 using LanguageExt;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Compliance.Classification;
-using Microsoft.Extensions.Compliance.Redaction;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Net.Http.Headers;
 using NodaTime;
+using OpenTelemetry.Context;
 using Rasm.Domain;
 using Thinktecture;
+using CapabilityContract = Rasm.Contracts.Capability.V1;
 using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Wire;
@@ -137,7 +135,10 @@ public abstract partial record CompanionFault : Fault {
     public sealed partial record Activation : CompanionFault { public Activation(string detail) : base(detail) { } }
 
     [FaultCase(6)]
-    public sealed partial record Origin : CompanionFault { public Origin(string header) : base(header) { } }
+    public sealed partial record Handshake : CompanionFault {
+        public Handshake(string field, int httpStatus = StatusCodes.Status400BadRequest) : base(field) => HttpStatus = httpStatus;
+        public int HttpStatus { get; }
+    }
 
     // Adoption carries the cause WHOLE as the inner, so its own code, recovery, and
     // retriability survive the crossing. The signature gate's refusal reaches a reader as the verifier's own
@@ -165,6 +166,11 @@ public abstract partial record CompanionSignal {
     public sealed record Bound(BindReceipt Settled) : CompanionSignal;
 
     public sealed record Ingress(Delivery Settled) : CompanionSignal;
+
+    public sealed record Drain(
+        int PeerPid,
+        global::Rasm.Contracts.Compute.V1.DeadlineOutcome Outcome,
+        DrainRuntimeResponse Reply) : CompanionSignal;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -354,37 +360,23 @@ stateDiagram-v2
 
 ## [03]-[CONTROL_SERVICE]
 
-- Owner: `ServicePlane` `[SmartEnum<string>]` the two served planes the proto declares; `ControlVerb` `[SmartEnum<string>]` the verb roster carrying each verb's plane and its operator-audit projection as a delegate column; `ControlInbound` the static handler folding each verb onto its existing transition owner; `ControlRuntime` the dependency record; `VerbReceipt` the per-verb projection the sink receives; `ControlServiceImpl` and `DiagnosticServiceImpl` the two generated-base implementations `ServiceHost.Map` mounts; `ControlReplyMap` the one `[Mapper]` projecting each typed receipt onto its reply message.
-- Cases: six verbs across two planes — set-degradation onto `DegradationCell.Force`, reload-options onto `OptionsAdmission.Invalidate` landing one `ReloadReceipt` under `ReloadReceipt.ControlTrigger`, dispatch-tool onto the `Agent/runtime#COMMAND_DISPATCH` front door behind the redaction-and-audit seam, dispatch-patch onto `OptionsAdmission.PatchSection` under `ReloadReceipt.PatchTrigger`, and drain-runtime onto the `Runtime/lifecycle#DRAIN_CONDUCTOR` fold, all five on the `Control` plane; capture-bundle onto `SupportTrigger.Requested` under the `SupportTriggerKind.ExternalCommand` key and `SupportCapture.Capture` on the `Diagnostic` plane, which is where `compute.proto` declares it.
-- Entry: every verb takes the `ServerCallContext` its generated override already holds — `SetDegradation(ControlRuntime runtime, ServerCallContext context, string level, string reason)` returns `IO<DegradationState>`, `ReloadOptions(runtime, context)` returns `IO<ReloadReceipt>`, `CaptureSupport(runtime, context, CorrelationId correlation, string reason)` returns `IO<SupportReceipt>`, `DispatchTool(runtime, context, string tool, JsonElement arguments)` returns `IO<CommandReceipt>`, `DispatchPatch(runtime, context, string section, JsonElement patch)` returns `IO<ReloadReceipt>`, and `DrainRuntime(runtime, context, Duration inherited, string reason)` returns `IO<DrainReceipt>` — each rail is the existing owner's rail, never a new one, and each fold runs inside the one `Continued` bracket.
-- Auto: `Continued` is the ONE seat that runs a verb — it resolves the episode correlation, runs the row's own audit projection, brackets the fold in `TraceContext.Continue(runtime.Source, context.RequestHeaders, verb.Key, ControlRuntime.Adoption)` so the companion span descends from the caller's span instead of rooting fresh (the parent's client leg injects the same context through `TraceContext.Inject(Metadata)`, and the two call sites are what make the propagation claim hold), and fans the `VerbReceipt` while firing `AppHostPoint.Companion`; the wire level key admits through `DegradationLevel.TryGet` so an unknown key resolves to `None` and `Force` re-derives rather than forcing a phantom level; reload-options invalidates the options-monitor cache through the bound `InvalidateOptions` seam and stamps the same `ReloadOutcome.Applied` transition the `SIGHUP` signal and the options monitor enqueue, distinguished only by the trigger string; dispatch-tool redacts the argument payload BEFORE the audit and the dispatch, resolving the redactor off the descriptor's own `PermissionShape.Classification` through `IRedactorProvider.GetRedactor`, so an unresolvable tool falls to the `Unknown` row whose erase treatment keeps the audit record fail-closed; the audit itself is the verb ROW's own column — three verbs carry an operator-audit reason and three carry none, and that fact is roster data rather than three hand-spelled capture blocks.
-- Receipt: `DegradationState`, `ReloadReceipt`, `SupportReceipt`, `CommandReceipt`, and the conductor's own `DrainReceipt` with its `DrainStep` rows cross verbatim; `VerbReceipt` carries the verb ROW and the serialized payload the sink fans, never a generic control-receipt ledger; dispatch-tool's payload is the `ToolAudit` carrying the tool key and the REDACTED argument text, never the raw payload the dispatch consumed.
-- Packages: LanguageExt.Core, NodaTime, NodaTime.Serialization.Protobuf (`ToNodaDuration`/`ToProtobufDuration` and `ToInstant`/`ToTimestamp` carry the drain budget and stamps across the verb), Thinktecture.Runtime.Extensions, Riok.Mapperly, Grpc.Core.Api, Google.Protobuf (`JsonFormatter` carries a `Struct` payload across as canonical JSON), Microsoft.AspNetCore.JsonPatch.SystemTextJson, Microsoft.Extensions.Compliance.Redaction, BCL inbox
-- Growth: a new control verb is one `ControlVerb` row carrying its plane and its audit projection, one `ControlInbound` method folding onto its existing owner, and one override on the plane's implementation; zero new surface — no `ControlReceipt` abstraction and no new state machine. The two dispatch verbs are that shape at full size: `DispatchTool` folds the requested tool call through the redaction-and-audit seam before `CommandDispatch.Run` lands it, riding a payload that carries the redacted argument projection so the audited record never holds classified argument text; `DispatchPatch` admits the RFC-6902 `application/json-patch+json` document and folds it through `Runtime/config#POLICY_VALUES` `OptionsAdmission.PatchSection` onto the one `ReloadOutcome` transition, so a partial config edit is the same reload concern the SIGHUP signal and the reload-options verb land.
-- Boundary: THE PROTO IS THE ROSTER'S EVIDENCE — `tests/contracts/rasm/compute/v1/compute.proto:352-357` declares FIVE `ControlService` rpcs and `:360-362` puts `CaptureBundle` on `DiagnosticService`, so `CaptureSupport` is NOT a sixth control verb: it carries `ServicePlane.Diagnostic`, `DiagnosticServiceImpl` implements it, and `ServiceHost.Map` mounts BOTH planes — the prior form declared a sixth control verb the proto has no rpc for and mounted a service whose only rpc had no server; the generated contract is settled law, not a spelling to re-ask — `grpc_csharp_plugin` emits both services from the repo's own `.proto` at compile time so they live in no installed artifact and the G7 spec-compile gate is the only rail that can see them, while the SHAPE they must satisfy is fixed: each unary override is `public virtual Task<TReply> Verb(TRequest request, ServerCallContext context)`, each client verb is the four-member quartet over the protected `NewInstance(ClientBaseConfiguration)` clone seam, `BindService` is the registration seam in both its forms, and `__ServiceName` is the proto package-qualified name every `Method<TRequest,TReply>` descriptor keys on — every type those members derive from is catalogued at `libs/csharp/.api/api-grpc-core-api.md` `[STACKING]`; the reply messages project the typed receipts field-for-field through ONE `[Mapper]`, so this page owns the fold from wire to owner and never a hand transcription; the `Empty` request on reload-options carries no payload so the handler reads runtime state, and a `Struct` argument crosses through protobuf's own canonical JSON printer rather than a hand walker; drain-runtime commits the drain phase through `Runtime/lifecycle#DRAIN_CONDUCTOR` and re-implements nothing it holds — `DrainBand`, `DrainOutcome`, `DrainConductor`, `DrainReceipt`, and `DrainStep` are that owner's, and a second ordered flush beside them forks the fence the conductor's first act commits; the inherited allotment is LAW rather than a knob — `docs/stacks/csharp/domain/resilience.md` `[04]-[HOP_TOPOLOGY]` holds that allotments inherit through nested seams as the MINIMUM of the child's class and the inherited remainder, so this fold takes `min(DeadlineClass.DrainCooperative.Allotted, inherited)` and a child re-arming its own full budget unbounds the parent drain that asked for it; ingress tenancy is ADMITTED per carrier and `TenantAdoption` carries no default, so this hop states its trust class explicitly — `ControlRuntime.Adoption` is `TenantAdoption.Adopted` because `PeerAdmission` has already read the connecting peer's kernel-reported uid and pid off the accepted socket, which is exactly the trusted-carrier case the `RULINGS.md` `[02]` ingress-tenancy ruling admits, and a hop without that credential read carries `Refused`.
+- Owner: `ControlVerb` `[SmartEnum<string>]` the local verb roster carrying each operator-audit projection as a delegate column; `ControlInbound` the static handler folding each verb onto its existing transition owner; `ControlRuntime` the dependency record; `VerbReceipt` the per-verb projection the sink receives; `ControlServiceImpl` the generated-base implementation `ServiceHost.Map` mounts; `ControlContractInterceptor` the one request/response contract seat; `ControlReplyMap` the one `[Mapper]` projecting the two surviving RPC receipts onto their response messages.
+- Cases: set-degradation folds onto `DegradationCell.Force` and drain-runtime onto `Runtime/lifecycle#DRAIN_CONDUCTOR`; both survive as peer-called `ControlService` RPCs.
+- Entry: `SetDegradation(ControlRuntime runtime, ServerCallContext context, string level, string reason)` returns `IO<DegradationState>` and `DrainRuntime(runtime, context, Duration inherited, string reason)` returns `IO<DrainReceipt>`; their generated overrides are the complete control RPC surface. `CapabilityDiscoveryServiceImpl.Discover` is the generated discovery request/response boundary and projects the current permitted catalog once.
+- Auto: `ControlContractInterceptor` admits each generated request once before the handler and each generated response once after it through `WireAdmission.Validate`; `Continued` then resolves the episode correlation, runs the row's audit projection, continues the caller trace, and fans the typed `VerbReceipt`. The wire level key admits through `DegradationLevel.TryGet`, and drain inherits the tighter of the caller remainder and `DeadlineClass.DrainCooperative`.
+- Receipt: `DegradationState` and the conductor's own `DrainReceipt` cross the wire. `VerbReceipt` carries the local verb row and serialized typed payload the sink fans.
+- Packages: LanguageExt.Core, NodaTime, NodaTime.Serialization.Protobuf, Thinktecture.Runtime.Extensions, Riok.Mapperly, Grpc.Core.Api (`Interceptor`), BCL inbox
+- Growth: a new RPC exists only when an independently real peer caller and server override both land.
+- Boundary: THE PROTO IS THE WIRE ROSTER'S EVIDENCE — `ControlService` declares only `SetDegradation` and `DrainRuntime`, and this page implements exactly those two generated overrides. Reload, tool dispatch, patch dispatch, and support capture stay with their local owners rather than becoming speculative operator RPCs. Response messages project typed receipts field-for-field through one `[Mapper]`; drain-runtime threads the admitted inherited allotment unchanged to the conductor, which owns the one `min(local, inherited)` intersection. `ControlContractInterceptor` reads the central two-rail verdict directly: authored request refusals raise `InvalidArgument`, authored response refusals raise `Internal`, and both pass the unchanged violation sequence into `FaultContext`; an unrostered type or CEL failure raises `Internal` with no fabricated field detail. It is registered for `ControlServiceImpl` alone, so generated health and externally supplied service planes do not pass through a corpus roster they do not belong to. No handler, mapper, or second validator rechecks a message. Ingress tenancy is admitted per carrier: `ControlRuntime.Adoption` is `TenantAdoption.Adopted` because `PeerAdmission` reads the connecting peer's kernel-reported uid and pid from the accepted socket.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ServicePlane {
-    public static readonly ServicePlane Control = new("control");
-    public static readonly ServicePlane Diagnostic = new("diagnostic");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlVerb {
-    public static readonly ControlVerb SetDegradation = new("set-degradation", ServicePlane.Control, static _ => Option<string>.None);
-    public static readonly ControlVerb ReloadOptions = new("reload-options", ServicePlane.Control, static _ => Option<string>.None);
-    public static readonly ControlVerb DispatchPatch = new("dispatch-patch", ServicePlane.Control, static _ => Option<string>.None);
-    public static readonly ControlVerb DispatchTool = new("dispatch-tool", ServicePlane.Control, static tool => Some($"dispatch-tool:{tool}"));
-    public static readonly ControlVerb DrainRuntime = new("drain-runtime", ServicePlane.Control, static reason => Some($"drain-runtime:{reason}"));
-    public static readonly ControlVerb CaptureSupport = new("capture-bundle", ServicePlane.Diagnostic, static reason => Some(reason));
-
-    public ServicePlane Plane { get; }
+    public static readonly ControlVerb SetDegradation = new("set-degradation", static _ => Option<string>.None);
+    public static readonly ControlVerb DrainRuntime = new("drain-runtime", static reason => Some($"drain-runtime:{reason}"));
 
     [UseDelegateFromConstructor]
     public partial Option<string> Audit(string detail);
@@ -393,43 +385,28 @@ public sealed partial class ControlVerb {
 // --- [MODELS] -------------------------------------------------------------------------------
 public readonly record struct VerbReceipt(ControlVerb Verb, JsonElement Payload);
 
-public readonly record struct ToolAudit(string Tool, string Arguments);
-
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed record ControlRuntime(
     DegradationCell Degradation,
-    Func<Option<string>, Unit> InvalidateOptions,
-    Func<IConfigurationRoot> ActiveConfig,
-    string ReloadSection,
-    ReloadClass ReloadClass,
-    Func<string, Func<JsonObject, Validation<Error, Unit>>> Revalidate,
-    Func<CommandIntent, IO<CommandReceipt>> Dispatch,
     Func<Duration, IO<DrainReceipt>> Drain,
-    Func<string, DataClassification> Classify,
-    IRedactorProvider Redactors,
+    ClockPolicy Clocks,
+    CorrelationId Correlation,
     ActivitySource Source,
     SupportRuntime Support,
-    ClockPolicy Clocks,
     FactSink<CompanionSignal> Fan,
     JsonSerializerOptions Wire) {
     public static readonly TenantAdoption Adoption = TenantAdoption.Adopted;
 }
 
 // --- [BOUNDARIES] ---------------------------------------------------------------------------
-// `Target`, not `Both`: the reply messages are DELIBERATELY narrower than the receipts they project, which the
-// proto states at `DegradationReply` — every target member is answered and an unread receipt column stays host-side.
+// `Target`, not `Both`: the response messages are DELIBERATELY narrower than the receipts they project, which the
+// proto states at `SetDegradationResponse` — every target member is answered and an unread receipt column stays host-side.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class ControlReplyMap {
-    public static partial DegradationReply Reply(DegradationState state);
+    public static partial SetDegradationResponse Reply(DegradationState state);
 
-    public static partial ReloadReply Reply(ReloadReceipt receipt);
-
-    public static partial CommandReply Reply(CommandReceipt receipt);
-
-    public static partial DrainReply Reply(DrainReceipt receipt);
-
-    public static partial SupportBundleReply Reply(SupportReceipt receipt);
+    public static partial DrainRuntimeResponse Reply(DrainReceipt receipt);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -439,51 +416,9 @@ public static class ControlInbound {
             IO.lift(() => runtime.Degradation.Force(DegradationLevel.TryGet(level, out var resolved) ? Optional(resolved) : None))
                 .Map(state => (Value: state, Payload: (object)state)));
 
-    public static IO<ReloadReceipt> ReloadOptions(ControlRuntime runtime, ServerCallContext context) =>
-        Continued(runtime, context, ControlVerb.ReloadOptions, runtime.ReloadSection, correlation =>
-            from _invalidate in IO.lift(() => runtime.InvalidateOptions(None))
-            from receipt in IO.lift(() => new ReloadReceipt(
-                Section: runtime.ReloadSection,
-                Class: runtime.ReloadClass,
-                Trigger: ReloadReceipt.ControlTrigger,
-                Outcome: new ReloadOutcome.Applied(runtime.ReloadSection),
-                At: runtime.Clocks.Now,
-                CorrelationId: correlation))
-            select (Value: receipt, Payload: (object)receipt));
-
-    public static IO<SupportReceipt> CaptureSupport(ControlRuntime runtime, ServerCallContext context, CorrelationId correlation, string reason) =>
-        Continued(runtime, context, ControlVerb.CaptureSupport, reason, _ =>
-            SupportCapture.Capture(runtime.Support, new SupportTrigger.Requested(correlation, SupportTriggerKind.ExternalCommand, reason))
-                .Map(receipt => (Value: receipt, Payload: (object)receipt)));
-
-    public static IO<CommandReceipt> DispatchTool(ControlRuntime runtime, ServerCallContext context, string tool, JsonElement arguments) =>
-        Continued(runtime, context, ControlVerb.DispatchTool, tool, correlation =>
-            from audited in IO.lift(() => Audited(runtime, tool, arguments))
-            from receipt in runtime.Dispatch(CommandIntent.Of(
-                tool, new CommandArguments(arguments, TenantContext.Current, correlation), CallerModality.Operator))
-            select (Value: receipt, Payload: (object)audited));
-
-    public static IO<ReloadReceipt> DispatchPatch(ControlRuntime runtime, ServerCallContext context, string section, JsonElement patch) =>
-        Continued(runtime, context, ControlVerb.DispatchPatch, section, correlation =>
-            from outcome in IO.lift(() => OptionsAdmission.PatchSection(
-                live: JsonSerializer.SerializeToNode(runtime.ActiveConfig().GetSection(section), runtime.Wire)!.AsObject(),
-                section: section,
-                reload: runtime.ReloadClass,
-                patch: patch.Deserialize<JsonPatchDocument>(runtime.Wire)!,
-                revalidate: runtime.Revalidate(section)))
-            from _invalidate in IO.lift(() => outcome.IsSuccess ? runtime.InvalidateOptions(Some(section)) : unit)
-            from receipt in IO.lift(() => new ReloadReceipt(
-                Section: section,
-                Class: runtime.ReloadClass,
-                Trigger: ReloadReceipt.PatchTrigger,
-                Outcome: outcome.Match(Succ: static applied => applied, Fail: fault => new ReloadOutcome.Rejected(section, fault)),
-                At: runtime.Clocks.Now,
-                CorrelationId: correlation))
-            select (Value: receipt, Payload: (object)receipt));
-
     public static IO<DrainReceipt> DrainRuntime(ControlRuntime runtime, ServerCallContext context, Duration inherited, string reason) =>
         Continued(runtime, context, ControlVerb.DrainRuntime, reason, _ =>
-            runtime.Drain(inherited < DeadlineClass.DrainCooperative.Allotted ? inherited : DeadlineClass.DrainCooperative.Allotted)
+            runtime.Drain(inherited)
                 .Map(receipt => (Value: receipt, Payload: (object)receipt)));
 
     // The scope restores prior baggage on dispose, so the bracket is a statement body — a fold that continued
@@ -504,51 +439,82 @@ public static class ControlInbound {
         from _fan in runtime.Fan.Fan(correlation, verb.Key, receipt, new CompanionSignal.Verb(receipt))
         select settled.Value;
 
-    static ToolAudit Audited(ControlRuntime runtime, string tool, JsonElement arguments) =>
-        new(tool, RedactedText.Appended(
-            new StringBuilder(),
-            runtime.Redactors.GetRedactor(new DataClassificationSet(runtime.Classify(tool).Marker)),
-            arguments.GetRawText()).ToString());
 }
 
 // --- [ENTRY] --------------------------------------------------------------------------------
 public sealed class ControlServiceImpl(ControlRuntime runtime) : ControlService.ControlServiceBase {
-    public override Task<DegradationReply> SetDegradation(SetDegradationRequest request, ServerCallContext context) =>
+    public override Task<SetDegradationResponse> SetDegradation(SetDegradationRequest request, ServerCallContext context) =>
         ControlInbound.SetDegradation(runtime, context, request.Level, request.Reason).Map(ControlReplyMap.Reply).RunAsync().AsTask();
 
-    public override Task<ReloadReply> ReloadOptions(Empty request, ServerCallContext context) =>
-        ControlInbound.ReloadOptions(runtime, context).Map(ControlReplyMap.Reply).RunAsync().AsTask();
-
-    public override Task<CommandReply> DispatchTool(DispatchToolRequest request, ServerCallContext context) =>
-        ControlInbound.DispatchTool(runtime, context, request.Tool, Payload(request.Arguments)).Map(ControlReplyMap.Reply).RunAsync().AsTask();
-
-    public override Task<ReloadReply> DispatchPatch(DispatchPatchRequest request, ServerCallContext context) =>
-        ControlInbound.DispatchPatch(runtime, context, request.Section, Payload(request.Patch)).Map(ControlReplyMap.Reply).RunAsync().AsTask();
-
-    public override Task<DrainReply> DrainRuntime(DrainRuntimeRequest request, ServerCallContext context) =>
+    public override Task<DrainRuntimeResponse> DrainRuntime(DrainRuntimeRequest request, ServerCallContext context) =>
         ControlInbound.DrainRuntime(runtime, context, request.Cooperative.ToNodaDuration(), request.Reason).Map(ControlReplyMap.Reply).RunAsync().AsTask();
-
-    internal static JsonElement Payload(Struct value) =>
-        JsonDocument.Parse(JsonFormatter.Default.Format(value)).RootElement;
 }
 
-public sealed class DiagnosticServiceImpl(ControlRuntime runtime) : DiagnosticService.DiagnosticServiceBase {
-    public override Task<SupportBundleReply> CaptureBundle(SupportBundleRequest request, ServerCallContext context) =>
-        ControlInbound.CaptureSupport(runtime, context, Correlation.Mint(), string.Join(',', request.Collectors))
-            .Map(ControlReplyMap.Reply).RunAsync().AsTask();
+public sealed class CapabilityDiscoveryServiceImpl(
+    CapabilityRegistry registry,
+    DegradationCell degradation,
+    DescriptorPin pin) : CapabilityContract.CapabilityDiscoveryService.CapabilityDiscoveryServiceBase {
+    public override Task<CapabilityContract.DiscoverResponse> Discover(
+        CapabilityContract.DiscoverRequest request,
+        ServerCallContext context) =>
+        Task.FromResult(CapabilityDiscovery.Project(registry, degradation.Level, pin));
+}
+
+// Contract admission surrounds the generated verb edge exactly once in each direction. It consumes the
+// accumulated violation sequence directly; `WireAdmission.Admit` is intentionally not used because it collapses it.
+public sealed class ControlContractInterceptor(ControlRuntime runtime) : Interceptor {
+    public override async Task<TResponse> UnaryServerHandler<TRequest, TResponse>(
+        TRequest request,
+        ServerCallContext context,
+        UnaryServerMethod<TRequest, TResponse> continuation) {
+        Op key = Op.Of(context.Method);
+        TRequest admitted = Direction(request, context, key, request: true);
+        TResponse response = await continuation(admitted, context).ConfigureAwait(false);
+        return Direction(response, context, key, request: false);
+    }
+
+    private T Direction<T>(T message, ServerCallContext context, Op key, bool request)
+        where T : class, Google.Protobuf.IMessage =>
+        WireAdmission.Validate(message, key).Match(
+            Succ: admission => admission.Match(
+                Fail: violations => Refused(message, context, key, request, violations),
+                Succ: static admitted => admitted),
+            Fail: error => Broken<T>(context, key, error));
+
+    private T Refused<T>(T message, ServerCallContext context, Op key, bool request,
+        Seq<Google.Rpc.BadRequest.Types.FieldViolation> violations)
+        where T : Google.Protobuf.IMessage {
+        Error fault = request
+            ? key.InvalidInput(message.Descriptor.FullName)
+            : key.InvalidResult(message.Descriptor.FullName);
+        throw FaultWire.Raise(fault, Context(context, violations));
+    }
+
+    private T Broken<T>(ServerCallContext context, Op key, Error error) {
+        throw FaultWire.Raise(key.InvalidResult(error.Message), Context(context, Seq<Google.Rpc.BadRequest.Types.FieldViolation>()));
+    }
+
+    private FaultContext Context(ServerCallContext context, Seq<Google.Rpc.BadRequest.Types.FieldViolation> violations) {
+        Baggage baggage = TraceContext.Extract(context.RequestHeaders).Baggage;
+        CorrelationId correlation = Optional(baggage.GetBaggage(CorrelationId.Slot))
+            .Bind(static text => Guid.TryParse(text, out Guid parsed) ? Some(CorrelationId.Create(parsed)) : None)
+            .IfNone(runtime.Correlation);
+        TenantContext tenant = ControlRuntime.Adoption.Adopt(baggage).IfNone(TenantContext.Root);
+        return FaultContext.Of(correlation, (runtime.Clocks.Now, 0UL), tenant, violations);
+    }
 }
 ```
 
 ## [04]-[SERVICE_HOST]
 
-- Owner: `ServiceHost` static registration surface mounting the gRPC server, both declared planes, every supplied served plane, the co-hosted asset seat, and the control intake transport; `ServedPlane` the composition-supplied port row binding one plane's DI registration arm and its endpoint-map arm together; `ControlTransport` `[Union]` carrying the Unix-domain-socket and inherited-fd intake legs; `BindReceipt` the acquisition transition the rail carries.
+- Owner: `ServiceHost` mounts generated control, capability-discovery, and health services, every supplied served plane, assets, and control intake; `ServedPlane` binds DI and endpoint arms.
 - Cases: unix-domain-socket binds Kestrel over the `sun_path` endpoint, inherited-fd mounts Kestrel over a socket-activated descriptor the `HostBinding` owner acquired — the two local control-plane intake shapes on every supported platform.
-- Entry: `Register(IServiceCollection services, params ReadOnlySpan<ServedPlane> planes)` folds `AddGrpc`, every plane's registration arm over the `IGrpcServerBuilder` it returns, and the health-service registration; `Assets(IApplicationBuilder app, ResolvedProfile resolved, string bundleRoot)` seats the co-hosted static-file middleware ahead of endpoint routing under the `HostCapability.CoHostedAssets` membership; `Map(IEndpointRouteBuilder endpoints, params ReadOnlySpan<ServedPlane> planes)` folds `MapGrpcService<ControlServiceImpl>`, `MapGrpcService<DiagnosticServiceImpl>`, the wire-health mapping, then each plane's map arm; `Bind(KestrelServerOptions kestrel, ControlTransport transport)` folds the Unix `sun_path` Kestrel endpoint or one inherited handle; `BindEndpoint(KestrelServerOptions kestrel, BoundEndpoint endpoint)` returns `Fin<Unit>` — projects a `HostBinding` `BoundEndpoint` onto the matching `ControlTransport` case per acquired descriptor so the host-binding acquisition seats every listener through this one seam.
-- Auto: `AddGrpc` registers the server and RETURNS the builder every plane's registration arm folds onto, `MapGrpcService<TService>` maps both declared implementations, `HealthServiceImpl.SetStatus` registers the wire-health serving status — narrowing a service name to a subset of the health registrations rides `GrpcHealthChecksOptions.Services.Map(string, Func<HealthCheckMapContext, bool>)`, the one name-keyed mapping member — and `Bind` routes the Unix leg through `KestrelServerOptions.ListenUnixSocket` at the `sun_path` endpoint and the inherited leg through `KestrelServerOptions.ListenHandle(ulong)` over the activated descriptor; filesystem mode on the socket path is the access guard, so the connecting peer's identity is read at accept by `PeerAdmission` rather than enforced by a transport ACL; `Assets` runs `UseStaticFiles(StaticFileOptions)` with `FileProvider` bound to a `PhysicalFileProvider` over the SELECTED bundle root and `RequestPath` empty, ordered ahead of `UseRouting` so the asset probe short-circuits before the gRPC endpoint match rather than after it.
+- Entry: `CapabilityDiscoveryPlane` is the one generated discovery registration/mapping row; `Register` and `Map` fold it with supplied planes, control, and health.
+- Auto: `WireAdmission.Warm` precedes the serving graph; control and discovery both run the contract interceptor, and discovery projects the current degradation-permitted catalog.
 - Receipt: an acquisition mints one `BindReceipt` — service, rendered address, origin, reuse policy, listener count — fanned through the one `FactSink` and fired at `AppHostPoint.Companion`; the served `ServingStatus` transition logs through one `SpineLog` delegate in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`); no parallel host receipt.
-- Packages: Grpc.AspNetCore, Grpc.AspNetCore.HealthChecks, Grpc.HealthCheck (transitive: `HealthServiceImpl`/`SetStatus`/`Grpc.Health.V1.ServingStatus`), Microsoft.AspNetCore.App (shared framework: `UseStaticFiles`/`StaticFileOptions`/`PhysicalFileProvider`), LanguageExt.Core, BCL inbox
-- Growth: a new served service is one `ServedPlane` row the composition root supplies, carrying its registration arm beside its map arm; a new intake transport is one `ControlTransport` case; zero new surface — no second server-host owner.
-- Boundary: a served plane arrives as a PORT and never as a named type — Tier-0 `[10]-[CONSUMPTION_MODEL]` holds that sibling presence rides an axis value, that a package composes a sibling through a declared port the composition root binds, and that unbound ports read as a refused capability rather than a crash, so an empty row set serves control, diagnostics, and health alone, which is the whole capability rather than a degraded one; one row binds BOTH halves of a plane, since an armed registration whose endpoint never maps and a mapped endpoint whose service never registers each surface at a different phase from the edit that caused them; the Persistence `Query/federation#FLIGHT_RESULT_PLANE` server is exactly that shape — both its verbs are called INSIDE the row's own delegates by the root already referencing the store package, so this spine names neither that type nor `Apache.Arrow.Flight.AspNetCore`, and `MapGrpcService<TService>` is refused for that plane on its own evidence, since no `[BindServiceMethod]` sits anywhere in the `FlightServer` hierarchy and the generic map therefore resolves no binder and fails at startup; A FIN PAGE DOES NOT THROW — `BindEndpoint` answered its two impossible-shape cases with `ArgumentException` on a page whose every other refusal is typed, so both land as `CompanionFault.Bind` and the caller's own rail carries them; the gRPC server-host packages enter only at service app roots behind the app-root pin and never below a plugin row; the Unix leg reuses the `Discovery` `sun_path` law at the 104-byte cap and is the one local control-plane transport; the inherited-fd leg consumes every `HostBinding` `BoundEndpoint.Listeners` handle the systemd or launchd activation passed, so socket activation enters Kestrel through `ListenHandle` rather than a re-bind; the asset seat is `UseStaticFiles(StaticFileOptions)` and never `MapStaticAssets`, because the endpoint-routing form serves only build-emitted web assets off a build manifest and `HostCapability.CoHostedAssets` SELECTS its bundle at runtime — a TS tree the host build never participated in has no manifest entry, so the manifest form structurally cannot reach it; grpc-web stays DEFERRED at `Runtime/ports#WIRE_CONTRACT` — the control plane is a kernel-credentialed local UDS hop no browser origin reaches, so `UseGrpcWeb`/`EnableGrpcWeb` land only when a cross-origin deployment exists; `Grpc.HealthCheck.HealthServiceImpl()` is the parameterless wire-health owner — from the transitive `Grpc.HealthCheck` assembly the `Grpc.AspNetCore.HealthChecks` meta-row pulls — whose `SetStatus(string, Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus)` registration is the serving projection `WireHealth` only predicate-filters, with `ServingStatus.Serving=1` on healthy and degraded and `ServingStatus.NotServing=2` on unhealthy; the `Grpc.Health.V1.ServingStatus` integers (`Unknown=0`, `Serving=1`, `NotServing=2`, `ServiceUnknown=3`) trace to the grounded gRPC health-proto enum, never invented here.
+- Packages: Grpc.AspNetCore.Server (`AddServiceOptions`/server interceptor pipeline), Grpc.AspNetCore.HealthChecks, Grpc.HealthCheck (transitive: `HealthServiceImpl`/`SetStatus`/`Grpc.Health.V1.ServingStatus`), Microsoft.AspNetCore.App (shared framework: `UseStaticFiles`/`StaticFileOptions`/`PhysicalFileProvider`), LanguageExt.Core, BCL inbox
+- Growth: a new served service is one `ServedPlane` row carrying registration beside mapping; a new intake is one `ControlTransport` case.
+- Boundary: a served plane arrives as a port and never as a named sibling type; one row binds both its registration and endpoint mapping. An empty row set serves control and health only. Contract warming is synchronous composition work, not the first request's work; the interceptor is scoped to `ControlServiceImpl`, because health and external planes carry package-owned generated messages outside `WireAdmission.Files`. The Unix leg reuses the `Discovery` `sun_path` law at the 104-byte cap and the inherited-fd leg consumes each activated listener through `ListenHandle`. `Grpc.HealthCheck.HealthServiceImpl` owns wire health; no diagnostic service is mounted.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -570,16 +536,25 @@ public sealed record ServedPlane(
 
 // --- [COMPOSITION] --------------------------------------------------------------------------
 public static class ServiceHost {
-    public static IServiceCollection Register(IServiceCollection services, params ReadOnlySpan<ServedPlane> planes) =>
-        Iterable<ServedPlane>.FromSpan(planes).ToSeq()
-            .Fold(services.AddGrpc(), static (builder, plane) => plane.Registration(builder))
+    public static readonly ServedPlane CapabilityDiscoveryPlane = new(
+        "capability-discovery",
+        static grpc => grpc.AddServiceOptions<CapabilityDiscoveryServiceImpl>(
+            static options => options.Interceptors.Add<ControlContractInterceptor>()),
+        static endpoints => ignore(endpoints.MapGrpcService<CapabilityDiscoveryServiceImpl>()));
+
+    public static IServiceCollection Register(IServiceCollection services, params ReadOnlySpan<ServedPlane> planes) {
+        ignore(WireAdmission.Warm());
+        IGrpcServerBuilder grpc = services.AddGrpc()
+            .AddServiceOptions<ControlServiceImpl>(static options => options.Interceptors.Add<ControlContractInterceptor>());
+        return Iterable<ServedPlane>.FromSpan(planes).ToSeq()
+            .Fold(grpc, static (builder, plane) => plane.Registration(builder))
             .Services
             .AddGrpcHealthChecks().Services
             .AddSingleton(static _ => new HealthServiceImpl());
+    }
 
     public static void Map(IEndpointRouteBuilder endpoints, params ReadOnlySpan<ServedPlane> planes) {
         ignore(endpoints.MapGrpcService<ControlServiceImpl>());
-        ignore(endpoints.MapGrpcService<DiagnosticServiceImpl>());
         endpoints.MapGrpcHealthChecksService();
         Iterable<ServedPlane>.FromSpan(planes).ToSeq().Iter(plane => plane.Map(endpoints));
     }
@@ -652,7 +627,7 @@ public static class DegradationCascade {
     static IO<Option<DegradationLevel>> Forward(CompanionPeer peer, DegradationLevel level, string reason) =>
         IO.liftAsync(async () => {
             var client = new ControlService.ControlServiceClient(peer.Control);
-            var reply = await client.SetDegradationAsync(
+            SetDegradationResponse reply = await client.SetDegradationAsync(
                 new SetDegradationRequest { Level = level.Key, Reason = reason },
                 TraceContext.Inject(new Metadata()));
             return DegradationLevel.TryGet(reply.Level, out var resolved) ? Optional(resolved) : Option<DegradationLevel>.None;
@@ -1083,61 +1058,63 @@ stateDiagram-v2
 
 ## [08]-[EVENT_INGRESS]
 
-- Owner: `WebhookOrigin` the abuse-protection handshake row family carrying each header field the specification fixes and whether a target owes it; `IngressBinding` the `[SmartEnum<string>]` row per protocol this spine receives on, carrying its `messaging.system` value and the destination coordinate its semconv attributes read; `EventSemconv` the ONE attribute family every binding row stamps; `Delivery` the per-request tally carrying its refusal CAUSES; `EventIngress` the door itself.
-- Cases: three handshake fields inbound (`WebHook-Request-Origin` required, `WebHook-Request-Callback` and `WebHook-Request-Rate` optional) against two outbound (`WebHook-Allowed-Origin`, `WebHook-Allowed-Rate`); binding rows `http`, `kafka`, `mqtt`, `amqp`, and `nats`, each naming the `messaging.system` value its deliveries carry; five `cloudevents.*` attributes and four `messaging.*` attributes per delivery.
-- Entry: `EventIngress.Validate(HttpRequest request, HttpResponse response, IngressPolicy policy)` answers the `OPTIONS` validation request — the REQUIRED rows must all be present and the claimed origin must be admitted, so an allowed origin echoes with the policy's rate ceiling and every other case answers 405, never a silent 200; `EventIngress.Deliver(HttpRequest request, IngressPolicy policy, EventBus.Cell bus, Op key)` returns `IO<Fin<Delivery>>` — it re-runs the same handshake per message, decodes through the package's own request extensions, verifies the DSSE material against the trust row, admits tenancy, stamps the semconv family, dedups on the envelope's uniqueness composite, and dispatches each admitted envelope onto `EventBus.Dispatch`.
-- Law: the package ships `HttpRequestExtensions` and `HttpResponseExtensions` and NOTHING else — no handshake, no origin policy, no batch admission beyond the decode itself — so the whole abuse-protection exchange is BRANCH-OWNED around those two classes, and a page claiming the package performs it states a capability the assembly does not carry.
-- Law: the REQUIRED column is the handshake's own gate — `WebhookOrigin.Items.Filter(Required)` is what a request must satisfy, so a sixth field is one row and no fold names a header literal.
+- Owner: `WebhookOrigin` and `WebhookRate` admit the abuse-protection DNS expression and positive requests-per-minute value; `WebhookAllowance` renders a numeric grant or the standard `*` unlimited grant; `IngressBody` owns one bounded immutable capture whose exact bytes feed both integrity verification and event decoding; `EventSemconv` stamps only CloudEvents attributes at this HTTP door; `Delivery` carries the per-request tally and refusal causes; `EventIngress` consumes the identity owner, `PolicyDescriptor.WebhookDelivery`, source and classification trust gates, an optional integrity verifier, and `WireAdmission.EventExtensions`.
+- Cases: required request origin plus optional positive request rate against allowed origin and an optional policy ceiling, whose absence means unlimited; every immediate consent carries `WebHook-Allowed-Rate`, bounded to the request when one exists and rendered as `*` only when neither request nor policy imposes a limit; token transport is exactly one `Authorization: Bearer` header or one `access_token` query value; JSON and Protobuf structured or batch media plus Avro structured media select their exact `EventFormat` row; every generated `Extensions` field is declared from the generated descriptor; five `cloudevents.*` attributes stamp each admitted delivery.
+- Entry: `EventIngress.Validate(HttpRequest request, HttpResponse response, IngressPolicy policy)` handles the `OPTIONS` abuse-protection request and conveys consent only through grant headers. `EventIngress.Deliver(HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus, Op key)` authenticates and authorizes the delivery, verifies the exact request body when the app supplied an integrity dialect, admits the generated extension message through `WireAdmission.EventExtensions.Admit`, applies the injected domain projection under the principal's roster-resolved tenant, deduplicates, and dispatches each admitted envelope through `EventBus.Dispatch`.
+- Law: the CloudEvents ASP.NET package supplies no handshake, origin policy, or cross-format body custody. This boundary captures once under `IngressPolicy.BodyLimit`, refuses an empty body, assigns typed HTTP 415 evidence to absent or unsupported content media, verifies the immutable bytes when configured, and decodes those same bytes through the exact JSON, Protobuf, or Avro formatter row.
+- Law: origin is a DNS name expression, never a URL; callback is the separate URL-shaped field and the synchronous response does not reinterpret either. Request rate is absent or a positive integer greater than zero. A configured policy rate is the ceiling; absence is unlimited, so a requested rate receives that rate or the lower ceiling and an unrequested unlimited grant renders `*`.
 - Law: `WebHook-Request-Origin` rides EVERY delivery request, not the handshake alone, so a target re-reads the claimed origin per message rather than trusting one validation forever; an origin the policy no longer allows refuses at that message without unregistering the whole subscription.
-- Law: signature verification reads the encoded bytes ONCE, before any reserialization — the DSSE material in `dssematerial` covers the digest preimage the kernel roster publishes in alphabetical order, and a re-encode between arrival and verification respells bytes the signer never saw.
-- Law: ingress ADMITS tenancy through `TenantAdoption` and inherits nothing, so a decoded envelope carries no authority its transport happened to hold — the binding's own `IngressPolicy.Adoption` row reads the envelope's propagation carrier and an unadopted claim lands `TenantContext.Root`, never the ambient slot, which answers whatever the serving thread last carried; `source` and `authcontext` are producer CLAIMS verified against the trust row BEFORE any routing decision reads them, since routing on an unverified claim is the spoofing path the pair exists to close.
-- Law: dedup is the envelope's own `(source, id)` composite through the one `Runtime/resources#DEDUPE_WINDOW` window — the same window the bus subscriptions and the outbox relay admit against — so a redelivered webhook and a re-published outbox row collapse on one cell rather than three.
-- Auto: batch and single share ONE door — `IsCloudEventBatch` reads the media-type prefix and the matching decode runs, so a batch settles per event and a single delivery is the one-member case of that same traverse; every admitted envelope stamps the `EventSemconv` family onto the active span before it dispatches, so one query spans every binding's ingress instead of five per-leg literals; every admitted envelope dispatches through `EventBus.Dispatch`, so the HTTP door and the outbox relay feed one bus rather than two.
+- Law: the abuse handshake establishes no authentication context. Delivery admits exactly one token transport through `TokenValidation`, evaluates `PolicyDescriptor.WebhookDelivery` through `PolicyGate`, and uses the resulting `Principal.Tenant`; trace baggage never grants authority. An app-defined signature sees the exact received octets before CloudEvents parsing and adds integrity only — it never substitutes for token authorization.
+- Law: source trust and `DataGrade` classification both admit before domain projection, dedup, or dispatch. Dedup then reads the envelope's own `(source, id)` composite through the one `Runtime/resources#DEDUPE_WINDOW`, so an admitted HTTP redelivery collapses before bus dispatch.
+- Auto: batch and single share one `EventEnvelope.Decode` door whose parsed media chooses the exact formatter and framing. Every admitted envelope stamps `EventSemconv` before `EventBus.Dispatch`; the durable outbox relay remains an outbound hop over the exact Persistence envelope.
 - Receipt: one `Delivery` per request carrying accepted, duplicate, and externalized counts beside the REFUSAL CAUSES themselves, fanned through the one `FactSink` and fired at `AppHostPoint.Companion` — a 4xx names the axis or claim that refused it rather than a bare count, which is what the receipt line promised while both refusal arms discarded the cause.
-- Packages: CloudNative.CloudEvents, CloudNative.CloudEvents.AspNetCore (`HttpRequestExtensions.IsCloudEventBatch`/`ToCloudEventAsync`/`ToCloudEventBatchAsync`, `HttpResponseExtensions.CopyToHttpResponseAsync` — the whole assembly), Microsoft.AspNetCore.App (shared framework), Rasm (the `Rasm/Domain/event` envelope algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new receive protocol is one `IngressBinding` row carrying its `messaging.system` value and destination coordinate, and every semconv stamp reads it untouched; a new handshake field is one `WebhookOrigin` row; a foreign refusal needs no case at all, since `CompanionFault.Of` adopts it whole — never a second door.
-- Boundary: this door DECODES and dispatches and owns nothing downstream — the bus fan, the durable outbox, and each sink's transport are their own owners, so an ingress writing a durable row directly bypasses the transactional boundary the outbox exists to hold; the decode itself is the outbox owner's `OutboxRow.Admit`, the ONE crossing that admits a rostered topic off `subject`, a causal position off `sequence`, and a stamp off `time`, so a raised event carries the ordinal and instant its producer signed rather than columns this door invented — a hand-built row here spelled a binding COORDINATE where a `Topic` belongs, a retired disposition, and an arity the record does not carry, and each of the three read correct only at this site; the format, framing, roster, and validator all belong to `Rasm/Domain/event`, so the package extensions receive the kernel formatter instance rather than one minted here; `dataclassification` gates which binding a fact may cross and this door refuses a class its own binding row cannot honor, since a `secret` payload arriving over a public endpoint is an exfiltration path a 200 confirms; the per-member traverse rides `TraverseM` over the effect, so the fold that walked an `IO` by hand and re-entered it per member is the deleted form.
+- Packages: Rasm.Contracts (generated `Extensions` message), CloudNative.CloudEvents, Microsoft.AspNetCore.App (shared framework), Rasm (the `Rasm/Domain/event` envelope algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: a new generated extension field joins declaration and reconstructed whole-message admission through `WireAdmission.EventExtensions`; a new protobuf value space is one kernel structural-kind bridge, never a field-name row here; a new HTTP event format is one `EventFormat` row this door consumes unchanged; a foreign refusal needs no case at all, since `CompanionFault.Of` adopts it whole — never a second door.
+- Boundary: `WireAdmission.EventExtensions` composes the kernel `EventExtensionContract<event.v1.Extensions>` over AppHost's one descriptor-root validator; a private per-handler validator is the deleted duplicate rule graph. `IngressPolicy.Project` receives the admitted message and typed `DataGrade` whole, while this door reads only `HasDataref` for the externalized tally; binding applications resolve the URI-reference. `subject` and `time` remain CloudEvents context attributes, and foreign envelopes pass the generic `EventEnvelope` gate without being forced through the Rasm type/source/id grammar. Messaging semantic conventions do not describe this HTTP handler, so no stranded non-HTTP binding roster or `messaging.*` masquerade survives here.
 
-| [INDEX] | [ATTRIBUTE]                      | [CARRIES]                                         |
-| :-----: | :------------------------------- | :------------------------------------------------ |
-|  [01]   | `cloudevents.event_id`           | the envelope `id`, the operation identity         |
-|  [02]   | `cloudevents.event_source`       | the producing capability reference                |
-|  [03]   | `cloudevents.event_spec_version` | the specification version the envelope declares   |
-|  [04]   | `cloudevents.event_type`         | the fact identity a subscription filters on       |
-|  [05]   | `cloudevents.event_subject`      | the payload's own address                         |
-|  [06]   | `messaging.system`               | the binding row's own system value                |
-|  [07]   | `messaging.operation.name`       | receive, process, or publish at this span         |
-|  [08]   | `messaging.destination.name`     | the topic, subject, queue, or route the row names |
-|  [09]   | `messaging.message.id`           | the transport's own message identity              |
+| [INDEX] | [ATTRIBUTE]                      | [CARRIES]                                       |
+| :-----: | :------------------------------- | :---------------------------------------------- |
+|  [01]   | `cloudevents.event_id`           | the envelope `id`, the operation identity       |
+|  [02]   | `cloudevents.event_source`       | the producing capability reference              |
+|  [03]   | `cloudevents.event_spec_version` | the specification version the envelope declares |
+|  [04]   | `cloudevents.event_type`         | the fact identity a subscription filters on     |
+|  [05]   | `cloudevents.event_subject`      | the payload's own address                       |
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class WebhookOrigin {
-    public static readonly WebhookOrigin Requested = new("WebHook-Request-Origin", required: true);
-    public static readonly WebhookOrigin Callback = new("WebHook-Request-Callback", required: false);
-    public static readonly WebhookOrigin Rate = new("WebHook-Request-Rate", required: false);
-    public static readonly WebhookOrigin Allowed = new("WebHook-Allowed-Origin", required: false);
-    public static readonly WebhookOrigin AllowedRate = new("WebHook-Allowed-Rate", required: false);
-
-    public bool Required { get; }
+public static class WebhookHeader {
+    public const string RequestOrigin = "WebHook-Request-Origin";
+    public const string RequestRate = "WebHook-Request-Rate";
+    public const string AllowedOrigin = "WebHook-Allowed-Origin";
+    public const string AllowedRate = "WebHook-Allowed-Rate";
+    public const string AccessToken = "access_token";
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class IngressBinding {
-    public static readonly IngressBinding Http = new("http", system: "http", destination: "route");
-    public static readonly IngressBinding Kafka = new("kafka", system: "kafka", destination: "topic");
-    public static readonly IngressBinding Mqtt = new("mqtt", system: "mqtt", destination: "topic");
-    public static readonly IngressBinding Amqp = new("amqp", system: "rabbitmq", destination: "address");
-    public static readonly IngressBinding Nats = new("nats", system: "nats", destination: "subject");
+public readonly record struct WebhookOrigin {
+    private WebhookOrigin(string value) => Value = value;
 
-    public string System { get; }
+    public string Value { get; }
 
-    public string Destination { get; }
+    public static Fin<WebhookOrigin> Admit(string value) =>
+        Uri.CheckHostName(value) == UriHostNameType.Dns
+            ? Fin.Succ(new WebhookOrigin(value))
+            : Fin.Fail<WebhookOrigin>(new CompanionFault.Handshake(WebhookHeader.RequestOrigin));
+}
+
+public readonly record struct WebhookRate(Dimension PerMinute) {
+    public static Fin<WebhookRate> Admit(string value) =>
+        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed) && parsed > 0
+            ? Fin.Succ(new WebhookRate(Dimension.Create(parsed)))
+            : Fin.Fail<WebhookRate>(new CompanionFault.Handshake(WebhookHeader.RequestRate));
+
+    public WebhookRate BoundedBy(WebhookRate ceiling) =>
+        PerMinute.Value <= ceiling.PerMinute.Value ? this : ceiling;
+}
+
+public readonly record struct WebhookAllowance(Option<WebhookRate> Limit) {
+    public string Header => Limit
+        .Map(static rate => rate.PerMinute.Value.ToString(CultureInfo.InvariantCulture))
+        .IfNone("*");
 }
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
@@ -1147,25 +1124,13 @@ public static class EventSemconv {
     public const string SpecVersion = "cloudevents.event_spec_version";
     public const string EventType = "cloudevents.event_type";
     public const string EventSubject = "cloudevents.event_subject";
-    public const string System = "messaging.system";
-    public const string Operation = "messaging.operation.name";
-    public const string Destination = "messaging.destination.name";
-    public const string MessageId = "messaging.message.id";
-
-    public const string Receive = "receive";
-
-    public static Seq<(string Slot, object? Value)> Of(
-        CloudEvent envelope, IngressBinding binding, string operation, string destination, Option<string> message) =>
+    public static Seq<(string Slot, object? Value)> Of(CloudEvent envelope) =>
         Seq<(string, object?)>(
             (EventId, envelope.Id),
             (EventSource, envelope.Source?.ToString()),
             (SpecVersion, envelope.SpecVersion.VersionId),
             (EventType, envelope.Type),
-            (EventSubject, envelope.Subject),
-            (System, binding.System),
-            (Operation, operation),
-            (Destination, destination))
-        .Append(message.Map(static id => (MessageId, (object?)id)).ToSeq());
+            (EventSubject, envelope.Subject));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -1183,98 +1148,221 @@ public sealed partial record Delivery(
         Refusals + member.Refusals);
 }
 
+public readonly record struct WebhookGrant(WebhookOrigin Origin, WebhookAllowance Rate);
+
+public readonly record struct WebhookCredential(string Token, bool Query);
+
+public readonly record struct AuthenticatedWebhook(Principal Principal, WebhookCredential Credential);
+
+// A private array is filled exactly once, never exposed mutably, and the parsed framing travels beside it.
+// Verification and decode therefore consume one bounded carrier rather than two reads of a request stream.
+public sealed class IngressBody {
+    private readonly byte[] bytes;
+
+    private IngressBody(byte[] bytes, ContentType framing) {
+        this.bytes = bytes;
+        Framing = framing;
+    }
+
+    public ReadOnlyMemory<byte> Bytes => bytes;
+
+    public ContentType Framing { get; }
+
+    public EventFrame Frame => new(Bytes, Framing);
+
+    public static async Task<Fin<IngressBody>> Capture(HttpRequest request, Dimension limit, Op key) =>
+        await AdmittedFraming(request, key).Match(
+            Fail: error => Task.FromResult(Fin.Fail<IngressBody>(error)),
+            Succ: framing => Captured(request, limit, framing, key)).ConfigureAwait(false);
+
+    private static Fin<ContentType> AdmittedFraming(HttpRequest request, Op key) =>
+        request.ContentType is not { Length: > 0 } media
+            ? Fin.Fail<ContentType>(new CompanionFault.Handshake(
+                HeaderNames.ContentType, StatusCodes.Status415UnsupportedMediaType))
+            : key.Catch(() => Fin.Succ(new ContentType(media)))
+                .MapFail(_ => (Error)new CompanionFault.Handshake(
+                    HeaderNames.ContentType, StatusCodes.Status415UnsupportedMediaType))
+                .Bind(framing => EventFormat.Of(framing).IsSome
+                    ? Fin.Succ(framing)
+                    : Fin.Fail<ContentType>(new CompanionFault.Handshake(
+                        framing.MediaType, StatusCodes.Status415UnsupportedMediaType)));
+
+    private static Task<Fin<IngressBody>> Captured(
+        HttpRequest request, Dimension limit, ContentType framing, Op key) =>
+        key.Catch(async _ => {
+            byte[] staging = GC.AllocateUninitializedArray<byte>(checked(limit.Value + 1));
+            int count = 0;
+            while (count <= limit.Value) {
+                int read = await request.Body.ReadAsync(
+                    staging.AsMemory(count, staging.Length - count), request.HttpContext.RequestAborted).ConfigureAwait(false);
+                if (read == 0) break;
+                count += read;
+            }
+            if (count == 0) {
+                return Fin.Fail<IngressBody>(new CompanionFault.Handshake(nameof(HttpRequest.Body)));
+            }
+            if (count > limit.Value) {
+                return Fin.Fail<IngressBody>(new CompanionFault.Handshake(
+                    nameof(IngressPolicy.BodyLimit), StatusCodes.Status413PayloadTooLarge));
+            }
+
+            byte[] exact = GC.AllocateUninitializedArray<byte>(count);
+            staging.AsSpan(0, count).CopyTo(exact);
+            return Fin.Succ(new IngressBody(exact, framing));
+        }, request.HttpContext.RequestAborted);
+}
+
 public sealed record IngressPolicy(
-    IngressBinding Binding,
-    Func<string, bool> Origin,
-    Option<string> Rate,
-    TenantAdoption Adoption,
+    Func<WebhookOrigin, bool> Origin,
+    Option<WebhookRate> Rate,
+    IdentityRuntime Identity,
+    Option<Func<HttpRequest, ReadOnlyMemory<byte>, Fin<Unit>>> Verify,
+    Dimension BodyLimit,
+    Func<Uri, Fin<Unit>> Source,
+    Func<DataGrade, Fin<Unit>> Classification,
     DedupeWindow Dedupe,
-    Func<CloudEvent, Op, Fin<Unit>> Verify,
+    Func<CloudEvent, global::Rasm.Contracts.Event.V1.Extensions, DataGrade, TenantContext, Op, Fin<DomainEvent>> Project,
     ClockPolicy Clocks,
     FactSink<CompanionSignal> Fan);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class EventIngress {
-    public static IResult Validate(HttpRequest request, HttpResponse response, IngressPolicy policy) =>
-        Handshake(request, policy).Match(
-            Succ: origin => {
-                response.Headers[WebhookOrigin.Allowed.Key] = origin;
-                policy.Rate.Iter(rate => response.Headers[WebhookOrigin.AllowedRate.Key] = rate);
-                return Results.Ok();
+    public static IResult Validate(HttpRequest request, HttpResponse response, IngressPolicy policy) {
+        response.Headers[HeaderNames.Allow] = HttpMethods.Post;
+        return Agreement(request, policy).Match(
+            Succ: grant => {
+                response.Headers[WebhookHeader.AllowedOrigin] = grant.Origin.Value;
+                response.Headers[WebhookHeader.AllowedRate] = grant.Rate.Header;
+                return Results.NoContent();
             },
-            Fail: static _ => Results.StatusCode(StatusCodes.Status405MethodNotAllowed));
+            Fail: static _ => Results.NoContent());
+    }
 
-    public static IO<Fin<Delivery>> Deliver(HttpRequest request, IngressPolicy policy, EventBus.Cell bus, Op key) =>
-        Handshake(request, policy).Match(
+    public static IO<Fin<Delivery>> Deliver(
+        HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus, Op key) =>
+        Authorized(request, policy).Bind(admission => admission.Match(
             Fail: error => IO.pure(Fin.Fail<Delivery>(error)),
-            Succ: _ => IO.liftAsync(async () => await Decoded(request, key).ConfigureAwait(false))
-                .Bind(rail => rail.Match(
-                    Succ: envelopes => envelopes
-                        .TraverseM(envelope => Admitted(envelope, policy, bus, key)).As()
-                        .Map(static members => members.Fold(Delivery.Empty, static (tally, member) => tally.Add(member)))
-                        .Bind(tally => policy.Fan.Fan(Correlation.Mint(), nameof(EventIngress), tally, new CompanionSignal.Ingress(tally)))
-                        .Map(Fin.Succ),
-                    Fail: error => IO.pure(Fin.Fail<Delivery>(error)))));
+            Succ: access => {
+                if (access.Credential.Query) response.Headers[HeaderNames.CacheControl] = "private";
+                return AllowedOrigin(request, policy).Match(
+                    Fail: error => IO.pure(Fin.Fail<Delivery>(error)),
+                    Succ: _ => IO.liftAsync(async () => await Decoded(request, policy, key).ConfigureAwait(false))
+                        .Bind(rail => rail.Match(
+                            Succ: envelopes => envelopes
+                                .TraverseM(envelope => Admitted(envelope, access.Principal, policy, bus, key)).As()
+                                .Map(static members => members.Fold(
+                                    Delivery.Empty, static (tally, member) => tally.Add(member)))
+                                .Bind(tally => policy.Fan.Fan(
+                                    Correlation.Mint(), nameof(EventIngress), tally, new CompanionSignal.Ingress(tally)))
+                                .Map(Fin.Succ),
+                            Fail: error => IO.pure(Refused(response, error))));
+            }));
 
-    static Fin<string> Handshake(HttpRequest request, IngressPolicy policy) =>
-        toSeq(WebhookOrigin.Items).Filter(static row => row.Required)
-            .Traverse(row => Header(request, row)).As()
-            .Bind(present => present.Head
-                .Filter(policy.Origin)
-                .ToFin(new CompanionFault.Origin(WebhookOrigin.Requested.Key)));
+    static IO<Fin<AuthenticatedWebhook>> Authorized(HttpRequest request, IngressPolicy policy) =>
+        Credential(request).Match(
+            Fail: error => IO.pure(Fin.Fail<AuthenticatedWebhook>(error)),
+            Succ: credential => TokenValidation.Validate(policy.Identity, credential.Token, Correlation.Mint())
+                .Bind(validation => validation.ToFin().Match(
+                    Fail: error => IO.pure(Fin.Fail<AuthenticatedWebhook>(error)),
+                    Succ: principal => PolicyGate.Authorize(
+                            policy.Identity, principal, PolicyDescriptor.WebhookDelivery, request)
+                        .Map(verdict => verdict.ToFin().Map(_ => new AuthenticatedWebhook(principal, credential))))));
 
-    static Fin<string> Header(HttpRequest request, WebhookOrigin row) =>
-        request.Headers.TryGetValue(row.Key, out var values) && values.Count > 0 && values[0] is { Length: > 0 } value
+    static Fin<WebhookCredential> Credential(HttpRequest request) {
+        bool hasHeader = request.Headers.TryGetValue(HeaderNames.Authorization, out var header);
+        bool hasQuery = request.Query.TryGetValue(WebhookHeader.AccessToken, out var query);
+        if (hasHeader == hasQuery) {
+            return Fin.Fail<WebhookCredential>(new IdentityFault.Malformed(
+                $"{HeaderNames.Authorization}|{WebhookHeader.AccessToken}"));
+        }
+        if (hasHeader && header.Count == 1
+            && AuthenticationHeaderValue.TryParse(header[0], out AuthenticationHeaderValue? parsed)
+            && string.Equals(parsed.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase)
+            && parsed.Parameter is { Length: > 0 } bearer) {
+            return Fin.Succ(new WebhookCredential(bearer, Query: false));
+        }
+        return hasQuery && query.Count == 1 && query[0] is { Length: > 0 } token
+            ? Fin.Succ(new WebhookCredential(token, Query: true))
+            : Fin.Fail<WebhookCredential>(new IdentityFault.Malformed(
+                hasHeader ? HeaderNames.Authorization : WebhookHeader.AccessToken));
+    }
+
+    static Fin<WebhookGrant> Agreement(HttpRequest request, IngressPolicy policy) =>
+        from origin in AllowedOrigin(request, policy)
+        from requested in RequestedRate(request)
+        from granted in Granted(requested, policy.Rate)
+        select new WebhookGrant(origin, granted);
+
+    static Fin<WebhookOrigin> AllowedOrigin(HttpRequest request, IngressPolicy policy) =>
+        Header(request, WebhookHeader.RequestOrigin)
+            .Bind(WebhookOrigin.Admit)
+            .Bind(origin => policy.Origin(origin)
+                ? Fin.Succ(origin)
+                : Fin.Fail<WebhookOrigin>(new CompanionFault.Handshake(WebhookHeader.RequestOrigin)));
+
+    static Fin<Option<WebhookRate>> RequestedRate(HttpRequest request) =>
+        !request.Headers.TryGetValue(WebhookHeader.RequestRate, out var values)
+            ? Fin.Succ(Option<WebhookRate>.None)
+            : values.Count == 1 && values[0] is { Length: > 0 } value
+                ? WebhookRate.Admit(value).Map(Some)
+                : Fin.Fail<Option<WebhookRate>>(new CompanionFault.Handshake(WebhookHeader.RequestRate));
+
+    static Fin<WebhookAllowance> Granted(Option<WebhookRate> requested, Option<WebhookRate> allowed) =>
+        requested.Match(
+            Some: ask => Fin.Succ(new WebhookAllowance(Some(
+                allowed.Map(ask.BoundedBy).IfNone(ask)))),
+            None: () => Fin.Succ(new WebhookAllowance(allowed)));
+
+    static Fin<string> Header(HttpRequest request, string name) =>
+        request.Headers.TryGetValue(name, out var values)
+            && values.Count == 1 && values[0] is { Length: > 0 } value
             ? Fin.Succ(value)
-            : Fin.Fail<string>(new CompanionFault.Origin(row.Key));
+            : Fin.Fail<string>(new CompanionFault.Handshake(name));
 
-    static async Task<Fin<Seq<CloudEvent>>> Decoded(HttpRequest request, Op key) =>
-        await key.Catch(async _ => Fin.Succ(request.IsCloudEventBatch()
-            ? toSeq(await request.ToCloudEventBatchAsync(EventFormat.Json.Formatter, EventRoster.Declared).ConfigureAwait(false))
-            : Seq(await request.ToCloudEventAsync(EventFormat.Json.Formatter, EventRoster.Declared).ConfigureAwait(false))),
-            request.HttpContext.RequestAborted)
-            .ConfigureAwait(false);
+    static async Task<Fin<Seq<CloudEvent>>> Decoded(HttpRequest request, IngressPolicy policy, Op key) {
+        Fin<IngressBody> captured = await IngressBody.Capture(request, policy.BodyLimit, key).ConfigureAwait(false);
+        return captured.Bind(body => policy.Verify
+            .Traverse(verify => verify(request, body.Bytes)).As()
+            .Bind(_ => WireAdmission.EventExtensions.Declarations(key))
+            .Bind(declared => EventEnvelope.Decode(body.Frame, declared, key)));
+    }
 
-    static IO<Delivery> Admitted(CloudEvent envelope, IngressPolicy policy, EventBus.Cell bus, Op key) =>
-        policy.Verify(envelope, key).Match(
+    static IO<Delivery> Admitted(
+        CloudEvent envelope, Principal principal, IngressPolicy policy, EventBus.Cell bus, Op key) =>
+        (from _ in EventEnvelope.Admit(envelope, key)
+         from source in Optional(envelope.Source).ToFin(new KernelFault.InvalidValue(
+             Label: nameof(CloudEvent.Source), Requirement: "a present URI-reference source", Key: Some(key)))
+         from _source in policy.Source(source)
+         from extensions in WireAdmission.EventExtensions.Admit(envelope, key)
+         from grade in DataGrade.Validate(
+                 extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
+                 && admittedGrade is { } classification
+             ? Fin.Succ(classification)
+             : Fin.Fail<DataGrade>(new KernelFault.InvalidValue(
+                 Label: nameof(extensions.Dataclassification), Requirement: "an admitted DataGrade", Key: Some(key)))
+         from _classification in policy.Classification(grade)
+         from raised in policy.Project(envelope, extensions, grade, principal.Tenant, key)
+         select (Event: raised, Externalized: extensions.HasDataref)).Match(
             Fail: error => IO.pure(Delivery.Empty with { Refusals = Seq(CompanionFault.Of(error)) }),
-            Succ: _ => policy.Dedupe.Admit($"{envelope.Source}\u0000{envelope.Id}", policy.Clocks.Now)
-                ? Dispatched(envelope, policy, bus, key)
+            Succ: admitted => policy.Dedupe.Admit($"{envelope.Source}\u0000{envelope.Id}", policy.Clocks.Now)
+                ? Dispatched(envelope, admitted.Event, admitted.Externalized, policy, bus)
                 : IO.pure(Delivery.Empty with { Duplicate = 1 }));
 
-    static IO<Delivery> Dispatched(CloudEvent envelope, IngressPolicy policy, EventBus.Cell bus, Op key) =>
-        Raised(envelope, policy, key).Match(
-            Fail: error => IO.pure(Delivery.Empty with { Refusals = Seq(CompanionFault.Of(error)) }),
-            Succ: evt => IO.lift(() => Stamped(envelope, policy))
-                .Bind(_ => EventBus.Dispatch(bus, evt))
-                .Map(_ => Delivery.Empty with { Accepted = 1, Externalized = Externalized(envelope, key) ? 1 : 0 }));
+    static IO<Delivery> Dispatched(
+        CloudEvent envelope, DomainEvent admitted, bool externalized, IngressPolicy policy, EventBus.Cell bus) =>
+        IO.lift(() => Stamped(envelope))
+            .Bind(_ => EventBus.Dispatch(bus, admitted))
+            .Map(_ => Delivery.Empty with { Accepted = 1, Externalized = externalized ? 1 : 0 });
 
-    static Unit Stamped(CloudEvent envelope, IngressPolicy policy) =>
-        EventSemconv.Of(envelope, policy.Binding, EventSemconv.Receive, policy.Binding.Destination, Optional(envelope.Id))
+    static Unit Stamped(CloudEvent envelope) =>
+        EventSemconv.Of(envelope)
             .Fold(unit, static (_, pair) => (Activity.Current?.SetTag(pair.Slot, pair.Value), unit).Item2);
 
-    // THE decode crossing is the outbox owner's, not a second one spelled here: `OutboxRow.Admit` reads the
-    // rostered topic off `subject`, the causal position off `sequence`, and the stamp off `time`, each refusing
-    // with the entry named, so the raised event carries the ORIGINAL ordinal and instant its producer signed.
-    // Hand-minting that row spelled a binding COORDINATE where a `Topic` belongs, a retired disposition, and an
-    // arity the record does not have, then read tenancy off the ambient slot — which answers whatever the
-    // serving thread last carried for a claim this door has not admitted.
-    static Fin<DomainEvent> Raised(CloudEvent envelope, IngressPolicy policy, Op key) =>
-        from row in OutboxRow.Admit(envelope, Tenanted(envelope, policy), key)
-        from raised in row.ToEvent(key)
-        select raised;
+    static Fin<Delivery> Refused(HttpResponse response, Error error) {
+        if (error is CompanionFault.Handshake handshake) response.StatusCode = handshake.HttpStatus;
+        return Fin.Fail<Delivery>(error);
+    }
 
-    // Tenancy is ADMITTED per carrier: the adoption row reads the envelope's own propagation carrier, an
-    // adopting binding seats the wire tenant, and a refusing one lands ROOT — the tenant every receipt and every
-    // RLS predicate below already answers for an unadmitted claim.
-    static TenantContext Tenanted(CloudEvent envelope, IngressPolicy policy) =>
-        policy.Adoption.Adopt(TraceContext.Extract(envelope, Carried).Baggage).IfNone(TenantContext.Root);
-
-    static IEnumerable<string> Carried(CloudEvent envelope, string field) =>
-        EventCarrier.Read(envelope, field).ToSeq();
-
-    static bool Externalized(CloudEvent envelope, Op key) =>
-        EventExtension.DataRef.Read<Uri>(envelope, key).Map(static held => held.IsSome).IfNone(false);
 }
 ```
 

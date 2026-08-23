@@ -572,8 +572,8 @@ internal static class CompareChannels {
 public sealed record CompareSheet(CompareGrid Grid, Seq<ReportBlock> Blocks, Seq<RenderReceipt> Captures) {
     // `Flag` is the producer-varying column on the shared `Effect` case, and on this plane it means the figures
     // were painted against ONE unioned scale — which is the difference between a comparison and a folder of
-    // pictures, and therefore the one bit a reader of the deliverable needs. `Magnitude` carries the walked
-    // extent as a token key rather than the bound tally, because the bound count already has one authority on
+    // pictures, and therefore the one bit a reader of the deliverable needs. The extent measure carries the
+    // walked rows and columns rather than a formatted token, because the bound count already has one authority on
     // the plane's own counter and a second reading of it would be a fact that could disagree with itself.
     public EvidenceReceipt ToEvidence() =>
         new EvidenceReceipt.Effect(
@@ -581,8 +581,10 @@ public sealed record CompareSheet(CompareGrid Grid, Seq<ReportBlock> Blocks, Seq
             Key: Grid.Key.Value,
             Outcome: $"{Grid.Rows.Key}x{Grid.Columns.Key}/{string.Join('+', Grid.Held.Map(static axis => axis.Key))}",
             Flag: Grid.Sync.Admits(CompareLink.Legend),
-            Count: Captures.Count,
-            Magnitude: $"{Grid.WalkedRows.Count}x{Grid.WalkedColumns.Count}");
+            Count: checked((uint)Captures.Count),
+            Measure: new EffectMeasure.Extent(
+                checked((uint)Grid.WalkedRows.Count),
+                checked((uint)Grid.WalkedColumns.Count)));
 }
 ```
 

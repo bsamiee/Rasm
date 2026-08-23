@@ -18,6 +18,7 @@ import pytest
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
 from tests.python.tools.assay.kit import (  # fixture annotation resolved at collection time, not import time
     AssayHarness,
+    assert_counts_consistent,
     make_history_envelope,
     pipe_history,
     SeamExecutor,
@@ -120,6 +121,7 @@ def test_registry_structural_invariants() -> None:
         ("all handlers callable", lambda: all(callable(b.handler) for b in REGISTRY), True),
     )
     support_matrix(*((c.value, lambda c=c: any(b.claim is c for b in REGISTRY), True) for c in _EXPECTED_CLAIMS))
+    assert {b.verb for b in REGISTRY if b.claim is Claim.CONTRACTS} == {"check", "generate", "publish"}, "contracts binds its three verbs"
     validity_matrix(
         (ValidityCase(label=f"{b.claim.value}/{b.verb}", value=b, expected=True) for b in REGISTRY),
         valid=lambda b: callable(rail(b)) and getattr(rail(b), "__name__", None) == b.verb,
@@ -621,7 +623,7 @@ def test_delta_report_orientation_matrix() -> None:
 
     empty = _delta_report("", "run-z", None, None)
     assert (empty.claim, empty.verb, empty.status) == (Claim.STATIC, "delta", RailStatus.EMPTY)
-    assert empty.counts == Counts(ok=1, failed=0, total=1)
+    assert empty.counts == Counts.of(RailStatus.EMPTY)
     assert empty.notes
 
 
@@ -669,7 +671,7 @@ def test_delta_end_to_end_projection_identity(assay_root: AssayHarness, monkeypa
     assert isinstance(detail, RunDelta)
     assert (detail.before.id, detail.after.id) == (run_b, run_c)
     assert (detail.before.status, detail.after.status) == (RailStatus.OK, RailStatus.OK)
-    assert detail.before.counts == Counts(ok=1, failed=0, total=1)
+    assert detail.before.counts == Counts.of(RailStatus.OK)
     assert (detail.added, detail.removed) == (0, 0)
     assert set(store.sorted_history_ids()) == {run_b, run_c}
 
@@ -711,7 +713,7 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
     assert inspect.signature(self_test).parameters["rhino"].default is False
     assert (env.claim, env.verb, env.status) == (Claim.STATIC, "self-test", RailStatus.OK), f"self_test not healthy: {env.notes}"
     assert env.report is not None
-    assert env.report.counts.total == env.report.counts.ok + env.report.counts.failed
+    assert_counts_consistent(env.report)
     verb_ids = {b.verb for b in REGISTRY}
     result_ids = {m.id for m in env.report.results}
     assert verb_ids <= result_ids, f"missing verb ids from self_test census: {verb_ids - result_ids}"

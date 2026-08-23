@@ -1,12 +1,12 @@
 # [RASM_IDENTITY]
 
-`Rasm.Domain` owns the kernel's two reproducibility surfaces with no sibling between them: the content-key capsule — `CanonicalWriter`, the ONE framed-preimage codec, and `ContentHash`, the seed-zero federation entry over it — and `Deterministic`, the one splitmix64 owner supplying order keys, unit-interval draws, and signed-unit streams to every reproducible algorithm. Neither is cryptographic.
+`Rasm.Domain` owns the kernel identity surfaces: `CanonicalWriter` and `ContentHash` for semantic XXH128 keys, `ArtifactContent` for stored SHA-256 payload identity plus extent, and `Deterministic` for reproducible derivation.
 
 Identity and derivation never cross: a content key built from a `Deterministic` order key, or a sampler seeded from a `ContentHash`, is rejected by design. Every federation partner reproduces the zero-fixed seed byte-for-byte, so one content space addresses across packages and runtimes. Framing is this page's law rather than each caller's obligation — `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` and `[DIGEST_OVER_UNORDERED_CONTAINER]` are enforced by the writer's member set, so an unframed field, an uncounted collection, and a machine-endian UTF-16 text preimage are unspellable at the entry.
 
 ## [01]-[INDEX]
 
-- [02]-[CONTENT_KEY]: `CanonicalWriter` frames the preimage, `ContentHash` mints and renders the seed-zero `XxHash128` federation key.
+- [02]-[CONTENT_KEY]: `CanonicalWriter` frames semantic preimages, `ContentHash` mints XXH128 keys, and `ArtifactContent` admits the disjoint SHA-256-plus-extent coordinate for stored bytes.
 - [03]-[DETERMINISTIC_DERIVATION]: `Deterministic` owns order keys, unit draws, lane-bound draws, and signed-unit streams off one splitmix64 finalizer.
 
 ## [02]-[CONTENT_KEY]
@@ -21,9 +21,10 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 - Law: `tolerance` is the double-quantization quantum and is PART OF THE KEY — a coordinate snaps to the grid before its bits are written, so two tolerances address two identity spaces rather than near-misses of one. Model-space callers pass `Context.Absolute.Value`; a grid-free caller (a schema key, an environment fingerprint, a plan shape) passes `EpsilonPolicy.ZeroTolerance`, which `ContentHash.Of<TState>` supplies. A LITERAL `0.0` tolerance is the exact-grid lane and quantizes NOTHING — `Quantize` reads zero as identity (signed zero still folds), so an exact-grid consumer never rides the division whose zero denominator keyed every finite double as NaN.
 - Law: seed zero is the federation contract — `Of` mints its own accumulator at `seed: 0L` and there is NO seeded overload, because a computed seed IS a preimage (`[PREIMAGE_FRAMING]` line 31) and belongs in the field stream; a seeded reproducible LANE is `Deterministic.Stream`, a different concern on a different owner. `Streaming` takes the accumulator only so one traversal can feed two algorithms, and a caller minting a non-zero-seeded accumulator forks the seed every partner reproduces.
 - Law: the digest RENDERS here. `Hex` is 32 lowercase hex (`:x32`) and `Admit` refuses uppercase, so one key has one text and a round trip is stable; the deleted form is a consumer admitting either case and rendering one, which reads correct in isolation and forks the moment a second reader compares texts.
-- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` one-shot, `XxHash128(long)` seeded construction, `Append(ReadOnlySpan<byte>)`, `Append(Stream)`, `GetCurrentHashAsUInt128`; MIT, managed, no native asset), `System.Buffers` (`ArrayBufferWriter<byte>`, `ArrayPool<byte>`), `System.Buffers.Binary` (`BinaryPrimitives` little-endian writes), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`).
+- Law: the digest CROSSES here too. `Wire` is the 16 big-endian bytes `docs/laws/patterns.md` `[CONTENT_KEY]` fixes and `Admit(ReadOnlySpan<byte>, Op)` its one inverse, refusing any width but sixteen — so every `bytes` key column on every generated message composes this pair, the text form composes `Hex`, and no consumer spells `WriteUInt128BigEndian`, a hex format string, or a lane shift beside the owner. The little-endian `I64` halves `U128` writes stay HASH INPUT and never leave the process.
+- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` one-shot, `XxHash128(long)` seeded construction, `Append(ReadOnlySpan<byte>)`, `Append(Stream)`, `GetCurrentHashAsUInt128`; MIT, managed, no native asset), `System.Buffers` (`ArrayBufferWriter<byte>`, `ArrayPool<byte>`), `System.Buffers.Binary` (`BinaryPrimitives` little-endian preimage writes, the one big-endian pair under `Wire`/`Admit`), Google.Protobuf (`ByteString.CopyFrom(ReadOnlySpan<byte>)` — the carrier every generated `bytes` column holds, so the wire projection lands once here and `Rasm.csproj` carries the direct row), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`).
 - Growth: a new FIELD shape is one member on the writer; a new INGRESS shape is one overload on `Of`. Any second hashing owner beside either forks the federation seed.
-- Boundary: `UInt128` is the identity currency, `Half` its one lane split, `Hex`/`Admit` its one text correspondence. `Raw` admits bytes the caller already framed — a fixed-width block or a whole-payload leaf — and a caller placing two variable-width `Raw` writes side by side owes the count itself; every other member frames for it. `Rasm.Element` owns the dimensioned leg: `MeasureValue` is the branch's dimensioned carrier, so its `Measure` member stays an `extension(CanonicalWriter)` block at Element composing `String`/`Double`/`Ordinal`/`Optional`.
+- Boundary: `UInt128` is the identity currency, `Half` its one lane split, `Hex`/`Admit(text)` its one text correspondence, `Wire`/`Admit(bytes)` its one byte correspondence. `Raw` admits bytes the caller already framed — a fixed-width block or a whole-payload leaf — and a caller placing two variable-width `Raw` writes side by side owes the count itself; every other member frames for it. `Rasm.Element` owns the dimensioned leg: `MeasureValue` is the branch's dimensioned carrier, so its `Measure` member stays an `extension(CanonicalWriter)` block at Element composing `String`/`Double`/`Ordinal`/`Optional`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -31,9 +32,14 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO.Hashing;
+using System.Security.Cryptography;
 using System.Text;
+using Google.Protobuf;
+using LanguageExt;
+using LanguageExt.Common;
 using Rasm.Numerics;
 using Thinktecture;
+using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
@@ -44,6 +50,27 @@ public sealed partial class Lane {
     public static readonly Lane High = new(key: 1);
     // Each key IS the half index, so the shift derives rather than riding a second column a row could contradict.
     internal int Shift => Key * 64;
+}
+
+// Stored artifact coordinate. SHA-256 is the byte-integrity identity; Bytes is the allocation/completion bound.
+// ContentHash remains the separate non-cryptographic semantic key and never enters this value.
+public sealed record ArtifactContent {
+    public const ulong MaxBytes = 1_073_741_824UL;
+
+    private ArtifactContent(string sha256, ulong bytes) => (Sha256, Bytes) = (sha256, bytes);
+
+    public string Sha256 { get; }
+    public ulong Bytes { get; }
+
+    public static Fin<ArtifactContent> Of(ReadOnlyMemory<byte> payload, Op key) =>
+        Of(SHA256.HashData(payload.Span), checked((ulong)payload.Length), key);
+
+    public static Fin<ArtifactContent> Of(ReadOnlySpan<byte> sha256, ulong bytes, Op key) =>
+        sha256.Length != SHA256.HashSizeInBytes
+            ? new KernelFault.InvalidValue("artifact-content.sha256", "carry 32 bytes", Some(key))
+            : bytes is not (> 0UL and <= MaxBytes)
+                ? new KernelFault.OutOfRange("artifact-content.bytes", bytes, 1UL, MaxBytes, Some(key))
+                : Fin.Succ(new ArtifactContent(Convert.ToHexStringLower(sha256), bytes));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -134,6 +161,11 @@ public sealed class CanonicalWriter {
         }
     }
 
+    // Variable-width octets carry the same int32-LE extent frame as UTF-8 text. `Raw` remains the deliberate
+    // already-delimited/fixed-width escape; a semantic bytes field never calls it directly.
+    public CanonicalWriter Bytes(ReadOnlySpan<byte> value) =>
+        Ordinal(value: value.Length).Raw(bytes: value);
+
     // `Raw` names the exemption: bytes the CALLER already canonicalized and delimited — a fixed-width block, a canonical
     // JSON document, a whole-payload leaf. Two variable-width Raw writes side by side owe their own count.
     public CanonicalWriter Raw(ReadOnlySpan<byte> bytes) => Emit(bytes: bytes);
@@ -222,6 +254,15 @@ public static class ContentHash {
 
     public static string Hex(UInt128 digest) => digest.ToString(format: "x32", provider: CultureInfo.InvariantCulture);
 
+    // The ONE byte projection: sixteen big-endian bytes, the `[CONTENT_KEY]` order every peer runtime reads, so a
+    // generated `bytes` column fills through this member and a seam never re-spells the width or the order. The
+    // stack buffer is the copy source alone — `CopyFrom` owns the bytes the message carries.
+    public static ByteString Wire(UInt128 digest) {
+        Span<byte> wire = stackalloc byte[16];
+        BinaryPrimitives.WriteUInt128BigEndian(destination: wire, value: digest);
+        return ByteString.CopyFrom(bytes: wire);
+    }
+
     // Admission REFUSES uppercase rather than normalizing it: a permissive reader beside a lowercase renderer makes the
     // round trip lossy in one direction only, so a text that admits here and a text this key renders are the
     // same 32 characters or the input was never this key's.
@@ -232,6 +273,14 @@ public static class ContentHash {
         && UInt128.TryParse(s: hex, style: NumberStyles.AllowHexSpecifier, provider: CultureInfo.InvariantCulture, result: out UInt128 digest)
             ? Fin.Succ(value: digest)
             : Fin.Fail<UInt128>(error: key.InvalidInput());
+
+    // The byte inverse REFUSES every width but sixteen: a fifteen-byte or seventeen-byte column is a peer that
+    // forked the key, and reading it as a shorter integer would mint a key no producer ever wrote.
+    [BoundaryAdapter]
+    public static Fin<UInt128> Admit(ReadOnlySpan<byte> wire, Op key) =>
+        wire.Length == 16
+            ? Fin.Succ(value: BinaryPrimitives.ReadUInt128BigEndian(source: wire))
+            : Fin.Fail<UInt128>(error: key.InvalidInput(axis: "content-key-wire-width"));
 }
 ```
 

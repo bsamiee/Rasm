@@ -27,7 +27,7 @@ import type { HrTime, Span } from "@opentelemetry/api"
 import { hrTime } from "@opentelemetry/core"
 import { Vital } from "../otel/vital.ts"
 import { Digest, Fault, Frame, Shape, Wire } from "@rasm/ts/core"
-import { Array, Chunk, Context, type Duration, Effect, Either, HashSet, Layer, Option, Order, type ParseResult, Predicate, Schedule, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
+import { Array, Chunk, Context, type Duration, Effect, Either, HashMap, HashSet, Layer, Match, Option, Order, type ParseResult, Schedule, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import { Client, type Lapse } from "../net/client.ts"
 import { Boot, Connect } from "./boot.ts"
 import { Kv, Opfs } from "./persist.ts"
@@ -342,23 +342,22 @@ class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
   }
 }
 
-// `generation` is `Frame.Artifact`'s BAND ordinal, read off the parsed artifact and never a residency counter — the
-// residency manifest carries no generation column at all, so the two ordinals this file once conflated are now one.
-const _Receipt = Schema.Struct({
-  key: Digest.Key.content,
-  generation: Shape.Refined.OrdinalKey,
+// The worker crossing carries the protocol identity and raw payload bands only. Frame/reference admission is owned
+// before this boundary; the worker proves ordered raw-octet SHA-256 and performs the single-allocation join.
+const _ArtifactReceipt = Schema.Struct({
+  key: Wire.Artifact.identity,
   extent: Shape.Refined.OrdinalKey,
 })
 
-class Assemble extends Schema.TaggedRequest<Assemble>()("Assemble", {
-  payload: { key: Digest.Key.content, frames: Schema.Array(Transferable.Uint8Array) },
-  success: Schema.Struct({ ..._Receipt.fields, octets: Transferable.Uint8Array }),
+class Redeem extends Schema.TaggedRequest<Redeem>()("Redeem", {
+  payload: { key: Wire.Artifact.identity, extent: Shape.Refined.OrdinalKey, payloads: Schema.Array(Transferable.Uint8Array) },
+  success: Schema.Struct({ ..._ArtifactReceipt.fields, octets: Transferable.Uint8Array }),
   failure: PoolFault,
 }) {}
 
-class Verify extends Schema.TaggedRequest<Verify>()("Verify", {
-  payload: { key: Digest.Key.content, octets: Transferable.Uint8Array },
-  success: Schema.Struct({ key: Digest.Key.content, extent: Shape.Refined.OrdinalKey }),
+class VerifyArtifact extends Schema.TaggedRequest<VerifyArtifact>()("VerifyArtifact", {
+  payload: { key: Wire.Artifact.identity, extent: Shape.Refined.OrdinalKey, octets: Transferable.Uint8Array },
+  success: _ArtifactReceipt,
   failure: PoolFault,
 }) {}
 
@@ -370,9 +369,11 @@ class Chart extends Schema.TaggedRequest<Chart>()("Chart", {
   failure: PoolFault,
 }) {}
 
+// the set document crosses the worker as its landed generated shape — the registry row's type side — so the seam
+// re-runs the descriptor guard and no second schema mirrors the set here
 class Survey extends Schema.TaggedRequest<Survey>()("Survey", {
   payload: { bytes: Transferable.Uint8Array },
-  success: Wire.AssetSetManifest,
+  success: Schema.typeSchema(Wire.schema("Set")),
   failure: PoolFault,
 }) {}
 
@@ -390,14 +391,14 @@ class Imprint extends Schema.TaggedRequest<Imprint>()("Imprint", {
   failure: PoolFault,
 }) {}
 
-const _protocol = Schema.Union(Assemble, Verify, Chart, Survey, Imprint)
+const _protocol = Schema.Union(Redeem, VerifyArtifact, Chart, Survey, Imprint)
 
 class Pool extends Context.Tag("runtime/browser/Pool")<
   Pool,
-  Worker.SerializedWorkerPool<Assemble | Verify | Chart | Survey | Imprint>
+  Worker.SerializedWorkerPool<Redeem | VerifyArtifact | Chart | Survey | Imprint>
 >() {
-  static readonly Assemble = Assemble
-  static readonly Verify = Verify
+  static readonly Redeem = Redeem
+  static readonly VerifyArtifact = VerifyArtifact
   static readonly Chart = Chart
   static readonly Survey = Survey
   static readonly Imprint = Imprint
@@ -417,12 +418,14 @@ class Pool extends Context.Tag("runtime/browser/Pool")<
 ## [06]-[DEPOT_SCHEDULER]
 
 - Owner: `Depot` holds one admitted residency view, schedules the tiles it has not hauled, and shares one governed byte-haul leg.
+- Entry: `Depot.dome` admits environment-set bytes before resolving and hauling the generated product leaves.
 - Law: an admitted manifest REPLACES the held view whole and advances the epoch; a viewpoint that does not advance refuses and reaches neither the cell nor the scene port.
 - Law: pending-ness is derived here and never decoded — the manifest names the whole resident set for one viewpoint and carries no row state, so what remains to haul is the tile set this epoch has not landed.
-- Law: geometry arrivals carry `{ key, generation, extent }` where `generation` is `Frame.Artifact`'s band ordinal; dome artifacts reuse verification without entering residency.
+- Law: geometry and appearance bytes share one generated `ArtifactFrame` redemption leg: every frame repeats the requested reference, accumulated payload equals `artifactBytes`, and ordered raw payload hashes to its 32-byte SHA-256 identity before one whole buffer lands.
+- Law: artifact SHA-256 keys raw byte custody, while `Digest.Key<"content">` remains the separate semantic/cache vocabulary; the depot converts neither into the other.
 - Law: one `_admitted` read per pass answers both governors and carries the band's own admission row into every leg — storage pressure prices how fast this origin may fill, link grade prices how many legs are worth opening, and the tighter degree resizes the one gate; a second read inside a leg prices a pass already in flight.
 - Law: `warmDepot` refuses ADDING residency, never a pull — a near-full origin still serves the scene and an already-warm band still reads, so the admission gates the cache write alone and eviction pressure prices new rows.
-- Boundary: callers resolve served addresses off each tile's own `blobKey`, and forward the residency view, geometry arrivals, and dome arrivals to the UI port.
+- Boundary: callers resolve each portable `ArtifactRef` through their application asset rail and forward the residency view, geometry arrivals, and dome arrivals to the UI port; no storage key crosses the semantic contract.
 
 ```typescript signature
 const _DEGREES = { ample: 6, tight: 2, critical: 1, opaque: 2 } as const
@@ -432,13 +435,12 @@ const _DEGREES = { ample: 6, tight: 2, critical: 1, opaque: 2 } as const
 // and `cut` are per-MESHLET figures `frame#RESIDENCY_MANIFEST` deliberately refused to flatten — so a tile-grade LOD
 // key here would be a second derivation of a number the producer never took.
 const _byOrder: Order.Order<Frame.ResidencyTile> = Order.combine(
-  Order.mapInput(Order.number, (tile: Frame.ResidencyTile) => tile.bytes),
+  Order.mapInput(Order.bigint, (tile: Frame.ResidencyTile) => tile.artifact.artifactBytes),
   Order.mapInput(Order.number, (tile: Frame.ResidencyTile) => tile.residentCount),
 )
 
 declare namespace Depot {
-  type Leaf = { readonly set: Digest.Key<"content">; readonly file: string }
-  type Pull<Address, E, R> = (address: Address) => Stream.Stream<Uint8Array, E, R>
+  type Pull<E, R> = (reference: Wire.Artifact.Reference) => Stream.Stream<Wire.Artifact.Frame, E, R>
   type Fault<E> = E | PoolFault | ParseResult.ParseError | WorkerError.WorkerError
   // the held cell: the admitted view exactly as core folded it — its `census` and `resident` total ride along rather
   // than being re-summed downstream — beside the keys this epoch has already hauled. `epoch` is this depot's own
@@ -446,25 +448,28 @@ declare namespace Depot {
   // schema pin and reads the same constant on every emission, while `viewpoint.version` restarts per viewpoint key.
   type Residency = {
     readonly view: Frame.ResidencyView
-    readonly hauled: HashSet.HashSet<Digest.Key<"content">>
+    readonly keyed: ReadonlyArray<readonly [Frame.ResidencyTile, Wire.Artifact.Reference]>
+    readonly hauled: HashSet.HashSet<Wire.Artifact.Identity>
     readonly epoch: number
   }
-  type Order = { readonly epoch: number; readonly tile: Frame.ResidencyTile }
-  // the depot's settled row: the pool's parity receipt with its band ordinal made HONEST — a warm hit proves its key
-  // and extent by re-verification, while the band belongs to the frame that carried the bytes and the cache stores
-  // bytes alone, so the column is absent there rather than filled from an expectation the caller merely held
+  type Order = {
+    readonly epoch: number
+    readonly tile: Frame.ResidencyTile
+    readonly artifact: Wire.Artifact.Reference
+    readonly key: Wire.Artifact.Identity
+  }
+  // The depot's settled row is exactly the raw artifact proof. No generation survives because ArtifactFrame carries
+  // none; inventing one from stream position would alias transport chunking into application identity.
   type Settled = {
-    readonly key: Digest.Key<"content">
-    readonly generation: Option.Option<number>
+    readonly key: Wire.Artifact.Identity
     readonly extent: number
   }
   type Landed = readonly [Settled, Uint8Array<ArrayBuffer>]
+  // A custody result, not a second environment contract: the generated set remains the document and the verified
+  // byte table backs the app's complete-ArtifactRef `planes` resolver. No source/product metadata is copied.
   type Dome = {
-    readonly key: Digest.Key<"content">
-    readonly octets: Uint8Array<ArrayBuffer>
-    readonly intensity: number
-    readonly rotation: number
-    readonly sh9: ReadonlyArray<number>
+    readonly set: Wire.Decoded<"Set">
+    readonly planes: HashMap.HashMap<Wire.Artifact.Identity, Uint8Array<ArrayBuffer>>
   }
   type _Degrees<T extends Record<Opfs.Verdict, number> = typeof _DEGREES> = T // a new pressure band on the residency owner breaks here, never as a stranded degree
 }
@@ -473,21 +478,49 @@ declare namespace Depot {
 // re-entered viewpoint restarts its own count and only the pair decides supersession — a same-key arrival must strictly
 // advance the version, while a different key names a subject this depot holds no prior reading on and always admits.
 // Nothing else on the manifest can carry this verdict: `version` is the schema pin, equal on every lawful emission.
+// the viewpoint is REQUIRED by corpus rule and the generated type still spells presence, so the pair lifts once here
 const _skewed = (held: Option.Option<Depot.Residency>, manifest: Frame.ResidencyManifest): Option.Option<PoolFault> =>
   Option.flatMap(held, (live) =>
-    live.view.manifest.viewpoint.key === manifest.viewpoint.key
-      && manifest.viewpoint.version <= live.view.manifest.viewpoint.version
-      ? Option.some(
-          new PoolFault({
-            case: {
-              reason: "sequence",
-              detail: "residency-viewpoint-superseded",
-              actual: String(manifest.viewpoint.version),
-              expected: String(live.view.manifest.viewpoint.version + 1),
-            },
-          }),
-        )
-      : Option.none())
+    Option.flatMap(Option.all([Option.fromNullable(live.view.manifest.viewpoint), Option.fromNullable(manifest.viewpoint)]), ([prior, next]) =>
+      prior.key === next.key && next.version <= prior.version
+        ? Option.some(
+            new PoolFault({
+              case: {
+                reason: "sequence",
+                detail: "residency-viewpoint-superseded",
+                actual: String(next.version),
+                expected: String(prior.version + 1),
+              },
+            }),
+          )
+        : Option.none()))
+
+type _EnvironmentSet = Extract<Wire.Decoded<"Set">["product"], { readonly case: "environment" }>["value"]
+type _EnvironmentIbl = Extract<_EnvironmentSet["product"], { readonly case: "ibl" }>["value"]
+type _EnvironmentPlane = _EnvironmentIbl["source"]["equirect"]
+
+// The product oneofs are the only discriminants. Every leaf is hauled because the viewer's root plane resolver may
+// serve any declared environment product; warming only equirect would make the generated IBL arm partly fictional.
+const _environmentPlanes = (set: Wire.Decoded<"Set">): Option.Option<ReadonlyArray<_EnvironmentPlane>> =>
+  Match.value(set.product).pipe(Match.discriminatorsExhaustive("case")({
+    pbr: () => Option.none(),
+    baked: () => Option.none(),
+    environment: ({ value }) => Option.some(Match.value(value.product).pipe(Match.discriminatorsExhaustive("case")({
+      hdri: ({ value: hdri }) => [
+        hdri.source.equirect,
+        ...(hdri.source.cubemap === undefined ? [] : [hdri.source.cubemap]),
+        ...(hdri.source.preview === undefined ? [] : [hdri.source.preview]),
+      ],
+      ibl: ({ value: ibl }) => [
+        ibl.source.equirect,
+        ...(ibl.source.cubemap === undefined ? [] : [ibl.source.cubemap]),
+        ...(ibl.source.preview === undefined ? [] : [ibl.source.preview]),
+        ...ibl.specular,
+        ibl.brdfLut,
+        ...(ibl.luminanceCdf === undefined ? [] : [ibl.luminanceCdf]),
+      ],
+    }))),
+  }))
 
 class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
   scoped: Effect.gen(function* () {
@@ -510,31 +543,41 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
         onSome: (live) =>
           Array.map(
             Array.sort(
-              Array.filter(live.view.manifest.tiles, (tile) => !HashSet.has(live.hauled, tile.contentKey)),
-              _byOrder,
+              Array.filter(live.keyed, ([, artifact]) => !HashSet.has(live.hauled, artifact.sha256)),
+              Order.mapInput(_byOrder, ([tile]: readonly [Frame.ResidencyTile, Wire.Artifact.Reference]) => tile),
             ),
-            (tile) => ({ epoch: live.epoch, tile }),
+            ([tile, artifact]) => ({ epoch: live.epoch, tile, artifact, key: artifact.sha256 }),
           ),
       }))
     // the epoch is the whole guard: a landing from a superseded plan names a tile the successor may not carry at all,
     // so it drops rather than seeding the fresh view with a key that view's own manifest never listed
     const landed = (order: Depot.Order): Effect.Effect<void> =>
       SubscriptionRef.update(_residency, Option.map((live) =>
-        order.epoch !== live.epoch ? live : { ...live, hauled: HashSet.add(live.hauled, order.tile.contentKey) }))
-    const _warmed = (key: Digest.Key<"content">) =>
-      kv.read("cache", key).pipe(
+        order.epoch !== live.epoch ? live : { ...live, hauled: HashSet.add(live.hauled, order.key) }))
+    const _artifactCache = (identity: Wire.Artifact.Identity): string => `artifact/${identity}`
+    const _warmed = (reference: Wire.Artifact.Reference) =>
+      kv.read("cache", _artifactCache(reference.sha256)).pipe(
         Effect.catchTag("KvFault", () =>
           Effect.as(Effect.logWarning("browser cache read unavailable"), Option.none<Uint8Array>())),
         Effect.flatMap(
           Option.match({
             onNone: () => Effect.succeedNone,
             onSome: (band) =>
-              pool.executeEffect(new Verify({ key, octets: band })).pipe(
+              pool.executeEffect(new VerifyArtifact({
+                key: reference.sha256,
+                extent: Number(reference.artifactBytes),
+                octets: band,
+              })).pipe(
                 Effect.map((receipt) => Option.some([receipt, band] as const)),
                 Effect.catchTags({
-                  // a parity refusal alone evicts the poisoned band; transient worker or wire faults forfeit warmth without evicting
+                  // A parity refusal alone evicts the poisoned band; transient worker faults forfeit warmth without evicting.
                   PoolFault: (fault) =>
-                    Effect.as(fault.reason === "parity" ? Effect.ignoreLogged(kv.drop("cache", key)) : Effect.void, Option.none()),
+                    Effect.as(
+                      fault.reason === "parity"
+                        ? Effect.ignoreLogged(kv.drop("cache", _artifactCache(reference.sha256)))
+                        : Effect.void,
+                      Option.none(),
+                    ),
                   ParseError: () => Effect.as(Effect.logWarning("browser cache receipt undecodable"), Option.none()),
                   WorkerError: () => Effect.as(Effect.logWarning("browser cache verification unavailable"), Option.none()),
                 }),
@@ -542,68 +585,120 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
           }),
         ),
       )
-    // One governed leg, address-blind and permit-bracketed, warm-then-assemble: both entrypoints resolve their own
-    // address and hand it bands. Warming is UNCONDITIONAL because it proves by content — `_warmed` re-verifies the
-    // cached band against the key it was filed under — so no caller carries a knob deciding whether its own digest
-    // may be trusted, and the band ordinal a warm hit cannot recover rides absence instead of a caller's guess.
+    const _payloads = <E, R>(
+      reference: Wire.Artifact.Reference,
+      frames: Stream.Stream<Wire.Artifact.Frame, E, R>,
+    ): Stream.Stream<Uint8Array, E | PoolFault, R> =>
+      Stream.mapAccumEffect(frames, 0, (spent, frame) => {
+        const extent = Number(reference.artifactBytes)
+        const next = spent + frame.payload.byteLength
+        return frame.artifact.sha256 !== reference.sha256 || frame.artifact.artifactBytes !== reference.artifactBytes
+          ? Effect.fail(new PoolFault({ case: {
+              reason: "parity",
+              detail: "artifact-frame-reference-drift",
+              actual: `${frame.artifact.sha256}:${frame.artifact.artifactBytes}`,
+              expected: `${reference.sha256}:${reference.artifactBytes}`,
+            } }))
+          : next > extent
+            ? Effect.fail(new PoolFault({ case: {
+                reason: "overrun", detail: "artifact-payload-extent", actual: String(next), expected: String(extent),
+              } }))
+            : Effect.succeed([next, frame.payload] as const)
+      })
+    // One governed, permit-bracketed redemption leg serves residency and appearance refs. The application supplies
+    // validated generated frames; this fold proves repeated-reference parity, bounded extent, and ordered SHA-256.
     const _hauledOne = <E, R>(
-      key: Digest.Key<"content">,
+      reference: Wire.Artifact.Reference,
       admits: Opfs.Admission,
-      bands: Stream.Stream<Uint8Array, E, R>,
+      frames: Stream.Stream<Wire.Artifact.Frame, E, R>,
     ): Effect.Effect<Depot.Landed, Depot.Fault<E>, R> =>
       _gate.withPermits(1)(
-        Effect.flatMap(_warmed(key), (warm) =>
+        Effect.flatMap(_warmed(reference), (warm) =>
           Option.match(warm, {
-            onSome: ([receipt, octets]) =>
-              Effect.succeed([{ ...receipt, generation: Option.none<number>() }, octets] as const),
+            onSome: ([receipt, octets]) => Effect.succeed([receipt, octets] as const),
             onNone: () =>
-              Stream.runCollect(bands).pipe(
-                Effect.flatMap((held) => pool.executeEffect(new Assemble({ key, frames: Chunk.toReadonlyArray(held) }))),
+              Stream.runCollect(_payloads(reference, frames)).pipe(
+                Effect.flatMap((held) => pool.executeEffect(new Redeem({
+                  key: reference.sha256,
+                  extent: Number(reference.artifactBytes),
+                  payloads: Chunk.toReadonlyArray(held),
+                }))),
                 // `warmDepot` prices ADDING residency alone, so a refusing band still serves the scene and still reads what it already holds
                 Effect.tap(({ key: minted, octets }) =>
-                  admits.warmDepot ? Effect.ignoreLogged(kv.write("cache", minted, octets)) : Effect.void),
-                Effect.map(({ extent, generation, key: minted, octets }) => [
-                  { key: minted, generation: Option.some(generation), extent },
-                  octets,
-                ] as const),
+                  admits.warmDepot
+                    ? Effect.ignoreLogged(kv.write("cache", _artifactCache(minted), octets))
+                    : Effect.void),
+                Effect.map(({ extent, key, octets }) => [{ key, extent }, octets] as const),
               ),
           }),
         ),
       )
     const _surveyed = (
-      source: Uint8Array | Wire.Decoded<"AssetSetManifest">,
-    ): Effect.Effect<Wire.Decoded<"AssetSetManifest">, PoolFault | ParseResult.ParseError | WorkerError.WorkerError> =>
-      Predicate.isUint8Array(source) ? pool.executeEffect(new Survey({ bytes: source })) : Effect.succeed(source) // one entrypoint, two set-document modalities, discriminated on the value
+      source: Uint8Array,
+    ): Effect.Effect<Wire.Decoded<"Set">, PoolFault | ParseResult.ParseError | WorkerError.WorkerError> =>
+      pool.executeEffect(new Survey({ bytes: source }))
     const haul = <E, R>(
-      pull: Depot.Pull<Frame.ResidencyTile, E, R>,
+      pull: Depot.Pull<Wire.Artifact.Reference, E, R>,
     ): Effect.Effect<readonly [ReadonlyArray<Depot.Fault<E>>, ReadonlyArray<Depot.Landed>], never, R> =>
       Effect.gen(function* () {
         const orders = yield* plan
         const admits = yield* _admitted
-        // the whole tile crosses to `pull`, because the served address is the producer's own `blobKey` column and a
-        // caller handed a bare content key would have to mint one — the forgery `frame#RESIDENCY_MANIFEST` forecloses
+        // The resolver takes the generated ArtifactRef whole; identity and extent stay coupled while storage
+        // addressing remains an application concern.
         return yield* Effect.partition(orders, (order) =>
           Effect.tap(
-            _hauledOne(order.tile.contentKey, admits, pull(order.tile)),
+            _hauledOne(order.key, admits, pull(order.artifact)),
             () => landed(order),
           ), {
           concurrency: "unbounded", // the permit budget carries the real bound; the partition owns quarantine alone
         })
       })
     const dome = <E, R>(
-      source: Uint8Array | Wire.Decoded<"AssetSetManifest">,
-      pull: Depot.Pull<Depot.Leaf, E, R>,
+      source: Uint8Array,
+      pull: Depot.Pull<Wire.Artifact.Reference, E, R>,
     ): Effect.Effect<Option.Option<Depot.Dome>, Depot.Fault<E>, R> =>
       Effect.flatMap(_admitted, (admits) =>
         Effect.flatMap(_surveyed(source), (manifest) =>
-          Option.match(manifest.ibl, {
-            onNone: () => Effect.succeedNone, // a set with no dome is an answer, never a fault
-            onSome: (ibl) =>
-              Effect.map(
-                _hauledOne(ibl.equirect.address, admits, pull({ set: manifest.manifestKey, file: ibl.equirect.file })),
-                ([, octets]): Option.Option<Depot.Dome> =>
-                  Option.some({ key: ibl.equirect.address, octets, intensity: ibl.intensity, rotation: ibl.rotation, sh9: ibl.sh9 }),
-              ),
+          // A non-environment set is a lawful absence on this lane. An environment set is never reduced to a
+          // handwritten dome row: decode each PlaneRef once, deduplicate shared content by its canonical key, and
+          // retain the generated document whole beside the verified bytes its future-app resolver serves.
+          Option.match(_environmentPlanes(manifest), {
+            onNone: () => Effect.succeedNone,
+            onSome: (products) =>
+              Effect.gen(function* () {
+                const leaves = yield* Effect.forEach(products, (product) =>
+                  Effect.map(Schema.decode(Wire.Texture.reference)(product.plane), (reference) => [
+                    reference.artifact.artifactId,
+                    reference,
+                  ] as const))
+                // Reused product bytes may lawfully ride more than one leaf name, but one content key cannot declare
+                // two extents. Prove that correspondence before collapsing names onto one physical haul.
+                const distinct = yield* Effect.reduce(
+                  leaves,
+                  HashMap.empty<Digest.Key<"content">, Wire.Texture.Reference>(),
+                  (held, [key, reference]) => Option.match(HashMap.get(held, key), {
+                    onNone: () => Effect.succeed(HashMap.set(held, key, reference)),
+                    onSome: (prior) => prior.artifact.artifactBytes === reference.artifact.artifactBytes
+                      ? Effect.succeed(held)
+                      : Effect.fail(new PoolFault({ case: {
+                          reason: "parity", detail: `environment-plane-declared-extent:${key}`,
+                          actual: String(reference.artifact.artifactBytes),
+                          expected: String(prior.artifact.artifactBytes),
+                        } })),
+                  }),
+                )
+                const planes = yield* Effect.forEach(HashMap.toEntries(distinct), ([key, reference]) =>
+                  Effect.flatMap(_hauledOne(key, admits, pull(reference.artifact)), ([receipt, octets]) =>
+                    BigInt(receipt.extent) === reference.artifact.artifactBytes
+                      ? Effect.succeed([key, octets] as const)
+                      : Effect.fail(new PoolFault({ case: {
+                          reason: "parity", detail: `environment-plane-landed-extent:${key}`,
+                          actual: String(receipt.extent), expected: String(reference.artifact.artifactBytes),
+                        } }))), {
+                    concurrency: "unbounded", // the shared permit gate is the actual concurrency governor
+                  })
+                return Option.some({ set: manifest, planes: HashMap.fromIterable(planes) })
+              }),
           }),
         ),
       )
@@ -623,17 +718,29 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
           Option.match(_skewed(held, manifest), {
             onSome: (refusal) => [Either.left(refusal), held] as const,
             onNone: () =>
-              Either.match(Frame.Residency.admit(manifest), {
-                onLeft: (fault) => [Either.left(PoolFault.of(fault)), held] as const,
-                onRight: (view) => [
-                  Either.right(view),
-                  Option.some<Depot.Residency>({
-                    view,
-                    hauled: HashSet.empty<Digest.Key<"content">>(),
-                    epoch: Option.match(held, { onNone: () => 1, onSome: (live) => live.epoch + 1 }),
-                  }),
-                ] as const,
-              }),
+              Either.match(
+                Either.flatMap(Frame.Residency.admit(manifest), (view) =>
+                  Either.map(
+                    Either.mapLeft(
+                      Either.all(Array.map(view.manifest.tiles, (tile) =>
+                        Either.map(Schema.decodeEither(Wire.Artifact.reference)(tile.artifact), (artifact) => [tile, artifact] as const))),
+                      (error) => _codec(error.message),
+                    ),
+                    (keyed) => [view, keyed] as const,
+                  )),
+                {
+                  onLeft: (fault) => [Either.left(fault instanceof PoolFault ? fault : PoolFault.of(fault)), held] as const,
+                  onRight: ([view, keyed]) => [
+                    Either.right(view),
+                    Option.some<Depot.Residency>({
+                      view,
+                      keyed,
+                      hauled: HashSet.empty<Digest.Key<"content">>(),
+                      epoch: Option.match(held, { onNone: () => 1, onSome: (live) => live.epoch + 1 }),
+                    }),
+                  ] as const,
+                },
+              ),
           })),
     }
   }),
@@ -704,7 +811,7 @@ const _handlers = WorkerRunner.layerSerialized(Pool.protocol, {
         ),
     ),
   Chart: ({ bytes }) => Effect.mapError(Schema.decode(Frame.Residency.envelope)(bytes), (fault) => _codec(String(fault))),
-  Survey: ({ bytes }) => Effect.mapError(Wire.decode("AssetSetManifest", bytes), (fault) => _codec(String(fault))),
+  Survey: ({ bytes }) => Effect.mapError(Wire.decode("Set", bytes), (fault) => _codec(String(fault))),
   Imprint: ({ codec, pixels, quality }) =>
     Effect.tryPromise({
       // BOUNDARY ADAPTER: a 2d context is nullable by contract, and the encoder is promise-shaped on both arms

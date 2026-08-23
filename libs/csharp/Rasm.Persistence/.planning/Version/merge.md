@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_MERGE]
 
-`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or closed RFC 6902 documents over exact `NodeWire` ProtoJSON, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `ConflictReceipt` without manufacturing missing authorship.
+`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.V1.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `ConflictReceipt` without manufacturing missing authorship.
 
 ## [01]-[INDEX]
 
@@ -10,9 +10,9 @@
 
 - Owner: `GraphNode` carries forest identity, content axes, sibling position, and Merkle subtree digest.
 - Owner: `NodeRole`, `EditOp`, and `MergeConflict` close structural roles, operations, and conflicts.
-- Owner: `EntityEdit` carries base-addressed tombstone and member-patch egress.
-- Owner: `EntityEditWire` projects `EntityEdit` into the discriminated JSON contract.
-- Owner: `PatchPolicy` admits the caller-supplied operation ceiling shared with the crossing.
+- Owner: `EntityEdit` carries base-addressed tombstone and member-patch egress; `MemberPatch` is the mask beside its prior and successor `NodeWire`, and `Apply` is the substrate `Merge`.
+- Owner: `MemberDiff` computes the changed path set off the descriptor; `EditWire` lowers `EntityEdit` onto the generated `Rasm.Contracts.Element.V1.EntityEditWire` through the union's total `Switch`, one `PatchOp` per mask path.
+- Owner: `PatchPolicy` admits the caller-supplied mask-path ceiling shared with the crossing.
 - Owner: `TallyFact`, `MergeOutcome`, and `StructuralMerge` own merge evidence and the full merge fold.
 - Cases: `EntityEdit` is `Tombstone | Members`; both arms carry the addressed current-node base.
 - Cases: `Delete` maps to `Tombstone`; held-node material edits map to `Members`.
@@ -20,44 +20,44 @@
 - Entry: `Reconcile` aligns imported ids from GlobalId and unambiguous GlobalId-less type keys.
 - Entry: `Forest` and `DiffContent` project object topology and non-object content onto separate detection axes.
 - Entry: `ThreeWay` returns clean edits, typed conflicts, and tally evidence in one result.
-- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault rail.
+- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault rail; `EditWire.Wire(edit, key)` lowers one edit onto the generated message.
 - Auto: Every base is `ContentAddress.Of(baseNode, base.Header.Tolerance)`.
-- Auto: `Members` diffs exact before/after `NodeWire` ProtoJSON; object keys sort ordinally.
-- Auto: Objects recurse; arrays, scalars, and changed roots replace whole; missing members add or remove.
-- Auto: Changed prototype members replace their containing object, so emitted pointers remain safe.
-- Auto: `Patch` collapses an over-ceiling member diff to one root replacement carrying exact successor ProtoJSON.
+- Auto: `Members` diffs the binary `NodeWire` pair field by field off `NodeWire.Descriptor.Fields.InFieldNumberOrder()` through `IFieldAccessor` equality — message fields recurse, repeated and map fields compare whole, a presence flip names the path, a changed oneof arm names both arms.
+- Auto: `FieldMask.IsValid` gates the path set; `Merge` under `ReplaceMessageFields`/`ReplaceRepeatedFields`/`ReplacePrimitiveFields` applies it, so a primitive returning to its default crosses as a change — the member a ProtoJSON diff elided.
+- Auto: The wire pointer re-spells each mask segment through the field's `JsonName`, and the op kind derives from which side renders the member — `Add`, `Replace`, or `Remove` — so the peer's ProtoJSON document and the binary mask name one change.
+- Auto: `Patch` collapses an over-ceiling path set to the top-level field set both sides render, so the successor replaces whole and the op count stays under the ceiling by construction.
 - Receipt: a structural diff rides `store.diff.structural` carrying the edit-op count by kind; a three-way merge rides `store.merge.threeway` carrying the conflict count folded into `MergeOutcome.Counts`, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `ConflictReceipt`; each projected receipt fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
-- Packages: Rasm.Element owns graphs, node addressing, `NodeWire`, and its ProtoJSON projection.
-- Packages: JsonPatch owns the RFC 6902 document; System.Text.Json owns exact wire values and outer edit JSON.
-- Packages: System.IO.Hashing owns local Merkle accumulation; LanguageExt owns immutable carriers and `Fin`.
+- Packages: Rasm.Element owns graphs, node addressing, and the railed `ElementWire.Encode(node, tolerance, key)` producing the binary `NodeWire` the mask diffs; Rasm.Contracts owns `Element.V1.EntityEditWire`/`EditTombstone`/`EditMembers` and the `Patch.V1.PatchOp` family.
+- Packages: Google.Protobuf owns `FieldMask`/`Merge`/`IsValid`, the descriptor walk (`Fields.InFieldNumberOrder`, `FieldDescriptor.Accessor`/`JsonName`/`HasPresence`/`FieldType`/`IsRepeated`, `MessageDescriptor.Parser`), and `Value.Parser.ParseJson`; Rasm.AppHost `WireJson.Formatter.WriteValue` is the one ProtoJSON leaf render.
+- Packages: Rasm `ContentHash.Of` + `CanonicalWriter` own every local digest (`GeometryDigest`, `Seal`); LanguageExt owns immutable carriers and `Fin`.
 - Packages: Thinktecture owns closed unions; NodaTime owns merge evidence time.
 - Growth: detection absorbs each new edit operation; edit egress stays the closed lifecycle union.
 - Boundary: Re-ingest alignment precedes every durable-`NodeId` diff.
 - Boundary: `Forest` reads `Relationship.Compose` containment and the complete representation map.
 - Boundary: Non-object content nodes diff directly from the node map and never disappear behind the object forest.
-- Boundary: `GraphNode` hashes drive detection only; patch paths target exact producer `NodeWire` ProtoJSON.
-- Boundary: TypeScript applies the patch to retained ProtoJSON and decodes the successor through the existing node landing.
+- Boundary: `GraphNode` hashes drive detection only; patch masks target the binary `NodeWire` the seam encoded, and ProtoJSON is a `PatchOp` leaf render, never a patch target or a relay.
+- Boundary: TypeScript decodes the generated `EntityEditWire`, applies the `PatchOp` run to its retained ProtoJSON, and decodes the successor through the existing node landing.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
-using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Globalization;
 using Google.Protobuf;
+using Google.Protobuf.Reflection;
+using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
-using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
-using Microsoft.AspNetCore.JsonPatch.SystemTextJson.Operations;
 using NodaTime;
+using Rasm.AppHost.Runtime;                        // WireJson — the ONE ProtoJSON formatter (ports#WIRE_LAW)
+using Rasm.Contracts.Element.V1;                   // NodeWire — the binary node the mask diffs
+using Rasm.Domain;                                 // ContentHash/CanonicalWriter — the one digest alphabet
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Relations;
-using Rasm.Persistence.Element;                    // ElementJson.Options — the ONE codec STJ converter graph
-using System.IO.Hashing;
 using Thinktecture;
+using Control = Rasm.Contracts.Compute.V1;         // PatchOp family
+using Host = Rasm.Contracts.Element.V1;               // EntityEditWire / EditTombstone / EditMembers
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Version;
@@ -75,7 +75,7 @@ public sealed partial class NodeRole {
     public static readonly NodeRole Occurrence = new("occurrence"); // an ObjectKind.Occurrence with no containment-whole role
     public static readonly NodeRole Type = new("type");             // an ObjectKind.Type definition object
     public static readonly NodeRole Container = new("container");   // a node that is the Whole of a Compose.Contain edge (spatial structure)
-    public static readonly NodeRole Annotation = new("annotation"); // an occurrence carrying no Body/Axis/FootPrint geometry
+    public static readonly NodeRole Annotation = new("annotation"); // an occurrence carrying no representation geometry
 
     // `Of` projects the neutral role: a Type object is Type; a containment Whole is a Container; an occurrence with
     // no geometry is an Annotation; everything else is a plain Occurrence — read off ObjectKind + the structural
@@ -94,8 +94,8 @@ public sealed partial class TallySlot {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// `GraphNode` carries one forest node. GeometryHash digests the Object's WHOLE Representations.ByIdentifier map (Body
-// with the analytical Axis/Box/FootPrint), PropertyHash the seam ContentAddress over Node.ToCanonicalBytes. Matches
+// `GraphNode` carries one forest node. GeometryHash digests the Object's WHOLE Representations.ByIdentifier map,
+// PropertyHash the seam ContentAddress over Node.ToCanonicalBytes. Matches
 // tests the content signature, SubtreeHash is the Merkle prune key, and a content node (non-Object) carries its
 // PropertyHash with GeometryHash == 0 and Parent == None — it lives on the content axis, never the Object forest.
 public readonly record struct GraphNode(NodeId Key, NodeRole Role, Option<NodeId> Parent, int Ordinal, UInt128 GeometryHash, UInt128 PropertyHash, UInt128 SubtreeHash, Seq<NodeId> Children) {
@@ -164,13 +164,48 @@ public abstract partial record MergeConflict {
         containmentCycle: static c => (Option<ConflictSide>.None, c.Side));
 }
 
-// Both egress arms carry authoritative held-node OCC. Members carries a closed RFC 6902 document whose paths target
-// exact NodeWire ProtoJSON; insertion stays on EditOp.Insert and the GraphDelta rail because no held node can supply Base.
+// Both egress arms carry authoritative held-node OCC. Members carries a `MemberPatch` — a FieldMask over the binary
+// NodeWire beside the prior and successor it reads — and insertion stays on EditOp.Insert and the GraphDelta rail
+// because no held node can supply Base.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record EntityEdit {
     private EntityEdit() { }
     public sealed record Tombstone(NodeId Key, ContentAddress Base) : EntityEdit;
-    public sealed record Members(NodeId Key, ContentAddress Base, JsonPatchDocument Patch) : EntityEdit;
+    public sealed record Members(NodeId Key, ContentAddress Base, MemberPatch Patch) : EntityEdit;
+}
+
+// A member patch is the mask beside the two messages it was computed from: `Mask` names every changed path,
+// `Successor` carries the values, `Prior` lets the wire lowering tell an added member from a replaced one, and
+// `Apply` is the substrate's own `Merge` under replace semantics on every axis — a message path replaces whole (an
+// unset source CLEARS the target), a repeated path replaces whole, a primitive path replaces even to its default.
+// NAMED LOSS: `Move`/`Copy`/`Test` never emit — a mask has no reorder or precondition vocabulary; WITNESS: the
+// three-way merge's `Edit` fold never produced them either, so the run lowers onto `Add`/`Replace`/`Remove` alone.
+public sealed record MemberPatch(FieldMask Mask, NodeWire Prior, NodeWire Successor) {
+    public static readonly FieldMask.MergeOptions Replace = new() { ReplaceMessageFields = true, ReplaceRepeatedFields = true, ReplacePrimitiveFields = true };
+
+    public int Paths => Mask.Paths.Count;
+
+    public NodeWire Apply(NodeWire target) {
+        NodeWire patched = target.Clone();
+        Mask.Merge(Successor, patched, Replace);
+        return patched;
+    }
+
+    // `None` is the no-change answer; an over-ceiling path set collapses to the TOP-LEVEL fields either side renders,
+    // so the successor replaces whole under the same `Merge` and the wire carries one op per top-level member rather
+    // than a root replacement the mask vocabulary cannot spell. `IsValid` gates the mask before it leaves, so a path
+    // the descriptor does not own refuses typed here rather than throwing inside `Merge`.
+    public static Fin<Option<MemberPatch>> Between(NodeWire prior, NodeWire successor, PatchPolicy policy, Op key) =>
+        MemberDiff.Paths(prior, successor) switch {
+            { IsEmpty: true } => Fin.Succ(Option<MemberPatch>.None),
+            var paths => Masked(paths.Count <= policy.OperationCeiling ? paths : MemberDiff.TopLevel(prior, successor), prior, successor, key),
+        };
+
+    static Fin<Option<MemberPatch>> Masked(Seq<string> paths, NodeWire prior, NodeWire successor, Op key) =>
+        new FieldMask { Paths = { paths } } switch {
+            var mask when FieldMask.IsValid(NodeWire.Descriptor, mask) => Fin.Succ(Some(new MemberPatch(mask, prior, successor))),
+            var mask => ElementFault.ValueRejected(key, $"<entity-edit-mask:{string.Join(',', mask.Paths)}>"),
+        };
 }
 
 public sealed record PatchPolicy {
@@ -182,83 +217,98 @@ public sealed record PatchPolicy {
         : ElementFault.ValueRejected(key, $"<entity-edit-operation-ceiling:{operationCeiling}>");
 }
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
-[JsonDerivedType(typeof(JsonPatchOperationWire.Add), "add")]
-[JsonDerivedType(typeof(JsonPatchOperationWire.Remove), "remove")]
-[JsonDerivedType(typeof(JsonPatchOperationWire.Replace), "replace")]
-[JsonDerivedType(typeof(JsonPatchOperationWire.Move), "move")]
-[JsonDerivedType(typeof(JsonPatchOperationWire.Copy), "copy")]
-[JsonDerivedType(typeof(JsonPatchOperationWire.Test), "test")]
-public abstract record JsonPatchOperationWire {
-    static readonly FrozenSet<string> UnsafeMembers = new[] { "__proto__", "prototype", "constructor" }
-        .ToFrozenSet(StringComparer.Ordinal);
+// The changed path set is a descriptor walk, never a JSON diff: proto field names in field-number order — the
+// owner-published order, so no caller sorts — with message fields recursing under their own name, repeated and map
+// fields comparing whole (`RepeatedField`/`MapField` equality is element-wise, and a per-index path spells a positional
+// patch `Merge` cannot apply), and a presence flip naming the path outright. `HasValue` is read ONLY where the field
+// has presence — the accessor throws on an implicit-presence scalar — so the fold asks each field the question it
+// can answer.
+public static class MemberDiff {
+    public static Seq<string> Paths(IMessage before, IMessage after) => Paths(before, after, Seq<string>());
 
-    private JsonPatchOperationWire() { }
-    public sealed record Add(string Path, JsonElement Value) : JsonPatchOperationWire;
-    public sealed record Remove(string Path) : JsonPatchOperationWire;
-    public sealed record Replace(string Path, JsonElement Value) : JsonPatchOperationWire;
-    public sealed record Move(string From, string Path) : JsonPatchOperationWire;
-    public sealed record Copy(string From, string Path) : JsonPatchOperationWire;
-    public sealed record Test(string Path, JsonElement Value) : JsonPatchOperationWire;
+    static Seq<string> Paths(IMessage before, IMessage after, Seq<string> prefix) =>
+        toSeq(before.Descriptor.Fields.InFieldNumberOrder()).Bind(field => {
+            Seq<string> path = prefix.Add(field.Name);
+            (object held, object next) = (field.Accessor.GetValue(before), field.Accessor.GetValue(after));
+            return field switch {
+                { HasPresence: true } when field.Accessor.HasValue(before) != field.Accessor.HasValue(after) => Seq(Spelled(path)),
+                { FieldType: FieldType.Message, IsRepeated: false } when held is IMessage prior && next is IMessage successor => Paths(prior, successor, path),
+                _ => Equals(held, next) ? Seq<string>() : Seq(Spelled(path)),
+            };
+        });
 
-    public static Fin<JsonPatchOperationWire> Of(Operation operation, Op key) =>
-        key.Catch(() => Project(operation, key));
+    // The collapse set: every top-level field EITHER side renders, so `Merge` replaces the successor whole and the
+    // wire emits one op per rendered member.
+    public static Seq<string> TopLevel(IMessage prior, IMessage successor) =>
+        toSeq(prior.Descriptor.Fields.InFieldNumberOrder())
+            .Filter(field => Rendered(field, prior) || Rendered(field, successor))
+            .Map(static field => field.Name);
 
-    static Fin<JsonPatchOperationWire> Project(Operation operation, Op key) => operation.OperationType switch {
-        OperationType.Add => Pointer(operation.path, key)
-            .Map(path => (JsonPatchOperationWire)new Add(path, Value(operation.value))),
-        OperationType.Remove => Pointer(operation.path, key)
-            .Map(path => (JsonPatchOperationWire)new Remove(path)),
-        OperationType.Replace => Pointer(operation.path, key)
-            .Map(path => (JsonPatchOperationWire)new Replace(path, Value(operation.value))),
-        OperationType.Move => Pointer(operation.from, key).Bind(from => Pointer(operation.path, key)
-            .Map(path => (JsonPatchOperationWire)new Move(from, path))),
-        OperationType.Copy => Pointer(operation.from, key).Bind(from => Pointer(operation.path, key)
-            .Map(path => (JsonPatchOperationWire)new Copy(from, path))),
-        OperationType.Test => Pointer(operation.path, key)
-            .Map(path => (JsonPatchOperationWire)new Test(path, Value(operation.value))),
-        _ => ElementFault.ValueRejected(key, $"<entity-edit-operation:{operation.op}>")
-    };
+    // ProtoJSON renders a member when the field has presence and is set, or when it holds a non-default value — the
+    // rule `JsonFormatter` elides by, stated once so the op kind names the member the peer's document actually holds.
+    public static bool Rendered(FieldDescriptor field, IMessage message) =>
+        field.HasPresence
+            ? field.Accessor.HasValue(message)
+            : !Equals(field.Accessor.GetValue(message), field.Accessor.GetValue(message.Descriptor.Parser.ParseFrom(ByteString.Empty)));
 
-    static JsonElement Value(object? value) => JsonSerializer.SerializeToElement(value, ElementJson.Options);
-
-    internal static bool IsUnsafe(string member) => UnsafeMembers.Contains(member);
-
-    static Fin<string> Pointer(string? value, Op key) =>
-        value is null || value.Length > 0 && value[0] != '/'
-            ? ElementFault.ValueRejected(key, $"<entity-edit-pointer:{value}>")
-            : toSeq(value.Split('/').Skip(1)).Exists(segment =>
-                !ValidEscapes(segment) || UnsafeMembers.Contains(segment.Replace("~1", "/").Replace("~0", "~")))
-                ? ElementFault.ValueRejected(key, $"<entity-edit-pointer:{value}>")
-                : Fin.Succ(value);
-
-    static bool ValidEscapes(string token) {
-        for (int i = 0; i < token.Length; i++) {
-            if (token[i] != '~') { continue; }
-            if (++i == token.Length || token[i] is not ('0' or '1')) { return false; }
-        }
-        return true;
-    }
+    static string Spelled(Seq<string> path) => string.Join('.', path);
 }
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(EntityEditWire.Tombstone), "tombstone")]
-[JsonDerivedType(typeof(EntityEditWire.Members), "members")]
-public abstract record EntityEditWire {
-    private EntityEditWire() { }
-    public sealed record Tombstone(string Key, string Base) : EntityEditWire;
-    public sealed record Members(string Key, string Base, JsonPatchOperationWire[] Patch) : EntityEditWire;
+// ONE lowering onto the generated message through the union's total Switch — a third `EntityEdit` case breaks the
+// build here. The corpus keys both arms as 16-byte addresses: `base` is the content address on the kernel `Wire`
+// correspondence, and `key` admits the NodeId text through `ContentHash.Admit` so a non-X32 id refuses typed at the
+// edge rather than shipping a malformed key. Each mask path lowers onto exactly one `PatchOp` case.
+public static class EditWire {
+    public static Fin<Host.EntityEditWire> Wire(EntityEdit edit, Op key) => edit.Switch(
+        tombstone: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
+            Tombstone = new Host.EditTombstone { Key = id, Base = ContentHash.Wire(row.Base.Value) },
+        }),
+        members: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
+            Members = new Host.EditMembers { Key = id, Base = ContentHash.Wire(row.Base.Value), Patch = { Ops(row.Patch) } },
+        }));
 
-    public static Fin<EntityEditWire> Of(EntityEdit edit, PatchPolicy policy, Op key) => edit.Switch<Fin<EntityEditWire>>(
-        tombstone: static row => Fin.Succ((EntityEditWire)new Tombstone(row.Key.Value, row.Base.ToValue())),
-        members: row => row.Patch.Operations.Count > policy.OperationCeiling
-            ? ElementFault.ValueRejected(key, $"<entity-edit-operation-overrun:{row.Patch.Operations.Count}>")
-            : toSeq(row.Patch.Operations)
-            .Traverse(operation => JsonPatchOperationWire.Of(operation, key).ToValidation()).As().ToFin()
-            .Map(operations => (EntityEditWire)new Members(row.Key.Value, row.Base.ToValue(), operations.ToArray())));
+    static Fin<ByteString> Address(NodeId id, Op key) => ContentHash.Admit(id.Value, key).Map(ContentHash.Wire);
 
-    public static Fin<byte[]> Encode(EntityEdit edit, PatchPolicy policy, Op key) =>
-        Of(edit, policy, key).Map(row => JsonSerializer.SerializeToUtf8Bytes(row, ElementJson.Options));
+    static Seq<Control.PatchOp> Ops(MemberPatch patch) =>
+        toSeq(patch.Mask.Paths).Map(path => Op(patch, toSeq(path.Split('.'))));
+
+    // Op kind derives from which side RENDERS the member: absent→present is `Add`, present→present `Replace`,
+    // present→absent `Remove` — the RFC 6902 preconditions a peer applier enforces, read off the two messages rather
+    // than guessed from the mask alone.
+    static Control.PatchOp Op(MemberPatch patch, Seq<string> segments) {
+        string pointer = Pointer(NodeWire.Descriptor, segments);
+        return (Leaf(patch.Prior, segments), Leaf(patch.Successor, segments)) switch {
+            (_, { IsNone: true }) => new Control.PatchOp { Remove = new Control.PatchRemove { Path = pointer } },
+            ({ IsNone: true }, { Case: object next }) => new Control.PatchOp { Add = new Control.PatchAdd { Path = pointer, Value = Json(next) } },
+            (_, { Case: object next }) => new Control.PatchOp { Replace = new Control.PatchReplace { Path = pointer, Value = Json(next) } },
+        };
+    }
+
+    // RFC 6901 over ProtoJSON: each mask segment re-spells through the field's own `JsonName`, descending the message
+    // chain; proto identifiers carry no `/` or `~`, so no escape arm exists to forget.
+    static string Pointer(MessageDescriptor root, Seq<string> segments) =>
+        segments.Fold((Owner: root, Path: string.Empty), static (at, name) => {
+            FieldDescriptor field = at.Owner.FindFieldByName(name);
+            return (field.FieldType == FieldType.Message && !field.IsRepeated ? field.MessageType : at.Owner, $"{at.Path}/{field.JsonName}");
+        }).Path;
+
+    // The rendered leaf on one side, or `None` where the peer's document holds no member at that pointer.
+    static Option<object> Leaf(IMessage message, Seq<string> segments) {
+        FieldDescriptor field = message.Descriptor.FindFieldByName(segments[0]);
+        return segments.Count == 1
+            ? MemberDiff.Rendered(field, message) ? Some(field.Accessor.GetValue(message)) : None
+            : field.Accessor.HasValue(message) && field.Accessor.GetValue(message) is IMessage inner ? Leaf(inner, segments.Tail) : None;
+    }
+
+    // ONE ProtoJSON leaf render: the AppHost `WireJson.Formatter` writes any field value — scalar, message, repeated,
+    // map — under the estate's one registry, and `Value.Parser.ParseJson` lifts that text into the corpus
+    // `google.protobuf.Value` leaf the op carries. `WriteValue` writes the value it is handed, so a default crosses
+    // intact where a message-level format would have elided it.
+    static Value Json(object value) {
+        StringWriter writer = new(CultureInfo.InvariantCulture);
+        WireJson.Formatter.WriteValue(writer, value);
+        return Value.Parser.ParseJson(writer.ToString());
+    }
 }
 
 public readonly record struct TallyFact(TallySlot Slot, string Kind, int Count);
@@ -341,7 +391,8 @@ public static class StructuralMerge {
     }
 
     // Project held-node groups only. Insert remains on EditOp.Insert/GraphDelta because no current node can supply Base.
-    // Members diffs exact NodeWire ProtoJSON; TypeScript patches that same representation before node admission.
+    // Members diffs the binary NodeWire pair under each graph's own header tolerance; TypeScript applies the lowered
+    // PatchOp run to its retained ProtoJSON before node admission.
     public static Fin<HashMap<NodeId, EntityEdit>> Patch(
         Seq<EditOp> script, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
         toSeq(script.GroupBy(static op => op.Target)).Fold(
@@ -370,56 +421,12 @@ public static class StructuralMerge {
                 .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-base-absent:{subject.Value}>"))
                 .Bind(before => target.Find(subject)
                     .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-target-absent:{subject.Value}>"))
-                    .Map(after => PatchDocument(
-                        NodeJson(before, @base.Header.Tolerance), NodeJson(after, target.Header.Tolerance), policy) switch {
-                        { Operations.Count: 0 } => Option<EntityEdit>.None,
-                        var patch => Some<EntityEdit>(new EntityEdit.Members(
-                            subject, ContentAddress.Of(before, @base.Header.Tolerance), patch)),
-                    })),
+                    .Bind(after => ElementWire.Encode(before, @base.Header.Tolerance, key).Bind(beforeWire =>
+                        ElementWire.Encode(after, target.Header.Tolerance, key).Bind(afterWire =>
+                            MemberPatch.Between(beforeWire, afterWire, policy, key)
+                                .Map(patch => patch.Map(held => (EntityEdit)new EntityEdit.Members(
+                                    subject, ContentAddress.Of(before, @base.Header.Tolerance), held))))))),
         };
-
-    static JsonElement NodeJson(Node node, double tolerance) {
-        using JsonDocument document = JsonDocument.Parse(JsonFormatter.Default.Format(ElementWire.Encode(node, tolerance)));
-        return document.RootElement.Clone();
-    }
-
-    static JsonPatchDocument PatchDocument(JsonElement before, JsonElement after, PatchPolicy policy) {
-        Seq<Operation> operations = Diff(before, after, "");
-        Seq<Operation> admitted = operations.Count <= policy.OperationCeiling
-            ? operations
-            : Seq(new Operation("replace", string.Empty, string.Empty, after.Clone()));
-        return new JsonPatchDocument(admitted.ToList(), ElementJson.Options);
-    }
-
-    static Seq<Operation> Diff(JsonElement before, JsonElement after, string path) {
-        if (JsonElement.DeepEquals(before, after)) { return Seq<Operation>(); }
-        if (before.ValueKind is not JsonValueKind.Object || after.ValueKind is not JsonValueKind.Object) {
-            return Seq(new Operation("replace", path, string.Empty, after.Clone()));
-        }
-
-        HashMap<string, JsonElement> left = toHashMap(before.EnumerateObject()
-            .Select(static property => (property.Name, property.Value)));
-        HashMap<string, JsonElement> right = toHashMap(after.EnumerateObject()
-            .Select(static property => (property.Name, property.Value)));
-        Seq<string> names = toSeq(left.Keys.Concat(right.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
-        if (names.Exists(name => JsonPatchOperationWire.IsUnsafe(name) && Changed(left.Find(name), right.Find(name)))) {
-            return Seq(new Operation("replace", path, string.Empty, after.Clone()));
-        }
-        return names.Bind(name =>
-            left.Find(name).Match(
-                Some: prior => right.Find(name).Match(
-                    Some: next => Diff(prior, next, Child(path, name)),
-                    None: () => Seq(new Operation("remove", Child(path, name), string.Empty, null!))),
-                None: () => right.Find(name).Match(
-                    Some: added => Seq(new Operation("add", Child(path, name), string.Empty, added.Clone())),
-                    None: Seq<Operation>)));
-    }
-
-    static bool Changed(Option<JsonElement> before, Option<JsonElement> after) => before.Match(
-        Some: prior => after.Match(Some: next => !JsonElement.DeepEquals(prior, next), None: static () => true),
-        None: () => after.IsSome);
-
-    static string Child(string path, string member) => $"{path}/{member.Replace("~", "~0").Replace("/", "~1")}";
 
     // ONE projection over the derived Family + Evidence accessors — the seven near-identical Receipt arms are the
     // DERIVED_LOGIC collapse: the lane is `conflict.Family`, the two-sided stamps `conflict.Evidence`, so a new
@@ -487,26 +494,23 @@ public static class StructuralMerge {
     }
 
     // `GeometryDigest` folds the Object's geometry signature over the FULL Representations.ByIdentifier keyed map
-    // (M2: every RepresentationIdentifier the kernel content-keyed — the heavy Body mesh AND the analytical
-    // Axis/Box/FootPrint) into one digest over a deterministic identifier-sorted preimage, so a structural-line (Axis)
-    // or space-boundary (FootPrint) geometry edit surfaces as a geometry divergence the same as a Body edit. Reading
-    // only Body silently misses an analytical change (the deleted thin slice). The digests are kernel `GeometryHash`
+    // (M2: every representation the kernel content-keyed) into one digest over a deterministic identifier-sorted
+    // preimage, so a change in any slot surfaces as a geometry divergence. Reading only selected slots silently misses
+    // an opaque or analytical change (the deleted thin slice). The digests are kernel `GeometryHash`
     // values minted over the kernel-FROZEN `EncodeForm` byte layouts (`Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE`
     // — IEEE-754-LE, `-0.0`→`+0.0`; this page is that seam's RE-TARGETED consumer), READ not re-minted, and the
     // preimage interleaves each identifier WITH its digest — each identifier keys the representation's EncodeForm
     // lane, so the fold pairs (form lane, digest) and a bare digest never crosses a form boundary. The empty map
     // digests to 0.
-    static UInt128 GeometryDigest(RepresentationContentHash representations) {
-        if (representations.ByIdentifier.IsEmpty) { return UInt128.Zero; }
-        using XxHash128 acc = new();
-        Span<byte> cell = stackalloc byte[16];
-        foreach ((string identifier, UInt128 hash) in representations.ByIdentifier.OrderBy(static p => p.Key, StringComparer.Ordinal)) {
-            acc.Append(MemoryMarshal.AsBytes(identifier.AsSpan()));
-            BinaryPrimitives.WriteUInt128LittleEndian(cell, hash);
-            acc.Append(cell);
-        }
-        return acc.GetCurrentHashAsUInt128();
-    }
+    // `Sorted` publishes the generated representation-kind order, so the (kind, digest) pairs stream on the same
+    // closed integer vocabulary every peer's contract binding carries.
+    static UInt128 GeometryDigest(RepresentationContentHash representations) =>
+        representations.ByIdentifier.IsEmpty
+            ? UInt128.Zero
+            : ContentHash.Of(representations, static (r, w) => {
+                w.Sorted(r.ByIdentifier.ToSeq(), static pair => pair.Key.Key, Comparer<int>.Default,
+                    static (pair, x) => { x.Ordinal(pair.Key.Key).U128(pair.Value); });
+            });
 
     // Neutral content-node role, one arm per non-Object case and NO catch-all: a `_` arm files the next case the
     // seam mints under whichever role it happens to sit beside, so a ninth node kind lands misclassified and the
@@ -527,19 +531,17 @@ public static class StructuralMerge {
         Node.Object o => NodeRole.Of(o.Kind, containerWhole: false, hasGeometry: !o.Representations.ByIdentifier.IsEmpty),
     };
 
+    // The Merkle prune key on the one alphabet: two `U128` digests and the `Ordinal` concatenate injectively, the role
+    // key rides `String` length-framed, and the child roll-ups ride `Rows` count-framed — so a node with no children
+    // and a node whose one child digests to zero key apart, which the bare append could not promise.
     static Seq<GraphNode> Seal(GraphNode node, HashMap<NodeId, GraphNode> nodes) {
         Seq<Seq<GraphNode>> children = node.Children.Choose(nodes.Find).Map(child => Seal(child, nodes));
-        using XxHash128 acc = new();
-        Span<byte> frame = stackalloc byte[36];
-        BinaryPrimitives.WriteUInt128LittleEndian(frame[..16], node.GeometryHash);
-        BinaryPrimitives.WriteUInt128LittleEndian(frame[16..32], node.PropertyHash);
-        BinaryPrimitives.WriteInt32LittleEndian(frame[32..36], node.Ordinal);
-        acc.Append(frame);
-        acc.Append(MemoryMarshal.AsBytes(node.Role.Key.AsSpan()));
-        Span<byte> rollup = stackalloc byte[16];
-        foreach (Seq<GraphNode> subtree in children) { BinaryPrimitives.WriteUInt128LittleEndian(rollup, subtree.Head.Map(static r => r.SubtreeHash).IfNone(UInt128.Zero)); acc.Append(rollup); }
-        using XxHash128 sealedState = acc.Clone();
-        return Seq(node with { SubtreeHash = sealedState.GetCurrentHashAsUInt128() }) + children.Bind(static subtree => subtree);
+        Seq<UInt128> rollups = children.Map(static subtree => subtree.Head.Map(static r => r.SubtreeHash).IfNone(UInt128.Zero));
+        UInt128 sealedHash = ContentHash.Of((Node: node, Rollups: rollups), static (s, w) => {
+            w.U128(s.Node.GeometryHash).U128(s.Node.PropertyHash).Ordinal(s.Node.Ordinal).String(s.Node.Role.Key)
+             .Rows(s.Rollups, static (hash, x) => { x.U128(hash); });
+        });
+        return Seq(node with { SubtreeHash = sealedHash }) + children.Bind(static subtree => subtree);
     }
 
     static Seq<EditOp> Walk(Seq<GraphNode> frontier, HashMap<NodeId, GraphNode> fromByKey, HashMap<NodeId, GraphNode> toByKey) =>
@@ -607,29 +609,29 @@ public static class StructuralMerge {
 |  [04]   | geometry axis         | the FULL `Representations.ByIdentifier` map                                   |
 |  [05]   | content axis          | the non-`Object` nodes diffed off the node map                                |
 |  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                              |
-|  [07]   | subtree prune         | domain accumulator `Clone` + `Append`, stable LE preimage                     |
+|  [07]   | subtree prune         | kernel `ContentHash.Of` over `U128`/`Ordinal`/`String`/`Rows`                 |
 |  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
-|  [09]   | edit egress           | `Tombstone \| Members` over authoritative held-node addresses                 |
+|  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.V1.EntityEditWire` by `EditWire` |
 |  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                  |
 |  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
 |  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |
-|  [13]   | patch target          | exact `NodeWire` ProtoJSON through `JsonFormatter`                            |
+|  [13]   | patch target          | binary `NodeWire`: `FieldMask` diff, `IsValid` gate, `Merge` apply            |
 
 Each row's binding invariant, keyed to its policy:
 
 - [01]-[RE_INGEST_ALIGN]: `Reconcile` aligns each freshly-minted rooted `NodeId` to the durable id on the 1:1 GlobalId, so no diff keys on a re-ingest `NodeId`.
 - [02]-[FOREST_TOPOLOGY]: `Forest` derives `Parent`/`Ordinal`/`Children`; no second store.
 - [03]-[NODE_ROLE]: never an IFC-class string scan of `Classification.Code`.
-- [04]-[GEOMETRY_AXIS]: `Body` + analytical `Axis`/`Box`/`FootPrint`, kernel digests read not re-minted.
+- [04]-[GEOMETRY_AXIS]: the complete `Representations.ByIdentifier` map, kernel digests read not re-minted.
 - [05]-[CONTENT_AXIS]: `DiffContent` carries every single-side content edit the `Object`-only forest never reaches.
 - [06]-[CONTENT_KEY]: `ContentAddress.Of` mints every content key as the ONE seam hasher.
-- [07]-[SUBTREE_PRUNE]: linear in changed nodes, no `GetHashCode`.
+- [07]-[SUBTREE_PRUNE]: linear in changed nodes, no `GetHashCode`, no second alphabet beside the kernel writer.
 - [08]-[CONFLICT_ACCUMULATION]: one-pass classify, both carried, never first-abort.
 - [09]-[EDIT_EGRESS]: both arms compare the held node's producer-carried base address.
 - [10]-[CONFLICT_RECEIPT]: held/incoming `(Hlc, actor)` from the changefeed.
 - [11]-[RECONCILIATION_SEAM]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
 - [12]-[TYPE_CORRELATION]: `TypeKey` diffs a re-keyed GlobalId-less `Type` as RENAME; the kernel V8a seed replaces the interim on landing.
-- [13]-[PATCH_TARGET]: `Members` diffs and patches exact `NodeWire` ProtoJSON; insertion remains on `GraphDelta`.
+- [13]-[PATCH_TARGET]: `Members` diffs the binary `NodeWire` and applies through `Merge`; ProtoJSON is the `PatchOp` leaf render alone; insertion remains on `GraphDelta`.
 
 ## [03]-[RESEARCH]
 

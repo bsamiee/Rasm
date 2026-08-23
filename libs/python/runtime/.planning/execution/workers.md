@@ -63,11 +63,11 @@ from rasm.runtime.resilience import RetryClass
 lazy import numpy  # shared-memory reconstruction alone touches it; the wire stays dark for PICKLE-only processes
 lazy import wasmtime  # the guest admission and worker arms alone touch it; an interpreter running no sandboxed kernel stays dark
 
-# crossing tracer minted once per interpreter — the worker floor included: the API mints a fresh handle per
-# `get_tracer` call and caches none, so a per-crossing mint allocates on the offload path, while the pre-install
-# proxy this module-scope handle resolves re-reads the global at every `start_span` and upgrades with no invalidation.
-# The scope names THIS emitting library, not the served host: a backend joining on scope separates worker-crossing
-# spans from the serve host's own, where the shared `SERVICE` row left four independent planes indistinguishable.
+# crossing tracer minted once per interpreter — the worker floor included: the API mints a fresh handle per `get_tracer`
+# call and caches none, so a per-crossing mint allocates on the offload path, while the pre-install proxy this
+# module-scope handle resolves re-reads the global at every `start_span` and upgrades with no invalidation. The scope
+# names THIS emitting library, not the served host: a backend joining on scope separates worker-crossing spans from the
+# serve host's own, where the shared `SERVICE` row left four independent planes indistinguishable.
 _TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.WORKERS])
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -223,8 +223,8 @@ class Kernel[T](Struct, frozen=True):
     def subject(self) -> str:
         # the SERIES discriminant, distinct from `name`: a code kernel's qualname is bounded by the code base, while a
         # GUEST digest is minted from caller-controlled bytes, so a per-digest metric attribute accretes an unbounded
-        # KIND axis the tenant budget never reaches — the same accretion `GUEST_MODULES` bounds on the compile side.
-        # The digest stays the span name, receipt, and fault subject, where it costs no time series.
+        # KIND axis the tenant budget never reaches — the same accretion `GUEST_MODULES` bounds on the compile side. The
+        # digest stays the span name, receipt, and fault subject, where it costs no time series.
         return self.shipping.value if self.shipping is Shipping.GUEST else self.name
 
 
@@ -273,10 +273,10 @@ class CrossedFault(Exception):
 
     @staticmethod
     def of(token: Tagged) -> "CrossedFault":
-        # worker-side lowering, total over the encodability question the payload alone answers. `to_builtins` carries
-        # the case whole where it can; a payload no encoder lowers — a pybind11 status enum, a live native handle —
-        # crosses as its own render, so the COORDINATE survives either way. That render is `mesh/daemon#DAEMON`'s
-        # hand-rolled `raise RuntimeError(str(token))` generalized to every band family and moved to the one seam.
+        # worker-side lowering, total over the encodability question the payload alone answers. `to_builtins` carries the
+        # case whole where it can; a payload no encoder lowers — a pybind11 status enum, a live native handle — crosses
+        # as its own render, so the COORDINATE survives either way. That render is `mesh/daemon#DAEMON`'s hand-rolled
+        # `raise RuntimeError(str(token))` generalized to every band family and moved to the one seam.
         kind, carried = type(token), getattr(token, token.tag)
         try:
             lowered = to_builtins(carried)
@@ -381,11 +381,11 @@ def shipped[T](kernel: Kernel[T], *args: object) -> T:
 
 def traced_kernel[T](carrier: dict[str, str], kernel: Kernel[T], *args: object) -> T:
     # worker-side half of the offload stitch, the parented-emitter gate: the receipts pair — pure extract, token-paired
-    # attach scope — resolves the carried W3C parent, the kernel span opens under it so worker-interior evidence joins
-    # the one trace, the profiler `phase` window tags the flame by kernel subject, and the two-read `Cost` bracket
-    # records the kernel's own process spend onto the `rasm.cost.<measure>` rows under the attached context — the
-    # `rasm.tenant` baggage the carrier promotes prices the kernel to the tenant that ran it. An uninstalled floor
-    # resolves no-op providers and a null profiler window, so the gate costs exactly two process reads.
+    # attach scope — resolves the carried W3C parent, the kernel span opens under it so worker-interior evidence joins the
+    # one trace, the profiler `phase` window tags the flame by kernel subject, and the two-read `Cost` bracket records the
+    # kernel's own process spend onto the `rasm.cost.<measure>` rows under the attached context — the `rasm.tenant`
+    # baggage the carrier promotes prices the kernel to the tenant that ran it. An uninstalled floor resolves no-op
+    # providers and a null profiler window, so the gate costs exactly two process reads.
     with Signals.attach(Signals.continue_inbound(carrier)):
         span = _TRACER.start_span(f"worker.{kernel.name}")
         with trace.use_span(span, end_on_exit=True), Profiles.phase({"kernel": kernel.name, "shipping": kernel.shipping.value}):
@@ -414,9 +414,9 @@ def remote_floor() -> int:
     # verdict on stdout — an 8-byte big-endian length header ahead of the payload, so the parent validates the frame
     # against VERDICT_FRAME before buffering a byte; `shipped` re-arms the tblib latch before the kernel body, so the
     # raise arm crosses home frame-whole. stdout is the verdict channel ALONE — the kernel runs with stdout re-pointed
-    # at stderr so a stray print inside a shipped body never corrupts the binary frame. The seal-carried boot installs
-    # the floor's telemetry, and interpreter exit runs the boot-registered atexit drain AFTER the verdict frame lands,
-    # so the short-lived floor exports completely without delaying the parent's read.
+    # at stderr so a stray print inside a shipped body never corrupts the binary frame. The seal-carried boot installs the
+    # floor's telemetry, and interpreter exit runs the boot-registered atexit drain AFTER the verdict frame lands, so the
+    # short-lived floor exports completely without delaying the parent's read.
     channel, sys.stdout = sys.stdout, sys.stderr
     try:
         verdict: tuple[str, object] = ("value", sealed_kernel(sys.stdin.buffer.read()))
@@ -547,10 +547,10 @@ def _guest_module(payload: bytes) -> "wasmtime.Module":
 
 def _guest[T](kernel: Kernel[T]) -> Callable[..., bytes]:
     # GUEST shipping's worker-floor arm: zero-import instantiation — no WASI, no ambient capability — a fresh Store per
-    # call, GUEST_MEMORY bounding linear memory, and the store's relative epoch budget as the in-process wall-clock kill.
-    # The arm spells `bytes` rather than borrowing the crossing's free `T`: the GUEST_ABI byte exchange IS the guest's
-    # whole result contract, so a SANDBOXED kernel's `T` is bytes by construction and an annotation claiming otherwise
-    # promises a shape no export can return.
+    # call, GUEST_MEMORY bounding linear memory, and the store's relative epoch budget as the in-process wall-clock
+    # kill. The arm spells `bytes` rather than borrowing the crossing's free `T`: the GUEST_ABI byte exchange IS the
+    # guest's whole result contract, so a SANDBOXED kernel's `T` is bytes by construction and an annotation claiming
+    # otherwise promises a shape no export can return.
     def run(request: bytes = b"") -> bytes:
         started = time.monotonic()
         try:
@@ -571,8 +571,8 @@ def _guest[T](kernel: Kernel[T]) -> Callable[..., bytes]:
             packed = entry(store, pointer, len(request))
         except wasmtime.WasmtimeError as trapped:
             # the fence spans COMPILE, instantiate, and call, because `WasmtimeError` is total across all three and a
-            # compile raised outside it escapes `shipped` raw, skipping the one arm that owns this package's raises.
-            # The error exposes no addressable trap code, so elapsed budget discriminates: an epoch kill re-raises
+            # compile raised outside it escapes `shipped` raw, skipping the one arm that owns this package's raises. The
+            # error exposes no addressable trap code, so elapsed budget discriminates: an epoch kill re-raises
             # TimeoutError onto the deadline row, and every other trap — a compile refusal the host gate could not
             # reach, an instantiation failure, a genuine guest trap — crosses whole with its message onto `boundary`.
             if kernel.deadline.map(lambda budget: time.monotonic() - started >= budget).default_value(False):
@@ -704,9 +704,9 @@ REMOTE_FLOOR: Final[str] = "-m rasm.runtime.workers"
 _SEAL_RAISES: Final[Catch] = (PicklingError, TypeError, AttributeError)
 _CROSSING_RAISES: Final[Catch] = Exception
 
-# worker-shaped egress geometry: small queues and a short interval so kernel-grain evidence exports continuously and
-# the atexit drain carries only a tail window; the HTTP transport default IS the fork fence — the gRPC row never
-# rides a spawned or forked floor.
+# worker-shaped egress geometry: small queues and a short interval so kernel-grain evidence exports continuously and the
+# atexit drain carries only a tail window; the HTTP transport default IS the fork fence — the gRPC row never rides a
+# spawned or forked floor.
 WORKER_SIGNAL_PROFILE: Final[SignalProfile] = SignalProfile(
     export_interval_ms=5000, schedule_delay_ms=1000, max_queue_size=512, max_export_batch_size=128, compression=Compression.Gzip
 )
@@ -756,9 +756,9 @@ class WorkerBoot(Struct, frozen=True):
 
     @property
     def env(self) -> dict[str, str]:
-        # daemon-spawn seam, spelled as `Device.env` is because it answers the same question: a supervised child reads
-        # the standard SDK variable at its own admission, so the parent's effective endpoint crosses by environment
-        # beside the device visibility, never a re-plumbed setting.
+        # daemon-spawn seam, spelled as `Device.env` is because it answers the same question: a supervised child reads the
+        # standard SDK variable at its own admission, so the parent's effective endpoint crosses by environment beside the
+        # device visibility, never a re-plumbed setting.
         return {**({"OTEL_EXPORTER_OTLP_ENDPOINT": self.otel} if self.otel else {}), **(self.device.env if self.device is not None else {})}
 
 
@@ -826,9 +826,9 @@ class WorkerPool:
     # one live capsule per arm key, module-registry memoized; `_live` is the operation-local mutable registry this owner reads and retires.
     _live: Final[dict[ArmKey, "WorkerPool"]] = {}
     # band-occupancy custody, lifetime-bound at BOTH ends exactly as the metrics owner rules: the process-global
-    # `WORKER_BAND` mints its `rasm.band.in_flight` series when the first arm registers and leaves the probe map when
-    # the last one retires, so a level nobody holds publishes no point. One registration for the one band — a per-arm
-    # probe would sum the SAME borrowed count once per arm and report a saturation no limiter is carrying.
+    # `WORKER_BAND` mints its `rasm.band.in_flight` series when the first arm registers and leaves the probe map when the
+    # last one retires, so a level nobody holds publishes no point. One registration for the one band — a per-arm probe
+    # would sum the SAME borrowed count once per arm and report a saturation no limiter is carrying.
     _probes: Final[ExitStack] = ExitStack()
 
     def __init__(self, kind: PoolKind, enforcement: Enforcement, workers: int, placement: Placement = None) -> None:
@@ -1396,8 +1396,8 @@ def _verdict(verb: str, answered: RuntimeRail[LeaseVerdict], expected: str) -> R
         case Result(tag="ok", ok=LeaseVerdict(tag="lost", lost=reason)):
             return Error(LEASE_LOST.raised(reason))
         case Result(tag="ok", ok=LeaseVerdict(tag="empty")):
-            # `empty` and `lost` are ONE law — the provider holds no lease for this demand — so both ride the one row,
-            # the reason it names as the coordinate; a second row would spell two subjects for one refusal.
+            # `empty` and `lost` are ONE law — the provider holds no lease for this demand — so both ride the one row, the
+            # reason it names as the coordinate; a second row would spell two subjects for one refusal.
             return Error(LEASE_LOST.raised("empty"))
         case Result(tag="ok", ok=verdict):
             return Error(LEASE_VERDICT.raised(verb, verdict.tag))
@@ -1410,10 +1410,10 @@ def _verdict(verb: str, answered: RuntimeRail[LeaseVerdict], expected: str) -> R
 - Owner: `Supervisor` binds the probe evidence, the restart rows, and the health projection into the one actuator loop the branch lacked: every ingredient existed — psutil probes, retry backoff, health status, worker-death markers — and this owner closes them. A `SupervisionPolicy` row per supervised subject carries the probe ceilings and the windowed restart budget; verdicts are data the loop folds, never inline judgment.
 - Cases: `Verdict` closes the probe outcomes — `LIVE`, `UNMEASURED` (every column refused its read), `DEGRADED` (a `Breach` row tripped: rss over budget, involuntary context-switch storm, socket-table growth), `DEAD` (child gone, pool retired, channel closed) — and `_actuate` maps each onto its actuation: `LIVE` re-arms the probe, `UNMEASURED` emits its evidence and actuates nothing, `DEGRADED` rolls the arm, `DEAD` flips the subject down and re-spawns under the kind's restart row with stamina backoff. Budgets are windowed: `restarts` actuations inside `window` seconds park the subject `NOT_SERVING` until the window drains, so a crash storm holds down instead of thrashing.
 - Law: a probe answers `Weighed` — the verdict plus the columns that produced it — never a collapsed bool, and every ceiling column is optional because a `PROCESS_FAULTS` refusal is a measurement nobody took: a zero there reads as a healthy worker and yields exactly the false `LIVE` this actuator exists to catch, so an all-refused read is `UNMEASURED` and actuates nothing rather than advertising health or spending the restart budget on evidence about the probe. Fences are per COLUMN, so a denied socket table never darkens an rss the same subject measured, and the arm-level reading is the PEAK of each column across the arm's workers folded through the one `_judged` law. The actuation receipt carries those columns beside its own fact — `parked` on a budget hold, `restarted` on a granted one — so an operator reads which ceiling moved, by how much, and what the actuator did in one shape.
-- Entry: `Supervisor.watch(group)` starts one probe loop per supervised subject inside the caller's task group — the daemon composition root's supervision group, never a private loop — each cycle fenced so a probe or actuation raise emits one rejected receipt and the rhythm survives, and the whole weighing crosses to a thread under this owner's OWN band so a slow psutil read never parks the loop and never borrows the pool's width. Probes are arm-scoped: a `DAEMON` charge reads its own child handle — the two `oneshot`-batched ceilings in one collection and the socket count on its own syscall, since that member is not in the batch — and a pool charge reads capsule presence and the arm's own `alive()` before weighing exactly the pids that arm names, so a daemon child, a sibling arm's worker, and an unrelated grandchild all stay outside this subject's verdict by construction rather than by a complement two unnamed arms would share; a `REMOTE` charge reads channel liveness alone and carries `held`/`alive` as its columns, resource ceilings belonging to the far host's own supervisor and fleet saturation to the arm's own `session` band, while a `GPU` charge weighs host RSS alone — device-memory evidence stays the kernel's own receipt, unobservable through a psutil scan. The supervision band publishes its own occupancy for exactly the watched lifetime, so a probe rhythm queueing behind slow syscalls reads as saturation rather than as silence. Verdicts project onto the serve owner's per-service flip — the injected awaited `ServerHost.status` coroutine — so any `DEAD` subject flips its service `NOT_SERVING` and recovery flips it back, the health poller the estate shipped only the server half of; the flip writes on a CHANGE in the advertised state alone, because the servicer pushes to every live watcher on each set and a standing verdict re-asserted per interval is a watcher storm carrying no news. The `verdicts` accessor publishes the same last-verdict state as data for the bundle capsule, so no second verdict surface exists beside the flip and the projection.
+- Entry: `Supervisor.watch(group)` starts one probe loop per supervised subject inside the caller's task group — the daemon composition root's supervision group, never a private loop — each cycle fenced so a probe or actuation raise emits one rejected receipt and the rhythm survives, and the whole weighing crosses to a thread under this owner's OWN band so a slow psutil read never parks the loop and never borrows the pool's width. Probes are arm-scoped: a `DAEMON` charge reads its own child handle — the two `oneshot`-batched ceilings in one collection and the socket count on its own syscall, since that member is not in the batch — and a pool charge reads capsule presence and the arm's own `alive()` before weighing exactly the pids that arm names, so a daemon child, a sibling arm's worker, and an unrelated grandchild all stay outside this subject's verdict by construction rather than by a complement two unnamed arms would share; a `REMOTE` charge reads channel liveness alone and carries `held`/`alive` as its columns, resource ceilings belonging to the far host's own supervisor and fleet saturation to the arm's own `session` band, while a `GPU` charge weighs host RSS alone — device-memory evidence stays the kernel's own receipt, unobservable through a psutil scan. The supervision band publishes its own occupancy for exactly the watched lifetime, so a probe rhythm queueing behind slow syscalls reads as saturation rather than as silence. Verdicts project onto the serve owner's per-service state — the injected awaited `ServerHost.status` coroutine — so any `DEAD` subject flips its service `NOT_SERVING` and recovery flips it back for the next generated `Health.Check` poll. The `verdicts` accessor publishes the same last-verdict state as data for the bundle capsule, so no second verdict surface exists beside the flip and the projection.
 - Daemon kind: a `DAEMON` worker is a supervised long-lived child — `psutil.Popen` fuses the subprocess handle with the probe surface, the spawn environment forwards the parent's effective OTLP endpoint through `WorkerBoot.env` so the child's own composition root installs against the same collector, `terminate()` then `kill()` after the grace window is the stop escalation, restart rides the `SPAWN` row targeting spawn transients, and an empty spawn command is a config refusal that parks the subject down; a daemon's readiness is its next `LIVE` verdict, never a sleep. Every reap runs `psutil.Popen.wait(timeout=)` inside the banded thread rather than an enclosing cancel scope, so the one `_reaped` helper serves the restart escalation and the stop sweep alike. `Supervisor.stop()` runs that same escalation over every surviving child as the serve drain fold's daemon row, so a child never outlives the daemon that spawned it.
 - Growth: a new probe dimension is one `SupervisionPolicy` ceiling field, one `Breach` member, and one `_judged` row — the arm fold, the receipt columns, and the peak projection each name themselves from it; a new actuation is one `_actuate` arm; a new supervised subject is one `Supervisor.watch` registration.
-- Boundary: the supervisor actuates pooled arms — device arms included — remote channels, and daemon children only — `ChargeKind` seals that subject set by construction — and it never restarts the serve host, never owns the signal seam (`transport/serve#ENTRY`'s), and never emits health protocol wire (the serve owner's `HealthServicer` is the sole advertiser). Probe evidence emits through the contributor port under the `OPEN` policy.
+- Boundary: the supervisor actuates pooled arms — device arms included — remote channels, and daemon children only — `ChargeKind` seals that subject set by construction — and it never restarts the serve host, never owns the signal seam (`transport/serve#ENTRY`'s), and never emits health protocol wire (the serve owner's `ServerHost`, the generated `grpc.health.v1` `Health` servicer, is the sole advertiser). Probe evidence emits through the contributor port under the `OPEN` policy.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -1489,8 +1489,8 @@ class Weighed(Struct, frozen=True, gc=False):
 
     def facts(self) -> dict[str, object]:
         # receipt columns spell absence by OMITTING the key exactly as the branch's optional-dimension law rules: an
-        # unmeasured ceiling and a measured floor are different facts, and a reader that cannot separate them reads
-        # the wrong incident. `verdict` is the one column always present — every reading answers it.
+        # unmeasured ceiling and a measured floor are different facts, and a reader that cannot separate them reads the
+        # wrong incident. `verdict` is the one column always present — every reading answers it.
         columns: dict[str, object | None] = {
             "rss": self.rss,
             "switches": self.switches,
@@ -1505,8 +1505,9 @@ class Weighed(Struct, frozen=True, gc=False):
 class Charge(Struct, frozen=True):
     # one supervised subject: a pooled arm, a daemon child, or a remote channel; `command` spawns the DAEMON kind and stays
     # empty on pool charges, `placement` names the REMOTE endpoint or GPU device and stays None on plain local charges.
-    # `policy.subject` is the health key the flip advertises, so it spells the registered gRPC service name exactly —
-    # a drifted subject flips a phantom key.
+    # `policy.subject` is the health key the flip advertises, so it spells the served `WireService` member text exactly
+    # — the generated application's `path` less its slash, the key the serve owner's `grpc.health.v1` map seats — and a
+    # drifted subject flips a phantom key no probe reads.
     policy: SupervisionPolicy
     kind: ChargeKind
     enforcement: Enforcement = Enforcement.COOPERATIVE
@@ -1527,8 +1528,8 @@ def _reading[T](read: Callable[[], T]) -> T | None:
 
 
 def _batched(proc: psutil.Process) -> tuple[int, int]:
-    # exactly the two ceilings `oneshot` genuinely batches — both resolve off the one cached task/kinfo collection, so
-    # the pair costs one collection. `net_connections` is NOT in that cache and takes its own socket-table syscall, so
+    # exactly the two ceilings `oneshot` genuinely batches — both resolve off the one cached task/kinfo collection, so the
+    # pair costs one collection. `net_connections` is NOT in that cache and takes its own socket-table syscall, so
     # folding it into this block would read as batched while paying full price on every probe cycle of every worker.
     with proc.oneshot():
         return proc.memory_info().rss, proc.num_ctx_switches().involuntary
@@ -1657,10 +1658,10 @@ class Supervisor:
             case Verdict.LIVE:
                 await self._advertise(subject, True)
             case Verdict.UNMEASURED:
-                # nothing measured, so nothing is claimed: no advertise, no restart, no budget spend. A reading no
-                # probe took is evidence about the PROBE — a privilege refusal, a worker set that vanished mid-read —
-                # and restarting on it thrashes a healthy arm while advertising on it publishes health nothing backs.
-                # The empty columns reach the receipt, so a standing UNMEASURED reads as the defect it is.
+                # nothing measured, so nothing is claimed: no advertise, no restart, no budget spend. A reading no probe
+                # took is evidence about the PROBE — a privilege refusal, a worker set that vanished mid-read — and
+                # restarting on it thrashes a healthy arm while advertising on it publishes health nothing backs. The
+                # empty columns reach the receipt, so a standing UNMEASURED reads as the defect it is.
                 Signals.emit(Receipt.of("workers", ("emitted", f"supervise.{subject}", weighed.facts())), OPEN)
             case Verdict.DEGRADED | Verdict.DEAD:
                 if not self._budgeted(charge.policy):
@@ -1669,9 +1670,9 @@ class Supervisor:
                     return
                 if weighed.verdict is Verdict.DEAD:
                     await self._advertise(subject, False)
-                # every supervisable kind carries a restart class, so the fold is total by construction; reading it as
-                # the Option the row spells keeps the unsupervised kinds' empty rows unspellable here rather than
-                # obliging a class the actuator would never re-drive them under.
+                # every supervisable kind carries a restart class, so the fold is total by construction; reading it as the
+                # Option the row spells keeps the unsupervised kinds' empty rows unspellable here rather than obliging a
+                # class the actuator would never re-drive them under.
                 respawn = KIND_POLICY[charge.kind].restart.map(lambda cls: guard(cls)(self._respawn, charge))
                 restarted = await respawn.default_with(lambda: self._respawn(charge))
                 Signals.emit(Receipt.of("workers", ("emitted", f"supervise.{subject}", {**weighed.facts(), "restarted": restarted})), OPEN)
@@ -1679,9 +1680,9 @@ class Supervisor:
                 assert_never(unreachable)
 
     async def _reaped(self, child: psutil.Popen, grace: float) -> None:
-        # the reap bound rides psutil's OWN `wait(timeout=)` rather than an enclosing `move_on_after`: the timeout
-        # lives INSIDE the blocking call, so the thread always returns and always releases its band token. Expiry is
-        # the bound's own answer, so the caller re-reads liveness instead of reading a raise.
+        # the reap bound rides psutil's OWN `wait(timeout=)` rather than an enclosing `move_on_after`: the timeout lives
+        # INSIDE the blocking call, so the thread always returns and always releases its band token. Expiry is the
+        # bound's own answer, so the caller re-reads liveness instead of reading a raise.
         with suppress(psutil.TimeoutExpired):
             await anyio.to_thread.run_sync(partial(child.wait, timeout=grace), abandon_on_cancel=True, limiter=self._band)
 
@@ -1704,8 +1705,8 @@ class Supervisor:
                         # reap the SIGKILLed child before its handle drops: an unwaited kill leaves a zombie whose
                         # is_running() still answers True, and the replacement below would strand it unreaped.
                         await self._reaped(stale, charge.policy.grace)
-                # spawn environment forwards the parent's effective OTLP endpoint beside the inherited environment, so
-                # the child's own composition root installs against the same collector — the daemon row of the worker
+                # spawn environment forwards the parent's effective OTLP endpoint beside the inherited environment, so the
+                # child's own composition root installs against the same collector — the daemon row of the worker
                 # install seam, its telemetry owned by the child's boot, never a parent-side patch.
                 self._children[subject] = psutil.Popen(list(charge.command), env={**os.environ, **WorkerBoot.captured(WorkerKind.DAEMON).env})
                 return True

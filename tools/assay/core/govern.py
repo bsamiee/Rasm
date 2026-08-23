@@ -1031,6 +1031,15 @@ def proc_dead(pid: int) -> bool:
     return _stale(pid)
 
 
+def proc_identity_dead(pid: int, create_time: float, tolerance: float = 0.001) -> bool:
+    """Decide whether a pid and creation-time pair no longer identifies its original process.
+
+    Returns:
+        True when the process is gone, dead, stopped, or the pid has been reused.
+    """
+    return _stale(pid, lambda proc: not (proc.is_running() and abs(proc.create_time() - create_time) < tolerance))
+
+
 def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
     """Decide whether a lease holder is stealable.
 
@@ -1038,7 +1047,7 @@ def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
         True when the holder is gone, zombie/dead, not running, or PID-reused beyond ``tolerance``.
     """
     # (pid, create_time) within the drift band guards against PID reuse presenting as a live holder.
-    return _stale(owner.pid, lambda proc: not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance))
+    return proc_identity_dead(owner.pid, owner.create_time, tolerance)
 
 
 def _claim(
@@ -1235,6 +1244,7 @@ __all__ = [
     "max_resources",
     "measure",
     "proc_dead",
+    "proc_identity_dead",
     "reap",
     "recv_anyio",
     "recv_ssh",

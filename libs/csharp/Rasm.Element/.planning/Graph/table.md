@@ -114,7 +114,8 @@ public abstract partial record TableRow {
         string Outcome, bool Usable, bool Terminal, bool Dispatchable,
         double ElapsedSeconds, string Author, string Tool, string Version,
         Option<string> DiagnosticPhase, Option<string> DiagnosticKind, Option<string> DiagnosticMessage,
-        Option<int> DiagnosticCode, Option<bool> Transient, Option<string> ResultBlob,
+        Option<int> DiagnosticCode, Option<bool> Transient,
+        Option<string> ResultSha256, Option<long> ResultBytes,
         int DependsOnCount, int ResultCount, Instant At) : TableRow;
 
     // One row per SERIES flattens the descriptor beside its derived summary, so a commissioning board screens
@@ -136,7 +137,7 @@ public abstract partial record TableRow {
     // because its twelve cells expand positionally in the Cells arm, so the family's own arity proof is the length proof.
     // Coverage carries raster bytes by content key exactly as geometry does.
     public sealed record Coverage(
-        string Snapshot, string Element, string RasterKey, string Kind, string CrsResolution,
+        string Snapshot, string Element, string RasterSha256, long RasterBytes, string Kind, string CrsResolution,
         Option<int> Epsg, string GeodeticDatum,
         Seq<double> Affine, int Columns, int Rows, int Layers,
         // SampleType is the kernel ChannelDtype ROW KEY, and that roster keys on int — so the column carries the
@@ -204,7 +205,7 @@ public abstract partial record TableRow {
             Text(r.Outcome), Flag(r.Usable), Flag(r.Terminal), Flag(r.Dispatchable),
             Real(r.ElapsedSeconds), Text(r.Author), Text(r.Tool), Text(r.Version),
             Text(r.DiagnosticPhase), Text(r.DiagnosticKind), Text(r.DiagnosticMessage),
-            Whole(r.DiagnosticCode), Flag(r.Transient), Text(r.ResultBlob),
+            Whole(r.DiagnosticCode), Flag(r.Transient), Text(r.ResultSha256), Whole(r.ResultBytes),
             Whole(r.DependsOnCount), Whole(r.ResultCount), Moment(r.At)),
         observation: static r => Seq(
             Text(r.Snapshot), Text(r.Element), Text(r.Sensor), Text(r.Aspect), Text(r.QuantityType), Text(r.Unit),
@@ -216,7 +217,8 @@ public abstract partial record TableRow {
         // Affine expands POSITIONALLY into its twelve declared cells, so the family's arity proof doubles as the
         // coefficient-count proof and no thirteenth column can slip in beside it.
         coverage: static r => Seq(
-            Text(r.Snapshot), Text(r.Element), Text(r.RasterKey), Text(r.Kind), Text(r.CrsResolution),
+            Text(r.Snapshot), Text(r.Element), Text(r.RasterSha256), Whole(r.RasterBytes),
+            Text(r.Kind), Text(r.CrsResolution),
             Whole(r.Epsg), Text(r.GeodeticDatum))
             + r.Affine.Map(static coefficient => Real(coefficient))
             + Seq(
@@ -526,7 +528,8 @@ public sealed partial class TableFamily {
             new TableColumn("diagnostic_message", TableType.Utf8, Nullable: true),
             new TableColumn("diagnostic_code", TableType.Int64, Nullable: true),
             new TableColumn("transient", TableType.Bool, Nullable: true),
-            new TableColumn("result_blob", TableType.Utf8, Nullable: true),
+            new TableColumn("result_sha256", TableType.Utf8, Nullable: true),
+            new TableColumn("result_bytes", TableType.Int64, Nullable: true),
             new TableColumn("depends_on_count", TableType.Int64, Nullable: false),
             new TableColumn("result_count", TableType.Int64, Nullable: false),
             new TableColumn("at", TableType.Timestamp, Nullable: false)));
@@ -566,10 +569,11 @@ public sealed partial class TableFamily {
     // reconstructs the exact index-to-world map with no join; `byte_length` is the measure because uncompressed
     // footprint sums across a model.
     public static readonly TableFamily Coverages = new("element.coverages",
-        Seq("snapshot", "element", "raster", "band"), spine: new TableSpine.Landing(), Some("byte_length"), Seq(
+        Seq("snapshot", "element", "raster_sha256", "band"), spine: new TableSpine.Landing(), Some("byte_length"), Seq(
             new TableColumn("snapshot", TableType.Utf8, Nullable: false),
             new TableColumn("element", TableType.Utf8, Nullable: false),
-            new TableColumn("raster", TableType.Utf8, Nullable: false),
+            new TableColumn("raster_sha256", TableType.Utf8, Nullable: false),
+            new TableColumn("raster_bytes", TableType.Int64, Nullable: false),
             new TableColumn("kind", TableType.Utf8, Nullable: false),
             new TableColumn("crs_resolution", TableType.Utf8, Nullable: false),
             new TableColumn("epsg", TableType.Int64, Nullable: true),
@@ -811,7 +815,8 @@ public static class GraphTable {
         payload.Diagnostic.Map(static d => d.Phase.Key), payload.Diagnostic.Map(static d => d.Kind.Key),
         payload.Diagnostic.Map(static d => d.Message), payload.Diagnostic.Bind(static d => d.Code),
         payload.Diagnostic.Map(static d => d.Kind.Transient),
-        payload.ResultBlob.Map(static blob => blob.ToValue()),
+        payload.ResultArtifact.Map(static artifact => artifact.Sha256),
+        payload.ResultArtifact.Map(static artifact => checked((long)artifact.Bytes)),
         payload.DependsOn.Count, payload.Results.Count, payload.Provenance.At);
 
     // Descriptor and derived summary flatten together, so a commissioning board screens completeness and reads the
@@ -845,7 +850,7 @@ public static class GraphTable {
     // no derived Vector3 reaches a cell; the coefficients are the neutral doubles the kernel publishes.
     static Seq<TableRow> Coverages(CoverageGrid grid, Element element, string snapshot) =>
         grid.Bands.Map(band => (TableRow)new TableRow.Coverage(
-            snapshot, element.Id.Value, ContentAddress.Of(grid.RasterKey.Value).ToValue(), grid.Kind.Key,
+            snapshot, element.Id.Value, grid.Raster.Sha256, checked((long)grid.Raster.Bytes), grid.Kind.Key,
             grid.Crs.Resolution.Key, grid.Crs.Epsg, grid.Crs.GeodeticDatum,
             toSeq<double>([.. grid.Grid.Affine]),
             grid.Grid.Columns.Value, grid.Grid.Rows.Value, grid.Grid.Layers.Value,

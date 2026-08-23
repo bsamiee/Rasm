@@ -15,7 +15,7 @@ Every appearance value crosses as a Materials VALUE: `ShadeSeam` resolves a hit 
 ## [02]-[PATH_TRACE]
 
 - Owner: `Bvh` the trace-accelerator VIEW over the kernel broad phase — build, refit, and the degradation-triggered rebuild are `Rasm/.planning/Spatial/index.md#[02]-[SPATIAL_INDEX]`'s through `Spatial.Apply`, the node stream arrives through the one sanctioned `SpatialAnswer.Wire` egress exactly as Compute decodes it, and page-local remains ONLY the per-ray wire walk (the measured oracle kernel) with the exact ray-sphere leaf narrow test; `NodeLink` the ONE wire node-link reader this compilation unit holds — `Render/reality.md`'s octree fold composes it, so the packing constants exist once; `Reservoir` the ReSTIR sample reservoir carried per pixel ON the accumulation target, its payload the `Render/pathtrace.md` `LightCandidate`; `SamplePolicy` the light-selection dispatch row; `RayCone` the propagated texture footprint; `TraceLimits` the transport policy row; `PathTracePass` the progressive accumulation pass; `GuidePolicy` the guide-accumulation row family; `Denoiser` the edge-aware denoise fold over the target's own guide plane.
-- Law: `RayCone` derives every texture LOD and no caller chooses one — width grows by the spread over the traversed distance, its footprint at the hit divides the plane's texel span into the FRACTIONAL mip level the seam samples at, and only the trilinear sampler row honours a fractional level. Spread advances by DISTANCE (`Advanced`) and by CURVATURE (`Scattered` — twice the hit's own measured curvature over the covered footprint, magnitude only, so a concave hit widens rather than focusing without bound). The curvature is the `Render/meshlets` `ResidencyMeshletView.Curvature` producer column carried on `SurfaceAttributes`; a straight-through cut-out transmission scatters no direction and takes no curvature leg. `RayCone` rides the SHADOW segment too, so a blocker's cut-out reads at the blocker's own distance and texel density.
+- Law: `RayCone` derives every texture LOD and no caller chooses one — width grows by the spread over the traversed distance, its footprint at the hit divides the plane's texel span into the FRACTIONAL mip level the seam samples at, and only the trilinear sampler row honours a fractional level. Spread advances by DISTANCE (`Advanced`) and by CURVATURE (`Scattered` — twice the hit's own measured curvature over the covered footprint, magnitude only, so a concave hit widens rather than focusing without bound). The curvature is Compute's `ResidencyMeshlet.Curvature` producer column carried on `SurfaceAttributes`; a straight-through cut-out transmission scatters no direction and takes no curvature leg. `RayCone` rides the SHADOW segment too, so a blocker's cut-out reads at the blocker's own distance and texel density.
 - Law: environment transport is MULTIPLE-IMPORTANCE-SAMPLED, not double-counted — an NEE dome draw and the BSDF continuation escaping into the same dome split one estimate through the balance heuristic, and delta rows report zero density the weight reads as the pass-through case.
 - Law: every `SamplePolicy` arm estimates the SAME integral at the SAME energy — RIS weights each streamed candidate by its target over its own source density (uniform streaming ⇒ N× the target), so the reservoir arm and the `Uniform` arm agree on brightness by construction.
 - Law: shadow rays honour `geometry_opacity` — sampled opacity below one attenuates a blocker, the walk continuing to `TraceLimits.CutoutSteps` and multiplying transmittance; `TraceLimits` carries the step cap, the opacity floor, and the ray-origin epsilon as policy columns, and its epsilon doubles as the emitter-proximity floor.
@@ -140,7 +140,7 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
     // The build takes the CLUSTER OWNER, never a loose view seq: `hit.Primitive` indexes the sequence handed
     // to this build, and the seam resolves that same ordinal against `MeshletCluster.Sample`/`Clusters`.
     public static Fin<Bvh> Build(MeshletCluster scene, TraceLimits limits, Op? key = null) {
-        Seq<ResidencyMeshletView> meshlets = scene.Clusters;
+        Seq<ResidencyMeshlet> meshlets = scene.Clusters;
         if (meshlets.IsEmpty) { return Fin.Succ(new Bvh([], [], [], None)); }
         Op op = key.OrDefault();
         return from policy in limits.Broadphase()
@@ -153,7 +153,7 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
     // A cardinality change IS a topology change and rebuilds — indexing a retained order into a
     // differently-sized roster reads bounds that belong to no cluster.
     public Fin<Bvh> Refit(MeshletCluster scene, TraceLimits limits, Op? key = null) {
-        Seq<ResidencyMeshletView> moved = scene.Clusters;
+        Seq<ResidencyMeshlet> moved = scene.Clusters;
         Op op = key.OrDefault();
         return Index.Match(
             None: () => Build(scene, limits, op),
@@ -889,7 +889,7 @@ public sealed partial class ParameterizationSource {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 // SurfaceAttributes carries the resolved per-hit parameterization; Curvature is the hit cluster's own
-// measured normal-variation bound read off the producer's ResidencyMeshletView column (on the proxy arm the
+// measured normal-variation bound read off the producer's ResidencyMeshlet column (on the proxy arm the
 // sphere's exact 1/R); Material is OPTIONAL because the proxy arm has no set to name.
 public readonly record struct SurfaceAttributes(
     OracleFrame Frame,
@@ -1005,8 +1005,8 @@ config:
 flowchart LR
     accTitle: Path tracing material and environment flow
     accDescr: Meshlet bounds build the BVH, the surface seam and the ray cone key one Materials query, and the dome answers by direction.
-    ResidencyMeshletView --> Bvh
-    ResidencyMeshletView --> ShadeSeam
+    ResidencyMeshlet --> Bvh
+    ResidencyMeshlet --> ShadeSeam
     Bvh --> PathTracePass
     PathTracePass --> Reservoir
     PathTracePass --> Denoiser
@@ -1027,17 +1027,17 @@ flowchart LR
 
 ## [05]-[LIGHT_ROWS]
 
-- Owner: `LightKey` the typed light identity — a composed string was the deleted form the pigment law names; `PhotometricWeb` the decoded IES/LDT candela table carrying the kernel content identity of the bytes it decoded, so the Rhino `PhotometricWebRef` end and this decoded end JOIN on one key; `LightCandidate` the one unshadowed projection; `LightSource` `[Union]` the ONE closed light row family (Environment | Sun | Emissive | Spot | Area | Ies); `LightRig` the scene light set BOTH integrators read.
+- Owner: `LightKey` the typed light identity — a composed string was the deleted form the pigment law names; `PhotometricWeb` the decoded IES/LDT candela table carrying kernel `ArtifactContent` for the bytes it decoded, so the Rhino `PhotometricWebRef` end and this decoded end JOIN on one SHA-256 coordinate; `LightCandidate` the one unshadowed projection; `LightSource` `[Union]` the ONE closed light row family (Environment | Sun | Emissive | Spot | Area | Ies); `LightRig` the scene light set BOTH integrators read.
 - Cases: Environment (the RESOLVED Materials `EnvironmentLight` — diffuse dome plus its `Option<SolarDisc>` direct beam), Sun (site-anchored directional), Emissive (mesh-attached area emitter), Spot (inner/outer cone falloff), Area (rectangular panel with emitter-cosine), Ies (manufacturer luminaire shaped by its photometric web) — the AEC luminaire vocabulary; a manufacturer fixture is one `Ies` row over decoded web data, never a bespoke emitter kind.
 - Law: radiance is the scene-linear `RgbSpectrum` on every row — an eight-bit host colour and a float dome in one accumulation buffer fork the transport's units.
 - Law: `Environment` carries the resolved dome VALUE, never an asset handle — `EnvironmentLight` answers `Radiance`, `Irradiance`, `Sample` (the `EnvironmentSample` `[Union]` whose `Dome`/`Sun` arms share base `Direction`/`Radiance`/`Pdf`), `Pdf` (the ONE sun-selection/guided-dome combined balance density), and `Sun : Option<SolarDisc>` on the owner that prefiltered the map and resolved the disc; every consumer of an unresolved key column re-derives a decode Materials already owns.
 - Law: the direct beam rides the Environment row's OWN sampling arm, so a rig never seats a `LightSource.Sun` row beside a dome whose `Sun` is present — the pair lights one beam twice and the doubled energy hides inside a single render — which is why `Studio` REFUSES it at construction; `SunAt` and the `SunStudy` sweep serve the dome-less study rig and the ingested HDRI whose disc is absent.
 - Law: the world basis is `+Z`-up, matching the OpenPBR local frame and the frozen equirect correspondence; sun azimuth measures from `+X` geographic north increasing EASTWARD onto `−Y` — the environment owner's own solar frame — so the directional row lands in the SAME basis the dome speaks; `LightSource.Direction` reports ABSENCE on the rows that carry no orientation rather than a `+Z` stand-in no consumer can tell from a measured axis.
-- Entry: `public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance)` — the Sun row composing the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` almanac `SolarPosition.At(SolarSite, Instant) -> SunPosition`, its identity `LightKey.OfInstant`; `PhotometricWeb.Of(polar, azimuth, candela, contentKey)` — the one validated web constructor, `Sample(azimuthDeg, polarDeg)` the bilinear read honouring each axis's own topology (polar clamps its measured arc, azimuth wraps its circle).
+- Entry: `public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance)` — the Sun row composing the kernel `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` almanac `SolarPosition.At(SolarSite, Instant) -> SunPosition`, its identity `LightKey.OfInstant`; `PhotometricWeb.Of(polar, azimuth, candela, artifact)` — the one validated web constructor, `Sample(azimuthDeg, polarDeg)` the bilinear read honouring each axis's own topology (polar clamps its measured arc, azimuth wraps its circle).
 - Auto: the raster shading path and the path-trace oracle read the SAME rig and the SAME resolved `EnvironmentLight`; the ReSTIR reservoir samples candidates from the rig rows; a reduced-quality tier caps rig evaluation through the governor pass mask, never a second light list.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Materials (project), Rasm (project — `SolarPosition`/`SolarSite`/`SunPosition`, `ContentHash`), Rasm.Bim (boundary wire — `GeoReference` lowers into `SolarSite`)
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Materials (project), Rasm (project — `ArtifactContent`, `SolarPosition`/`SolarSite`/`SunPosition`, `ContentHash`), Rasm.Bim (boundary wire — `GeoReference` lowers into `SolarSite`)
 - Growth: a new emitter kind is one `LightSource` case carrying its candidate projection arm on the integrator's total fold; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; zero new surface.
-- Boundary: the kernel `SolarPosition.At` supplies the solar ephemeris and Bim lowers `GeoReference` into `SolarSite` values; IES/LDT decode is an ASSET-BOUNDARY admission — the composition root's decoder lands a validated `PhotometricWeb` carrying the file bytes' kernel `ContentHash.Of` identity, so no light row parses a file and the decoded table joins the Rhino `PhotometricWebRef(ContentKey, …)` reference typed instead of by coincidence; `csharp:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` seam — this page never decodes an HDRI, projects an equirect, integrates an SH band, or builds a prefilter ladder, and `LightRig.Studio` therefore TAKES the resolved row; Render owns neither a second solar ephemeris nor a second light vocabulary.
+- Boundary: the kernel `SolarPosition.At` supplies the solar ephemeris and Bim lowers `GeoReference` into `SolarSite` values; IES/LDT decode is an ASSET-BOUNDARY admission — the composition root's decoder lands a validated `PhotometricWeb` carrying the file bytes' SHA-256 artifact identity, so no light row parses a file and the decoded table joins the Rhino `PhotometricWebRef(Artifact, Dialect)` reference typed instead of by coincidence; `csharp:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` seam — this page never decodes an HDRI, projects an equirect, integrates an SH band, or builds a prefilter ladder, and `LightRig.Studio` therefore TAKES the resolved row; Render owns neither a second solar ephemeris nor a second light vocabulary.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -1054,15 +1054,24 @@ public sealed partial class LightKey {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// PhotometricWeb carries the decoded IES/LDT web beside the CONTENT IDENTITY of the bytes it decoded — the
-// kernel ContentHash.Of the decoding boundary minted — so the Rhino file-reference form and this decoded form
-// join on one key and an IES fixture round-tripping Rhino -> AppUi re-decodes with its identity intact.
-public sealed record PhotometricWeb(ImmutableArray<double> PolarDeg, ImmutableArray<double> AzimuthDeg, ImmutableArray<double> Candela, UInt128 ContentKey) {
-    public static Fin<PhotometricWeb> Of(ImmutableArray<double> polarDeg, ImmutableArray<double> azimuthDeg, ImmutableArray<double> candela, UInt128 contentKey) =>
-        polarDeg.Length >= 2 && azimuthDeg.Length >= 1 && candela.Length == polarDeg.Length * azimuthDeg.Length
+// PhotometricWeb carries the decoded IES/LDT web beside the kernel artifact coordinate of the bytes it decoded, so
+// the Rhino file-reference form and this decoded form join on one SHA-256 identity and declared extent.
+public sealed record PhotometricWeb(
+    ImmutableArray<double> PolarDeg,
+    ImmutableArray<double> AzimuthDeg,
+    ImmutableArray<double> Candela,
+    ArtifactContent Artifact) {
+    public static Fin<PhotometricWeb> Of(
+        ImmutableArray<double> polarDeg,
+        ImmutableArray<double> azimuthDeg,
+        ImmutableArray<double> candela,
+        ArtifactContent artifact) =>
+        artifact is not null
+            && polarDeg.Length >= 2 && azimuthDeg.Length >= 1
+            && candela.Length == polarDeg.Length * azimuthDeg.Length
             && polarDeg.Zip(polarDeg.Skip(1)).All(static pair => pair.First < pair.Second)
             && azimuthDeg.Zip(azimuthDeg.Skip(1)).All(static pair => pair.First < pair.Second)
-            ? Fin.Succ(new PhotometricWeb(polarDeg, azimuthDeg, candela, contentKey))
+            ? Fin.Succ(new PhotometricWeb(polarDeg, azimuthDeg, candela, artifact))
             : Fin.Fail<PhotometricWeb>(new ViewportFault.ContextUnavailable("light/ies-web: grids must be sorted and the table total"));
 
     // Bilinear candela under the two axes' OWN topologies: polar is a bounded arc and clamps to the measured

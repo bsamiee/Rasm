@@ -9,7 +9,7 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 [MODEL]:
 - [01]-[ELEMENTS](.planning/Model/elements.md): Generated `IfcClass` taxonomy with release map, domain partition, and predefined egress gate.
 - [02]-[EMITTER](.planning/Model/emitter.md): Offline vocabulary producer — EXPRESS-intersected reflection, hand overlays, regeneration runner.
-- [03]-[QUERY](.planning/Model/query.md): Graph-bound `ElementQuery` over the seam predicate closure, `PredicateWire`, `StorePlan` push-down.
+- [03]-[QUERY](.planning/Model/query.md): Graph-bound `ElementQuery` over the seam predicate closure and native `StorePlan` push-down.
 - [04]-[SPATIAL](.planning/Model/spatial.md): Spatial rank vocabulary, containment tree over seam compose edges, adjacency, and linear positioning.
 - [05]-[ZONES](.planning/Model/zones.md): Cross-cutting `BimZone` many-to-many overlay distinct from the single-parent containment tree.
 - [06]-[SYSTEMS](.planning/Model/systems.md): Derived MEP connectivity — port flow edges, directed system trace, demand folds, interference check.
@@ -39,7 +39,7 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 - [24]-[FORMAT](.planning/Exchange/format.md): Format-codec-extension table with per-importer frame normalization and sniffed row resolution.
 - [25]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold landing every decode arm on the pooled imported-geometry carrier.
 - [26]-[EXPORT](.planning/Exchange/export.md): Artifact emit rail over glTF, 3D-Tiles, COBie and SAF targets, with the round-trip fidelity witness.
-- [27]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/STEP/IGES/native geometry hop to the Compute companion rail.
+- [27]-[TESSELLATION](.planning/Exchange/tessellation.md): Typed canonical-IFC hop to the Compute companion rail.
 - [28]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): Scan-to-BIM folding segmented clouds into seam occurrences over the LAS/LAZ ingest front.
 - [29]-[SAF](.planning/Exchange/saf.md): SAF XLSX interchange codec — workbook I/O, correspondence spine, graph lowering, and import authoring.
 - [30]-[WIRE](.planning/Exchange/wire.md): Host-free content-keyed `IfcWire` interchange artifact the Python and TypeScript peers decode.
@@ -133,7 +133,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `NodaTime`
 - `System.IO.Hashing` — Reached only through the kernel content-hash mint every content key seeds from.
 - `UnitsNet`
-- `CommunityToolkit.HighPerformance` — Pooled buffer staging behind the mesh encoders.
+- `CommunityToolkit.HighPerformance` — Memory-backed stream projection at binary glTF admission and pooled buffer staging behind mesh encoders.
 - `QuikGraph` — CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
 
 [GEOMETRY_INTERCHANGE]:
@@ -163,7 +163,10 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `pocketken.H3` — Keys the `Semantics/model#GEO_MODEL` DGGS arm, the coarse `ulong` bucket beside the `STRtree`.
 
 [EVENT_TRANSPORT]:
+- `Celly.Protovalidate` — Evaluates the generated event extension rules at BIM announcement mint and admission.
 - `CloudNative.CloudEvents` — Message-envelope type the announcement projection mints through `Rasm/Domain/event`; bindings stay app-tier.
+- `Google.Protobuf` — Generated descriptor, repeated-field, optional-field, timestamp, and wire runtime used by those projections.
+- `Rasm.Contracts` — Generated event, host BCF, and compute tessellation messages projected at the owning exchange and review seams.
 
 [RUNTIME_INBOX]:
 - `System.Text.Json` — Generated wire contexts behind the exchange message envelopes, review records, and the GeoJSON seam.

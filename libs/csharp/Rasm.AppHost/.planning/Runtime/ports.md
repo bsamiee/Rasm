@@ -1,14 +1,14 @@
 # [APPHOST_RUNTIME_PORTS]
 
-Rasm.AppHost exposes exactly seven typed port records as its only INWARD cross-package seam; siblings adapt to them and no sibling assembly enters the AppHost graph. Outward vocabularies cross the same boundary as settled row payloads, never reversing an interior dependency. Owned axes are the port-record family under its cardinality invariant, the boot tenancy mint, the suite JSON wire law, and the TS tooling map. Drain bands, deadline rows, phase vocabulary, classification, and degradation arrive settled as port payloads.
+Rasm.AppHost exposes exactly seven typed port records as its only INWARD cross-package seam; siblings adapt to them and no sibling assembly enters the AppHost graph. Outward vocabularies cross the same boundary as settled row payloads, never reversing an interior dependency. Owned axes are the port-record family under its cardinality invariant, the boot tenancy mint, and the host wire edge — the one ProtoJSON registry, the one fault wire, and the envelope projection onto the generated host family. Drain bands, deadline rows, phase vocabulary, classification, and degradation arrive settled as port payloads.
 
-Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm/Domain/frame#SOURCE`, `TenantId`/`TenantContext` and `TenantMirror` from `#TENANCY`, `ReceiptEnvelope` and `ReceiptSinkPort` with its one HLC mint from `#RECEIPT_PORT`, and `TelemetryContributorPort` from `Rasm/Domain/telemetry#CONTRIBUTE`. This page seats those two kernel-declared records inside the cardinality invariant, mints the boot tenancy value from its tenant-feed configuration, and projects the stamped message envelope onto the suite wire; `Observability/telemetry#SIGNAL_GOVERNANCE` registers the OTel `Baggage.Current` store as the composition `TenantMirror` row, so a kernel caller spells `Stamp()` bare and threads no mirror per call site.
+Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm/Domain/frame#SOURCE`, `TenantId`/`TenantContext` and `TenantMirror` from `#TENANCY`, `ReceiptEnvelope` and `ReceiptSinkPort` with its one HLC mint from `#RECEIPT_PORT`, and `TelemetryContributorPort` from `Rasm/Domain/telemetry#CONTRIBUTE`. This page seats those two kernel-declared records inside the cardinality invariant, mints the boot tenancy value from its tenant-feed configuration, and projects the stamped message envelope onto the generated `Receipt.V1.ReceiptEnvelopeWire`; `Observability/telemetry#SIGNAL_GOVERNANCE` registers the OTel `Baggage.Current` store as the composition `TenantMirror` row, so a kernel caller spells `Stamp()` bare and threads no mirror per call site.
 
 ## [01]-[INDEX]
 
 - [02]-[PORT_RECORDS]: Seven inward port records, five declared here and two at the kernel capsule.
-- [03]-[WIRE_LAW]: One `Strict` context per package; app roots merge resolvers and emit schemas.
-- [04]-[TS_PROJECTION]: Tooling map and the message-envelope wire contract the TS dashboard consumes.
+- [03]-[WIRE_LAW]: `WireJson` the one ProtoJSON edge, `FaultWire` the one fault wire, the envelope mapper, and the STJ merge's two surviving surfaces.
+- [04]-[TS_PROJECTION]: The generated envelope family the TS dashboard decodes and the packed-stamp law it retires.
 
 ## [02]-[PORT_RECORDS]
 
@@ -79,55 +79,562 @@ public sealed record HealthContributorPort(
 
 ## [03]-[WIRE_LAW]
 
-- Owner: `AppHostWireContext`, `SuiteContracts` — the package wire context, the app-root merge surface, and the composition-bound `Host` producer context the merge seats; `AppHostFaultMap` the one lowering from the kernel's bounded `FaultObservation` into its wire records; the `OmitAbsent` contract modifier that makes absence omit. Semantic-time text has ONE authority and it is not here: `Runtime/time#CLOCK_SPLIT` `ClockPolicy.Persisted` owns the persisted grammars, and the wire read is the NodaTime converter set `ConfigureForNodaTime` registers, so a pattern table at this mint forks one temporal alphabet into two. The carrier-space codec for the LanguageExt collections the suite wires cross is COMPOSED, never declared here — `Rasm/Domain/rails#CARRIER_CODEC` owns `LanguageExtJsonConverterFactory` at the kernel so the S2 private mints reach the same one type this merge registers.
-- Entry: `AppHostFaultMap.Wire(observation)` lowers generated code, typed recovery, bounded cause stamps, and truncation without `Error.Message`; `SuiteContracts.Wire(contexts)` creates one merge per app root and seals every JSON wire surface on first use.
-- Packages: NodaTime.Serialization.SystemTextJson, NodaTime, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, BCL inbox
-- Law: `AppHostFaultMap` lowers the identity's `Code` and NEVER `FaultId.Case` — the kernel observation carries the generated identity whole so an in-process subscriber reads the case token, and this hand-written lowering is the line it stops at, which `tests/contracts/MANIFEST.md` `[02.4]` and the `FaultObservationWire` shape row both pin. A `case` column here forks one fault identity into two a peer joins on, and turns a leaf rename into a schema migration.
-- Law: this roster IS the `apphost-wire` seam's producer half — the runtime-evidence family set crosses as one registration, so a family gains its `[JsonSerializable]` row here and its census row at the consuming branch in the same motion, and carriage is JSON by this page's own wire law, never a protobuf arm no descriptor source exists for. A family a sibling seam entry already owns registers at that entry and carries its row here only where this producer serializes it: the HLC two-half stamp's byte layout is the `hlc-two-half` seam's shape and rides `ReceiptEnvelope` as a field rather than a row of its own, `HostFingerprintWire` is the `host-fingerprint` seam's shape and rides here because this producer mints it, and the benchmark claim's minter is `Rasm.Compute`, so a row spelling it here mis-names the producer. ABSENCE HAS ONE ENCODING ON THIS SEAM and this merge is its sole author: every optional slot on every registered surface OMITS, a `T?` member through `DefaultIgnoreCondition.WhenWritingNull` and an `Option<T>` member through the `OmitAbsent` modifier, so the C# carrier is an interior choice with one wire consequence and no surface may declare a second posture; the peer face of an omitting slot is therefore `field?: T` on every wire page this producer seals, and a `| null` union there declares a token the merge emits for no slot — a decoder binding it waits on a value that never arrives and a decoder rejecting the missing key refuses the producer's own output.
-- Growth: a new wire record lands as one `[JsonSerializable]` row on its package context and one `[JsonDerivedType]` row per polymorphic leaf, zero new surface; a new persisted temporal grammar is one `ClockPolicy` policy value at `Runtime/time#CLOCK_SPLIT`, never a pattern table beside this mint; an owner that must decline the factory carries its own `[JsonConverter]` attribute that `skipObjectsWithJsonConverterAttribute` honors, never a second factory; a new LanguageExt carrier is one `Carriers` row at the kernel owner (`Rasm/Domain/rails#CARRIER_CODEC`), never a per-member `[JsonConverter]` attribute or a mint-local converter; a new contract-level emission posture is one `OmitAbsent`-class modifier on the resolver chain, never a second options identity; CORS and grpc-web middleware land as one app-root row each when a cross-origin deployment exists.
-- Boundary: the kernel retains the live `Error`; this app-owned mapper lowers only its bounded `FaultObservation`, maps runtime `Type` to one assembly-qualified wire spelling, and preserves recovery as a discriminated union rather than a message or category surrogate. Converter precedence is settled — `ConfigureForNodaTime` runs last in the `Wire` expression, after `TypeInfoResolver` binds the combined source-gen metadata, so the NodaTime per-type converters for `Instant`, `OffsetDateTime`, `ZonedDateTime`, and `Interval` resolve ahead of any source-gen `JsonTypeInfo` for those types — converter resolution precedes resolver metadata in System.Text.Json, and the call order in `Wire` is the precedence law, never a hand-assembled converter list; the ONE `ConfigureForNodaTime(DateTimeZoneProviders.Tzdb)` argument is what binds every semantic-time converter to the Tzdb provider, so a zoned value round-trips against the same provider it was stamped under and a second pattern holder beside these converters is the deleted form — persisted temporal text is `Runtime/time#CLOCK_SPLIT` `ClockPolicy.Persisted`'s and the wire read is the converters', with no third grammar between them; the `System.Text.Json.Schema.JsonSchemaExporter.GetJsonSchemaAsNode(options, type, exporterOptions)` member and `JsonSchemaExporterOptions.TreatNullObliviousAsNonNullable` that `Schema` binds are catalogued at the substrate tier; `Wire` freezes the merged options with `MakeReadOnly()` before returning, so the suite is one immutable wire identity, `IsReadOnly` is the composition's audit bit, and a root appending a converter after the mint throws at the append rather than forking the wire; generated Thinktecture converters own every value-object, smart-enum, and keyed-union wire form, and a hand-written converter beside them is the named defect; the registry above IS the audit surface — every producer wire crossing anywhere in the corpus resolves against a `[JsonSerializable]` row on a merged context (`assay`-gated; a crossing without a row is a phantom) — while the WRITE itself rides the composition-bound `SuiteContracts.Host` options handle, never a context: a `JsonTypeInfo` off `AppHostWireContext.Default` carries the context's own options so neither `OmitAbsent` nor the registered factories engage (a `None` serializes its own struct members), and a context INSTANCE constructed over the merge is the equally-refuted twin — the ctor rebinds the options' resolver to the context itself and silently drops the modifier — so `.Default` survives only as the merge's resolver arguments and for type-init metadata roster reads (`PolymorphismOptions` inspection), the same carve `Rasm.AppUi/Diagnostics/evidence` rules for its own context; `Wire/livewire#TS_PROJECTION`'s `LiveWireContext` FOLDS into this one merge as a context argument, as do the kernel `Rasm/Drawing/pack#SCHEMA_AND_EVIDENCE` `PackWireContext` and the `Rasm.AppUi` `AppUiWireContext` (`SuiteContracts.Wire(AppHostWireContext.Default, LiveWireContext.Default, PackWireContext.Default, AppUiWireContext.Default)` at the app root — every package context whose shapes cross the suite wire is one merge argument, which is exactly what makes the merged chain able to resolve them) — the standalone `LiveWireOptions.Json` is the deleted form, and livewire's one declared serializer divergence (`DefaultIgnoreCondition.WhenWritingNull`) rides THE MERGE ROW: the merged options carry `WhenWritingNull` as a declared suite-wide emission posture, so optional wire slots omit rather than null-fill and no private context survives the divergence; the one options-level `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` covers any generated owner that carries no `[JsonConverter]` attribute while honoring the attribute on those that do, so attribute wiring and options registration never double-bind one owner; converter ORDER within the list decides nothing here because the three registered spaces are disjoint by construction — the Thinktecture factory admits by generated conversion metadata, `LanguageExtJsonConverterFactory` by open-generic carrier row, and the NodaTime registration by closed semantic-time type — and both factories seat inside the initializer, so factories precede the per-type converters `ConfigureForNodaTime` appends and every registration lands before `MakeReadOnly()`; the kernel `Rasm/Domain/rails#CARRIER_CODEC` factory is the ONE carrier-space owner and this mint REGISTERS it, so a per-member `[JsonConverter(typeof(SeqJsonConverter<…>))]` on a wire record and a second factory declaration at any mint are the deleted forms — the freeze that once forced member-level binding is downstream of this initializer, and the kernel home is what lets the S2 private mints (`ElementJson`, `FabricationWireContext`) register the same type their `{Rasm, Rasm.Element}` reference set can reach; every carrier converter routes its elements back through the same options, so nesting composes and a carrier holding generated owners or semantic-time values needs no second registration — a `HashMap<string, Set<string>>` resolves the map converter and its value carrier off one registration; absence OMITS rather than null-fills and the mechanism is the resolver's own `OmitAbsent` modifier, never the converter list — `WhenWritingNull` reaches reference and `Nullable<T>` slots alone, `Option<T>` is a struct that condition never sees, and a converter cannot drop the member it is called for, so the write predicate is a contract decision that rides `WithAddedModifier` and reads presence off the non-generic `IOptional` the boxed value already carries; the paired decode law is that this predicate makes an `Option<T>` constructor parameter carrying no default wire-required under `RespectRequiredConstructorParameters`, so every such parameter carries `= default` for the omitted-property read while every construction still answers it explicitly; PipeReader deserialization is the consumer-edge inbound decode shape, never a staging axis.
+- Owner: `WireAdmission` the ONE generated-message descriptor and rule edge — one root set feeds the `TypeRegistry`, warmed evaluator, violation projection, `EventExtensions`, and every binary or JSON admission; `WireJson` the ONE ProtoJSON codec over that neutral admission; `FaultWire` the ONE fault wire — in-process `Observe`, the `Retriability` ⇄ `FaultRecovery` correspondence, `Pack` onto `FaultDetail`, the one `Error` → `StatusCode` producer table, `Raise` the one `RpcException` mint, and the client pair `Decode`/`Admit` onto `RemoteFault`; `FaultContext` the producer's call evidence; `WireViolation` `[Union]` and `WireBoundary` `[SmartEnum<string>]` the typed malformed-envelope evidence and the captured-codec-site vocabulary every branch reads; `HostWire` the byte and stamp correspondences the host families share — the 16-byte correlation, the `Hlc` stamp, the `Package` bridge, and the one-arm oneof assignment; `EnvelopeMap` the one `[Mapper]` projecting the kernel `ReceiptEnvelope` onto `Receipt.V1.ReceiptEnvelopeWire`; `ProtoJsonConverterFactory` the one STJ crossing for a generated message embedded inside an in-process receipt; `SuiteContracts` the app-root STJ merge that survives for surfaces no corpus family carries.
+- Entry: `WireAdmission.Warm()` compiles every reachable generated-message rule before readiness; `WireAdmission.EventExtensions` composes the kernel descriptor bridge over that evaluator; `WireAdmission.Validate<T>(T, Op)` preserves accumulated violations for request/response projection, while `WireAdmission.Admit<T>(T, WireBoundary, Op)` collapses the same verdict for a named generated-message edge; `WireJson.Write(IMessage, TextWriter|Stream)` and `WireJson.Read<T>(TextReader|Stream|JsonElement, Op)` are the ProtoJSON codec doors, with each read composing neutral admission after parse; `WireJson.Element(IMessage)` is the one door onto the kernel envelope's `JsonElement` payload; `FaultWire.Observe(Error)` projects the kernel `FaultObservation.Of` onto `Fault.V1.FaultObservation`; `FaultWire.Raise(Error, FaultContext)` is every failing gRPC arm's one exit; `FaultWire.Decode(RpcException)` and `FaultWire.Admit(FaultDetail, string)` are the client read; `SuiteContracts.Wire(contexts)` creates one merge per app root for the discovery manifest and the in-process receipts no peer decodes.
+- Packages: Rasm.Contracts (project — every emitted file reflection root and generated fault, host, compute, element, evidence, parity, and RPC message), Celly.Protovalidate (`Validator`, `ValidationCompileException`, `ValidationException`, generated `Buf.Validate.Violation`/`FieldPath`), Google.Protobuf (`TypeRegistry.FromFiles`, message descriptors and parsers, `JsonFormatter`, `JsonParser`, `Any.Pack`/`Is`/`Unpack<T>`, `ByteString`), Grpc.StatusProto (`Google.Rpc.Status.ToRpcException`, `RpcException.GetRpcStatus`, `Exception.ToRpcDebugInfo`), Google.Api.CommonProtos (`Google.Rpc.Status`, `RetryInfo`, `BadRequest.Types.FieldViolation`, `DebugInfo`), Grpc.Core.Api (`RpcException`, `StatusCode`), NodaTime.Serialization.Protobuf (`ToProtobufDuration`/`ToNodaDuration`), Rasm (kernel `FaultObservation`, `FaultBand`, `KernelFault`, `Retriability`, `ContentHash`), NodaTime.Serialization.SystemTextJson, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, BCL inbox
+- Law: `WireAdmission.Files` is the ONE generated file-root roster. `TypeRegistry.FromFiles` folds its dependencies transitively for `Any`; `Validator` compiles and evaluates constraints from the same roots, so codec reachability and rule reachability cannot drift. `Warm` validates one parsed default for every admitted non-map descriptor while the host is still mutable, forcing Celly's lazy CEL compilation before readiness. ProtoJSON intake tolerates unknown fields (`WithIgnoreUnknownFields(true)`) under the corpus gate's `buf breaking` FILE law and bounds recursion at the parser's configured depth; a local validator, `JsonFormatter.Default`, and `JsonParser.Default` are deleted forms.
+- Law: generated-message admission is two-railed without dual policy. Parse, unrostered-type, compile, and evaluator failures ride the outer `Fin`; authored rule refusals accumulate inside `Validation<Seq<BadRequest.FieldViolation>,T>`. `Read<T>` collapses that verdict only after parse, while the gRPC interceptor reads the same verdict directly for request `InvalidArgument` and response `Internal` projection. One field-path projector preserves scalar fields, repeated indices, and bool, signed, unsigned, or JSON-quoted string map keys; no mapper restates a rule or calls validation itself.
+- Law: `FaultWire.Status` is the ONE producer `Error` → `StatusCode` table, a closed ladder: every `KernelFault` case through its generated total `Switch`, every other `Fault` by the posture its `Retriability` already carries (`Throttled` → `ResourceExhausted`, `Transient` → `Unavailable`, `Terminal` → `FailedPrecondition`), the rail's two reserved termination codes (`Errors.Cancelled`, `Errors.TimedOut`) onto their gRPC twins, and every foreign `Error` onto `Internal`. No handler spells a status; a `new RpcException(new Status(...))` anywhere on this branch is the deleted form. The client inverse (`StatusCode` → local transport fault) stays the dialing branch's own fold — `Rasm.Compute` `Runtime/wire#FAULT_PROJECTION` `StatusRail` — so the producer fold and the client fold never merge into one dictionary read both ways.
+- Law: `FaultDetail.domain` names the PRODUCING FAMILY and `case` is that family's closed ordinal, never a transport status and never the absolute code. The family's one stable identity the wire can carry is its `FaultBand` row, so `domain` derives ONCE at static init as the band owner's lowercased key beside the band base (`rasm.apphost.4500`) and `case` is `fault.Code - band.Key`; `FaultBand` has no lowercase family column, and the owner key alone collapses every AppHost band onto one domain, which strips `(domain, case)` of its identity (thirty AppHost rows share `TelemetrySource.AppHost`). The pair stays OPAQUE at every peer — a remote `domain` never drives topology or failover, and the admission consults this process's own ledger only to refuse a same-estate ordinal past its band's span, which is version-skew evidence rather than taxonomy rehydration.
+- Law: `FaultObservation.(domain, case)` carries the SAME family identity `FaultDetail.(domain, case)` carries, so one field pair has one meaning across both generated messages. `Observe` derives the pair together from the kernel observation's optional numeric code; a foreign `Error` crosses with both absent, and the generated paired-presence rule refuses either field alone. The kernel `FaultId.Case` token NEVER crosses, so a leaf rename stays one compilation.
+- Law: `FaultRecovery` is the ONE recovery crossing and its arm set is the kernel `Retriability` union's — `Recovery(Retriability)` assigns exactly one arm through the generated total `Switch`, and `Recovery(FaultRecovery)` dispatches on `KindCase` so an unset message, a `None` kind, an absent `retry_delay`, and a negative delay each refuse as their own typed `WireViolation`. The throttled arm IS a `google.rpc.RetryInfo`, so `Raise` packs THAT instance a second time as a top-level `Status` detail and a foreign gRPC client reads standard back-off without decoding a rasm type; one message occupies both seats and a second construction is the deleted form that lets the two disagree. `RetryInfo` states a delay alone, which is why the estate keeps the oneof: `terminal` and `transient` are unspellable inside it.
+- Law: `Raise` packs exactly one `FaultDetail` per estate fault except a kernel contract admission, which packs one standard `BadRequest` instead of duplicating its violations into two details. Request refusal stays `InvalidArgument`, invalid server response stays `Internal`, and both preserve the same typed field coordinates without refused values. Other kernel and domain faults retain their estate detail. A captured foreign exception crosses as `google.rpc.DebugInfo` through `ToRpcDebugInfo`, and an exception-free foreign error crosses with its message alone, so a fabricated case, domain, or recovery never reaches a peer. `Decode` reads `RpcException.GetRpcStatus()` under `Op.Catch`: absent answers `None`, a malformed trailer refuses typed on `WireBoundary.RemoteStatus`, exactly one recognized `FaultDetail` admits as opaque `RemoteFault`, zero recognized details answer `None` so the caller's transport classification decides, and several refuse on `WireBoundary.DetailMultiplicity` — never a silent fallback. `Message` comes from the enclosing `google.rpc.Status`, never re-rendered.
+- Law: every cross-process family the corpus carries crosses as its generated semantic-package message — the owning page projects it once through Mapperly for structural twins or a direct producer for operational folds, then formats through `WireJson`, so a hand STJ record under a generated message's name is the deleted twin. The `SuiteContracts` STJ merge survives for the local attach manifest and in-process receipts no peer runtime decodes; the generated capability-discovery catalog is a distinct RPC reply. A generated message embedded in such a receipt crosses the merge through the one `ProtoJsonConverterFactory`, which writes `WireJson.Formatter` text and reads through `WireJson.Parser`, so the receipt fan and the dashboard read one ProtoJSON spelling of every fault observation.
+- Law: the kernel `ReceiptEnvelope` stays the in-process carrier and its `JsonElement` payload holds ProtoJSON text for every kind the corpus carries (`WireJson.Element`), so the wire projection `EnvelopeMap.ToWire(envelope, payload)` packs the typed payload as `Any` and a kind with no generated family cannot cross — `ReceiptKind.Admit` at `Observability/instruments#RECEIPT_PROJECTION` is the one decoder per kind both the instrument write and this projection read.
+- Law: the `Hlc` stamp crosses as `Clock.V1.Hlc{physical sfixed64 Unix ticks, logical uint64}` — the ONE wire stamp every host family, the fault detail, and the receipt envelope carry — so the packed `physical<<64 | logical` `UInt128` is an in-process content-key lane (`Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING`) and never a wire layout; `HostWire.Stamp` is the one mint and the one admission of that message.
+- Growth: a new generated file is one reflection root on `WireAdmission.Files`, which feeds registry, allowed-message index, and contract evaluator together; a new host family message is one owning producer and one `ReceiptKind` row; a new fault family lands its band row at the kernel and packs with no edit here; a new malformed-envelope shape is one `WireViolation` case at the refusing admission; a surface the corpus does not carry registers one `[JsonSerializable]` row on the merge and names its carve.
+- Boundary: `WireJson` is a statement capsule at its two stream doors because `JsonFormatter.Format(IMessage, TextWriter)` and `JsonParser.Parse<T>(TextReader)` are the substrate's writer-shaped entries, and a string-returning `Format` is reached only where the consumer IS a string-shaped slot (the envelope's `JsonElement`, the raw STJ value the converter writes); a caller holding an `IBufferWriter<byte>` reaches the stream door through `CommunityToolkit.HighPerformance` `AsStream()` at its own tier, since this assembly admits no buffer-writer package row. `FaultWire.Raise` is the one `throw` on this page family and it sits INSIDE the gRPC verb edge the platform forces (`ControlServiceImpl` at `Wire/companion#CONTROL_SERVICE`): the typed receipt is sealed on the rail first and the exception is the transport's egress form, never control flow. `WireBoundary` keeps `QueryFieldNumber` and `InboundPayload` because `Rasm.Compute` `WireFault.Internal(WireBoundary, Error)` names them and one vocabulary serves both branches. The kernel envelope's `JsonElement` payload is the one place ProtoJSON becomes a string: `Element` parses the formatted text into a detached element and `Read<T>(JsonElement, Op)` re-parses its raw text, both stated as the string door rather than hidden. `HostFingerprintWire` and `BenchmarkClaimWire` ride `benchmark.v1`; `DescriptorPinWire` rides `capability.v1`; they bind at `Runtime/determinism`, `Observability/benchmarks`, and `Agent/capability`. NodaTime converters still bind at the merge through `ConfigureForNodaTime(DateTimeZoneProviders.Tzdb)` for the receipts that stay STJ, and every temporal member of a generated message crosses as `Timestamp`/`Duration` through the `NodaTime.Serialization.Protobuf` static family at the owning mapper. NAMED LOSS of the former STJ fault-observation trio and its mapper: cause stamps crossed as structured rows (`code`, `exceptionType`, `hResult`) and now cross as the corpus's rendered strings, so a peer no longer reads a cause's numeric identity or CLR type name off the observation — witness `CommandTxn.Rejected(fault)` at `Agent/capability#COMMAND_ALGEBRA`, which now carries `FaultWire.Observe(fault)` and reaches the TS dashboard as the generated `FaultObservation` schema. NAMED LOSS of the former STJ schema export: the exporter and the `schema-derived TS` tool row delete — TS consumes the generated schema (`@rasm\/contracts/...`) and grades the capability catalog through `DescriptorPinWire` alone.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Buffers;
+using System.Collections.Frozen;
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using System.Text.RegularExpressions;
+using Buf.Validate;
+using Celly.Protovalidate;
+using Google.Api;
+using Google.Protobuf;
+using Google.Protobuf.Reflection;
+using Google.Protobuf.WellKnownTypes;
+using Google.Rpc;
+using Grpc.Core;
+using LanguageExt;
+using NodaTime;
+using NodaTime.Serialization.Protobuf;
+using NodaTime.Serialization.SystemTextJson;
+using Rasm.Contracts.Appearance.V1;
+using Rasm.Contracts.Compute.V1;
+using Rasm.Contracts.Declaration.V1;
+using Rasm.Contracts.Element.V1;
+using Rasm.Contracts.Event.V1;
+using Rasm.Contracts.Fabrication.V1;
+using Rasm.Contracts.Organization.V1;
+using Rasm.Contracts.Parity.V1;
+using Rasm.Contracts.Scene.V1;
+using Rasm.Domain;
+using Riok.Mapperly.Abstractions;
+using Thinktecture;
+using Thinktecture.Text.Json.Serialization;
+using Host = Rasm.Contracts.Receipt.V1;
+using Fault = Rasm.Contracts.Fault.V1;
+using static LanguageExt.Prelude;
+
+namespace Rasm.AppHost.Runtime;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class WireBoundary {
+    public static readonly WireBoundary QueryFieldNumber = new("query-field-number");
+    public static readonly WireBoundary ContractAdmission = new("contract-admission");
+    public static readonly WireBoundary InboundPayload = new("inbound-payload");
+    public static readonly WireBoundary OutboundPayload = new("outbound-payload");
+    public static readonly WireBoundary RemoteStatus = new("remote-status");
+    public static readonly WireBoundary RemoteDetail = new("remote-detail");
+    public static readonly WireBoundary DetailAdmission = new("detail-admission");
+    public static readonly WireBoundary DetailMultiplicity = new("detail-multiplicity");
+}
+
+// Typed malformed-envelope evidence: each case carries the VALUE that refused, never a rendered message.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(FaultRecoveryWire.Terminal), "terminal")]
-[JsonDerivedType(typeof(FaultRecoveryWire.Transient), "transient")]
-[JsonDerivedType(typeof(FaultRecoveryWire.Throttled), "throttled")]
-public abstract partial record FaultRecoveryWire {
-    private FaultRecoveryWire() { }
-    public sealed record Terminal : FaultRecoveryWire;
-    public sealed record Transient : FaultRecoveryWire;
-    public sealed record Throttled(Duration RetryAfter) : FaultRecoveryWire;
+public abstract partial record WireViolation {
+    private WireViolation() { }
+
+    public sealed record Domain(string Value) : WireViolation;
+    // Same-estate ordinal past its band's span: the peer runs this ledger under another version.
+    public sealed record Case(string Domain, uint Value, int Span) : WireViolation;
+    public sealed record Correlation(int Length) : WireViolation;
+    public sealed record Tenant(string Value) : WireViolation;
+    public sealed record MissingRecovery : WireViolation;
+    public sealed record MissingRetryDelay : WireViolation;
+    public sealed record MissingStamp : WireViolation;
+    public sealed record RecoveryKind(Fault.FaultRecovery.KindOneofCase Value) : WireViolation;
+    public sealed record RetryDelay(NodaTime.Duration Value) : WireViolation;
+    public sealed record Stamp(long Physical) : WireViolation;
+    public sealed record Kind(string Value) : WireViolation;
+    public sealed record Contract(string Type, Seq<BadRequest.Types.FieldViolation> Violations) : WireViolation;
+    public sealed record UnrosteredMessage(string Type) : WireViolation;
+    public sealed record UnrosteredOp(string TypeUrl) : WireViolation;
+    public sealed record ReceiptDisposition(bool Committed, bool HasConflict) : WireViolation;
 }
 
-public sealed record FaultCauseWire(
-    Option<int> Code = default,
-    Option<string> ExceptionType = default,
-    Option<int> HResult = default);
-
-public sealed record FaultObservationWire(
-    FaultRecoveryWire Recovery,
-    Seq<FaultCauseWire> Causes,
-    bool Truncated,
-    Option<int> Code = default);
-
-public static class AppHostFaultMap {
-    public static FaultObservationWire Wire(Error error) => Wire(FaultObservation.Of(error));
-
-    public static FaultObservationWire Wire(FaultObservation observation) => new(
-        Recovery: observation.Recovery.Switch(
-            terminalCase: static _ => new FaultRecoveryWire.Terminal(),
-            transientCase: static _ => new FaultRecoveryWire.Transient(),
-            throttledCase: static row => new FaultRecoveryWire.Throttled(row.RetryAfter)),
-        Causes: observation.Causes.Map(static stamp => new FaultCauseWire(
-            Code: stamp.Code,
-            ExceptionType: stamp.ExceptionType.Map(static type =>
-                type.AssemblyQualifiedName ?? type.FullName ?? type.Name),
-            HResult: stamp.HResult)),
-        Truncated: observation.Truncated,
-        Code: observation.Code);
+// --- [MODELS] -------------------------------------------------------------------------------
+// Producer call evidence the detail carries: correlation off the call, the stamp the sink's one HLC mint issued,
+// the tenant `PeerAdmission` admitted, and the protovalidate refusals the verb accumulated.
+public sealed record FaultContext(
+    CorrelationId Correlation,
+    Fault.Hlc Stamp,
+    Option<TenantId> Tenant,
+    Seq<BadRequest.Types.FieldViolation> Violations) {
+    public static FaultContext Of(CorrelationId correlation, (Instant Physical, ulong Logical) stamp, TenantContext tenant,
+        Seq<BadRequest.Types.FieldViolation> violations = default) =>
+        new(correlation, HostWire.Stamp(stamp), tenant.Partitions ? Some(tenant.TenantId) : None, violations);
 }
 
+// Remote evidence stays OPAQUE: `Domain` and `Case` are the peer's pair, compared and logged, never rehydrated
+// into a local taxonomy; `Recovery` is the one column a re-drive reads.
+public sealed record RemoteFault(
+    string Domain,
+    uint Case,
+    string Message,
+    CorrelationId Correlation,
+    Instant HlcPhysical,
+    ulong HlcLogical,
+    Option<TenantId> Tenant,
+    Retriability Recovery,
+    Seq<BadRequest.Types.FieldViolation> Violations);
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+// The closed file-root set feeds codec lookup and contract evaluation together; neither can drift from the
+// generated estate the other admits. Every generated-message codec composes this neutral verdict after parsing.
+public static class WireAdmission {
+    private static readonly FileDescriptor[] Files = [
+        AppearanceReflection.Descriptor,
+        Rasm.Contracts.Capability.V1.DescriptorReflection.Descriptor,
+        Rasm.Contracts.Capability.V1.DiscoveryReflection.Descriptor,
+        ComputeReflection.Descriptor,
+        ControlReflection.Descriptor,
+        DeclarationReflection.Descriptor,
+        Rasm.Contracts.Element.V1.EvidenceReflection.Descriptor,
+        GraphReflection.Descriptor,
+        SubstanceReflection.Descriptor,
+        ValueReflection.Descriptor,
+        EventReflection.Descriptor,
+        FabricationReflection.Descriptor,
+        Fault.FaultReflection.Descriptor,
+        Host.ApphostReflection.Descriptor,
+        Host.AppuiCommandsReflection.Descriptor,
+        Host.AppuiControlsReflection.Descriptor,
+        Host.AppuiEvidenceReflection.Descriptor,
+        Host.AppuiLayoutReflection.Descriptor,
+        Host.AppuiResidencyReflection.Descriptor,
+        Host.AppuiSurfaceReflection.Descriptor,
+        Host.BimReflection.Descriptor,
+        Host.EvidenceReflection.Descriptor,
+        OrganizationReflection.Descriptor,
+        ParityReflection.Descriptor,
+        SceneReflection.Descriptor,
+    ];
+
+    private static readonly FrozenDictionary<string, MessageDescriptor> Messages = Files
+        .SelectMany(static file => file.MessageTypes.SelectMany(Descendants))
+        .ToFrozenDictionary(static message => message.FullName, StringComparer.Ordinal);
+
+    public static readonly TypeRegistry Registry = TypeRegistry.FromFiles(Files);
+
+    private static readonly Validator Rules = Compile(new Validator(Files));
+
+    public static readonly EventExtensionContract<Extensions> EventExtensions = new(
+        Extensions.Parser,
+        Extensions.Descriptor,
+        Rules);
+
+    // Composition calls this while the host is still mutable; reading `Rules` forces static initialization, so
+    // every reachable CEL program has compiled when the method returns.
+    public static Unit Warm() {
+        _ = Rules.GetType();
+        return unit;
+    }
+
+    public static Fin<Validation<Seq<BadRequest.Types.FieldViolation>, T>> Validate<T>(T message, Op key)
+        where T : IMessage =>
+        Messages.ContainsKey(message.Descriptor.FullName)
+            ? key.Catch(() => Fin.Succ(Admission(message)))
+            : Fin.Fail<Validation<Seq<BadRequest.Types.FieldViolation>, T>>(new HopFault.Malformed(
+                WireBoundary.ContractAdmission,
+                new WireViolation.UnrosteredMessage(message.Descriptor.FullName)));
+
+    private static IEnumerable<MessageDescriptor> Descendants(MessageDescriptor message) =>
+        message.IsMapEntry
+            ? []
+            : [message, .. message.NestedTypes.SelectMany(Descendants)];
+
+    private static Validator Compile(Validator rules) {
+        foreach (MessageDescriptor message in Messages.Values) {
+            _ = rules.Validate(message.Parser.ParseFrom([]));
+        }
+
+        return rules;
+    }
+
+    private static Validation<Seq<BadRequest.Types.FieldViolation>, T> Admission<T>(T message)
+        where T : IMessage {
+        Seq<BadRequest.Types.FieldViolation> violations = toSeq(Rules.Validate(message).Select(Project));
+        return violations.IsEmpty
+            ? new Validation<Seq<BadRequest.Types.FieldViolation>, T>.Success(message)
+            : new Validation<Seq<BadRequest.Types.FieldViolation>, T>.Fail(violations);
+    }
+
+    public static Fin<T> Admit<T>(T message, WireBoundary boundary, Op key) where T : IMessage =>
+        Validate(message, key).Bind(admission => admission.Match(
+            Fail: violations => Fin.Fail<T>(new HopFault.Malformed(
+                boundary,
+                new WireViolation.Contract(message.Descriptor.FullName, violations))),
+            Succ: static admitted => Fin.Succ(admitted)));
+
+    private static BadRequest.Types.FieldViolation Project(Buf.Validate.Violation violation) => new() {
+        Field = Path(violation.Field),
+        Description = violation.Message,
+    };
+
+    private static string Path(FieldPath? path) =>
+        path is null ? string.Empty : string.Join('.', path.Elements.Select(Element));
+
+    private static string Element(FieldPathElement element) => string.Concat(
+        element.HasFieldName
+            ? element.FieldName
+            : element.HasFieldNumber
+                ? element.FieldNumber.ToString(CultureInfo.InvariantCulture)
+                : string.Empty,
+        element.SubscriptCase switch {
+            FieldPathElement.SubscriptOneofCase.None => string.Empty,
+            FieldPathElement.SubscriptOneofCase.Index => $"[{element.Index.ToString(CultureInfo.InvariantCulture)}]",
+            FieldPathElement.SubscriptOneofCase.BoolKey => element.BoolKey ? "[true]" : "[false]",
+            FieldPathElement.SubscriptOneofCase.IntKey => $"[{element.IntKey.ToString(CultureInfo.InvariantCulture)}]",
+            FieldPathElement.SubscriptOneofCase.UintKey => $"[{element.UintKey.ToString(CultureInfo.InvariantCulture)}]",
+            FieldPathElement.SubscriptOneofCase.StringKey => $"[{JsonSerializer.Serialize(element.StringKey)}]",
+            _ => throw new InvalidOperationException($"Unknown field-path subscript {element.SubscriptCase}."),
+        });
+}
+
+// ProtoJSON owns formatting and parsing alone. Registry reach comes from WireAdmission, and every parsed message
+// crosses the same neutral rule graph binary consumers compose.
+public static class WireJson {
+    // Defaults elide (proto3 JSON canon); the diff/patch lane that wanted them is binary `FieldMask` + `Merge`.
+    public static readonly JsonFormatter Formatter = new(
+        JsonFormatter.Settings.Default.WithTypeRegistry(WireAdmission.Registry));
+
+    public static readonly JsonParser Parser = new(JsonParser.Settings.Default
+        .WithIgnoreUnknownFields(true)
+        .WithRecursionLimit(100)
+        .WithTypeRegistry(WireAdmission.Registry));
+
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+
+    // Exemption: the two stream doors are the platform-forced statement seam — the substrate's writer-shaped
+    // entries take a `TextWriter`/`TextReader` the bracket owns, and no string is minted between them.
+    public static Unit Write(IMessage message, TextWriter sink) {
+        Formatter.Format(message, sink);
+        return unit;
+    }
+
+    public static Unit Write(IMessage message, Stream sink) {
+        using StreamWriter writer = new(sink, Utf8, leaveOpen: true);
+        return Write(message, writer);
+    }
+
+    public static Fin<T> Read<T>(TextReader source, Op key) where T : IMessage<T>, new() =>
+        key.Catch(() => Fin.Succ(Parser.Parse<T>(source)))
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
+
+    public static Fin<T> Read<T>(Stream source, Op key) where T : IMessage<T>, new() {
+        using StreamReader reader = new(source, Utf8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+        return Read<T>(reader, key);
+    }
+
+    // The ONE string door, stated: the kernel `ReceiptEnvelope` carries a `JsonElement`, so a generated payload
+    // crosses the sink as ProtoJSON text parsed into a DETACHED element; the inverse re-parses its raw text.
+    public static JsonElement Element(IMessage message) {
+        using JsonDocument parsed = JsonDocument.Parse(Formatter.Format(message));
+        return parsed.RootElement.Clone();
+    }
+
+    public static Fin<T> Read<T>(JsonElement payload, Op key) where T : IMessage<T>, new() =>
+        key.Catch(() => Fin.Succ(Parser.Parse<T>(payload.GetRawText())))
+            .Bind(message => WireAdmission.Admit(message, WireBoundary.InboundPayload, key));
+}
+
+// Byte and stamp correspondences every host family shares, seated once so no mapper spells a width, an
+// endianness, or a tick unit of its own.
+public static class HostWire {
+    // RFC 4122 byte order: the one 16-byte form a `Guid` publishes that every peer reads identically.
+    public static ByteString Correlation(CorrelationId correlation) =>
+        ByteString.CopyFrom(((Guid)correlation).ToByteArray(bigEndian: true));
+
+    public static Fin<CorrelationId> Correlation(ByteString wire, Op key) =>
+        wire.Length == 16
+            ? Fin.Succ(CorrelationId.Create(new Guid(wire.Span, bigEndian: true)))
+            : Fin.Fail<CorrelationId>(key.InvalidInput(nameof(CorrelationId)));
+
+    // ONE wire stamp: the NodaTime Unix tick count is the physical half the kernel HLC mint already carries.
+    public static Fault.Hlc Stamp((Instant Physical, ulong Logical) hlc) =>
+        new() { Physical = hlc.Physical.ToUnixTimeTicks(), Logical = hlc.Logical };
+
+    public static Fin<(Instant Physical, ulong Logical)> Stamp(Fault.Hlc wire, Op key) =>
+        wire.Physical >= 0L
+            ? Fin.Succ((Instant.FromUnixTimeTicks(wire.Physical), wire.Logical))
+            : Fin.Fail<(Instant, ulong)>(key.InvalidInput(nameof(Fault.Hlc)));
+
+    // The kernel package roster and the wire enum are one correspondence: the generated `Map` is total, so a
+    // package minted at the kernel breaks this projection until its enum value lands at the corpus.
+    public static Host.Package Package(TelemetrySource source) => source.Map(
+        kernel: Host.Package.Kernel, element: Host.Package.Element, appHost: Host.Package.AppHost,
+        materials: Host.Package.Materials, bim: Host.Package.Bim, fabrication: Host.Package.Fabrication,
+        persistence: Host.Package.Persistence, compute: Host.Package.Compute, generation: Host.Package.Generation,
+        appUi: Host.Package.AppUi, rhino: Host.Package.Rhino, grasshopper: Host.Package.Grasshopper);
+
+    public static Fin<TelemetrySource> Package(Host.Package wire, Op key) =>
+        key.Row<Host.Package, string, TelemetrySource>(wire, Package);
+
+    // The one one-arm oneof assignment: a multi-arm object initializer clears the arm it just set, so every
+    // union lowering assigns exactly ONE arm inside the domain union's own total `Switch`.
+    public static T Arm<T>(this T message, Action<T> arm) where T : class, IMessage<T> {
+        arm(message);
+        return message;
+    }
+}
+
+public static partial class FaultWire {
+    // Domain derives ONCE per band: the owner's lowercased key beside the band base, so the thirty AppHost
+    // rows stay thirty families on the wire and the pair `(domain, case)` keeps its identity.
+    static readonly Lazy<FrozenDictionary<int, (string Domain, FaultBand Band)>> Seats = new(static () =>
+        toSeq(FaultBand.Items).Filter(static band => band.Kind == BandKind.Fault)
+            .ToFrozenDictionary(static band => band.Key, static band =>
+                (string.Create(CultureInfo.InvariantCulture, $"{band.Owner.Key.ToLowerInvariant()}.{band.Key}"), band)),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    static readonly Lazy<FrozenDictionary<string, FaultBand>> Ledger = new(static () =>
+        Seats.Value.Values.ToFrozenDictionary(static seat => seat.Domain, static seat => seat.Band, StringComparer.Ordinal),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    [GeneratedRegex("^[a-z][a-z0-9.-]*$")]
+    private static partial Regex DomainGrammar();
+
+    static Option<(string Domain, uint Case)> Seat(int code) =>
+        FaultBand.OwnerOf(BandKind.Fault, code).Map(band => (Seats.Value[band.Key].Domain, (uint)(code - band.Key)));
+
+    // --- [OBSERVE]
+    public static Fault.FaultObservation Observe(Error error) => Observe(FaultObservation.Of(error));
+
+    // The code derives the generated family pair in one arm; the local case token never crosses.
+    public static Fault.FaultObservation Observe(FaultObservation observation) =>
+        new Fault.FaultObservation {
+            Recovery = Recovery(observation.Recovery),
+            Causes = { observation.Causes.Map(Rendered) },
+            Truncated = observation.Truncated,
+        }.Arm(wire => observation.Code.Bind(Seat).Iter(seat => {
+            wire.Domain = seat.Domain;
+            wire.Case = seat.Case;
+        }));
+
+    static string Rendered(FaultCauseStamp stamp) =>
+        stamp.Identity.Map(static id => id.Code.ToString(CultureInfo.InvariantCulture))
+            .Append(stamp.ExceptionType.Map(static type => type.FullName ?? type.Name))
+            .Append(stamp.HResult.Map(static code => code.ToString(CultureInfo.InvariantCulture)))
+            .Match(Some: static text => text, None: static () => string.Empty);
+
+    // --- [RECOVERY]
+    // Throttled mints the standard `RetryInfo` that the top-level `Status` detail packs, so this branch holds
+    // ONE construction site for the window and its two seats cannot drift apart.
+    public static Fault.FaultRecovery Recovery(Retriability recovery) => recovery.Switch(
+        terminalCase: static _ => new Fault.FaultRecovery { Terminal = new Empty() },
+        transientCase: static _ => new Fault.FaultRecovery { Transient = new Empty() },
+        throttledCase: static row => new Fault.FaultRecovery {
+            RetryAfter = new RetryInfo { RetryDelay = row.RetryAfter.ToProtobufDuration() },
+        });
+
+    // `retry_delay` is a message field the generated type spells nullable, and the authored CEL rule that forces
+    // it present evaluates at `WireAdmission`, never here — so this admission collapses that optionality itself
+    // and the interior only ever sees a non-negative window.
+    public static Fin<Retriability> Recovery(Fault.FaultRecovery? wire) => wire switch {
+        null => Fin.Fail<Retriability>(Violation(new WireViolation.MissingRecovery())),
+        { KindCase: Fault.FaultRecovery.KindOneofCase.Terminal } => Fin.Succ(Retriability.Terminal),
+        { KindCase: Fault.FaultRecovery.KindOneofCase.Transient } => Fin.Succ(Retriability.Transient),
+        { KindCase: Fault.FaultRecovery.KindOneofCase.RetryAfter, RetryAfter.RetryDelay: { } stated } =>
+            stated.ToNodaDuration() switch {
+                var delay when delay >= NodaTime.Duration.Zero => Fin.Succ(Retriability.Throttled(delay)),
+                var delay => Fin.Fail<Retriability>(Violation(new WireViolation.RetryDelay(delay))),
+            },
+        { KindCase: Fault.FaultRecovery.KindOneofCase.RetryAfter } =>
+            Fin.Fail<Retriability>(Violation(new WireViolation.MissingRetryDelay())),
+        { KindCase: var kind } => Fin.Fail<Retriability>(Violation(new WireViolation.RecoveryKind(kind))),
+    };
+
+    // --- [PACK]
+    // Total over every generated family: a `Fault` minted through `FaultId` sits inside a band by construction,
+    // so the `None` arm is the one shape `FaultId` forecloses, answered on the rail rather than thrown.
+    public static Fin<Fault.FaultDetail> Pack(Domain.Fault fault, FaultContext context) =>
+        Seat(fault.Code).Map(seat => new Fault.FaultDetail {
+            Domain = seat.Domain,
+            Case = seat.Case,
+            Correlation = HostWire.Correlation(context.Correlation),
+            Stamp = context.Stamp,
+            Tenant = context.Tenant.Map(static tenant => tenant.Text).IfNone(string.Empty),
+            Recovery = Recovery(fault.Retriability),
+            Violations = { context.Violations },
+        }).ToFin(Op.Of().InvalidResult($"<unseated-fault:{fault.Code}>"));
+
+    // --- [STATUS]
+    // The ONE producer table. Kernel cases dispatch through their generated total `Switch`, every other fault
+    // by its own posture, the rail's two reserved termination codes by identity, and a foreign error stays
+    // `Internal` — no arm reads rendered text.
+    public static StatusCode Status(Error error) => error switch {
+        KernelFault kernel => kernel.Switch(
+            missingOperation: static _ => StatusCode.InvalidArgument,
+            missingContext: static _ => StatusCode.FailedPrecondition,
+            invalidContext: static _ => StatusCode.FailedPrecondition,
+            invalidInput: static _ => StatusCode.InvalidArgument,
+            unsupported: static _ => StatusCode.Unimplemented,
+            invalidResult: static _ => StatusCode.Internal,
+            cancelled: static _ => StatusCode.Cancelled,
+            missingGeometry: static _ => StatusCode.InvalidArgument,
+            invalidGeometry: static _ => StatusCode.InvalidArgument,
+            invalidValue: static _ => StatusCode.InvalidArgument,
+            outOfRange: static _ => StatusCode.OutOfRange,
+            invalidUnitSystem: static _ => StatusCode.FailedPrecondition),
+        Domain.Fault fault => fault.Retriability.Switch(
+            terminalCase: static _ => StatusCode.FailedPrecondition,
+            transientCase: static _ => StatusCode.Unavailable,
+            throttledCase: static _ => StatusCode.ResourceExhausted),
+        _ when error.Is(Errors.Cancelled) => StatusCode.Cancelled,
+        _ when error.Is(Errors.TimedOut) => StatusCode.DeadlineExceeded,
+        _ => StatusCode.Internal,
+    };
+
+    // --- [RAISE]
+    // `Raise` is the ONE `RpcException` mint. Details: one `FaultDetail` per estate fault, plus this fault's own
+    // throttled-arm `RetryInfo` seated a second time for generic middleware, plus standard `BadRequest` evidence
+    // wherever a kernel admission fault carries contract refusals.
+    public static RpcException Raise(Error error, FaultContext context) =>
+        new Google.Rpc.Status {
+            Code = (int)Status(error),
+            Message = error.Message,
+            Details = { Details(error, context) },
+        }.ToRpcException();
+
+    static Seq<Any> Details(Error error, FaultContext context) =>
+        ((error, context.Violations) switch {
+            (KernelFault, { IsEmpty: false }) => Seq<Any>(),
+            // Advice READS the detail's own throttled arm — a generated oneof getter answers null off every other
+            // arm, so this standard detail is that one instance packed twice and never a second mint.
+            (Domain.Fault fault, _) => Pack(fault, context).Match(
+                Succ: static detail => Seq(Any.Pack(detail))
+                    + Optional(detail.Recovery.RetryAfter).Map(static advice => Any.Pack(advice)).ToSeq(),
+                Fail: static _ => Seq<Any>()),
+            _ => error.Exception.Map(static raised => Any.Pack(raised.ToRpcDebugInfo())).ToSeq(),
+        }) + (error is KernelFault && !context.Violations.IsEmpty
+            ? Seq(Any.Pack(new BadRequest { FieldViolations = { context.Violations } }))
+            : Seq<Any>());
+
+    // --- [DECODE]
+    // Absent → None; malformed trailer → typed on `RemoteStatus`; exactly one recognized detail admits; several
+    // refuse on `DetailMultiplicity`; zero recognized answer None so transport classification decides.
+    public static Fin<Option<RemoteFault>> Decode(RpcException raised) =>
+        Op.Of().Catch(() => Fin.Succ(Optional(raised.GetRpcStatus())))
+            .MapFail(captured => (Error)new HopFault.Malformed(WireBoundary.RemoteStatus, captured))
+            .Bind(status => status.Match(
+                None: static () => Fin.Succ(Option<RemoteFault>.None),
+                Some: held => Recognized(held)));
+
+    static Fin<Option<RemoteFault>> Recognized(Google.Rpc.Status status) =>
+        toSeq(status.Details).Filter(static any => any.Is(Fault.FaultDetail.Descriptor)) switch {
+            { IsEmpty: true } => Fin.Succ(Option<RemoteFault>.None),
+            { Count: 1 } one => Op.Of().Catch(() => Fin.Succ(one.Head.Unpack<Fault.FaultDetail>()))
+                .MapFail(captured => (Error)new HopFault.Malformed(WireBoundary.RemoteDetail, captured))
+                .Bind(detail => Admit(detail, status.Message)
+                    .MapFail(refused => (Error)new HopFault.Malformed(WireBoundary.DetailAdmission, refused)))
+                .Map(Some),
+            var many => Fin.Fail<Option<RemoteFault>>(new HopFault.Malformed(
+                WireBoundary.DetailMultiplicity, Op.Of().InvalidInput($"<details:{many.Count}>"))),
+        };
+
+    // Every D6 field admits independently and the refusals ACCUMULATE, so one malformed detail names every
+    // column it failed; `Case` refuses only a same-estate ordinal past its own band's span.
+    public static Fin<RemoteFault> Admit(Fault.FaultDetail detail, string message) =>
+        (Domain(detail), HostWire.Correlation(detail.Correlation, Op.Of()).ToValidation(), Stamp(detail.Stamp),
+         Recovery(detail.Recovery).ToValidation(), Tenant(detail.Tenant))
+            .Apply((domain, correlation, stamp, recovery, tenant) => new RemoteFault(
+                domain, detail.Case, message, correlation, stamp.Physical, stamp.Logical, tenant, recovery,
+                toSeq(detail.Violations)))
+            .As()
+            .ToFin();
+
+    static Validation<Error, string> Domain(Fault.FaultDetail detail) =>
+        !DomainGrammar().IsMatch(detail.Domain) ? Violation(new WireViolation.Domain(detail.Domain))
+        : Ledger.Value.TryGetValue(detail.Domain, out FaultBand? band) && detail.Case >= (uint)band.Span
+            ? Violation(new WireViolation.Case(detail.Domain, detail.Case, band.Span))
+        : Validation<Error, string>.Success(detail.Domain);
+
+    static Validation<Error, (Instant Physical, ulong Logical)> Stamp(Fault.Hlc? wire) => wire switch {
+        null => Violation(new WireViolation.MissingStamp()),
+        { Physical: < 0L } => Violation(new WireViolation.Stamp(wire.Physical)),
+        _ => Validation<Error, (Instant, ulong)>.Success((Instant.FromUnixTimeTicks(wire.Physical), wire.Logical)),
+    };
+
+    static Validation<Error, Option<TenantId>> Tenant(string wire) =>
+        wire.Length == 0 ? Validation<Error, Option<TenantId>>.Success(None)
+        : TenantId.TryOf(wire).Match(
+            Some: static tenant => Validation<Error, Option<TenantId>>.Success(Some(tenant)),
+            None: () => Violation(new WireViolation.Tenant(wire)));
+
+    static Error Violation(WireViolation violation) => new HopFault.Malformed(WireBoundary.DetailAdmission, violation);
+}
+
+// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// The envelope crossing. Payload is the typed generated message the producer minted, packed as `Any`; the
+// kernel envelope's `JsonElement` is that same message's ProtoJSON and never a second shape.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
+        EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
+[UseStaticMapper(typeof(NodaExtensions))]
+[UseStaticMapper(typeof(HostWire))]
+internal static partial class EnvelopeMap {
+    [MapperIgnoreSource(nameof(ReceiptEnvelope.Payload))]
+    [MapperIgnoreSource(nameof(ReceiptEnvelope.Physical))]
+    [MapperIgnoreSource(nameof(ReceiptEnvelope.Logical))]
+    [MapProperty(nameof(ReceiptEnvelope.Correlation), nameof(Host.ReceiptEnvelopeWire.Correlation))]
+    [MapProperty(nameof(ReceiptEnvelope.Package), nameof(Host.ReceiptEnvelopeWire.Package))]
+    [MapPropertyFromSource(nameof(Host.ReceiptEnvelopeWire.Stamp), Use = nameof(Stamped))]
+    [MapPropertyFromSource(nameof(Host.ReceiptEnvelopeWire.Payload), Use = nameof(Packed))]
+    public static partial Host.ReceiptEnvelopeWire ToWire(ReceiptEnvelope envelope, IMessage payload);
+
+    [MapProperty(nameof(TenantContext.TenantId), nameof(Host.TenantContextWire.Tenant), Use = nameof(Key))]
+    public static partial Host.TenantContextWire ToWire(TenantContext tenant);
+
+    [NamedMapping(nameof(Stamped))]
+    private static Fault.Hlc Stamped(ReceiptEnvelope envelope) => HostWire.Stamp((envelope.Physical, envelope.Logical));
+
+    [NamedMapping(nameof(Packed))]
+    private static Any Packed(ReceiptEnvelope envelope, IMessage payload) => Any.Pack(payload);
+
+    [NamedMapping(nameof(Key))]
+    private static ByteString Key(TenantId tenant) => ContentHash.Wire(tenant.Value);
+}
+
+// ONE STJ crossing for a generated message EMBEDDED in an in-process receipt: the factory writes the
+// `WireJson` formatter's text and reads through its parser, so the receipt fan and a dashboard read one
+// ProtoJSON spelling of every fault observation, never STJ's reflection over a generated class.
+public sealed class ProtoJsonConverterFactory : JsonConverterFactory {
+    public override bool CanConvert(Type typeToConvert) => typeof(IMessage).IsAssignableFrom(typeToConvert);
+
+    public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options) =>
+        (JsonConverter)Activator.CreateInstance(typeof(ProtoJsonConverter<>).MakeGenericType(typeToConvert))!;
+
+    sealed class ProtoJsonConverter<T> : JsonConverter<T> where T : IMessage<T>, new() {
+        public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            WireJson.Parser.Parse<T>(JsonDocument.ParseValue(ref reader).RootElement.GetRawText());
+
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) =>
+            writer.WriteRawValue(WireJson.Formatter.Format(value));
+    }
+}
+
+// In-process receipts NO PEER decodes and the discovery manifest: the surfaces the corpus carries no family for.
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -135,17 +642,14 @@ public static class AppHostFaultMap {
     RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(PhaseReceipt))]
 [JsonSerializable(typeof(BootMarker))]
-[JsonSerializable(typeof(FaultRecord))]
-[JsonSerializable(typeof(FaultRecoveryWire))]
-[JsonSerializable(typeof(FaultCauseWire))]
-[JsonSerializable(typeof(FaultObservationWire))]
+[JsonSerializable(typeof(FaultSource))]
 [JsonSerializable(typeof(DrainReceipt))]
 [JsonSerializable(typeof(ReplayOutcome))]
 [JsonSerializable(typeof(StepStateRow))]
 [JsonSerializable(typeof(HealthSnapshot))]
 [JsonSerializable(typeof(DegradationState))]
 [JsonSerializable(typeof(SupportManifest))]
-[JsonSerializable(typeof(SupportReceipt))]
+[JsonSerializable(typeof(SupportReceipt.Exported))]
 [JsonSerializable(typeof(DumpTriage))]
 [JsonSerializable(typeof(DiscoveryManifest))]
 [JsonSerializable(typeof(ReceiptEnvelope))]
@@ -153,13 +657,9 @@ public static class AppHostFaultMap {
 [JsonSerializable(typeof(RosterReceipt))]
 [JsonSerializable(typeof(FleetRollReceipt))]
 [JsonSerializable(typeof(RollAnnotationWire))]
-[JsonSerializable(typeof(HopReceiptWire))]
-[JsonSerializable(typeof(DeliveryReceiptWire))]
 [JsonSerializable(typeof(CommandArguments))]
 [JsonSerializable(typeof(CommandReceipt))]
-[JsonSerializable(typeof(DescriptorPin))]
 [JsonSerializable(typeof(DescriptorReceipt))]
-[JsonSerializable(typeof(DiscoveryResult))]
 [JsonSerializable(typeof(SandboxReceipt))]
 [JsonSerializable(typeof(EvictionCauseWire))]
 [JsonSerializable(typeof(UpdateReceipt))]
@@ -168,70 +668,37 @@ public static class AppHostFaultMap {
 [JsonSerializable(typeof(BenchmarkReceipt))]
 [JsonSerializable(typeof(LogEntry))]
 [JsonSerializable(typeof(SecretReceipt))]
-// The governance document `Observability/telemetry#CONFORMANCE_PROJECTION` mints is the byte-deriving input of a
-// SIBLING seam entry (`tests/contracts/MANIFEST.md` `[02.13]-[TELEMETRY_CONVENTION]`), so it carries no
-// `apphost-wire` family row — and it registers HERE because this producer is the one that serializes it, which is
-// the same carve the two `[02.7]`/`[02.15]` shapes take. `ConformanceRow` crosses on its BASE contract: the union
-// projects `Disposition`, `Value`, and `Pin` off the case, so the roster declares no `[JsonDerivedType]` row for it,
-// no `kind` column crosses beside the `disposition` the case already answers, and the omission law above is what
-// drops `value` on a role-absent row and `pin` on every row but a withheld one — the shape the peer minters spell.
-[JsonSerializable(typeof(ConformanceDocument))]
-// The runtime-evidence wire families the `apphost-wire` seam registers as ONE producer roster: each family is
-// one row here and one census row at the consumer, and a family a sibling seam entry already owns registers
-// THERE — `HlcStampWire`'s byte layout is the two-half seam's shape (this roster carries it as an envelope
-// field), `HostFingerprintWire` the host-fingerprint seam's, and the benchmark claim's minter is Compute, so
-// no row here spells it.
-[JsonSerializable(typeof(CredentialPemWire))]
-[JsonSerializable(typeof(CommandAvailabilityWire))]
-// CommandVerdict answers the availability carrier per command as a `[JsonPolymorphic]` union whose three
-// `[JsonDerivedType]` leaves (Observability/health#DEGRADATION_RAIL) pin the `_tag` literals the palette
-// switches on, so the union registers beside the carrier that holds it.
-[JsonSerializable(typeof(CommandVerdict))]
-[JsonSerializable(typeof(FlagVerdictWire))]
-[JsonSerializable(typeof(SupportCaptureWire))]
-[JsonSerializable(typeof(DropReceiptWire))]
-[JsonSerializable(typeof(OutboxRowWire))]
-[JsonSerializable(typeof(DeadLetterRowWire))]
-[JsonSerializable(typeof(ReplayTallyWire))]
-[JsonSerializable(typeof(OutboxLaneWire))]
-[JsonSerializable(typeof(OutboxSweepWire))]
-[JsonSerializable(typeof(HostFingerprintWire))]
 [JsonSerializable(typeof(ModalityReceipt))]
 [JsonSerializable(typeof(ToolAudit))]
 [JsonSerializable(typeof(VerbReceipt))]
 [JsonSerializable(typeof(CascadeReceipt))]
 [JsonSerializable(typeof(BindReceipt))]
 [JsonSerializable(typeof(Delivery))]
+[JsonSerializable(typeof(HopReceipt))]
+[JsonSerializable(typeof(DeliveryReceipt))]
+[JsonSerializable(typeof(DropReceipt))]
+[JsonSerializable(typeof(OutboxSweep))]
 [JsonSerializable(typeof(MembershipReceipt))]
 // ONE fenced receipt covers election and lock alike: `Wire/coordination#ROLE_ELECTION` types both keys as the
-// `LeaseKey` value object and recovers the discrimination through `LeaseKey.Namespace`, so a per-family receipt
-// row is unspellable rather than merely unused.
+// `LeaseKey` value object and recovers the discrimination through `LeaseKey.Namespace`.
 [JsonSerializable(typeof(FenceReceipt<LeaseKey>))]
 public partial class AppHostWireContext : JsonSerializerContext;
 
 public static class SuiteContracts
 {
-    // Composition-bound producer surface: `Wire` seats it as the ONE merged options identity, so every
-    // producer write (`JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host)`) resolves through
-    // the combined resolver chain — the registered factories AND the `OmitAbsent` modifier. Two refuted
-    // forms, both probe-witnessed: a `JsonTypeInfo` off `AppHostWireContext.Default` carries the context's
-    // own options (no factory, no modifier — a `None` serializes its own struct members), and a context
-    // INSTANCE constructed over the merge rebinds the options' resolver to the context itself, silently
-    // dropping the modifier — so `.Default` survives only as a merge argument and for type-init metadata
-    // roster reads, and no context instance ever fronts the merge.
+    // Composition-bound producer surface for the surfaces above: `Wire` seats it as the ONE merged options
+    // identity. A `JsonTypeInfo` off `AppHostWireContext.Default` carries the context's own options (no
+    // factory, no modifier) and a context INSTANCE over the merge rebinds the resolver and drops the modifier,
+    // so `.Default` survives only as a merge argument and for type-init metadata roster reads.
     public static JsonSerializerOptions Host {
         get => field ?? throw new InvalidOperationException("SuiteContracts.Wire seats Host at the app-root mint.");
         private set;
     }
 
-    // Absence OMITS. `DefaultIgnoreCondition.WhenWritingNull` reaches reference and `Nullable<T>` slots alone
-    // and `Option<T>` is a struct that is never null, so the ignore condition never sees one and no converter
-    // can drop its own member — omission is a CONTRACT decision, which is why it rides the resolver rather
-    // than the converter list. `IOptional` is the non-generic presence read every closed `Option<A>` carries,
-    // so the boxed value the predicate receives answers without a per-write generic probe. Paired law: the
-    // predicate makes an `Option<T>` constructor parameter carrying no default WIRE-REQUIRED under
-    // `RespectRequiredConstructorParameters`, so `= default` on such a parameter is the decode half of
-    // omission and never a slot a construction may leave unanswered.
+    // Absence OMITS. `WhenWritingNull` reaches reference and `Nullable<T>` slots alone and `Option<T>` is a
+    // struct the condition never sees, so omission is a CONTRACT decision riding the resolver; `IOptional` is
+    // the non-generic presence read every closed `Option<A>` carries. Paired law: an `Option<T>` constructor
+    // parameter with no default reads WIRE-REQUIRED under `RespectRequiredConstructorParameters`.
     static void OmitAbsent(JsonTypeInfo contract) {
         foreach (JsonPropertyInfo property in contract.Properties) {
             if (property.PropertyType.IsGenericType
@@ -247,93 +714,56 @@ public static class SuiteContracts
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             TypeInfoResolver = JsonTypeInfoResolver.Combine([.. contexts]).WithAddedModifier(OmitAbsent),
-            // Both factories seat BEFORE the freeze and their type spaces are disjoint — the Thinktecture
-            // factory admits by generated conversion metadata, the kernel carrier factory
-            // (`Rasm/Domain/rails#CARRIER_CODEC`) by open-generic carrier row — so neither shadows the
-            // other and their relative order decides nothing.
+            // Three factories over three DISJOINT type spaces — generated conversion metadata, the open-generic
+            // kernel carrier rows (`Rasm/Domain/rails#CARRIER_CODEC`), and `IMessage` — so order decides nothing.
             Converters = {
                 new ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true),
                 new LanguageExtJsonConverterFactory(),
+                new ProtoJsonConverterFactory(),
             },
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
         wire.MakeReadOnly();   // freeze at the mint; a post-mint converter or resolver edit throws instead of forking the suite
         Host = wire;   // the one producer surface; every write resolves through the merged chain
         return wire;
     }
-
-    public static JsonNode Schema(JsonSerializerOptions wire, Type record) =>
-        JsonSchemaExporter.GetJsonSchemaAsNode(wire, record, new JsonSchemaExporterOptions
-        {
-            TreatNullObliviousAsNonNullable = true,
-        });
 }
-
 ```
 
 Codec residence is fixed per wire surface; producer and consumer cells name endpoints only, not alternate codecs.
 
-| [INDEX] | [WIRE_SURFACE]       | [CODEC]                         | [PRODUCER]       | [CONSUMER]           |
-| :-----: | :------------------- | :------------------------------ | :--------------- | :------------------- |
-|  [01]   | runtime records      | STJ Strict source-gen JSON      | package contexts | dashboard and upload |
-|  [02]   | discovery manifest   | STJ Strict atomic JSON          | app-root boot    | attaching peer       |
-|  [03]   | service verbs        | protobuf over gRPC              | app roots        | connect-es clients   |
-|  [04]   | wire fault unions    | `google.rpc.Status` details     | wire projection  | TS fault projection  |
-|  [05]   | snapshot blobs       | MessagePack                     | snapshot rows    | @msgpack/msgpack     |
-|  [06]   | telemetry signals    | OTLP                            | exporters        | OTLP collector       |
-|  [07]   | contract schemas     | JsonSchemaExporter              | schema emission  | schema-derived TS    |
-|  [08]   | semantic-time fields | NodaTime `ConfigureForNodaTime` | `Wire` options   | ISO/RFC-3339 strings |
+| [INDEX] | [WIRE_SURFACE]             | [CODEC]                                      | [PRODUCER]            | [CONSUMER]            |
+| :-----: | :------------------------- | :------------------------------------------- | :-------------------- | :-------------------- |
+|  [01]   | semantic contract families | ProtoJSON via `WireJson`                     | owning producer       | generated peer schema |
+|  [02]   | discovery manifest         | STJ Strict atomic JSON                       | app-root boot         | attaching peer        |
+|  [03]   | service verbs              | protobuf over gRPC                           | app roots             | connect-es clients    |
+|  [04]   | wire faults                | `google.rpc.Status` details via `FaultWire`  | `FaultWire.Raise`     | `FaultWire.Decode`    |
+|  [05]   | snapshot blobs             | MessagePack                                  | snapshot rows         | @msgpack/msgpack      |
+|  [06]   | telemetry signals          | OTLP                                         | exporters             | OTLP collector        |
+|  [07]   | in-process receipts        | STJ merge, `IMessage` members as ProtoJSON   | `SuiteContracts.Host` | receipt fan           |
+|  [08]   | semantic-time fields       | `Timestamp`/`Duration`; NodaTime STJ on [07] | owning mapper         | well-known types      |
 
-Every cross-language family group riding row [01] projects through one generated `[Mapper]`, so a renamed producer column breaks at build rather than at a peer decode; the mapper is named here and declared at its owner, never re-declared on this page.
+Every family group riding row [01] has one generated-message producer. Mapperly owns structural correspondences; direct constructors own operational folds whose source is not a shape twin. `LiveWireMap` stays outside this registry because it projects only host-local observations onto the STJ merge.
 
-| [INDEX] | [FAMILY_GROUP]                  | [MAPPER]             | [OWNER]                       |
-| :-----: | :------------------------------ | :------------------- | :---------------------------- |
-|  [01]   | hop and delivery evidence       | `OutboundMap.ToWire` | `Wire/outbound#TS_PROJECTION` |
-|  [02]   | outbox rows, lanes, sweep, dead | `OutboxMap.ToWire`   | `Wire/outbox#TS_PROJECTION`   |
-|  [03]   | bus loss account                | `TopicsMap.ToWire`   | `Wire/topics#TS_PROJECTION`   |
-|  [04]   | binding status, coercion, write | `LiveWireMap`        | `Wire/livewire#TS_PROJECTION` |
+| [INDEX] | [FAMILY_GROUP]                  | [PRODUCER]            | [OWNER]                                  |
+| :-----: | :------------------------------ | :-------------------- | :--------------------------------------- |
+|  [01]   | receipt envelope, tenant        | `EnvelopeMap`         | this page                                |
+|  [02]   | hop and delivery evidence       | native receipt family | `Wire/outbound#RECEIPT_FAMILY`           |
+|  [03]   | bus loss account                | native `DropReceipt`  | `Wire/topics#LOSS_RECEIPT`               |
+|  [04]   | binding status, coercion, write | `LiveWireContract`    | `Wire/livewire#TS_PROJECTION`            |
+|  [05]   | command availability            | `AvailabilityMap`     | `Observability/health#DEGRADATION_RAIL`  |
+|  [06]   | credential material             | `CredentialPublicMap` | `Runtime/secrets#CREDENTIAL_PEM`         |
+|  [07]   | flag verdict                    | `FeatureMap`          | `Runtime/features#VERDICT_PROJECTION`    |
+|  [08]   | host fingerprint                | `HostFingerprintMap`  | `Runtime/determinism#DETERMINISM_KERNEL` |
+|  [09]   | descriptor pin                  | `DescriptorPin.Of`    | `Agent/capability#SDK_CODEGEN`           |
+|  [10]   | control replies                 | `ControlReplyMap`     | `Wire/companion#CONTROL_SERVICE`         |
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: `RasmPackage`, `HlcStampWire`, `TenantContextWire`, `ReceiptEnvelopeWire` — the suite-level TS contract; per-record wire shapes ride their owning wire surfaces and bind here as `TPayload`.
-- Entry: `ReceiptEnvelopeWire<TPayload>` binds at the codec edge where `SuiteContracts.Wire` emits the runtime record and `SuiteContracts.Schema` derives its TS type; every wire payload reconstructs through this one message envelope, never a hand-mirrored interface.
-- Packages: BCL inbox
-- Growth: a new wire payload lands as one payload row bound through `ReceiptEnvelopeWire`, zero new surface; the tooling map gains one tool row per new wire codec.
-- Boundary: the suite contract is the `apphost-wire` seam's TS half and the stamp interface is the `hlc-two-half` seam's — `HlcStampWire` is that seam's shape and this projection COMPOSES the kernel-minted family rather than minting it — `tests/contracts/MANIFEST.md` `[02.21]-[APPHOST_WIRE]`'s sibling entry `[02.7]-[HLC_TWO_HALF]` rosters `csharp:Rasm/Domain/frame#RECEIPT_PORT` as the C# minter, this page reads and relays the stamp its `ReceiptEnvelope` already carries, and the outbox `HlcOrdinal` decimal-string column is a boundary carrier of that same minted value rather than a second mint — so the layout is shared while carriage stays per-branch and a decoder reads the halves in the declared order or corrupts a fresh op as stale; every other family projects at the page that mints it and binds here only as `TPayload`, so a per-record interface beside this message envelope is the deleted form. `RasmPackage` mirrors the kernel `TelemetrySource` key roster one-to-one at the decode seam, so a package minted there reaches the dashboard without a second admission and a package absent there cannot spell a message envelope; `logical` resets to zero on every physical advance, so the counter never approaches the JSON number precision limit; `physical` and `skewBound` cross as NodaTime ISO-8601 and roundtrip-pattern strings for the dashboard read, while the content-key seal and the cross-runtime parity fixture compose the physical half as the `Instant.ToUnixTimeTicks` `long` in the fixed (physical, logical) little-endian order the kernel capsule `Rasm/Domain/frame#RECEIPT_PORT` declares and `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Compose` seals — the ISO string is the human projection, the tick-count `long` is the hash-canonical half, and the packed form is `physical_ticks<<64 | logical` as one `UInt128`, the layout the python `Hlc.packed` peer holds bit-identical — so a peer that seals the frame hashes the tick count, never the ISO text; Thinktecture keyed owners cross as their key scalars while polymorphic leafs cross with the kind literals their polymorphic metadata pins, reconstructed in TS as literal-discriminated unions; `tenantId` crosses as the `UInt128` decimal-string the `TenantId` value object emits so the TS dashboard partitions evidence by the same tenancy identity the RLS predicate reads, never a re-minted client tenant key.
-
-```ts signature
-type RasmPackage =
-  | "rasm.kernel" | "Rasm.Element" | "Rasm.AppHost" | "Rasm.Materials"
-  | "Rasm.Bim" | "Rasm.Fabrication" | "Rasm.Persistence" | "Rasm.Compute"
-  | "Rasm.Generation" | "Rasm.AppUi" | "Rasm.Rhino" | "Rasm.Grasshopper";
-
-interface HlcStampWire {
-  physical: string;
-  logical: number;
-  skewBound: string;
-}
-
-interface TenantContextWire {
-  tenantId: string;
-  slug: string;
-}
-
-interface ReceiptEnvelopeWire<TPayload> extends HlcStampWire {
-  correlation: string;
-  tenant: TenantContextWire;
-  package: RasmPackage;
-  kind: string;
-  payload: TPayload;
-}
-```
-
-Each tool row names the consumed surface, activation point, and spelling it deletes.
-
-| [INDEX] | [TOOL]            | [CONSUMES]          | [ACTIVATION]    | [DELETES]              |
-| :-----: | :---------------- | :------------------ | :-------------- | :--------------------- |
-|  [01]   | connect-es        | service descriptors | pnpm bootstrap  | hand-written clients   |
-|  [02]   | @msgpack/msgpack  | snapshot blobs      | snapshot import | second TS binary codec |
-|  [03]   | OTLP ingestion    | telemetry signals   | OTLP endpoint   | bespoke telemetry wire |
-|  [04]   | schema-derived TS | JSON schemas        | TS build input  | mirrored interfaces    |
+- Owner: `ReceiptEnvelopeWire`, `TenantContextWire`, and `Package` — the generated `Receipt.V1` envelope family the TS dashboard decodes from the generated schema; `EnvelopeMap` above is its one producer.
+- Entry: every wire payload crosses as the `Any` the envelope packs, resolved at the peer through the generated descriptor registry; a hand-mirrored TS interface of any envelope member is the deleted form.
+- Packages: Rasm.Contracts (project)
+- Growth: a new envelope column lands at `apphost.proto` and regenerates through the gate; this page gains no member.
+- Boundary: `physical` and `logical` cross ONLY as `Clock.V1.Hlc` — the ISO text half and the `physical_ticks<<64 | logical` packed `UInt128` are gone from the wire; the packed form survives as the in-process content-key lane `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Compose` seals, so a peer that hashes the frame reads the tick count off the stamp and never an ISO string; `tenant` crosses as the 16 big-endian bytes `ContentHash.Wire` publishes beside the slug, never a decimal string; `package` crosses as the `Receipt.V1.Package` enum the kernel `TelemetrySource` roster maps onto through `HostWire.Package`, so a package minted at the kernel with no enum value breaks the projection at build; `correlation` crosses as the 16-byte RFC 4122 form `HostWire.Correlation` publishes. The TS tooling map collapses to the generated schema: `connect-es` over the service descriptors, `@rasm\/contracts/rasm/contracts/receipt/v1/envelope_pb` over every host family, `@msgpack/msgpack` over snapshot blobs, OTLP over telemetry — the `schema-derived TS` tool row and its former STJ schema exporter are deleted.
 
 ## [05]-[RESEARCH]
 

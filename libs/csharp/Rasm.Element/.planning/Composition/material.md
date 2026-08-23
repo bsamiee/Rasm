@@ -1061,7 +1061,7 @@ public abstract partial class MaterialPropertySet {
   new Fire(reaction, EuroclassSuffix.NotSpecified, resistance, evidence);
 
  public static MaterialPropertySet OfFire(FireRating reaction, EuroclassSuffix suffix, FireResistance resistance, PropertyEvidence evidence = default) =>
-  new Fire(Option<FireRating>.Some(reaction), smoke, droplets, resistance, evidence);
+  new Fire(Option<FireRating>.Some(reaction), suffix, resistance, evidence);
 
  // Cells are characterization magnitudes per the declared Basis (domain bases, not SI dimensions), so the
  // Matrix slot guards ARITY-then-FINITE (dependent checks on one input bind inside the slot); EPD identity +

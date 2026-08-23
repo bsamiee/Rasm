@@ -284,13 +284,17 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     """A non-empty tracing endpoint builds and installs a fresh OTLP provider.
 
     Intercepting the setter observes construction without replacing the session provider, whose once-only
-    install and shutdown semantics would contaminate later span-capture tests.
+    install and shutdown semantics would contaminate later span-capture tests. The seat is the package's own
+    binding: its `lazy from` resolves eagerly once `opentelemetry.trace` is already imported (the runtime
+    plugin imports it first), so a patch on the source module never reaches a reified name.
     """
     from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]  # module-top installs OTel before monkeypatch
     import opentelemetry.trace as _ot  # ruff:ignore[import-outside-top-level]  # deferred: same session-provider contamination reason as TracerProvider
 
+    import tools.assay as assay_pkg  # ruff:ignore[import-outside-top-level]  # the binding under patch lives on the package, resolved at call time
+
     captured: list[object] = []
-    monkeypatch.setattr(_ot, "set_tracer_provider", captured.append)
+    monkeypatch.setattr(assay_pkg, "set_tracer_provider", captured.append)
     install_tracing("http://127.0.0.1:4318/v1/traces")
     assert len(captured) == 1, "install_tracing must install exactly one provider"
     provider = captured[0]

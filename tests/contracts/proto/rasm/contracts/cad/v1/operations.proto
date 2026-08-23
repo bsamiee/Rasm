@@ -1,0 +1,284 @@
+syntax = "proto3";
+
+package rasm.contracts.cad.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "rasm/contracts/cad/v1/types.proto";
+import "rasm/contracts/spatial/v1/vector.proto";
+
+message BoxOp {
+  reserved "x", "y", "z";
+
+  double x_m = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double y_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double z_m = 3 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  rasm.contracts.spatial.v1.Frame3 frame = 4 [(buf.validate.field).required = true];
+}
+
+message SphereOp {
+  reserved "radius";
+
+  double radius_m = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  rasm.contracts.spatial.v1.Point3 center = 2 [(buf.validate.field).required = true];
+}
+
+message CylinderOp {
+  reserved "radius", "height";
+
+  double radius_m = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double height_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  rasm.contracts.spatial.v1.Axis3 axis = 3 [(buf.validate.field).required = true];
+}
+
+message ConeOp {
+  reserved "base_radius", "top_radius", "height";
+
+  double base_radius_m = 1 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double top_radius_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double height_m = 3 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  rasm.contracts.spatial.v1.Axis3 axis = 4 [(buf.validate.field).required = true];
+
+  option (buf.validate.message).cel = {
+    id: "cone_op.radius"
+    message: "at least one cone radius must be positive"
+    expression: "this.base_radius_m > 0.0 || this.top_radius_m > 0.0"
+  };
+}
+
+message TorusOp {
+  reserved "major_radius", "minor_radius";
+
+  double major_radius_m = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double minor_radius_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  rasm.contracts.spatial.v1.Axis3 axis = 3 [(buf.validate.field).required = true];
+
+  option (buf.validate.message).cel = {
+    id: "torus_op.radius"
+    message: "minor radius must be smaller than major radius"
+    expression: "this.minor_radius_m < this.major_radius_m"
+  };
+}
+
+message BooleanInputs {
+  repeated SealedStep operands = 1 [(buf.validate.field).repeated.min_items = 2];
+  double fuzzy_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+}
+
+message ProfileOffset {
+  double distance_m = 1 [(buf.validate.field).double = {
+    finite: true
+    not_in: [0]
+  }];
+}
+
+message PlacedProfile {
+  Profile profile = 1 [(buf.validate.field).required = true];
+  rasm.contracts.spatial.v1.Frame3 frame = 2 [(buf.validate.field).required = true];
+  ProfileOffset offset = 3;
+}
+
+message ExtrudeOp {
+  PlacedProfile section = 1 [(buf.validate.field).required = true];
+  double distance_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  rasm.contracts.spatial.v1.UnitDirection3 direction = 3 [(buf.validate.field).required = true];
+}
+
+message RevolveOp {
+  PlacedProfile section = 1 [(buf.validate.field).required = true];
+  double angle_rad = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+    lte: 6.283185307179586
+  }];
+  rasm.contracts.spatial.v1.Axis3 axis = 3 [(buf.validate.field).required = true];
+}
+
+message LoftSection {
+  ProfileRegion region = 1 [(buf.validate.field).required = true];
+  rasm.contracts.spatial.v1.Frame3 frame = 2 [(buf.validate.field).required = true];
+}
+
+message LoftTrack {
+  option (buf.validate.message).cel = {
+    id: "loft_track.hole_correspondence"
+    message: "every loft section must carry the same number of index-corresponding holes"
+    expression: "this.sections.all(section, section.region.holes.size() == this.sections[0].region.holes.size())"
+  };
+
+  repeated LoftSection sections = 1 [(buf.validate.field).repeated.min_items = 2];
+}
+
+enum LoftStyle {
+  LOFT_STYLE_UNSPECIFIED = 0;
+  LOFT_STYLE_RULED = 1;
+  LOFT_STYLE_SMOOTH = 2;
+}
+
+message LoftOp {
+  repeated LoftTrack tracks = 1 [(buf.validate.field).repeated.min_items = 1];
+  LoftStyle style = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+message ThickOp {
+  PlacedProfile section = 1 [(buf.validate.field).required = true];
+  double distance_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double thickness_m = 3 [(buf.validate.field).double = {
+    finite: true
+    not_in: [0]
+  }];
+  reserved 4;
+  reserved "join";
+
+  rasm.contracts.spatial.v1.UnitDirection3 direction = 5 [(buf.validate.field).required = true];
+}
+
+// The profile origin is the spine start. The provider fixes corrected-Frenet transport, transformed transitions,
+// no contact, and section correction; those kernel controls are not public wire vocabulary.
+message SweepOp {
+  option (buf.validate.message).cel = {
+    id: "sweep_op.origin"
+    message: "section frame origin must equal the spine start"
+    expression:
+      "this.section.frame.origin.x_m == this.spine.start.x_m && "
+      "this.section.frame.origin.y_m == this.spine.start.y_m && "
+      "this.section.frame.origin.z_m == this.spine.start.z_m"
+  };
+
+  PlacedProfile section = 1 [(buf.validate.field).required = true];
+  rasm.contracts.spatial.v1.Curve3 spine = 2 [(buf.validate.field).required = true];
+}
+
+// Maps the source frame onto the target frame, then scales uniformly about the target origin.
+message TransformOp {
+  SealedStep source = 1 [(buf.validate.field).required = true];
+  rasm.contracts.spatial.v1.Frame3 source_frame = 2 [(buf.validate.field).required = true];
+  rasm.contracts.spatial.v1.Frame3 target_frame = 3 [(buf.validate.field).required = true];
+  double uniform_scale = 4 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+}
+
+message EdgeIndices {
+  repeated uint32 values = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    unique: true
+  }];
+}
+
+// Indices are zero-based TopExp order within the exact decoded source artifact. They are not stable after resealing.
+message EdgeSelection {
+  oneof selection {
+    option (buf.validate.oneof).required = true;
+
+    google.protobuf.Empty all = 1;
+    EdgeIndices indices = 2;
+  }
+}
+
+message FilletOp {
+  SealedStep source = 1 [(buf.validate.field).required = true];
+  double radius_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  EdgeSelection edges = 3 [(buf.validate.field).required = true];
+}
+
+message ChamferOp {
+  SealedStep source = 1 [(buf.validate.field).required = true];
+  double distance_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  EdgeSelection edges = 3 [(buf.validate.field).required = true];
+}
+
+message SewOp {
+  SealedStep source = 1 [(buf.validate.field).required = true];
+  double tolerance_m = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+}
+
+message ExecuteRequest {
+  oneof operation {
+    option (buf.validate.oneof).required = true;
+
+    BoxOp box = 1;
+    SphereOp sphere = 2;
+    CylinderOp cylinder = 3;
+    ConeOp cone = 4;
+    TorusOp torus = 5;
+    BooleanInputs fuse = 6;
+    BooleanInputs cut = 7;
+    BooleanInputs common = 8;
+    BooleanInputs section = 9;
+    BooleanInputs split = 10;
+    ExtrudeOp extrude = 11;
+    RevolveOp revolve = 12;
+    LoftOp loft = 13;
+    ThickOp thick = 14;
+    FilletOp fillet = 15;
+    ChamferOp chamfer = 16;
+    SewOp sew = 17;
+    SealedStep nurbs = 18;
+    SweepOp sweep = 19;
+    TransformOp transform = 20;
+  }
+}
+
+message ExecuteResponse {
+  reserved 2;
+  reserved "shape";
+
+  BrepKernelReceipt receipt = 1 [(buf.validate.field).required = true];
+  SealedStep step = 3 [(buf.validate.field).required = true];
+}

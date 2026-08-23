@@ -11,11 +11,23 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `cloudevents.core` is the admitted family and `cloudevents.v1` refuses — `v1.http.CloudEvent` checks a required-NAME subset and mutates past it.
 - `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.
 - `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition the sync client leaves free.
+- `protobuf-py` generated messages and codecs own proto binary and ProtoJSON — a msgspec twin or local JSON codec forks the peer vocabulary.
+- Capability discovery admits static semantics only from the pin document; generated live rows add availability and estimates before invocation.
+- `rasm.contracts.BodyAdmission` evaluates descriptor constraints at the Connect body boundary; runtime `protovalidate` serves non-Connect seams.
+- `connect-python` and `protoc-gen-connect-python` refuse — `connectrpc`'s renamed predecessors ship no ASGI application; one dist owns the seam.
+- `hypercorn` KEEP by capability — the bidi `Sync` leg needs HTTP/2 on the ASGI host and h2c on plaintext, and `uvicorn` speaks HTTP/1.1 alone.
+- `grpcio` is a transitive alone — the OTLP gRPC exporter and GCP secret client dial it; a direct row re-opens the retired `grpc.aio` serve rail.
+- `pyqwest` is `connectrpc`'s transitive and the one dial transport — `HTTPTransport.aclose` releases the sockets, so the composition owns it.
+- Client telemetry rides the `connectrpc` `MetadataInterceptor` — clients dial through `pyqwest`, so the httpx instrumentor reaches no Connect leg.
+- `grpc.health.v1` serves from the vendored `rasm.contracts.vendor.grpc.health.v1` emission — `connectrpc` ships no health surface.
+- MessagePack carries the uncompressed positional op-log envelope, `crdt` alone decoding generated `CrdtOpWire`; compression changes no contract.
 
 ## [02]-[SHAPE]
 
+- `CanonicalWriter` owns seed-zero peer framing; `memory` is little-endian hash input and `wire_bytes` is big-endian generated output.
 - `measured`'s free `scope` carries the branch telemetry grammar — a bare package-prefixed scope entering the exported weave forks one namespace.
-- `runtime` mints every branch limiter — `THREAD_BAND`, `LanePolicy.limiter`, `_ISOLATION`, and `_PROBE_BAND` are the roster a sibling mint forks.
+- `runtime` mints every branch bound; a sibling minting its own capacity, band, isolation, or probe constant forks the roster.
+- Object-store absence crosses as `StoreFault.missing` and streamed bodies stay behind `StoreStream.pull`; a consumer catch aliases it off the rail.
 - `Hlc` samples this branch's clock and merges every inbound stamp before `tick` — the semilattice converges with no privileged physical authority.
 - Above-`int64` wire ints carry `ge=0` alone and rail the ceiling at decode — msgspec spells no such bound, while in-band `I63` rides `Meta(le=…)`.
 - Producer `optional` scalars spell `T | None` while no-presence scalars keep their zero — that keyword discriminates, never felt nullability.
@@ -49,13 +61,35 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Caller payload validates HOST-side onto a typed rail before the crossing — a defect reaching the far floor raises where no fault lift can name it.
 - Journal intake is TRI-STATE — an armed scope sends, retired custody refuses `config`, and an uninstalled one folds `Ok(0)` as a declaration.
 - `BoundaryFault.wire` constructs only with a real protocol or status code — a registry miss lands `config`, a decoded-material gap `boundary`.
+- `ServerHost` implements generated `Health.Check` alone and keys its serving map on slashless `WireService.path`; `Watch` stays support closure.
+- Connect metadata admission remains per-call; body validation implements all four native rpc shapes and checks every request and response element.
+- Constraint refusals carry structured `buf.validate.Violations` — request failures map to `INVALID_ARGUMENT`, response failures to `INTERNAL`.
+- `FaultRecovery`'s throttled arm IS `google.rpc.RetryInfo` — `RecoveryCell.of` is its one mint and `advice` seats THAT instance as standard detail.
+- `FaultDetail.case` is the emitting leg's row ordinal off the fault census, 1-based in declaration order — never a Connect code; unseated is zero.
+- `transport/shapes` `REGISTRY` is the ONE descriptor registry — `Any`, ProtoJSON `@type`, and `ErrorDetail.value` resolve there alone.
+- Selected served rosters are generated subsets — the census refuses an ungenerated row without manufacturing actors for support-closure methods.
+- Every mount and dial reads one `WirePolicy` row per profile — `read_max_bytes` and the zstd-then-gzip roster; an unbounded mount is refused.
+- Outbound requests pre-encode under `SERVE_ENCODE` ahead of any retried call — the client maps an encode raise to UNAVAILABLE and re-drives it.
+- `MessageEnvelope.extensions` is the generated `event.v1.Extensions`; `EXTENSION_ROWS` derives per `local_name` — a hand roster is the mirror.
+- `MessageEnvelope.payload` is the Rasm `Raw | protobuf.Message | None` seam over the generic SDK envelope — `None` is reference-only `dataref`.
+- Generated extensions re-enter CloudEvents codecs before mint — `ce_integer` is signed 32-bit even when its corpus scalar is wider.
 - Modality-polymorphic entrypoints whose return shape varies with input carry one `@overload` per shape — an unoverloaded arm type-checks nowhere.
 - `HostRow` extends the descriptor with `lanes`/`recovery`/`scratch`/`document` and refuses `tenancy` — a host separates no tenant, the profile does.
 - `ProviderRow` extends with `supplies`, refusing `tenancy` and `isolation` — `ConsumptionProfile.admit` carries that crossing as axis evidence.
 - `paho` drives socket-first on `loop_read`/`loop_write`/`loop_misc` — `loop_start`'s daemon thread outlives every cancel scope and joins nowhere.
 - Binding rows foreclose `retry` and name their resilience class — a row holding its own curve makes effective attempts the product of two schedules.
-- Format capability is a ROW COLUMN, never a suffix-derived media type — Avro defines no batch form and no binary mode, so both refuse by column.
-- Message-envelope slots hold CROSSINGS — `subject`/`dataref` carry `WireKey` renders, a `ContentKey` slot needing two columns the pin lacks.
+- Structured-format rows bind optional batch codecs: JSON/protobuf have batch forms, Avro does not; binary selects no suffix.
+- Binding rows decline batch send until a bounded producer returns one custody result per event.
+- One `BINDINGS` row owns carrier and execution facts; no adapter table or prefix literal shadows it.
+- Media admission parses the complete MIME value once; malformed parameter tails never fall through as binary.
+- Rasm structured rows declare payload arms: JSON/Avro carry opaque bytes; protobuf also carries generated `Message` through `Any`.
+- Generic Avro codec preserves the publisher's recursive JSON-value union; profile admission narrows later and edits no codec.
+- Generic `EventFormat.write`/`decode` re-mint through v1 URI admission; `encode`/`admit` add the Rasm profile.
+- `CloudEventUri`/`CloudEventUriRef` retain unknown Protobuf attribute arms without replacing the SDK envelope.
+- `Source` states domain/capability independently from `EventType`; Rasm composition proves domain agreement only, never capability/subject aliasing.
+- Message-envelope `subject` carries `WireKey`; generated `dataref` carries the external residence URI-reference.
+- Residence confines `dataref`, acquires through `ObjectStoreLane`, verifies `subject`, and compares dual data.
+- Dual residence becomes reference-only only with admitted `datarefprojection=reference` negotiation evidence.
 - One BROKER retry class serves every binding — Kafka rides its `retriable()` verdict, taxonomy-only families matching their narrowest transient arm.
 - `Recovery` crosses every retry reader as a VALUE, lowering to `bool | float | timedelta` at stamina's `on=` alone — a bool reads `0.0` as refusal.
 - `Recovery` states WHETHER a refusal re-offers and `Reoffer` states HOW — a terminal satisfiable NARROWED lands a value, never prose.
@@ -65,16 +99,25 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `RateGate` WAITS and never refuses — the caller's deadline is the one ceiling, and two refusals over one queue disagree the moment either moves.
 - Every settlement joins the durable write it stands for — automatic commit acknowledges what a crash then loses, the loss invisible at both ends.
 - Prefetch sizes WITH the broker lane's limiter, never above it — an unmatched window buys latency the broker lane then pays as unbounded memory.
-- Ingress ADMITS and never inherits — an authenticated connection proves the connection, so a tenant claim verifies against the trust row or clears.
+- Event ingress takes tenancy from the authenticated `PrincipalScope` beside the provider delivery; adoption proves each arm against its grant set.
+- Event classification is explicit at every crossing — missing or unknown `dataclassification` refuses before lowering, trust, routing, or settling.
 - Unbound trust tables are CLOSED — a forgotten binding surfaces as a refusal an operator sees rather than an authorization hole nobody observes.
 - Grades above their issuer's ceiling REFUSE and never downgrade — silently lowering publishes the fact onto every binding the lower grade admits.
 - `OpLogEntry` tracks the producer record WHOLE — a short positional wire shifts every column past the truncation into a type-checking neighbour.
+- Its payload is the decoded MessagePack bin value — `msgspec.Raw` also retains the bin header and therefore changes the payload digest.
+- `OpLogCodec` owns exact envelope arity and all-lane content-key admission; `CrdtOpCodec` opens only the generated CRDT payload.
+- Transfer includes the root content key and a unique, strictly sorted closure; descendants alone omit the payload the entry names.
 - Frozen wire slots, ORDER, and numbers survive an interior-owner migration — the derived view re-points in ONE unit, a tear stranding every peer.
 - Every convergence column publishes its own read on its owning shape — a write-only column converges a state no replica can project back out.
+- CRDT materialization keeps `(OperationId, CrdtOpWire)` paired — identity-free replay loses redelivery, causal-write, and maintenance authority.
+- Multi-value writes retain outer dots, observed-set tombstones key by element, and RGA compaction retains value-free routing tombstones.
+- One CRDT field seats in one family; unseated or multiply seated maintenance refuses rather than guessing a family.
+- Presence retains stamped live/left cells with its maintenance horizon; a pre-horizon replay never resurrects.
+- PN sequence ties repeat both cumulative halves, and RGA identity reuse repeats predecessor and value identity or refuses.
 - Log-record exception semantics stay the SDK's — the emit seam takes the RAISED OBJECT, so the chain resolves `exc_info` to it before the renderer.
 - `BoundaryFault` grows by ingress class or case alone — a sibling fault type needing an adapter breaks the cross-tier `combine`/`aggregate` fold.
 - Instrumentor rows carry the driver they wrap and gate on presence before reifying — a contrib instrumentor imports its driver at module scope.
-- Conformance rows PROJECT off the deciding member and the key roster proves TOTAL at import — a dropped row digests as a branch legislating none.
+- Conformance rows PROJECT off the deciding member and the key roster proves TOTAL at import — a dropped row emits as a branch legislating none.
 - Withheld conformance seats carry the value beside the pin — a plane with no member for a ceiling it honors reads as a dropped row without one.
 - Row shape and the `Leg` contract seat at the fault root while each folder mints its own roster — a subject derives from its leg, never a literal.
 - `catch` is REQUIRED on every fault-lift shape — a defaulted `Exception` makes the banned bare funnel the cheapest form at every call site.
@@ -101,7 +144,9 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `loky` and `pebble` stay two executors — crash-respawning warm reuse against terminal wall-clock kill, and neither carries the other's guarantee.
 - Stdlib-handler bridging collapses into the chain's terminal row — a handler reads a rendered record, carrying neither redaction nor caps.
 - Shutdown closes the intake and awaits the drain, retiring custody — a drain-deadline parameter re-threads the cancellation the scope already owns.
-- ONE row-driven `BrokerLane` owns every connection — a per-protocol adapter class forks the membership, settlement, and drain law per protocol.
+- ONE row-driven `BrokerLane` owns every connection; one state agent serializes immutable custody and event-driven drain.
+- Provider coordinates own frames; `(source, id)` alone owns deduplication and journal verdicts.
+- Expired deliveries remain frame-bound, bypass durable recording, and settle under a distinct `MOOT` receipt.
 
 ## [04]-[STRUCTURE]
 

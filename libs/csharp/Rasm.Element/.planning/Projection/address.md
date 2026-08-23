@@ -6,19 +6,19 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 
 ## [01]-[INDEX]
 
-- [02]-[CONTENT_ADDRESS]: `ContentAddress` the `[ValueObject<UInt128>]` seam content key over the kernel seed-zero digest, the raw-hash/precomputed-wrap/tolerance-bound-fold/node/edge/graph entries, the id-inclusive node and order-independent graph addressing (semantic header folded, provenance excluded), the `Verify` re-derive dual reading each node's own `NodeSeed` mint regime, and `BlobKey` the by-reference payload key beside it.
+- [02]-[CONTENT_ADDRESS]: `ContentAddress` owns structural identity and `BlobKey` the legacy XXH raw-payload key; kernel `ArtifactContent` owns SHA-256 artifact identity plus extent.
 - [03]-[INCREMENTAL_ADDRESS]: `GraphMembers` the delta-composable accumulator — the id-keyed node-address map and the digest-keyed edge multiset under the header they folded under, its `Of` seed, its typed incremental/refold `Advance(delta, key)` outcome, and the `ContentAddress.OfGraph(GraphMembers)` re-entry into the ONE private sorting fold.
 - [04]-[IMPLEMENTATION_LAW]: the hasher, projection-split, ordering, exclusion, and verification laws every entry above answers to.
 
 ## [02]-[CONTENT_ADDRESS]
 
-- Owner: `ContentAddress` is the `[ValueObject<UInt128>]` seam content key — one bare 128-bit digest — over the kernel seed-zero `XxHash128`; `BlobKey` is its by-reference sibling keying an EXTERNAL payload (an observation sample run, a coverage raster band, an assessment results body) by the same digest over the payload's RAW bytes, no writer projection, because a blob carries no member layout to frame — the two never interchange. `OfGraph`'s FULL-STATE fold over the graph DEFINES a snapshot address, and the `[03]` `GraphMembers` accumulator caches that definition provably-identically by re-entering this owner's own private fold rather than deriving beside it.
-- Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` hashes caller-canonical bytes; `Of(UInt128)` wraps a precomputed hash; `Of<TState>(state, tolerance, fold)` is the folder's ONE tolerance-bound digest entry — a STREAMING kernel writer at the model grid, seed zero, no byte materialization (the kernel `ContentHash.Of<TState>` pins `ZeroTolerance` and cannot carry a model grid); `Of(Node, tolerance)` addresses an id-inclusive node; `Of(Relationship, tolerance)` addresses one edge; `OfGraph(ElementGraph)` addresses an order-independent snapshot; `Verify(Node, tolerance, key)` re-derives one identity by its mint regime; `Verify(ElementGraph, key)` accumulates snapshot mismatches.
+- Owner: `ContentAddress` is the `[ValueObject<UInt128>]` seam content key over kernel `ContentHash`; `BlobKey` is its raw-payload XXH sibling. Stored evidence artifacts compose kernel `ArtifactContent`, never either semantic key.
+- Entry: `ContentAddress` entries own graph identity and verification. Artifact admission stays at the kernel owner.
 - Auto: `Of(Node)` writes the id before the node's canonical fold, so two occurrences with identical content stay distinct by id — DISTINCT from the id-EXCLUSIVE `NodeId` content mint, which digests the content alone because there the id derives from it. `OfGraph` folds `Header.CanonicalBytes`, then the sorted node digests, then the sorted edge digests, each run count-framed by the kernel `Sorted`/`Rows` composite. `Verify` reads `node.Seed(tolerance)` — the `NodeSeed` mint-regime witness `Graph/element#ELEMENT_GRAPH` publishes — and re-mints through the ONE `NodeId.Of(NodeSeed)` entry: a `Placement` seed verifies vacuously (a random Guid-v7 has no content preimage), every other regime re-derives and compares.
 - Receipt: a `ContentAddress` is the stable cross-runtime seam content key — a content-derived `NodeId`'s preimage, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
 - Packages: `Rasm` (kernel `ContentHash`, `CanonicalWriter`, `Op`), System.IO.Hashing (`XxHash128` the streaming accumulator each fold seeds at zero), Thinktecture.Runtime.Extensions (`[ValueObject<UInt128>]`/`[ObjectFactory<string>]`), LanguageExt.Core (`Fin`, `Validation`, `Error`, `Seq.Traverse`, `.As()`).
 - Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; a new by-reference payload kind composes `BlobKey`; canonical vocabulary grows only on the KERNEL writer, and the dimensioned leg on `Properties/quantity#MEASURE_CANON`.
-- Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so every serializer framework renders and admits through the `[ObjectFactory<string>]` factory, and admission is UPPER-CASE-STRICT: exactly the 32 characters `ToValue` emits admit, so a lower/mixed-case, padded, or prefix-bearing alias never round-trips into a different spelling than it arrived as. `ToValue()`'s upper-case `X32` is this seam's INTERIOR spelling — the protobuf `content_address` field, the `NodeId` render, and every store column read it — while an attribute on the message envelope crossing a broker carries the kernel `EventKey` lower-case `x32` under `libs/.planning/RULINGS.md` `[02]-[SHAPE]`; `Graph/wire#EVENT_ENVELOPE` renders `subject` and `dataref` through `EventKey.Render` and never through this member, so the two spellings never meet on one wire.
+- Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers render and admit through the `[ObjectFactory<string>]` factory. Admission is upper-case-strict: exactly the 32 characters `ToValue` emits. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -37,7 +37,7 @@ namespace Rasm.Element.Projection;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 // INTERIOR X32 admission shared by both hex-keyed owners: exactly 32 UPPER-CASE hex digits — the one form
-// ToValue emits — so a lower/mixed-case alias refuses instead of silently re-spelling (the kernel EventKey
+// ToValue emits — so a lower/mixed-case alias refuses instead of silently re-spelling (the kernel ContentHash
 // x32 is the lower-case ENVELOPE face; the two faces never meet on one wire).
 file static class Hex {
  internal static UInt128? Admit(string? value) =>
@@ -120,8 +120,8 @@ public sealed partial class ContentAddress {
    .Map(static _ => unit);
 }
 
-// By-reference payload key: same kernel seed-zero digest, RAW payload bytes, no writer frame — a blob has no
-// member layout to project. Never interchanged with ContentAddress.
+// By-reference payload key: same kernel seed-zero digest, RAW payload bytes, no writer frame. Never interchanged
+// with ContentAddress.
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.All)]
 public sealed partial class BlobKey {
@@ -135,6 +135,7 @@ public sealed partial class BlobKey {
 
  public string ToValue() => Value.ToString("X32", CultureInfo.InvariantCulture);
 }
+
 ```
 
 ## [03]-[INCREMENTAL_ADDRESS]

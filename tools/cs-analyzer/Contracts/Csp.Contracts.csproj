@@ -4,10 +4,6 @@
         <Description>Shared C# analyzer contract attributes for workspace projects.</Description>
         <AssemblyName>Csp.Contracts</AssemblyName>
         <RootNamespace>Rasm.Csp</RootNamespace>
-        <CspScope>Tooling</CspScope>
-        <!-- Contract assembly self-skips workspace libraries and analyzer injection. -->
-        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
-        <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
         <!-- CA1008: CspScope has no valid None row. -->
         <NoWarn>$(NoWarn);CA1008</NoWarn>
     </PropertyGroup>

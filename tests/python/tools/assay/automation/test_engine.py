@@ -56,13 +56,12 @@ class _GovernorCase(msgspec.Struct, frozen=True, gc=False):
 
 
 class _ProgramCase(msgspec.Struct, frozen=True, gc=False):
-    """Program outcome row; ``counts`` of None selects the error-arm assertions."""
+    """Program outcome row; ``message`` selects the error arm, and the report arm derives its census from ``status``."""
 
     label: str
     argv: tuple[str, ...]
     canned: Result[Completed, Fault]
     status: RailStatus
-    counts: Counts | None = None
     message: str | None = None
 
 
@@ -102,12 +101,14 @@ _GOVERNOR_CASES: tuple[_GovernorCase, ...] = (
 )
 
 _OK_ROW = RailProbe.receipt(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n")
+# The report arm's expected census is the row status's own census, so a per-row literal would only restate the status column.
 _PROGRAM_CASES: tuple[_ProgramCase, ...] = (
-    _ProgramCase("ok-report", ("dotnet", "build"), _OK_ROW, RailStatus.OK, counts=Counts(1, 0, 1)),
+    _ProgramCase("ok-report", ("dotnet", "build"), _OK_ROW, RailStatus.OK),
     _ProgramCase("fault-arm", ("missing-tool",), RailProbe.error(("missing-tool",), "spawn: no tool"), RailStatus.FAULTED, message="spawn: no tool"),
-    _ProgramCase("rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED), RailStatus.FAILED, counts=Counts(0, 1, 1)),
-    _ProgramCase("rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY), RailStatus.EMPTY, counts=Counts(1, 0, 1)),
-    _ProgramCase("rc124-timeout", ("t",), RailProbe.receipt(("t",), 124, status=RailStatus.TIMEOUT), RailStatus.TIMEOUT, counts=Counts(0, 0, 0)),
+    _ProgramCase("rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED), RailStatus.FAILED),
+    _ProgramCase("rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY), RailStatus.EMPTY),
+    # A timed-out lane reached no verdict, so it seats its own census row rather than vanishing from the tally.
+    _ProgramCase("rc124-timeout", ("t",), RailProbe.receipt(("t",), 124, status=RailStatus.TIMEOUT), RailStatus.TIMEOUT),
 )
 
 _NESTED = Sequence(actions=(Program(argv=("p", "out")), Sequence(actions=(Program(argv=("p", "in")),)), Debounce(action=Program(argv=("p", "w")))))
@@ -233,14 +234,13 @@ def test_drive_program_outcome_matrix(row: _ProgramCase, assay_root: AssayHarnes
     assert rail_probe.commands == [row.argv], f"engine must route the program argv verbatim; got {rail_probe.commands}"
     env = _one(captured_emits)
     assert (env.status, env.claim, env.verb) == (row.status, Claim.STATIC, "program")
-    match row.counts:
+    match row.message:
         case None:
-            assert env.error is not None
-            assert row.message is not None
-            assert row.message in env.error.message
-        case counts:
             assert env.report is not None
-            assert env.report.counts == counts
+            assert env.report.counts == Counts.of(row.status), "every folded outcome seats one census row under its own status"
+        case message:
+            assert env.error is not None
+            assert message in env.error.message
 
 
 # --- [LAWS_DRIVE_RAIL]
@@ -284,7 +284,7 @@ def test_drive_governed_skip_emits_one_skip_envelope(
     env = _one(captured_emits)
     assert env.status is RailStatus.SKIP
     assert env.report is not None
-    assert env.report.counts == Counts(1, 0, 1)
+    assert env.report.counts == Counts.of(RailStatus.SKIP)
     assert any(note.startswith("governed:") and "cpu>=" in note for note in env.report.notes)
 
 

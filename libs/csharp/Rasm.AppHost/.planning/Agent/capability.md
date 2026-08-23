@@ -11,18 +11,18 @@ This page DECLARES the dispatch vocabulary the executing strata compose: `Subscr
 - [04]-[COMMAND_ALGEBRA]: Commit-or-rollback intent transaction over the one composition-bound dispatch seam.
 - [05]-[GRANT_BROKER]: Scoped grant algebra covering consent, elevation, cost metering, and dry-run policy simulation.
 - [06]-[SDK_CODEGEN]: C#/TS/Python command-shape emission off one descriptor source.
-- [07]-[PEER_PROJECTION]: Descriptor-pin and discovery wire shapes, each named at the branch that decodes it.
+- [07]-[PEER_DISCOVERY]: Generated capability-catalog projection consumed by Python; the descriptor pin remains TypeScript's distinct face.
 
 ## [02]-[DESCRIPTOR_AXIS]
 
-- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary carrying its dedup-key regime as a column; `KeyRegime` `[SmartEnum<string>]` the four-row dedup-key vocabulary that column reads; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `MeterVector` the per-unit metering algebra every cost, ceiling, and balance rides; `SubscriptionPolicy` the observer-cadence record the progress column carries; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
+- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary carrying its dedup-key regime as a column; `KeyRegime` `[SmartEnum<string>]` the four-row dedup-key vocabulary that column reads; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `MeterVector` the per-unit metering algebra every cost, ceiling, and balance rides; `SubscriptionPolicy` the observer-cadence record the progress column carries; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `ArgumentContract` the native-metadata or published-schema union; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent — each naming its `KeyRegime`; 4 key regimes — intrinsic (repeat-safe with no key), supplied (the caller's dedup key), minted (a host-minted once key), absent (no dedup key exists); each cost-unit row carries its metering key and UCUM code; 3 named cadence rows — immediate, interactive, wire — over the same three-threshold carrier a caller composes freely.
-- Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `CommandBody` it compiles to; `Describe(IServiceCollection services, Seq<string> surfaces, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one complete descriptor snapshot across every surface it names through the `Contributors` fan-in registration, so a peer spanning four surface keys replaces all four in one call and a surface named with no row retires whole.
-- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; the `Progress` field is the op's progress-report admission and `COMMAND_ALGEBRA` seats it verbatim on the `Spec` progress column, where the executing stratum's `ProgressCell.Mint` reads it as the only leaf-mint gate — a `None` row structurally has no cell for its producer to advance, so an op that reports declares its cadence once at its projection instead of at each dispatch; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; the `rasm.apphost.capability.roster` census projects off the frozen catalog's own surface index at `#DISCOVERY_FOLD` `CapabilityRegistry.Mount`, so `Describe` stays a registration fold carrying no measurement rail outward and a mid-composition snapshot never publishes a partial count.
+- Entry: `CapabilityDescriptor.Of(string surface, string op, ArgumentContract arguments, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor's argument contract and the `CommandBody` it compiles to; `Describe(IServiceCollection services, Seq<string> surfaces, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one complete descriptor snapshot across every surface it names through the `Contributors` fan-in registration, so a peer spanning four surface keys replaces all four in one call and a surface named with no row retires whole.
+- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; every native row carries its source-generated `JsonTypeInfo` and every externally published row carries the SDK's exact `JsonSchema`, with `ArgumentContract.Schema` as the one projection MCP reads; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; the `Progress` field is the op's progress-report admission and `COMMAND_ALGEBRA` seats it verbatim on the `Spec` progress column, where the executing stratum's `ProgressCell.Mint` reads it as the only leaf-mint gate — a `None` row structurally has no cell for its producer to advance, so an op that reports declares its cadence once at its projection instead of at each dispatch; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; the `rasm.apphost.capability.roster` census projects off the frozen catalog's own surface index at `#DISCOVERY_FOLD` `CapabilityRegistry.Mount`, so `Describe` stays a registration fold carrying no measurement rail outward and a mid-composition snapshot never publishes a partial count.
 - Receipt: `DescriptorReceipt` — descriptor id, effect key, idempotency key, estimated cost vector, permission scope hash, `Instant`.
-- Packages: Rasm (kernel `ContentHash.Of`/`Hex`, `CanonicalWriter`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.ML.Tokenizers, BCL inbox
+- Packages: Rasm (kernel `ContentHash.Of`/`Hex`, `CanonicalWriter`), Microsoft.Extensions.AI.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.ML.Tokenizers, BCL inbox
 - Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, permission, and progress admission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row carrying its UCUM code, a new cost shape one `CostModel` field, a new metering operation one `MeterVector` member, a new dedup posture one `KeyRegime` row the `Idempotency` column reads; zero new surface.
-- Boundary: `MeterVector` is the one metering algebra — a cost, a scope ceiling, a remaining balance, and a charged receipt vector are four readings of the same per-unit shape, so its subtraction floors each unit at zero and its sufficiency probe answers the offending unit, and a hand-folded per-unit arithmetic at any call site is the deleted form that let one vector read as spend at one end of a seam and as balance at the other; the descriptor is the suite's only op-metadata owner — a per-op attribute scatter, a hand-kept command list, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `CommandBody`, so the registry stays metadata and the execution stays on the one composition-bound dispatch seam; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` and the transport edge's `HopIdempotency` stay two typed owners and their row sets are NOT disjoint — `Idempotent`, `Keyed`, and `SingleShot` are spelled on both, so a name comparison discriminates nothing; the discriminant is twofold and both halves are readable from the value: this roster carries a `KeyRegime` column and the hop roster carries none, because a dedup key is an op-level fact three protocol surfaces read off the key (`DiscoveryResult`, `DescriptorPin`, the SDK client) while hop dedup is process-local and leaves through no wire, and the two exclusive rows fall out of that same regime — `NonIdempotent` is op-only because `KeyRegime.Absent` has no hop meaning, `MethodDerived` hop-only because HTTP-method safety names no key at all; `SubscriptionPolicy` declares here because the descriptor's progress column is the one seat a surface answers its reporting posture at, while the `Due` delivery predicate over a mark pair belongs to the stratum that owns the mark and lands there as an extension member — the cadence is the declaration and the delivery decision is the consumer's, so neither side re-derives the other; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals; the progress column carries no default so every projection answers it and each `None` states its ground at the row, because a defaulted column declares a reporting posture no surface chose and a cadence re-derived at dispatch fabricates the policy the owning surface withheld.
+- Boundary: `MeterVector` is the one metering algebra — a cost, a scope ceiling, a remaining balance, and a charged receipt vector are four readings of the same per-unit shape, so its subtraction floors each unit at zero and its sufficiency probe answers the offending unit, and a hand-folded per-unit arithmetic at any call site is the deleted form that let one vector read as spend at one end of a seam and as balance at the other; the descriptor is the suite's only op-metadata owner — argument schema included — so a per-op attribute scatter, a hand-kept command list, a schema resolver, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `CommandBody`, so the registry stays metadata and the execution stays on the one composition-bound dispatch seam; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` and the transport edge's `HopIdempotency` stay two typed owners and their row sets are NOT disjoint — `Idempotent`, `Keyed`, and `SingleShot` are spelled on both, so a name comparison discriminates nothing; the discriminant is twofold and both halves are readable from the value: this roster carries a `KeyRegime` column and the hop roster carries none, because a dedup key is an op-level fact three protocol surfaces read off the key (`CapabilityMatch`, `DescriptorPin`, the SDK client) while hop dedup is process-local and leaves through no wire, and the two exclusive rows fall out of that same regime — `NonIdempotent` is op-only because `KeyRegime.Absent` has no hop meaning, `MethodDerived` hop-only because HTTP-method safety names no key at all; `SubscriptionPolicy` declares here because the descriptor's progress column is the one seat a surface answers its reporting posture at, while the `Due` delivery predicate over a mark pair belongs to the stratum that owns the mark and lands there as an extension member — the cadence is the declaration and the delivery decision is the consumer's, so neither side re-derives the other; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals; the progress column carries no default so every projection answers it and each `None` states its ground at the row, because a defaulted column declares a reporting posture no surface chose and a cadence re-derived at dispatch fabricates the policy the owning surface withheld.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -152,6 +152,21 @@ public sealed record PermissionShape(
             static (entry, member) => member.String(entry))));
 }
 
+// Native rows retain source-generated metadata rather than exported schema text; published rows retain the
+// exact SDK document. MCP resolves through this owner, so it cannot substitute a reflection schema, a
+// descriptor-id lookup, or a mutable peer cache.
+[Union]
+public abstract partial record ArgumentContract {
+    public sealed record Native(JsonTypeInfo Metadata) : ArgumentContract;
+    public sealed record Published(JsonElement Document) : ArgumentContract;
+
+    public JsonElement Schema => Switch(
+        native: static source => AIJsonUtilities.CreateJsonSchema(
+            source.Metadata.Type,
+            serializerOptions: source.Metadata.Options),
+        published: static source => source.Document.Clone());
+}
+
 // Round is the MRTR retry identity — the opaque RequestState a client echoes when it retries one logical
 // call — so the brokered dispatch keys its pre-flight off it and a retry round never re-asks or re-charges;
 // None is a single-round call, and every non-MCP front door constructs it absent.
@@ -164,14 +179,15 @@ public sealed record CommandArguments(JsonElement Payload, TenantContext Tenant,
 public sealed record CapabilityDescriptor(
     string Id,
     string Surface,
+    ArgumentContract Arguments,
     EffectClass Effect,
     Idempotency Idempotency,
     CostModel Cost,
     PermissionShape Permission,
     Option<SubscriptionPolicy> Progress,
     Func<CommandArguments, Fin<CommandBody>> Compile) {
-    public static CapabilityDescriptor Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile) =>
-        new($"{surface}.{op}", surface, effect, idempotency, cost, permission, progress, compile);
+    public static CapabilityDescriptor Of(string surface, string op, ArgumentContract arguments, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile) =>
+        new($"{surface}.{op}", surface, arguments, effect, idempotency, cost, permission, progress, compile);
 
     public DescriptorReceipt Receipt(CommandArguments arguments, Instant at) =>
         new(Id, Effect.Key, Idempotency.Key, Cost.Estimate(arguments), Permission.ScopeHash, at);
@@ -202,13 +218,14 @@ public static class DescriptorSurface {
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 public static class TensorProjection {
-    public static IServiceCollection Project(IServiceCollection services, Func<TensorOpFamily, JsonElement, Fin<CommandBody>> compileOf) =>
-        DescriptorSurface.Describe(services, Seq(nameof(TensorOpFamily)), [.. TensorOpFamily.Items.AsIterable().Map(family => Row(family, compileOf))]);
+    public static IServiceCollection Project(IServiceCollection services, Func<TensorOpFamily, JsonTypeInfo> argumentsOf, Func<TensorOpFamily, JsonElement, Fin<CommandBody>> compileOf) =>
+        DescriptorSurface.Describe(services, Seq(nameof(TensorOpFamily)), [.. TensorOpFamily.Items.AsIterable().Map(family => Row(family, argumentsOf, compileOf))]);
 
-    static CapabilityDescriptor Row(TensorOpFamily family, Func<TensorOpFamily, JsonElement, Fin<CommandBody>> compileOf) =>
+    static CapabilityDescriptor Row(TensorOpFamily family, Func<TensorOpFamily, JsonTypeInfo> argumentsOf, Func<TensorOpFamily, JsonElement, Fin<CommandBody>> compileOf) =>
         CapabilityDescriptor.Of(
             surface: nameof(TensorOpFamily),
             op: family.Key,
+            arguments: new ArgumentContract.Native(argumentsOf(family)),
             effect: EffectClass.Pure,
             idempotency: Idempotency.Idempotent,
             cost: CostModel.Of(
@@ -224,13 +241,14 @@ public static class TensorProjection {
 public static class ModelProjection {
     // Composition builds ONE tokenizer per encoding and shares it: `TiktokenTokenizer` is thread-safe,
     // and a per-request mint would price a draw at the cost of loading a vocabulary.
-    public static IServiceCollection Project(IServiceCollection services, Seq<string> models, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<CommandBody>> compileOf) =>
-        DescriptorSurface.Describe(services, Seq(nameof(ModelIdentity)), [.. models.Map(model => Row(model, tokenizer, compileOf))]);
+    public static IServiceCollection Project(IServiceCollection services, Seq<string> models, TiktokenTokenizer tokenizer, Func<string, JsonTypeInfo> argumentsOf, Func<string, JsonElement, Fin<CommandBody>> compileOf) =>
+        DescriptorSurface.Describe(services, Seq(nameof(ModelIdentity)), [.. models.Map(model => Row(model, tokenizer, argumentsOf, compileOf))]);
 
-    static CapabilityDescriptor Row(string model, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<CommandBody>> compileOf) =>
+    static CapabilityDescriptor Row(string model, TiktokenTokenizer tokenizer, Func<string, JsonTypeInfo> argumentsOf, Func<string, JsonElement, Fin<CommandBody>> compileOf) =>
         CapabilityDescriptor.Of(
             surface: nameof(ModelIdentity),
             op: model,
+            arguments: new ArgumentContract.Native(argumentsOf(model)),
             effect: EffectClass.External,
             idempotency: Idempotency.NonIdempotent,
             cost: CostModel.Of(
@@ -253,11 +271,11 @@ public static class ModelProjection {
 
 ## [03]-[DISCOVERY_FOLD]
 
-- Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe and the roster-census mount; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `DiscoveryResult` the matched-descriptor projection.
+- Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe and the roster-census mount; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `CapabilityMatch` the interior matched-descriptor projection.
 - Cases: `ById(string Id)`, `BySurface(string Surface)`, `ByEffect(EffectClass Effect)`, `Permitting(DegradationLevel Level)`, `ByIntent(string Intent)`, `All` — one polymorphic discovery entrypoint discriminates on the query value, never a `GetById`/`GetBySurface`/`List` proliferation; `ByIntent` is the semantic arm — the embedding-rank delegate `Agent/reasoning#SEMANTIC_DISCOVERY` binds at composition ranks descriptors by intent similarity, and an unbound index answers empty rather than faulting.
-- Entry: `Discover(DiscoveryQuery query)` returns `Seq<DiscoveryResult>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup; `Mount(InstrumentSet set)` returns `Fin<Unit>` — the composition's roster proof, folding the frozen surface index onto the keyed `rasm.apphost.capability.roster` family after `InstrumentFan.Mount` has already proved every contributed board pack against that same set, so this leg carries the one descriptor claim a port cannot: a registry fan-in the mount fold never sees.
+- Entry: `Discover(DiscoveryQuery query)` returns `Seq<CapabilityMatch>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup; `Mount(InstrumentSet set)` returns `Fin<Unit>` — the composition's roster proof, folding the frozen surface index onto the keyed `rasm.apphost.capability.roster` family after `InstrumentFan.Mount` has already proved every contributed board pack against that same set, so this leg carries the one descriptor claim a port cannot: a registry fan-in the mount fold never sees.
 - Auto: the registry freezes the descriptor fan-in into one `FrozenDictionary<string, CapabilityDescriptor>` at composition and a `Lookup<string, CapabilityDescriptor>` index by surface so a surface query reads one bucket; `Permitting` folds the level's retained capability set against each descriptor's `EffectClass` so a degraded host advertises only the ops it can still serve, deleting a parallel per-level command list, and an `Irreversible` row carries the extra floor its class earns — no rollback restores the prior state, so a host that has shed anything in the write path stops advertising it while ordinary writes still serve; the roster census IS that surface index counted, so `Mount` writes each surface's count in one traversal and the pulled-gate refusal — an unmounted or scalar-mounted family — aborts on the first offending surface while the descriptor set is still editable, one mis-mounted family being the whole defect and a per-surface repetition of it burying the fact under itself; every entry keys on its surface because the column is required and the descriptor id interpolates it, so this family declares a key it always carries and the kernel's untagged arm stays unreachable here by construction.
-- Receipt: `DiscoveryResult` — descriptor id, surface, effect key, idempotency key, estimated cost vector for the empty argument shape, permission scope hash.
+- Receipt: `CapabilityMatch` — descriptor id, surface, argument contract, typed effect/idempotency, empty-argument estimate, full cost-unit roster, and scope hash; it is an in-process registry view, never the generated peer-discovery contract.
 - Packages: Rasm (kernel `InstrumentSet`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one query case absorbs a new discovery axis; a new index is one frozen projection over the catalog, never a second registry; a new roster dimension is one column on the census projection the one `Mount` write carries; zero new surface.
 - Boundary: the registry is read-only after the composition freeze — a runtime descriptor mutation is the deleted form, mirroring the composition-root `MakeReadOnly` law; the census homes here rather than at the admission fold because the count is a projection of the frozen catalog and never an accumulated cell — a per-`Describe` push publishes a mid-composition partial, forks the truth across the native and federated snapshot sites, and manufactures a measurement rail a registration fold structurally cannot carry outward; `Permitting` reads `DegradationLevel.Retains` as settled vocabulary and maps each `EffectClass` to its gating `Faculty` (write maps to `StoreWrite`, external to `RemoteCompute`, read to `StoreRead`) so discovery and the runtime degradation rail share one capability semantic; the discovery surface is the projection the MCP `tools/list`, the SDK codegen, and the dashboard command palette all read, so a new consumer reads the same fold and never re-enumerates the descriptor fan-in.
@@ -276,13 +294,14 @@ public abstract partial record DiscoveryQuery {
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
-public readonly record struct DiscoveryResult(
+public readonly record struct CapabilityMatch(
     string Descriptor,
     string Surface,
-    string Effect,
-    string Idempotency,
+    ArgumentContract Arguments,
+    EffectClass Effect,
+    Idempotency Idempotency,
     MeterVector Estimated,
-    Seq<string> Units,
+    Seq<CostUnit> Units,
     string ScopeHash);
 
 // --- [SERVICES] --------------------------------------------------------------------------
@@ -314,7 +333,7 @@ public sealed class CapabilityRegistry {
             .As()
             .Map(static _ => unit);
 
-    public Seq<DiscoveryResult> Discover(DiscoveryQuery query) =>
+    public Seq<CapabilityMatch> Discover(DiscoveryQuery query) =>
         Project(query.Switch(
             byId: q => Resolve(q.Id).ToSeq(),
             bySurface: q => bySurface[q.Surface].ToSeq(),
@@ -341,11 +360,11 @@ public sealed class CapabilityRegistry {
 
     // Fixed alone prices an empty argument shape: Variable over a default JsonElement throws on every
     // payload-reading estimator, and discovery mints no ambient identity to feed one.
-    static Seq<DiscoveryResult> Project(Seq<CapabilityDescriptor> rows) =>
-        rows.Map(static row => new DiscoveryResult(
-            row.Id, row.Surface, row.Effect.Key, row.Idempotency.Key,
+    static Seq<CapabilityMatch> Project(Seq<CapabilityDescriptor> rows) =>
+        rows.Map(static row => new CapabilityMatch(
+            row.Id, row.Surface, row.Arguments, row.Effect, row.Idempotency,
             row.Cost.Fixed,
-            toSeq(row.Cost.Units.Map(static unit => unit.Key).Order(StringComparer.Ordinal)),
+            toSeq(row.Cost.Units.OrderBy(static unit => unit.Key, StringComparer.Ordinal)),
             row.Permission.ScopeHash));
 }
 ```
@@ -355,7 +374,7 @@ public sealed class CapabilityRegistry {
 - Owner: `CommandBody` the compiled op request; `Spec` the whole dispatch posture, carrying the executing stratum's allocation, cache, and substrate vocabularies as their smart-enum KEYS; `DispatchReceipt` the decoded execution evidence; `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.HostCommand`); `CommandReceipt` the per-command evidence record; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker, the in-process lane governor, and onto the one bound dispatch seam.
 - Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed | MacroIncomplete | Vetoed | LaneRefused — `LaneRefused` the in-process governor's own refusal carried whole, `MacroIncomplete` the transcript-to-macro completeness refusal `Agent/reasoning#REPLAYABLE_TRANSCRIPT` mints when a tool call's exact receipt never joined, `Vetoed` the admission refusal `Agent/runtime#DISPATCH_FRONT_DOOR` mints through `Refuse` for a command the hook rail declined ahead of the transaction.
 - Entry: `Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments)` returns `IO<CommandReceipt>` — the algebra resolves the descriptor, brokers the grant, compiles the `CommandBody`, derives the `Spec` from the resolved row, hands the pair to the bound dispatch, and commits or rolls back; `Refuse(CommandRuntime runtime, string descriptorId, CommandFault fault, CommandArguments arguments)` returns `IO<CommandReceipt>` — the one mint for a disposition decided ahead of the transaction, so an admission gate's refusal rides the same message envelope and the same fan a dispatched command's does; `Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands)` runs an all-or-nothing intent group folding each command's compensation in reverse on the first failure, each unwind re-priced off the original argument payload.
-- Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it, never a phantom undo; the dispatch lands through the ONE `CommandRuntime.Dispatch` seam the composition root binds — the root holds each executing stratum's reference and this algebra holds none, so the transaction boundary is this owner's while substrate selection and execution stay the stratum's, and a second dispatcher, a stratum type on this page's rail, or a federated arm beside the seam are three spellings of one deleted form; the `Spec` this algebra builds is DERIVED from the resolved row and carries no literal: its progress admission crosses verbatim, so the forward command and its compensation both dispatch under the reporting posture their descriptors declared and `ProgressCell.Mint` refuses a cell to every op that declared none, and that same admission selects the `WorkLane` — a declared posture is the long-running witness, so a streaming op takes the throughput lane and a silent one the interactive lane — with the `DeadlineClass` following from the lane through the `Runtime/laneguard#LANE_GUARD` `LaneClass` rank binding, so no op names a lane, no seat names a deadline, and a whole-model fold can no longer ride an interactive lane on a transport hop's budget; `Run` captures one `MonotonicStamp` off `ClockPolicy.Line` before descriptor resolution and every refusal, commit, rollback, and compensation receipt derives its span from that stamp through the timeline rather than a wall subtraction; every dispatch crosses `Runtime/laneguard#LANE_GUARD` `LaneGuard.Run` on the lane the posture already resolved, so admission, bulkhead, breaker, allotment, and re-drive bracket the work and the governor's `LaneFault` family answers as a structured `CommandTxn.Refused` observation — a resource refusal the transaction records without compensating work that never started; every disposition lowers its terminal error through `AppHostFaultMap` and mints one wire-safe `CommandReceipt` fanned through `ReceiptSinkPort.Send` under `TelemetrySource.AppHost` and `ReceiptKind.Command`, so admission counts and per-unit grant spend project off one message envelope with no live `Error` or message surrogate inside it.
+- Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it, never a phantom undo; the dispatch lands through the ONE `CommandRuntime.Dispatch` seam the composition root binds — the root holds each executing stratum's reference and this algebra holds none, so the transaction boundary is this owner's while substrate selection and execution stay the stratum's, and a second dispatcher, a stratum type on this page's rail, or a federated arm beside the seam are three spellings of one deleted form; the `Spec` this algebra builds is DERIVED from the resolved row and carries no literal: its progress admission crosses verbatim, so the forward command and its compensation both dispatch under the reporting posture their descriptors declared and `ProgressCell.Mint` refuses a cell to every op that declared none, and that same admission selects the `WorkLane` — a declared posture is the long-running witness, so a streaming op takes the throughput lane and a silent one the interactive lane — with the `DeadlineClass` following from the lane through the `Runtime/laneguard#LANE_GUARD` `LaneClass` rank binding, so no op names a lane, no seat names a deadline, and a whole-model fold can no longer ride an interactive lane on a transport hop's budget; `Run` captures one `MonotonicStamp` off `ClockPolicy.Line` before descriptor resolution and every refusal, commit, rollback, and compensation receipt derives its span from that stamp through the timeline rather than a wall subtraction; every dispatch crosses `Runtime/laneguard#LANE_GUARD` `LaneGuard.Run` on the lane the posture already resolved, so admission, bulkhead, breaker, allotment, and re-drive bracket the work and the governor's `LaneFault` family answers as a structured `CommandTxn.Refused` observation — a resource refusal the transaction records without compensating work that never started; every disposition lowers its terminal error through `FaultWire.Observe` and mints one wire-safe `CommandReceipt` fanned through `ReceiptSinkPort.Send` under `TelemetrySource.AppHost` and `ReceiptKind.Command`, so admission counts and per-unit grant spend project off one message envelope with no live `Error` or message surrogate inside it.
 - Receipt: `CommandReceipt` — descriptor id, transaction disposition, charged cost vector, `DispatchReceipt` of the dispatched body, elapsed `Duration`, correlation id, tenant.
 - Packages: Rasm (kernel `MonotonicTimeline`, `ReceiptSinkPort`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one transaction disposition is one `CommandTxn` case breaking every consumer arm; one fault is one `CommandFault` case; a new compensation strategy is one column on the descriptor runtime, never a second algebra; zero new surface.
@@ -389,17 +408,19 @@ public sealed record Spec(
 public abstract partial record CommandTxn {
     private CommandTxn() { }
     public sealed record Committed(DispatchReceipt Dispatch) : CommandTxn;
-    public sealed record RolledBack(FaultObservationWire Reason) : CommandTxn;
+    public sealed record RolledBack(Rasm.Contracts.Fault.V1.FaultObservation Reason) : CommandTxn;
     // The forward leg of a compensated transaction produced no receipt BY CONSTRUCTION — it is compensated
     // because it faulted — so the row carries the fault's own reason beside the roll-forward evidence rather
     // than a sentinel receipt standing in for a dispatch that never returned one.
-    public sealed record Compensated(FaultObservationWire Reason, DispatchReceipt Compensation) : CommandTxn;
-    public sealed record Refused(FaultObservationWire Fault) : CommandTxn;
+    public sealed record Compensated(
+        Rasm.Contracts.Fault.V1.FaultObservation Reason,
+        DispatchReceipt Compensation) : CommandTxn;
+    public sealed record Refused(Rasm.Contracts.Fault.V1.FaultObservation Fault) : CommandTxn;
 
-    public static CommandTxn Reverted(Error reason) => new RolledBack(AppHostFaultMap.Wire(reason));
+    public static CommandTxn Reverted(Error reason) => new RolledBack(FaultWire.Observe(reason));
     public static CommandTxn Recovered(Error reason, DispatchReceipt compensation) =>
-        new Compensated(AppHostFaultMap.Wire(reason), compensation);
-    public static CommandTxn Rejected(Error fault) => new Refused(AppHostFaultMap.Wire(fault));
+        new Compensated(FaultWire.Observe(reason), compensation);
+    public static CommandTxn Rejected(Error fault) => new Refused(FaultWire.Observe(fault));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -852,19 +873,19 @@ public sealed record GrantBroker(
 
 ## [06]-[SDK_CODEGEN]
 
-- Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `DescriptorPin` the canonical descriptor-set document and its content address — the frozen preimage the `capability-descriptor` seam registers at `tests/contracts/MANIFEST.md` `[02.12]-[CAPABILITY_DESCRIPTOR]`, this section being that seam's named producer; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
+- Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `DescriptorPin` the canonical descriptor-set document and its content address — the frozen preimage the `capability-descriptor` seam registers at `tests/contracts/manifest.json` `CAPABILITY_DESCRIPTOR`, this section being that seam's named producer; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
 - Cases: 3 targets — csharp, typescript, python — each carrying its command-shape renderer and idiomatic call form.
-- Entry: `DescriptorPin.Of(registry, wire)` mints the fixed-field document and its content address.
+- Entry: `DescriptorPin.Of(registry)` mints the fixed-field catalog document and its content address.
 - Entry: `SdkCodegen.Emit(registry, pin, target)` renders one target from the same ordinal catalog and stamped pin digest.
-- Auto: every row embeds the `SuiteContracts.Schema` values for `CommandArguments` input and `CommandReceipt` output.
+- Auto: the pin addresses descriptor coordinates, policy, and cost-unit identity; runtime tool schemas never become a compatibility hash.
 - Auto: descriptor rows, cost-unit keys, and fields use ordinal or fixed order before the document is addressed.
 - Auto: `units` is the complete `CostModel.Units` roster, never the keys present in one estimate.
 - Receipt: `DescriptorPin` — the canonical document, its content address, and the pinned row count; `SdkArtifact` — target key, emitted source text, descriptor count, and the PIN's digest, because a digest computed over emitted source addresses the renderer rather than the contract and three targets then disagree on one catalog by construction.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one target row absorbs a new language; a new call form is one renderer column on the row; a new pinned coordinate is one field on the canonical row the pin writes; zero new surface.
-- Boundary: generated targets bind the producer's `CommandArguments` and `CommandReceipt` schemas without a second wire shape.
+- Boundary: generated contract packages own request and receipt wire shape; this renderer binds descriptor ids onto those generated types.
 - Boundary: peers grade the pin directly; generated source is a build artifact and never a descriptor owner.
-- Boundary: `ContractGuard.AdditiveOnly` classifies the same `SuiteContracts.Schema` export for every consumer.
+- Boundary: the `DescriptorPin` content address is compatibility evidence for the catalog alone — JSON Schema is MCP runtime metadata, never a hashed substitute for generated contract compatibility.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -879,31 +900,29 @@ public sealed partial class SdkTarget {
     public string Extension { get; }
 
     [UseDelegateFromConstructor]
-    public partial string Render(DiscoveryResult descriptor);
+    public partial string Render(CapabilityMatch descriptor);
 
-    static string Csharp(DiscoveryResult d) =>
+    static string Csharp(CapabilityMatch d) =>
         $"public IO<CommandReceipt> {Method(d)}(CommandArguments arguments) => CommandAlgebra.Run(runtime, \"{d.Descriptor}\", arguments);";
 
-    static string Typescript(DiscoveryResult d) =>
+    static string Typescript(CapabilityMatch d) =>
         $"{Method(d)}(args: CommandArguments): Promise<CommandReceipt> {{ return this.run(\"{d.Descriptor}\", args); }}";
 
-    static string Python(DiscoveryResult d) =>
+    static string Python(CapabilityMatch d) =>
         $"def {Method(d)}(self, args: CommandArguments) -> CommandReceipt: return self._run(\"{d.Descriptor}\", args)";
 
-    static string Method(DiscoveryResult d) => d.Descriptor.Replace('.', '_');
+    static string Method(CapabilityMatch d) => d.Descriptor.Replace('.', '_');
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
-public sealed record SdkArtifact(SdkTarget Target, string Source, int Descriptors, string SchemaDigest);
+public sealed record SdkArtifact(SdkTarget Target, string Source, int Descriptors, string PinDigest);
 
 // This document IS the frozen preimage the digest addresses — without it the digest names a catalog nothing
 // can re-derive, and a peer holding a mismatching digest learns only that something changed. Fixed field
 // order and ordinal row and unit order make the address independent of registration order.
 public sealed record DescriptorPin(string Document, string Digest, int Descriptors) {
-    public static DescriptorPin Of(CapabilityRegistry registry, JsonSerializerOptions wire) {
+    public static DescriptorPin Of(CapabilityRegistry registry) {
         var rows = toSeq(registry.Discover(new DiscoveryQuery.All()).OrderBy(static row => row.Descriptor, StringComparer.Ordinal));
-        var input = SuiteContracts.Schema(wire, typeof(CommandArguments));
-        var output = SuiteContracts.Schema(wire, typeof(CommandReceipt));
         using var bytes = new MemoryStream();
         using (var json = new Utf8JsonWriter(bytes)) {
             json.WriteStartArray();
@@ -911,25 +930,19 @@ public sealed record DescriptorPin(string Document, string Digest, int Descripto
                 json.WriteStartObject();
                 json.WriteString("descriptor", row.Descriptor);
                 json.WriteString("surface", row.Surface);
-                json.WriteString("effect", row.Effect);
-                json.WriteString("idempotency", row.Idempotency);
+                json.WriteString("effect", row.Effect.Key);
+                json.WriteString("idempotency", row.Idempotency.Key);
                 json.WriteString("scope", row.ScopeHash);
                 json.WritePropertyName("units");
                 json.WriteStartArray();
-                row.Units.Iter(json.WriteStringValue);
+                row.Units.Iter(unit => json.WriteStringValue(unit.Key));
                 json.WriteEndArray();
-                json.WritePropertyName("input");
-                input.WriteTo(json, wire);
-                json.WritePropertyName("output");
-                output.WriteTo(json, wire);
                 json.WriteEndObject();
             });
             json.WriteEndArray();
         }
         var document = bytes.ToArray();
         return new(Encoding.UTF8.GetString(document), ContentHash.Hex(ContentHash.Of(document)), rows.Count);
-    }
-
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -945,55 +958,56 @@ public static class SdkCodegen {
 }
 ```
 
-## [07]-[PEER_PROJECTION]
+## [07]-[PEER_DISCOVERY]
 
-- Owner: `CapabilityDescriptorWire` projects each canonical pin row, and `DescriptorPinWire` carries the addressed document; `DiscoveryResultWire` projects live discovery rows.
-- Entry: peers grade `DescriptorPinWire`; generated methods bind its `CommandArguments` input and `CommandReceipt` output schemas.
-- Packages: BCL inbox
-- Growth: one wire-member row per new descriptor or discovery field; zero new surface.
-- Boundary: smart-enum keys cross as strings, and discovery cost vectors cross as unit-keyed numbers; the pin row carries canonical input and output schemas while discovery alone carries per-argument estimates.
-- Boundary: the two faces reach DIFFERENT peers and each is named at its decoder — `DescriptorPinWire` and its `CapabilityDescriptorWire` rows decode in TypeScript (`typescript:core/interchange/codec#WIRE_CENSUS`, graded through `Wire.Parity` against the digest) while `DiscoveryResultWire` decodes in Python (`python:runtime/transport/serve#SERVE` `CapabilityInvoke._DISCOVERY`), so a face declared here with a decoder in neither branch is the deleted form. NAMED FORK, standing at the Python end: that decoder carries an `input_schema` slot no producer here writes and omits the `units` roster every producer here sends, so the two ends disagree in both directions and the pin — not the discovery row — is where a schema legally rides.
+- Owner: the host-free generated `capability.v1.DiscoverResponse` is the only live peer-discovery shape; `CapabilityDiscovery.Project` is its C# projection.
+- Entry: `Project(CapabilityRegistry registry, DegradationLevel level, DescriptorPin pin)` returns the level-permitted catalog bound to the full SDK pin.
+- Packages: Rasm.Contracts, Google.Protobuf, LanguageExt.Core, BCL inbox
+- Growth: one proto field or enum row regenerates every real consumer; a new consumer earns one codegen target, never a mirror.
+- Boundary: the catalog reaches Python alone at `python:runtime/transport/serve#CAPABILITY_INVOKE`; TypeScript consumes only `capability.v1.DescriptorPinWire`.
+- Boundary: `DescriptorPinWire.document` is the sole static authority for surface, effect, idempotency, scope, and cost-unit semantics. An `AvailableCapability` carries only the descriptor whose presence states current availability and the fixed empty-argument estimates that exist now; a static unit with no amount emits no row.
+- Boundary: protobuf carries only dynamic estimate unit identity and amount beside descriptor availability; the full static document and its 128-bit digest cross once on the pin.
+- Auto: permitted descriptors and their present estimate rows emit ordinally, so live discovery is stable across registration order without becoming a second content identity.
 
-```ts signature
-type EffectClassKey = "pure" | "read" | "write" | "external" | "irreversible";
-type IdempotencyKey = "idempotent" | "keyed" | "single-shot" | "non-idempotent";
-type CostUnitKey = "cpu-millis" | "wall-millis" | "bytes-egress" | "model-tokens" | "calls";
+```csharp signature
+using CapabilityContract = Rasm.Contracts.Capability.V1;
 
-type MeterVectorWire = Readonly<Record<CostUnitKey, number>>;
+public static class CapabilityDiscovery {
+    public static CapabilityContract.DiscoverResponse Project(
+        CapabilityRegistry registry,
+        DegradationLevel level,
+        DescriptorPin pin) {
+        CapabilityContract.DiscoverResponse catalog = new() {
+            Pin = new CapabilityContract.DescriptorPinWire {
+                Document = pin.Document,
+                Digest = ByteString.CopyFrom(Convert.FromHexString(pin.Digest)),
+                Descriptors = checked((uint)pin.Descriptors),
+            },
+        };
+        catalog.Capabilities.Add(
+            toSeq(registry.Discover(new DiscoveryQuery.Permitting(level))
+                .OrderBy(static row => row.Descriptor, StringComparer.Ordinal)).Map(Project));
+        return catalog;
+    }
 
-interface DiscoveryResultWire {
-  readonly descriptor: string;
-  readonly surface: string;
-  readonly effect: EffectClassKey;
-  readonly idempotency: IdempotencyKey;
-  readonly estimated: MeterVectorWire;
-  readonly units: readonly CostUnitKey[];
-  readonly scopeHash: string;
+    static CapabilityContract.AvailableCapability Project(CapabilityMatch row) {
+        CapabilityContract.AvailableCapability projected = new() { Descriptor = row.Descriptor };
+        projected.Estimates.Add(
+            toSeq(row.Estimated.Units.AsIterable().OrderBy(static pair => pair.Key.Key, StringComparer.Ordinal))
+                .Map(static pair => new CapabilityContract.CapabilityEstimate {
+                    Unit = Cost(pair.Key),
+                    Amount = pair.Value,
+                }));
+        return projected;
+    }
+
+    static CapabilityContract.CostUnit Cost(CostUnit unit) => unit.Switch(
+        cpuMillis: static () => CapabilityContract.CostUnit.CpuMillis,
+        wallMillis: static () => CapabilityContract.CostUnit.WallMillis,
+        bytesEgress: static () => CapabilityContract.CostUnit.BytesEgress,
+        modelTokens: static () => CapabilityContract.CostUnit.ModelTokens,
+        calls: static () => CapabilityContract.CostUnit.Calls);
 }
-
-// Field-for-field with the canonical document `DescriptorPin.Of` writes, so a peer re-derives the digest
-// from the bytes it decoded. The unit array carries KEYS alone: an estimated amount is a per-argument
-// measurement no two hosts would agree on.
-interface CapabilityDescriptorWire {
-  readonly descriptor: string;
-  readonly surface: string;
-  readonly effect: EffectClassKey;
-  readonly idempotency: IdempotencyKey;
-  readonly scope: string;
-  readonly units: readonly CostUnitKey[];
-  readonly input: unknown;
-  readonly output: unknown;
-}
-
-// This document crosses as canonical TEXT, not as a re-serialized array: the digest addresses those exact
-// bytes, and a consumer that parses to rows and re-writes them hashes its own writer's spacing instead. The
-// row type above is what that text parses to once the peer has already agreed on the address.
-interface DescriptorPinWire {
-  readonly document: string;
-  readonly digest: string;
-  readonly descriptors: number;
-}
-
 ```
 
 ## [08]-[RESEARCH]

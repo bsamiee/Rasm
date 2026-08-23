@@ -8,17 +8,18 @@
 
 ## [02]-[RASTER_CODEC]
 
-- Cases: `CoverageWire`/`GeoReferenceWire` flat payloads; `CoverageSample` never crosses (census row [08] exemption at `Graph/wire#WIRE_CODEC`).
-- Law: this page is one PARTIAL PART of the `Graph/wire#WIRE_CODEC` `[Mapper]` family — the `[Mapper]` attribute, the `[UNION_PARITY]` census, the `[KEY_CODECS]`, the shared decode gates (`Present`/`Opt`/`Row`/`Named`/`Iso`/`ToInterval`/`ToDate`/`BothOrNeither`/`OptMeasure`/`OptCurve`), the `[PRESENCE_SHELLS]` and carrier-codec laws, `ElementWire`, and the frozen-number ledger all live THERE; a member landing here lands its census/ledger row there in the same edit.
+- Cases: `CoverageWire`/`GeoReferenceWire` flat payloads; `CoverageSample` stays native and absent from the `Graph/wire#NODE_CODEC` census.
+- Law: this page is one partial part of the `Graph/wire#NODE_CODEC` mapper family and composes its shared identity, presence, interval, and optional-value gates.
 - Law: every decoded value re-crosses its OWNER's admission gate — the decoder constructs no case directly and trusts no carried invariant (the `ContentAddress.Verify` distrust posture); every optional column crosses by EXPLICIT presence, never a defaulted zero, blank, or sentinel.
-- Packages: Google.Protobuf, Riok.Mapperly, NodaTime.Serialization.Protobuf, LanguageExt.Core, Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch and `TryGet` row gates) — the manifest triad rides `Graph/wire#WIRE_CODEC`.
-- Growth: a new column on a family this page owns is one append-only numbered field at the corpus proto, one ledger row at `Graph/wire#WIRE_CODEC`, and one transcription member here; a new union case also lands its `CrossingFamily` arm count and its oneof mirror in the same edit — the parity census refuses a half-landed pair.
+- Packages: Google.Protobuf, Mapperly, NodaTime.Serialization.Protobuf, LanguageExt, and Thinktecture compose the generated support closure coordinated at `Graph/wire#NODE_CODEC`.
+- Growth: a new column is one append-only corpus field and one transcription member; a new seated union case also updates the owning parity census.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Contracts.Element.V1;
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Element.Geospatial;
@@ -34,7 +35,7 @@ namespace Rasm.Element.Graph;
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 // One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#WIRE_CODEC`; this part owns the coverage, lattice, and georeference transcriptions.
+// the shared decode gates ride `Graph/wire#NODE_CODEC`; this part owns the coverage, lattice, and georeference transcriptions.
 internal static partial class WireCodec {
  // The envelope-side generated transcription of the whole coverage descriptor; the level/band internals below
  // own every hand crossing.
@@ -95,11 +96,13 @@ internal static partial class WireCodec {
   from bands in toSeq(w.Bands).TraverseM(band => ToBand(band, key)).As()
   from grid in ToLattice(w.Grid, key)
   from overviews in toSeq(w.Overviews).TraverseM(overview =>
-   ToLattice(overview.Grid, key).Map(lattice =>
-    new OverviewLevel(lattice, BlobKey.Of(ToKey(overview.RasterKey)), Blocked(overview.BlockX, overview.BlockY)))).As()
+   from lattice in ToLattice(overview.Grid, key)
+   from raster in ToArtifactContent(overview.RasterArtifact, "coverage.overview.raster_artifact", key)
+   select new OverviewLevel(lattice, raster, Blocked(overview.BlockX, overview.BlockY))).As()
+  from raster in ToArtifactContent(w.RasterArtifact, "coverage.raster_artifact", key)
   from coverage in CoverageGrid.Of(
    kind,
-   new OverviewLevel(grid, BlobKey.Of(ToKey(w.RasterKey)), Blocked(w.BaseBlockX, w.BaseBlockY)).Cons(overviews),
+   new OverviewLevel(grid, raster, Blocked(w.BaseBlockX, w.BaseBlockY)).Cons(overviews),
    bands, crs, key)
   select coverage;
 

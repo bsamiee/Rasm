@@ -103,9 +103,19 @@ public sealed partial class ArtifactKey {
             && text.IndexOf(':', StringComparison.Ordinal) == HexWidth
             && UInt128.TryParse(text.AsSpan(0, HexWidth), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt128 content)
             && StringComparer.Ordinal.Equals(text[..HexWidth], content.ToString("x32", CultureInfo.InvariantCulture))
+            && InterchangeFormat.TryGet(text[(HexWidth + 1)..], out InterchangeFormat? format)
+            && format is { } admitted
+            && StringComparer.Ordinal.Equals(text[(HexWidth + 1)..], admitted.Key)
                 ? validationError
                 : new ValidationError("artifact-key-grammar");
     }
+
+    // Typed projection of the grammar head. Validation has already proved both the exact width and canonical hex,
+    // so consumers never split or parse this address independently.
+    public UInt128 ContentKey =>
+        UInt128.Parse(Value.AsSpan(0, HexWidth), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+    public string FormatKey => Value[(HexWidth + 1)..];
 
     // Composition from the two facts the address IS, so a mint never renders the grammar by hand.
     public static ArtifactKey Of(UInt128 contentKey, InterchangeFormat format) =>

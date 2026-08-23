@@ -166,7 +166,7 @@ flowchart LR
     Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
     Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
-    Persistence e28@<-->|"[CONTRACT]: BackendContract"| Capability
+    Persistence e28@<-->|"[CONTRACT]: rasm.contracts.parity.v1.Backend"| Capability
     Fact e29@-->|"[PORT]: AuditJournal"| Security
     Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
     Core e31@-->|"[SHAPE]: Hops"| Olap
@@ -174,12 +174,13 @@ flowchart LR
     Core e33@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Olap
     Iac e34@-->|"[PORT]: analytics residence"| Olap
     Core e35@-->|"[SHAPE]: Convention"| Asset
-    Core e36@-->|"[SHAPE]: Wire.TextureSet"| Asset
-    Rhino e37@-->|"[WIRE]: OrganizationWire"| Fold
+    Core e36@-->|"[SHAPE]: Wire.Set"| Asset
+    Core e37@-->|"[SHAPE]: Wire.Organization"| Fold
     Core e38@-->|"[SHAPE]: Carrier.Context"| Append
     Core e39@-->|"[SHAPE]: Identity.Tenant"| Append
-    Core e40@-->|"[EVENT]: Event.Fact"| Append
+    Core e40@-->|"[EVENT]: Event.rasm.Fact"| Append
     Append e41@-->|"[PORT]: EventLogServer.Storage"| Runtime
+    Store e42@-->|"[PORT]: Dataref"| Runtime
 ```
 
 ## [04]-[INTERNAL]

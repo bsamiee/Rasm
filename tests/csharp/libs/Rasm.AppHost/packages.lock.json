@@ -673,11 +673,6 @@
         "resolved": "4.7.0",
         "contentHash": "VybpaOQQhqE6siHppMktjfGBw1GCwvCqiufqmP8F1nj7fTUNtW35LOEt3UZTEsECfo+ELAl/9o9nJx3U91i7vA=="
       },
-      "System.Security.Cryptography.ProtectedData": {
-        "type": "Transitive",
-        "resolved": "10.0.10",
-        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
-      },
       "System.ServiceProcess.ServiceController": {
         "type": "Transitive",
         "resolved": "8.0.0",
@@ -710,15 +705,13 @@
         }
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "rasm": {
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
+          "Celly.Protovalidate": "[1.2.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CloudNative.CloudEvents.Avro": "[2.9.0, )",
           "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
@@ -727,6 +720,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "Generator.Equals": "[4.0.2, )",
+          "Google.Protobuf": "[3.36.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -756,6 +750,7 @@
           "AspNetCore.HealthChecks.System": "[9.0.0, )",
           "AspNetCore.HealthChecks.Uris": "[9.0.0, )",
           "BACnet": "[4.0.0, )",
+          "Celly.Protovalidate": "[1.2.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CloudNative.CloudEvents.AspNetCore": "[2.9.0, )",
           "Cronos": "[0.13.0, )",
@@ -847,7 +842,7 @@
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
+          "Rasm.Contracts": "[0.1.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
@@ -2224,6 +2219,12 @@
         "requested": "[10.0.11, )",
         "resolved": "10.0.11",
         "contentHash": "4jNNt67NhCqf3bf2FN0mrsC+EH60L7Sny6poqVeiviB27Kw7TQzMmgn8HIaPc8E9EcuGusUyfeu21gLfzcBpDA=="
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
       },
       "System.Threading.RateLimiting": {
         "type": "CentralTransitive",

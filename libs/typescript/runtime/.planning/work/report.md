@@ -32,10 +32,23 @@ import Papa from "papaparse"
 import { Buffer } from "node:buffer"
 import path from "node:path"
 import { PassThrough, Transform } from "node:stream"
-import { Array, Chunk, Clock, DateTime, Deferred, Duration, Effect, Match, Option, Redacted, Ref, Schema, Stream } from "effect"
+import { Array, Chunk, Clock, DateTime, Deferred, Duration, Effect, Fiber, Match, Option, Redacted, Ref, Schema, Stream } from "effect"
 import { Fault } from "@rasm/ts/core"
 import { Bench, BenchFault, Drop, Render } from "../proc/worker.ts"
 import { Settled } from "./entity.ts"
+
+const _utf8 = new TextEncoder()
+
+// ONE node-stream lift for this module's two engines, PULLED rather than pushed: iterating a node readable applies
+// that stream's own high-water mark back up the pipe, so an engine deflates at the consumer's pace and the sealed
+// body carries the backpressure its law claims. `Stream.async`/`asyncScoped` default to `Queue.bounded(16)` whose
+// offers run as DETACHED promises, so a synchronous `on("data")` producer never blocks on a full queue and every
+// excess chunk parks a fiber still holding its bytes — the whole artifact on the heap under a bound the page never
+// declared and no reader can see. The shipped `NodeJS.ReadableStream` iterator widens each read to `string | Buffer`
+// whatever type option the generator fixed, so the encode arm narrows on the VALUE rather than casting the widening
+// away, and an option change surfaces as a live branch instead of a lie the compiler already believed.
+const _drained = <E>(readable: NodeJS.ReadableStream, refuse: (cause: unknown) => E): Stream.Stream<Uint8Array, E> =>
+  Stream.map(Stream.fromAsyncIterable(readable, refuse), (chunk) => typeof chunk === "string" ? _utf8.encode(chunk) : chunk)
 
 // ONE closed production-modality roster. Four spellings of this set stood apart before — the spec union's `format`
 // field, the fault's own `arm` literal, the worker request's `kind`, and the bundle plan's entry column — and each
@@ -384,8 +397,8 @@ const _gathered = <R>(artifact: Report.Artifact<R>, ceiling: number): Effect.Eff
 - Law: the amend coordinate is name-capable — `Report.Sheet` carries the read `ordinal` beside an `Option`-carried `name` and `state`, so a job addresses a stored artifact by the sheet the workbook declares and falls back to position only where no name exists; the reader seats a synthesized `Sheet<id>` placeholder at construction and the workbook registry overwrites `id`, `name`, and `state` together only when a rel resolves the zip entry, so the parsed numeric `sheetId` left behind is the one sound proof the declared name landed and an unresolved read answers `Option.none()` rather than handing a caller a placeholder to filter on.
 - Law: that coordinate is a declaration gap the augmentation closes — the shipped `WorksheetReader` declares none of the three members its constructor and the registry match both assign, so one `declare module "exceljs"` block beside this engine declares them at their verified runtime types, `id` widening to `number | string` because the unresolved path keeps the zip path's captured digits; every downstream read composes the corrected surface and no call site casts.
 - Law: `.csv` on the workbook facade defers to the CSV arm — `exceljs.csv` exists only to re-project an already-built `Worksheet`.
-- Law: the body streams end to end — the `PassThrough` sink bridges into `Stream.asyncScoped` (subscribe on acquire, `destroy` on release, `emit.single`/`emit.end`/`emit.fail` the admitted crossings), and the commit driver runs as a scope-forked fiber feeding the writer while the consumer drains chunks, so compressed output leaves memory as it is produced and a chunk array never accumulates.
-- Exemption: the `PassThrough` event callbacks are the platform-forced statement seam — the writer mutates a node stream outside the rail, and the bridge's listeners are the one sanctioned push-crossing site in this module.
+- Law: the body streams end to end because the read PULLS — `_drained` iterates the canonicalizing transform, so its high-water mark backpressures the `PassThrough` and ExcelJS's own writes block on a full pipe while the commit driver runs as a scope-forked fiber; compressed output therefore leaves memory as it is produced and a chunk array never accumulates. Push bridges over `on("data")` forfeit exactly that: `Stream.async` bounds its default queue at sixteen and runs each offer as a detached promise, so the writer never blocks and every excess chunk parks a fiber still holding its bytes, which is the whole artifact on the heap under a bound no reader can see.
+- Law: the driver's REFUSAL reaches the body and its success does not — `Stream.interruptWhen` emits a forked effect's failure, so a commit fault arrives as the sink refusal it is, while the success arm parks forever because the writer finishing is not the archive finishing and interrupting on that join truncates the flush that closes the zip.
 - Growth: a new formatting capability is a spec field mapped to its vocabulary row in this one fold.
 - Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, `WorkbookStreamReaderOptions`, `WorksheetReader` with the locally declared `id`/`name`/`state` coordinate, `WorksheetState`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model); `effect` (`Stream.fromAsyncIterable`, `Stream.zipWithIndex`, `Option.fromNullable`).
 
@@ -451,26 +464,26 @@ const _xlsxStream = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R
       "xlsx",
       spec.name,
       counted,
-      Stream.asyncScoped<Uint8Array, ReportFault, R>((emit) =>
-        Effect.gen(function* () {
-          const bridge = yield* Effect.acquireRelease(
-            Effect.sync(() => {
-              const sink = new PassThrough()
-              const canonical = _canonicalZipStream()
-              sink.pipe(canonical)
-              canonical.on("data", (chunk: Uint8Array) => void emit.single(chunk))
-              canonical.on("end", () => void emit.end())
-              canonical.on("error", (cause) =>
-                void emit.fail(new ReportFault({ case: { reason: "sink", arm: "xlsx", detail: String(cause) } })))
-              return { sink, canonical }
-            }),
-            ({ sink, canonical }) => Effect.sync(() => { sink.destroy(); canonical.destroy() }),
+      Stream.unwrapScoped(Effect.gen(function* () {
+        const bridge = yield* Effect.acquireRelease(
+          Effect.sync(() => {
+            const sink = new PassThrough()
+            return { sink, canonical: sink.pipe(_canonicalZipStream()) }
+          }),
+          ({ sink, canonical }) => Effect.sync(() => { sink.destroy(); canonical.destroy() }),
+        )
+        // Commit drives the sink while the consumer pulls the canonicalizer, so ExcelJS's own writes
+        // block on a full pipe rather than racing ahead of the drain.
+        const driver = yield* Effect.forkScoped(_committed(spec, rows, bridge.sink, counted))
+        return _drained(bridge.canonical, (cause) =>
+          new ReportFault({ case: { reason: "sink", arm: "xlsx", detail: String(cause) } })).pipe(
+            // Bodies owe a reader the driver's REFUSAL and owe nothing on its success, because the writer
+            // finishing is not the archive finishing — the canonicalizer still holds a flush, and interrupting on
+            // that join truncates exactly the tail that closes the zip. Success therefore parks forever and the
+            // stream ends on the transform's own end, while a failure emits through this arm.
+            Stream.interruptWhen(Effect.zipRight(Fiber.join(driver), Effect.never)),
           )
-          yield* Effect.forkScoped(
-            Effect.tapError(_committed(spec, rows, bridge.sink, counted), (fault) =>
-              Effect.sync(() => void emit.fail(fault))),
-          )
-        })),
+      })),
     ))
 
 const _xlsxRich = <A, R>(
@@ -604,7 +617,7 @@ const _pdfPlan = <A>(spec: Report.Pdf<A>, cells: ReadonlyArray<ReadonlyArray<Rep
   })
 
 const _planned = <A>(spec: Report.Pdf<A>, cells: ReadonlyArray<ReadonlyArray<Report.Cell>>): Uint8Array =>
-  new TextEncoder().encode(JSON.stringify(_pdfPlan(spec, cells)))
+  _utf8.encode(JSON.stringify(_pdfPlan(spec, cells)))
 
 const _drawn = <A>(
   spec: Report.Pdf<A>,
@@ -733,18 +746,17 @@ const _worker = {
 ```typescript signature
 const _csv = <A, R>(spec: Report.Csv<A>, rows: Stream.Stream<A, never, R>): Effect.Effect<Report.Artifact<R>> =>
   Effect.flatMap(Ref.make(0), (counted) => {
-    const encoder = new TextEncoder()
     const fields = Array.map(spec.columns, (column) => column.header)
     return _sealed(
       "csv",
       spec.name,
       counted,
       Stream.concat(
-        Stream.make(encoder.encode(`${Papa.unparse({ fields, data: [] }, { ...spec.csv, escapeFormulae: true, newline: "\n" })}\n`)),
+        Stream.make(_utf8.encode(`${Papa.unparse({ fields, data: [] }, { ...spec.csv, escapeFormulae: true, newline: "\n" })}\n`)),
         rows.pipe(
           Stream.tap(() => Ref.update(counted, (held) => held + 1)),
           Stream.map((row) =>
-            encoder.encode(
+            _utf8.encode(
               `${Papa.unparse({ fields, data: [Array.map(_project(spec, row), _scalar)] }, {
                 ...spec.csv,
                 escapeFormulae: true,
@@ -770,33 +782,36 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 ## [06]-[BUNDLE]
 
 [BUNDLE]:
-- Owner: the archive container — `Report.bundle(spec)` folds named members into one `JSZip` tree, each entry taking the compression its own modality row states (`STORE` for already-compressed containers, `DEFLATE` level 6 for text) beside fixed entry dates for byte stability. A member roster at or below the `zip` row's byte threshold uses `generateInternalStream({ type: "uint8array", streamFiles: true })` bridged through `Stream.async`, and `onUpdate` metadata folds into the supplied progress projection; a roster above it encodes the same entries into the typed bundle plan and dials the `Render` worker. Each entry's bytes arrive through `Report.gathered` under the member's stated ceiling, so worker routing moves compression off the request thread without pretending the already-gathered entries are unbounded.
-- Law: inbound archives are untrusted — `loadAsync(data, { checkCRC32: true })` gates integrity, and every entry's `unsafeOriginalName` resolves under the extraction anchor before any byte lands; the fold admits only targets that keep the anchor as their path prefix, and an escaping resolution folds to the `slip`-reasoned fault.
+- Owner: the archive container — `Report.bundle(spec)` folds named members into one `JSZip` tree, each entry taking the compression its own modality row states (`STORE` for already-compressed containers, `DEFLATE` level 6 for text) beside fixed entry dates for byte stability. A member roster at or below the `zip` row's byte threshold reads `generateNodeStream({ type: "nodebuffer", streamFiles: true }, progress)` through the module's one pulled node lift, so the deflate paces against the drain and the supplied progress projection rides the generator's own update argument; a roster above it encodes the same entries into the typed bundle plan and dials the `Render` worker. Each entry's bytes arrive through `Report.gathered` under the member's stated ceiling, so worker routing moves compression off the request thread without pretending the already-gathered entries are unbounded.
+- Law: inbound archives are untrusted — `loadAsync(data, { checkCRC32: true })` gates integrity, and the traversal claim resolves under the extraction anchor before any byte lands; the fold admits only targets that keep the anchor as their path prefix, and an escaping resolution folds to the `slip`-reasoned fault.
+- Law: the guard judges what the ARCHIVE asked for, and directory rows are dropped before it — `loadAsync` stamps `unsafeOriginalName` on file rows alone, so a folder row reaching `path.resolve` answers a thrown `TypeError` this rail never states and a clean archive refuses on its own first directory. Raw names therefore carry the claim wherever one survives, and the sanitized `name` answers otherwise, because jszip already collapsed the second, and materializing a folder row as a file writes an empty member no caller asked for.
 - Law: DEFLATE is CPU-bound pure JS — a bundle whose gathered entry bytes pass the `zip` row's threshold runs through the same worker `Render` request the PDF arm dials, under the `zip` request kind its own row names; the threshold chooses execution placement and never masquerades as a materialization ceiling.
 - Growth: a container policy axis (per-tenant naming, manifest entry) is a fold parameter; a second archive format is a new arm at the spec dispatch, never a fork of this one.
-- Packages: `jszip` (`JSZip`, `generateInternalStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
+- Packages: `jszip` (`JSZip`, `generateNodeStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
 
 ```typescript signature
-const _bundleStream = (spec: Report.Bundle) =>
-  Stream.async<Uint8Array, ReportFault>((emit) => {
-    const zip = new JSZip()
-    for (const entry of spec.entries) {
-      zip.file(entry.name, entry.bytes, {
-        compression: _MODALITY[entry.format].compression,
-        compressionOptions: { level: 6 },
-        date: new Date(0),
-      })
-    }
-    const helper = zip.generateInternalStream<"uint8array">({ type: "uint8array", streamFiles: true })
-    helper.on("data", (chunk, metadata) => {
-      spec.progress(metadata)
-      emit.single(chunk)
-    })
-    helper.on("end", () => emit.end())
-    helper.on("error", (cause) =>
-      emit.fail(new ReportFault({ case: { reason: "archive", arm: "zip", detail: String(cause) } })))
-    helper.resume()
-  })
+// `generateNodeStream` is the package's own backpressured form and takes the update callback as its SECOND
+// argument, so the progress projection keeps its seat while the read pulls; the `generateInternalStream` helper
+// beside it hands back a pause/resume handle a push bridge has to drive by hand, and driving it wrong buffers the
+// whole archive under a bound nothing declares.
+const _bundleStream = (spec: Report.Bundle): Stream.Stream<Uint8Array, ReportFault> =>
+  Stream.unwrapScoped(Effect.map(
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const zip = new JSZip()
+        Array.forEach(spec.entries, (entry) =>
+          zip.file(entry.name, entry.bytes, {
+            compression: _MODALITY[entry.format].compression,
+            compressionOptions: { level: 6 },
+            date: new Date(0),
+          }))
+        return zip.generateNodeStream({ type: "nodebuffer", streamFiles: true }, spec.progress)
+      }),
+      (readable) => Effect.sync(() => readable.unpipe()),
+    ),
+    (readable) =>
+      _drained(readable, (cause) => new ReportFault({ case: { reason: "archive", arm: "zip", detail: String(cause) } })),
+  ))
 
 const _bundlePlan = (spec: Report.Bundle): BundlePlan => ({
   entries: Array.map(spec.entries, (entry) => ({
@@ -811,7 +826,7 @@ const _bundle = (spec: Report.Bundle): Stream.Stream<Uint8Array, ReportFault, Be
     onNone: () => _bundleStream(spec),
     onSome: (kind) =>
       Stream.fromEffect(
-        Effect.mapError(Render.rendered(kind, new TextEncoder().encode(JSON.stringify(_bundlePlan(spec)))), _sank("zip")),
+        Effect.mapError(Render.rendered(kind, _utf8.encode(JSON.stringify(_bundlePlan(spec)))), _sank("zip")),
       ),
   })
 
@@ -822,8 +837,13 @@ const _unbundle = (bytes: Uint8Array, root: string) =>
   }).pipe(
     Effect.flatMap((zip) => {
       const anchor = path.resolve(root)
-      return Effect.forEach(Object.values(zip.files), (entry) => {
-        const target = path.resolve(anchor, entry.unsafeOriginalName)
+      // Folder rows carry no raw name — the loader stamps `unsafeOriginalName` on file rows alone — so they leave
+      // before the guard rather than handing the resolver an absent path it answers by throwing. The claim reads the
+      // RAW name wherever one survives, because the sanitized `name` is the loader's own collapse of exactly the
+      // `..` segments this guard exists to judge.
+      return Effect.forEach(Array.filter(Object.values(zip.files), (entry) => !entry.dir), (entry) => {
+        const claimed = Option.getOrElse(Option.fromNullable(entry.unsafeOriginalName), () => entry.name)
+        const target = path.resolve(anchor, claimed)
         return target === anchor || target.startsWith(`${anchor}${path.sep}`)
           ? Effect.tryPromise({
             try: () => entry.async("uint8array"),

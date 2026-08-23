@@ -108,12 +108,12 @@ public sealed partial class SolverKind : ICapability<SolverKind> {
 ## [03]-[PLUGIN_CONTRACT]
 
 - Owner: `SolverManifest` the plugin's declared contract; `OpDeclaration` a single declared op shape carrying its own effect; `SolverPluginContract` the static contract-validation and descriptor-projection surface.
-- Entry: `Validate(SolverManifest manifest, CapabilitySet<SolverKind> hosted)` returns `Validation<Error, SolverManifest>` — proves the hosted category, the declared representation pair, the non-empty op set, and every op declaration's effect and schema digest, ACCUMULATING every refusal; `Descriptors(SolverManifest manifest, Negotiation negotiation, Func<Negotiation, OpDeclaration, Func<CommandArguments, Fin<CommandBody>>> compileOf)` returns `Seq<CapabilityDescriptor>` — the per-op projection into the command algebra.
+- Entry: `Validate(SolverManifest manifest, CapabilitySet<SolverKind> hosted)` returns `Validation<Error, SolverManifest>` — proves the hosted category, the declared representation pair, the non-empty op set, and every op declaration's effect and published argument schema, ACCUMULATING every refusal; `Descriptors(SolverManifest manifest, Negotiation negotiation, Func<Negotiation, OpDeclaration, Func<CommandArguments, Fin<CommandBody>>> compileOf)` returns `Seq<CapabilityDescriptor>` — the per-op projection into the command algebra.
 - Law: validation ACCUMULATES over four independent admissions — hosted category, representation pair, non-empty ops, per-op ceiling and schema — which ran as a `Fin` abort ladder whose bottom arm inverted an `Option` into an error channel, so a manifest both mis-represented and carrying an over-ceiling op reported one cause and re-admitted after a partial fix; traversing the op leg names every offending op in one pass.
 - Law: effect is per-OP, not per-kind — the row carries the CEILING and each declared op carries what it performs, so a mixed manifest (a read op beside a write op under a `write` category) is expressible and the forbidden case, an op above its category's ceiling, has a column to refuse on.
 - Law: `Progress` crosses HERE and nowhere else — the row's column becomes the descriptor's progress admission, `Agent/capability#COMMAND_ALGEBRA` seats that verbatim on the `Spec` it declares, and the executing stratum's own `ProgressCell.Mint` gates the leaf cell on it — so a non-streaming category's plugin has no cell to advance and the column refuses at the emit site rather than describing a posture nothing enforces.
 - Law: the grant scope stays OFF the descriptor row because `GrantScope.Covers` reads the descriptor's `PermissionShape` at mediation, and a scope copied onto the row forks that one authority check.
-- Law: the argument schema digest is the `JsonSchemaExporter` digest of the op's input shape, and a blank one refuses — an op that does not self-describe its argument contract has no shape the suite's schema vocabulary can admit.
+- Law: the op carries its published argument schema document, not a digest standing in for unavailable bytes; the descriptor adopts that exact document as `ArgumentContract.Published`, while generated contract packages remain the wire-compatibility authority and the catalog pin addresses catalog coordinates alone.
 - Receipt: the validation outcome rides one `SpineLog` event; the contract is the manifest, never a separate receipt.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Generator.Equals, Rasm (kernel `PackKind`/`EncodingChannel`/`CapabilitySet`), BCL inbox
 - Growth: one declared op is one `OpDeclaration` row on the manifest; a new contract field is one column on `SolverManifest`; zero new surface.
@@ -127,7 +127,7 @@ public sealed partial class SolverKind : ICapability<SolverKind> {
 [Equatable]
 public sealed partial record OpDeclaration(
     string OpId,
-    string ArgumentSchemaDigest,
+    JsonElement ArgumentSchema,
     EffectClass Effect,
     CostModel Cost,
     [property: SetEquality] FrozenSet<string> ObjectSet);
@@ -175,7 +175,7 @@ public static class SolverPluginContract {
 
     static Validation<Error, Seq<OpDeclaration>> Ceilings(SolverManifest manifest) =>
         manifest.Ops.Traverse(op =>
-            op.Effect.Rank <= manifest.Kind.Effect.Rank && !string.IsNullOrEmpty(op.ArgumentSchemaDigest)
+            op.Effect.Rank <= manifest.Kind.Effect.Rank && op.ArgumentSchema.ValueKind == JsonValueKind.Object
                 ? Success<Error, OpDeclaration>(op)
                 : Fail<Error, OpDeclaration>(new SolverFault.ContractRejected(
                     $"{manifest.PluginId}.{op.OpId}: {op.Effect.Key} over {manifest.Kind.Effect.Key} or unschema'd"))).As();
@@ -190,6 +190,7 @@ public static class SolverPluginContract {
         manifest.Ops.Map(op => CapabilityDescriptor.Of(
             surface: $"{manifest.Kind.Key}.{manifest.PluginId}",
             op: op.OpId,
+            arguments: new ArgumentContract.Published(op.ArgumentSchema),
             effect: op.Effect,
             idempotency: Idempotency.Keyed,
             cost: op.Cost,

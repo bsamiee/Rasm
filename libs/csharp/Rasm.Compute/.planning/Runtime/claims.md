@@ -10,7 +10,7 @@ Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cach
 - [03]-[PROFILE_EVIDENCE]: `ProfileArtifact` — the one content-addressed profile-evidence vocabulary.
 - [04]-[CLAIM_ROW]: `BenchmarkClaim` — measured evidence bound to family, case token, and host fingerprint, with its durable mint and staleness read.
 - [05]-[HOST_FORECAST]: `HostClaims` — the two host-fingerprint extensions only this domain can decide, and the ONE duration-forecast query the substrate axis binds.
-- [06]-[TS_PROJECTION]: Claim document, subject union, band, and profile-evidence wire shapes.
+- [06]-[BENCHMARK_WIRE]: `ClaimWireMap` — the one generated seam onto the corpus `rasm.contracts.benchmark.v1` claim family Compute mints.
 
 ## [02]-[CLAIM_INPUT]
 
@@ -154,7 +154,7 @@ public sealed partial class BenchmarkInput {
 - Auto: artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — admit as content-keyed `ArtifactIndexRow`s on the blob lane and ride the claim as typed cases, each carrying the same `ContentAddress` the index row holds so evidence joins its blob in one hop.
 - Receipt: none of its own; a profiled run rides the `Runtime/receipts#RECEIPT_UNION` `ModelRun` case, whose `Profile` column carries this vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element (project — `Projection/address#CONTENT_ADDRESS` `ContentAddress`), Rasm.Persistence (project), BCL inbox
-- Growth: a new profile source is one case row and one TS mirror row; zero new surface.
+- Growth: a new profile source is one case row and one oneof arm at `[06]-[BENCHMARK_WIRE]`; zero new surface.
 - Boundary: identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence. This vocabulary replaces the loose path-string columns on `ModelRun` and on any per-run artifacts list alike. Continuous profiles join by SPAN identity through the `Runtime/receipts#TELEMETRY_PROJECTION` trace-correlation law, never as a fourth artifact case.
 
 ```csharp signature
@@ -268,7 +268,7 @@ public sealed partial class BenchmarkClaim {
 - Receipt: none.
 - Packages: LanguageExt.Core, NodaTime, Rasm.AppHost (project — `HostFingerprint`, `CpuBudget`), Rasm.Persistence (project — `ModelResultIndex`, `BenchmarkRow`), BCL inbox
 - Growth: a further host-derived read that only this domain can decide is one extension member here; a further host DIMENSION lands on the AppHost declaration.
-- Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `tests/contracts/` `[02.15]-[HOST_FINGERPRINT]` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
+- Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `tests/contracts/` `HOST_FINGERPRINT` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
 
 ```csharp signature
 public static class HostClaims {
@@ -292,38 +292,86 @@ public static class HostClaims {
 }
 ```
 
-## [06]-[TS_PROJECTION]
+## [06]-[BENCHMARK_WIRE]
 
-- Owner: `BenchmarkInputWire`, `BenchmarkSubjectWire`, `BenchmarkAggregateWire`, `BenchmarkRungWire`, `BenchmarkBandWire`, `BenchmarkMetricWire`, `BenchmarkClaimWire`, `ProfileArtifactWire` — the claim document with its subject union and band, and the profile-evidence union, as the dashboard and the composing app root consume them. `BenchmarkClaimWire.host` binds the AppHost-minted `HostFingerprintWire` (`tests/contracts/MANIFEST.md` `[02.15]-[HOST_FINGERPRINT]`) by IMPORT — a second declaration beside the claim forks the frozen column set the moment either side gains a column.
-- Packages: BCL inbox
-- Growth: a new claim dimension lands as one field on its wire; a new payload band or polarity row lands as one literal on the union mirroring its `[SmartEnum<string>]` roster.
-- Boundary: `BenchmarkMetricWire.polarity` projects `BenchmarkClaim.Polarity.Key` without hardcoding a direction, and `band` mirrors the `PayloadBand` roster keys.
-- Boundary: benchmark distributions cross as NANOSECONDS because every consumer performs arithmetic on the rungs.
-- Boundary: long values cross as decimal strings; instants use their invariant textual forms; optional evidence crosses as explicit null.
-- Boundary: `ProfileArtifactWire` mirrors profile cases, content addresses, and decimal `startNs`; the `Runtime/receipts#TS_PROJECTION` `ModelRunWire.profile` column reads this same declaration rather than a second one.
+- Owner: `ClaimWireMap` — the ONE generated `[Mapper]` seam from the claim domain onto the corpus `rasm.contracts.benchmark.v1` claim family: `BenchmarkClaimWire` the document (`suite`, `host`, `minted`, `metrics`), `BenchMetric` one measured row (`label`, `unit`, `modality`, `polarity`, the `subject` oneof `probe | kernel`, `band`, optional `warmups`/`allocated_bytes`/`operations`), `BenchKernelWire` the kernel subject (`input`, `substrate`, `family`, `case`, `route`, `provider`, optional `corpus`/`artifact_key`, `equivalence_max_deviation`, `tolerance_class`, `artifacts`), `BenchInputWire` the admitted input class, `BenchBandWire` the measured band (`sample_count`, `RungCell` rows under `BenchRung`, optional `ticks`, `samples`, `gc`/`heap` `BenchAggregate`, the open `counters` map), `ProfileArtifactWire` the profile-evidence oneof, and `HostFingerprintWire` the AppHost-minted host column.
+- Law: Compute is the MINTER of the benchmark claim document, so the generated messages are its wire vocabulary and no STJ record, TS interface, or MessagePack twin carries the claim's name — `Rasm.Persistence` and the Rhino host decode the same generated family and import no Compute type. The document's `host` column binds AppHost `Runtime/determinism#DETERMINISM_KERNEL` `HostFingerprintMap.Wire(EnvFingerprint)` by IMPORT — a second host projection beside the claim forks the frozen column set the moment either side gains a column. Producers format the document through AppHost `WireJson.Formatter` and parse through `WireJson.Parser`; Compute formats nothing itself.
+- Law: the correspondence is GENERATED where it is reader-free and hand-written exactly where protobuf forbids generation — proto3 `optional` scalars (`corpus`, `artifact_key`, `warmups`, `allocated_bytes`, `operations`, `ticks`) sit behind null-rejecting setters, so they land as one `IfSome` tail after the generated body, and the `subject`/`kind` oneofs assign ONE arm through the domain union's generated total `Switch`. `counters` stays the generated `MapField<string,double>` the executing harness fills at the AppHost bench edge; the claim carries no counter column. NAMED LOSS: the seven hand TS interfaces and the `BenchmarkRungWire` literal roster are retired. Witness: `BenchRung` is the generated enum, and the rung cells the band carries are `RungCell` rows — `Avg = Mean`, `P50 = Median`, `P95`, `StdDev` — in NANOSECONDS off `Duration.TotalNanoseconds`, the one unit every consumer performs arithmetic on.
+- Packages: Rasm.Contracts (project — `Benchmark.V1.{BenchmarkClaimWire, BenchMetric, BenchKernelWire, BenchInputWire, BenchBandWire, BenchAggregate, RungCell, BenchRung, BenchModality, BenchPolarity, PayloadBand, ProfileArtifactWire, ChromeTraceWire, BenchmarkExportWire, EpContextWire, HostFingerprintWire}`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapEnumValue]`, `[UserMapping]`, `EnumMappingStrategy.ByName`), Google.Protobuf (`RepeatedField<T>.AddRange`, `MapField<K,V>`), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp`), Rasm (project — `ContentHash.Wire`), Rasm.AppHost (project — `HostFingerprintMap.Wire`, `EnvFingerprint`), LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Growth: a new claim dimension lands as one generated field and one `[MapProperty]` row, the build breaking until both agree; a new payload band, polarity, or rung lands as one enum value at the corpus and one `[MapEnumValue]` row only where the domain spelling diverges; a new profile source is one `ProfileArtifact` case and one oneof arm, the total `Switch` breaking until the arm lands.
+- Boundary: `BenchmarkPolarity` and `PayloadBand` are `[SmartEnum<string>]` rows whose keys spell the generated enum names under `ByName` mapping, so `minimize`/`maximize` and `micro`/`small`/`medium`/`large` cross with no table and an unrostered key has no arm to land on; `corpus` crosses as the kernel's sixteen big-endian bytes through `ContentHash.Wire`; `minted` crosses as the NodaTime `Instant` through `ToTimestamp`; the band's `samples` column is the measured sample vector the AppHost bench edge supplies and stays empty where a claim carries only its distribution.
 
-```ts signature
-type ProfileArtifactWire =
-  | { kind: "chrome-trace"; content: string; startNs: string }
-  | { kind: "benchmark-export"; content: string; exporter: string }
-  | { kind: "ep-context"; content: string; ep: string };
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// The generated `benchmark.v1.PayloadBand` enum shares its simple name with this folder's `PayloadBand` roster it was
+// derived from; the alias resolves the one collision in the one file that imports both namespaces.
+using WireBand = Rasm.Contracts.Benchmark.V1.PayloadBand;
 
-interface BenchmarkInputWire { payloadBytes: string; band: "micro" | "small" | "medium" | "large"; dtype: string; shape: string[]; strides: string[]; batch: number; density: number; rank: number; contiguous: boolean; }
+// ONE seam from the claim domain onto the generated host family. Reader-free member moves generate; proto3
+// optional scalars and the two oneofs are the hand tail protobuf forces, spelled once here.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnumMappingStrategy = EnumMappingStrategy.ByName)]
+[UseStaticMapper(typeof(NodaExtensions))]
+public static partial class ClaimWireMap {
+    public static BenchmarkClaimWire Document(string suite, EnvFingerprint env, Instant minted, Seq<BenchmarkClaim> claims) {
+        BenchmarkClaimWire document = new() { Suite = suite, Host = HostFingerprintMap.Wire(env), Minted = minted.ToTimestamp() };
+        document.Metrics.AddRange(claims.Map(Metric));
+        return document;
+    }
 
-type BenchmarkSubjectWire =
-  | { subject: "probe" }
-  | { subject: "kernel"; input: BenchmarkInputWire; substrate: string; family: string; case: string; route: string; provider: string; corpus: string | null; artifactKey: string | null; equivalenceMaxDeviation: number; toleranceClass: string; artifacts: ProfileArtifactWire[] };
+    // The metric's generated body, then the optional tail: `Warmups` lives on the distribution, `AllocatedBytes`
+    // and `Operations` on the claim, each present on every Compute claim because admission refused their absence.
+    public static BenchMetric Metric(BenchmarkClaim claim) {
+        BenchMetric metric = new() {
+            Label = claim.Case, Unit = "ns", Modality = BenchModality.Fn, Polarity = Polarity(claim.Polarity),
+            Kernel = Kernel(claim), Band = Band(claim.Distribution),
+            Warmups = checked((uint)claim.Distribution.Warmups), AllocatedBytes = checked((ulong)claim.AllocatedBytes), Operations = checked((ulong)claim.Operations),
+        };
+        return metric;
+    }
 
-interface BenchmarkAggregateWire { avg: number; min: number; max: number; total: number; }
+    [MapProperty(nameof(BenchmarkClaim.Case), nameof(BenchKernelWire.Case), Use = nameof(CaseText))]
+    [MapProperty(nameof(BenchmarkClaim.Substrate), nameof(BenchKernelWire.Substrate), Use = nameof(SubstrateKey))]
+    [MapProperty(nameof(BenchmarkClaim.Family), nameof(BenchKernelWire.Family), Use = nameof(FamilyKey))]
+    [MapperIgnoreTarget(nameof(BenchKernelWire.Corpus))]
+    [MapperIgnoreTarget(nameof(BenchKernelWire.ArtifactKey))]
+    private static partial BenchKernelWire KernelCore(BenchmarkClaim claim);
 
-type BenchmarkRungWire = "min" | "max" | "avg" | "p25" | "p50" | "p75" | "p95" | "p99" | "p999" | "stdDev";
+    private static BenchKernelWire Kernel(BenchmarkClaim claim) {
+        BenchKernelWire kernel = KernelCore(claim);
+        claim.Corpus.Iter(corpus => kernel.Corpus = ContentHash.Wire(corpus));
+        claim.ArtifactKey.Iter(key => kernel.ArtifactKey = key);
+        return kernel;
+    }
 
-interface BenchmarkBandWire { sampleCount: number; rungs: Partial<Record<BenchmarkRungWire, number>>; ticks: number | null; samples: number[] | null; gc: BenchmarkAggregateWire | null; heap: BenchmarkAggregateWire | null; counters: Record<string, number> | null; }
+    [MapProperty(nameof(BenchmarkInput.Band), nameof(BenchInputWire.Band), Use = nameof(BandKey))]
+    [MapperIgnoreSource(nameof(BenchmarkInput.Rank))]
+    [MapperIgnoreSource(nameof(BenchmarkInput.Contiguous))]
+    public static partial BenchInputWire Input(BenchmarkInput input);
 
-interface BenchmarkMetricWire { label: string; unit: string; modality: "fn" | "iter" | "yield"; polarity: "minimize" | "maximize"; subject: BenchmarkSubjectWire; band: BenchmarkBandWire; warmups: number | null; allocatedBytes: string | null; operations: string | null; }
+    // The distribution's six columns become one band: sample count, and the four rungs a Compute run measures,
+    // each in nanoseconds. `ticks`, `samples`, `gc`, `heap`, and `counters` are the harness's and stay unset here.
+    public static BenchBandWire Band(BenchDistribution distribution) {
+        BenchBandWire band = new() { SampleCount = checked((uint)distribution.Samples) };
+        band.Rungs.AddRange(Seq(
+            new RungCell { Rung = BenchRung.Avg, Value = distribution.Mean.TotalNanoseconds },
+            new RungCell { Rung = BenchRung.P50, Value = distribution.Median.TotalNanoseconds },
+            new RungCell { Rung = BenchRung.P95, Value = distribution.P95.TotalNanoseconds },
+            new RungCell { Rung = BenchRung.StdDev, Value = distribution.StdDev.TotalNanoseconds }));
+        return band;
+    }
 
-// `HostFingerprintWire` is the AppHost mint on the `host-fingerprint` seam, imported here.
-interface BenchmarkClaimWire { suite: string; host: HostFingerprintWire; minted: string; metrics: BenchmarkMetricWire[]; }
+    // ONE arm per case through the generated total Switch — a multi-arm initializer would clear the arm it set.
+    public static ProfileArtifactWire Artifact(ProfileArtifact artifact) => artifact.Switch(
+        chromeTrace: static trace => new ProfileArtifactWire { ChromeTrace = new ChromeTraceWire { Content = ContentHash.Wire(trace.Content.Value), StartNs = trace.StartNs } },
+        benchmarkExport: static export => new ProfileArtifactWire { BenchmarkExport = new BenchmarkExportWire { Content = ContentHash.Wire(export.Content.Value), Exporter = export.Exporter } },
+        epContext: static context => new ProfileArtifactWire { EpContext = new EpContextWire { Content = ContentHash.Wire(context.Content.Value), Ep = context.Ep } });
+
+    [UserMapping] private static string CaseText(CacheToken token) => (string)token;
+    [UserMapping] private static string SubstrateKey(Substrate substrate) => substrate.Key;
+    [UserMapping] private static string FamilyKey(BenchmarkFamily family) => family.Key;
+    [UserMapping] private static WireBand BandKey(PayloadBand band) => Enum.Parse<WireBand>(band.Key, ignoreCase: true);
+    [UserMapping] private static BenchPolarity Polarity(BenchmarkPolarity polarity) => Enum.Parse<BenchPolarity>(polarity.Key, ignoreCase: true);
+}
 ```
 
 ## [07]-[RESEARCH]

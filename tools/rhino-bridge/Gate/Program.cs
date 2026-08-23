@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -39,9 +40,9 @@ internal static partial class Program {
         } finally {
             try { Directory.Delete(scratch, recursive: true); } catch (IOException) { }
         }
-        JsonArray table = [.. Rows.Select(static row => (JsonNode)row).ToArray()];
-        Console.Out.WriteLine(table.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        bool pass = Rows.All(static row => (bool?)row["pass"] ?? false);
+        JsonArray table = [.. Rows.Cast<JsonNode>()];
+        await Console.Out.WriteLineAsync(table.ToJsonString(new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
+        bool pass = Rows.TrueForAll(static row => (bool?)row["pass"] ?? false);
         return pass ? 0 : 1;
     }
 
@@ -96,7 +97,7 @@ internal static partial class Program {
             Signal(child, "-CONT");
             bool pass = aliveSilent
                 && dialog is SessionState.Faulted { Fault: BridgeFault.DialogSuspected }
-                && wedged is SessionState.Faulted { Fault: BridgeFault.UiWedged } wedge && wedge.Fault is BridgeFault.UiWedged w && w.Scenario == "gate.standin";
+                && wedged is SessionState.Faulted { Fault: BridgeFault.UiWedged { Scenario: "gate.standin" } };
             Report("sigstop", pass, new JsonObject {
                 ["aliveAndSilent"] = aliveSilent,
                 ["connecting"] = (dialog as SessionState.Faulted)?.Fault is BridgeFault.DialogSuspected ? "dialog-suspected" : dialog.GetType().Name,
@@ -114,17 +115,17 @@ internal static partial class Program {
         int child = Spawn();
         LiveHost host = StandIn(child);
         SessionSignal? seen = null;
-        using ManualResetEventSlim raised = new(false);
+        using ManualResetEventSlim raised = new(initialState: false);
         using HostWatch watch = HostWatch.Attach(child, signal => { seen = signal; raised.Set(); }, policy.WatchPoll, TimeProvider.System);
         BundleInfo standInBundle = new(AppPath: "/tmp", CFBundleName: "GateProbe", CFBundleExecutable: "GateProbeExec", CFBundleVersion: "0.0");
         Seq<string> baseline = Evidence.IpsBaseline(standInBundle);
         _ = Posix.Kill(child);
-        bool observed = raised.Wait(TimeSpan.FromSeconds(5));
+        bool observed = raised.Wait(TimeSpan.FromSeconds(5), CancellationToken.None);
         SessionState connecting = new SessionState.Connecting(Host: host, PollsRemaining: 0);
         SessionState afterExit = seen is null ? connecting : SessionDispatch.Apply(connecting, seen, policy);
         Option<CrashSummary> ips = Evidence.IpsDiff(baseline, standInBundle);
         SessionState afterDeadline = SessionDispatch.Apply(connecting, new SessionSignal.DeadlineHit(Phase: SessionPhase.Connect, Elapsed: policy.ConnectDeadline + TimeSpan.FromSeconds(1)), policy);
-        bool pass = observed && watch.Mode == "kqueue"
+        bool pass = observed && watch.Mode is "kqueue"
             && afterExit is SessionState.Faulted { Fault: BridgeFault.LaunchFailed } exited
             && ((BridgeFault.LaunchFailed)exited.Fault).Detail.Contains("during connect", StringComparison.Ordinal)
             && ips.IsNone
@@ -167,7 +168,7 @@ internal static partial class Program {
         File.WriteAllText(path, """{"holderPid":4999999,"holderStartedAtUnixMs":1,"acquiredAtUnixMs":1}""");
         List<BridgeEvent> published = [];
         Fin<LeaseToken> token = Lease.Acquire(path, Guid.NewGuid(), TimeProvider.System, published.Add);
-        bool reclaimed = published.Any(static evt => evt is BridgeEvent.FactCase { Key: "lease.reclaimed" });
+        bool reclaimed = published.Exists(static evt => evt is BridgeEvent.FactCase { Key: "lease.reclaimed" });
         Report("dead-lease", token.IsSucc && reclaimed, new JsonObject {
             ["outcome"] = token.IsSucc ? "acquired" : "failed",
             ["fact"] = reclaimed ? "lease.reclaimed" : "missing",
@@ -244,10 +245,10 @@ internal static partial class Program {
         List<BridgeEvent> firstClean = [];
         await QuitPrepare.RunAsync(_ => Task.FromResult(Clean(2)), bound, TimeProvider.System, Guid.NewGuid(), firstClean.Add, CancellationToken.None).ConfigureAwait(false);
         string[] scratchDocs = Directory.Exists(scratch) ? Directory.GetFiles(scratch, "*.3dm", SearchOption.AllDirectories) : [];
-        bool reassertClean = retried.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared") && attempts[0] == 2;
-        bool dirtyTyped = dirty.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepare.incomplete")
-            && !dirty.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared");
-        bool cleanFirstPass = firstClean.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared");
+        bool reassertClean = retried.OfType<BridgeEvent.FactCase>().Any(static f => f.Key is "quit.prepared") && attempts[0] == 2;
+        bool dirtyTyped = dirty.OfType<BridgeEvent.FactCase>().Any(static f => f.Key is "quit.prepare.incomplete")
+            && !dirty.OfType<BridgeEvent.FactCase>().Any(static f => f.Key is "quit.prepared");
+        bool cleanFirstPass = firstClean.OfType<BridgeEvent.FactCase>().Any(static f => f.Key is "quit.prepared");
         bool pass = reassertClean && dirtyTyped && cleanFirstPass && scratchDocs.Length == 0;
         Report("quit-prepare-reassert", pass, new JsonObject {
             ["stallThenCleanRetried"] = reassertClean ? string.Create(CultureInfo.InvariantCulture, $"re-asserted after stall (attempts={attempts[0]}) -> quit.prepared") : "did not re-assert to clean",
@@ -277,8 +278,8 @@ internal static partial class Program {
                 Bundle: synthetic, Root: CancellationToken.None);
             Fin<Seq<BridgeEvent>> swept = Reconcile.Run(synthetic, Guid.NewGuid()).Run(runtime);
             Seq<BridgeEvent> facts = swept.IfFail(Seq<BridgeEvent>());
-            bool cleared = facts.Exists(evt => evt is BridgeEvent.FactCase { Key: "reconcile.cleared" } fact && fact.Value.GetProperty("path").GetString() == windowed);
-            bool skipped = facts.Exists(evt => evt is BridgeEvent.FactCase { Key: "reconcile.skipped.foreign" } fact && fact.Value.GetProperty("path").GetString() == foreign);
+            bool cleared = facts.Exists(evt => evt is BridgeEvent.FactCase { Key: "reconcile.cleared" } fact && string.Equals(fact.Value.GetProperty("path").GetString(), windowed, StringComparison.Ordinal));
+            bool skipped = facts.Exists(evt => evt is BridgeEvent.FactCase { Key: "reconcile.skipped.foreign" } fact && string.Equals(fact.Value.GetProperty("path").GetString(), foreign, StringComparison.Ordinal));
             bool pass = cleared && skipped && !File.Exists(windowed) && File.Exists(foreign);
             Report("reconcile-instance-scoped", pass, new JsonObject {
                 ["windowedMarker"] = !File.Exists(windowed) ? "cleared + fact" : "still present",
@@ -304,7 +305,7 @@ internal static partial class Program {
         Fin<StagedCargo> again = Evidence.Stage(manifest, session, scratch, refs);
         bool pass = first is Fin<StagedCargo>.Succ(StagedCargo staged)
             && again is Fin<StagedCargo>.Succ(StagedCargo restaged)
-            && staged.Manifest.ContentHash == restaged.Manifest.ContentHash
+            && string.Equals(staged.Manifest.ContentHash, restaged.Manifest.ContentHash, StringComparison.Ordinal)
             && File.Exists(Path.Combine(staged.Manifest.StagePath, "A.dll"))
             && staged.Manifest.HostPlugins.Length == 1;
         Report("xxhash3-staging", pass, new JsonObject {
@@ -340,7 +341,7 @@ internal static partial class Program {
         string reports = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", "DiagnosticReports");
         string? sample = Directory.Exists(reports) ? Directory.GetFiles(reports, "*.ips").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
         if (sample is null) {
-            Report("ips-parser", true, new JsonObject { ["outcome"] = "no .ips on host; parser exercised via IpsDiff none-path only" });
+            Report("ips-parser", pass: true, new JsonObject { ["outcome"] = "no .ips on host; parser exercised via IpsDiff none-path only" });
             return;
         }
         string stem = Path.GetFileName(sample).Split('-')[0];
@@ -411,26 +412,26 @@ internal static partial class Program {
                     continue;
                 FileStream stream = new(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
                 if (Flock((int)stream.SafeFileHandle.DangerousGetHandle(), 2 | 4) != 0) {
-                    stream.Dispose();
-                    Report("live-lane", false, new JsonObject { ["outcome"] = $"assay bridge lease busy at {lockPath}; live lane skipped" });
+                    await stream.DisposeAsync().ConfigureAwait(false);
+                    Report("live-lane", pass: false, new JsonObject { ["outcome"] = $"assay bridge lease busy at {lockPath}; live lane skipped" });
                     return;
                 }
                 locks.Add(stream);
             }
             if (Exec.Run("/usr/bin/pgrep", ["-x", "Rhinoceros"], TimeSpan.FromSeconds(5)) is Fin<ExecResult>.Succ(ExecResult running) && running.ExitCode == 0) {
-                Report("live-lane", false, new JsonObject { ["outcome"] = "a Rhinoceros process is already live; refusing to fault-inject" });
+                Report("live-lane", pass: false, new JsonObject { ["outcome"] = "a Rhinoceros process is already live; refusing to fault-inject" });
                 return;
             }
             Fin<BundleInfo> discovered = BundleInfo.Discover(policy.ToolDeadline);
             if (discovered is not Fin<BundleInfo>.Succ(BundleInfo bundle)) {
-                Report("live-lane", false, new JsonObject { ["outcome"] = "no bundle discovered" });
+                Report("live-lane", pass: false, new JsonObject { ["outcome"] = "no bundle discovered" });
                 return;
             }
             await LiveCycleCleanQuitAsync(bundle).ConfigureAwait(false);
             LiveCycleKillMidConnect(bundle);
         } finally {
             foreach (FileStream held in locks)
-                held.Dispose();
+                await held.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -465,13 +466,13 @@ internal static partial class Program {
         Fin<Unit> launched = bundle.Launch(policy.ToolDeadline);
         Option<int> pid = launched.IsSucc ? AwaitPid(policy.LaunchDeadline) : Option<int>.None;
         if (pid.Case is not int hostPid) {
-            Report("live-clean-quit", false, new JsonObject { ["outcome"] = launched.IsFail ? "launch failed" : "no pid within deadline" });
+            Report("live-clean-quit", pass: false, new JsonObject { ["outcome"] = launched.IsFail ? "launch failed" : "no pid within deadline" });
             return;
         }
-        Thread.Sleep(8_000);
+        await Task.Delay(TimeSpan.FromSeconds(8), TimeProvider.System, CancellationToken.None).ConfigureAwait(false);
         LiveHost host = RealHost(hostPid, bundle);
         bool exitSeen = false;
-        using ManualResetEventSlim raised = new(false);
+        using ManualResetEventSlim raised = new(initialState: false);
         using HostWatch watch = HostWatch.Attach(hostPid, _ => { exitSeen = true; raised.Set(); }, policy.WatchPoll, TimeProvider.System);
         SupervisorRuntime runtime = new(
             Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
@@ -482,12 +483,12 @@ internal static partial class Program {
         Fin<PhaseStatus> outcome = QuitLadder.Run(host, Guid.NewGuid(), published.Add).Run(runtime);
         _ = raised.Wait(TimeSpan.FromSeconds(5));
         string[] rungs = [.. published.OfType<BridgeEvent.PhaseCase>().Select(static phase => $"{phase.Phase.Key}:{phase.Status.Key}")];
-        bool prepared = published.OfType<BridgeEvent.FactCase>().Any(static f => f.Key == "quit.prepared");
+        bool prepared = published.OfType<BridgeEvent.FactCase>().Any(static f => f.Key is "quit.prepared");
         bool scrubbed = scrub.Case is QuitPrepareReceipt receipt && receipt.Scrubbed;
         int litterAfter = CountDocs(litterRoots, bundle);
         bool pass = scrubbed && prepared
             && outcome is Fin<PhaseStatus>.Succ(PhaseStatus status) && status == PhaseStatus.Ok
-            && rungs.Length >= 1 && rungs[0] == "quit.ae:ok" && exitSeen
+            && rungs.Length >= 1 && rungs[0] is "quit.ae:ok" && exitSeen
             && litterAfter <= litterBefore;
         Report("live-clean-quit", pass, new JsonObject {
             ["pid"] = hostPid, ["rungs"] = new JsonArray(rungs.Select(static rung => (JsonNode)rung).ToArray()),
@@ -504,8 +505,9 @@ internal static partial class Program {
     // returns the receipt the supervisor checks before terminate. Events carry the quit.prepared fact.
     private static async Task<(Option<QuitPrepareReceipt> Receipt, BridgeEvent[] Events)> DirtyThenPrepareAsync(LiveHost host, SessionPolicy policy) {
         try {
-            await using SupervisorConnection connection = await SupervisorConnection
+            SupervisorConnection connection = await SupervisorConnection
                 .ConnectAsync(host.Endpoint.PipeName, policy.ConnectDeadline, CancellationToken.None).ConfigureAwait(false);
+            await using ConfiguredAsyncDisposable closing = connection.ConfigureAwait(false);
             _ = await connection.HelloAsync(CancellationToken.None).ConfigureAwait(false);
             using CancellationTokenSource scope = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
             scope.CancelAfter(policy.QuitRungDeadline);
@@ -534,12 +536,12 @@ internal static partial class Program {
         Fin<Unit> launched = bundle.Launch(policy.ToolDeadline);
         Option<int> pid = launched.IsSucc ? AwaitPid(policy.LaunchDeadline) : Option<int>.None;
         if (pid.Case is not int hostPid) {
-            Report("live-kill9-mid-connect", false, new JsonObject { ["outcome"] = launched.IsFail ? "launch failed" : "no pid within deadline" });
+            Report("live-kill9-mid-connect", pass: false, new JsonObject { ["outcome"] = launched.IsFail ? "launch failed" : "no pid within deadline" });
             return;
         }
         LiveHost host = RealHost(hostPid, bundle);
         SessionSignal? seen = null;
-        using ManualResetEventSlim raised = new(false);
+        using ManualResetEventSlim raised = new(initialState: false);
         using HostWatch watch = HostWatch.Attach(hostPid, signal => { seen = signal; raised.Set(); }, policy.WatchPoll, TimeProvider.System);
         Signal(hostPid, "-STOP");
         Thread.Sleep(1_500);
@@ -548,7 +550,7 @@ internal static partial class Program {
         SessionState dialog = SessionDispatch.Apply(connecting, new SessionSignal.HeartbeatSilent(SilentFor: policy.HeartbeatWindow + TimeSpan.FromSeconds(1)), policy);
         Signal(hostPid, "-CONT");
         _ = Posix.Kill(hostPid);
-        bool observed = raised.Wait(TimeSpan.FromSeconds(5));
+        bool observed = raised.Wait(TimeSpan.FromSeconds(5), CancellationToken.None);
         SessionState afterExit = seen is null ? connecting : SessionDispatch.Apply(connecting, seen, policy);
         long retiredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         _ = QuitJournal.Append(QuitJournal.CanonicalPath, new QuitJournalEntry(

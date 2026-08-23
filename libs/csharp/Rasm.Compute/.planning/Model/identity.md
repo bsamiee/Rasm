@@ -492,30 +492,47 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
         // re-read out as a message. The bracket then owns native reads alone.
         guard(archive.Exists("bands"), (Error)IdentityRefusal.ArchiveUnreadable.Fault())
         .ToFin()
-        .Bind(_ => Op.Of(name: "model.graduation-archive-read").Catch(() => {
-                NativeGroup root = archive.Group("bands");
-                UInt128 evidenceKey = UInt128.Parse(
-                    root.Attribute("evidence-key").Read<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-                Seq<Band> bands = toSeq(root.Children()).Map(child => {
-                    string feature = child.Name;
-                    string kind = child.Attribute("kind").Read<string>();
-                    NativeDataset massSet = archive.Dataset($"bands/{feature}/mass");
-                    double[] mass = new double[checked((int)massSet.Space.Dimensions[0])];
-                    massSet.Read<double>(archive.Access, mass.AsSpan(), new HyperslabSelection(0, (ulong)mass.Length));
-                    if (StringComparer.Ordinal.Equals(kind, "numeric")) {
-                        NativeDataset edgeSet = archive.Dataset($"bands/{feature}/edges");
-                        double[] edges = new double[checked((int)edgeSet.Space.Dimensions[0])];
-                        edgeSet.Read<double>(archive.Access, edges.AsSpan(), new HyperslabSelection(0, (ulong)edges.Length));
-                        return (Band)new Band.Numeric(feature, toSeq(edges), toSeq(mass));
-                    }
+        .Bind(_ =>
+            from root in archive.Group("bands")
+            from header in Op.Of(name: "model.graduation-archive-header").Catch(() => Fin.Succ((
+                EvidenceKey: UInt128.Parse(root.Attribute("evidence-key").Read<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                Children: toSeq(root.Children()))))
+            from bands in header.Children.Traverse(child =>
+                from row in Op.Of(name: "model.graduation-archive-band").Catch(() => Fin.Succ((
+                    Feature: child.Name,
+                    Kind: child.Attribute("kind").Read<string>())))
+                from massSet in archive.Dataset($"bands/{row.Feature}/mass")
+                from mass in ReadDoubles(archive, massSet)
+                from band in StringComparer.Ordinal.Equals(row.Kind, "numeric")
+                    ? from edgeSet in archive.Dataset($"bands/{row.Feature}/edges")
+                      from edges in ReadDoubles(archive, edgeSet)
+                      select (Band)new Band.Numeric(row.Feature, toSeq(edges), toSeq(mass))
+                    : StringComparer.Ordinal.Equals(row.Kind, "categorical")
+                    ? from categorySet in archive.Dataset($"bands/{row.Feature}/categories")
+                      from categories in ReadStrings(categorySet)
+                      select (Band)new Band.Categorical(row.Feature, toSeq(categories), toSeq(mass))
+                    : Fin.Fail<Band>((Error)IdentityRefusal.BandMalformed.Fault())
+                select band)
+            from admitted in Admit(header.EvidenceKey, bands)
+            select admitted);
 
-                    // String elements never span-read; the allocating overload is the sanctioned path here.
-                    string[] categories = archive.Dataset($"bands/{feature}/categories").Read<string[]>();
-                    return new Band.Categorical(feature, toSeq(categories), toSeq(mass));
-                });
-                return Fin.Succ((EvidenceKey: evidenceKey, Bands: bands));
-            })
-            .Bind(read => Admit(read.EvidenceKey, read.Bands)));
+    static Fin<double[]> ReadDoubles(HdfHandle archive, NativeDataset dataset) =>
+        Op.Of(name: "model.graduation-archive-double").Catch(() => {
+            ulong[] extent = dataset.Space.Dimensions;
+            if (extent.Length != 1 || dataset.Type.Class != H5DataTypeClass.FloatingPoint || dataset.Type.Size != sizeof(double)) {
+                return Fin.Fail<double[]>((Error)IdentityRefusal.BandMalformed.Fault());
+            }
+            double[] values = new double[checked((int)extent[0])];
+            dataset.Read<double>(archive.Access, values.AsSpan(), new HyperslabSelection(0, (ulong)values.Length));
+            return Fin.Succ(values);
+        });
+
+    // String elements never span-read; the allocating overload is the sanctioned path here.
+    static Fin<string[]> ReadStrings(NativeDataset dataset) =>
+        Op.Of(name: "model.graduation-archive-string").Catch(() =>
+            dataset.Space.Dimensions.Length == 1 && dataset.Type.Class == H5DataTypeClass.String
+                ? Fin.Succ(dataset.Read<string[]>())
+                : Fin.Fail<string[]>((Error)IdentityRefusal.BandMalformed.Fault()));
 
     // Coverage is PARTIAL by design — a caller samples the features it observed — so the covered pairs score and the
     // rest are NAMED. Verdicts accumulate rather than short-circuit: a monadic fold stops at the first undersized
@@ -553,7 +570,7 @@ public sealed record GraduationEnvelope(UInt128 EvidenceKey, Seq<GraduationEnvel
 - Owner: `FieldScalar` `[SmartEnum<string>]` is the closed wire-primitive vocabulary; `FieldNode` `[Union]` is the recursive descriptor tree whose six cases carry every composite shape a C# owner projects, each nesting the root so depth growth stays case-owned; `OwnerDescriptor` names one owner and its ordered field roster; `GraduationEvidence` is the versioned bundle carrying the roster with the content key its own canonical projection mints.
 - Cases: `FieldNode` cases `Scalar` (one `FieldScalar` leaf), `Array` (one element node), `Nested` (one owner-name reference), `Mapping` (key and value nodes), `Optional` (one element node), `UnionCase` (a non-empty member roster); `FieldScalar` rows `i32`, `i64`, `f64`, `bool`, `string`, `key`, `bytes`, `decimal`.
 - Law: kind literals are the DECODE contract. Its companion projector selects each leaf case on the `kind` discriminator alone, and the union generator emits no JSON support of any kind — no converter, no derived-type roster — so a case crossing without its `[JsonDerivedType]` row serializes as the abstract base, one empty object per case, with no decode refusal on either end. Hand-declaration on the union declaration freezes the literals: renaming a case is free, renaming a literal is a wire break.
-- Law: the bundle is OFFLINE at rest and reaches no gRPC leg. It crosses as bytes the app root writes through the Persistence object lane exactly as a warm artifact does, so the `Runtime/wire#PROTO_VOCABULARY` descriptor set never grows a message for it and the `Runtime/wire#CONTRACT_EVOLUTION` additive-only guard has nothing to police here — a wire the channel never carries cannot drift a channel contract.
+- Law: the bundle is OFFLINE at rest and reaches no gRPC leg. It crosses as bytes the app root writes through the Persistence object lane exactly as a warm artifact does, so the `Runtime/wire#PROTO_VOCABULARY` roster never grows a message for it and the corpus gate has nothing to police here — a wire the channel never carries cannot drift a channel contract.
 - Law: admission proves what the far end can only fail on. `Nested.Ref` names a declared owner and the owner graph is ACYCLIC, because the projector builds each struct against already-registered siblings — an unresolved reference is an unbound name at class creation there and a back edge is a topological refusal, both after the bytes already shipped. `UnionCase.Members` is non-empty for the same reason: the projector's member fold reduces from its first element.
 - Entry: `public static Fin<GraduationEvidence> Admit(Seq<OwnerDescriptor> owners)` — the caller supplies the roster and the bundle mints its own `SchemaVersion` and `BundleKey`, so neither is a claim a caller can spell wrong. `public Fin<ReadOnlyMemory<byte>> Bundle(JsonTypeInfo<GraduationEvidence> contract)` writes the canonical UTF-8 payload under an injected contract; on the wire `BundleKey` crosses as its bare 32-hex render (`$"{BundleKey:x32}"`, decoded `NumberStyles.HexNumber` — the estate content-key text law; a raw `UInt128` JSON number breaks double-precision consumers), and the scalar leaf's payload property pins `"scalar"` because CamelCase would seat it on the `"kind"` discriminator STJ refuses.
 - Auto: `Admit` refuses an empty roster, a blank or duplicated owner name, a blank or duplicated field name within one owner, an unsound node anywhere in a tree, an unresolvable `Nested.Ref`, and a cyclic owner graph proved by peeling every reference-free owner until either the graph empties or a pass settles nothing. `Render` is the one catamorphism over the tree: it feeds the length-framed preimage `ContentHash.Of` keys, so bundle identity and the shape it describes cannot disagree, and a field-order or scalar-row change re-keys the bundle the companion pins its round-trip against.

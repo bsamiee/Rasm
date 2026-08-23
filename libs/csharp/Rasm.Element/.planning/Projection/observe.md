@@ -2,20 +2,20 @@
 
 `Rasm.Element` observability is one app-minted kernel `HookRail` closed over this folder's roster/fact pair and the subscribed `GraphInstrument` and receipt projections. `ElementPoint` closes the `rasm.element.<domain>.<point>` roster on a kernel modality column and derives each point's `TraceScope` off that same id; `ElementFact` carries the `Op`, content key, payload, and the span marks the metric plane refuses. `graph.delta-applied` alone admits veto gates, taps run only after the guarded seam succeeds, and subscriber faults park point-attributed on the rail's `FaultCell`.
 
-`ElementTap` decorates `GraphDelta.AdmitOnto`, `ElementGraph.Bake`, `ModelAudit.Of`, `ProjectionAssembly.Assemble`, and both wire decoders, bracketing each in the kernel `SpanBand` the composing root admits `ElementPoint.Scopes` into. Graph, delta, audit, and wire owners remain emit-free; apps own registration and lifetime.
+`ElementTap` decorates `GraphDelta.AdmitOnto`, `ElementGraph.Bake`, `ModelAudit.Of`, and `ProjectionAssembly.Assemble`, bracketing each in the kernel `SpanBand` the composing root admits `ElementPoint.Scopes` into. Graph, delta, audit, and projection owners remain emit-free.
 
 `GraphInstrument` projects every fact onto the `InstrumentSet` the composing root materializes from `ElementInstrument.Telemetry` — kernel `InstrumentSpec` declarations carrying kind, form, UCUM units, bounded dimensions, and `Buckets` advice. Closed seam vocabularies bound every tag beside the kernel `TenantContext` partition, identifier-grade `NodeId` and `ContentAddress` ride the span alone, and `AnalysisRoute` rides the typed `AssessmentTouch` census alone — one delta touches N routes and `SetTag` is set-or-replace, so a route slot reports whichever touch folded last.
 
 ## [01]-[INDEX]
 
-- [02]-[HOOK_RAIL]: `ElementPoint` closes the point vocabulary on its kernel `Modalities` capability set and derived `TraceScope` plane, `ElementFact` carries the `[Union]` fact family through one `Of` mint with its `Point` and `Marks` projections, `ElementHooks.Live` mints the ONE kernel `HookRail` composition over the roster, and `ElementTap` decorates the graph, audit, projection, and wire entrypoints and emits stamped receipts through the kernel `ReceiptSinkPort`.
+- [02]-[HOOK_RAIL]: `ElementPoint` closes the point vocabulary on its kernel `Modalities` capability set and derived `TraceScope` plane, `ElementFact` carries the `[Union]` fact family through one `Of` mint with its `Point` and `Marks` projections, `ElementHooks.Live` mints the one kernel `HookRail` composition, and `ElementTap` decorates graph, audit, and projection entrypoints and emits stamped receipts through the kernel `ReceiptSinkPort`.
 - [03]-[INSTRUMENT_PROJECTION]: `ElementInstrument` closes the instrument roster — each row CARRYING its kernel `InstrumentSpec` beside the one dotted slot vocabulary both planes spell — and mints the contributor port, while `GraphInstrument.Tap` rails every fact into instrument writes over the composition's `InstrumentSet` and `GraphInstrument.Depth` binds the rail's own parked-fault read to the one pulled row.
 
 ## [02]-[HOOK_RAIL]
 
-- Owner: `ElementPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.element.<domain>.<point>` (the estate four-segment lowercase grammar) realizing the kernel `IHookRoster<ElementPoint>` floor with a `CapabilitySet<HookModality>` column and the kernel `TraceScope` plane derived off the id's own head; `ElementFact` the `[Union]` typed fact family over the shared `Op Key` base; `AssessmentTouch` the per-delta assessment census row (the graded `Projection/audit#INTEGRITY_SWEEP` `AuditTally` its audit-side sibling, seated with the taxonomy it grades); `WireKind` the two-row decode-kind vocabulary; `ElementHooks` the composition entry minting the ONE kernel `HookRail<ElementPoint, ElementFact, TelemetrySource>` (the folder mints zero rail mechanism — the kernel `HookGate`/`HookTap` rows ride domain aliases); `ElementTap` the decoration capability and the receipt-port producer.
-- Cases: `DeltaApplied` (delta content key, node/edge touch counts, header presence, the typed `AssessmentTouch` census — fired at the admission seam, the one `Veto` point) · `Frozen` (snapshot `ContentAddress.OfGraph` key, node/edge population) · `Baked` (element root, fold `Duration`) · `Audited` (the graded snapshot address, the typed `AuditTally` `(category, severity, count)` census with its derived total/blocking/drift reads, fold `Duration`) · `Assembled` (merged-delta content key — the same derivation the `Rasm.Persistence` event dedup reads — projector count, delta magnitude, finding count, pipeline `Duration`) · `Graded` (one `ConstraintFinding` — severity row, original `Error`, optional generated numeric fault code, replayable `KeyOf` content address, waived flag) · `Decoded` (`WireKind`, `Option<long>` payload bytes — `None` for a non-seekable stream, never a fabricated length — decoded magnitude, `Duration`); the closed lifecycle-fact family.
-- Entry: `ElementFact.Of` discriminates on input shape. `ElementHooks.Live(key, gates, taps, band, cell)` mints the kernel rail — one seat per roster row, gates through the kernel `Veto` fold (a gate on an observe-only point refuses at the mint), taps through `Observe` at each tap's OWN `Scope` column, detach custody and the point census both the kernel rail's — and preserves a composition refusal as the original `Error`; the `band` parameter is the kernel `SpanBand` lowered onto the rail's `IHookSpan` floor, so the e30 seam crossing is fence-performed here. `rail.Fire(at, fact, key, body)` is the kernel guarded fire — vetoes fold, the `Fin<T>` body runs over the ADMITTED fact, taps fan only from its success path — and `rail.Faults` reads parked subscriber faults. `ElementTap.Admitted`/`Baked`/`Audited`/`Assembled` preserve each seam owner's rail type; `DecodedGraph`/`DecodedDelta` specialize one `Decoded<T>` decoration kernel with decoder, kind, and magnitude projections; `ElementTap.Receipts(port, correlation)` is the subscriber that stamps every fired fact onto the kernel `ReceiptSinkPort` as a `ReceiptEnvelope` keyed by the point id.
+- Owner: `ElementPoint` the point vocabulary, `ElementFact` the typed fact family, `AssessmentTouch` the per-delta assessment census, `ElementHooks` the kernel-rail composition, and `ElementTap` the decoration capability.
+- Cases: `DeltaApplied`, `Frozen`, `Baked`, `Audited`, `Assembled`, and `Graded`; generated node-edit support is not a graph-ingress lifecycle and mints no snapshot/delta decode facts.
+- Entry: `ElementFact.Of` discriminates on input shape. `ElementHooks.Live` mints the kernel rail and `rail.Fire` guards the admitted fact. `ElementTap.Admitted`/`Baked`/`Audited`/`Assembled` preserve each owner's rail type; `ElementTap.Receipts` projects every fact onto the kernel receipt port.
 - Auto: `Fire` on an observe-only point has no gates; the capsule's shield captures both throws and returned failures, parking each as a point-attributed `IsolatedFault` with the tap's name folded into the failure detail. `ElementTap.Admitted` vetoes before `AdmitOnto`, emits `DeltaApplied` only after admission succeeds, and emits `Frozen` after the snapshot exists. `Assembled` times the pipeline and emits one `Graded` fact per finding; `Audited` times the one audit fold and fires its receipt's census. Both delta-keyed facts resolve their tolerance through the ONE `delta.Header.IfNone(base)` rule, so a header-establishing delta keys the fact exactly as the Persistence dedup keys the event. `Point` maps each case to its preallocated row and `Marks` to its identifier-grade span evidence, both through the generated dispatch. Marks stamp ahead of the veto fold, so a refused admission leaves the span carrying what was attempted beside the kernel's `Error` status.
 - Receipt: a fired `ElementFact` is the evidence event; the emitter rail already carries the outcome. The rail's `FaultCell` retains subscriber-failure evidence a health panel reads. Replay/audit, AppUi, instrument, and receipt consumers share tap rows, so observability subscribes to facts and never mints them — `Receipts` projects each fact into a `ReceiptEnvelope` the composing root's `ReceiptSinkPort` stamps and emits, which is the e30 port's one Element producer.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`/`[Union]` + the generated `Switch`/`Map`), LanguageExt.Core (`Fin`/`Seq`/`Option`), NodaTime (`Duration`), `Rasm` (the kernel hook rail, the trace band, the receipt port, `MonotonicTimeline`, `Op`), BCL inbox (`Activity` the span handle the band hands back, `System.Text.Json` the receipt payload projection).
@@ -63,7 +63,6 @@ public sealed partial class ElementPoint : IHookRoster<ElementPoint> {
  public static readonly ElementPoint Audited = new("rasm.element.graph.audited", CapabilitySet<HookModality>.Of(HookModality.Observe));
  public static readonly ElementPoint Assembled = new("rasm.element.projection.assembled", CapabilitySet<HookModality>.Of(HookModality.Observe));
  public static readonly ElementPoint Finding = new("rasm.element.projection.finding", CapabilitySet<HookModality>.Of(HookModality.Observe));
- public static readonly ElementPoint WireDecoded = new("rasm.element.wire.decoded", CapabilitySet<HookModality>.Of(HookModality.Observe));
 
  // One materialized index answers the roster floor's Id and Plane reads — the id and its rasm.<pkg>.<domain> head
  // derive from the key ONCE, so a bracket pays a lookup and a scope can never fork from the point it brackets.
@@ -81,13 +80,6 @@ public sealed partial class ElementPoint : IHookRoster<ElementPoint> {
  // Composing roots admit this roster into SpanBand.Of; the roster shares three planes, so the projection
  // deduplicates, and an unadmitted scope refuses on the kernel rail rather than dropping every span silently.
  public static Seq<TraceScope> Scopes => toSeq(Index.Value.Values).Map(static entry => entry.Plane).Distinct().Strict();
-}
-
-// Decode-kind discriminant the wire fact and the wire instruments dimension on — the two typed decode legs.
-[SmartEnum<string>]
-public sealed partial class WireKind {
- public static readonly WireKind Snapshot = new("snapshot");
- public static readonly WireKind Delta = new("delta");
 }
 
 // The two-row series key the finding counter's waiver dimension reads — a raw bool tag exported True/False where
@@ -136,23 +128,20 @@ public abstract partial record ElementFact : IHookFact<ElementPoint> {
  public sealed record Graded(Op Key, ConstraintSeverity Severity, Error Violation, ContentAddress FindingKey, Option<ConstraintWaiver> Waiver) : ElementFact(Key) {
   public Option<int> Code => Violation is Fault fault ? Some(fault.Code) : None;
  }
- public sealed record Decoded(Op Key, WireKind Kind, Option<long> Bytes, int Nodes, int Edges, Duration Elapsed) : ElementFact(Key);
-
  public ElementPoint Point => Map(
   deltaApplied: ElementPoint.DeltaApplied,
   frozen: ElementPoint.Frozen,
   baked: ElementPoint.Baked,
   audited: ElementPoint.Audited,
   assembled: ElementPoint.Assembled,
-  graded: ElementPoint.Finding,
-  decoded: ElementPoint.WireDecoded);
+  graded: ElementPoint.Finding);
 
  // The kernel IHookFact seating correspondence (E-M16) — derived from the generated total Map above, so the
  // rail's Fire gate and this union's declared fact→point pairing cannot drift; a 1:1 union IS this one line.
  public bool Seats(ElementPoint at) => at == Point;
 
  // Identifier-grade evidence the metric plane refuses — content keys and roots whose cardinality is unbounded on
- // a series and free on a sampler-thinned span — projected per case onto the ONE slot vocabulary [03] declares.
+// a series and free on a sampler-thinned span — projected per case onto the ONE slot vocabulary [03] declares.
  // Each slot carries ONE semantic because SetTag is set-or-replace and two facts share a span: the delta and the
  // snapshot it settles would collapse onto a single last-wins row under a shared key. Graded is the stream case
  // and stamps nothing — N findings fire inside the assembly's own span, so their evidence belongs to the metric
@@ -167,8 +156,7 @@ public abstract partial record ElementFact : IHookFact<ElementPoint> {
   // Audited marks the snapshot it GRADED, so the span joins the audit to the freeze that produced the address.
   audited: static f => Seq<(string Slot, object? Value)>((ElementInstrument.SnapshotSlot, f.Snapshot.ToValue())),
   assembled: static f => Seq<(string Slot, object? Value)>((ElementInstrument.DeltaSlot, f.Delta.ToValue())),
-  graded: static _ => Seq<(string Slot, object? Value)>(),
-  decoded: static f => Seq<(string Slot, object? Value)>((ElementInstrument.KindSlot, f.Kind.Key)));
+  graded: static _ => Seq<(string Slot, object? Value)>());
 
  // Delta fact: the content key is the SAME GraphDelta.Address streaming derivation the Rasm.Persistence event
  // dedup keys on — one projection, two consumers, never a second spelling. The tolerance takes the delta's OWN
@@ -198,9 +186,6 @@ public abstract partial record ElementFact : IHookFact<ElementPoint> {
 
  public static ElementFact Of(Op key, ConstraintFinding finding) => new Graded(
   key, finding.Severity, finding.Violation, finding.Key, finding.Waiver);
-
- public static ElementFact Of(Op key, WireKind kind, Option<long> bytes, int nodes, int edges, Duration elapsed) =>
-  new Decoded(key, kind, bytes, nodes, edges, elapsed);
 
  // Per-delta assessment census: added and revised-after Assessment nodes only — a removal carries no outcome.
  static Seq<AssessmentTouch> Touches(GraphDelta delta) =>
@@ -258,24 +243,6 @@ public static class ElementTap {
     .TraverseM(finding => rail.Fire(ElementPoint.Finding, ElementFact.Of(ctx.Key, finding), ctx.Key)).As()
     .Map(_ => receipt));
 
- public static Fin<ElementGraph> DecodedGraph(ElementRail rail, MonotonicTimeline line, Stream payload, WireLimits limits, Op key) =>
-  Decoded(rail, line, payload, limits, key, WireKind.Snapshot,
-   decode: static (stream, bounds, op) => ElementWire.DecodeGraph(stream, bounds, op),
-   magnitude: static graph => (graph.Nodes.Count, graph.Edges.Length));
-
- public static Fin<GraphDelta> DecodedDelta(
-  ElementRail rail, MonotonicTimeline line, Stream payload, Header basis, WireLimits limits, Op key) =>
-  Decoded(rail, line, payload, limits, key, WireKind.Delta,
-   decode: (stream, bounds, op) => ElementWire.DecodeDelta(stream, basis, bounds, op),
-   magnitude: static delta => (delta.NodeCount, delta.EdgeCount));
-
- static Fin<T> Decoded<T>(
-  ElementRail rail, MonotonicTimeline line, Stream payload, WireLimits limits, Op key, WireKind kind,
-  Func<Stream, WireLimits, Op, Fin<T>> decode, Func<T, (int Nodes, int Edges)> magnitude) =>
-  Timed(rail, line, ElementPoint.WireDecoded, key, () => decode(payload, limits, key), (value, elapsed) => magnitude(value) switch {
-   var (nodes, edges) => ElementFact.Of(key, kind, Length(payload), nodes, edges, elapsed),
-  });
-
  // ONE monotonic timing kernel every timed decoration composes — kernel Capture/Elapsed off the composing root's
  // MonotonicTimeline, never a raw GetTimestamp/GetElapsedTime pair and never a wall-clock diff. `fan` is the
  // optional per-decoration continuation firing derived facts after the primary; nullable because a lambda argument
@@ -296,9 +263,6 @@ public static class ElementTap {
   fact.Marks.Iter(mark => ignore(Activity.Current?.SetTag(mark.Slot, mark.Value)));
   return body();
  }
-
- // Typed absence over a non-seekable stream — a fabricated length is false evidence.
- static Option<long> Length(Stream payload) => payload.CanSeek ? Some(payload.Length) : None;
 
  // The e30 ReceiptSinkPort producer: one subscriber row stamps every fired fact as a ReceiptEnvelope keyed by the
  // point id, the composing root handing the port and the correlation in (E-E7 wires the root). Running the Send IO
@@ -337,23 +301,16 @@ public static class ElementTap {
    };
    f.Code.Iter(code => row["code"] = code);
    return row;
-  },
-  decoded: static f => {
-   JsonObject row = new() {
-    ["kind"] = f.Kind.Key, ["nodes"] = f.Nodes, ["edges"] = f.Edges, ["seconds"] = f.Elapsed.TotalSeconds,
-   };
-   f.Bytes.Iter(bytes => row["bytes"] = bytes);
-   return row;
   }));
 }
 ```
 
 ## [03]-[INSTRUMENT_PROJECTION]
 
-- Law: [PULL_POLARITY] — a measurement is PUSHED unless the cell it reports is process-scoped AND has no fire to ride. Graph population stays EVENT-shaped for a reason, not for want of the kernel level family: a live population cell needs a bounded key, and this owner's key spaces refuse one from both ends — `Root` and `Snapshot` are identifier-grade and unbounded (which is why they seat as span marks, never series dimensions), while discipline, outcome, severity, waiver, and wire kind partition findings and decodes and never a graph's size. `Frozen` histograms are the honest shape, each freeze contributing its own measured population, where an unkeyed scalar level over MANY graphs republishes whichever root froze last as current state and renders a retired owner's reading indistinguishable from a live one. `TapFaults` depth alone clears the bar: a rail's evidence cell is composition-scoped (one cell, not one per graph) and a parked subscriber fault is captured by the capsule shield without ever firing a fact, so no push site exists at all — it binds through the kernel's registered read for the rail's own lifetime and retires with it.
+- Law: [PULL_POLARITY] — a measurement is PUSHED unless the cell it reports is process-scoped AND has no fire to ride. Graph population stays EVENT-shaped because its identifier-grade root and snapshot keys are unbounded. `Frozen` histograms measure each completed snapshot, while an unkeyed scalar level over many graphs would publish only the last graph. `TapFaults` depth alone is pulled: the evidence cell is composition-scoped and subscriber faults have no fact-emission site.
 - Owner: `ElementInstrument` the closed `rasm.element.*` roster — a `[SmartEnum<string>]` whose every row CARRIES its kernel `InstrumentSpec` (kind, measurement form, UCUM unit, kernel `Buckets` advice, the closed dimension set) so `Rows` derives from `Items` and construction proves each row's name against its key, beside the one dotted slot block both the metric rows and the `[02]` span marks spell — with the contributor-port mint under the kernel `TelemetrySource.Element` scope; `GraphInstrument` the fact-to-write projection over the `InstrumentSet` the composing root materializes.
 - Entry: `ElementInstrument.Telemetry(version)` is the contributor port the composing root materializes — the semconv coordinate is the kernel pin so all three signals bump together — and a root outside that fan binds `InstrumentSet.Of(cells, (meter, ElementInstrument.Rows))` directly against its own minted meter; either path, never both. `GraphInstrument.Tap(set)` returns the tap row passed to `ElementHooks.Live`, handing the kernel's write rail straight to the capsule shield; `GraphInstrument.Depth(set, rail, key)` registers the rail's own parked-fault read against the one pulled row under the caller's `Op` and returns the scope that retires it, so the composing root arms it AFTER the mint the tap fed.
-- Auto: `DeltaApplied` counts the two delta magnitudes and one `rasm.element.assessment.outcomes` per census touch (discipline and outcome dimensions — both closed rows); `Frozen` records the snapshot node/edge population histograms; `Baked`/`Audited`/`Assembled` record the duration histograms; `Audited` counts one `rasm.element.audit.findings` per `AuditTally` bucket (integrity category and severity dimensions) and writes the drift count UNCONDITIONALLY — a clean run posts its own zero, so the tamper series never leaves an alert unable to tell a verified snapshot from an unaudited one; `Graded` retains the original `Error` and counts findings under its optional generated numeric code, severity, and waiver; foreign errors leave that opt-in dimension absent instead of fabricating code zero; `Decoded` records duration and — when the payload length is known — size, both under the `WireKind` dimension; the kernel `TenantContext.Current` resolves ONCE per fact and threads as dispatch state, so every write of one fact lands under one partition, a root-tenant process mints no tenant dimension, and a partitioned one mints it uniformly — the ambient read is the AsyncLocal slot the kernel owns, never a value captured at tap-mint time, which stamps the composing root's tenant onto every later request; instrument identity de-duplicates by name inside the one meter, so name, unit, kind, and description are declaration facts the row carries once.
+- Auto: `DeltaApplied` counts the two delta magnitudes and one `rasm.element.assessment.outcomes` per census touch (discipline and outcome dimensions — both closed rows); `Frozen` records the snapshot node/edge population histograms; `Baked`/`Audited`/`Assembled` record the duration histograms; `Audited` counts one `rasm.element.audit.findings` per `AuditTally` bucket (integrity category and severity dimensions) and writes the drift count UNCONDITIONALLY — a clean run posts its own zero, so the tamper series never leaves an alert unable to tell a verified snapshot from an unaudited one; `Graded` retains the original `Error` and counts findings under its optional generated numeric code, severity, and waiver; foreign errors leave that opt-in dimension absent instead of fabricating code zero; the kernel `TenantContext.Current` resolves ONCE per fact and threads as dispatch state, so every write of one fact lands under one partition, a root-tenant process mints no tenant dimension, and a partitioned one mints it uniformly — the ambient read is the AsyncLocal slot the kernel owns, never a value captured at tap-mint time, which stamps the composing root's tenant onto every later request; instrument identity de-duplicates by name inside the one meter, so name, unit, kind, and description are declaration facts the row carries once.
 - Receipt: none — the projection is a pure fold of the fact tap; a metric minted beside it is a second truth, and every operational dashboard reads the exported stream, never a seam cell. `InstrumentSet.Write` rails an unmounted name or a family mismatch out to the tap shield, which parks it point-attributed, so a mount defect is visible rather than a silent measurement drop.
 - Packages: BCL `System.Diagnostics.Metrics` reached through the kernel capsule alone, `Rasm` (the kernel instrument mechanism, the scope identity roster, the numeric fault-code slot, and the tenancy frame), Thinktecture.Runtime.Extensions (the generated fact `Switch`), LanguageExt.Core.
 - Growth: a new metric is one `ElementInstrument` row carrying its `InstrumentSpec` and one write in the owning `Switch` arm — a new fact case breaks the tap at compile time, so an unprojected fact is a build error, never a silent gap; a new PULLED row is one `Level` declaration with one `Bind` registration on the owner whose lifetime bounds it, admitted only under `[PULL_POLARITY]`; a new instrument family is one kernel `InstrumentKind` row, a new bucket policy one kernel `Buckets` row; a new span attribute is one slot row here and one `Marks` arm at `[02]`; never an inline `new Meter(...)`, never a create or write call outside this fence, and never a numeric value as a tag.
@@ -379,7 +336,6 @@ public sealed partial class ElementInstrument {
  public const string AuditSlot = "rasm.element.audit.category";
  public const string DeltaSlot = "rasm.element.delta";
  public const string DisciplineSlot = "rasm.element.discipline";
- public const string KindSlot = "rasm.element.wire.kind";
  public const string OutcomeSlot = "rasm.element.assessment.outcome";
  public const string RootSlot = "rasm.element.root";
  public const string SeveritySlot = "rasm.element.severity";
@@ -449,17 +405,6 @@ public sealed partial class ElementInstrument {
   "rasm.element.assessment.outcomes",
   InstrumentSpec.Create("rasm.element.assessment.outcomes", InstrumentKind.Count, MeasureForm.Whole, "{assessment}",
    "assessment node touches by discipline and outcome", Seq(TenantContext.TenantSlot, DisciplineSlot, OutcomeSlot), None, None, None));
-
- public static readonly ElementInstrument WireDuration = new(
-  "rasm.element.wire.duration",
-  InstrumentSpec.Create("rasm.element.wire.duration", InstrumentKind.Distribution, MeasureForm.Real, "s",
-   "wire decode wall duration by kind", Seq(TenantContext.TenantSlot, KindSlot), Some(Buckets.FoldSeconds), None, None));
-
- // Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
- public static readonly ElementInstrument WireSize = new(
-  "rasm.element.wire.size",
-  InstrumentSpec.Create("rasm.element.wire.size", InstrumentKind.Distribution, MeasureForm.Whole, "By",
-   "wire payload size by kind", Seq(TenantContext.TenantSlot, KindSlot), Some(Buckets.PayloadBytes), None, None));
 
  public InstrumentSpec Row { get; }
 
@@ -535,15 +480,7 @@ public static class GraphInstrument {
   graded: static (state, f) => state.Rows.Write(ElementInstrument.Findings.Row, 1L, InstrumentSet.Tags(state.Tenant,
    (KernelInstrument.CodeSlot, f.Code.Match<object?>(Some: static code => code, None: static () => null)),
    (ElementInstrument.SeveritySlot, f.Severity.Key),
-   (ElementInstrument.WaivedSlot, WaiverMark.Of(f.Waiver).Key))),
-  // Absent length is success, never a fabricated zero: the duration write stands alone on a non-seekable stream.
-  decoded: static (state, f) =>
-   from shared in Fin.Succ(InstrumentSet.Tags(state.Tenant, (ElementInstrument.KindSlot, f.Kind.Key)))
-   from wall in state.Rows.Write(ElementInstrument.WireDuration.Row, f.Elapsed.TotalSeconds, shared)
-   from size in f.Bytes.Match(
-    Some: bytes => state.Rows.Write(ElementInstrument.WireSize.Row, bytes, shared),
-    None: static () => Fin.Succ(unit))
-   select size);
+   (ElementInstrument.WaivedSlot, WaiverMark.Of(f.Waiver).Key))));
 }
 ```
 

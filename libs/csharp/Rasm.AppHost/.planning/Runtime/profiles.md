@@ -322,7 +322,7 @@ public sealed partial record ConsumptionProfile(
 
     // `JsonEncodedText` escapes each cell, so a descriptor key carrying a quote renders as an admissible
     // literal; NON-ASCII does not survive, because this encoder emits `\uXXXX` where the peer branches emit raw
-    // UTF-8 — the printable-ASCII bound `tests/contracts/MANIFEST.md` `[02.10]` states is what makes the three
+    // UTF-8 — the printable-ASCII bound `tests/contracts/manifest.json` `CONSUMPTION_PROFILE` states is what makes the three
     // renders one string, and it bars the branch-owned capability vocabulary from this preimage for the same
     // reason. Serializing a dictionary is deleted: property order there drifts on rehash.
     public string CanonicalJson() =>
@@ -595,7 +595,8 @@ public static class ProfileBoot {
             Owner: Some(TelemetrySource.AppHost));
 
     public static PhaseTrigger Aborted(HostAbortedException abort) =>
-        new PhaseTrigger.FaultCommitted(new FaultSource.Unhandled(Error.New(abort.Message, (Exception)abort), TerminationKind.Terminating));
+        new PhaseTrigger.FaultCommitted(new FaultSource.Unhandled(
+            FaultWire.Observe(Error.New(abort.Message, (Exception)abort)), TerminationKind.Terminating));
 
     public static IHostApplicationBuilder Boot(ResolvedProfile resolved, Duration startupDeadline, Duration shutdownDeadline, Option<IHostApplicationBuilder> external = default) =>
         Tuned(

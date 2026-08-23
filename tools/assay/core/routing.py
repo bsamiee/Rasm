@@ -287,8 +287,15 @@ def _escalate(files: tuple[str, ...], settings: AssaySettings) -> tuple[str, ...
 
 
 def _glob(language: Language, files: tuple[str, ...]) -> Result[Routed, Fault]:
-    # Glob-strategy languages have no project graph, so scope is always CHANGED regardless of trigger files.
-    return Ok(Routed(language=language, scope=Scope.CHANGED, files=_norm(tuple(f for f in files if PurePosixPath(f).suffix in language.suffixes))))
+    # Glob-strategy languages have no project graph, so a changed source file scopes the route to itself. A changed
+    # lane GOVERNOR carries no suffix and moves every verdict, so it escalates to FULL and rides as the trigger row.
+    governors = _norm(tuple(f for f in files if f in language.governors))
+    sources = _norm(tuple(f for f in files if PurePosixPath(f).suffix in language.suffixes))
+    return Ok(
+        Routed(language=language, scope=Scope.FULL, files=sources, full_triggers=governors)
+        if governors
+        else Routed(language=language, scope=Scope.CHANGED, files=sources)
+    )
 
 
 def _closure(language: Language, files: tuple[str, ...], source: Source, settings: AssaySettings) -> Result[Routed, Fault]:

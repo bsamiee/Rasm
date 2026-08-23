@@ -1,0 +1,14 @@
+{
+    "kind": "waveform",
+    "path": "/waveform",
+    "dtype": "float32",
+    "shape": [4, 2],
+    "chunks": [4, 2],
+    "compression": {
+        "kind": "gzip",
+        "level": 4,
+        "shuffle": true
+    },
+    "sampleRate": 200.0,
+    "values": [[0.0, 1.0], [0.5, -0.5], [1.0, 0.0], [-1.0, 0.25]]
+}

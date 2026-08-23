@@ -1,6 +1,6 @@
 # [IAC_WORKLOAD]
 
-`Workload` lowers one service or worker row into shared identity, pod, sizing, lifecycle, hardening, and optional network cells. Service rows own rolling replacement, CPU elasticity, and a `Service`; worker rows own claim-safe `Recreate` replacement and no network surface. `StackOutputs.channels` and `StackOutputs.custody` supply every environment spelling, one Kubernetes `Secret` carries the custody roster, and `doppler run --` is the injection edge. `_LIFE` mirrors runtime drain and probe facts into pod grace and health gates, `Tier.harden` is the privilege posture every pod and container on the tier stamps, and `_scale` interprets `StackSpec.profile.scale`.
+`Workload` lowers one service or worker row into shared identity, pod, sizing, lifecycle, hardening, and optional network cells. Service rows own rolling replacement, CPU elasticity, and a `Service`; worker rows own claim-safe `Recreate` replacement and no network surface. `StackOutputs` supplies channel, custody, and backend environment spellings, one Kubernetes `Secret` carries the custody roster, and `doppler run --` is the injection edge. `_LIFE` mirrors runtime drain and probe facts into pod grace and health gates, `Tier.harden` is the privilege posture every pod and container on the tier stamps, and `_scale` interprets `StackSpec.profile.scale`.
 
 ## [01]-[INDEX]
 
@@ -62,7 +62,7 @@ declare namespace _LIFE {
 - Law: the entrypoint wrap is the injection moment — a container carrying a `command` stamps `Workload.entrypoint(cmd)`, and a container without one runs an image whose baked `ENTRYPOINT` is the same `doppler run --` wrap (the app image's build contract), so `doppler run` resolves the scoped config into the process environment at start and the runtime's provider chain reads validated values; the deploy plane never writes a decrypted payload to any surface a process reads before injection.
 - Law: each custody coordinate names its injection source at the security owner — `crypt/secret#LEASED_CUSTODY`'s `Coordinate` table marks `DOPPLER_TOKEN` mounted and `DOPPLER_PROJECT`/`DOPPLER_CONFIG` injected, so this tier stamps the token alone as the custody cell's `secretKeyRef` and the `doppler run --` wrap resolves the remaining pair off the token's own config scope inside the process it wraps; a `_POLICY` row or a second secret row carrying a Doppler coordinate is the fork that table forecloses.
 - Entry: `Workload.token(name, { namespace, token }, opts)` once per arm, or `Secrets.lease(...)` where the scope is leased; `Workload.rows(custody, pairs, policy?)` into the container env; `Workload.entrypoint(cmd)` as the container command.
-- Growth: a new output channel's variable spelling is one catalog row at `StackOutputs.channels`; one `_POLICY` row per new deploy-owned runtime setting; a new custody-cell variable is one `StackOutputs.custody` row.
+- Growth: a new output channel, custody variable, or backend coordinate is one row on its `StackOutputs` catalog; one `_POLICY` row per new deploy-owned runtime setting.
 - Boundary: pair emission and both variable catalogs are `program/spec.md`'s; token minting is `operate/secret.md`'s; the runtime `Setting` owner reads the catalog's spellings as its writing counterpart.
 - Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `types.input.core.v1.EnvVar`); `@pulumi/pulumi` (`Input`, `Output`); `effect` (`Array`, `Option`, `Record`); `../program/spec.ts` (`StackOutputs`).
 
@@ -268,8 +268,8 @@ const _backed = (backend: Workload.Backend | undefined): {
     ? { env: [], mounts: [], volumes: [] }
     : {
         env: [
-          { name: "RASM_BACKEND_CONTRACT_ROOT", value: backend.root },
-          { name: "RASM_BACKEND_POINTER_PATH", value: `${backend.root}/generation` },
+          { name: StackOutputs.backend.root, value: backend.root },
+          { name: StackOutputs.backend.pointer, value: `${backend.root}/generation` },
         ],
         mounts: [{ name: "backend", mountPath: backend.root, readOnly: true }],
         volumes: [{

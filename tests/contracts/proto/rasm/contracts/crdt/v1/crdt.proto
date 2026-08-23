@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package rasm.contracts.crdt.v1;
+
+import "buf/validate/validate.proto";
+import "rasm/contracts/clock/v1/hlc.proto";
+
+// --- [IDENTITY] ---------------------------------------------------------------------------
+
+// One replica coordinate. `origin` is the RFC-4122 network-order 16-byte UUID; `logical` is that origin's
+// monotone sequence. Producers order repeated coordinates by unsigned lexicographic `origin`, then `logical`;
+// consuming admission rejects a different order after Protovalidate owns row shape and uniqueness.
+message ElementId {
+  bytes origin = 1 [(buf.validate.field).bytes.len = 16];
+  uint64 logical = 2;
+}
+
+// One version-vector coordinate. `origin` uses the same network-order UUID spelling as `ElementId`. Producers emit
+// repeated vectors in strictly ascending unsigned lexicographic `origin` order; consuming admission rejects a
+// different order after Protovalidate owns row shape and unique origins.
+message VectorSlot {
+  bytes origin = 1 [(buf.validate.field).bytes.len = 16];
+  uint64 sequence = 2 [(buf.validate.field).uint64.lte = 9223372036854775807];
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+
+message SetOp {
+  bytes value = 1 [(buf.validate.field).bytes.max_len = 1048576];
+  rasm.contracts.clock.v1.Hlc stamp = 2 [(buf.validate.field).required = true];
+  bytes origin = 3 [(buf.validate.field).bytes.len = 16];
+}
+
+message WriteOp {
+  option (buf.validate.message).cel = {
+    id: "write_op.context_origins_unique"
+    message: "write context origins must be unique"
+    expression: "this.context.map(row, row.origin).unique()"
+  };
+
+  bytes value = 1 [(buf.validate.field).bytes.max_len = 1048576];
+  repeated VectorSlot context = 2 [(buf.validate.field).repeated.max_items = 65536];
+  rasm.contracts.clock.v1.Hlc stamp = 3 [(buf.validate.field).required = true];
+  bytes origin = 4 [(buf.validate.field).bytes.len = 16];
+}
+
+message AddOp {
+  bytes element = 1 [(buf.validate.field).bytes.len = 16];
+  ElementId tag = 2 [(buf.validate.field).required = true];
+}
+
+// `observed_tags` carries every add-tag this removal dominates for its one element, so its cardinality is the
+// element's own concurrent add history and no wire ceiling bounds it: a cap here would truncate the observed set
+// and break convergence, so the refusal belongs to admission, which knows the element's compaction horizon.
+// Tag identity is the fixed-width origin followed by the decimal logical, an injective key `unique()` reads once.
+message RemoveOp {
+  option (buf.validate.message).cel = {
+    id: "remove_op.observed_tags_unique"
+    message: "observed tags must be unique"
+    expression: "this.observed_tags.map(row, row.origin + bytes(string(row.logical))).unique()"
+  };
+
+  bytes element = 1 [(buf.validate.field).bytes.len = 16];
+  repeated ElementId observed_tags = 2;
+}
+
+message IncrementOp {
+  bytes origin = 1 [(buf.validate.field).bytes.len = 16];
+  uint64 sequence = 2 [(buf.validate.field).uint64.lte = 9223372036854775807];
+  uint64 positive = 3 [(buf.validate.field).uint64.lte = 9223372036854775807];
+  uint64 negative = 4 [(buf.validate.field).uint64.lte = 9223372036854775807];
+}
+
+message InsertAfterOp {
+  ElementId predecessor = 1 [(buf.validate.field).required = true];
+  ElementId id = 2 [(buf.validate.field).required = true];
+  bytes value = 3 [(buf.validate.field).bytes.max_len = 1048576];
+}
+
+message DeleteOp {
+  ElementId id = 1 [(buf.validate.field).required = true];
+}
+
+message MaintainOp {
+  option (buf.validate.message).cel = {
+    id: "maintain_op.quiescent_origins_unique"
+    message: "quiescent vector origins must be unique"
+    expression: "this.quiescent.map(row, row.origin).unique()"
+  };
+
+  repeated VectorSlot quiescent = 1 [(buf.validate.field).repeated.max_items = 65536];
+  sfixed64 liveness_ticks = 2 [(buf.validate.field).sfixed64.gte = 0];
+}
+
+message BeatOp {
+  bytes origin = 1 [(buf.validate.field).bytes.len = 16];
+  bytes state = 2 [(buf.validate.field).bytes.max_len = 1048576];
+  rasm.contracts.clock.v1.Hlc stamp = 3 [(buf.validate.field).required = true];
+}
+
+message LeaveOp {
+  bytes origin = 1 [(buf.validate.field).bytes.len = 16];
+  rasm.contracts.clock.v1.Hlc stamp = 2 [(buf.validate.field).required = true];
+}
+
+// The complete CRDT delta carried only when an op-log entry's family is `crdt`. The outer positional op-log
+// envelope keeps its raw payload band for every other family; it embeds this message's proto-binary bytes without
+// an `Any`, a second arm tag, or MessagePack union framing. Protobuf bytes are carriage, not content identity:
+// operation identity remains the envelope dot and payload integrity remains the carried digest of received bytes.
+message CrdtOpWire {
+  string field = 1 [(buf.validate.field).string.min_len = 1];
+
+  oneof arm {
+    option (buf.validate.oneof).required = true;
+
+    SetOp set = 2;
+    WriteOp write = 3;
+    AddOp add = 4;
+    RemoveOp remove = 5;
+    IncrementOp increment = 6;
+    InsertAfterOp insert_after = 7;
+    DeleteOp delete = 8;
+    MaintainOp maintain = 9;
+    BeatOp beat = 10;
+    LeaveOp leave = 11;
+  }
+}

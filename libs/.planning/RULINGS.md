@@ -14,7 +14,7 @@
 ## [02]-[SHAPE]
 
 - Infrastructure planes take shape from the category algebra, never the first consumer — the occasioning domain enters as a ROW like every later one.
-- Branch-interior wires mint no `MANIFEST.md` entry — the `[WIRE]` pair at both folder `[03]-[SEAMS]` maps IS the whole registration.
+- Branch-interior wires mint no `manifest.json` case — the `[WIRE]` pair at both folder `[03]-[SEAMS]` maps is the whole registration.
 - Branch prose states its own domain and never a peer's ceiling — a graduation rail names what crosses and leaves policy to whoever reads it.
 - PostgreSQL extension rosters stay branch-owned deployment state — no corpus entry defines the set, so a parity demand manufactures meaning.
 - Backend artifact dependency validation homes at each branch's projection funnel, never its sort — artifact key order is the whole wire order.
@@ -29,7 +29,7 @@
 - `order` carries the ordering domain beside the key member selecting it — a partition key IS that member, never a column standing beside it.
 - Transports state a missing coordinate on `degrade` — replay, backpressure, and settlement each go absent on engines the estate already ships.
 - Operation identity derives apart from payload identity — equal payloads stay distinct operations, so causal logs key and dedup on it.
-- Wires pinning divergent schema or `dataschema` generations refuse at the CONSUMER — proto3 files a retired field to the unknown set, never a raise.
+- Wires pinning divergent contract packages or generations refuse at the CONSUMER; CloudEvents `dataschema` remains an optional schema URI.
 - Host-boundary producers name their family for the host-free concept — a host-spelled family binds every peer's generated bindings to that host.
 - Every branch shipping a diagnostic archive carries a BACKEND-FREE read plane — an archive is pulled exactly when the egress is what failed.
 - Unmeasured instruments read UNMEASURED, never zero — a fabricated zero and a dead producer are the two states an operator needs separated.
@@ -49,7 +49,11 @@
 - Append-only log planes own truth and derived planes carry zero authority — a crossing shape names its truth plane and its rebuild route.
 - Vector clocks encode with slots SORTED by origin — bucket order gives one causal position a digest per runtime, unfreezing every fixture over it.
 - Compaction admits only where the entry's causal context DOMINATES its declared horizon — a state fold holds no frontier and refuses nothing.
-- Op-log entries carry no descriptor family — the msgpack roster IS canonical, and a proto message envelope over opaque payload bytes types nothing.
+- Op-log entries retain one thirteen-slot MessagePack envelope because their raw payload carries multiple lane codecs.
+- `crdt` is the ONE lane binding op-log payload bytes to generated `crdt.v1.CrdtOpWire`; every other lane stays opaque and unframed.
+- `CrdtOpWire` carries a delta, not operation identity — every merge fold retains the outer op-log dot.
+- MV-register versions retain their dots; observed context removes only versions it dominates.
+- OR-set removal scopes observed tags to its element, and RGA compaction preserves routes to live descendants.
 - Scene descriptors and event payloads REFERENCE bulk bodies by key — re-carrying the octets mints a second producer for the entry that owns them.
 - Descriptor lengths cross in METRES with the host unit as provenance — a peer-side rescale forks one conversion across three decoders.
 - Solved solar angles cross as `[0,360)` azimuth EAST OF NORTH beside `[-90,90]` altitude — a renderer's own convention converts at its edge.
@@ -64,24 +68,35 @@
 - Framed-binary wires frame an `Option` as a count of 0 or 1 — presence on the collection rule leaves an absent field no second spelling to fork on.
 - Kind-discriminated payload tails carry NO arm tag — the discriminant in hand fixes the tail, and a second spelling of it can contradict the first.
 - Formats admit JSON, Protobuf, and Avro — `-batch` rides the first two, since Avro defines none; CBOR, XML, and avro-compact bind no decoder.
+- Empty batch documents decode lawfully; a producer may refuse an empty send only as a local no-op policy.
+- CloudEvents batch position carries no order — per-event sequence metadata survives independently, and intermediaries may reframe the batch.
+- Signature custody is per delivery leg over exact body octets — re-framing invalidates the old body proof but never mandates relay re-signing.
+- CloudEvents source names the stable producing-capability context — shared producers draw ids from one `(source, id)` uniqueness namespace.
+- CloudEvents `source.capability` never derives from `type.subject` — one stable capability may emit several event families.
+- CloudEvents Webhook delivery is token-authorized; an application body signature is additional integrity, never authority.
 - CloudEvents WebSockets is declined, and Pulsar, Redis Streams, and ClickHouse stay house message-envelope legs — no spec binding names them.
 - Subscriptions and all seven filter dialects land, `sql` being CESQL — reading CESQL as the filter concept collapses six dialects into one arm.
 - CESQL evaluation is TOTAL — every operator returns a value beside an accumulated error list, so the rail accumulates rather than short-circuits.
 - CESQL parses through a parser-combinator or table-driven expression owner — recursive descent over mutable state and downloading codegen refuse.
-- `subject` and `dataref` carry the content key as 32 LOWERCASE hex — an upper-spelling branch maps at the envelope edge, re-casing no shared codec.
+- `subject` carries the content key as 32 LOWERCASE hex; `dataref` independently locates externalized data.
 - `ContentAddress` is a bare digest and `ContentKey` a kind-discriminated composite — neither renames onto the other, and a citation scope-qualifies.
 - Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
 - Hook points are the in-process best-effort tap and message envelopes the durable cross-process fact — re-firing one as a hook merges two custodies.
 - Untyped crossings ride `[PROJECTION]` spelled from the producing projector — `[WIRE]` asserts a registered family a manifest ABSENCE row denies.
-- Fault envelopes cross one numeric `code` beside presentation, context, and typed recovery — owner and case remain local derivations.
+- Fault details cross one numeric `case` under the producing `domain`, with context and typed recovery; Status keeps transport code and presentation.
 - Spec-stage fault-envelope deletions compact every producer and consumer — no reserve, alias, legacy field, or dual decoder preserves dead shape.
 - Recognized-but-malformed details refuse TYPED at admission — an unknown detail type and an unknown code stay opaque evidence nobody guesses at.
 - Remote domain codes drive no topology — transport outcomes alone elect failover, keeping each branch taxonomy local.
+- Proto packages spell `rasm.contracts.<family>.v1` and managed mode derives every language option — an inline `csharp_namespace` forks it.
+- Breaking proof pins the active module's `main` label to one immutable commit and proves FILE against it; publication re-pins it unchanged at push.
+- Assay's gated publish rail alone proves first publication — descriptor equality, local snapshots, `breaking.ignore`, and baselines settle nothing.
+- Wire material crosses in its own binary encoding and text framings marshal at the call — the schema discriminant outranks a payload's armor label.
+- One `main` label carries the RELEASED stream — a lock shields resolved consumers alone, so an unready commit rides a non-default label or waits.
 
 ## [03]-[COLLAPSE]
 
 - Reliability-indicator vocabulary is one algebra spelled twice — `Sli`, burn row, severity, and panel kind land in BOTH branch spellings.
-- One descriptor source carries ONE minter — a peer's messages seated in another family couple two release cadences under one breaking gate.
+- One domain case carries one semantic producer; independent minters share an infrastructure case only when value parity is the proof.
 - HLC carriage is per-branch and only the layout is shared — the packed `physical_ticks<<64 | logical` `UInt128` and the composed attribute slots.
 - Commutation is ONE `Ordered | Commutative | Semilattice` triple per mutation — a lone convergent flag counts a lost total order as convergence.
 
@@ -93,10 +108,18 @@
 - Standalone seam ledgers do NOT re-enter — the folder `ARCHITECTURE.md` `[03]-[SEAMS]` is the one seam record, mirrored at both endpoints.
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
-- `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/MANIFEST.md` is the one federation index, pin authority, and fixture registry.
-- Proto generation seats in the root `buf.gen.yaml`, one row per consumer whose build drives no protoc — a build already driving it keeps it.
+- `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/manifest.json` is the federation index, readiness authority, and fixture registry.
+- Root `buf.gen.yaml` is the ONE generation driver for every language — a build-driven protoc beside it mints a second authority for one emission.
+- Branch generation selects public message roots from real consumers; transitive imports form support closure and never widen the public roster.
+- Proto3 syntax stays until Protobuf-ES preserves optional presence under Editions; cross-language absence outranks edition novelty.
+- Protovalidate rules own wire constraints; branch admission evaluates them and never repeats the same scalar rule in hand code.
+- Generated package rosters derive between gate-owned markers from the descriptor image and the configured public roots/support closure.
+- Vendored modules curate per language at the MODULE level on two grounds alone — a namespace or stdlib collision, or a publisher-shipped type.
+- Generated-bindings trees are admitted IMPORT ROOTS, never strata — TS package folder, Python source root, C# assembly; one law line per branch.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
 - Observability backends stand per DEPLOYMENT — one branch serves unrelated app roots, so a placement card re-litigates the platform/product split.
+- BSR generated SDKs enter no branch — the pipeline carries no type filter and fixes `opt` at the plugin, so roots widen and emission flags vanish.
+- Publication opens generated SDKs to foreign consumers alone — vendored modules stay unnamed, so no SDK ever carries a branch's whole emission.
 
 ## [05]-[PROCESS]
 

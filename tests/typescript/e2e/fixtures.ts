@@ -18,7 +18,7 @@ type Kit = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _EPOCH = new Date('2026-01-01T00:00:00.000Z');
-const _WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] as const;  // The axe rule surface: the WCAG 2.x A/AA tags — the conformance floor every served page clears.
+const _WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] as const; // The axe rule surface: the WCAG 2.x A/AA tags — the conformance floor every served page clears.
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

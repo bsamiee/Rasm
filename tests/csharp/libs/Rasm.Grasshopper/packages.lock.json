@@ -55,6 +55,20 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.4.0"
         }
       },
+      "Celly": {
+        "type": "Transitive",
+        "resolved": "1.2.0",
+        "contentHash": "3NuJoocWJLn82zl9SF8zuC/kJpnBLr7lrysQ1TNlT6OjxK4r+u0/2SWRwTu7hl9P7xybc88KHDKJY/PE4CIYbw=="
+      },
+      "Celly.Protobuf": {
+        "type": "Transitive",
+        "resolved": "1.2.0",
+        "contentHash": "oKxAEWutbk16y0JBKWrOvtD6nPLqNVFK3vKDOdKvYlupQ9KJ5beI/YT13BIOM344qD7UbUx0vg0wW/rByVDdaA==",
+        "dependencies": {
+          "Celly": "1.2.0",
+          "Google.Protobuf": "3.31.1"
+        }
+      },
       "Generator.Equals.Runtime": {
         "type": "Transitive",
         "resolved": "4.0.2",
@@ -89,15 +103,13 @@
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "rasm": {
         "type": "Project",
         "dependencies": {
           "CSparse": "[4.4.0, )",
+          "Celly.Protovalidate": "[1.2.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CloudNative.CloudEvents.Avro": "[2.9.0, )",
           "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
@@ -106,6 +118,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "Generator.Equals": "[4.0.2, )",
+          "Google.Protobuf": "[3.36.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
@@ -147,6 +160,17 @@
         "dependencies": {
           "Newtonsoft.Json": "13.0.1",
           "System.CodeDom": "8.0.0"
+        }
+      },
+      "Celly.Protovalidate": {
+        "type": "CentralTransitive",
+        "requested": "[1.2.0, )",
+        "resolved": "1.2.0",
+        "contentHash": "7fAdWNT9GIJlDiL2Se7DErGdrEQA5Zf/TUg974ARhNfE89IIq1Qnvjbi9ktcHELhhvPvh057hP/16kQavr9eHA==",
+        "dependencies": {
+          "Celly": "1.2.0",
+          "Celly.Protobuf": "1.2.0",
+          "Google.Protobuf": "3.31.1"
         }
       },
       "CloudNative.CloudEvents": {

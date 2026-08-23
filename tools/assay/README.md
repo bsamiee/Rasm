@@ -1,19 +1,23 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality operator, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Claims, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census; a claim carrying more than one verb requires it, so a bare invocation of such a claim faults at parse.
+`tools.assay` is the Rasm polyglot quality operator, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Claims, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census, a bare `assay` running only where a local wrapper resolves; a claim carrying more than one verb requires it, so a bare invocation of such a claim faults at parse.
 
 ## [01]-[SCOPE]
 
 Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. Its programmatic arm is `automation.engine.drive(trigger, action, settings, executor=...)`, which hosts `Watch`/`Schedule`/`Manual` fires under one AnyIO loop, writes NDJSON output, and spawns every check through the `Executor` port (the engine-bound port when absent).
 
-- Invoke as `uv run python -m tools.assay <claim> [verb] ...`; bare `assay ...` is valid only when `command -v assay` proves a local wrapper exists. Language selection rides the mutually-exclusive `--csharp`/`--python`/`--typescript` flags on the verbs that carry them, an unset selection routing every eligible language; a verb without them rejects the flag as an unknown option, so each claim's own `--help` is the target vocabulary.
-- `static` diagnoses by default and mutates only under `--fix`; even then it never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
+- Mutually-exclusive `--csharp`/`--python`/`--typescript` ride the verbs carrying them, an unset selection routing every eligible language.
+- `static` diagnoses by default, mutating under `--fix` alone and never rewriting a non-compiling C# target; its diagnostics match `dotnet build`.
 - `api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
-- Python's mutation lane is a staged gate scored against a kill-floor by `rails/mutation_gate.py`, which also emits a `mutation-testing-report-schema` JSON under `.artifacts/python/mutmut/`; mutmut runs copy-staged with `cwd=.artifacts/python/mutmut/work`, so a root `mutants/` directory is forbidden litter.
-- Every `.config/dotnet-tools.json` row carries a named owner, and a row leaves the manifest only with its owner; the manifest is the register. Package health is SDK-first (`dotnet package list`, `dotnet nuget why`), and a `dotnet-outdated` fallback requires an explicit rail before the tool returns to the manifest.
-- `contracts check` is the one gate over the corpus — `buf lint`, `buf format --diff` over the estate module alone, `buf breaking` against `main`, the `manifest.json` audit, and scratch-regeneration freshness over every `buf.gen.yaml` out root — under one repo lease, reading exit codes never stderr; `contracts generate` is the one writer, and a plugin miss degrades the gate to `unsupported` with an installer hint while refusing the writer outright.
+- `rails/mutation_gate.py` scores the staged Python mutation lane against its kill-floor; mutmut runs copy-staged, so a root `mutants/` is litter.
+- `.config/dotnet-tools.json` is the register: every row carries a named owner and leaves with it, and package health reads SDK-first.
+- `dotnet-ef` is the register's recorded negative: no rail runs it, and `Rasm.Persistence` `Element/identity` scaffolding keeps the row.
+- `contracts check` gates the estate buf module under one lease, `generate` writes derived surfaces, and `publish` reruns it before the push.
+- `contracts check` runs credential-free and faults on module absence, naming it; only `publish` admits that absence, and only to bootstrap.
+- `contracts publish` probes `buf registry whoami`, pushes under the resolved account, then reads the returned coordinate off the default label.
+- `contracts publish` names a stale `BUF_TOKEN` export as the logged-out cause before the gate spends any work.
 - `contracts` derives each `proto:` seam schema through `protoc-gen-jsonschema` into scratch: `check` fails `schema-stale`, `generate` lands it.
-- A `protoc-gen-jsonschema` miss seats the projection lanes `unsupported` and names each underivable seam; every other lane keeps its verdict.
+- `protoc-gen-jsonschema` absence seats the projection lanes `unsupported` and names each underivable seam, every other lane keeping its verdict.
 
 ## [02]-[FIRST_COMMAND]
 
@@ -60,50 +64,52 @@ flowchart LR
 
 ```
 
-Text equivalent: CLI argv resolves through `composition/registry.py` `REGISTRY` into a `Bind`; the rail owns settings, scope, routing (`core/routing.py`), check construction from `composition/catalog.py` rows, Executor dispatch, and fold. `core/exec.py` owns the `Executor` port (`run`/`fan`), argv composition from catalog templates, telemetry, and retry; `core/remote.py` owns the SSH transport; `core/govern.py` owns leases, dotnet slots, and fan scheduling. A `Completed` receipt folds through `diagnostics.fold` into a `Report`; a `Fault` distills into an error `Envelope`. Automation uses the same Executor and registry rails and emits NDJSON per fire or sequence leaf.
+`composition/registry.py` `REGISTRY` binds each claim, and the rail owns settings, scope, routing, check construction from `composition/catalog.py` rows, dispatch, and fold. `core/exec.py` owns the `Executor` port and argv composition, `core/remote.py` the SSH transport, and `core/govern.py` leases, dotnet slots, and fan scheduling.
 
 ## [04]-[OUTPUT_CONTRACT]
 
 Parse stdout for results, read stderr for diagnosis, and treat the process exit as a projection of `Envelope.status`.
 
 [WIRE_INVARIANT]:
-- Normal invocation: exactly one JSON `Envelope` line on stdout, newline-framed and flushed; a second emit on one invocation is suppressed to stderr as a FAULTED invariant-violation envelope.
-- Automation exception: NDJSON, one `Envelope` per fire or sequence leaf; a `Sequence` stops on `failed`, `busy`, `timeout`, or `faulted` and emits no aggregate envelope.
-- Failure split: `Completed(FAILED)` means a tool ran and found defects; non-zero tool exits stay on `Completed`. A `Fault` means routing, spawn, lease, timeout, or a precondition failed.
+- Normal invocation emits one newline-framed JSON `Envelope` on stdout; a second emit suppresses to stderr as a FAULTED invariant-violation envelope.
+- Automation emits NDJSON, one `Envelope` per fire or leaf; a `Sequence` stops on `failed`, `busy`, `timeout`, or `faulted` and aggregates nothing.
+- `Completed(FAILED)` carries a tool that ran and found defects; `Fault` carries routing, spawn, lease, timeout, and precondition failure.
 - Schema route: the field-by-field `Envelope` schema and the status algebra live in `core/model.py`.
 
 [STATUS_MODEL]:
-- Completed channel: process success, skip, empty, unsupported, or tool-found defects. Fault channel: operational failure under `Envelope.error` with `Envelope.error_context` diagnostic.
+- Completed carries success, skip, empty, unsupported, and found defects; Fault carries operational failure under `Envelope.error` with its context.
 - `--strict` promotes otherwise non-error states into a fault for that invocation.
+- `report.counts.by_status` seats one row per folded leaf under its own status, so a non-passing lane counts as itself and never as a pass.
 
 [PAYLOAD_MAP]:
-- Report detail: rail-specific evidence under `report.detail` (tagged `AnyDetail` union). Rows ride `report.results`; durable files ride `report.artifacts`.
-- Remote facts: target URL, host, exit status, and pushed/pulled counts ride `report.exec` / `Envelope.exec` (`ExecReceipt`, threaded from `Completed.exec`), populated by `fold` and the emit layer.
-- Truncation: when a result or artifact cap fires the emit layer sets `Envelope.truncated=true`, clips the rows, attaches the unclipped report as a full-report artifact, and appends one note to `report.notes` in the unified `results: {shown} of {total} (cap={cap}); full report artifact under {run_id}` shape. There is no stderr truncation side-channel.
+- `report.detail` carries rail-specific evidence as a tagged `AnyDetail` union; rows ride `report.results` and durable files ride `report.artifacts`.
+- `report.exec` and `Envelope.exec` carry the `ExecReceipt` — target URL, host, exit status, transfer counts — threaded from `Completed.exec`.
+- Cap fires set `Envelope.truncated`, clip the rows, attach the full report as an artifact, and note shown-of-total on `report.notes`, never stderr.
 
 ## [05]-[ARTIFACTS_AND_HISTORY]
 
-- Default local root: `.artifacts/assay`. `composition/store.py` `ArtifactStore` owns read, write, list, find, show, cache, zstd history, and full-report artifact behavior; read `report.artifacts` before assuming a file exists, and trust emitted artifact paths over inferred directory shapes.
-- Per-run scopes live under the claim/run id. Opening an `ArtifactScope` computes its path without materializing the directory; `ArtifactScope.ensure()` routes the one `makedirs` through the store boundary. `ArtifactStore.retain_scopes(claim, keep)` prunes per-claim scope run-dirs oldest-first, bounded by `ASSAY_ARTIFACT_RETENTION`, mirroring history retention.
-- Registry invocations persist compact envelope JSON and full report artifacts by `run_id`; `delta` reloads full report artifacts when compact history was clipped. Retained history serves comparisons, never a substitute for rerunning the rail.
-- Storage is fsspec-shaped: `UPath` routes the artifact root, and `storage_options`/`protocol=` resolution is load-bearing for the memory and object-store backends. Artifact storage is the only fsspec-routed surface — routing, leases, package staging, and history require real local or shared paths.
-- structlog writes stderr; stdout remains the machine contract. OTel tracing is endpoint-gated: no configured OTLP endpoint means no-op tracing; CLI exit drains by force-flush then provider shutdown after envelope dispatch.
+- `ArtifactStore` owns the `.artifacts/assay` root whole, so a reader trusts `report.artifacts` over any path inferred from directory shape.
+- Scopes key on claim and run id: `ArtifactScope` computes its path lazily, `ensure()` owns the `makedirs`, `retain_scopes` prunes oldest-first.
+- Registry invocations persist compact envelope JSON and full reports by `run_id`; `delta` reloads a full report wherever compact history clipped.
+- `UPath` routes the artifact root fsspec-shaped and `storage_options`/`protocol=` elects the backend; every other rail takes a real path.
+- structlog writes stderr and stdout stays the machine contract; tracing no-ops without an OTLP endpoint, and exit force-flushes then shuts down.
 
 ## [06]-[ENVIRONMENT_AND_OFFLOAD]
 
 [ENVIRONMENT]:
-- Every var derives from an `AssaySettings` field name under the `ASSAY_` prefix, `__` nesting a sub-model field (`ASSAY_ARTIFACT_BACKEND__ROOT` reaches the backend's `root`); an empty value reads as unset, so the field default stands.
-- They control correlation, retention, backend selection, execution target, and SFTP push throttle. `composition/settings.py` owns the `AssaySettings` + `Local`/`Ssh`/`Offload` value objects, its field set the var roster.
+- Vars derive from `AssaySettings` fields under the `ASSAY_` prefix, `__` nesting a sub-model field, and an empty value reads unset.
+- `composition/settings.py` owns `AssaySettings` beside the `Local`/`Ssh`/`Offload` value objects, and its field set is the whole var roster.
 
 [REMOTE_EXECUTION]:
-- Target switch: the `--exec` global flag selects offload; `--exec local` (default) keeps execution local, `--exec ssh://[user@]host[:port]` offloads process execution over SSH. That flag wins over its `ASSAY_EXEC_TARGET` env fallback. Scheme, host, and port validate at settings load, so a malformed target fails before any spawn; a missing port defaults to 22 at connect.
-- Offload-capable lanes: heavy closures — the full `static` lane and `.NET` build graphs — run on the remote host and return the same one-`Envelope` result locally; mutation rides copy-staged tools, so it stays local under the host-bound reject. Remote facts ride the `ExecReceipt`; signalled kills synthesize exit 255 with an `ssh.signal=<name>` note. Remote runs carry no process-stall telemetry.
-- Host-bound reject: `bridge`, `package`, `provision`, and `contracts` claims and copy-staged tools reject under `exec_target` as an `UNSUPPORTED` fault before argv composition.
-- Working-tree push: before the remote exec, `core/remote.py` pushes the lane-scoped build closure to `<workroot>/<run_id>` over the pooled SFTP connection; `git ls-files` is the source universe and gitignored roots never cross. Push and pull each run under their own shielded budget while the bracketed exec stays cancellable by the check deadline. Build argv scope paths rebase from host-absolute to `<workroot>/<run_id>/...` before remote argv composition.
-- Toolchain pre-flight: the exec probes the remote `PATH` for the runner's leading tool (`uv`, `dotnet`) under the injected fixed Linux toolchain prefix; an absent tool returns a typed `unsupported` receipt. An agent's local `PATH` never crosses.
-- Artifact pull-back: `sftp` is the sole `TRANSFER` backend, derived from the SSH host and pinned under `<workroot>/<run_id>/.artifacts/assay`; a shielded post-exit download lands scope artifacts locally, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run. A once-per-fan sweep prunes all but `artifact_retention` newest of this host's own remote run dirs.
-- Cloud posture: an object-store backend is admitted `SHARED` — the remote tool writes and the agent reads the same universal paths, so the pull transfers zero bytes; `composition/settings.py` owns the admitted scheme set.
+- `--exec` elects the target, `local` default against an `ssh://[user@]host[:port]` offload, validating the URL at settings load before any spawn.
+- Heavy closures run remote for one same-shaped `Envelope` and no stall telemetry; a signalled kill synthesizes exit 255 under an `ssh.signal` note.
+- `bridge`, `package`, `provision`, and `contracts` claims and every copy-staged tool reject `exec_target` as `UNSUPPORTED` before argv composition.
+- `core/remote.py` pushes the `git ls-files` lane closure over pooled SFTP to `<workroot>/<run_id>` and rebases build argv paths onto that root.
+- Pre-flight probes the remote `PATH` for the runner's lead tool under the injected toolchain prefix, an absent one returning `unsupported`.
+- `sftp` is the sole `TRANSFER` backend, its shielded download degrading to `remote.artifacts.degraded` rather than reclassifying a completed run.
+- Object-store backends admit `SHARED`, remote tool and agent reading one universal path, so the pull transfers zero bytes.
 
-[PROVISIONING_BOUNDARY]:
-- `provision` delegates to the Forge-owned `forge-provision`/`forge-scientific-env` executables on `PATH` and projects sanitized schema-v3 JSON into `ProvisionRun` evidence; assay pins no version, and a missing executable is a process fault.
-- Assay-safe JSON carries redacted DSN metadata and safe topology facts, never raw passwords, password-bearing DSNs, raw logs, raw Compose, token values, or absolute Nix/store/provisioning paths; a sensitive payload is an adapter fault because the evidence contract itself failed. Docker/Compose generation, image choice, credential material, pruning, and Forge self-tests stay in Parametric_Forge.
+[PROVISIONING_BOUNDARY]: Parametric_Forge owns Compose generation, image choice, credential material, pruning, and its own self-tests.
+
+- `provision` delegates to `forge-provision`/`forge-scientific-env` on `PATH` and projects sanitized JSON as `ProvisionRun` evidence; absence faults.
+- Evidence carries redacted DSN metadata and safe topology facts alone, so a sensitive payload is an adapter fault the contract already failed.

@@ -63,7 +63,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [44]-[CLAIMS](.planning/Runtime/claims.md): Measured gate on every performance-motivated route — a winning claim whose fingerprint and class match.
 - [45]-[LEDGER](.planning/Runtime/ledger.md): Cost algebra, rate policy, and the tenant chargeback egress.
 - [46]-[BOARD](.planning/Runtime/board.md): One dashboard-and-reliability pack travelling to the composing root as data rows, never as rendered JSON.
-- [47]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
+- [47]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, stage crossing, and fault projection over the `Rasm.Contracts` bindings.
 - [48]-[CHANNELS](.planning/Runtime/channels.md): Channel mechanics — transport rows, call policy, and the artifact-frame law.
 - [49]-[INGEST](.planning/Runtime/ingest.md): Foreign-delivery boundary for sensor and dictionary material — bytes this process never controls.
 - [50]-[OBSERVATION](.planning/Runtime/observation.md): Durable half of the sensor wire — metered streams as graph evidence, sole reach to `Node`.
@@ -108,7 +108,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `libtorch-cpu` — osx-arm64 native backend behind TorchSharp.
 
 [ARRAY_STORE]:
-- `PureHDF` — Managed HDF5 behind the ONE `Runtime/codecs` archive owner; every consumer composes over that one session capsule.
+- `PureHDF` — Managed HDF5 behind the ONE `Runtime/archive` session owner; every consumer composes over that capsule.
 - `PureHDF.Filters.BZip2.SharpZipLib` — Managed BZip2 codec registered on the HDF5 filter pipeline.
 - `PureHDF.Filters.Lzf` — Managed LZF codec on the same pipeline; the accelerated native filter packages publish no osx RID.
 - `Microsoft.IO.RecyclableMemoryStream` — Pooled-buffer stream behind the artifact frames and the tileset-manifest emit.
@@ -139,7 +139,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [NUMERIC_SUBSTRATE]:
 - `CSparse` — Managed sparse direct-factor terminal.
 - `MathNet.Numerics` — Quadrature, distributions, and the MKL/OpenBLAS provider hooks.
-- `MathNet.Numerics.Data.Text` — MatrixMarket `.mtx` sparse-exchange leg the `tests/contracts` `[02.29]` factor quartet binds.
+- `MathNet.Numerics.Data.Text` — Matrix Market sparse exchange bound by `tests/contracts/matrix-market-exchange/sparse`.
 - `PeterO.Numbers` — Exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
 
 [GPU_DEVICE]:
@@ -171,23 +171,26 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.AI` — `IChatClient` abstraction the AppHost provider binds; runtime `Microsoft.Extensions.AI.Abstractions`.
 
 [EVENT_TRANSPORT]:
-- `CloudNative.CloudEvents` — Envelope type the branch-owned MQTT 5.0 and NATS bindings raise; `Rasm/Domain/event` owns grammar, roster, and decode.
+- `CloudNative.CloudEvents` — Envelope type the branch-owned MQTT 5.0 and NATS bindings raise; the kernel owns grammar, field mechanics, and decode.
 - `NATS.Net` — NATS Core subscription seam for broker sensor ingest and the request/reply compute leg.
 
 [MACHINE_CONNECTIVITY]:
 - `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
 
 [WIRE_CODEGEN]:
+- `Rasm.Contracts` — Generated compute RPC messages and `event.v1.Extensions` for broker admission.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
-- `Grpc.AspNetCore`
+- `Grpc.AspNetCore.Server`
 - `Grpc.Core.Api` — `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` on the served compute endpoints.
-- `Grpc.Tools`
+- `Grpc.StatusProto` — `GetRpcStatus` decode of the `google.rpc.Status` trailer on the client rail; the producer leg stays AppHost's.
+- `Google.Api.CommonProtos` — `google.rpc.Status` and `BadRequest.FieldViolation`, the detail envelope and rule-refusal rows the fault wire carries.
+- `Celly.Protovalidate` — One concurrent `Validator` over the closed descriptor set; `ParseGuard.Read` validates after the bounded parse.
 - `NodaTime.Serialization.Protobuf`
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.
-- `System.Text.Json` — Generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on receipt, descriptor, drift, and evidence lanes.
+- `System.Text.Json` — Generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on receipt and evidence lanes.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`

@@ -19,7 +19,7 @@ Generation is the page's ruling shape, exactly as it is at `Theme/tokens`: a per
 - Law: a role authors an INTEGER base size, a leading class, a weight rung, and the policy intrinsic to the role; everything else is generated. Emphasis is a STEP on the shipped weight ladder, so an emphasized row cannot name a weight the family never shipped. Line height is the leading factor snapped to the baseline unit and floored at the em. Tracking is the optical curve evaluated at the RESOLVED size in em, projected to device pixels exactly once at the bind boundary. Density and the host text-scale multiply the base size before the snap, so the three axes compose in one fold and never as three tables.
 - Entry: `TypeScale.Resolve(TypographyRole role, FontChain chain, TypeAxis? axis = null)` — the one resolution, the absent axis resolving `TypeAxis.Baseline`; `TypeScale.Of(TypeEmphasis emphasis, DensityPolicy density, PreferenceCell preferences, TypeSlant slant)` mints the axis from the theme resolve; `TypeScale.Expand(FontChain chain, DensityPolicy density, PreferenceCell preferences)` is the token-catalogue generation and `TypeScale.Emission(rows)` its dictionary leaves; `FeatureFacet.Apply(string text, CultureInfo culture)` the presentation-time casing transform the casing column carries; `TypographyRole.ForHeading(int level)` the document-heading rung read off the rows' own `Heading` column.
 - Auto: one resolve yields retained styles, chart paints, editor fonts, table columns, Semi size and weight slots, and shaped Skia labels alike; `ResolvedTheme.Types` carries the expansion, so a density election or a text-scale flip re-derives every type surface inside the one theme resolve.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (kernel `UnitInterval`, `CapabilitySet`), Avalonia, BCL inbox
+- Packages: Rasm.Contracts (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (kernel `UnitInterval`/`CapabilitySet`), Avalonia, BCL inbox
 - Growth: a new text appearance is one `TypographyRole` row; a new emphasis is one ladder step; a new numeral or casing posture is one `FeatureFacet` row on its axis; a new family lane is one `FamilyLane` row carrying its chain accessor; a new face weight is one `WeightLadder` rung; zero new surface.
 - Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to this generation — a bare font value at a call site is the named defect. The declared tracking unit is EM: `TextStyleRow.TrackingEm` is the generated value and `TrackingPx` the single projection a retained `LetterSpacing` or a shaped advance consumes. Emphasis moves the weight rung ALONE, so the emission writes the geometric leaves once per role and the weight leaf once per emitted emphasis. Casing applies at presentation through `FeatureFacet.Apply` and small-caps contributes its feature intent rather than a second string transform; numeric and temporal text arrives pre-formatted through the `Theme/locale` temporal patterns, so the numeric row guarantees glyph geometry alone. The text-scale knob is a UNIT interval whose midpoint is the neutral reading, so the multiplier is two linear segments hinged at that midpoint. `Theme/tokens` owns the `TokenKey` mint and this owner addresses its emission through it. NAMED LOSS of the facet collapse: a role naming two numeral rows was a compile error when `NumeralModality` and `TypeCasing` were two types; it is now the row constructor's axis guard, refusing at type init. `Emission` crosses its leaves as `(TokenKey, object)` because `ResolvedTheme` holds an erased leaf map — a `Theme/tokens` seam to close with a typed leaf union, not a typography concern.
 
@@ -175,24 +175,40 @@ public sealed partial class FamilyLane {
     public partial Seq<string> Families(FontChain chain);
 }
 
-// Eleven rungs on the four-pixel rhythm grid. A row authors its INTEGER base size, leading class, base weight
-// rung, and the policy intrinsic to the role; `Heading` is the document-heading depth the rung answers.
+// Eleven rungs on the four-pixel rhythm grid. A row authors its generated wire coordinate, INTEGER base size,
+// leading class, base weight rung, and intrinsic policy; `Heading` is the document-heading depth it answers.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TypographyRole {
-    public static readonly TypographyRole Micro = Row("micro", 10, LeadingClass.Snug, 1, TrimPolicy.Ellipsis);
-    public static readonly TypographyRole Caption = Row("caption", 12, LeadingClass.Snug, 1, TrimPolicy.Wrap);
-    public static readonly TypographyRole Label = Row("label", 12, LeadingClass.Snug, 2, TrimPolicy.Ellipsis);
+    public static readonly TypographyRole Micro = Row(
+        "micro", Rasm.Contracts.Ui.V1.TypographyRole.Micro, 10, LeadingClass.Snug, 1, TrimPolicy.Ellipsis);
+    public static readonly TypographyRole Caption = Row(
+        "caption", Rasm.Contracts.Ui.V1.TypographyRole.Caption, 12, LeadingClass.Snug, 1, TrimPolicy.Wrap);
+    public static readonly TypographyRole Label = Row(
+        "label", Rasm.Contracts.Ui.V1.TypographyRole.Label, 12, LeadingClass.Snug, 2, TrimPolicy.Ellipsis);
     // Uppercase counters need opening the optical curve never supplies — the curve is calibrated on mixed case.
-    public static readonly TypographyRole Overline = Row("overline", 11, LeadingClass.Snug, 2, TrimPolicy.Clip, casing: FeatureFacet.Upper, trackingBias: 0.08d);
-    public static readonly TypographyRole Body = Row("body", 14, LeadingClass.Normal, 1, TrimPolicy.Wrap, heading: 4);
-    public static readonly TypographyRole Code = Row("code", 13, LeadingClass.Normal, 1, TrimPolicy.Clip, numerals: FeatureFacet.Disambiguated, lane: FamilyLane.Mono);
-    public static readonly TypographyRole Numeric = Row("numeric", 14, LeadingClass.Normal, 1, TrimPolicy.Clip, numerals: FeatureFacet.Slashed);
-    public static readonly TypographyRole Section = Row("section", 16, LeadingClass.Normal, 3, TrimPolicy.Wrap, heading: 3);
-    public static readonly TypographyRole Title = Row("title", 18, LeadingClass.Snug, 3, TrimPolicy.Ellipsis, heading: 2);
-    public static readonly TypographyRole Headline = Row("headline", 24, LeadingClass.Tight, 3, TrimPolicy.Ellipsis, heading: 1);
-    public static readonly TypographyRole Display = Row("display", 32, LeadingClass.Tight, 3, TrimPolicy.Ellipsis);
+    public static readonly TypographyRole Overline = Row(
+        "overline", Rasm.Contracts.Ui.V1.TypographyRole.Overline, 11, LeadingClass.Snug, 2, TrimPolicy.Clip,
+        casing: FeatureFacet.Upper, trackingBias: 0.08d);
+    public static readonly TypographyRole Body = Row(
+        "body", Rasm.Contracts.Ui.V1.TypographyRole.Body, 14, LeadingClass.Normal, 1, TrimPolicy.Wrap, heading: 4);
+    public static readonly TypographyRole Code = Row(
+        "code", Rasm.Contracts.Ui.V1.TypographyRole.Code, 13, LeadingClass.Normal, 1, TrimPolicy.Clip,
+        numerals: FeatureFacet.Disambiguated, lane: FamilyLane.Mono);
+    public static readonly TypographyRole Numeric = Row(
+        "numeric", Rasm.Contracts.Ui.V1.TypographyRole.Numeric, 14, LeadingClass.Normal, 1, TrimPolicy.Clip,
+        numerals: FeatureFacet.Slashed);
+    public static readonly TypographyRole Section = Row(
+        "section", Rasm.Contracts.Ui.V1.TypographyRole.Section, 16, LeadingClass.Normal, 3, TrimPolicy.Wrap, heading: 3);
+    public static readonly TypographyRole Title = Row(
+        "title", Rasm.Contracts.Ui.V1.TypographyRole.Title, 18, LeadingClass.Snug, 3, TrimPolicy.Ellipsis, heading: 2);
+    public static readonly TypographyRole Headline = Row(
+        "headline", Rasm.Contracts.Ui.V1.TypographyRole.Headline, 24, LeadingClass.Tight, 3, TrimPolicy.Ellipsis, heading: 1);
+    public static readonly TypographyRole Display = Row(
+        "display", Rasm.Contracts.Ui.V1.TypographyRole.Display, 32, LeadingClass.Tight, 3, TrimPolicy.Ellipsis);
+
+    public Rasm.Contracts.Ui.V1.TypographyRole Wire { get; }
 
     public int Size { get; }
 
@@ -213,14 +229,16 @@ public sealed partial class TypographyRole {
     public Option<int> Heading { get; }
 
     private static TypographyRole Row(
-        string key, int size, LeadingClass leading, int rung, TrimPolicy trim,
+        string key, Rasm.Contracts.Ui.V1.TypographyRole wire, int size, LeadingClass leading, int rung, TrimPolicy trim,
         FeatureFacet? numerals = null, FeatureFacet? casing = null, FamilyLane? lane = null, double trackingBias = 0d, int? heading = null) =>
-        new(key, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source, lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
+        new(key, wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
+            lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
 
     // The axis guard the two-type split used to prove at compile time.
     static partial void ValidateConstructorArguments(
-        ref string key, ref int size, ref LeadingClass leading, ref int rung, ref TrimPolicy trim,
-        ref FeatureFacet numerals, ref FeatureFacet casing, ref FamilyLane lane, ref double trackingBias, ref Option<int> heading) {
+        ref string key, ref Rasm.Contracts.Ui.V1.TypographyRole wire, ref int size, ref LeadingClass leading,
+        ref int rung, ref TrimPolicy trim, ref FeatureFacet numerals, ref FeatureFacet casing, ref FamilyLane lane,
+        ref double trackingBias, ref Option<int> heading) {
         if (numerals.Axis != FacetAxis.Numeral || casing.Axis != FacetAxis.Casing) {
             throw new ArgumentException($"<facet-axis:{key}>", nameof(numerals));
         }

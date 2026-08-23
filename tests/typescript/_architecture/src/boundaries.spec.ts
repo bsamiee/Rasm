@@ -29,7 +29,7 @@ const _FAMILIES = {
     'ext:argon2': /^@node-rs\/argon2($|\/)/,
     'ext:otp': /^(@otplib\/|otplib($|\/))/,
     'ext:doppler': /^@dopplerhq\//,
-    'ext:codec': /^(@bufbuild\/|@connectrpc\/|cbor-x($|\/)|@msgpack\/|rfc6902($|\/)|hash-wasm($|\/)|@electric-sql\/d2)/,
+    'ext:codec': /^(@bufbuild\/|@connectrpc\/|@msgpack\/|rfc6902($|\/)|hash-wasm($|\/)|@electric-sql\/d2)/,
     'ext:sql': /^@effect\/sql($|-|\/)/,
     'ext:duckdb': /^@duckdb\//,
     'ext:arrow': /^apache-arrow($|\/)/,

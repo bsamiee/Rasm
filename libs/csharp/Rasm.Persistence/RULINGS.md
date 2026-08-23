@@ -22,6 +22,9 @@
 - `LandingArm` is the DATASET shape, never the producing package — a shared arm splits its hive tree on a segment neither scan can prune on.
 - `ProjectionContext` is this package's one time-and-causal frame — a `ClockPolicy` or `Principal` parameter inverts the strata the frame fixes.
 - `Crdt.Apply` and `GraphDelta.Apply` are the only materializers — projection, merge, and AS-OF fold one delta, so a second forks replay.
+- Member patches are binary — `FieldMask` diff over `NodeWire`, `IsValid` gate, `Merge` apply; ProtoJSON renders `PatchOp` leaves, never a target.
+- `EntityEdit` lowers onto `Element.V1.EntityEditWire` through `EditWire` — key and base cross as 16-byte addresses, one `PatchOp` per mask path.
+- `SnapshotHeader` is the native 88-byte artifact trust frame — fixed offsets, pre-parser CRC, and digests through `ContentHash.Wire`/`Admit`.
 - Usage levels carry `rasm.tenant` alone — class and tier stay `UsageReceipt` facts, so no meter dimension multiplies the capped tenant series.
 - Settlement fans every column `EgressReceipt.Drained` partitions, duplicates included — an omitted column reports a rate above its own traffic.
 - Residence literals render through the declared `ColumnType` — a stringified operand kills pruning, coerces on PostgreSQL, raises on ClickHouse.
@@ -40,6 +43,9 @@
 - Compute's `AssessmentRow` crosses IN as producer-handed row data — a Persistence-declared result-row twin re-mints vocabulary its owner closes.
 - `ReadRouter.Observed` and the read receipt answer DISJOINT questions — where reads spend versus how one resolved; a lifted phase twins one number.
 - CRDT payload equality rides `CrdtBytes` on `ReadOnlyMemory<byte>` — an `ImmutableArray<byte>` swap re-types the `CrdtWire.Decode` zero-copy seam.
+- `Crdt.Apply` takes the entry `OperationId` beside the generated op — MV-register context never substitutes for the outer dot.
+- OR tombstones key by element; RGA routes retain predecessor and value identity without retired bytes.
+- Presence retains stamped live/left cells and the monotone liveness horizon; family mismatch or unseated maintenance refuses.
 - `TimeSpine` rides the DECLARATION — `Admit` faults a category its columns contradict, since one inferred from `time` re-dates event facts.
 - `KvSpace` is the ONE keyspace axis both KV engines realize — a composite-key prefix carries none of the postures a row does.
 - KV rows supply no comparer — key order is byte order, and a declared `CompareWith` voids every prefix stop with no compile error.
@@ -54,6 +60,9 @@
 - Every `Lane` row admits ONCE at its owning entry — `Admit` and `Register` read the ROW's own `Lane`, so a new row gates with no new call site.
 - `StoreProfile` and `BackendProvider` are DISJOINT — one names an engine a generation is minted FOR, the other an engine this package OPENS.
 - `FlightServer` is NOT a gRPC service — no bind attribute rides its hierarchy, so `MapGrpcService<T>` fails and `AddFlightServer<T>` binds.
+- Flight refusals raise through AppHost `FaultWire.Raise` — one producer table packs `FaultDetail`; a page-local `StatusCode` switch is the twin.
+- `WireLimits.Plan` is the ONE foreign-plan ceiling — both Substrait doors read it, so a size or depth past the row refuses before allocation.
+- Substrait-JSON parses through the page-declared `PlanJson` alone — a FOREIGN descriptor outside `WireAdmission.Registry`, unknown fields tolerated.
 - Rebalance resolves derive their timeout from the pinned poll interval — a dead leader burns it whole, so chunking multiplies the bound it guards.
 - Rebalance handlers contain their own refusals — `Consume` re-raises whatever one throws, so a resolve fault arrives as a consume fault instead.
 - `EnablePartitionEof` stays ARMED and counts on its own column — that edge is the lane's one idle signal, and suppressing it claims unmeasured lag.
@@ -68,7 +77,7 @@
 - Consistency evidence publishes the bound profile row's DECLARED level — `AppliedInfo` and `IPage` discard the `RowSet` the achieved level rode.
 - `StoreProfile.Admits` gates the cache lane — Marten backs both residences, so a single-process store realizes neither.
 - `CacheFault.Foreign` retains the provider `Error` — mapping it to `Unavailable` fabricates a consistency level and replica counts.
-- Dead-letter rows store opaque `JsonElement` observations — message strings and AppHost wire types cannot cross this package boundary.
+- Dead-letter rows carry generated `FaultObservation`; `EgressWire` alone projects generated host dead-letter and replay messages.
 - Model identity is the PROFILE row — `UseModel` bypasses the model cache, so a cache-key factory forecloses the compiled model for nothing.
 - `IdentityShapeRow` keys on `StoreProfile`'s own vocabulary — a shared key joins two axes, and a missing row fails the generated lookup loud.
 - Compiled-model trust is a MEASURED digest of model metadata — a hand-written version column diverges the first time the model moves.
@@ -85,7 +94,9 @@
 - `Retriability` names WHETHER a re-offer is admitted, a band overriding it, and `RetryShape` WHERE — a bool spanning both drops two routes.
 - `StoreVerdict` is the currency the re-drive seam crosses on — naming a pipeline type inverts the strata `StoreRedrivePort` holds.
 - `ReconcileAxis` owns every manifest axis token beside `RestartClass` — a bare literal forks one axis into two a deploy plane then diffs as two.
-- `OutboxCursor` carries `Parked`/`Attempt`/`Status` per sink — a per-event delivery row gives one commit two owners and one sink another's retries.
+- `OutboxCursor` owns one optional `OutboxDeferred` per sink; the committed op-log never stores delivery state.
+- First-terminal handling is one atomic `QuarantineAndAdvance`; separate letter and cursor writes are forbidden.
+- Cursor sequence and CloudEvents `D20` ordinal are store-local drain positions, never HLC or portable order.
 - `SweepReceipt` conserves across its whole sweep-slot roster — a refused key booked as `Evicted` reports reclaim never released.
 - `LeaseGuard` is advisory DETECTION — read as a gate it re-mints the frozen-guard scar each guarded write's own `fence <= @token` predicate closes.
 - Residence floors spell `Fits`/`Admit`/`Tenancy`/`Lifetime`/`Degrade` — `Ingest` names one entry kind and `Retain` asks no owner to end a row.
@@ -94,11 +105,21 @@
 - `OpLogEntry.Sequence` resumes a drain and orders NOTHING — two stores mint sequence 41, so the dot is the only portable coordinate.
 - `OperationId.Counter` IS the origin's `VersionVector` slot — a second counter beside it drifts the moment either advances alone.
 - One `DotSource` per store mints every dot — the changefeed range and the authoring stamp reserving apart mint one counter twice.
-- `VersionVector` owns `Ordered`/`WriteTo` and every byte-deriving reader takes them — a caller enumerating `Slots` writes bucket order.
+- `VersionVector` owns `Ordered`/`CanonicalBytes` and every byte-deriving reader takes them — a caller enumerating `Slots` writes bucket order.
+- `OperationId.Counter` streams as ONE eight-byte `CanonicalWriter.I64` word — the parity corpus pins that form; a sixteen-byte twin forks the key.
+- `ColumnFamily.Crdt.Codec` is generated `crdt.v1.CrdtOpWire`; `OpLogEntryWire` retains those bytes at `[Key(6)] Payload`.
+- `OpLogEntryWire`'s thirteen-slot MessagePack envelope leaves every non-CRDT lane opaque.
+- `OpLogWire.Encode` and `Decode` share one admission fold; sync ports exchange frames, never typed entries.
+- Ordinary dots are nonzero and gap-free; only the exact empty-origin, zero-counter, empty-context value is genesis.
+- New entries apply only where the current frontier dominates their pre-mint context, since a later dot otherwise hides a missing predecessor.
+- Closure is unique and strictly content-key ordered, and excludes the entry payload key that transfer adds separately.
 - `Subscription` VALUES over `Binding` rows are the whole delivery-target family — a per-transport case re-mints the knob set the row carries.
 - `protocolsettings` admits against the binding row's OWN roster — a key accepted and ignored publishes governance no leg ever reads.
 - `id` renders the dot and `subject` the content key — collapsing them makes two peers' identical deltas one event and drops the second.
-- `datacontenttype` and `dataschema` are payload-arrow ROW DATA — a literal names the mint site's guess over a registry-framed body.
+- `datacontenttype` is payload-arrow ROW DATA naming the body codec's media type.
+- `dataschema` is an optional absolute URI for event data; protobuf `proto_data` uses its `Any` type URL, never a registry subject.
+- Registry subject/version remains typed codec configuration outside the envelope; the `Any` type URL remains payload schema identity.
+- Completed generated `Extensions` validates through one descriptor-rooted Celly evaluator before projection or ingress admission.
 - `Egress.Envelope` returns `Fin` — the owner's `Validate()` IS the mint boundary, so a malformed grammar value letters before a transport takes it.
 - CESQL evaluation is TOTAL — a value beside accumulated faults, so a runtime error withholds one event and never darkens a subscription.
 - CESQL grammars build ONCE as static parser values — a parser constructed per evaluation rebuilds the expression graph per event.
@@ -115,6 +136,7 @@
 - ONE presigner keyed by dialed ENDPOINT — S3 and self-hosted share `GrantSigner`, so no row mints a per-provider signer.
 - `RetentionSweep.Execute` evicts SET-SHAPED through one arrow — a per-key arrow degrades retention lanes to round trips and strands `EraseMany`.
 - `BudgetCredit` IS the seed — its `ON CONFLICT` establishes an absent unit, so a seeding case beside it is the deleted twin of one write.
+- Merkle, chain, and subtree digests fold on `ContentHash.Of`/`CanonicalWriter.Streaming` — no raw `XxHash128` append site survives in this folder.
 - Analytics residence, lakehouse landing, serving, and dataset rosters stay SEPARATE owners — one page holding all hides what an ordinal binds.
 
 ## [04]-[STRUCTURE]

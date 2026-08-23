@@ -7,7 +7,7 @@
 - [02]-[RECEIPT_FAMILY]: the closed outcome union and its lifecycle rank vocabulary; `Receipt`.
 - [03]-[ENVELOPE_OWNER]: the decoded envelope, its orders, the LWW instance, the fold plan; `ReceiptEnvelope`.
 - [04]-[PROGRESS_FOLD]: the tally reading, the state product, read-time verdicts, the roll-up; `Tally`, `Progress`.
-- [05]-[AVAILABILITY_LATTICE]: level rows, verdict family, worst-wins snapshot merge, the gate read; `Availability`.
+- [05]-[AVAILABILITY_LATTICE]: enum-keyed level rows, verdict family, the `CommandAvailability` crossing, worst-wins merge, the gate read; `Availability`.
 
 ## [02]-[RECEIPT_FAMILY]
 
@@ -16,7 +16,12 @@
 
 ```typescript signature
 import * as Semigroup from "@effect/typeclass/Semigroup"
-import { Array, Data, Duration, Equal, Equivalence, HashMap, HashSet, Match, Number, Option, Order, pipe, Record, Schema } from "effect"
+import { create, enumToJson, isMessage, type MessageShape, type UnknownEnum } from "@bufbuild/protobuf"
+import { EmptySchema, timestampFromMs, timestampMs, TimestampSchema } from "@bufbuild/protobuf/wkt"
+import * as availability from "@rasm\/contracts/rasm/contracts/availability/v1/availability_pb"
+import * as control from "@rasm\/contracts/rasm/contracts/compute/v1/control_pb"
+import { Array, Data, DateTime, Duration, Either, Equal, Equivalence, HashMap, HashSet, Match, Number, Option, Order, ParseResult, pipe, Record, Schema, type SchemaAST } from "effect"
+import { Wire } from "../interchange/codec.ts"
 import { Clock } from "../value/clock.ts"
 import { Digest } from "../value/contentKey.ts"
 import { Fault } from "../value/fault.ts"
@@ -311,24 +316,37 @@ const _Progress: Progress.Shape = {
 [AVAILABILITY_LATTICE]:
 
 ```typescript signature
-// The five rows and their ranks ARE the producer's frozen `DegradationLevelKey` roster, key for key and rank for
-// rank; `admits` is this end's gate projection of the capability set each row retains — write capability retained
-// admits every command, store-read alone admits reads, and the row retaining neither withholds.
-const _LEVELS = ["full", "reduced-remote", "local-only", "read-only", "suspended"] as const
+// Levels ARE the corpus's `DegradationLevel` enum — the roster derives from the generated members and this page
+// mints no token — while `rank` and `admits` are this end's legality columns: write capability retained admits every
+// command, store-read alone admits reads, and the row retaining neither withholds. `UNSPECIFIED` is excluded at the
+// type: protovalidate's `defined_only` refuses it at the frame, and the exclusion is what lets a row index by a decoded
+// member with no guard.
+type _Level = Exclude<control.DegradationLevel, UnknownEnum | typeof control.DegradationLevel.UNSPECIFIED>
+const _LEVELS = [
+  control.DegradationLevel.FULL,
+  control.DegradationLevel.REDUCED_REMOTE,
+  control.DegradationLevel.LOCAL_ONLY,
+  control.DegradationLevel.READ_ONLY,
+  control.DegradationLevel.SUSPENDED,
+] as const
 const _POSTURES = ["all", "reads", "none"] as const
 
 const _ROWS = {
-  "full": { rank: 0, admits: "all" },
-  "reduced-remote": { rank: 1, admits: "all" },
-  "local-only": { rank: 2, admits: "all" },
-  "read-only": { rank: 3, admits: "reads" },
-  "suspended": { rank: 4, admits: "none" },
-} as const satisfies Record<(typeof _LEVELS)[number], { readonly rank: number; readonly admits: (typeof _POSTURES)[number] }>
+  [control.DegradationLevel.FULL]: { rank: 0, admits: "all" },
+  [control.DegradationLevel.REDUCED_REMOTE]: { rank: 1, admits: "all" },
+  [control.DegradationLevel.LOCAL_ONLY]: { rank: 2, admits: "all" },
+  [control.DegradationLevel.READ_ONLY]: { rank: 3, admits: "reads" },
+  [control.DegradationLevel.SUSPENDED]: { rank: 4, admits: "none" },
+} as const satisfies Record<_Level, { readonly rank: number; readonly admits: (typeof _POSTURES)[number] }>
+type _Rows<T extends Record<(typeof _LEVELS)[number], unknown> = typeof _ROWS> = T
 
-const _Level = Shape.vocabulary(_LEVELS, _ROWS)
+const _LevelSchema = Schema.Literal(..._LEVELS)
+const _levelOf = Schema.is(_LevelSchema)
+// the producer's own spelling of a level is its enum name, so a verdict reason carrying a level carries that word
+const _word = (level: _Level): string => enumToJson(control.DegradationLevelSchema, level)
 const _Command = Schema.NonEmptyString.pipe(Schema.brand("CommandName"))
 
-const _byRank: Order.Order<(typeof _LEVELS)[number]> = Order.mapInput(Order.number, (level) => _Level.at(level).rank)
+const _byRank: Order.Order<_Level> = Order.mapInput(Order.number, (level) => _ROWS[level].rank)
 
 const _Available = Schema.TaggedStruct("Available", {})
 
@@ -338,7 +356,7 @@ const _Gated = Schema.TaggedStruct("Gated", {
 })
 
 const _Withheld = Schema.TaggedStruct("Withheld", {
-  level: _Level.schema,
+  level: _LevelSchema,
   reason: Schema.NonEmptyString,
 })
 
@@ -353,15 +371,7 @@ const _VERDICT_RANKS = { Available: 0, Gated: 1, Withheld: 2 } as const satisfie
   number
 >
 
-const _Commands = Schema.transform(
-  Shape.Record(_Command, _Verdict),
-  Schema.HashMapFromSelf({ key: Schema.typeSchema(_Command), value: Schema.typeSchema(_Verdict) }),
-  {
-    strict: true,
-    decode: (record) => HashMap.fromIterable(Record.toEntries(record)),
-    encode: (map) => Record.fromEntries(HashMap.toEntries(map)),
-  },
-)
+const _Commands = Schema.HashMapFromSelf({ key: Schema.typeSchema(_Command), value: Schema.typeSchema(_Verdict) })
 
 const _byRestrictiveness: Order.Order<Schema.Schema.Type<typeof _Verdict>> = Order.mapInput(
   Order.tuple(Order.number, Order.number, Order.bigint, Order.bigint, Order.number, Order.string),
@@ -372,7 +382,7 @@ const _byRestrictiveness: Order.Order<Schema.Schema.Type<typeof _Verdict>> = Ord
       Option.isNone(until) ? 1 : 0,
       Option.match(until, { onNone: () => 0n, onSome: (stamp) => stamp.physical }),
       Option.match(until, { onNone: () => 0n, onSome: (stamp) => stamp.logical }),
-      verdict._tag === "Withheld" ? _Level.at(verdict.level).rank : 0,
+      verdict._tag === "Withheld" ? _ROWS[verdict.level].rank : 0,
       verdict._tag === "Available" ? "" : verdict.reason,
     ] as const
   },
@@ -393,18 +403,111 @@ const _fieldwise: Merge.Instance<{
 
 const _Posture = Shape.vocabulary(_POSTURES, {
   all: () => _Available.make({}),
-  reads: (level) => _Gated.make({ reason: level, until: Option.none() }),
-  none: (level) => _Withheld.make({ level, reason: level }),
-} satisfies Record<(typeof _POSTURES)[number], (level: (typeof _LEVELS)[number]) => Schema.Schema.Type<typeof _Verdict>>)
+  reads: (level) => _Gated.make({ reason: _word(level), until: Option.none() }),
+  none: (level) => _Withheld.make({ level, reason: _word(level) }),
+} satisfies Record<(typeof _POSTURES)[number], (level: _Level) => Schema.Schema.Type<typeof _Verdict>>)
 
-class _Availability extends Schema.Class<_Availability>("Evidence.Availability")({
-  level: _Level.schema,
+// The READING is what crosses: level, the deviating command verdicts, and the producer's instant — exactly the
+// generated `CommandAvailability`. Tenant rides the receipt envelope that carried the document, so the snapshot
+// seats it from the carrier at `of`, never from a column the wire does not declare.
+class _Reading extends Schema.Class<_Reading>("Evidence.Availability.Reading")({
+  level: _LevelSchema,
   commands: _Commands,
   since: Clock.Hlc,
+}) {}
+
+const _Wire: Schema.Schema<MessageShape<typeof availability.CommandAvailabilitySchema>> = Schema.declare(
+  (input: unknown): input is MessageShape<typeof availability.CommandAvailabilitySchema> =>
+    isMessage(input, availability.CommandAvailabilitySchema),
+  { identifier: availability.CommandAvailabilitySchema.typeName },
+)
+
+// A Timestamp lands on the tick axis through the clock owner's one scaling member; the logical half of a producer
+// instant is the genesis zero, since a wall-clock stamp carries no causal counter.
+const _stampOf = (stamp: MessageShape<typeof TimestampSchema>): Clock.Hlc =>
+  new Clock.Hlc({
+    physical: Clock.Hlc.physicalOf(DateTime.unsafeMake(timestampMs(stamp))),
+    logical: Clock.Hlc.genesis.logical,
+  })
+const _TICKS_PER_MILLI = 10_000n
+
+const _verdictOf = (
+  wire: availability.CommandVerdictWire,
+  ast: SchemaAST.AST,
+): Either.Either<Schema.Schema.Type<typeof _Verdict>, ParseResult.ParseIssue> =>
+  Match.value(wire.verdict).pipe(
+    Match.when({ case: "available" }, () => Either.right(_Available.make({}))),
+    Match.when({ case: "gated" }, ({ value }) => Either.right(_Gated.make({ reason: value.reason, until: Option.none() }))),
+    Match.when({ case: "withheld" }, ({ value }) =>
+      _levelOf(value.level)
+        ? Either.right(_Withheld.make({ level: value.level, reason: value.reason }))
+        : Either.left(new ParseResult.Type(ast, value, "<level-undefined>"))),
+    Match.orElse(() => Either.left(new ParseResult.Type(ast, wire, "<verdict-unset>"))),
+  )
+
+const _verdictWire = (verdict: Schema.Schema.Type<typeof _Verdict>): availability.CommandVerdictWire =>
+  create(availability.CommandVerdictWireSchema, {
+    verdict: Match.valueTags(verdict, {
+      Available: () => ({ case: "available" as const, value: create(EmptySchema) }),
+      Gated: ({ reason }) => ({ case: "gated" as const, value: create(availability.CommandVerdictWire_GatedSchema, { reason }) }),
+      Withheld: ({ level, reason }) => ({
+        case: "withheld" as const,
+        value: create(availability.CommandVerdictWire_WithheldSchema, { level, reason }),
+      }),
+    }),
+  })
+
+// The crossing is total both ways over the generated message: every field rule is protovalidate's at the frame, so
+// this transform carries only the lifts no rule states — the enum narrowing, the verdict oneof onto the branch union,
+// the command brand, and the instant onto the tick axis.
+const _FromWire: Schema.Schema<_Reading, MessageShape<typeof availability.CommandAvailabilitySchema>> = Schema.transformOrFail(
+  _Wire,
+  _Reading,
+  {
+    strict: true,
+    decode: (wire, _options, ast) =>
+      Either.map(
+        Either.all({
+          level: _levelOf(wire.level) ? Either.right(wire.level) : Either.left(new ParseResult.Type(ast, wire, "<level-undefined>")),
+          since: Option.match(Option.fromNullable(wire.since), {
+            onNone: () => Either.left(new ParseResult.Type(ast, wire, "<since-unset>")),
+            onSome: (stamp) => Either.right(_stampOf(stamp)),
+          }),
+          commands: Either.all(Array.map(Record.toEntries(wire.commands), ([name, verdict]) =>
+            Either.all([
+              Either.mapLeft(Schema.decodeEither(_Command)(name), (error) => error.issue),
+              _verdictOf(verdict, ast),
+            ]))),
+        }),
+        ({ level, since, commands }) => new _Reading({ level, since, commands: HashMap.fromIterable(commands) }),
+      ),
+    encode: (reading) =>
+      Either.right(create(availability.CommandAvailabilitySchema, {
+        level: reading.level,
+        commands: Record.fromEntries(Array.map(HashMap.toEntries(reading.commands), ([name, verdict]) => [name, _verdictWire(verdict)] as const)),
+        // the inverse of `physicalOf`: ticks back onto the millisecond axis the well-known stamp counts in
+        since: timestampFromMs(Number(reading.since.physical / _TICKS_PER_MILLI)),
+      })),
+  },
+)
+
+class _Availability extends Schema.Class<_Availability>("Evidence.Availability")({
+  ..._Reading.fields,
   tenant: Identity.Tenant,
 }) {
+  static readonly Reading: typeof _Reading = _Reading
   static readonly Verdict: typeof _Verdict = _Verdict
+  static readonly levels: typeof _LEVELS = _LEVELS
   static readonly worst: Merge.Instance<Availability.State> = _fieldwise
+  // The one seat of tenancy: foreign bytes decode once through the registry, then the generated message crosses
+  // once into the branch reading before it meets the carrier's tenant. No wire column is asserted.
+  static readonly of = (
+    octets: Uint8Array,
+    tenant: Identity.Tenant,
+  ): Effect.Effect<_Availability, ParseResult.ParseError | Wire.Fault> =>
+    Effect.flatMap(Wire.decode("CommandAvailability", octets), (wire) =>
+      Effect.map(Schema.decode(_FromWire)(wire), (reading) =>
+        new _Availability({ level: reading.level, commands: reading.commands, since: reading.since, tenant })))
   static readonly plan: Fold.Plan<_Availability, Identity.Tenant.Scope, Availability.State> = {
     name: "state/availability",
     key: (snapshot) => snapshot.tenant.scope,
@@ -417,7 +520,7 @@ class _Availability extends Schema.Class<_Availability>("Evidence.Availability")
   static admits(snapshot: Availability.State, command: Availability.Command): Availability.Verdict {
     return Option.getOrElse(
       HashMap.get(snapshot.commands, command),
-      () => _Posture.at(_Level.at(snapshot.posture.level).admits)(snapshot.posture.level),
+      () => _Posture.at(_ROWS[snapshot.posture.level].admits)(snapshot.posture.level),
     )
   }
 }
@@ -427,7 +530,8 @@ declare namespace Availability {
     readonly posture: Posture
     readonly commands: HashMap.HashMap<Schema.Schema.Type<typeof _Command>, Schema.Schema.Type<typeof _Verdict>>
   }
-  type Level = (typeof _LEVELS)[number]
+  type Reading = _Reading
+  type Level = _Level
   type Access = (typeof _POSTURES)[number]
   type Posture = { readonly level: Level; readonly since: Clock.Hlc }
   type Command = Schema.Schema.Type<typeof _Command>
@@ -436,6 +540,7 @@ declare namespace Availability {
 
 type _ProgressKey = Progress.Key
 type _ProgressState = Progress.State
+type _AvailabilityReading = Availability.Reading
 type _AvailabilityLevel = Availability.Level
 type _AvailabilityAccess = Availability.Access
 type _AvailabilityPosture = Availability.Posture
@@ -467,6 +572,7 @@ namespace Evidence {
   }
   export type Availability = _Availability
   export namespace Availability {
+    export type Reading = _AvailabilityReading
     export type Level = _AvailabilityLevel
     export type Access = _AvailabilityAccess
     export type Posture = _AvailabilityPosture

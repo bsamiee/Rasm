@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package rasm.contracts.ui.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "rasm/contracts/compute/v1/control.proto";
+import "rasm/contracts/fault/v1/fault.proto";
+
+// --- [COMMANDS] -------------------------------------------------------------------------
+
+message CommandGateWire {
+  string key = 1 [(buf.validate.field).string.min_len = 1];
+  bool available = 2;
+  rasm.contracts.compute.v1.DegradationLevel level = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// The one open payload arm: field values are the addressed form schema's own admitted output, and that
+// schema is the only decoder.
+message CommandPayloadWire {
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    google.protobuf.Empty none = 1;
+    string single = 2 [(buf.validate.field).string.min_len = 1];
+    Many many = 3;
+    string text = 4;
+    google.protobuf.Struct fields = 5;
+  }
+
+  message Many {
+    repeated string ids = 1 [(buf.validate.field).repeated = {
+      min_items: 1
+      max_items: 4096
+      unique: true
+      items: {
+        string: {min_len: 1}
+      }
+    }];
+  }
+}
+
+message CommandInvocation {
+  string key = 1 [(buf.validate.field).string.min_len = 1];
+  CommandPayloadWire payload = 2 [(buf.validate.field).required = true];
+}
+
+message CommandOutcomeWire {
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    google.protobuf.Empty completed = 1;
+    google.protobuf.Empty cancelled = 2;
+    rasm.contracts.fault.v1.FaultObservation rejected = 3;
+    string rolled_back = 4 [(buf.validate.field).string.min_len = 1];
+    string compensated = 5 [(buf.validate.field).string.min_len = 1];
+  }
+}
+
+message DeckReceiptWire {
+  string key = 1 [(buf.validate.field).string.min_len = 1];
+  string surface = 2 [(buf.validate.field).string.min_len = 1];
+  google.protobuf.Duration elapsed = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).duration.gte = {}
+  ];
+  CommandOutcomeWire outcome = 4 [(buf.validate.field).required = true];
+  bytes payload_digest = 5 [(buf.validate.field).bytes.len = 16];
+  bytes correlation = 6 [(buf.validate.field).bytes.len = 16];
+}

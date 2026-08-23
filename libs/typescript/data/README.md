@@ -22,7 +22,7 @@
 - [11]-[ASSET](.planning/object/asset.md): Delivered-asset admission — a category is a row with its own transforms and derive plane.
 - [12]-[FILE](.planning/object/file.md): Filesystem and derivative planes on one spine — open, admit, emit, mint, store, refer.
 - [13]-[REMOTE](.planning/object/remote.md): Every non-local byte tree behind one origin-addressed surface — SFTP, FTP, WebDAV, object peers.
-- [14]-[STORE](.planning/object/store.md): Conditional writes, verified reads, grants, lifecycle, and reference-ledger GC over one identity.
+- [14]-[STORE](.planning/object/store.md): Verified object custody, confined event `dataref` residence, grants, lifecycle, and GC.
 - [15]-[STREAM](.planning/object/stream.md): Resumable content-addressed intake — bounded chunks, verified offsets, one identity to the key.
 
 [READ]:
@@ -82,6 +82,14 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
+
+[CONTRACT_BINDINGS]:
+- `@bufbuild/protobuf` — Generated message types and semantic equality for backend contract composition.
+- `@rasm\/contracts` — Generated appearance, organization, and parity contract descriptors consumed at data boundaries.
+
+[BRANCH_PEERS]:
+- `@rasm/ts/core` — Content identity, generated-message codecs, event envelopes, observation conventions, and shared value rails.
+- `@rasm/ts/security` — Lease and custody contracts consumed through data-owned boundary ports.
 
 [TYPING_RAILS]:
 - `effect`

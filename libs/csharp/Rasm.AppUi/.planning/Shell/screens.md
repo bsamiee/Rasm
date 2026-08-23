@@ -12,6 +12,7 @@ Rasm.AppUi screens are catalog rows over one program-driven model: a frozen `Scr
 - [07]-[CONTROL_STREAM]: A screen body is a control-intent stream materialized through `ControlFactory`, not a XAML literal.
 - [08]-[SETTINGS_SURFACE]: Every persisted policy projected from one registry through the form-schema engine.
 - [09]-[PRODUCT_SCREENS]: First run, recents landing, coach marks, and the consent-bearing fault report.
+- [10]-[TS_PROJECTION]: One generated surface program binds partition identity, root control tree, and layout closure.
 
 ## [02]-[SCREEN_CATALOG]
 
@@ -20,7 +21,7 @@ Rasm.AppUi screens are catalog rows over one program-driven model: a frozen `Scr
 - Auto: dock factories, window titles, palette listings, automation names, and headless proof specs derive as folds over `Rows` — zero per-derivation registries; `IViewFor<TViewModel>` views register through `RegisterViews(m => m.Map<TViewModel, TView>())` on the ReactiveUI builder at the composition root (the catalog-verified spelling — `RegisterView<...>` does not exist), one registration per catalog row.
 - Packages: ReactiveUI, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one catalog row carries screen, dockable, title, automation name, and headless proof, and one product surface is one `ScreenProgram` row plus its `ScreenRoster` seating; a new named cell is one `SlotKey<T>` const on its program owner; zero new surface.
-- Boundary: `Key` is the ONE identity cell — deep links, remote invocation, dock identity, automation, palette listings, and proof names all spell it, so a derived alias member beside it was a second spelling consumers forked on and is deleted; the shell route index is a roster projection (`Shell/navigation.md` `ShellRoot.Freeze` folds `Rows` onto `Key`). Screen title typography is the `Theme/typography` `TypographyRole.Title` row and screen iconography the `Theme/assets` key vocabulary, so neither is a row column here. `Surface` gates over the supplied `ConsumptionProfile` and the resolved `SurfaceMount`, and `Proof` is COUPLED to it at the freeze: `Diagnostics/proof` crosses every headless-lane row with the variant-density grid, so a row claiming that lane while refusing `SurfaceMount.Offscreen` declares a proof nothing can run and `Freeze` refuses it. `Model` takes the row beside the minted `SurfaceKey` (`Shell/navigation` `SurfaceKey.Mint`), so a screen composing its own partition text is unspellable. The body is the model's own projection, never a row column, and crosses the `ControlIntentWire` seam unchanged.
+- Boundary: `Key` is the ONE identity cell — deep links, remote invocation, dock identity, automation, palette listings, and proof names all spell it, so a derived alias member beside it was a second spelling consumers forked on and is deleted; the shell route index is a roster projection (`Shell/navigation.md` `ShellRoot.Freeze` folds `Rows` onto `Key`). Screen title typography is the `Theme/typography` `TypographyRole.Title` row and screen iconography the `Theme/assets` key vocabulary, so neither is a row column here. `Surface` gates over the supplied `ConsumptionProfile` and the resolved `SurfaceMount`, and `Proof` is COUPLED to it at the freeze: `Diagnostics/proof` crosses every headless-lane row with the variant-density grid, so a row claiming that lane while refusing `SurfaceMount.Offscreen` declares a proof nothing can run and `Freeze` refuses it. `Model` takes the row beside the minted `SurfaceKey` (`Shell/navigation` `SurfaceKey.Mint`), so a screen composing its own partition text is unspellable. The body is the model's own projection, never a row column; the generated `AppUiSurfaceProgram` binds its control tree to that surface identity and the exact layout closure the tree names.
 
 ```csharp signature
 public sealed record ScreenCatalogRow(
@@ -655,7 +656,7 @@ flowchart LR
 - Auto: `ProductScreen.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`); the intent stream re-emits on `ReactiveObject.Changed` property edges, throttled so a burst of edges collapses to one re-materialize; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity.
 - Packages: ReactiveUI, System.Reactive, Avalonia, LanguageExt.Core
 - Growth: a screen is one `ScreenProgram` row whose `Body` names its control-intent tree; a new control on a screen is one intent in that tree, never a XAML edit; a new value channel is one slot the program writes; zero new surface.
-- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the remaining four itself — the value channel over its own named slots, the two ownership columns off `ScreenLifetimes`, and the receipt sink beside its own timeline — so a column added there lands here as one more pass-through; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
+- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the remaining four itself — the value channel over its own named slots, the two ownership columns off `ScreenLifetimes`, and the interior receipt evidence sink — so a column added there lands here as one more pass-through; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -1183,6 +1184,116 @@ public static class ProductPrograms {
 }
 ```
 
-## [10]-[RESEARCH]
+## [10]-[TS_PROJECTION]
+
+- Owner: generated `Rasm.Contracts.Ui.V1.AppUiSurfaceProgram` — one reusable application-surface root carrying the stable `SurfaceKey` partition, one generated control tree, and its exact generated layout-program closure; `ScreenMap` — the sole root correspondence and layout resolver.
+- Entry: `ScreenMap.Emit` maps the supplied root once, walks the generated tree once to prove unique control identity and collect referenced layout keys, resolves each distinct key, builds the generated surface program, and admits it through the shared descriptor-backed validator. The realized fence carries the exact `Op`, resolver, and measurement signatures.
+- Packages: Rasm.Contracts (project, generated `Ui.V1` root), Rasm.AppHost (project, shared `WireJson`), Rasm (project, `Op`), Google.Protobuf, LanguageExt.Core
+- Growth: a new control arm breaks the one generated-tree graph fold; a new root member has one C# projection and one TypeScript admission site; zero sibling app payload or hand schema.
+- Law: the manifest seats `AppUiSurfaceProgram` as the `DESIGN-PIN` application payload. `ControlIntentWire` and `LayoutProgram` remain independently reusable generated support types, but neither is a separately seated app input a caller can detach from its surface identity or peer.
+- Boundary: `SurfaceKey` crosses on its three authoritative columns, never as the rendered `Value` string whose slash and instance suffix would need parsing. The wire retains the producer's signed 32-bit representation and validates the ordinal nonnegative, so no wider peer-only identity can arrive. The one generated-tree walk refuses duplicate control keys before collecting container layout references, so value binding, automation, and solved positions never address two controls through one identity. `ScreenMap` resolves layout programs from the container keys already present in the mapped root, so it cannot emit an unused program; every resolved `ConstraintProgram.Panel` must equal the key that requested it, so it cannot emit a mis-keyed program; repeated references collapse before resolution, so one layout surface crosses once. `WireAdmission.Admit` applies the generated nonblank-identity, nonnegative-instance, required-root, unique-layout, structured-variable, and numeric rules at the producer, and TypeScript applies the same descriptor rules before `Panel.surface` proves unique control identity plus reverse layout inclusion — every supplied layout is referenced and every reference supplied — before any solve. The current C# shell carries no runtime transport; a future ProtoJSON egress formats this admitted root through `WireJson.Formatter`. `@rasm\/contracts/rasm/contracts/ui/v1/surface_pb` is the peer binding, with no merged-module alias or leaf wrapper.
+
+```csharp signature
+// --- [COMPOSITION] --------------------------------------------------------------------------
+public static class ScreenMap {
+    public static Fin<AppUiSurfaceProgram> Emit(
+        Op op,
+        SurfaceKey surface,
+        ControlIntent root,
+        Func<string, Fin<ConstraintProgram>> resolve,
+        Func<ConstraintProgram, Seq<ValueRow>> measured) {
+        ControlIntentWire wireRoot = ControlMap.Emit(root);
+        (Seq<ControlIntentWire> Controls, Seq<string> Layouts) census = Census(wireRoot);
+        Seq<string> identities = census.Controls.Map(static control => control.Key);
+        Seq<string> duplicated = identities
+            .GroupBy(static identity => identity)
+            .AsIterable()
+            .Filter(static group => group.Count() > 1)
+            .Map(static group => group.Key)
+            .ToSeq();
+        if (!duplicated.IsEmpty) {
+            return Fin<AppUiSurfaceProgram>.Fail(
+                new ScreenFault.Rejected("surface-program", $"duplicate control keys: {string.Join(", ", duplicated)}"));
+        }
+
+        Seq<string> references = census.Layouts.Distinct();
+        return references
+            .Traverse(key =>
+                resolve(key).Bind(program =>
+                    string.Equals(program.Panel, key, StringComparison.Ordinal)
+                        ? Fin<LayoutProgram>.Succ(LayoutMap.Emit(program, measured(program)))
+                        : Fin<LayoutProgram>.Fail(
+                            new ScreenFault.Rejected(key, $"layout resolved as {program.Panel}"))))
+            .As()
+            .Map(layouts => new AppUiSurfaceProgram {
+                Workspace = surface.Workspace,
+                Route = surface.Route,
+                Instance = surface.Instance,
+                Root = wireRoot,
+                Layouts = { layouts },
+            })
+            .Bind(wire => WireAdmission.Admit(wire, WireBoundary.OutboundPayload, op));
+    }
+
+    // The graph projection runs once per node and answers both products of that walk. A second pass to recover
+    // layout references could drift from the child projection when a generated arm grows.
+    private static (Seq<ControlIntentWire> Controls, Seq<string> Layouts) Census(ControlIntentWire node) {
+        (Seq<ControlIntentWire> Children, Option<string> Layout) graph = Graph(node);
+        Seq<(Seq<ControlIntentWire> Controls, Seq<string> Layouts)> below = graph.Children.Map(Census);
+        return (
+            Seq(node) + below.Bind(static row => row.Controls),
+            graph.Layout.ToSeq() + below.Bind(static row => row.Layouts));
+    }
+
+    private static (Seq<ControlIntentWire> Children, Option<string> Layout) Graph(ControlIntentWire node) =>
+        node.ArmCase switch {
+            ControlIntentWire.ArmOneofCase.Banner =>
+                (toSeq(node.Banner.Actions) + Optional(node.Banner.Evidence).ToSeq(), None),
+            ControlIntentWire.ArmOneofCase.EmptyState =>
+                (Optional(node.EmptyState.Action).ToSeq(), None),
+            ControlIntentWire.ArmOneofCase.Grid =>
+                (toSeq(node.Grid.Columns).Bind(column =>
+                    Optional(column.Cell).ToSeq() + Optional(column.Editor).ToSeq()), None),
+            ControlIntentWire.ArmOneofCase.Tree =>
+                (Optional(node.Tree.Item).ToSeq(), None),
+            ControlIntentWire.ArmOneofCase.Toolbar =>
+                (toSeq(node.Toolbar.Rows).Bind(row => Optional(row.Item).ToSeq()), None),
+            ControlIntentWire.ArmOneofCase.Tab =>
+                (toSeq(node.Tab.Pages).Bind(page => Optional(page.Body).ToSeq()), None),
+            ControlIntentWire.ArmOneofCase.Accordion =>
+                (toSeq(node.Accordion.Sections).Bind(section => Optional(section.Body).ToSeq()), None),
+            ControlIntentWire.ArmOneofCase.Panel =>
+                (toSeq(node.Panel.Children), Some(node.Panel.ConstraintProgram)),
+            ControlIntentWire.ArmOneofCase.Dock =>
+                (toSeq(node.Dock.Regions), Some(node.Dock.ConstraintProgram)),
+            ControlIntentWire.ArmOneofCase.Splitter =>
+                (Optional(node.Splitter.First).ToSeq() + Optional(node.Splitter.Second).ToSeq(), None),
+            ControlIntentWire.ArmOneofCase.None
+            or ControlIntentWire.ArmOneofCase.Button
+            or ControlIntentWire.ArmOneofCase.Label
+            or ControlIntentWire.ArmOneofCase.TextInput
+            or ControlIntentWire.ArmOneofCase.NumberInput
+            or ControlIntentWire.ArmOneofCase.DateInput
+            or ControlIntentWire.ArmOneofCase.PathInput
+            or ControlIntentWire.ArmOneofCase.ColorInput
+            or ControlIntentWire.ArmOneofCase.Select
+            or ControlIntentWire.ArmOneofCase.MultiSelect
+            or ControlIntentWire.ArmOneofCase.Slider
+            or ControlIntentWire.ArmOneofCase.Range
+            or ControlIntentWire.ArmOneofCase.Toggle
+            or ControlIntentWire.ArmOneofCase.Radio
+            or ControlIntentWire.ArmOneofCase.Segmented
+            or ControlIntentWire.ArmOneofCase.Chip
+            or ControlIntentWire.ArmOneofCase.Progress
+            or ControlIntentWire.ArmOneofCase.Avatar
+            or ControlIntentWire.ArmOneofCase.Breadcrumb
+            or ControlIntentWire.ArmOneofCase.Tooltip
+            or ControlIntentWire.ArmOneofCase.Overview
+            or ControlIntentWire.ArmOneofCase.Menu => (Seq<ControlIntentWire>(), None),
+        };
+}
+```
+
+## [11]-[RESEARCH]
 
 (none)

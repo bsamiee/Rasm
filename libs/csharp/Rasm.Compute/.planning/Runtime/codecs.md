@@ -21,7 +21,7 @@ GLB geometry-content identity composes the kernel seed-zero `XxHash128` `Geometr
 - Receipt: the `Cache` receipt carries the delta content key, the changed-chunk count, the base byte count, and the delta byte count so a structural diff's compression ratio is auditable — `GeometryDelta.BaseBytes` and `DeltaBytes` are the columns that stamp reads, and `Ratio` is the derived figure a board spells; a progressive transmission stamps the `ChunkOrder` row's key.
 - Packages: System.IO.Hashing, System.Numerics.Tensors, LanguageExt.Core, Thinktecture.Runtime.Extensions, Generator.Equals, Rasm (project — `ContentHash.Of` the ONE seed-zero identity entry, `Deterministic` the splitmix64 owner, and the kernel reconciliation `EncodeForm.Parametric` canonical stream the `nurbs-control` payload rides), Rasm.Persistence (project), BCL inbox (`System.Numerics.BitOperations` mask sizing)
 - Growth: a new diffable geometry kind is one `GeometryDeltaKind` row carrying its row-owned `Normalize` law; a new transmission posture is one `ChunkOrder` row carrying its comparator; a new chunk policy column is one field on `DeltaPolicy` the factory admits beside its siblings; zero new surface.
-- Boundary: geometry delta is the structural diff the blob-level delta never owned — the Persistence blob delta diffs opaque bytes, this diffs by geometry structure so an edit-resilient mesh/B-rep/point-cloud/NURBS change transmits only touched chunks; the diff algebra mirrors the `Runtime/wire#PROTO_VOCABULARY` `GraphDiff`/`SubtreeFetch` wire shape, Compute owning the structural chunking and the Persistence sync lane the closure-graph diff, neither re-deriving the other; the chunker is real FastCDC — a `Gear` rolling fingerprint with a STRICT-below / LOOSE-above-`AvgChunk` dual-mask tightening the size distribution so a local edit shifts only its own chunk, a fixed-block or single-mask shift-add chunker the rejected form; reconstruction is order-faithful and hash-verified — `TargetChunks` places a mid-stream insert at its true position, not the tail, and `Apply` re-chunks the base under the delta's OWN `DeltaPolicy`, never a hardcoded one — but LOSSLESS is a per-KIND property this codec never claims whole: a non-quantizable kind (`mesh-topology`, `brep-face`) passes `Normalize` verbatim, so its reconstruction IS the original target, while a quantizable kind hashes the NORMALIZED bytes, so `Apply` returns the target rounded to the delta's own grid and `GeometryDelta.GeometricError` carries that step — the finer of the bit grid and `Tolerance`, the residual law the `DeltaPolicy` row decides — as a bound the caller STATES rather than assumes; a delta advertised lossless across every kind is what turns a bounded-lossy round trip into a silent one, and a per-chunk restatement of the one step is the column that collapse deleted; the bounded-lossy `Normalize` never exceeds the geometry tolerance; the new-chunk set transmits progressively through the `SubtreeFetch` server-stream and content-key-dedups against the Persistence blob lane (never a second delta store); the geometry-kind discriminant scopes quantization, so a topology-only edit never quantizes and a position-only edit never re-transmits the topology column; the `nurbs-control` payload IS the kernel `Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE` `EncodeForm.Parametric` canonical counted stream — the one frozen parametric byte layout, read here the way Persistence reads the frozen mesh layout, so a Compute-local NURBS byte encoding is the deleted second layout — and its row's `Normalize` scopes the tolerance grid to the control-net coordinate block ALONE, knot and weight bytes crossing verbatim: the `Rasm/Parametric/nurbs#NURBS_ENGINE` `Nurbs.Of` admission law (normalized clamped knots, strictly positive weights) holds by CONSTRUCTION on every emitted delta, so a rounded net the owner faults is unrepresentable rather than guarded — a whole-stream float grid rounding knots and weights, driving a weight non-positive or de-normalizing a knot vector, is the rejected form — while a malformed counted layout refuses the typed `<delta-parametric-layout:…>` fault at normalization, and a post-quantization re-admission call re-validating what the scoped grid already preserves is the interior re-validation the admission law forecloses.
+- Boundary: geometry delta is the structural diff the blob-level delta never owned — the Persistence blob delta diffs opaque bytes, this diffs by geometry structure so an edit-resilient mesh/B-rep/point-cloud/NURBS change transmits only touched chunks; the diff algebra pairs with the `Rasm.Persistence/Version/ledger#CHANGEFEED` closure-graph diff, Compute owning the structural chunking and the Persistence sync lane the content-key delta, neither re-deriving the other, and the rpc pair that carries the delta stays designed-only until the corpus mints it (Persistence IDEAS `GRAPH_SYNC_RPC`); the chunker is real FastCDC — a `Gear` rolling fingerprint with a STRICT-below / LOOSE-above-`AvgChunk` dual-mask tightening the size distribution so a local edit shifts only its own chunk, a fixed-block or single-mask shift-add chunker the rejected form; reconstruction is order-faithful and hash-verified — `TargetChunks` places a mid-stream insert at its true position, not the tail, and `Apply` re-chunks the base under the delta's OWN `DeltaPolicy`, never a hardcoded one — but LOSSLESS is a per-KIND property this codec never claims whole: a non-quantizable kind (`mesh-topology`, `brep-face`) passes `Normalize` verbatim, so its reconstruction IS the original target, while a quantizable kind hashes the NORMALIZED bytes, so `Apply` returns the target rounded to the delta's own grid and `GeometryDelta.GeometricError` carries that step — the finer of the bit grid and `Tolerance`, the residual law the `DeltaPolicy` row decides — as a bound the caller STATES rather than assumes; a delta advertised lossless across every kind is what turns a bounded-lossy round trip into a silent one, and a per-chunk restatement of the one step is the column that collapse deleted; the bounded-lossy `Normalize` never exceeds the geometry tolerance; the new-chunk set transmits progressively in `ChunkOrder` over whichever artifact seam carries it and content-key-dedups against the Persistence blob lane (never a second delta store); the geometry-kind discriminant scopes quantization, so a topology-only edit never quantizes and a position-only edit never re-transmits the topology column; the `nurbs-control` payload IS the kernel `Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE` `EncodeForm.Parametric` canonical counted stream — the one frozen parametric byte layout, read here the way Persistence reads the frozen mesh layout, so a Compute-local NURBS byte encoding is the deleted second layout — and its row's `Normalize` scopes the tolerance grid to the control-net coordinate block ALONE, knot and weight bytes crossing verbatim: the `Rasm/Parametric/nurbs#NURBS_ENGINE` `Nurbs.Of` admission law (normalized clamped knots, strictly positive weights) holds by CONSTRUCTION on every emitted delta, so a rounded net the owner faults is unrepresentable rather than guarded — a whole-stream float grid rounding knots and weights, driving a weight non-positive or de-normalizing a knot vector, is the rejected form — while a malformed counted layout refuses the typed `<delta-parametric-layout:…>` fault at normalization, and a post-quantization re-admission call re-validating what the scoped grid already preserves is the interior re-validation the admission law forecloses.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -189,7 +189,7 @@ public static class DeltaCodec {
         float step = GridStep<float>(source, policy);
         float[] quantized = new float[source.Length];
         Quantization.Code<float>(source, quantized, step);
-        return Fin.Succ(((ReadOnlyMemory<byte>)MemoryMarshal.AsBytes(quantized.AsSpan()).ToArray(), (double)step));
+        return Fin.Succ(((ReadOnlyMemory<byte>)MemoryMarshal.Cast<float, byte>(quantized.AsSpan()).ToArray(), (double)step));
     }
 
     // nurbs-control payload is the kernel EncodeForm.Parametric canonical counted stream (little-endian: direction
@@ -277,24 +277,28 @@ public static class DeltaCodec {
     }
 
     // --- [PAYLOAD_FRAMING]
+    // Chunk header: the chunk hash as the kernel's sixteen big-endian wire bytes (`ContentHash.Wire`, the one
+    // persisted spelling of a content key), then ordinal and byte length little-endian, then the body.
+    private const int ChunkHeader = 16 + (sizeof(int) * 2);
+    private static readonly Op SplitKey = Op.Of(name: "delta.payload-split");
 
     static ReadOnlyMemory<byte> Concatenate(Seq<DeltaChunk> added, ReadOnlyMemory<byte> targetBytes) {
-        int total = added.Sum(static c => c.ByteLength + (sizeof(int) * 2) + 16);
+        int total = added.Sum(static c => c.ByteLength + ChunkHeader);
         byte[] buffer = new byte[total];
         Span<byte> sink = buffer.AsSpan();
         int cursor = 0;
         foreach (DeltaChunk chunk in added) {                           // Exemption: a framed write into a pre-sized span; a `Span` cannot be captured by any lambda
-            BinaryPrimitives.WriteUInt128LittleEndian(sink[cursor..], chunk.Hash);
+            ContentHash.Wire(chunk.Hash).Span.CopyTo(sink[cursor..]);
             BinaryPrimitives.WriteInt32LittleEndian(sink[(cursor + 16)..], chunk.Ordinal);
             BinaryPrimitives.WriteInt32LittleEndian(sink[(cursor + 20)..], chunk.ByteLength);
-            targetBytes.Span.Slice(chunk.Offset, chunk.ByteLength).CopyTo(sink[(cursor + 24)..]);
-            cursor += 24 + chunk.ByteLength;
+            targetBytes.Span.Slice(chunk.Offset, chunk.ByteLength).CopyTo(sink[(cursor + ChunkHeader)..]);
+            cursor += ChunkHeader + chunk.ByteLength;
         }
         return buffer.AsMemory(0, cursor);
     }
 
     static Fin<ReadOnlyMemory<byte>> Reconstruct(GeometryDelta delta, ReadOnlyMemory<byte> baseBytes) =>
-        Op.Of(name: "delta.payload-split").Catch(() => Fin.Succ(SplitPayload(delta.Payload)))
+        SplitPayload(delta.Payload)
             .Bind(addedByHash => delta.Kind.Normalize(baseBytes, delta.Policy).Bind(normalized => {
                 ReadOnlyMemory<byte> normalizedBase = normalized.Bytes;
                 HashMap<UInt128, ReadOnlyMemory<byte>> baseByHash = FastCdc(normalizedBase.Span, delta.Policy)
@@ -312,16 +316,19 @@ public static class DeltaCodec {
                     });
             }));
 
-    static HashMap<UInt128, ReadOnlyMemory<byte>> SplitPayload(ReadOnlyMemory<byte> payload) {
-        HashMap<UInt128, ReadOnlyMemory<byte>> map = HashMap<UInt128, ReadOnlyMemory<byte>>();
+    // A framed read on the rail: every truncation and the hash admission refuse typed, so no exception stands in
+    // for a verdict and the loop is the one platform-forced statement seam a cursor over a span demands.
+    static Fin<HashMap<UInt128, ReadOnlyMemory<byte>>> SplitPayload(ReadOnlyMemory<byte> payload) {
+        Fin<HashMap<UInt128, ReadOnlyMemory<byte>>> map = HashMap<UInt128, ReadOnlyMemory<byte>>();
         int cursor = 0;
-        while (cursor < payload.Length) {                               // Exemption: a framed read whose step the frame header declares; the rail resumes at the Op.Catch boundary above
-            if (payload.Length - cursor < 24) { throw new InvalidDataException($"<delta-header-truncated:{cursor}:{payload.Length}>"); }
-            UInt128 hash = BinaryPrimitives.ReadUInt128LittleEndian(payload.Span[cursor..]);
+        while (map.IsSucc && cursor < payload.Length) {                 // Exemption: a framed read whose step the frame header declares; the rail carries every refusal out
+            if (payload.Length - cursor < ChunkHeader) { return Fin.Fail<HashMap<UInt128, ReadOnlyMemory<byte>>>(new ComputeFault.CacheCorrupt($"<delta-header-truncated:{cursor}:{payload.Length}>")); }
             int byteLength = BinaryPrimitives.ReadInt32LittleEndian(payload.Span[(cursor + 20)..]);
-            if (byteLength < 0 || byteLength > payload.Length - cursor - 24) { throw new InvalidDataException($"<delta-chunk-truncated:{cursor}:{byteLength}:{payload.Length}>"); }
-            map = map.AddOrUpdate(hash, payload.Slice(cursor + 24, byteLength));
-            cursor += 24 + byteLength;
+            if (byteLength < 0 || byteLength > payload.Length - cursor - ChunkHeader) { return Fin.Fail<HashMap<UInt128, ReadOnlyMemory<byte>>>(new ComputeFault.CacheCorrupt($"<delta-chunk-truncated:{cursor}:{byteLength}:{payload.Length}>")); }
+            int at = cursor;
+            map = map.Bind(held => ContentHash.Admit(payload.Span.Slice(at, 16), SplitKey)
+                .Map(hash => held.AddOrUpdate(hash, payload.Slice(at + ChunkHeader, byteLength))));
+            cursor += ChunkHeader + byteLength;
         }
         return map;
     }
@@ -330,13 +337,14 @@ public static class DeltaCodec {
 
 ## [03]-[CONTENT_ADDRESSING]
 
-- Owner: `CanonicalForm` the static byte-normalization kernel reducing every keyed input to one machine-independent canonical byte form before the hash seed; `InterchangeIdentity` the interchange CACHE-PARTITION key derivation folding canonicalized source bytes with the complete ordered output-policy vector into one policy-seeded `XxHash128` identity (distinct from the kernel seed-zero `GeometryHash` the seam/Bim/Persistence/peers share), mirroring the model-lane `ModelIdentity.Snapshot` precedent, with `Compose` sealing the content key and HLC two-half stamp into one frame key, `SeedZero` minting the empty-artifact sentinel, and `Address` owning the ONE object-plane address grammar every Compute artifact-id spells; `ComputeArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed, landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
-- Entry: `public static UInt128 Key(...)` — pure value; the contiguous and pooled-sequence cases derive identity from canonical bytes and the complete ordered policy vector, while the geometry case frames the kernel arena's own witness digest WHOLE — the `DigestRoot` key byte ahead of `ContentHash`, the kernel `RoundTripWitness.Root` dedup law read into the preimage — beside its descriptor roster and the index column by ordinal and byte length before one incremental hash; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy)` is the empty-artifact sentinel identity; `public static UInt128 Schema(AnalyticsSchema declaration)` frames a declared column roster injectively into the schema identity a landed generation keys on; `public static string Address(UInt128 contentKey, string kind)` is the ONE `<content-key:x32>:<kind>` object-plane spelling; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes with its complete policy vector, discriminating on the payload's own shape — a contiguous `ReadOnlyMemory<byte>` or a pooled `ReadOnlySequence<byte>` whose key folds incrementally before any contiguity is demanded — and `ByteCount` derives off the carried payload rather than travelling as a second stored column a caller contradicts.
-- Auto: every keyed input passes through `CanonicalForm` before the seed — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, `CanonicalForm.Scalar` collapses negative zero to positive zero and maps every NaN pattern to one quiet-NaN payload, and `CanonicalForm.Write` lays the length-prefixed tag, the policy scalar count, and every ordered policy scalar little-endian — injective framing, so distinct `(formatKey, policy)` tuples never share a canonical byte vector; artifact bytes pass into the byte hash verbatim. `Key` seeds `XxHash128.HashToUInt128` with the `XxHash3.HashToUInt64` of that canonical vector, so tessellation folds deflection, tolerance, angle tolerance, tile depth, root geometric error, and split threshold while field residence folds bits and bound. Zero-length artifact bytes route to `SeedZero` over the same policy vector through ONE `Seeded` core the three payload arities share, so absent and present-but-empty stay distinct and the empty law is spelled once rather than at each arity. `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns, addressing the row through the same `Address` grammar every companion request answers.
-- Receipt: the `Cache` receipt carries the content key and the hit/miss/store outcome; a stored artifact rides the `ArtifactIndexRow` checksum and byte size into the receipt; a sentinel-keyed empty artifact stamps the `SeedZero` identity so an absent-versus-empty distinction is auditable.
-- Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Rasm (project — the kernel `EncodedGeometry` arena the geometry key frames, `ContentHash.Half`), Rasm.Persistence (project — `ArtifactIndexRow.Admit`, `Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema` the schema key frames), BCL inbox
-- Growth: a new evaluation parameter that changes the artifact is one canonical-scalar column folded into the seed; a new keyed-input kind is one `CanonicalForm` arm; a new per-vertex lane is a kernel `EncodingChannel` row the geometry key absorbs through the descriptor roster with no edit here; zero new surface.
-- Boundary: interchange-cache identity is `XxHash128` over the canonical source bytes — the suite hash law the `Runtime/channels#ARTIFACT_FRAMES` whole-artifact identity and the model-lane `ModelIdentity` checksum hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN — so two semantically-equal source artifacts on osx-arm64, linux-x64, and win-x64 cache-key one identity (the `lang:python:runtime/evidence/identity#IDENTITY` `ContentIdentity` folds the same format/deflection/tolerance, the cross-runtime peer), a raw-string-interpolated seed (`$"{formatKey}|{deflection:R}|..."`) the rejected drift defect keying distinctly across cultures and float renderings; the SHARED geometry WIRE hash is a DISTINCT key — the GLB geometry-content identity the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash`, the Persistence `Store/blobstore#OBJECT_STORE` blob name, and the `lang:typescript:core/interchange/frame#GEOMETRY_PLANE` + `lang:typescript:data/object/store` `ObjectKey` peers reproduce is the KERNEL seed-zero (`seed=0`) `XxHash128` `GeometryHash` over the canonical bytes (`tests/contracts/MANIFEST.md` `MESH_ADJACENCY_GOLDEN` the golden vector anchoring C#/Python/TypeScript byte-parity), composed here and never re-minted with a policy seed — a policy-seeded GLB geometry-content hash the named cross-runtime defect, the two keys coexisting by design; the empty-artifact `SeedZero` sentinel is the absent-versus-empty law (policy-seeded empty case, distinct from the kernel `seed=0`) — empty bytes key to `SeedZero` over the policy alone, never the byte hash of an empty span, so a cache key never collides absent against present-but-empty; the HLC compose order seals the kernel `Rasm/Domain/frame#RECEIPT_PORT` `ReceiptSinkPort.Advance` stamp byte-identical — physical half first as the `Instant` Unix-tick `long`, logical half second as the monotone `ulong`, both little-endian, the layout `tests/contracts/MANIFEST.md` `HLC_TWO_HALF` freezes across the three runtimes — so `Compose` re-derives no ordering the capsule already fixed, a logical-half-first composition the named defect folding a fresh op as stale; the OBJECT-PLANE ADDRESS is one grammar with one owner — `<content-key:x32>:<kind>`, minted here and composed by every Compute artifact-id, three hand interpolations having spelled it independently before this seat; the `Rasm.Bim` `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` value object carries the IDENTICAL grammar at a package this one holds no project reference to, so the correspondence is a stated law rather than a shared type and a Compute-side re-declaration of that value object is unreachable, not merely undesirable; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; every output-affecting scalar folds in owner order, so deflection, tolerance, angle tolerance, tile depth, root error, or split-threshold movement partitions a tileset key and prevents cross-setting hits; addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are rows under the ONE kernel seed-zero `XxHash128` residence identity the Persistence index re-derives (`ArtifactIndexRow.Admit` -> `ContentAddress.Of`) — Compute owning only the policy-seeded cache-key derivation (the logical label), the kernel/seam the seed-zero residence identity, Persistence the blob residence, none re-declaring another; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` their own `ContentHash`, single-projection) while the tessellated GLB and the IFC-semantic graph of one source IFC share one cross-projection `sourceKey` — the kernel seed-zero `SourceKey` the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` mints purely over the source bytes (tolerance-independent, so the in-process semantic-graph ingest re-derives it without the deflection), NOT the policy-seeded cache key — so the Persistence `Query/cache#ARTIFACT_BLOB_INDEX` `ArtifactIndexRow.Project` returns the two-projection family under that kernel-seed-zero key, the `Option<UInt128> sourceKey` admission carrying the pure key and each row's blob residence the kernel seed-zero `ContentAddress.Of` (`ArtifactIndexRow.Admit`), never a GLB self-key off the policy-seeded partition stranding the geometry projection off the semantic one; a managed copy of the artifact bytes beside the blob lane is the rejected form.
+- Owner: `CanonicalForm` the tag-folding kernel every keyed format or codec tag passes before it enters a preimage; `InterchangeIdentity` the interchange CACHE-PARTITION key derivation folding the canonical tag, the complete ordered output-policy vector, and the source bytes into ONE kernel `ContentHash.Of` preimage (distinct from the kernel seed-zero `GeometryHash` the seam/Bim/Persistence/peers share — distinct by PREIMAGE, never by seed), mirroring the model-lane `ModelIdentity.Snapshot` precedent, with `Compose` sealing the content key and HLC two-half stamp into one frame key, `SeedZero` minting the absent-artifact identity, and `Address` owning the ONE object-plane address grammar every Compute artifact-id spells; `ComputeArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed, landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
+- Entry: `public static UInt128 Key(...)` — pure value; the contiguous and pooled-sequence cases derive identity from the canonical tag, the policy vector, and the payload bytes, while the geometry case frames the kernel arena's own witness digest WHOLE — the `DigestRoot` ordinal ahead of `ContentHash`, the kernel `RoundTripWitness.Root` dedup law read into the preimage — beside its descriptor roster and the index column before one streaming fold; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy)` is the absent-artifact identity; `public static UInt128 Schema(AnalyticsSchema declaration)` frames a declared column roster injectively into the schema identity a landed generation keys on; `public static string Address(UInt128 contentKey, string kind)` is the ONE `<content-key:x32>:<kind>` object-plane spelling; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes with its complete policy vector, discriminating on the payload's own shape — a contiguous `ReadOnlyMemory<byte>` or a pooled `ReadOnlySequence<byte>` whose key folds segment by segment before any contiguity is demanded — and `ByteCount` derives off the carried payload rather than travelling as a second stored column a caller contradicts.
+- Auto: every keyed input rides the kernel `CanonicalWriter` — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, the writer's `String` length-frames it, `Doubles` count-frames the policy vector and canonicalizes every NaN payload and `-0.0` before the bits leave, the presence byte (`Optional`) separates an absent artifact from a present-but-empty one, and the payload rides `Raw` as the whole-payload leaf the writer's exemption names — injective framing, so distinct `(formatKey, policy, bytes)` triples never share a preimage. Tessellation folds deflection, tolerance, angle tolerance, tile depth, root geometric error, and split threshold; field residence folds bits and bound. `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns, addressing the row through the same `Address` grammar every companion request answers.
+- Receipt: the `Cache` receipt carries the content key and the hit/miss/store outcome; a stored artifact rides the `ArtifactIndexRow` checksum and byte size into the receipt; an absent-keyed artifact stamps the `SeedZero` identity so an absent-versus-empty distinction is auditable.
+- Packages: NodaTime, LanguageExt.Core, Rasm (project — the kernel `EncodedGeometry` arena the geometry key frames, `ContentHash.Of`/`Hex`, `CanonicalWriter.String`/`Doubles`/`Optional`/`Raw`/`Rows`/`Ordinal`/`I64`/`U128`), Rasm.Persistence (project — `ArtifactIndexRow.Admit`, `Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema` the schema key frames), BCL inbox
+- Growth: a new evaluation parameter that changes the artifact is one canonical scalar in the policy vector; a new keyed-input kind is one `InterchangeIdentity.Key` arity whose preimage states its own fields; a new per-vertex lane is a kernel `EncodingChannel` row the geometry key absorbs through the descriptor roster with no edit here; zero new surface.
+- Law: ONE alphabet. Every preimage on this page is `ContentHash.Of(state, (s, w) => ...)` over the kernel writer — no seeded accumulator, no local length-prefix writer, no `XxHash3` seed folded from a tag. NAMED LOSS: the policy-seeded `XxHash128(seed)` form and the `CanonicalForm.Write`/`Seed`/`Scalar` trio are retired, so a cache key minted before this change re-keys once. Witness: `Key(formatKey, bytes, policy)` folds the same three facts in the same owner order, the policy now a framed field stream instead of a computed seed — the form `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` names for a digest seed folded from two or more fields.
+- Boundary: interchange-cache identity is the kernel seed-zero `XxHash128` over the canonical preimage — the suite hash law the `Runtime/channels#ARTIFACT_FRAMES` whole-artifact identity and the model-lane `ModelIdentity` checksum hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor — case-folded trimmed tag, length-framed text, count-framed little-endian policy scalars, negative zero collapsed, every NaN payload mapped to one quiet NaN — so two semantically-equal source artifacts on osx-arm64, linux-x64, and win-x64 cache-key one identity (the `lang:python:runtime/evidence/identity#IDENTITY` `ContentIdentity` folds the same format/deflection/tolerance, the cross-runtime peer), a raw-string-interpolated seed (`$"{formatKey}|{deflection:R}|..."`) the rejected drift defect keying distinctly across cultures and float renderings; the SHARED geometry WIRE hash is a DISTINCT key — the GLB geometry-content identity the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash`, the Persistence `Store/blobstore#OBJECT_STORE` blob name, and the `lang:typescript:core/interchange/frame#GEOMETRY_PLANE` + `lang:typescript:data/object/store` `ObjectKey` peers reproduce is the kernel `GeometryHash` over the canonical bytes ALONE (`tests/contracts/manifest.json` `MESH_ADJACENCY_GOLDEN` the golden vector anchoring C#/Python/TypeScript byte-parity), composed here and never re-minted under a policy head — a policy-keyed GLB geometry-content hash the named cross-runtime defect, the two keys coexisting by design because their preimages differ; the absent-artifact `SeedZero` identity is the absent-versus-empty law — the presence byte false under the policy head, never the hash of an empty span under it, so a cache key never collides absent against present-but-empty; the HLC compose order seals the kernel `Rasm/Domain/frame#RECEIPT_PORT` `ReceiptSinkPort.Advance` stamp byte-identical — the content key as the writer's two little-endian `I64` halves, the physical half as the `Instant` Unix-tick `long`, the logical half as the monotone `ulong` bits, the layout `tests/contracts/manifest.json` `HLC_TWO_HALF` freezes across the three runtimes — so `Compose` re-derives no ordering the capsule already fixed, a logical-half-first composition the named defect folding a fresh op as stale; the OBJECT-PLANE ADDRESS is one grammar with one owner — `<content-key:x32>:<kind>` through `ContentHash.Hex`, minted here and composed by every Compute artifact-id, three hand interpolations having spelled it independently before this seat; the `Rasm.Bim` `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` value object carries the IDENTICAL grammar at a package this one holds no project reference to, so the correspondence is a stated law rather than a shared type and a Compute-side re-declaration of that value object is unreachable, not merely undesirable; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; every output-affecting scalar folds in owner order, so deflection, tolerance, angle tolerance, tile depth, root error, or split-threshold movement partitions a tileset key and prevents cross-setting hits; addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are rows under the ONE kernel seed-zero `XxHash128` residence identity the Persistence index re-derives (`ArtifactIndexRow.Admit` -> `ContentAddress.Of`) — Compute owning only the policy-headed cache-key derivation (the logical label), the kernel/seam the seed-zero residence identity, Persistence the blob residence, none re-declaring another; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` their own `ContentHash`, single-projection) while the tessellated GLB and its semantic graph share one cross-projection `sourceKey` — the kernel seed-zero `SourceKey` the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` mints from the generated source oneof coordinate, generated STEP protocol coordinate iff STEP, and raw source bytes, with no tolerance or language-local tag — so an in-process semantic ingest re-derives the same family identity and distinct STEP application protocols never alias. That pure key, not the policy-headed cache key, is the `Option<UInt128> sourceKey` `ArtifactIndexRow.Project` groups under; each row's blob residence remains the kernel seed-zero `ContentAddress.Of`, so no GLB self-key strands geometry from semantics and no managed artifact copy stands beside the blob lane.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -353,14 +361,14 @@ public sealed record ComputeArtifact(
 
     public string ArtifactKey => InterchangeIdentity.Address(ContentKey, FormatKey);
 
-    public static ComputeArtifact Of(string formatKey, ReadOnlyMemory<byte> bytes, Instant at, ReadOnlySpan<double> policy = default) =>
-        new(formatKey, bytes, InterchangeIdentity.Key(formatKey, bytes.Span, policy), at);
+    public static ComputeArtifact Of(string formatKey, ReadOnlyMemory<byte> bytes, Instant at, ReadOnlyMemory<double> policy = default) =>
+        new(formatKey, bytes, InterchangeIdentity.Key(formatKey, bytes, policy), at);
 
-    // Segmented mint for a pooled emit: the key folds the multi-segment sequence INCREMENTALLY, so a producer
+    // Segmented mint for a pooled emit: the key folds the multi-segment sequence segment by segment, so a producer
     // whose key already resides never materializes a byte, and the miss path pays ONE exact-extent copy where a
     // growable writer paid a doubling ladder through the large-object heap. Arity is the input's own shape —
     // contiguous or segmented — never a mode flag beside the value.
-    public static ComputeArtifact Of(string formatKey, ReadOnlySequence<byte> bytes, Instant at, ReadOnlySpan<double> policy = default) {
+    public static ComputeArtifact Of(string formatKey, ReadOnlySequence<byte> bytes, Instant at, ReadOnlyMemory<double> policy = default) {
         byte[] owned = new byte[checked((int)bytes.Length)];
         bytes.CopyTo(owned);
         return new(formatKey, owned, InterchangeIdentity.Key(formatKey, bytes, policy), at);
@@ -368,139 +376,80 @@ public sealed record ComputeArtifact(
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// Ordered policy vectors are axis-neutral: each keyed lane supplies every output-affecting scalar in owner order,
-// and CanonicalForm supplies the one scalar normalization and byte layout. Framing is injective: the tag byte
-// length and the policy scalar count prefix their payloads little-endian, so no (formatKey, policy) pair can
-// spell another pair's canonical bytes — a bare tag-then-scalars concatenation lets an 8-byte tag suffix
-// masquerade as a policy scalar and collide two distinct identities into one seed.
+// The ONE normalization this page still owns: the tag. Scalars canonicalize inside the kernel writer (`Doubles`
+// collapses -0.0 and every NaN payload), so no local scalar normalization or byte layout survives beside it.
 public static class CanonicalForm {
-    public const long QuietNaNBits = unchecked((long)0x7FF8000000000000UL);
-
     public static string Tag(string raw) => raw.Trim().ToLowerInvariant();
-
-    public static double Scalar(double raw) =>
-        double.IsNaN(raw) ? BitConverter.Int64BitsToDouble(QuietNaNBits)
-        : raw == 0d ? 0d
-        : raw;
-
-    public static int Write(Span<byte> destination, string formatKey, ReadOnlySpan<double> policy) {
-        string tag = Tag(formatKey);
-        int tagBytes = Encoding.UTF8.GetByteCount(tag);
-        BinaryPrimitives.WriteInt32LittleEndian(destination, tagBytes);
-        int written = sizeof(int) + Encoding.UTF8.GetBytes(tag, destination[sizeof(int)..]);
-        BinaryPrimitives.WriteInt32LittleEndian(destination[written..], policy.Length);
-        written += sizeof(int);
-        foreach (double scalar in policy) {                             // Exemption: a framed write into a stack span; a `Span` cannot be captured by any lambda
-            BinaryPrimitives.WriteDoubleLittleEndian(destination[written..], Scalar(scalar));
-            written += sizeof(double);
-        }
-        return written;
-    }
-
-    public static long Seed(string formatKey, ReadOnlySpan<double> policy) {
-        Span<byte> canonical = stackalloc byte[(sizeof(int) * 2) + Encoding.UTF8.GetByteCount(Tag(formatKey)) + (policy.Length * sizeof(double))];
-        int length = Write(canonical, formatKey, policy);
-        return unchecked((long)XxHash3.HashToUInt64(canonical[..length]));
-    }
 }
 
 public static class InterchangeIdentity {
-    public const ulong SeedZeroDomain = 0xFFFF_FFFF_FFFF_FFFFUL;
-
-    // The ONE object-plane address grammar on this branch: sixteen lower-case hex bytes, a colon, and the
+    // The ONE object-plane address grammar on this branch: thirty-two lower-case hex characters, a colon, and the
     // canonical kind tag. Every Compute artifact-id spells it through here. The `Rasm.Bim`
     // `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` value object gates the IDENTICAL grammar at a package this
     // one holds no project reference to, so the two are one address SPACE reached through two owners by strata,
     // not by choice — a Compute-side copy of that value object cannot compile and a divergent spelling here
     // strands every address the Bim admission then refuses.
     public static string Address(UInt128 contentKey, string kind) =>
-        string.Create(CultureInfo.InvariantCulture, $"{contentKey:x32}:{CanonicalForm.Tag(kind)}");
+        string.Create(CultureInfo.InvariantCulture, $"{ContentHash.Hex(contentKey)}:{CanonicalForm.Tag(kind)}");
 
-    // ONE empty-artifact law and ONE seeded hasher for three payload arities. `MODAL_ARITY` admits the three
-    // entrypoints — a contiguous span, a pooled sequence, and a descriptor-tiled arena are genuinely different
-    // payload shapes — but the `IsEmpty -> SeedZero` preamble was one law spelled three times, so it seats here.
-    public static UInt128 Key(string formatKey, ReadOnlySpan<byte> bytes, ReadOnlySpan<double> policy) =>
-        bytes.IsEmpty
-            ? SeedZero(formatKey, policy)
-            : XxHash128.HashToUInt128(bytes, CanonicalForm.Seed(formatKey, policy));
+    // ONE preimage head for every payload arity: the length-framed tag, the count-framed policy vector, then the
+    // presence byte. `MODAL_ARITY` admits the three entrypoints — a contiguous span, a pooled sequence, and a
+    // descriptor-tiled arena are genuinely different payload shapes — and the head is spelled once rather than
+    // at each arity.
+    static CanonicalWriter Head(CanonicalWriter w, string formatKey, ReadOnlySpan<double> policy, bool present) =>
+        w.String(CanonicalForm.Tag(formatKey)).Doubles(policy).Bool(present);
+
+    public static UInt128 Key(string formatKey, ReadOnlyMemory<byte> bytes, ReadOnlyMemory<double> policy) =>
+        ContentHash.Of((formatKey, bytes, policy), static (s, w) => Head(w, s.formatKey, s.policy.Span, present: true).Raw(s.bytes.Span));
 
     // Incremental sibling for pooled multi-segment payloads (a chunked field blob, a reassembled frame sequence):
-    // seeded incremental hashing avoids flattening a multi-segment artifact.
-    public static UInt128 Key(string formatKey, ReadOnlySequence<byte> bytes, ReadOnlySpan<double> policy) =>
-        bytes.IsEmpty
-            ? SeedZero(formatKey, policy)
-            : Seeded(formatKey, policy, hasher => { foreach (ReadOnlyMemory<byte> segment in bytes) { hasher.Append(segment.Span); } });
+    // the segments are ONE payload leaf written in order, so no segment boundary enters the preimage and a
+    // re-segmented artifact keys identically.
+    public static UInt128 Key(string formatKey, ReadOnlySequence<byte> bytes, ReadOnlyMemory<double> policy) =>
+        ContentHash.Of((formatKey, bytes, policy), static (s, w) => {
+            Head(w, s.formatKey, s.policy.Span, present: true);
+            foreach (ReadOnlyMemory<byte> segment in s.bytes) { w.Raw(segment.Span); }   // Exemption: a span cannot be captured by any lambda; the segments are one leaf
+        });
 
     // Channel-generic geometry identity over the ONE kernel arena, replacing the retired vertices/indices/normals
     // triple that silently EXCLUDED every lane it did not name — UV and colour among them — so a roster growth
-    // moved no key and two leaves differing only in their UV unwrap collided. Three ordinal-framed components
-    // seal it: the witness composite WHOLE — one DigestRoot key byte ahead of ContentHash, per the kernel
+    // moved no key and two leaves differing only in their UV unwrap collided. Three framed components seal it:
+    // the witness composite WHOLE — the DigestRoot ordinal ahead of the ContentHash, per the kernel
     // RoundTripWitness.Root law that a dedup or lake-identity consumer reads the root beside the digest, so a
     // source-rooted Apply witness and a payload-rooted Of witness share no preimage even where their bytes
-    // coincide, never a digest-only fold leaning on preimage-domain disjointness — descriptor roster (WHICH
-    // channels at WHICH storage width and element count produced them), and Indices (the one non-channel column).
-    // New EncodingChannel rows therefore re-key by construction and are named nowhere here.
-    public static UInt128 Key(string formatKey, EncodedGeometry lanes, ReadOnlySpan<byte> indices, ReadOnlySpan<double> policy) {
-        if (lanes.Descriptors.IsEmpty && indices.IsEmpty) { return SeedZero(formatKey, policy); }
-        byte[] digest = new byte[17];
-        digest[0] = (byte)lanes.Witness.Root.Key;
-        BinaryPrimitives.WriteUInt128BigEndian(digest.AsSpan(1), lanes.Witness.ContentHash.Value);
-        byte[] roster = Encoding.UTF8.GetBytes(Roster(lanes));
-        byte[] index = indices.ToArray();
-        return Seeded(formatKey, policy, hasher => {
-            AppendComponent(hasher, 0, digest);
-            AppendComponent(hasher, 1, roster);
-            AppendComponent(hasher, 2, index);
-        });
-    }
+    // coincide, never a digest-only fold leaning on preimage-domain disjointness — the descriptor roster (WHICH
+    // channels at WHICH storage width and element count produced them) as count-framed rows, and Indices (the one
+    // non-channel column) as one length-framed leaf. New EncodingChannel rows therefore re-key by construction
+    // and are named nowhere here.
+    public static UInt128 Key(string formatKey, EncodedGeometry lanes, ReadOnlyMemory<byte> indices, ReadOnlyMemory<double> policy) =>
+        ContentHash.Of((formatKey, lanes, indices, policy), static (s, w) =>
+            Head(w, s.formatKey, s.policy.Span, present: !(s.lanes.Descriptors.IsEmpty && s.indices.IsEmpty))
+                .Ordinal(s.lanes.Witness.Root.Key)
+                .U128(s.lanes.Witness.ContentHash.Value)
+                .Rows(s.lanes.Descriptors, static (d, x) => x.String(d.Channel.Key).String(d.Dtype.Key).I64(d.Count))
+                .Ordinal(s.indices.Length)
+                .Raw(s.indices.Span));
 
-    // The DECLARED column roster as one injective preimage — ordinal-framed exactly as the geometry components
-    // are, so an additive column lands a compatible generation under its own key while a reordered or retyped
-    // column lands a distinct tree the reader's positional ordinals never mis-bind. The `string.Join('|', ...)`
-    // digest this replaces let a column named `a|b` spell the same preimage as the pair `a`, `b`, and a
-    // separator inside a rendered Arrow type id collided two schemas onto one hive directory. Field metadata
-    // stays out of the digest: a receipt fact rides `Schema.Metadata` and never re-keys the tree.
+    // The DECLARED column roster as one injective preimage — count-framed rows of length-framed name and type —
+    // so an additive column lands a compatible generation under its own key while a reordered or retyped column
+    // lands a distinct tree the reader's positional ordinals never mis-bind. The `string.Join('|', ...)` digest
+    // this replaces let a column named `a|b` spell the same preimage as the pair `a`, `b`, and a separator inside
+    // a rendered Arrow type id collided two schemas onto one hive directory. Field metadata stays out of the
+    // digest: a receipt fact rides `Schema.Metadata` and never re-keys the tree.
     public static UInt128 Schema(AnalyticsSchema declaration) =>
-        Seeded(declaration.Dataset, [], hasher => declaration.Columns.Iter((ordinal, column) => {
-            AppendComponent(hasher, checked((byte)(ordinal * 2)), Encoding.UTF8.GetBytes((string)column.Name));
-            AppendComponent(hasher, checked((byte)((ordinal * 2) + 1)), Encoding.UTF8.GetBytes(column.Type.ToString()));
-        }));
+        ContentHash.Of(declaration, static (d, w) => w.String(d.Dataset)
+            .Rows(d.Columns, static (column, x) => x.String((string)column.Name).String(column.Type.ToString())));
 
-    static UInt128 Seeded(string formatKey, ReadOnlySpan<double> policy, Action<XxHash128> append) {
-        XxHash128 hasher = new(CanonicalForm.Seed(formatKey, policy));
-        append(hasher);
-        return hasher.GetCurrentHashAsUInt128();
-    }
+    // The absent-artifact identity: the same head every present payload carries, with the presence byte false,
+    // so absent and present-but-empty key apart under one policy and no sentinel constant stands in for absence.
+    public static UInt128 SeedZero(string formatKey, ReadOnlyMemory<double> policy) =>
+        ContentHash.Of((formatKey, policy), static (s, w) => Head(w, s.formatKey, s.policy.Span, present: false));
 
-    // Descriptor roster in the arena's own tiling order — channel key, storage dtype row, element count per lane —
-    // so two arenas whose payload bytes coincide under different lane declarations never key alike.
-    static string Roster(EncodedGeometry lanes) =>
-        string.Join(';', lanes.Descriptors.Map(static d => string.Create(
-            CultureInfo.InvariantCulture, $"{d.Channel.Key}:{d.Dtype.Key}:{d.Count}")));
-
-    static void AppendComponent(XxHash128 hasher, byte ordinal, ReadOnlySpan<byte> bytes) {
-        Span<byte> header = stackalloc byte[sizeof(byte) + sizeof(int)];
-        header[0] = ordinal;
-        BinaryPrimitives.WriteInt32LittleEndian(header[sizeof(byte)..], bytes.Length);
-        hasher.Append(header);
-        hasher.Append(bytes);
-    }
-
-    public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy) {
-        Span<byte> sentinel = stackalloc byte[16];
-        BinaryPrimitives.WriteUInt64LittleEndian(sentinel, SeedZeroDomain);
-        BinaryPrimitives.WriteUInt64LittleEndian(sentinel[8..], 0UL);
-        return XxHash128.HashToUInt128(sentinel, CanonicalForm.Seed(formatKey, policy));
-    }
-
-    public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical) {
-        Span<byte> frame = stackalloc byte[32];
-        BinaryPrimitives.WriteUInt64LittleEndian(frame, ContentHash.Half(contentKey, 0));
-        BinaryPrimitives.WriteUInt64LittleEndian(frame[8..], ContentHash.Half(contentKey, 1));
-        BinaryPrimitives.WriteInt64LittleEndian(frame[16..], physical.ToUnixTimeTicks());
-        BinaryPrimitives.WriteUInt64LittleEndian(frame[24..], logical);
-        return ContentHash.Of(frame);
-    }
+    // The content key's two little-endian halves, the physical tick `long`, the logical `ulong` bits — the
+    // `HLC_TWO_HALF` layout, written through the kernel members that already spell each width.
+    public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical) =>
+        ContentHash.Of((contentKey, physical, logical), static (s, w) =>
+            w.U128(s.contentKey).I64(s.physical.ToUnixTimeTicks()).I64(unchecked((long)s.logical)));
 
     public static ArtifactIndexRow Admit(ComputeArtifact artifact, DataClassification classification, Option<UInt128> sourceKey) =>
         ArtifactIndexRow.Admit(ArtifactKind.Interchange, artifact.ArtifactKey, artifact.Bytes.Span, classification, artifact.At, sourceKey);
@@ -514,7 +463,7 @@ public static class InterchangeIdentity {
 - Entry: `public static Fin<LakeLanding> Landing(LakeDataset dataset, TenantContext tenant, Option<MemoryAllocator> allocator)` is the ONE lake-landing projection — a total `Switch` sealing the case's batches, naming its `LandingArm` row and the readable segment that arm's hive key spells, and deriving the generation coordinate the custodian writes under; `public static Fin<Seq<RecordBatch>> Batches(LakeDataset dataset, Option<MemoryAllocator> allocator)` is the projection half a caller redeeming batches alone takes.
 - Auto: the row-major cases fold through the Persistence `Query/residence#COLUMN_VOCABULARY` `ArrowLanding.Build<TRow>` — the declaration supplies the field list, its order, and every column's own builder, and the conformance proof ACCUMULATES across columns, so a producer handing one batch learns every offending column at once; the pivot from rows to columns happens inside that fold, so no producer arm re-spells a strided gather. The geometry arm gathers NOTHING — the kernel already tiled each channel contiguously at its own descriptor offset, so an `ArrowBuffer` borrows that slice and a `FixedSizeListType` of the channel's arity states the interleave already in the bytes, leaving the two identity columns as the only material a landing allocates; that arm binds pre-built columns through the metadata-bearing `RecordBatch` constructor against the SAME `AnalyticsSchema` declaration, so both paths derive one field order from one declaration. Metadata is REQUIRED at every arm and defaulted nowhere: `Schema.Builder` and `RecordBatch.Builder` expose no metadata seat, so a batch reaching the custodian with none states no content key, no window, and no strategy, and the arm's own `Metadata` column is what the fold carries.
 - Receipt: none new — each batch is a projection of a standing dataset shape, and the landed generation's evidence rides the custodian's own `LandingArm.Slot`, never a second Compute row; the geometry corpus carries the kernel `RoundTripWitness` per instance, so quantization evidence is already proved upstream and no landing re-measures it.
-- Packages: Apache.Arrow, NodaTime (`InstantPattern.ExtendedIso` the metadata instant, `LocalDatePattern.CreateWithInvariantCulture` over `Instant.InUtc().Date` the billing-month segment), Thinktecture.Runtime.Extensions (`DoeDesign`/`Substrate` `.Key`), System.IO.Hashing, Rasm.Persistence (project — `Query/lakehouse#FLAT_TABLE_EGRESS` `LandingArm`/`LakeGeneration`/`FlatTableEgress.Land`, `Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnShape`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding.Build`/`Identifier`), Rasm (project — `TenantContext`, `ContentHash.Of`, and the `Rasm.Drawing` encode wire `EncodedGeometry`/`PackKind`/`PackSchema`/`EncodingChannel`/`ChannelDtype`), LanguageExt.Core, CommunityToolkit.HighPerformance (`SpanOwner<byte>` the generation-preimage rent, `MemoryOwner<double>` the strided scratch), BCL inbox (`CultureInfo.InvariantCulture`, `BinaryPrimitives.WriteUInt128BigEndian`)
+- Packages: Apache.Arrow, NodaTime (`InstantPattern.ExtendedIso` the metadata instant, `LocalDatePattern.CreateWithInvariantCulture` over `Instant.InUtc().Date` the billing-month segment), Thinktecture.Runtime.Extensions (`DoeDesign`/`Substrate` `.Key`), System.IO.Hashing, Rasm.Persistence (project — `Query/lakehouse#FLAT_TABLE_EGRESS` `LandingArm`/`LakeGeneration`/`FlatTableEgress.Land`, `Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnShape`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding.Build`/`Identifier`), Rasm (project — `TenantContext`, `ContentHash.Of`, `CanonicalWriter.U128`/`Rows`/`Ordinal`, and the `Rasm.Drawing` encode wire `EncodedGeometry`/`PackKind`/`PackSchema`/`EncodingChannel`/`ChannelDtype`), LanguageExt.Core, CommunityToolkit.HighPerformance (`MemoryOwner<double>` the strided scratch), BCL inbox (`CultureInfo.InvariantCulture`)
 - Growth: a new dataset producer is one `LakeDataset` case answering the family's five columns — arm, declaration, content key, segment, metadata — and the `Landing` `Switch` then breaks LOUDLY until it does, where the three-overload form this collapse deletes admitted a fourth producer as two new public surfaces the custodian's own `LandingArm` roster never learned about; a new column is one `ColumnRow` on the declaration and one `ColumnCell` in the row fold; a new kernel `EncodingChannel` or `PackKind` reaches the geometry columns with ZERO edit here because the kind's own declared active set generates the schema; the `MemoryAllocator` injects per lane so a staging-bounded arena charges the batch buffers against the lane budget.
 - Boundary: Compute BUILDS the columnar table; the Persistence lakehouse OWNS everything that CARRIES it — `ArrowStreamWriter`/`ArrowFileWriter` IPC, the `Apache.Arrow.Compression` LZ4/Zstd codec, the ADBC query surface, and the `FlightClient`/`FlightSqlClient` — so Compute holds one core `Apache.Arrow` reference, references none of the four egress packages, and opens no Flight listener; the DECLARATION is the contract, so this page hands `Land` an `AnalyticsSchema` and never a hand-built `Schema` beside a batch that agrees with it only by inspection, and each arm's declared columns include the SORT COLUMN its `LandingArm` row names — a generation whose declaration omits that column refuses at `Ordered` before a byte is written; a bare `DateTime` where the NodaTime instant crosses, the shared `MemoryAllocator.Default` where a lane arena is available, a per-element `Append(T)` loop where a span append exists, and a hand-rolled columnar byte layout `RecordBatch` already owns are the rejected forms; the geometry arm adds three of its own — a per-component scalar fan-out of an arity-3 channel, which re-keys the tree on every arity edit and reinstates the strided copy the kernel's tiling deletes; a half or unorm lane widened to float at the wrap, which re-spells values the round-trip witness certified at their stored width; and a schema key re-digested off the Arrow field list, which keys the hive tree on a projection the kernel never published while `PackSchema.SchemaId` is the identity the custodian's geometry row names by law; the sealed `RecordBatch` stops at the Compute edge — `Landing` hands the custodian a `LakeGeneration` coordinate, its declaration, its batches, and its metadata, and `FlatTableEgress.Land` writes them, so byte framing exists only where the `topology` axis puts the custodian in another process and the composition root frames it there through the Persistence IPC writer, never here.
 
@@ -532,28 +481,15 @@ public sealed record GeometryDataset(PackKind Kind, string Model, Seq<EncodedGeo
 
     // Preimage seats the schema identity ahead of every instance record in landed order: order IS content because
     // its row ordinal joins a scan back to the encode, and the schema is identity-bearing because it decides which
-    // columns each generation carries. Each instance record is the witness composite WHOLE — one DigestRoot key
-    // byte ahead of Witness.ContentHash — so a source-rooted Apply mint and a payload-rooted Of mint of ONE
+    // columns each generation carries. Each instance record is the witness composite WHOLE — the DigestRoot
+    // ordinal ahead of Witness.ContentHash — so a source-rooted Apply mint and a payload-rooted Of mint of ONE
     // geometry key distinct generations structurally, the preimage reading Root beside the digest exactly as the
     // kernel RoundTripWitness.Root dedup law demands, never a digest-only fold leaning on preimage-domain
-    // disjointness. Seventeen-byte fixed-width records concatenate injectively, so the spine needs
-    // no length framing; big-endian is the estate's one persisted spelling where `MemoryMarshal` writes host order.
-    // Corpus size is unbounded, so the spine rents rather than `stackalloc`s, and the write loop is a fold no rail
-    // combinator can carry — a `Span` cannot be captured by any lambda, which is the named statement seam here.
-    public UInt128 ContentKey {
-        get {
-            using SpanOwner<byte> rent = SpanOwner<byte>.Allocate(checked(16 + (Instances.Count * 17)));
-            Span<byte> spine = rent.Span;
-            BinaryPrimitives.WriteUInt128BigEndian(spine, Schema.SchemaId);
-            int offset = 16;
-            foreach (EncodedGeometry instance in Instances) {
-                spine[offset] = (byte)instance.Witness.Root.Key;
-                BinaryPrimitives.WriteUInt128BigEndian(spine[(offset + 1)..], instance.Witness.ContentHash.Value);
-                offset += 17;
-            }
-            return ContentHash.Of(spine);   // every byte overwritten, so the pooled rent needs no clear
-        }
-    }
+    // disjointness. The kernel writer streams the fold, so no spine is materialized at any corpus size and the
+    // count-framed `Rows` states the instance count the fixed-width concatenation once left implicit.
+    public UInt128 ContentKey =>
+        ContentHash.Of(this, static (d, w) => w.U128(d.Schema.SchemaId)
+            .Rows(d.Instances, static (instance, x) => x.Ordinal(instance.Witness.Root.Key).U128(instance.Witness.ContentHash.Value)));
 }
 
 // ONE lake-bound producer family. Three builders and three `Landing` overloads shared a return rail, an allocator

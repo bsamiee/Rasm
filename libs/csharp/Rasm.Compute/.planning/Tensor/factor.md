@@ -10,9 +10,9 @@ Rasm.Compute sparse-solve and kernel-lowering lane: the `SparseFormat` ingestion
 
 ## [02]-[SPARSE_SOLVE]
 
-- Owner: `SparseFormat` `[SmartEnum<string>]` ingestion-axis rows carrying the CSR-conversion `Ingest` delegate as a GENERATED column; `FactorKind` `[SmartEnum<string>]` direct-factor rows carrying the capability columns (rank-1 edit, transpose-solve, inertia, reentrancy, symmetry) and the `Fill`/`Create`/`TransposeRecover` delegates as generated columns; `IterativeMethod` `[SmartEnum<string>]` closed solver-factory axis whose `Ladder` column also composes the rungs into the `CompositeSolver` fall-through row, with `MethodSetup` the `IIterativeSolverSetup<double>` projection of one row and the `IterationPolicy` record (tolerance · max-iter · criterion stack · preconditioner · clock · deadline · cancellation); `FactoredOp` the typed sparse-operator value owning the factorization instance, the cached AMD permutation, the `ColumnOrdering` it was factored with, symbolic fill, and kind discriminant; `StructuralDeficiency` the typed Dulmage-Mendelsohn refusal carrying both deficient block spans; `Edit` `[Union]` the structural-edit dialect; `SparseContainer` `[SmartEnum<string>]` the portable-exchange correspondence carrying its own read and write columns; `SparseOps` the direct-and-iterative sparse-solve fold over CSR-backed MathNet storage and CSparse CSC direct factorizations.
-- Cases: `SparseFormat` `Ingest`-column rows csr · csc · coo · dok (4); `FactorKind` verified `Create`-column rows spd · ldl · lu · qr (4, every row wired — `Ldl` binds `SparseLDL.Create`); `IterativeMethod` rows bicgstab · gpbicg · tfqmr · mlk-bicgstab · composite (5, the composite deriving its ladder from the four `Ladder` rows); `Edit` cases `Pin` · `Prune` · `Bump` · `Revalue` (4, every case realized, admitted before mutation, and carrying its own structural-re-gate column); `SparseContainer` rows mtx · hdf5 (2, each carrying both directions of the one correspondence).
-- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values)` — the ONE sparse admission seam, whose nine independent facts ACCUMULATE so a caller handed a short minor run over a non-monotone pointer array learns both; `public static Fin<FactoredOp> Factor(SparseCompressedRowMatrixStorage<double> csr, FactorKind kind, ColumnOrdering ordering, double pivotTol, double dropFloor)` converts the CSR triplets once to a CSparse `CompressedColumnStorage<double>` through `CoordinateStorage` + the admitted `CompressedColumnStorage<double>.OfIndexed` CSC factory, reads the symbolic fill before the numeric sweep, and collapses the completed factorization to one `FactoredOp` value; `FactoredOp.Solve(double[] rhs, TolerancePolicy tol)` is the one polymorphic solve over both shapes, returning the lane-wide `SolveOutcome<double[]>`; `SolveIterative(SparseCompressedRowMatrixStorage<double> csr, IterativeMethod method, double[] rhs, IterationPolicy policy)` runs the `IterativeMethod`-selected `IIterativeSolver<double>` under the explicitly-ordered criterion stack and returns the same outcome carrier; `SparseContainer.Read`/`SparseContainer.Write` are the two directions of the one portable correspondence, each row binding its own container.
+- Owner: `SparseFormat` `[SmartEnum<string>]` ingestion-axis rows carrying the CSR-conversion `Ingest` delegate as a GENERATED column; `FactorKind` `[SmartEnum<string>]` direct-factor rows carrying the capability columns (rank-1 edit, transpose-solve, inertia, reentrancy, symmetry) and the `Fill`/`Create`/`TransposeRecover` delegates as generated columns; `IterativeMethod` `[SmartEnum<string>]` closed solver-factory axis whose `Ladder` column also composes the rungs into the `CompositeSolver` fall-through row, with `MethodSetup` the `IIterativeSolverSetup<double>` projection of one row and the `IterationPolicy` record (tolerance · max-iter · criterion stack · preconditioner · clock · deadline · cancellation); `FactoredOp` the typed sparse-operator value owning the factorization instance, the cached AMD permutation, the `ColumnOrdering` it was factored with, symbolic fill, and kind discriminant; `StructuralDeficiency` the typed Dulmage-Mendelsohn refusal carrying both deficient block spans; `Edit` `[Union]` the structural-edit dialect; `SparseContainer` `[SmartEnum<string>]` the portable-exchange correspondence carrying its own read and write columns; `SparseExchange` the closed read carrier preserving the HDF-only reproduction metadata in its `Archive` case; `SparseOps` the direct-and-iterative sparse-solve fold over CSR-backed MathNet storage and CSparse CSC direct factorizations.
+- Cases: `SparseFormat` `Ingest`-column rows csr · csc · coo · dok (4); `FactorKind` verified `Create`-column rows spd · ldl · lu · qr (4, every row wired — `Ldl` binds `SparseLDL.Create`); `IterativeMethod` rows bicgstab · gpbicg · tfqmr · mlk-bicgstab · composite (5, the composite deriving its ladder from the four `Ladder` rows); `Edit` cases `Pin` · `Prune` · `Bump` · `Revalue` (4, every case realized, admitted before mutation, and carrying its own structural-re-gate column); `SparseContainer` rows mtx · hdf5 (2, each carrying both directions of the one correspondence); `SparseExchange` cases `MatrixMarket` · `Archive`, the latter carrying one `SparseArchiveMeta` value.
+- Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Ingest(SparseFormat format, int rows, int columns, int[] majorIndices, int[] minorIndices, double[] values)` — the ONE sparse admission seam, whose nine independent facts ACCUMULATE so a caller handed a short minor run over a non-monotone pointer array learns both; `public static Fin<FactoredOp> Factor(SparseCompressedRowMatrixStorage<double> csr, FactorKind kind, ColumnOrdering ordering, double pivotTol, double dropFloor)` converts the CSR triplets once to a CSparse `CompressedColumnStorage<double>` through `CoordinateStorage` + the admitted `CompressedColumnStorage<double>.OfIndexed` CSC factory, reads the symbolic fill before the numeric sweep, and collapses the completed factorization to one `FactoredOp` value; `FactoredOp.Solve(double[] rhs, TolerancePolicy tol)` is the one polymorphic solve over both shapes, returning the lane-wide `SolveOutcome<double[]>`; `SolveIterative(SparseCompressedRowMatrixStorage<double> csr, IterativeMethod method, double[] rhs, IterationPolicy policy)` runs the `IterativeMethod`-selected `IIterativeSolver<double>` under the explicitly-ordered criterion stack and returns the same outcome carrier; `SparseContainer.Read` returns the container-cased `SparseExchange`, and `SparseContainer.Write` is its row's inverse.
 - Auto: every format row maps to one CSR ingestion conversion through its own generated `Ingest` column — csr direct, csc through `OfCompressedSparseColumnFormat`, coo through `OfCoordinateFormat`, dok through `OfIndexedEnumerable` over the indexed-entry buffer — so the format axis is an ingestion discriminant over one storage type and the build closure rides the row, not a parallel ingestion table; direct solves factor a CSparse `CompressedColumnStorage<double>` through the `FactorKind` row's `Create` column binding the explicit-permutation `SparseCholesky.Create(csc, p)`/`SparseLDL.Create(csc, p)`/`SparseLU.Create(csc, p, pivotTol)` and the ordering-based `SparseQR.Create(csc, ordering)`, so the AMD ordering is computed once by `Build` and the symmetric/lu kinds reuse that permutation rather than re-deriving it inside `Create`, then solve in place through `ISparseFactorization<double>.Solve(double[], double[])`; iterative solves run the row's `Solver(policy)` factory under the `IterationPolicy.Iterator()` criterion stack constructed in precedence order `Failure → Budget → Divergence → Residual → IterationCount`, the `composite` row folding the four `Ladder` rows into a `CompositeSolver` that falls through to the next rung on divergence, breakdown, or a swallowed throw instead of returning one method's failure; `FactoredOp.TransposeSolve` recovers the transpose-solve action from the `FactorKind` row's `TransposeRecover` column alone (some for lu and qr, none for spd and ldl) because the shared `ISparseFactorization<double>` exposes only the forward solve and `SolveTranspose` closes over the concrete `SparseLU`/`SparseQR`.
 - Receipt: every sparse solve materializes the `Factorization` `ComputeReceipt` case carrying provider key, factor kind, the symbolic fill, the recomputed true relative residual, row and column extents, the `ValueCount` non-zero count, and the source format key; emission rides the sink port.
 - Packages: MathNet.Numerics, MathNet.Numerics.Data.Text (`MatrixMarketReader`/`MatrixMarketWriter` — the `.mtx` interop leg), CSparse, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Microsoft.IO.RecyclableMemoryStream, PureHDF (through `Runtime/archive#HDF_ARCHIVE`), Grpc.Net.Client, Google.Protobuf, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, kernel signal capsule), Rasm.Persistence (project), BCL inbox
@@ -29,7 +29,7 @@ Rasm.Compute sparse-solve and kernel-lowering lane: the `SparseFormat` ingestion
 - Boundary — re-gate discriminant: the structural gate re-runs for the edits that can REMOVE pattern entries and skips for the rest, read off the `Edit` row's own `Regates` column rather than an edit-name test at the call. `Pin` drops a whole row and column and `Prune` drops residue whose removal can empty a row, so either can lower a structural rank the pre-edit gate proved; `Bump` only ADDS entries over the column support and `Revalue` rewrites values under an invariant pattern, so neither can, and re-running the Dulmage-Mendelsohn sweep on them pays a full pattern decomposition for an answer that cannot change.
 - Boundary — iterative axis: the method is the closed `IterativeMethod` SmartEnum and a raw-`string` discriminant beside it is the named defect. Criterion stacks construct explicitly in precedence order because insertion order IS precedence — `Failure` first keeps `NaN` terminal, and `Residual` before the count cap suppresses convergence on the final iteration. The preconditioner is `MILU0Preconditioner` — the modified ILU(0) whose `Initialize` REQUIRES `SparseCompressedRowMatrixStorage<double>`, which is exactly the storage this lane holds, and whose cost tracks nnz over the raw CSR buffers where `ILU0Preconditioner` runs an indexer triple-loop and materializes a dense row per `Approximate`; the ILU spelling `IncompleteLU` exists on NO precision plane and is a phantom. It initializes outside the solve and catches its throw there, because the init throw otherwise escapes the verdict-returning entrypoint, and that pre-initialize runs for the `Ladder` rows alone since `CompositeSolver` resolves each rung's preconditioner in its own constructor and passes `setup ?? argument`, making the seam's argument provably dead on the composite row where a second incomplete factorization is pure waste. `CompositeSolver` swallows every rung throw and falls through, so a breakdown inside it is invisible to the caller and the recomputed true residual is the only gate. `Iterator()` construction captures the ONE instant the budget criterion anchors on, so the ladder's per-rung `Iterator.Reset()` — which clears only criterion status — cannot re-arm it, where the per-rung `IterationCountStopCriterion` does re-arm and an unbounded ladder burns `rungs × MaxIterations`. `MethodSetup` binds `double.NaN` to `SolutionSpeed`/`Reliability` because no producer measured them and the ONE member reading them is `SolverSetup<T>.LoadFromAssembly`, the reflection discovery form this lane rejects, so a zero there ranks a ladder nothing measured.
 - Boundary — witness and outcome: the iterate is admitted only on the independently recomputed true relative residual against the original operator, because the converged verdict certifies solely that the PRECONDITIONED residual fell below tolerance and left preconditioning distorts the norm. Structural substitution is the most dangerous form because it certifies an arbitrary iterate under a normal verdict and the ULP guard fails open on `NaN`. Deadline breaches are budget exhaustion and land `SolveTermination.Exhausted` so the partial iterate survives a relaxed-criterion retry, while divergence, breakdown, cancellation, and a `Continue` terminal each fail the rail — folding them into `Exhausted` publishes a diverged iterate as a retryable partial. The carrier is the branch's ONE `SolveOutcome<T>`, so a sparse solve, a dense solve, a refinement, and a fit all report through one shape and no lane mints a third termination union.
-- Boundary — exchange: the two containers are ONE correspondence carried by `SparseContainer` rows, each holding both directions as columns, because a read and a write of one format are the forward and inverse of a single map and four direction-named entrypoints made that map four names. `.mtx` rides `MatrixMarketReader`/`MatrixMarketWriter` from `MathNet.Numerics.Data.Text` through the pooled recyclable stream and never a bare `FileStream`; `ReadStorage` runs `autoExpand: true` as fixed law, because an unexpanded symmetric file lands one stored triangle the structural read then calls rank-deficient, and a MatrixMarket ARRAY file throws `NotSupportedException` which converts to the typed refusal at the trap. `MatrixMarketWriter` binds through the `StreamWriter` overload alone because the `string` and `Stream` siblings DROP the `symmetric` argument on their way to it and emit a `general` header for a symmetric operator, and that flag reads off the `FactorKind.Symmetric` column rather than a caller knob. The HDF5 sibling carries the scipy sparse group convention — `indptr`/`indices` int32, `values` float64, extents in the `shape` attribute, `format` naming the major axis — plus the reproduction metadata `.mtx` drops: kind, ordering, symbolic fill, ‖A‖_F, symmetry, and the applied AMD permutation as its own dataset. INT32 index width is exchange law at both ends: an operand whose nnz or pointer run exceeds `int.MaxValue` refuses AT WRITE rather than emitting a container the peer decoder cannot address, and both routes end at `Ingest` so every admission gate re-runs on read. `.mtx` stays the SuiteSparse interop surface, never retired.
+- Boundary — exchange: the two containers are ONE correspondence carried by `SparseContainer` rows, each holding both directions as columns, because a read and a write of one format are the forward and inverse of a single map and four direction-named entrypoints made that map four names. `.mtx` rides the pinned `MathNet.Numerics.Data.Text` surface that actually exists: `ReadMatrix<double>(TextReader)` and `WriteMatrix(TextWriter, Matrix<double>)` over the pooled recyclable stream. A coordinate result must expose `SparseCompressedRowMatrixStorage<double>` and then re-enters `Ingest`; an ARRAY result refuses rather than densifying an exchange operand. The writer projects the held CSparse CSC through `SparseMatrix.OfIndexed(op.A.EnumerateIndexedAsValueTuples())`, the two libraries' admitted iterator/factory bridge, and MathNet emits its fixed `general` coordinate header — there is no symmetry parameter on any pinned writer overload. Matrix Market therefore carries operand values only in BOTH branches; structure and factor reproduction policy never hide in a header one peer cannot surface. The HDF5 sibling carries the scipy sparse group convention — rank-1 `indptr`/`indices` int32, `values` float64, extents in the int64 `shape` attribute, `format` naming the major axis — plus the reproduction metadata `.mtx` drops: kind, ordering, symbolic fill, ‖A‖_F, uint8 `symmetric`, and the applied AMD permutation as its own rank-1 dataset. INT32 index width is exchange law at both ends: an operand whose nnz, shape, or pointer run exceeds `int.MaxValue` refuses AT WRITE rather than emitting a container the peer decoder cannot address, and both routes end at `Ingest` so every admission gate re-runs on read. `.mtx` stays the SuiteSparse interop surface, never retired.
 - Boundary — fan-out: the row-block partition over CSR is the `ShardPlan` fan-out column read by the solve, never a second routing owner.
 
 ```csharp signature
@@ -115,20 +115,20 @@ public sealed partial class IterativeMethod {
 
 // One correspondence, two containers, BOTH directions on each row: a read and a write of one format are the
 // forward and inverse of a single map, and four direction-named entrypoints made that map four names a caller
-// had to pair by convention. `tests/contracts` `[02.29]-[SPARSE_EXCHANGE_CONTAINER]` binds this seam, and the
+// had to pair by convention. `tests/contracts` `hdf5-exchange/sparse` binds this seam, and the
 // python peer reads and writes both containers against these exact columns.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SparseContainer {
     public static readonly SparseContainer Mtx = new("mtx",
-        read: static (source, format) => SparseOps.ReadMtx(source),
+        read: static source => SparseOps.ReadMtx(source).Map(static storage => (SparseExchange)new SparseExchange.MatrixMarket(storage)),
         write: static (staged, op, policy) => SparseOps.WriteMtx(staged, op));
     public static readonly SparseContainer Hdf5 = new("hdf5",
-        read: static (source, format) => SparseOps.ReadArchive(source, format),
+        read: static source => SparseOps.ReadArchive(source),
         write: static (staged, op, policy) => SparseOps.WriteArchive(staged, op, policy));
 
-    [UseDelegateFromConstructor] public partial Fin<SparseCompressedRowMatrixStorage<double>> Read(ExchangeSource source, SparseFormat format);
+    [UseDelegateFromConstructor] public partial Fin<SparseExchange> Read(ExchangeSource source);
     [UseDelegateFromConstructor] public partial Fin<Unit> Write(Stream staged, FactoredOp op, HdfArchivePolicy policy);
 }
 
@@ -139,8 +139,26 @@ public abstract partial record ExchangeSource {
     private ExchangeSource() { }
 
     public sealed record Streamed(RecyclableMemoryStream Staged) : ExchangeSource;
-    public sealed record Archived(HdfHandle Handle, string Group) : ExchangeSource;
+    public sealed record Archived(HdfHandle Handle) : ExchangeSource;
 }
+
+// Container-specific read evidence stays in the case that can carry it. Matrix Market publishes the operand and
+// symmetry alone; HDF5 also carries the factor reproduction policy and applied permutation, which must not be
+// validated and then discarded before the caller can re-factor.
+[Union]
+public abstract partial record SparseExchange {
+    private SparseExchange() { }
+
+    public sealed record MatrixMarket(SparseCompressedRowMatrixStorage<double> Storage) : SparseExchange;
+    public sealed record Archive(SparseCompressedRowMatrixStorage<double> Storage, SparseArchiveMeta Meta) : SparseExchange;
+}
+
+public sealed record SparseArchiveMeta(
+    FactorKind Kind,
+    ColumnOrdering Ordering,
+    long Fill,
+    double Frobenius,
+    ReadOnlyMemory<int> Permutation);
 
 [Union]
 public abstract partial record Edit {
@@ -344,26 +362,31 @@ public static class SparseOps {
         CompressedColumnStorage<double>.CreateDiagonal(order, value);
 
     // --- [EXCHANGE] ------------------------------------------------------------------------
-    // `ReadStorage` yields the COO the CSC factory finalizes once; `autoExpand: true` is fixed law rather than a
-    // caller knob, because a symmetric file read unexpanded lands ONE stored triangle whose `Structural`
-    // Dulmage-Mendelsohn read then reports a false rank deficiency on a structurally full operator. A
-    // MatrixMarket ARRAY (dense) file throws `NotSupportedException` — only the coordinate form is read — so the
-    // trap converts it to the typed refusal rather than letting it escape the rail.
+    // The pinned package exposes `ReadMatrix`, not a storage/auto-expand overload. Coordinate input surfaces as
+    // MathNet CSR and re-enters the ONE admission seam; ARRAY input surfaces dense and refuses rather than
+    // silently changing an exchange operand's residence class.
     internal static Fin<SparseCompressedRowMatrixStorage<double>> ReadMtx(ExchangeSource source) =>
         source is ExchangeSource.Streamed staged
-            ? Op.Of(name: "mtx-read").Catch(() => Fin.Succ(
-                (SparseCompressedRowMatrixStorage<double>)((SparseMatrix)SparseMatrix.OfIndexed(
-                    MatrixMarketReader.ReadStorage<double>(new StreamReader(staged.Staged, Encoding.ASCII), autoExpand: true))).Storage))
+            ? Op.Of(name: "mtx-read").Catch(() => {
+                using TextReader reader = new StreamReader(
+                    staged.Staged, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+                Matrix<double> matrix = MatrixMarketReader.ReadMatrix<double>(reader);
+                return matrix.Storage is SparseCompressedRowMatrixStorage<double> csr
+                    ? Ingest(SparseFormat.Csr, csr.RowCount, csr.ColumnCount, csr.RowPointers, csr.ColumnIndices, csr.Values)
+                    : TensorReason.RowMissing.Fail<SparseCompressedRowMatrixStorage<double>>("mtx-coordinate");
+            })
             : TensorReason.RowMissing.Fail<SparseCompressedRowMatrixStorage<double>>("mtx-source");
 
-    // Symmetry is the factor row's own `Symmetric` column, never a caller flag, and the write binds the
-    // `StreamWriter` overload alone: the `string` and `Stream` siblings DROP the `symmetric` argument on their
-    // way to it, so either would silently emit a `general` header for a symmetric operator and store both
-    // triangles. The writer takes `leaveOpen`, so the pooled rent outlives it and the caller owns disposal.
+    // Matrix Market is the operand-only container; reproduction metadata belongs to the HDF sibling. The pinned
+    // writer has no symmetry parameter and emits `general`, so both branches deliberately publish the complete
+    // value set. The CSparse iterator and MathNet indexed factory are the library-owned bridge, not a local loop.
     internal static Fin<Unit> WriteMtx(Stream staged, FactoredOp op) =>
         Op.Of(name: "mtx-write").Catch(() => {
-            StreamWriter writer = new(staged, Encoding.ASCII, leaveOpen: true);
-            MatrixMarketWriter.WriteMatrix(writer, op.A, op.Kind.Symmetric);
+            using StreamWriter writer = new(staged, Encoding.ASCII, leaveOpen: true);
+            MathNet.Numerics.LinearAlgebra.Double.SparseMatrix matrix =
+                MathNet.Numerics.LinearAlgebra.Double.SparseMatrix.OfIndexed(
+                    op.A.RowCount, op.A.ColumnCount, op.A.EnumerateIndexedAsValueTuples());
+            MatrixMarketWriter.WriteMatrix(writer, matrix);
             writer.Flush();
             return Fin.Succ(unit);
         });
@@ -371,29 +394,69 @@ public static class SparseOps {
     // Rank-1 declared hyperslabs land directly in the arrays the storage factory keeps, so ingest stages no
     // second contiguous copy; every gate the `.mtx` path runs re-runs here because both routes end at `Ingest`.
     // The archive publishes every dataset resolve on the RAIL, so each one binds rather than dereferences.
-    internal static Fin<SparseCompressedRowMatrixStorage<double>> ReadArchive(ExchangeSource source, SparseFormat format) =>
+    internal static Fin<SparseExchange> ReadArchive(ExchangeSource source) =>
         source is not ExchangeSource.Archived archived
-            ? TensorReason.RowMissing.Fail<SparseCompressedRowMatrixStorage<double>>("hdf5-source")
-            : from group in archived.Handle.Group(archived.Group)
-              from values in archived.Handle.Dataset($"{archived.Group}/values")
-              from pointers in archived.Handle.Dataset($"{archived.Group}/indptr")
-              from indices in archived.Handle.Dataset($"{archived.Group}/indices")
+            ? TensorReason.RowMissing.Fail<SparseExchange>("hdf5-source")
+            : from group in archived.Handle.Group("A")
+              from values in archived.Handle.Dataset("A/values")
+              from pointers in archived.Handle.Dataset("A/indptr")
+              from indices in archived.Handle.Dataset("A/indices")
+              from permutation in archived.Handle.Dataset("A/permutation")
               from read in Op.Of(name: "hdf5-sparse-read").Catch(() => {
                   long[] shape = group.Attribute("shape").Read<long[]>();
+                  if (shape is not [> 0L, > 0L]) { throw new InvalidDataException("hdf5 sparse shape"); }
+                  string wireFormat = group.Attribute("format").Read<string>();
+                  SparseFormat format = toSeq(SparseFormat.Items).Find(row => row.PointerForm && StringComparer.Ordinal.Equals(row.Key, wireFormat))
+                      .IfNone(() => throw new InvalidDataException($"hdf5 sparse format: {wireFormat}"));
                   int major = checked((int)(format.MajorIsRow ? shape[0] : shape[1]));
+                  ulong[] valueShape = values.Space.Dimensions;
+                  ulong[] pointerShape = pointers.Space.Dimensions;
+                  ulong[] indexShape = indices.Space.Dimensions;
+                  ulong[] permutationShape = permutation.Space.Dimensions;
+                  if (valueShape.Length != 1 || indexShape.Length != 1 || indexShape[0] != valueShape[0]
+                      || pointerShape.Length != 1 || pointerShape[0] != (ulong)major + 1UL
+                      || permutationShape.Length != 1 || permutationShape[0] != (ulong)shape[1]) {
+                      throw new InvalidDataException("hdf5 sparse dataset extents");
+                  }
                   int nonZeros = checked((int)values.Space.Dimensions[0]);
                   int[] indptr = new int[major + 1];
                   int[] minor = new int[nonZeros];
                   double[] payload = new double[nonZeros];
+                  int[] applied = new int[checked((int)permutation.Space.Dimensions[0])];
                   pointers.Read<int>(archived.Handle.Access, indptr.AsSpan(), new HyperslabSelection(0, (ulong)indptr.Length));
                   indices.Read<int>(archived.Handle.Access, minor.AsSpan(), new HyperslabSelection(0, (ulong)nonZeros));
                   values.Read<double>(archived.Handle.Access, payload.AsSpan(), new HyperslabSelection(0, (ulong)nonZeros));
-                  return Fin.Succ((Rows: checked((int)shape[0]), Columns: checked((int)shape[1]), Major: indptr, Minor: minor, Payload: payload));
+                  permutation.Read<int>(archived.Handle.Access, applied.AsSpan(), new HyperslabSelection(0, (ulong)applied.Length));
+                  return Fin.Succ((Rows: checked((int)shape[0]), Columns: checked((int)shape[1]),
+                      Format: format, Kind: group.Attribute("kind").Read<string>(),
+                      Ordering: group.Attribute("ordering").Read<long>(), Fill: group.Attribute("fill").Read<long>(),
+                      Frobenius: group.Attribute("frobenius").Read<double>(), Symmetric: group.Attribute("symmetric").Read<bool>(),
+                      Permutation: applied, Major: indptr, Minor: minor, Payload: payload));
               })
-              from storage in Ingest(format, read.Rows, read.Columns, read.Major, read.Minor, read.Payload)
-              select storage;
+              from meta in AdmitsArchive(read)
+              from storage in Ingest(read.Format, read.Rows, read.Columns, read.Major, read.Minor, read.Payload)
+              select (SparseExchange)new SparseExchange.Archive(storage, meta);
 
-    // The HDF5 sibling repairs the `.mtx` metadata drop: MatrixMarket carries pattern symmetry alone, so kind,
+    static Fin<SparseArchiveMeta> AdmitsArchive(
+        (int Rows, int Columns, SparseFormat Format, string Kind, long Ordering, long Fill, double Frobenius, bool Symmetric,
+         int[] Permutation, int[] Major, int[] Minor, double[] Payload) read) {
+        Option<FactorKind> kind = toSeq(FactorKind.Items).Find(row => StringComparer.Ordinal.Equals(row.Key, read.Kind));
+        bool held = read.Format.PointerForm
+            && read.Ordering is >= 0L and <= 3L
+            && read.Fill >= 0L
+            && double.IsFinite(read.Frobenius) && read.Frobenius >= 0.0
+            && kind.Exists(row => row.Symmetric == read.Symmetric)
+            && read.Permutation.Length == read.Columns
+            && read.Permutation.All(index => index >= 0 && index < read.Columns)
+            && read.Permutation.ToFrozenSet().Count == read.Columns;
+        Error refusal = TensorReason.ShapeMismatch.Fault("hdf5-sparse-roster", read.Format.Key, read.Kind, $"{read.Rows}x{read.Columns}");
+        return held
+            ? kind.ToFin(refusal).Map(factor => new SparseArchiveMeta(
+                factor, (ColumnOrdering)read.Ordering, read.Fill, read.Frobenius, read.Permutation))
+            : Fin.Fail<SparseArchiveMeta>(refusal);
+    }
+
+    // The HDF5 sibling repairs the `.mtx` metadata drop: Matrix Market carries operand values alone, so symmetry, kind,
     // ordering, symbolic fill, and ‖A‖_F ride typed attributes and the applied AMD permutation its own dataset,
     // and a reproduction artifact re-factors under the policy it was built with. INT32 index width is exchange
     // law the peer decoder depends on, so an operand past that width refuses at WRITE rather than emitting a
@@ -401,34 +464,38 @@ public static class SparseOps {
     internal static Fin<Unit> WriteArchive(Stream staged, FactoredOp op, HdfArchivePolicy policy) =>
         op.A.NonZerosCount > int.MaxValue || op.A.ColumnPointers.Length > int.MaxValue
             ? TensorReason.ExtentOverflow.Fail<Unit>("hdf5-sparse-int32", $"nnz={op.A.NonZerosCount}")
-            : (from pointers in ChunkGrid.Derive([op.A.ColumnPointers.Length], components: 1, targetChunkElements: ExchangeChunk)
-               from indices in ChunkGrid.Derive([op.A.RowIndices.Length], components: 1, targetChunkElements: ExchangeChunk)
-               from values in ChunkGrid.Derive([op.A.Values.Length], components: 1, targetChunkElements: ExchangeChunk)
-               from permutation in ChunkGrid.Derive([op.Permutation.Length], components: 1, targetChunkElements: ExchangeChunk)
+            : (from pointers in VectorGrid(op.A.ColumnPointers.Length)
+               from indices in VectorGrid(op.A.RowIndices.Length)
+               from values in VectorGrid(op.A.Values.Length)
+               from permutation in VectorGrid(op.Permutation.Length)
                select (Pointers: new ArchiveSlot<int>("A/indptr", pointers), Indices: new ArchiveSlot<int>("A/indices", indices),
                        Values: new ArchiveSlot<double>("A/values", values), Permutation: new ArchiveSlot<int>("A/permutation", permutation)))
                 .Bind(slots => ArchiveSession.Write(
                     staged, policy,
                     Seq<IArchiveSlot>(slots.Pointers, slots.Indices, slots.Values, slots.Permutation),
-                    Seq(("rows", (ArchiveAttribute)new ArchiveAttribute.Whole(op.A.RowCount)),
-                        ("columns", (ArchiveAttribute)new ArchiveAttribute.Whole(op.A.ColumnCount)),
-                        ("format", (ArchiveAttribute)new ArchiveAttribute.Text("csc")),
-                        ("kind", (ArchiveAttribute)new ArchiveAttribute.Text(op.Kind.Key)),
-                        ("ordering", (ArchiveAttribute)new ArchiveAttribute.Whole((int)op.Ordering)),
-                        ("fill", (ArchiveAttribute)new ArchiveAttribute.Whole(op.Fill)),
-                        ("frobenius", (ArchiveAttribute)new ArchiveAttribute.Real(op.FrobeniusNorm)),
-                        ("symmetric", (ArchiveAttribute)new ArchiveAttribute.Flag(op.Kind.Symmetric))),
+                    Seq<(string Key, ArchiveAttribute Value)>(),
                     session =>
                         IO.pure(from pointers in session.Cursor(slots.Pointers)
-                                from _1 in pointers.Write(op.A.ColumnPointers)
+                                from _1 in pointers.WriteAll(op.A.ColumnPointers)
                                 from indices in session.Cursor(slots.Indices)
-                                from _2 in indices.Write(op.A.RowIndices)
+                                from _2 in indices.WriteAll(op.A.RowIndices)
                                 from values in session.Cursor(slots.Values)
-                                from _3 in values.Write(op.A.Values)
+                                from _3 in values.WriteAll(op.A.Values)
                                 from permutation in session.Cursor(slots.Permutation)
-                                from _4 in permutation.Write(op.Permutation)
-                                select unit))
+                                from _4 in permutation.WriteAll(op.Permutation)
+                                select unit),
+                    Seq(new ArchiveAttributes("A", Seq(
+                        ("shape", (ArchiveAttribute)new ArchiveAttribute.WholeVector(new long[] { op.A.RowCount, op.A.ColumnCount })),
+                        ("format", new ArchiveAttribute.Text("csc")),
+                        ("kind", new ArchiveAttribute.Text(op.Kind.Key)),
+                        ("ordering", new ArchiveAttribute.Whole((int)op.Ordering)),
+                        ("fill", new ArchiveAttribute.Whole(op.Fill)),
+                        ("frobenius", new ArchiveAttribute.Real(op.FrobeniusNorm)),
+                        ("symmetric", new ArchiveAttribute.Flag(op.Kind.Symmetric))))))
                     .Run());
+
+    static Validation<Error, ChunkGrid> VectorGrid(int length) =>
+        ChunkGrid.Seat([(ulong)length], [(uint)Math.Min(length, ExchangeChunk)]);
 
     const int ExchangeChunk = 1 << 16;
 
@@ -849,7 +916,7 @@ public static class SparseTensorOps {
 - Boundary — `Im2Col` computes both index tables ONCE per lowering off the `ConvWindow` — the per-tap axis offsets with dilation and padding folded in, and the per-position strided origins — so the gather cell is pure index math over shared heap tables and allocates nothing per position, and the output extents read once into the descriptor rather than re-deriving the whole vector on every property access three call sites make. The patch plane is a `Span2D<double>` over one pooled `MemoryOwner<double>` rent carrying its `Tensor/memory#ALLOCATION_AXIS` grant, because a `[positions, patchWidth]` plane sized by a caller's convolution geometry is staging, not kernel-interior scratch; the gather addresses it by row, where a `double[,]` indexer recomputed the same offset arithmetic on every one of the millions of taps. Out-of-range taps pad by branch inside the same walk rather than through a second bounds pass, each `(position, channel)` owns one disjoint patch-row run, and one provider GEMM then carries `MatMul` proof evidence for every convolution row.
 - Boundary — both operands ride raw column-major float64 bytes through `UnsafeByteOperations.UnsafeWrap`; request hashing uses pooled serialization through the suite `Rasm/Domain/identity#CONTENT_KEY` `ContentHash.Of` owner rather than a second local digest spelling, cache lookup resolves only a residence, and blob custody stays on the object-store ports. `IO<Fin<T>>` composes lookup, fetch, dial, store, and publish without an interior effect run; `Fin` gates the private join target after traversal.
 - Boundary — the sub-solve content address is the request bytes folded with the provider determinism tag and NOTHING else. Two row blocks carrying identical content dedup to one dialed solve, which is the whole point of the reuse index; salting the digest with the block's row offset made every block its own key, so the index never hit and the write path paid a publish per block for a table nothing read. Provider stays in the key through `SolveDedupKey`, so a cross-provider hit — bit-divergent numbers under one address — remains unrepresentable.
-- Boundary — the dial is a CLASSIFIED, SCHEDULED call, not a bare blocking invoke: the raised `RpcException` folds through the package's one classifier, `Runtime/channels#TRANSPORT_AXIS` `RpcEdge.Rpc`, and the transient arm retries under a `Schedule` the plan's own deadline bounds, so a shard lost to a reconnect is not a lost fan-out and a terminal status is not retried into the deadline. Channel warm-up, where a caller wants one, is a throwaway unary or health probe and NEVER the connectivity-state API: `ConnectAsync`, `State`, and `WaitForStateChangedAsync` throw `InvalidOperationException` on any channel configured with a `ConnectCallback`, the two being mutually exclusive, so a warm-up written against the state surface fails every custom-transport shard channel this lane dials. The `Solve` rpc and its `shard_tile` column are FROZEN at `tests/contracts/rasm/compute/v1/compute.proto`, so this fan-out is the registry-bound producer of that seam and its shape moves only with the descriptor.
+- Boundary — the dial is a CLASSIFIED, SCHEDULED call, not a bare blocking invoke: the raised `RpcException` folds through the package's one classifier, `Runtime/channels#TRANSPORT_AXIS` `RpcEdge.Rpc`, and the transient arm retries under a `Schedule` the plan's own deadline bounds, so a shard lost to a reconnect is not a lost fan-out and a terminal status is not retried into the deadline. Channel warm-up, where a caller wants one, is a throwaway unary or health probe and NEVER the connectivity-state API: `ConnectAsync`, `State`, and `WaitForStateChangedAsync` throw `InvalidOperationException` on any channel configured with a `ConnectCallback`, the two being mutually exclusive, so a warm-up written against the state surface fails every custom-transport shard channel this lane dials. The `Solve` rpc and its `shard_tile` column are FROZEN at `tests/contracts/proto/rasm/contracts/compute/v1/compute.proto`, so this fan-out is the registry-bound producer of that seam and its shape moves only with the descriptor.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------

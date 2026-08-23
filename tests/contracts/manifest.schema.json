@@ -1,0 +1,772 @@
+{
+    "$defs": {
+        "ApplicationAuthority": {
+            "additionalProperties": false,
+            "description": "A deploying application or external client supplies a public inbound value the estate only reads.",
+            "properties": {
+                "kind": {
+                    "enum": ["application"]
+                }
+            },
+            "required": ["kind"],
+            "title": "ApplicationAuthority",
+            "type": "object"
+        },
+        "BlockedReadiness": {
+            "additionalProperties": false,
+            "description": "A decision-complete contract lacking executable evidence.",
+            "properties": {
+                "blockers": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "kind": {
+                    "enum": ["blocked"]
+                }
+            },
+            "required": ["kind", "blockers"],
+            "title": "BlockedReadiness",
+            "type": "object"
+        },
+        "Case": {
+            "additionalProperties": false,
+            "description": "One atomic contract with tagged authority, tagged readiness, exact definition, and boundary actors.",
+            "properties": {
+                "authority": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ApplicationAuthority"
+                        },
+                        {
+                            "$ref": "#/$defs/DomainAuthority"
+                        },
+                        {
+                            "$ref": "#/$defs/InfrastructureAuthority"
+                        },
+                        {
+                            "$ref": "#/$defs/PublisherAuthority"
+                        }
+                    ],
+                    "discriminator": {
+                        "mapping": {
+                            "application": "#/$defs/ApplicationAuthority",
+                            "domain": "#/$defs/DomainAuthority",
+                            "infrastructure": "#/$defs/InfrastructureAuthority",
+                            "publisher": "#/$defs/PublisherAuthority"
+                        },
+                        "propertyName": "kind"
+                    }
+                },
+                "consumers": {
+                    "default": [],
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/MessageActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ClientRequestActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ClientResponseActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ServerRequestActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ServerResponseActor"
+                            }
+                        ],
+                        "discriminator": {
+                            "mapping": {
+                                "client-request": "#/$defs/ClientRequestActor",
+                                "client-response": "#/$defs/ClientResponseActor",
+                                "message": "#/$defs/MessageActor",
+                                "server-request": "#/$defs/ServerRequestActor",
+                                "server-response": "#/$defs/ServerResponseActor"
+                            },
+                            "propertyName": "direction"
+                        }
+                    },
+                    "type": "array"
+                },
+                "definition": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/CloudEventDefinition"
+                        },
+                        {
+                            "$ref": "#/$defs/ProtoDefinition"
+                        },
+                        {
+                            "$ref": "#/$defs/SchemaDefinition"
+                        },
+                        {
+                            "$ref": "#/$defs/PublisherDefinition"
+                        },
+                        {
+                            "$ref": "#/$defs/LawDefinition"
+                        }
+                    ],
+                    "discriminator": {
+                        "mapping": {
+                            "cloudevent": "#/$defs/CloudEventDefinition",
+                            "law": "#/$defs/LawDefinition",
+                            "proto": "#/$defs/ProtoDefinition",
+                            "publisher": "#/$defs/PublisherDefinition",
+                            "schema": "#/$defs/SchemaDefinition"
+                        },
+                        "propertyName": "kind"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "readiness": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/BlockedReadiness"
+                        },
+                        {
+                            "$ref": "#/$defs/VerifiedReadiness"
+                        }
+                    ],
+                    "discriminator": {
+                        "mapping": {
+                            "blocked": "#/$defs/BlockedReadiness",
+                            "verified": "#/$defs/VerifiedReadiness"
+                        },
+                        "propertyName": "kind"
+                    }
+                }
+            },
+            "required": ["id", "definition", "authority", "readiness"],
+            "title": "Case",
+            "type": "object"
+        },
+        "ClientRequestActor": {
+            "additionalProperties": false,
+            "description": "A client request producer or server-side peer consumer at one exact RPC.",
+            "properties": {
+                "anchor": {
+                    "type": "string"
+                },
+                "binding": {
+                    "enum": ["generated", "package", "proof"]
+                },
+                "coordinate": {
+                    "type": "string"
+                },
+                "direction": {
+                    "enum": ["client-request"]
+                },
+                "method": {
+                    "type": "string"
+                },
+                "supports": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/Support"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["direction", "anchor", "coordinate", "binding", "method"],
+            "title": "ClientRequestActor",
+            "type": "object"
+        },
+        "ClientResponseActor": {
+            "additionalProperties": false,
+            "description": "A client response consumer or server-side peer producer at one exact RPC.",
+            "properties": {
+                "anchor": {
+                    "type": "string"
+                },
+                "binding": {
+                    "enum": ["generated", "package", "proof"]
+                },
+                "coordinate": {
+                    "type": "string"
+                },
+                "direction": {
+                    "enum": ["client-response"]
+                },
+                "method": {
+                    "type": "string"
+                },
+                "supports": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/Support"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["direction", "anchor", "coordinate", "binding", "method"],
+            "title": "ClientResponseActor",
+            "type": "object"
+        },
+        "CloudEventDefinition": {
+            "additionalProperties": false,
+            "description": "One exact CloudEvents protobuf envelope and its application event-type discriminant.",
+            "properties": {
+                "framing": {
+                    "enum": ["proto-binary"]
+                },
+                "kind": {
+                    "enum": ["cloudevent"]
+                },
+                "message": {
+                    "enum": ["io.cloudevents.v1.CloudEvent"]
+                },
+                "type": {
+                    "type": "string"
+                }
+            },
+            "required": ["kind", "message", "framing", "type"],
+            "title": "CloudEventDefinition",
+            "type": "object"
+        },
+        "DomainAuthority": {
+            "additionalProperties": false,
+            "description": "One semantic producer owns the case value.",
+            "properties": {
+                "kind": {
+                    "enum": ["domain"]
+                },
+                "producer": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/MessageActor"
+                        },
+                        {
+                            "$ref": "#/$defs/ClientRequestActor"
+                        },
+                        {
+                            "$ref": "#/$defs/ClientResponseActor"
+                        },
+                        {
+                            "$ref": "#/$defs/ServerRequestActor"
+                        },
+                        {
+                            "$ref": "#/$defs/ServerResponseActor"
+                        }
+                    ],
+                    "discriminator": {
+                        "mapping": {
+                            "client-request": "#/$defs/ClientRequestActor",
+                            "client-response": "#/$defs/ClientResponseActor",
+                            "message": "#/$defs/MessageActor",
+                            "server-request": "#/$defs/ServerRequestActor",
+                            "server-response": "#/$defs/ServerResponseActor"
+                        },
+                        "propertyName": "direction"
+                    }
+                }
+            },
+            "required": ["kind", "producer"],
+            "title": "DomainAuthority",
+            "type": "object"
+        },
+        "Entry": {
+            "additionalProperties": false,
+            "description": "One decoder-partition grouping owner; every semantic fact belongs to one non-empty atomic case.",
+            "properties": {
+                "cases": {
+                    "items": {
+                        "$ref": "#/$defs/Case"
+                    },
+                    "type": "array"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "law": {
+                    "type": "string"
+                }
+            },
+            "required": ["id", "law", "cases"],
+            "title": "Entry",
+            "type": "object"
+        },
+        "ExpectedAsset": {
+            "additionalProperties": false,
+            "description": "Typed normalized facts compared with one or more decoded specimens.",
+            "properties": {
+                "bytes": {
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "factsFormat": {
+                    "enum": ["backend-generation-v1", "content-digest-v1", "hdf5-facts-v1", "hlc-value-v1", "matrix-market-facts-v1"]
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "role": {
+                    "enum": ["expected"]
+                }
+            },
+            "required": ["role", "path", "bytes", "fingerprint", "factsFormat"],
+            "title": "ExpectedAsset",
+            "type": "object"
+        },
+        "Fingerprint": {
+            "additionalProperties": false,
+            "description": "One algorithm-tagged digest over the asset bytes exactly as stored.",
+            "properties": {
+                "algorithm": {
+                    "enum": ["sha256", "xxh128"]
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": ["algorithm", "value"],
+            "title": "Fingerprint",
+            "type": "object"
+        },
+        "InfrastructureAuthority": {
+            "additionalProperties": false,
+            "description": "Independent minters define a shared infrastructure contract.",
+            "properties": {
+                "kind": {
+                    "enum": ["infrastructure"]
+                },
+                "minters": {
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/MessageActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ClientRequestActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ClientResponseActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ServerRequestActor"
+                            },
+                            {
+                                "$ref": "#/$defs/ServerResponseActor"
+                            }
+                        ],
+                        "discriminator": {
+                            "mapping": {
+                                "client-request": "#/$defs/ClientRequestActor",
+                                "client-response": "#/$defs/ClientResponseActor",
+                                "message": "#/$defs/MessageActor",
+                                "server-request": "#/$defs/ServerRequestActor",
+                                "server-response": "#/$defs/ServerResponseActor"
+                            },
+                            "propertyName": "direction"
+                        }
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["kind", "minters"],
+            "title": "InfrastructureAuthority",
+            "type": "object"
+        },
+        "LawDefinition": {
+            "additionalProperties": false,
+            "description": "A framing-law seam with one closed evidence medium, anchored as `path#[NN]-[CLUSTER]`.",
+            "properties": {
+                "anchor": {
+                    "type": "string"
+                },
+                "format": {
+                    "enum": ["binary", "hdf5", "json", "text"]
+                },
+                "kind": {
+                    "enum": ["law"]
+                }
+            },
+            "required": ["kind", "anchor", "format"],
+            "title": "LawDefinition",
+            "type": "object"
+        },
+        "Manifest": {
+            "additionalProperties": false,
+            "description": "The corpus registry: one entry per seam under one schema version.",
+            "properties": {
+                "entries": {
+                    "items": {
+                        "$ref": "#/$defs/Entry"
+                    },
+                    "type": "array"
+                },
+                "version": {
+                    "enum": [2]
+                }
+            },
+            "required": ["version", "entries"],
+            "title": "Manifest",
+            "type": "object"
+        },
+        "MessageActor": {
+            "additionalProperties": false,
+            "description": "A non-RPC producer, minter, or consumer of the case contract.",
+            "properties": {
+                "anchor": {
+                    "type": "string"
+                },
+                "binding": {
+                    "enum": ["generated", "package", "proof"]
+                },
+                "coordinate": {
+                    "type": "string"
+                },
+                "direction": {
+                    "enum": ["message"]
+                },
+                "roots": {
+                    "default": [],
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "supports": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/Support"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["direction", "anchor", "coordinate", "binding"],
+            "title": "MessageActor",
+            "type": "object"
+        },
+        "ProofVector": {
+            "additionalProperties": false,
+            "description": "One explicit proof unit pairing its specimen assets with optional typed normalized facts.",
+            "properties": {
+                "expected": {
+                    "anyOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "$ref": "#/$defs/ExpectedAsset"
+                        }
+                    ],
+                    "default": null
+                },
+                "specimens": {
+                    "items": {
+                        "$ref": "#/$defs/SpecimenAsset"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["specimens"],
+            "title": "ProofVector",
+            "type": "object"
+        },
+        "ProtoDefinition": {
+            "additionalProperties": false,
+            "description": "One exact message descriptor, the framing its bytes ride, and any service descriptors binding that message.",
+            "properties": {
+                "framing": {
+                    "enum": ["canonical-frame", "proto-binary", "proto-json"]
+                },
+                "kind": {
+                    "enum": ["proto"]
+                },
+                "message": {
+                    "type": "string"
+                }
+            },
+            "required": ["kind", "message", "framing"],
+            "title": "ProtoDefinition",
+            "type": "object"
+        },
+        "PublisherAuthority": {
+            "additionalProperties": false,
+            "description": "An immutable external publisher owns the definition bytes.",
+            "properties": {
+                "kind": {
+                    "enum": ["publisher"]
+                }
+            },
+            "required": ["kind"],
+            "title": "PublisherAuthority",
+            "type": "object"
+        },
+        "PublisherDefinition": {
+            "additionalProperties": false,
+            "description": "A publisher definition with exact local custody and immutable upstream provenance.",
+            "properties": {
+                "format": {
+                    "type": "string"
+                },
+                "kind": {
+                    "enum": ["publisher"]
+                },
+                "origin": {
+                    "$ref": "#/$defs/PublisherOrigin"
+                },
+                "source": {
+                    "type": "string"
+                }
+            },
+            "required": ["kind", "format", "source", "origin"],
+            "title": "PublisherDefinition",
+            "type": "object"
+        },
+        "PublisherLicense": {
+            "additionalProperties": false,
+            "description": "The colocated license file covering one immutable publisher origin.",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                },
+                "spdx": {
+                    "enum": ["Apache-2.0"]
+                }
+            },
+            "required": ["spdx", "path", "sha256"],
+            "title": "PublisherLicense",
+            "type": "object"
+        },
+        "PublisherOrigin": {
+            "additionalProperties": false,
+            "description": "An immutable upstream repository coordinate for publisher bytes under local custody.",
+            "properties": {
+                "commit": {
+                    "pattern": "^[0-9a-f]{40}$",
+                    "type": "string"
+                },
+                "license": {
+                    "$ref": "#/$defs/PublisherLicense"
+                },
+                "repository": {
+                    "type": "string"
+                },
+                "upstreamPath": {
+                    "type": "string"
+                }
+            },
+            "required": ["repository", "commit", "upstreamPath", "license"],
+            "title": "PublisherOrigin",
+            "type": "object"
+        },
+        "PythonPackageResource": {
+            "additionalProperties": false,
+            "description": "One exact publisher asset installed below an importlib.resources package root.",
+            "properties": {
+                "kind": {
+                    "enum": ["python-package-resource"]
+                },
+                "package": {
+                    "enum": ["rasm.contracts"]
+                },
+                "path": {
+                    "type": "string"
+                }
+            },
+            "required": ["kind", "path", "package"],
+            "title": "PythonPackageResource",
+            "type": "object"
+        },
+        "SchemaDefinition": {
+            "additionalProperties": false,
+            "description": "A DERIVED JSON Schema 2020-12 file whose `$id` is its file name: `derived_from` spells `proto:<fqn>` or `msgspec:<dotted.path.Struct>`.",
+            "properties": {
+                "derivedFrom": {
+                    "type": "string"
+                },
+                "framing": {
+                    "enum": ["canonical-json", "container", "framed-binary", "msgpack", "proto-binary", "proto-json"]
+                },
+                "kind": {
+                    "enum": ["schema"]
+                },
+                "path": {
+                    "type": "string"
+                }
+            },
+            "required": ["kind", "path", "framing", "derivedFrom"],
+            "title": "SchemaDefinition",
+            "type": "object"
+        },
+        "ServerRequestActor": {
+            "additionalProperties": false,
+            "description": "A server request consumer or client-side peer producer at one exact RPC.",
+            "properties": {
+                "anchor": {
+                    "type": "string"
+                },
+                "binding": {
+                    "enum": ["generated", "package", "proof"]
+                },
+                "coordinate": {
+                    "type": "string"
+                },
+                "direction": {
+                    "enum": ["server-request"]
+                },
+                "method": {
+                    "type": "string"
+                },
+                "supports": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/Support"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["direction", "anchor", "coordinate", "binding", "method"],
+            "title": "ServerRequestActor",
+            "type": "object"
+        },
+        "ServerResponseActor": {
+            "additionalProperties": false,
+            "description": "A server response producer or client-side peer consumer at one exact RPC.",
+            "properties": {
+                "anchor": {
+                    "type": "string"
+                },
+                "binding": {
+                    "enum": ["generated", "package", "proof"]
+                },
+                "coordinate": {
+                    "type": "string"
+                },
+                "direction": {
+                    "enum": ["server-response"]
+                },
+                "method": {
+                    "type": "string"
+                },
+                "supports": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/Support"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["direction", "anchor", "coordinate", "binding", "method"],
+            "title": "ServerResponseActor",
+            "type": "object"
+        },
+        "SpecimenAsset": {
+            "additionalProperties": false,
+            "description": "Bytes decoded by the case definition or held exactly by its digest oracle.",
+            "properties": {
+                "bytes": {
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "distributions": {
+                    "default": [],
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/TypeScriptJsonModule"
+                            },
+                            {
+                                "$ref": "#/$defs/PythonPackageResource"
+                            }
+                        ],
+                        "discriminator": {
+                            "mapping": {
+                                "python-package-resource": "#/$defs/PythonPackageResource",
+                                "typescript-json-module": "#/$defs/TypeScriptJsonModule"
+                            },
+                            "propertyName": "kind"
+                        }
+                    },
+                    "type": "array"
+                },
+                "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                },
+                "minter": {
+                    "default": "",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "role": {
+                    "enum": ["specimen"]
+                }
+            },
+            "required": ["role", "path", "bytes", "fingerprint"],
+            "title": "SpecimenAsset",
+            "type": "object"
+        },
+        "Support": {
+            "additionalProperties": false,
+            "description": "One generated descriptor symbol used semantically beyond an actor's boundary-root closure.",
+            "properties": {
+                "fqn": {
+                    "type": "string"
+                },
+                "kind": {
+                    "enum": ["message", "method", "service"]
+                }
+            },
+            "required": ["kind", "fqn"],
+            "title": "Support",
+            "type": "object"
+        },
+        "TypeScriptJsonModule": {
+            "additionalProperties": false,
+            "description": "One readonly TypeScript module generated from exact publisher JSON bytes.",
+            "properties": {
+                "kind": {
+                    "enum": ["typescript-json-module"]
+                },
+                "path": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                }
+            },
+            "required": ["kind", "path", "symbol"],
+            "title": "TypeScriptJsonModule",
+            "type": "object"
+        },
+        "VerifiedReadiness": {
+            "additionalProperties": false,
+            "description": "A case discharged by one independently falsifiable oracle and its evidence.",
+            "properties": {
+                "kind": {
+                    "enum": ["verified"]
+                },
+                "oracle": {
+                    "enum": ["external-digest", "publisher-digest", "semantic-conformance", "semantic-roundtrip", "value-parity"]
+                },
+                "vectors": {
+                    "items": {
+                        "$ref": "#/$defs/ProofVector"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": ["kind", "oracle", "vectors"],
+            "title": "VerifiedReadiness",
+            "type": "object"
+        }
+    },
+    "$ref": "#/$defs/Manifest",
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

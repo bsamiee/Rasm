@@ -1,6 +1,6 @@
 # [UI_PANEL]
 
-Panel materializes four shell vocabularies the AppUi shell and its host mint: the livewire binding triple, `CommandGate` verdicts, `ControlIntent` — the producer's whole widget vocabulary — and `LayoutProgram`. `Panel.fold` builds receipt-reconciled rows carrying binding slots beside the gate verdict, `Panel.admit` projects a row onto its affordance state, `Panel.chrome` projects a decoded widget onto the styling and affordance record a view row spreads, `Panel.route` exhaustively dispatches the viewer's own interaction vocabulary, and `Panel.solve` preserves Cassowary insertion order and strengths. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
+Panel materializes the AppUi shell's generated surface program: stable surface identity, one root control tree, and the exact layout-program closure that tree names. `Panel.fold` builds receipt-reconciled rows carrying binding slots beside the gate verdict, `Panel.chrome` projects decoded widgets, `Panel.route` exhaustively dispatches the viewer's own interaction vocabulary, `Panel.solve` preserves Cassowary insertion order and strengths, and `Panel.surface` admits and solves the generated root as one application input. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
 
 ## [01]-[INDEX]
 
@@ -8,13 +8,14 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 - [03]-[PHASE_RENDER]: lifecycle and degradation tone axes, affordance projection, disposition and freshness rows; `Panel`.
 - [04]-[WIDGET_RENDER]: kind-exhaustive part-and-children fold, emphasis ladder, chrome projection; `Panel`.
 - [05]-[CONTROL_SINKS]: locally-minted interaction union, exhaustive routing over one Effect rail, intent egress; `Panel`.
-- [06]-[LAYOUT_SOLVE]: wire-order kiwi fold, edit-variable drag, four-axis determinism law; `Panel`.
+- [06]-[LAYOUT_SOLVE]: wire-order kiwi fold, edit-variable drag, program-order determinism law; `Panel`.
+- [07]-[SURFACE_PROGRAM]: exact generated root admission, referenced-layout closure, solved application surface; `Panel`.
 
 ## [02]-[EVENT_FOLD]
 
 [EVENT_FOLD]:
-- Owner: `Panel.fold` — the keyed accumulator: the event feed (a `Stream` of the decoded shell union the app wires from its transport, entering the view plane through the atom bridge) folds into a `HashMap<key, Panel.Row>` where each arm names its own key and updates exactly its slots — `BindingStatus` advances the lifecycle state beside its transport, direction, and last-good instant (clearing the optimistic slot on `faulted` alone), `CoercedValue` records the canonical magnitude the host landed beside both units, `WriteReceipt` lands the canonical value, its rendered pair, and the write's own four-arm disposition while clearing the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the union by `Match.valueTags` — the one-shot record dispatch over the held event — and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
-- Packages: `@rasm/ts/core` (`BindingStatus`, `CoercedValue`, `CommandGate`, `WriteReceipt`, `WriteBack`, `Hlc`); `effect` (`Chunk`, `HashMap`, `Match`, `Option`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
+- Owner: `Panel.fold` — the keyed accumulator: the event feed carries one exact family selector beside foreign bytes, and each arm decodes its own generated message before folding into a `HashMap<key, Panel.Row>` — `BindingStatus` advances the lifecycle state beside its transport, direction, and last-good instant (clearing the optimistic slot on `faulted` alone), `CoercedValue` records the canonical magnitude the host landed beside both units, `WriteReceipt` lands the canonical value, its rendered pair, and the write's own four-arm disposition while clearing the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the selector union and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
+- Packages: `@rasm/ts/core` (`Wire`, `Hlc`); `@rasm\/contracts/rasm/contracts/binding/v1/status_pb` (`BindingState`); `@rasm\/contracts/rasm/contracts/compute/v1/control_pb` (`DegradationLevel`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `Schema`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
 - Law: the row is the panel's whole truth — lifecycle, transport, direction, freshness, coercion, landed value, disposition, optimistic, gate; a panel reads one row through an `Atom.family` keyed by cell name and re-renders only on its own row's change.
 - Law: every row slot is option-seated, so a gate-only row states that no binding has spoken rather than seeding a lifecycle token no producer emits.
 - Law: the ARM owns the key — the board's key space is the shell's addressable cell, and each arm names which cell its event addresses: the livewire triple addresses its `binding` path, `CommandGate` its `key`, the `CommandRow` key the C# deck freezes. Both columns arrive on one control from the producer's own intent binding (`valueKey` beside `command`), so an affordance reads its value row and its gate row off the one board with no side map, no re-keying, and no second accumulator.
@@ -25,25 +26,53 @@ Panel materializes four shell vocabularies the AppUi shell and its host mint: th
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row, never assuming shape.
 - Law: bursts coalesce before the store — `Panel.drain` shapes the feed with `Stream.groupedWithin(events, 128, Duration.millis(16))`, folds each chunk through the SAME `_fold`, and lands one atom write per window inside `Atom.batch`, so a livewire storm costs one notification pass per frame; `Stream.throttle` composes on the same rail where a transport demands rate-shaping, and a per-event atom write is the named defect.
 - Law: imperative drivers read atomically — a non-React consumer (the solve seam, a test harness) reads and advances the board through `registry.modify(atom, f)`, value and next state in one step, never a get-then-set pair.
-- Boundary: the feed's transport and decode are `core`/app composition; the write path belongs to the shell producer and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
+- Boundary: the app composition identifies which declared feed delivered each byte document; `Panel.fold` owns exact message admission, while the write path belongs to the shell producer and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
 - Boundary: a board of LINKED PIVOT panels is `view/chart#PIVOT_SURFACE`'s workspace grain composed whole, never a second roster folded here — the master panels contribute their selection-derived clauses through the transient overlay every detail panel reads, that whole arrangement persists as the one `Chart.Config` value, and a per-panel edit rides its `{panel}` patch. This board's key space is the shell's addressable CELL, and a perspective panel id is not one: seating pivot panels in it keys two vocabularies on one map and hands the overlay a second owner.
 
 ```typescript signature
-import type { Clock, Wire } from "@rasm/ts/core"
-import { Chunk, Duration, Effect, HashMap, Match, Option, Stream } from "effect"
+import { type Clock, Wire } from "@rasm/ts/core"
+import { BindingState } from "@rasm\/contracts/rasm/contracts/binding/v1/status_pb"
+import { DegradationLevel } from "@rasm\/contracts/rasm/contracts/compute/v1/control_pb"
+import { Array, Duration, Effect, HashMap, Match, Option, Schema, Stream } from "effect"
 import type { Motion } from "../../src/system/act.ts"
 import type { Theme } from "../../src/system/token.ts"
 
-// `CoercedValueWire` is a keyed arm again: the producer now projects `bindingId` off the binding spec at its own
-// mapper, so the coercion carries the identity it was coerced FOR and keys a slot like every other arm. It was
-// refused here while the wire sent no key at all — the refusal named the wire's shape, and the wire moved.
-type PanelEvent = Wire.BindingStatus | Wire.CoercedValue | Wire.WriteReceipt | Wire.CommandGate
+// The transport supplies the declared feed identity; this closed selector is routing evidence, not a second schema.
+// `Panel.fold` decodes the selected family itself, so no decoded foreign value can bypass its one admission point.
+type PanelEvent =
+  | { readonly family: "BindingStatus"; readonly bytes: Uint8Array }
+  | { readonly family: "CoercedValueWire"; readonly bytes: Uint8Array }
+  | { readonly family: "WriteReceiptWire"; readonly bytes: Uint8Array }
+  | { readonly family: "CommandGateWire"; readonly bytes: Uint8Array }
+
+type PanelDecodedEvent =
+  | { readonly family: "BindingStatus"; readonly value: Wire.BindingStatus }
+  | { readonly family: "CoercedValueWire"; readonly value: Wire.CoercedValue }
+  | { readonly family: "WriteReceiptWire"; readonly value: Wire.WriteReceipt }
+  | { readonly family: "CommandGateWire"; readonly value: Wire.CommandGate }
+
+// Protovalidate has already rejected zero and unknown enum values. These generated-value literals carry that proof
+// into TypeScript's narrower table key types, which protobuf-es cannot derive from field options on its own.
+const _State = Schema.Literal(
+  BindingState.CONNECTING,
+  BindingState.SUBSCRIBED,
+  BindingState.POLLING,
+  BindingState.STALE,
+  BindingState.FAULTED,
+)
+const _Level = Schema.Literal(
+  DegradationLevel.FULL,
+  DegradationLevel.REDUCED_REMOTE,
+  DegradationLevel.LOCAL_ONLY,
+  DegradationLevel.READ_ONLY,
+  DegradationLevel.SUSPENDED,
+)
 
 declare namespace Panel {
-  type State = Wire.BindingStatus["state"]
+  type State = typeof _State.Type
   type Transport = Wire.BindingStatus["transport"]
   type Direction = Wire.BindingStatus["direction"]
-  type Level = Wire.CommandGate["level"]
+  type Level = typeof _Level.Type
   type Row = {
     // Every slot is OPTION-seated because a row is reachable before any of its producers has spoken: a gate-only
     // row carries a command key and no livewire binding at all, so a seeded lifecycle token would assert a binding
@@ -51,16 +80,16 @@ declare namespace Panel {
     readonly state: Option.Option<Panel.State>
     readonly transport: Option.Option<Panel.Transport>
     readonly direction: Option.Option<Panel.Direction>
-    readonly lastGoodAt: Wire.BindingStatus["lastGoodAt"]
+    readonly lastGoodAt: Option.Option<NonNullable<Wire.BindingStatus["lastGoodAt"]>>
     // the coercion the host landed, on the producer's OWN columns — the canonical magnitude beside both units, so a
     // panel renders the value under the scheme the source published rather than under one it assumed
-    readonly coercion: Option.Option<Omit<Wire.CoercedValue, "_tag" | "bindingId">>
+    readonly coercion: Option.Option<Omit<Wire.CoercedValue, "bindingId">>
     readonly landed: Option.Option<Wire.WriteReceipt["canonical"]>
-    readonly rendered: Wire.WriteReceipt["rendered"]
-    readonly renderedUnit: Wire.WriteReceipt["renderedUnit"]
+    readonly rendered: Option.Option<NonNullable<Wire.WriteReceipt["rendered"]>>
+    readonly renderedUnit: Option.Option<NonNullable<Wire.WriteReceipt["renderedUnit"]>>
     // the write's own four-arm verdict, kept WHOLE: a rejection, a rollback, and an indeterminate write are three
     // unlike repairs, and a boolean over them shows one badge for three states a user must act on differently
-    readonly disposition: Option.Option<Wire.WriteBack>
+    readonly disposition: Option.Option<NonNullable<Wire.WriteReceipt["disposition"]>>
     readonly optimistic: Option.Option<{ readonly value: unknown; readonly since: Clock.Hlc }>
     readonly gate: Option.Option<{ readonly available: boolean; readonly level: Panel.Level }>
   }
@@ -88,33 +117,54 @@ const _EMPTY: Panel.Row = {
 const _at = (board: Panel.Board, key: string, step: (row: Panel.Row) => Panel.Row): Panel.Board =>
   HashMap.modifyAt(board, key, (slot) => Option.some(step(Option.getOrElse(slot, () => _EMPTY))))
 
-const _fold = (board: Panel.Board, event: PanelEvent): Panel.Board =>
-  Match.valueTags(event, {
-    BindingStatus: (status) =>
-      _at(board, status.bindingId, (row) => ({
-        ...row,
-        state: Option.some(status.state),
-        transport: Option.some(status.transport),
-        direction: Option.some(status.direction),
-        lastGoodAt: status.lastGoodAt,
-        // `faulted` alone clears the in-flight write: a STALE binding is live and still owes its echo, so dropping
-        // the optimistic value there would erase a pending write the edge is about to acknowledge
-        optimistic: status.state === "faulted" ? Option.none() : row.optimistic,
-      })),
-    CoercedValue: ({ bindingId, canonical, canonicalUnit, sourceUnit, sourceAt }) =>
-      _at(board, bindingId, (row) => ({ ...row, coercion: Option.some({ canonical, canonicalUnit, sourceUnit, sourceAt }) })),
-    WriteReceipt: (receipt) =>
+const _admitEvent = (event: PanelEvent) =>
+  Match.value(event).pipe(
+    Match.when({ family: "BindingStatus" }, ({ bytes }) =>
+      Effect.map(Wire.decode("BindingStatus", bytes), (value) => ({ family: "BindingStatus", value }) as const)),
+    Match.when({ family: "CoercedValueWire" }, ({ bytes }) =>
+      Effect.map(Wire.decode("CoercedValueWire", bytes), (value) => ({ family: "CoercedValueWire", value }) as const)),
+    Match.when({ family: "WriteReceiptWire" }, ({ bytes }) =>
+      Effect.map(Wire.decode("WriteReceiptWire", bytes), (value) => ({ family: "WriteReceiptWire", value }) as const)),
+    Match.when({ family: "CommandGateWire" }, ({ bytes }) =>
+      Effect.map(Wire.decode("CommandGateWire", bytes), (value) => ({ family: "CommandGateWire", value }) as const)),
+    Match.exhaustive,
+  )
+
+const _landEvent = (board: Panel.Board, event: PanelDecodedEvent): Panel.Board =>
+  Match.value(event).pipe(
+    Match.when({ family: "BindingStatus" }, ({ value: status }) => {
+      const state = Schema.decodeSync(_State)(status.state)
+      return _at(board, status.bindingId, (row) => ({
+          ...row,
+          state: Option.some(state),
+          transport: Option.some(status.transport),
+          direction: Option.some(status.direction),
+          lastGoodAt: Option.fromNullable(status.lastGoodAt),
+          // `faulted` alone clears the in-flight write: a STALE binding is live and still owes its echo, so dropping
+          // the optimistic value there would erase a pending write the edge is about to acknowledge
+          optimistic: state === BindingState.FAULTED ? Option.none() : row.optimistic,
+        }))
+    }),
+    Match.when({ family: "CoercedValueWire" }, ({ value: { bindingId, canonical, canonicalUnit, sourceUnit, sourceAt } }) =>
+      _at(board, bindingId, (row) => ({ ...row, coercion: Option.some({ canonical, canonicalUnit, sourceUnit, sourceAt }) }))),
+    Match.when({ family: "WriteReceiptWire" }, ({ value: receipt }) =>
       _at(board, receipt.bindingId, (row) => ({
-        ...row,
-        landed: Option.some(receipt.canonical),
-        rendered: receipt.rendered,
-        renderedUnit: receipt.renderedUnit,
-        disposition: Option.some(receipt.disposition),
-        optimistic: Option.none(),
-      })),
-    CommandGate: (gate) =>
-      _at(board, gate.key, (row) => ({ ...row, gate: Option.some({ available: gate.available, level: gate.level }) })),
-  })
+          ...row,
+          landed: Option.some(receipt.canonical),
+          rendered: Option.fromNullable(receipt.rendered),
+          renderedUnit: Option.fromNullable(receipt.renderedUnit),
+          disposition: Option.fromNullable(receipt.disposition),
+          optimistic: Option.none(),
+        })),
+    Match.when({ family: "CommandGateWire" }, ({ value: gate }) => {
+      const level = Schema.decodeSync(_Level)(gate.level)
+      return _at(board, gate.key, (row) => ({ ...row, gate: Option.some({ available: gate.available, level }) }))
+    }),
+    Match.exhaustive,
+  )
+
+const _fold = (board: Panel.Board, event: PanelEvent) =>
+  Effect.map(_admitEvent(event), (admitted) => _landEvent(board, admitted))
 
 const _optimistic = (board: Panel.Board, binding: string, value: unknown, since: Clock.Hlc): Panel.Board =>
   _at(board, binding, (row) => ({ ...row, optimistic: Option.some({ value, since }) }))
@@ -125,7 +175,10 @@ const _drain = (
 ): Effect.Effect<void> =>
   Stream.runForEach(
     Stream.groupedWithin(events, 128, Duration.millis(16)),
-    (window) => Effect.sync(() => commit((board) => Chunk.reduce(window, board, _fold))),
+    (window) => Effect.flatMap(
+      Effect.forEach(window, _admitEvent, { concurrency: 1 }),
+      (admitted) => Effect.sync(() => commit((board) => Array.reduce(admitted, board, _landEvent))),
+    ),
   )
 ```
 
@@ -143,30 +196,30 @@ const _drain = (
 ```typescript signature
 // the producer's own five lifecycle rows, in its rank order: two in-flight, two live, one broken
 const _tone = {
-  connecting: { tone: "accent", motion: Option.none<Motion.Hold>() },
-  subscribed: { tone: "success", motion: Option.none<Motion.Hold>() },
-  polling: { tone: "success", motion: Option.none<Motion.Hold>() },
-  stale: { tone: "caution", motion: Option.none<Motion.Hold>() },
-  faulted: { tone: "danger", motion: Option.some<Motion.Hold>("pulse") },
+  [BindingState.CONNECTING]: { tone: "accent", motion: Option.none<Motion.Hold>() },
+  [BindingState.SUBSCRIBED]: { tone: "success", motion: Option.none<Motion.Hold>() },
+  [BindingState.POLLING]: { tone: "success", motion: Option.none<Motion.Hold>() },
+  [BindingState.STALE]: { tone: "caution", motion: Option.none<Motion.Hold>() },
+  [BindingState.FAULTED]: { tone: "danger", motion: Option.some<Motion.Hold>("pulse") },
 } as const satisfies Record<Panel.State, { readonly tone: Theme.Tone; readonly motion: Option.Option<Motion.Hold> }>
 
 // producer's rows hold its own rank order; `full` is the undegraded floor and the one level carrying no badge
 const _degrade = {
-  full: { tone: "neutral", evident: false },
-  "reduced-remote": { tone: "accent", evident: true },
-  "local-only": { tone: "accent", evident: true },
-  "read-only": { tone: "caution", evident: true },
-  suspended: { tone: "danger", evident: true },
+  [DegradationLevel.FULL]: { tone: "neutral", evident: false },
+  [DegradationLevel.REDUCED_REMOTE]: { tone: "accent", evident: true },
+  [DegradationLevel.LOCAL_ONLY]: { tone: "accent", evident: true },
+  [DegradationLevel.READ_ONLY]: { tone: "caution", evident: true },
+  [DegradationLevel.SUSPENDED]: { tone: "danger", evident: true },
 } as const satisfies Record<Panel.Level, { readonly tone: Theme.Tone; readonly evident: boolean }>
 
 declare namespace Panel {
   type Affordance = { readonly tone: Theme.Tone; readonly evident: boolean; readonly disabled: boolean }
 }
 
-const _CLOSED: Panel.Affordance = { ..._degrade.full, disabled: true }
+const _CLOSED: Panel.Affordance = { ..._degrade[DegradationLevel.FULL], disabled: true }
 
 // uncommanded widgets take this floor: no verdict is owed, so none is awaited
-const _OPEN: Panel.Affordance = { ..._degrade.full, disabled: false }
+const _OPEN: Panel.Affordance = { ..._degrade[DegradationLevel.FULL], disabled: false }
 
 const _admit = (row: Panel.Row): Panel.Affordance =>
   Option.match(row.gate, {
@@ -178,104 +231,126 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 ## [04]-[WIDGET_RENDER]
 
 [WIDGET_RENDER]:
-- Owner: `Panel.arms` — the ONE kind-exhaustive fold over the decoded widget vocabulary, each arm answering both facts a mount needs: the part key the view row binds and the child intents the walk descends; `Panel.chrome(board, intent)` the projection joining that fold with the emphasis ladder, the icon slot, the motion hold, and the affordance the board's own rows carry; `_EMPHASIS` the producer's emphasis ladder read onto one tone and one non-colour fill.
-- Packages: `@rasm/ts/core` (`ControlIntent` — the decoded widget union, discriminated on the `kind` column its producer ships); `effect` (`Array`, `HashMap`, `Match`, `Option`); `../../src/system/token.ts` (`Theme.Tone`); `../../src/system/act.ts` (`Motion.Hold`).
-- Law: ONE fold answers every per-kind question — a part table beside a children walk is two exhaustiveness proofs over one key space that drift the moment a kind lands in one and not the other, so `_arms` returns the pair and `Panel.part`/`Panel.children` are projections of it. Kinds whose part narrows on their own posture, form, or temporal column read that column off their own arm, because the narrowing belongs with the value carrying it.
-- Law: the fold is TOTAL by the producer's own key space — `Match.discriminatorsExhaustive("kind")` over the decoded union means a kind the producer adds is a compile break at this table, never a render-time fallthrough, and the leaf arms are spelled rather than swept by a default precisely so a new NESTING kind cannot silently answer with no children.
-- Law: emphasis resolves to TONE and a non-colour FILL — the producer's six-row ladder is two axes at this head, and the folder's one-tone-per-element ruling means only the semantic axis reaches the palette while quiet, soft, inverted, and link postures ride the recipe's own variant; a second tone column resolves two palettes onto one control.
+- Owner: `Panel.arms` exhausts the generated `ControlIntentWire.arm` oneof and returns the part key beside its optional constraint-program reference; `Panel.children` reads the one core walk projection, and `Panel.chrome` joins the view row with the generated emphasis value, icon slot, motion hold, and board affordance.
+- Packages: `@rasm/ts/core` (`Wire.ControlIntent`); `@rasm\/contracts/rasm/contracts/ui/v1/controls_pb` (generated enum values); `effect` (`HashMap`, `Match`, `Option`); `../../src/system/token.ts` (`Theme.Tone`); `../../src/system/act.ts` (`Motion.Hold`).
+- Law: the core walk row is the ONE child projection over the generated key space; this view fold owns only the part and constraint reference the walk cannot decide. Kinds whose part narrows on their own posture, form, or temporal column read that column off their own arm, because the narrowing belongs with the value carrying it.
+- Law: the same exhaustive arm row projects a container's generated `constraintProgram`; surface admission reads that projection, so no second Panel/Dock roster can drift from render or recursion.
+- Law: `Match.discriminatorsExhaustive("case")` dispatches the generated oneof with no fallback, so every new producer arm breaks this declaration before a nesting arm can masquerade as a leaf.
+- Law: generated numeric enum values drive every emphasis, posture, temporal, and progress decision directly; an unspecified or foreign numeric value yields absence at the projection boundary instead of entering a string-keyed twin table.
 - Law: this module holds NO styling literal — tone keys the token roster, fill keys a recipe variant `system/primitive` owns, motion keys a `Motion.Hold` row, and the class string is composed where the view row calls `Primitive.styled`; a hex value, a utility string, or a pixel here forks the authority `system/token` closes.
 - Law: an icon is a SLOT, never a resolved image — the asset key, placement, and size cross verbatim and the app-wired asset source answers the glyph, so a decoded intent never carries pixels and both heads mount the same slot from the same three columns.
 - Law: motion ranks refusal over work — a faulted binding pulses through the lifecycle row even while its control is pending, because the repair the user owes outranks the work the host is doing; below it a pending icon spins and an indeterminate progress reads its form's own hold, and a determinate fraction holds nothing at all.
 - Law: the gate join is the binding's two keys — `binding.command` addresses the verdict row and `binding.valueKey` the livewire row, both on the ONE board `[02]` folds, so a widget's whole display truth is two reads with no side map; a command-free widget projects `_OPEN` per `[03]`'s law and never awaits a verdict nobody will send.
-- Law: payloads stay verbatim — a bound, a fraction, a visible count, and a window spec land as the producer wrote them; a clamp, a remap, or a head-local default for an omitted column forks the emitting peer's semantics, which is exactly what the every-field-has-a-wire-representation law at the producer boundary exists to make impossible.
+- Law: payloads stay verbatim — a bound, a fraction, a visible limit, and a window spec land as the producer wrote them; a clamp, a remap, or a head-local default for an omitted column forks the emitting peer's semantics, which is exactly what the every-field-has-a-wire-representation law at the producer boundary exists to make impossible.
 - Boundary: mounting a part is the view layer's — this module is pure projection and imports no component, so the part key is the seam a view row resolves against its own registry; label, header, and hint TEXT resolves through `system/intl` from the key columns, and the constraint program named by a container arm is `[06]`'s to solve.
-- Growth: a producer kind is one `_arms` row; a producer emphasis is one `_EMPHASIS` row; a new indeterminate progress form is one `_INDETERMINATE` row — zero dispatch edits and zero new surface.
+- Growth: a producer oneof arm extends the exhaustive record, while a generated enum member extends its numeric match at the decision that consumes it.
 
 ```typescript signature
 import type { Wire } from "@rasm/ts/core"
-import { Array } from "effect"
+import * as controls from "@rasm\/contracts/rasm/contracts/ui/v1/controls_pb"
+import { Match, Option } from "effect"
 
 declare namespace Panel {
-  type Widget = Wire.ControlIntent["kind"]
-  type Arm<K extends Panel.Widget> = Extract<Wire.ControlIntent, { readonly kind: K }>
+  type Widget = Wire.ControlIntent["arm"]["case"]
+  type Arm<K extends Panel.Widget> = Extract<Wire.ControlIntent["arm"], { readonly case: K }>["value"]
   type Binding = Wire.ControlIntent["binding"]
-  type Emphasis = Panel.Binding["emphasis"]
   type Fill = "solid" | "soft" | "ghost" | "inverted" | "link"
 }
 
-const _EMPHASIS = {
-  quiet: { tone: "neutral", fill: "ghost" },
-  secondary: { tone: "neutral", fill: "soft" },
-  primary: { tone: "accent", fill: "solid" },
-  danger: { tone: "danger", fill: "solid" },
-  inverted: { tone: "neutral", fill: "inverted" },
-  link: { tone: "accent", fill: "link" },
-} as const satisfies Record<Panel.Emphasis, { readonly tone: Theme.Tone; readonly fill: Panel.Fill }>
+const _emphasis = (value: Panel.Binding["emphasis"]): Option.Option<{ readonly tone: Theme.Tone; readonly fill: Panel.Fill }> =>
+  Match.value(value).pipe(
+    Match.when(controls.ControlEmphasis.QUIET, () => ({ tone: "neutral", fill: "ghost" } as const)),
+    Match.when(controls.ControlEmphasis.SECONDARY, () => ({ tone: "neutral", fill: "soft" } as const)),
+    Match.when(controls.ControlEmphasis.PRIMARY, () => ({ tone: "accent", fill: "solid" } as const)),
+    Match.when(controls.ControlEmphasis.DANGER, () => ({ tone: "danger", fill: "solid" } as const)),
+    Match.when(controls.ControlEmphasis.INVERTED, () => ({ tone: "neutral", fill: "inverted" } as const)),
+    Match.when(controls.ControlEmphasis.LINK, () => ({ tone: "accent", fill: "link" } as const)),
+    Match.option,
+  )
 
-// posture, form, and temporal sub-tables each close over ONE arm's own column, so the narrowing that picks a
-// part reads the value that carries it instead of a second keying of the whole widget space
-const _COLOR = { inline: "ColorArea", flyout: "ColorPicker" } as const
-const _SELECT = { closed: "Select", editable: "ComboBox" } as const
-const _MULTI = { bound: "MultiSelect", free: "TagField" } as const
-const _SEGMENT = { select: "ToggleButtonGroup", command: "Toolbar" } as const
-const _CHIP = { static: "Tag", toggle: "ToggleButton", removable: "Tag" } as const
-const _PROGRESS = { bar: "ProgressBar", ring: "Meter", skeleton: "Skeleton" } as const
-const _TEMPORAL = { date: "DatePicker", time: "TimeField", datetime: "DatePicker", range: "DateRangePicker" } as const
+const _color = (value: controls.ColorPosture) => Match.value(value).pipe(
+  Match.when(controls.ColorPosture.INLINE, () => "ColorArea" as const),
+  Match.when(controls.ColorPosture.FLYOUT, () => "ColorPicker" as const),
+  Match.option,
+)
+const _select = (value: controls.SelectPosture) => Match.value(value).pipe(
+  Match.when(controls.SelectPosture.CLOSED, () => "Select" as const),
+  Match.when(controls.SelectPosture.EDITABLE, () => "ComboBox" as const),
+  Match.option,
+)
+const _multi = (value: controls.MultiPosture) => Match.value(value).pipe(
+  Match.when(controls.MultiPosture.BOUND, () => "MultiSelect" as const),
+  Match.when(controls.MultiPosture.FREE, () => "TagField" as const),
+  Match.option,
+)
+const _segment = (value: controls.SegmentPosture) => Match.value(value).pipe(
+  Match.when(controls.SegmentPosture.SELECT, () => "ToggleButtonGroup" as const),
+  Match.when(controls.SegmentPosture.COMMAND, () => "Toolbar" as const),
+  Match.option,
+)
+const _chip = (value: controls.ChipPosture) => Match.value(value).pipe(
+  Match.when(controls.ChipPosture.STATIC, () => "Tag" as const),
+  Match.when(controls.ChipPosture.TOGGLE, () => "ToggleButton" as const),
+  Match.when(controls.ChipPosture.REMOVABLE, () => "Tag" as const),
+  Match.option,
+)
+const _temporal = (value: controls.TemporalKind) => Match.value(value).pipe(
+  Match.when(controls.TemporalKind.DATE, () => "DatePicker" as const),
+  Match.when(controls.TemporalKind.TIME, () => "TimeField" as const),
+  Match.when(controls.TemporalKind.DATETIME, () => "DatePicker" as const),
+  Match.when(controls.TemporalKind.RANGE, () => "DateRangePicker" as const),
+  Match.option,
+)
+const _progress = (value: controls.ProgressForm) => Match.value(value).pipe(
+  Match.when(controls.ProgressForm.BAR, () => ({ part: "ProgressBar", hold: "pulse" } as const)),
+  Match.when(controls.ProgressForm.RING, () => ({ part: "Meter", hold: "spin" } as const)),
+  Match.when(controls.ProgressForm.SKELETON, () => ({ part: "Skeleton", hold: "pulse" } as const)),
+  Match.option,
+)
 
-// indeterminate holds live here: a progress with no fraction reads its form's own sustained row
-const _INDETERMINATE = { bar: "pulse", ring: "spin", skeleton: "pulse" } as const satisfies Record<
-  Panel.Arm<"progress">["form"],
-  Motion.Hold
->
+const _node = <P extends string>(
+  part: P,
+  constraintProgram: Option.Option<string> = Option.none(),
+) => ({ part, constraintProgram })
 
-const _NONE: ReadonlyArray<Wire.ControlIntent> = []
-
-// generic parameter keeps each arm's part LITERAL, so `Panel.Part` derives from the fold instead of standing beside it
-const _node = <P extends string>(part: P, children: ReadonlyArray<Wire.ControlIntent> = _NONE) => ({ part, children })
-
-const _arms = Match.type<Wire.ControlIntent>().pipe(
-  Match.discriminatorsExhaustive("kind")({
-    button: () => _node("Button"),
-    label: () => _node("Text"),
-    textInput: (intent) => _node(intent.multiline ? "TextArea" : "TextField"),
-    numberInput: () => _node("NumberField"),
-    dateInput: (intent) => _node(_TEMPORAL[intent.temporalKind]),
-    pathInput: () => _node("FileTrigger"),
-    colorInput: (intent) => _node(_COLOR[intent.posture]),
-    select: (intent) => _node(_SELECT[intent.posture]),
-    multiSelect: (intent) => _node(_MULTI[intent.posture]),
-    slider: () => _node("Slider"),
-    range: () => _node("Slider"),
-    toggle: () => _node("Switch"),
-    radio: () => _node("RadioGroup"),
-    segmented: (intent) => _node(_SEGMENT[intent.posture]),
-    chip: (intent) => _node(_CHIP[intent.posture]),
-    progress: (intent) => _node(_PROGRESS[intent.form]),
-    avatar: () => _node("AvatarGroup"),
-    breadcrumb: () => _node("Breadcrumbs"),
-    tooltip: () => _node("Tooltip"),
-    // the minimap strip names its frame producer by key and mounts no child intent, so it bottoms out here and the
-    // strip geometry stays a stream the view row subscribes rather than a child the walk descends
-    overview: () => _node("Overview"),
-    menu: () => _node("Menu"),
-    // nesting arms descend: the grid contributes its cell AND its editor, because an editing template a walk never
-    // reaches is a column that cannot enter edit
-    banner: (intent) => _node("Banner", Array.appendAll(intent.actions, Array.fromOption(intent.evidence))),
-    emptyState: (intent) => _node("EmptyState", Array.fromOption(intent.action)),
-    grid: (intent) =>
-      _node("Table", Array.flatMap(intent.columns, (column) => Array.appendAll([column.cell], Array.fromOption(column.editor)))),
-    tree: (intent) => _node("Tree", [intent.item]),
-    toolbar: (intent) => _node("Toolbar", Array.map(intent.rows, (row) => row.item)),
-    tab: (intent) => _node("Tabs", Array.map(intent.pages, (page) => page.body)),
-    accordion: (intent) => _node("DisclosureGroup", Array.map(intent.sections, (section) => section.body)),
-    panel: (intent) => _node("Group", intent.children),
-    dock: (intent) => _node("Group", intent.regions),
-    splitter: (intent) => _node("SplitPane", [intent.first, intent.second]),
+const _arms = (intent: Wire.ControlIntent) => Match.value(intent.arm).pipe(
+  Match.discriminatorsExhaustive("case")({
+    button: () => Option.some(_node("Button")),
+    label: () => Option.some(_node("Text")),
+    textInput: ({ value }) => Option.some(_node(value.multiline ? "TextArea" : "TextField")),
+    numberInput: () => Option.some(_node("NumberField")),
+    dateInput: ({ value }) => Option.map(_temporal(value.kind), _node),
+    pathInput: () => Option.some(_node("FileTrigger")),
+    colorInput: ({ value }) => Option.map(_color(value.posture), _node),
+    select: ({ value }) => Option.map(_select(value.posture), _node),
+    multiSelect: ({ value }) => Option.map(_multi(value.posture), _node),
+    slider: () => Option.some(_node("Slider")),
+    range: () => Option.some(_node("Slider")),
+    toggle: () => Option.some(_node("Switch")),
+    radio: () => Option.some(_node("RadioGroup")),
+    segmented: ({ value }) => Option.map(_segment(value.posture), _node),
+    chip: ({ value }) => Option.map(_chip(value.posture), _node),
+    progress: ({ value }) => Option.map(_progress(value.form), ({ part }) => _node(part)),
+    avatar: () => Option.some(_node("AvatarGroup")),
+    breadcrumb: () => Option.some(_node("Breadcrumbs")),
+    tooltip: () => Option.some(_node("Tooltip")),
+    banner: () => Option.some(_node("Banner")),
+    emptyState: () => Option.some(_node("EmptyState")),
+    grid: () => Option.some(_node("Table")),
+    tree: () => Option.some(_node("Tree")),
+    overview: () => Option.some(_node("Overview")),
+    menu: () => Option.some(_node("Menu")),
+    toolbar: () => Option.some(_node("Toolbar")),
+    tab: () => Option.some(_node("Tabs")),
+    accordion: () => Option.some(_node("DisclosureGroup")),
+    panel: ({ value }) => Option.some(_node("Group", Option.some(value.constraintProgram))),
+    dock: ({ value }) => Option.some(_node("Group", Option.some(value.constraintProgram))),
+    splitter: () => Option.some(_node("SplitPane")),
   }),
 )
 
 declare namespace Panel {
-  type Part = ReturnType<typeof _arms>["part"]
+  type Part = ReturnType<typeof _arms> extends Option.Option<infer N extends { readonly part: string }> ? N["part"] : never
   type Chrome = {
     readonly part: Panel.Part
     readonly tone: Theme.Tone
@@ -291,28 +366,28 @@ const _slot = (board: Panel.Board, key: Option.Option<string>): Option.Option<Pa
   Option.flatMap(key, (named) => HashMap.get(board, named))
 
 const _pending = (intent: Wire.ControlIntent): Option.Option<Motion.Hold> =>
-  intent.kind === "progress" && Option.isNone(intent.fraction)
-    ? Option.some<Motion.Hold>(_INDETERMINATE[intent.form])
-    : Option.as(
-      Option.filter(intent.binding.icon, (icon) => Option.isSome(icon.pending)),
-      "spin" as const,
-    )
+  intent.arm.case === "progress" && intent.arm.value.fraction === undefined
+    ? Option.map(_progress(intent.arm.value.form), ({ hold }) => hold)
+    : Option.as(Option.flatMap(Option.fromNullable(intent.binding.icon), (icon) => Option.fromNullable(icon.pending)), "spin" as const)
 
-const _chrome = (board: Panel.Board, intent: Wire.ControlIntent): Panel.Chrome => {
-  const emphasis = _EMPHASIS[intent.binding.emphasis]
-  const value = _slot(board, intent.binding.valueKey)
-  return {
-    part: _arms(intent).part,
-    tone: emphasis.tone,
-    fill: emphasis.fill,
-    icon: intent.binding.icon,
-    hold: Option.orElse(Option.flatMap(value, (row) => Option.flatMap(row.state, (state) => _tone[state].motion)), () => _pending(intent)),
-    affordance: Option.match(_slot(board, intent.binding.command), { onNone: () => _OPEN, onSome: _admit }),
-    value,
-  }
+const _chrome = (board: Panel.Board, intent: Wire.ControlIntent): Option.Option<Panel.Chrome> => {
+  const value = _slot(board, Option.fromNullable(intent.binding.valueKey))
+  return Option.map(
+    Option.all({ node: _arms(intent), emphasis: _emphasis(intent.binding.emphasis) }),
+    ({ node, emphasis }) => ({
+      part: node.part,
+      tone: emphasis.tone,
+      fill: emphasis.fill,
+      icon: intent.binding.icon,
+      hold: Option.orElse(Option.flatMap(value, (row) => Option.flatMap(row.state, (state) => _tone[state].motion)), () => _pending(intent)),
+      affordance: Option.match(_slot(board, Option.fromNullable(intent.binding.command)), { onNone: () => _OPEN, onSome: _admit }),
+      value,
+    }),
+  )
 }
 
-const _children = (intent: Wire.ControlIntent): ReadonlyArray<Wire.ControlIntent> => _arms(intent).children
+const _children = (intent: Wire.ControlIntent): ReadonlyArray<Wire.ControlIntent> =>
+  Wire.Walk.children("ControlIntentWire", intent)
 ```
 
 ## [05]-[CONTROL_SINKS]
@@ -369,26 +444,40 @@ const _route = <E, R>(sinks: Panel.Sinks<E, R>): ((interaction: Panel.Interactio
 ## [06]-[LAYOUT_SOLVE]
 
 [LAYOUT_SOLVE]:
-- Owner: `Panel.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression`, map the closed `relation` vocabulary onto `Operator` and the closed `strength` vocabulary onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.
-- Law: the fold inserts, never authors — no constraint is synthesized, reordered, re-strengthened, or dropped; TS-side layout intelligence is the drift defect this cluster's existence guards against. Drag is suggestion, never structure — a pointer drag feeds `suggest(edit, value)` per frame (the gesture source is `system/act#CONTINUOUS_OWNER`), the frozen program re-optimizes incrementally, and only wire-enumerated edits are suggestible — a suggestion against a non-edit variable is a construction error kiwi rejects, surfaced through the same fault.
-- Law: the four determinism axes are fixed by construction — identical constraint SET, identical insertion ORDER, identical STRENGTHS, identical EDIT sequence — so the TS tableau converges to the C# tableau; equal-strength competition resolves identically because insertion order is preserved. Drift is evidence, not tolerance — a position mismatch against a C#-provided expectation reports with the variable name and both values (`probe` consumes it); a fuzzy-match re-solve loop is the named defect.
-- Law: positions flow to render as one atom write per settle — the returned map replaces the positions atom (`Atom.batch` coalesces multi-panel updates), and panel components read their own cell through a selector so a 60fps drag never re-renders the board.
+- Owner: `Panel.solve` consumes the decoded generated `LayoutProgram` whole: `introduction` mints the variable ledger in producer order, nested `left` and `right` expressions compile each constraint, explicit edits retain their generated strengths, authored suggestions register missing medium edit variables, and measurement suggestions apply after them.
+- Law: `LayoutVarWire` identity remains its generated `owner` and `edge` pair through introduction, expressions, edits, and values; only the Kiwi boundary derives its private `owner.edge` handle name, so no flattened wire identity or parallel alias type survives.
+- Law: generated `LayoutRelation` and `LayoutStrength` numeric constants map directly onto Kiwi values at construction; no string vocabulary or hand-authored enum twin stands beside either generated owner.
+- Law: constraints, explicit edits, authored suggestions, and applicable measurements retain their separate producer sequences, and `updateVariables` runs after the received sequence has driven the tableau.
+- Law: drag remains a generated `LayoutValue` suggestion against the retained edit-variable set, so a live update carries the same structured variable identity as the program and adds no constraint.
+- Law: constraint order, variable introduction order, strengths, authored suggestion order, and measurement order fix the parity tableau; positional drift reports through `probe` and never triggers a tolerance solve.
+- Law: positions flow to render as one atom write per settle — the returned owner/edge map replaces the positions atom (`Atom.batch` coalesces multi-panel updates), and panel components read their own cell through a selector so a 60fps drag never re-renders the board.
 - Law: the live solver is a RESOURCE, not a kernel — kiwi's incremental `suggestValue` requires the solver and its variable ledger to persist for the `Solved` lifetime, so the draft lives inside one `SynchronizedRef` and every `suggest` routes through `SynchronizedRef.modifyEffect`: concurrent suggestions serialize by construction, no mutable reference escapes, and the sole egress is the immutable positions map; the construction walk is the marked boundary seam.
-- Growth: a new constraint kind, variable class, or strength tier is a C# solver change mirrored at the codec — the fold's vocabulary maps grow a row each, nothing else moves.
+- Growth: a generated relation or strength member extends its numeric match, while a new program field breaks this direct consumer until its semantics land.
 
 ```typescript signature
-import { Constraint, Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
-import { Fault, type Wire } from "@rasm/ts/core"
+import { Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
+import { Fault, Wire } from "@rasm/ts/core"
+import * as layout from "@rasm\/contracts/rasm/contracts/ui/v1/layout_pb"
 import { Effect, HashMap, Iterable, Option, Schema, SynchronizedRef } from "effect"
 
-const _relations = { le: Operator.Le, ge: Operator.Ge, eq: Operator.Eq } as const
+const _relation = (value: layout.LayoutRelation): Operator => {
+  switch (value) {
+    case layout.LayoutRelation.EQ: return Operator.Eq
+    case layout.LayoutRelation.LE: return Operator.Le
+    case layout.LayoutRelation.GE: return Operator.Ge
+    default: throw new Error(`layout-relation:${value}`)
+  }
+}
 
-const _strengths = {
-  required: Strength.required,
-  strong: Strength.strong,
-  medium: Strength.medium,
-  weak: Strength.weak,
-} as const
+const _strength = (value: layout.LayoutStrength): number => {
+  switch (value) {
+    case layout.LayoutStrength.REQUIRED: return Strength.required
+    case layout.LayoutStrength.STRONG: return Strength.strong
+    case layout.LayoutStrength.MEDIUM: return Strength.medium
+    case layout.LayoutStrength.WEAK: return Strength.weak
+    default: throw new Error(`layout-strength:${value}`)
+  }
+}
 
 // Three legs partition the solve and each reason renders its OWN subject, because the three refusals answer three
 // different repairs: a numbered constraint the tableau rejected names its wire position, a registration or solve
@@ -440,40 +529,62 @@ class SolveFault extends Schema.TaggedError<SolveFault>()("SolveFault", {
 }
 
 declare namespace Panel {
-  type Positions = HashMap.HashMap<string, number>
+  type Positions = HashMap.HashMap<string, HashMap.HashMap<string, number>>
   type Solved = {
     readonly positions: Panel.Positions
-    readonly suggest: (edit: string, value: number) => Effect.Effect<Panel.Positions, SolveFault>
+    readonly suggest: (suggestion: Wire.LayoutProgram["suggestions"][number]) => Effect.Effect<Panel.Positions, SolveFault>
   }
 }
 
-type _Draft = { readonly solver: Solver; readonly cells: ReadonlyMap<string, Variable> }
+type _Variable = Wire.LayoutProgram["introduction"][number]
+type _Draft = { readonly solver: Solver; readonly cells: ReadonlyMap<string, ReadonlyMap<string, Variable>> }
 
 const _read = (draft: _Draft): Panel.Positions =>
-  HashMap.fromIterable(Iterable.map(draft.cells, ([name, cell]) => [name, cell.value()] as const))
+  HashMap.fromIterable(Iterable.map(draft.cells, ([owner, edges]) => [
+    owner,
+    HashMap.fromIterable(Iterable.map(edges, ([edge, cell]) => [edge, cell.value()] as const)),
+  ] as const))
+
+const _label = (variable: _Variable): string =>
+  `${variable.owner.length}:${variable.owner}${variable.edge.length}:${variable.edge}`
+
+const _variable = (cells: _Draft["cells"], variable: _Variable): Variable | undefined =>
+  cells.get(variable.owner)?.get(variable.edge)
 
 const _build = (program: Wire.LayoutProgram): Effect.Effect<_Draft, SolveFault> =>
   Effect.suspend(() => {
-    // BOUNDARY ADAPTER — the cursor carries WHERE the walk stands as absence-shaped evidence, so the refusal picks
-    // its own reason off that value instead of encoding "past the walk" as a rank no constraint occupies
     const cursor = { at: Option.none<number>() }
     return Effect.try({
       try: () => {
         const solver = new Solver()
-        const cells = new Map<string, Variable>()
-        const named = (name: string): Variable => {
-          const held = cells.get(name) ?? new Variable(name)
-          cells.set(name, held)
+        const cells = new Map<string, Map<string, Variable>>()
+        program.introduction.forEach((variable) => {
+          const edges = cells.get(variable.owner) ?? new Map<string, Variable>()
+          edges.set(variable.edge, new Variable(_label(variable)))
+          cells.set(variable.owner, edges)
+        })
+        const named = (variable: _Variable): Variable => {
+          const held = _variable(cells, variable)
+          if (held === undefined) throw new Error(`unintroduced:${_label(variable)}`)
           return held
         }
+        const expression = (row: Wire.LayoutProgram["constraints"][number]["left"]): Expression =>
+          new Expression(...row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)]), row.constant)
         program.constraints.forEach((row, at) => {
           cursor.at = Option.some(at)
-          const terms = row.terms.map((term): [number, Variable] => [term.coefficient, named(term.variable)])
-          const lhs = new Expression(...terms, row.constant)
-          solver.addConstraint(new Constraint(lhs, _relations[row.relation], undefined, _strengths[row.strength]))
+          solver.createConstraint(expression(row.left), _relation(row.relation), expression(row.right), _strength(row.strength))
         })
         cursor.at = Option.none()
-        program.edits.forEach((edit) => solver.addEditVariable(named(edit), Strength.strong))
+        program.edits.forEach((edit) => solver.addEditVariable(named(edit.variable), _strength(edit.strength)))
+        program.suggestions.forEach((suggestion) => {
+          const variable = named(suggestion.variable)
+          if (!solver.hasEditVariable(variable)) solver.addEditVariable(variable, Strength.medium)
+          solver.suggestValue(variable, suggestion.value)
+        })
+        program.measurements.forEach((measurement) => {
+          const variable = named(measurement.variable)
+          solver.suggestValue(variable, measurement.value)
+        })
         solver.updateVariables()
         return { solver, cells }
       },
@@ -493,27 +604,127 @@ const _solve = (program: Wire.LayoutProgram): Effect.Effect<Panel.Solved, SolveF
     const held = yield* SynchronizedRef.make(draft)
     return {
       positions: _read(draft),
-      suggest: (edit, value) =>
+      suggest: (suggestion) =>
         SynchronizedRef.modifyEffect(held, (live) =>
           Effect.try({
             try: () => {
-              // BOUNDARY ADAPTER
-              const cell = live.cells.get(edit)
+              const edit = _label(suggestion.variable)
+              const cell = _variable(live.cells, suggestion.variable)
               if (cell === undefined) {
                 throw new Error(edit)
               }
-              live.solver.suggestValue(cell, value)
+              live.solver.suggestValue(cell, suggestion.value)
               live.solver.updateVariables()
               return [_read(live), live] as const
             },
-            catch: (defect) => new SolveFault({ case: { reason: "suggest", surface: program.surface, edit, cause: String(defect) } }),
+            catch: (defect) => new SolveFault({
+              case: { reason: "suggest", surface: program.surface, edit: _label(suggestion.variable), cause: String(defect) },
+            }),
           })),
     }
   })
 
+```
+
+## [07]-[SURFACE_PROGRAM]
+
+[SURFACE_PROGRAM]:
+- Owner: `Panel.surface` admits one generated `AppUiSurfaceProgram` byte document, traverses its generated root through the core walk rail, proves unique control identity and the exact set of Panel/Dock `constraintProgram` references equals the generated `layouts[].surface` set, and solves that closed layout family before returning the application projection.
+- Packages: `@rasm/ts/core` (`Wire.AppUiSurface`, generated ProtoJSON decoder and bounded `Wire.Walk`); `effect` (`Array`, `Effect`, `HashMap`, `HashSet`, `Option`, `Schema`).
+- Law: `AppUiSurfaceProgram` is the only independently seated UI application input; `ControlIntentWire` and `LayoutProgram` are its generated support closure, not alternate decoder roots.
+- Law: surface identity, root intent, and layouts enter together through `Wire.decode("AppUiSurfaceProgram", bytes)`; no leaf path, wrapper interface, or hand JSON schema can construct a competing application input.
+- Law: the reference census reads `constraintProgram` from `[04]`'s exhaustive generated arm row and recursion from `Wire.Walk`, so no second nesting vocabulary or unbounded traversal stands beside either owner.
+- Law: control keys are unique across the whole root tree before value binding, automation, or solved positions read one; layout equality is bidirectional — a referenced program absent from `layouts` and an unreferenced provided program both refuse; generated validation has already proved layout-surface and structured-variable uniqueness.
+- Law: the returned value is an interior application projection, not a wire twin: stable identity and the root remain generated values while received layout programs become live solver resources keyed by their generated surface identity.
+- Growth: a new control arm breaks `[04]`'s exhaustive projection; a new generated root field breaks this direct projection; a new constraint reference cannot enter without joining the one arm row.
+
+```typescript signature
+import { Fault, type Wire } from "@rasm/ts/core"
+import { Array, Effect, HashMap, HashSet, Option, Schema } from "effect"
+
+const _surfaceFamily = Fault.Class.family(["projection", "identity", "closure"] as const, {
+  projection: Fault.Class.row({
+    class: "invalid",
+    leg: "admit",
+    detail: Schema.Struct({ key: Schema.String }),
+    render: ({ key }) => `control ${key} has no admitted generated arm projection`,
+  }),
+  identity: Fault.Class.row({
+    class: "invalid",
+    leg: "admit",
+    detail: Schema.Struct({ keys: Schema.Array(Schema.String) }),
+    render: ({ keys }) => `control keys are not unique: [${keys.join(",")}]`,
+  }),
+  closure: Fault.Class.row({
+    class: "invalid",
+    leg: "admit",
+    detail: Schema.Struct({ referenced: Schema.Array(Schema.String), provided: Schema.Array(Schema.String) }),
+    render: ({ referenced, provided }) =>
+      `layout closure differs: referenced=[${referenced.join(",")}] provided=[${provided.join(",")}]`,
+  }),
+})
+
+class SurfaceFault extends Schema.TaggedError<SurfaceFault>()("SurfaceFault", {
+  case: _surfaceFamily.payload,
+}) {
+  get class(): Fault.Class.Kind {
+    return _surfaceFamily.classOf(this.case.reason)
+  }
+  get leg(): string {
+    return _surfaceFamily.legOf(this.case.reason)
+  }
+  override get message(): string {
+    return _surfaceFamily.render(this.case)
+  }
+}
+
+declare namespace Panel {
+  type Surface = {
+    readonly workspace: Wire.AppUiSurface["workspace"]
+    readonly route: Wire.AppUiSurface["route"]
+    readonly instance: Wire.AppUiSurface["instance"]
+    readonly root: Wire.ControlIntent
+    readonly layouts: HashMap.HashMap<string, Panel.Solved>
+  }
+}
+
+const _surface = (bytes: Uint8Array) => Effect.flatMap(Wire.decode("AppUiSurfaceProgram", bytes), (program) => Effect.gen(function* () {
+  const controls = yield* Wire.Walk.nodes("ControlIntentWire", program.root, Wire.Walk.floor)
+  const identities = Array.map(controls, (control) => control.key)
+  if (HashSet.size(HashSet.fromIterable(identities)) !== identities.length) {
+    return yield* new SurfaceFault({ case: { reason: "identity", keys: identities } })
+  }
+  const projections = yield* Effect.forEach(controls, (control) =>
+    Option.match(_arms(control), {
+      onNone: () => Effect.fail(new SurfaceFault({ case: { reason: "projection", key: control.key } })),
+      onSome: Effect.succeed,
+    }), { concurrency: 1 })
+  const referenced = HashSet.fromIterable(Array.filterMap(projections, (row) => row.constraintProgram))
+  const provided = HashSet.fromIterable(Array.map(program.layouts, (layout) => layout.surface))
+  if (HashSet.size(referenced) !== HashSet.size(provided) || !HashSet.isSubset(referenced, provided)) {
+    return yield* new SurfaceFault({
+      case: {
+        reason: "closure",
+        referenced: Array.fromIterable(referenced),
+        provided: Array.fromIterable(provided),
+      },
+    })
+  }
+  const layouts = yield* Effect.forEach(program.layouts, (layout) =>
+    Effect.map(_solve(layout), (solved) => [layout.surface, solved] as const), { concurrency: 1 })
+  return {
+    workspace: program.workspace,
+    route: program.route,
+    instance: program.instance,
+    root: program.root,
+    layouts: HashMap.fromIterable(layouts),
+  } satisfies Panel.Surface
+}))
+
 declare namespace Panel {
   type Shape = {
-    readonly Fault: typeof SolveFault
+    readonly SolveFault: typeof SolveFault
+    readonly SurfaceFault: typeof SurfaceFault
     readonly empty: Panel.Row
     readonly patience: typeof _PATIENCE
     readonly fold: typeof _fold
@@ -525,19 +736,19 @@ declare namespace Panel {
     readonly degrade: typeof _degrade
     readonly admit: typeof _admit
     readonly open: typeof _OPEN
-    readonly emphasis: typeof _EMPHASIS
+    readonly emphasis: typeof _emphasis
     readonly arms: typeof _arms
     readonly chrome: typeof _chrome
     readonly children: typeof _children
     readonly route: typeof _route
-    readonly relations: typeof _relations
-    readonly strengths: typeof _strengths
     readonly solve: typeof _solve
+    readonly surface: typeof _surface
   }
 }
 
 const Panel: Panel.Shape = {
-  Fault: SolveFault,
+  SolveFault,
+  SurfaceFault,
   empty: _EMPTY,
   patience: _PATIENCE,
   fold: _fold,
@@ -549,14 +760,13 @@ const Panel: Panel.Shape = {
   degrade: _degrade,
   admit: _admit,
   open: _OPEN,
-  emphasis: _EMPHASIS,
+  emphasis: _emphasis,
   arms: _arms,
   chrome: _chrome,
   children: _children,
   route: _route,
-  relations: _relations,
-  strengths: _strengths,
   solve: _solve,
+  surface: _surface,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
@@ -564,7 +774,7 @@ const Panel: Panel.Shape = {
 export { Panel }
 ```
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

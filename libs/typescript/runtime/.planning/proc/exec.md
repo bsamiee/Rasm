@@ -12,19 +12,20 @@ This process substrate: a runtime is a row, a bun swap is a Layer selection in t
 ## [02]-[RUNTIME_ROWS]
 
 [RUNTIME_ROWS]:
-- Owner: `Runtime` — one bare `as const` row table keyed `node | bun`, companion types riding its merged hub; each row carries `main` (the `RunMain` boot edge), `context` (the aggregate platform binding), `client`, `serve`, `worker`, `runner`, `cluster`, `socket` (`NodeSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor` satisfying the abstract `Socket.WebSocketConstructor` Tag), `nats` (the `@nats-io/transport-node` native TCP/TLS `connect` both server rows share — the broker engine consumes this binding as its dial, so the browser lane's `wsconnect` and the server lanes' TCP dial are one root selection, never an engine fork), and `kv`; the row is the only site that names a binding package, and every consumer yields the abstract Tag.
+- Owner: `Runtime` — one bare `as const` row table keyed `node | bun`, companion types riding its merged hub; each row carries `main` (the `RunMain` boot edge), `context` (the aggregate platform binding), `client`, `serve` (the listener plus the duplicate-preserving inbound-header capability), `worker`, `runner`, `cluster`, `socket` (`NodeSocket.layerWebSocketConstructor` / `BunSocket.layerWebSocketConstructor` satisfying the abstract `Socket.WebSocketConstructor` Tag), `nats` (the `@nats-io/transport-node` native TCP/TLS `connect` both server rows share — the broker engine consumes this binding as its dial, so the browser lane's `wsconnect` and the server lanes' TCP dial are one root selection, never an engine fork), and `kv`; the row is the only site that names a binding package, and every consumer yields the abstract Tag.
 - Law: serve residency is row data, never a caller assumption — `Bind` is the tagged residency family (`tcp`, `unix`, `tls`), each row's `residency` column names what it admits and answers an ops read of the same, and its `serve` takes only those binds, so a secure listener asked of a row that cannot honour it fails at the call rather than inside a platform option record; both rows answer all three while `Core` holds the floor at the two, because a floor raised to what every present row happens to reach refuses the first row that binds less.
 - Law: the node row serves TLS through `node:https` — `@types/node` merges an `interface Server extends http.Server<Request, Response>` onto the `class Server extends tls.Server`, so an `https.Server` IS the `Http.Server` parameter `NodeHttpServer.layer` demands and the secure listener needs no second binding; the constructor differs alone, so the row selects it on the bind's own tag and hands the same `Net.ListenOptions` projection to both.
 - Law: SPIKE — the binding table stays `node | bun`, and the deterministic floor is that pair with `_Rows` proving the full `Core` complement on each. No published `@effect/platform-*` package completes a third row: `platform-browser` binds `main`, `client`, `worker`, `runner`, `socket`, and `kv` yet publishes no aggregate `context` and no cluster binding, `platform-node-shared` is the interior both server rows compose rather than a host, `platform-deno` ships on the next major's prerelease line alone, and no workerd or Cloudflare binding exists. This table therefore leaves a fetch host unrepresentable rather than half-modelled as a listener-free residency, because `Bind` names what a row LISTENS on and a host with no listener carries no bind to name; a third row admits when one package answers `context` and `cluster` beside the members browser already binds.
 - Law: the row guard closes the member set at the contract's own Layer bounds — `_Rows` proves every row carries the full `Core` complement and that `context` provides the aggregate platform Tags, `client` an `HttpClient`, `serve` an `HttpServer` beside the `HttpPlatform` and `Etag.Generator` every asset route spends, `worker` a spawn-factory pool binding, `runner` a `PlatformRunner`, and `kv` a `KeyValueStore`, so a new runtime missing a member and a mis-wired binding are both compile errors at this declaration; the guard states each factory member at its common supertype (`worker`'s spawn parameter and `cluster`'s options are row-specific, so the guard proves presence and Layer shape) while row-specific extras (dispatcher tuning, serve options, cluster storage rows) stay precisely typed by inference because consumers index the table, never the guard, and the table itself is the kind set — no parallel contract restates it.
 - Law: the cluster row is the same altitude as every binding — `NodeClusterSocket.layer` (with `layerDispatcherK8s` and the discovery-only `layerK8sHttpClient` beside it) and the `BunClusterSocket.layer` peer are selected at the app root through the row exactly like `serve`, with `NodeClusterHttp.layer` / `BunClusterHttp.layer` as the HTTP-transport alternates the root may pin instead — the frozen `@effect/cluster-node` family stays unadmitted; the work owners type against the `MessageStorage`/`Sharding` Tags and never import a binding, so runner transport is root data.
 - Law: undici dispatcher tuning is row-interior — connection ceilings, proxy posture, and TLS pin through `NodeHttpClient.dispatcherLayer`/`dispatcherLayerGlobal`/`makeDispatcher` beneath the node row's `client`; the egress policy composed over any client is `net/client#LANE_ROWS`'s and never forks per runtime.
+- Law: duplicate-preserving request headers are a runtime capability, not a claim over platform `Headers` — Node reads `IncomingMessage.headersDistinct` before `@effect/platform` joins repeated values, while Bun's Fetch `Headers` source has already erased field-line identity and its row refuses the capability. A Bun root can serve every ordinary route, but composing `serve/route#LAYER_ROUTES`'s strict webhook intake against that row fails each intake request closed until the binding publishes a raw-header member; splitting comma-joined values would corrupt legal single fields and is forbidden.
 - Boundary: this module imports `node:http` and `node:https` for the serve row and `node:v8` for the trial's heap reader — the process substrate's sanctioned FFI seam; elsewhere a `node:*` or binding-package import is admitted only on a server-lane module whose composed package contract demands the host type (`Buffer` for the mail, broker, and archive engines), and one on a runtime-neutral or browser module is the defect the architecture audit catches.
 - Entry: `Runtime.node` / `Runtime.bun`, read by the boot module only.
 - Packages: `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform` (`FetchHttpClient`), `@nats-io/transport-node` (`connect`).
 
 ```typescript signature
-import { FetchHttpClient } from '@effect/platform';
+import { FetchHttpClient, HttpServerRequest } from '@effect/platform';
 import type {
     CommandExecutor,
     Etag,
@@ -45,6 +46,7 @@ import {
     NodeContext,
     NodeHttpClient,
     NodeHttpServer,
+    NodeHttpServerRequest,
     NodeKeyValueStore,
     NodeRuntime,
     NodeSocket,
@@ -62,7 +64,7 @@ import {
     BunWorkerRunner,
 } from '@effect/platform-bun';
 import { connect, type NatsConnection, type NodeConnectionOptions } from '@nats-io/transport-node';
-import type { Layer } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 
@@ -70,6 +72,29 @@ import { createServer as createHttpsServer } from 'node:https';
 // listener takes a filesystem path, and a secure listener carries key material beside either. One `port` field
 // expressed the first alone, so every consumer reading it assumed a case its row never stated.
 const _RESIDENCIES = ['tcp', 'unix', 'tls'] as const;
+
+declare namespace InboundHeaders {
+    type Band = Readonly<Record<string, ReadonlyArray<string> | undefined>>;
+    type Source = { readonly distinct: Effect.Effect<Band, InboundHeaderFault, HttpServerRequest.HttpServerRequest> };
+}
+
+class InboundHeaderFault extends Error {
+    readonly _tag = 'InboundHeaderFault';
+    constructor(readonly runtime: 'bun') {
+        super(`${runtime} cannot preserve inbound header field-line identity`);
+    }
+}
+
+class InboundHeaders extends Context.Tag('runtime/InboundHeaders')<InboundHeaders, InboundHeaders.Source>() {}
+
+const _nodeHeaders = Layer.succeed(InboundHeaders, {
+    distinct: Effect.map(HttpServerRequest.HttpServerRequest, (request) =>
+        NodeHttpServerRequest.toIncomingMessage(request).headersDistinct),
+});
+
+const _bunHeaders = Layer.succeed(InboundHeaders, {
+    distinct: Effect.fail(new InboundHeaderFault('bun')),
+});
 
 // `Net.ListenOptions` carries `port`, `host`, and `path` on ONE optional-field record, so the node projection is the
 // residency read straight onto it and needs no second spelling of the same three facts. A secure bind listens on the
@@ -95,9 +120,12 @@ const Runtime = {
         // one layer, two constructors: `https.Server` merges the whole `http.Server` interface, so the secure
         // listener satisfies the same parameter and only its key material picks a different factory
         serve: (bind: Runtime.Bind) =>
-            NodeHttpServer.layer(
-                bind.kind === 'tls' ? () => createHttpsServer({ cert: bind.cert, key: bind.key }) : () => createHttpServer(),
-                _listen(bind),
+            Layer.merge(
+                NodeHttpServer.layer(
+                    bind.kind === 'tls' ? () => createHttpsServer({ cert: bind.cert, key: bind.key }) : () => createHttpServer(),
+                    _listen(bind),
+                ),
+                _nodeHeaders,
             ),
         worker: NodeWorker.layer,
         runner: NodeWorkerRunner.layer,
@@ -111,7 +139,7 @@ const Runtime = {
         context: BunContext.layer,
         client: FetchHttpClient.layer,
         residency: ['tcp', 'unix', 'tls'] as const,
-        serve: (bind: Runtime.Bind) => BunHttpServer.layer(_served(bind)),
+        serve: (bind: Runtime.Bind) => Layer.merge(BunHttpServer.layer(_served(bind)), _bunHeaders),
         worker: BunWorker.layer,
         runner: BunWorkerRunner.layer,
         cluster: BunClusterSocket.layer,
@@ -144,7 +172,10 @@ declare namespace Runtime {
         // floor raised to what the present rows happen to reach refuses the first row that binds less. Both bindings
         // publish `HttpPlatform` and `Etag.Generator` beside the server, so the file-send and validator capabilities
         // every asset route already spends are PROVEN at this declaration instead of assumed per request.
-        readonly serve: (bind: Bind<'tcp' | 'unix'>) => Layer.Layer<HttpServer.HttpServer | HttpPlatform.HttpPlatform | Etag.Generator, unknown>;
+        readonly serve: (bind: Bind<'tcp' | 'unix'>) => Layer.Layer<
+            HttpServer.HttpServer | HttpPlatform.HttpPlatform | Etag.Generator | InboundHeaders,
+            unknown
+        >;
         readonly worker: (spawn: (id: number) => never) => Layer.Layer<Worker.WorkerManager | Worker.Spawner>;
         readonly runner: Layer.Layer<WorkerRunner.PlatformRunner>;
         readonly cluster: typeof NodeClusterSocket.layer | typeof BunClusterSocket.layer;
@@ -619,7 +650,7 @@ const Trial = { Spec: TrialSpec, run: _bracketed } as const;
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { ExecFault, Proc, Runtime, Trial };
+export { ExecFault, InboundHeaderFault, InboundHeaders, Proc, Runtime, Trial };
 ```
 
 ## [06]-[RESEARCH]

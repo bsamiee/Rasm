@@ -994,11 +994,6 @@
         "resolved": "4.7.0",
         "contentHash": "VybpaOQQhqE6siHppMktjfGBw1GCwvCqiufqmP8F1nj7fTUNtW35LOEt3UZTEsECfo+ELAl/9o9nJx3U91i7vA=="
       },
-      "System.Security.Cryptography.ProtectedData": {
-        "type": "Transitive",
-        "resolved": "10.0.10",
-        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
-      },
       "System.ServiceProcess.ServiceController": {
         "type": "Transitive",
         "resolved": "8.0.0",
@@ -1044,10 +1039,7 @@
         "contentHash": "InpgxLSt5OY8WfgfuUg0fChCqcZ5TXMWYQ8shm7C0yUQLG7/6J7PDEEo5J8v15h8ExGGapLgB3drlL/iFLTTYw=="
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "rasm": {
         "type": "Project",
@@ -1214,14 +1206,12 @@
         "type": "Project",
         "dependencies": {
           "Celly.Protovalidate": "[1.2.0, )",
-          "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Microsoft.Extensions.Compliance.Abstractions": "[10.8.0, )",
           "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
@@ -2529,6 +2519,12 @@
         "requested": "[10.0.11, )",
         "resolved": "10.0.11",
         "contentHash": "4jNNt67NhCqf3bf2FN0mrsC+EH60L7Sny6poqVeiviB27Kw7TQzMmgn8HIaPc8E9EcuGusUyfeu21gLfzcBpDA=="
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
       },
       "System.Threading.RateLimiting": {
         "type": "CentralTransitive",

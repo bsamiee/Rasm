@@ -2,46 +2,52 @@
 
 THE DATED-DECLARATION SOURCE. The two catalogue owners are CURATED: `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` and `Properties/sustainability#SUSTAINABILITY_PROPERTY` seed the estate's known-material physics and lifecycle rows as in-fence published data under `SEED_ROW_LAW`, so every value they carry is as good as the standard behind it. A real project also carries data those rosters cannot hold: an in-situ rebound-hammer strength on a fifty-year-old slab, a laboratory certificate for one delivered batch, a manufacturer EPD for the exact product specified, a condition grade from a structural survey. Each is a MEASUREMENT with a date, a provenance, and an expiry rather than a standards row, and each must OVERRIDE the seed row for the material it describes without editing a curated catalogue. This owner is that third source: one `AssessmentRecord` `[Union]` closing the declaration modality, one `AssessmentAdmission` fold lowering an admitted record onto the SAME `Published<T>` carrier its engineering sibling declares, and one `AssessmentResolution` law resolving assessed over published per column, per material, at a stated instant. This page reads the two catalogue owners and writes NO catalogue row, so a curated roster stays curated and an assessment never mutates a standards table.
 
-The `EpdRow` shape lands here rather than on the sustainability roster because a product EPD is a DECLARATION with an issuer, a declared unit, a module coverage census, and an expiry; the curated industry averages are its FALLBACK, demoted rather than deleted. The page re-mints NO seam type, admits NO `UnitsNet` quantity beyond the shared carrier's own arms, and rails ONE band — the seam `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` (2500) both sibling sources rail — so an assessed material and a catalogued material fault identically. Record TRANSPORT is the corpus `tests/contracts/MANIFEST.md` `[02.26]-[DECLARATION_RECORD]` DOMAIN contract — `python:data` `impact/declaration.md` the one producer, this page's `DeclarationWire.Decode` the committed consumer leg — so a declaration arrives as canonical JSON keyed to a `MaterialId`, lowers onto `EpdRow` and `AssessmentRecord.Declared`, and reaches `AssessmentSet.Of` unchanged. The peer impact wire stays impact-only by its own charter; the declaration contract carries what that frame structurally cannot — identity, dates, and the presence-censused cell map.
+The `EpdRow` shape lands here rather than on the sustainability roster because a product EPD is a DECLARATION with an issuer, a declared unit, a module coverage census, and an expiry; the curated industry averages are its FALLBACK, demoted rather than deleted. The page re-mints NO seam type, admits NO `UnitsNet` quantity beyond the shared carrier's own arms, and rails ONE band — the seam `Projection/fault#FAULT_BAND` `ElementFault.ValueRejected` (2500) both sibling sources rail — so an assessed material and a catalogued material fault identically. Record TRANSPORT is the corpus `tests/contracts/manifest.json` `declaration-record` DOMAIN contract — `python:data` `impact/declaration.md` the one producer, this page's `DeclarationWire.Decode` the committed consumer leg — so a declaration arrives as protobuf binary, parses under the declared size and recursion ceiling, validates from its generated descriptor, lowers onto `EpdRow` and `AssessmentRecord.Declared`, and reaches `AssessmentSet.Of` unchanged. The peer impact wire stays impact-only by its own charter; the declaration contract carries what that frame structurally cannot — identity, dates, and the presence-censused cell sequence.
 
 ## [01]-[INDEX]
 
-- [02]-[ASSESSMENT_RECORD]: the `AssessmentModality` provenance axis, the `ConditionGrade` survey vocabulary, the `AssessedProperty` axis with the landing lens each row owns, the `DeclarationUnit`/`EpdStandard`/`DeclarationSubtype` contract-token rosters, the `DeclaredImpacts` closed declaration-granularity family, the `EpdRow` product-declaration shape, the `AssessmentRecord` `[Union]` closing the three declaration modalities, the `AssessedIdentity` shared record identity, the `AssessmentAdmission.Admit` fold, and the `DeclarationWire` decode leg with its source-generated reader and its `DeclarationMap` transcription.
+- [02]-[ASSESSMENT_RECORD]: the `AssessmentModality` provenance axis, the `ConditionGrade` survey vocabulary, the `AssessedProperty` axis with the landing lens each row owns, the generated declaration vocabularies with their domain projections, the `DeclaredImpacts` closed declaration-granularity family, the `EpdRow` product-declaration shape, the `AssessmentRecord` `[Union]` closing the three declaration modalities, the `AssessedIdentity` shared record identity, the `AssessmentAdmission.Admit` fold, and the `DeclarationWire` protobuf-binary admission.
 - [03]-[ASSESSED_RESOLUTION]: `AssessmentSet` the per-material record set, the assessed-over-published resolution law with its expiry and evidence-rank gates, and the `Resolve` entry the projector composes ahead of the two catalogue lookups.
 
 ## [02]-[ASSESSMENT_RECORD]
 
-- Owner: `AssessmentModality` the closed provenance axis carrying each source's evidence rank, seam grade, and default relative band; `ConditionGrade` the survey condition vocabulary carrying its capacity-retention factor; `AssessedProperty` the assessable-column axis carrying its `QuantityRow` and its landing lens; `DeclarationUnit`/`EpdStandard`/`DeclarationSubtype` the contract's own frozen token rosters, pure vocabulary over one railed crossing; `DeclaredImpacts` the closed two-case family a declaration's granularity IS; `EpdRow` the product-declaration record; `AssessmentRecord` the closed declaration family; `AssessedIdentity` the identity every admitted record carries; `Assessed` the `[Union]` closing the three ADMITTED evidence shapes; `AssessmentAdmission` the ONE record→`Assessed` fold; `DeclarationWire` the transport leg over its `DeclarationRecordWire` reader shape and the `DeclarationMap` `[Mapper]`.
+- Owner: `AssessmentModality` the closed provenance axis carrying each source's evidence rank, seam grade, and default relative band; `ConditionGrade` the survey condition vocabulary carrying its capacity-retention factor; `AssessedProperty` the assessable-column axis carrying its `QuantityRow` and its landing lens; the generated `DeclaredUnit`/`Standard`/`Subtype` enums the contract vocabularies and `DeclarationProfile` their domain-only basis, arity, and grade projection; `DeclaredImpacts` the closed two-case family a declaration's granularity IS; `EpdRow` the product-declaration record; `AssessmentRecord` the closed declaration family; `AssessedIdentity` the identity every admitted record carries; `Assessed` the `[Union]` closing the three ADMITTED evidence shapes; `AssessmentAdmission` the ONE record→`Assessed` fold; `DeclarationWire` the protobuf-binary transport leg over the generated `DeclarationRecord`.
 - Cases: `Measured` (a dated scalar result for ONE named property over a `MaterialId` — a rebound-hammer `f_c`, a coupon tensile, a core density — carrying its instrument-relative band and its `LocalDate`) · `Graded` (a survey `ConditionGrade` whose retention factor scales the resolved mechanical columns rather than replacing them) · `Declared` (an `EpdRow` product declaration replacing the curated lifecycle row for the material it names). A fourth modality is one case, one `Admit` arm, and one resolution arm — compiler-forced at all three.
 - Law: A VOCABULARY ROW OWNS ITS OWN LANDING. Each `AssessedProperty` carries the lens that seats its measured column onto the seam case that owns it, so a new assessable property either declares where it lands or does not compile. A resolution that discriminated the landing centrally — one property routed to the thermal case and every other to the mechanical one — silently landed each new row in whichever branch the condition defaulted to, publishing a measured column on a case that does not own it, and the defect was invisible because the fold still type-checked.
-- Law: A DECLARATION'S PROVENANCE DECIDES ITS SPREAD AND ITS GRADE. The modality row carries the evidence RANK that resolves a contest between two records, the default relative BAND the admitted value wears, and the seam `EvidenceGrade` the minted `PropertyEvidence` carries, so a rebound-hammer reading and a certified coupon are distinguishable at the seam `MeasureBand` without a second column and the `Rasm.Compute` propagation route reads the real spread instead of a precision no instrument had. A declaration is the one modality whose grade its OWN row cannot decide: representativeness does, so `DeclarationSubtype` carries the grade for the declared arm and an industry-average declaration enters at `EvidenceGrade.Catalogue` rather than wearing a product-specific attribution. Rank is a domain column, never a bent comparer.
-- Law: THE TRANSPORT ADMITS ONCE, AND THE INTERIOR NEVER READS A DOCUMENT. `DeclarationWire.Decode` runs a source-generated `System.Text.Json` reader over the contract shape whose every required key is a `required` member, so a missing key refuses AT THE READER and no coalesced empty string re-authors an identity, a unit, or a registration the producer never sent. The whole read-and-transcribe funnels through ONE `Op.Catch`, so a malformed document and an unparsable ISO date park as typed refusals instead of escaping the `Fin` signature. Contract tokens stay TEXT on the ingress row and cross their rosters at `Admit` alone through ONE kernel-`AcceptValidated` crossing, so a delivery reports every bad token together rather than aborting on the first and no roster re-spells a keyed lookup the kernel owns.
-- Entry: `AssessmentAdmission.Admit(record, key)` is the ONE admission — it proves each shape's own columns through the shared `Projection/fault#ADMISSION_SLOTS` slots over kernel `Band` rows, lifts every scalar onto `Published<T>` at the modality's own band with the evidence its row's grade names, and returns the neutral `Assessed` the resolution law folds. `AssessmentSet.Of(records, key)` admits a whole delivery in ONE `Traverse`, so a malformed record ABORTS the set rather than being dropped — a dropped assessment silently reverts to catalogue data. `DeclarationWire.Decode(record, key)` is the corpus-contract transport: the reader admits the payload once into `DeclarationRecordWire`, one banding fold sums the contract's fifteen modules onto the six-band `LifecycleStage` axis and PICKS the `DeclaredImpacts` arm its census earns, the `DeclarationMap` `[Mapper]` transcribes both onto `EpdRow`, and the decoded row crosses the SAME `Admit` gate an in-process record crosses.
-- Packages: Rasm.Element (project — `MaterialId`, `MaterialPropertySet` + its `Of*` admissions, `MeasureValue`/`MeasureBand`, `PropertyEvidence.Of`, `EvidenceGrade`, `MeasurementBasis`, `LifecycleStage`, `ImpactCategory.Parse`, `ElementFault.ValueRejected`, and the `Projection/fault#ADMISSION_SLOTS` `Gate`/`Accumulate`/`Optional` slots this folder's first composer reaches), Rasm.Materials.Properties (project-local — the shared `Published<T>` carrier + `Published.Of`, the two catalogue `Lookup` entries; SAME namespace so no import), Rasm.Materials.Component (project — `QuantityRow` + its `OfNative` railed mint), Rasm (project — `Op` + the `Op.Catch` boundary trap, and the kernel `Band` rows the scalar slots read), Riok.Mapperly (the ONE inbound `[Mapper]`, generator-only), NodaTime (`LocalDate` the declaration date and the expiry — a wall-clock date carries no zone, so an `Instant` stamped UTC is the deleted form — and `LocalDatePattern.Iso`), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Validation<Error,_>`/`Traverse`), BCL inbox (`System.Text.Json` source generation, `ReadOnlyMemory<double>`, `ImmutableArray<double>`, `FrozenDictionary`).
-- Growth: a new declaration modality is one `AssessmentRecord` case with its `Admit` and resolution arms; a new survey scheme is one `ConditionGrade` row carrying its retention factor; a new EN 15804+A2 indicator is one seam `ImpactCategory` row the declaration's matrix widens against; a new assessable property is one `AssessedProperty` row carrying its `QuantityRow` and its lens, and a new `Seat` lens only where it reaches a seam case no existing lens rebuilds; a new contract token is one row on its owning roster, gaining its seam basis or matrix arity or declaring it has none; a new declaration GRANULARITY is one `DeclaredImpacts` case the generated Switch compiler-forces at fold, arity law, and resolution alike; a new contract COLUMN is one `DeclarationRecordWire` member the mapper's diagnostic forces onto `EpdRow` or an ignore row excuses. Never a per-modality record type, never a parallel assessed-material surface, never a second `Published` carrier or document reader.
-- Boundary: an `AssessmentRecord` is INGRESS DATA, not a domain owner — `Admit` is its one `BOUNDARY_ADMISSION` and the interior sees only `Assessed`, so `EpdRow` holds the contract's tokens VERBATIM as text and every roster crossing happens at that gate. Every scalar rides `Published<T>`, so an assessed column and a seed column are ONE type at the seam. Expiry is a HARD gate at RESOLUTION and never at admission — an expired certificate is a historical record that stops overriding — and a record with no expiry never expires. `Attested` and `Run` stay absent: the contract declares neither, and filling either attributes a review nobody performed. The assessable axis is CARVED, not thin: a row needs a `QuantityRow`, so the seam's fractional-exponent columns — carbonation rate mm/sqrt-year, the ageing exponent — are unassessable, sqrt-time being inexpressible in the integer dimension vector; a durability survey assesses the chloride diffusivity and the seat carries those two untouched.
+- Law: A DECLARATION'S PROVENANCE DECIDES ITS SPREAD AND ITS GRADE. The modality row carries the evidence RANK that resolves a contest between two records, the default relative BAND the admitted value wears, and the seam `EvidenceGrade` the minted `PropertyEvidence` carries, so a rebound-hammer reading and a certified coupon are distinguishable at the seam `MeasureBand` without a second column and the `Rasm.Compute` propagation route reads the real spread instead of a precision no instrument had. A declaration is the one modality whose grade its OWN row cannot decide: the generated `Subtype` value projects representativeness once, so an industry-average declaration enters at `EvidenceGrade.Catalogue` rather than wearing a product-specific attribution. Rank is a domain column, never a bent comparer.
+- Law: THE TRANSPORT ADMITS ONCE, AND THE INTERIOR NEVER READS A DOCUMENT. `DeclarationWire.Decode` parses protobuf binary through `CodedInputStream.CreateWithLimits`, then the app spine's neutral `WireAdmission.Admit` descriptor evaluator admits the generated message before a domain projection runs. The whole read and date projection funnels through ONE `Op.Catch`, so malformed protobuf, invalid contract fields, and invalid calendar values park as typed refusals instead of escaping the `Fin` signature. No C# record, JSON context, enum roster, parser, validator, or per-field check restates the descriptor.
+- Entry: `AssessmentAdmission.Admit(record, key)` is the ONE domain admission — it proves each in-process shape's own columns through the shared `Projection/fault#ADMISSION_SLOTS` slots over kernel `Band` rows, lifts every scalar onto `Published<T>` at the modality's own band with the evidence its row's grade names, and returns the neutral `Assessed` the resolution law folds. `AssessmentSet.Of(records, key)` admits a whole delivery in ONE `Traverse`, so a malformed record ABORTS the set rather than being dropped — a dropped assessment silently reverts to catalogue data. `DeclarationWire.Decode(record, key)` is the corpus-contract transport: bounded binary parse and generated-rule admission run once, one banding fold sums the contract's fifteen modules onto the six-band `LifecycleStage` axis and PICKS the `DeclaredImpacts` arm its census earns, one direct projection creates `EpdRow`, and the decoded row crosses the SAME `Admit` gate an in-process record crosses.
+- Packages: Rasm.Contracts (project — generated `DeclarationRecord`, `ImpactCell`, and enum vocabularies), Rasm.AppHost (project — neutral `WireAdmission.Admit` descriptor evaluation and `WireBoundary`), Google.Protobuf (`CodedInputStream.CreateWithLimits` and generated parser), CommunityToolkit.HighPerformance (`ReadOnlyMemory<byte>.AsStream` bridge to the shared stream door), NodaTime.Serialization.Protobuf (`Date.ToLocalDate`), Rasm.Element (project — `MaterialId`, `MaterialPropertySet` + its `Of*` admissions, `MeasureValue`/`MeasureBand`, `PropertyEvidence.Of`, `EvidenceGrade`, `MeasurementBasis`, `LifecycleStage`, `ImpactCategory`, `ElementFault.ValueRejected`, and the `Projection/fault#ADMISSION_SLOTS` `Gate`/`Accumulate`/`Optional` slots this folder's first composer reaches), Rasm.Materials.Properties (project-local — the shared `Published<T>` carrier + `Published.Of`, the two catalogue `Lookup` entries; SAME namespace so no import), Rasm.Materials.Component (project — `QuantityRow` + its `OfNative` railed mint), Rasm (project — `Op` + the `Op.Catch` boundary trap, and the kernel `Band` rows the scalar slots read), NodaTime (`LocalDate` the declaration date and the expiry), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`), LanguageExt.Core (`Fin`/`Seq`/`Option`/`Validation<Error,_>`/`Traverse`), BCL inbox (`ReadOnlyMemory<double>`, `ImmutableArray<double>`, `FrozenDictionary`).
+- Growth: a new declaration modality is one `AssessmentRecord` case with its `Admit` and resolution arms; a new survey scheme is one `ConditionGrade` row carrying its retention factor; a new EN 15804+A2 indicator is one corpus enum member and one seam `ImpactCategory` row at the matching ordinal; a new assessable property is one `AssessedProperty` row carrying its `QuantityRow` and its lens, and a new `Seat` lens only where it reaches a seam case no existing lens rebuilds; a new contract enum member gains only a domain projection when this consumer can seat it; a new declaration GRANULARITY is one `DeclaredImpacts` case the generated Switch compiler-forces at fold, arity law, and resolution alike; a new contract COLUMN is consumed only when an interior decision reads it. Never a per-modality record type, never a parallel assessed-material surface, never a second `Published` carrier or document reader.
+- Boundary: an `AssessmentRecord` is INGRESS DATA, not a domain owner — `Admit` is its one `BOUNDARY_ADMISSION` and the interior sees only `Assessed`; generated contract values cross once onto `EpdRow`, and no generated message survives that projection. Every scalar rides `Published<T>`, so an assessed column and a seed column are ONE type at the seam. Expiry is a HARD gate at RESOLUTION and never at admission — an expired certificate is a historical record that stops overriding — and a record with no expiry never expires. `Attested` and `Run` stay absent: the contract declares neither, and filling either attributes a review nobody performed. The assessable axis is CARVED, not thin: a row needs a `QuantityRow`, so the seam's fractional-exponent columns — carbonation rate mm/sqrt-year, the ageing exponent — are unassessable, sqrt-time being inexpressible in the integer dimension vector; a durability survey assesses the chloride diffusivity and the seat carries those two untouched.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Diagnostics;
+using CommunityToolkit.HighPerformance;
+using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
-using NodaTime.Text;
+using NodaTime.Serialization.Protobuf;
+using Rasm.AppHost.Runtime;
+using Rasm.Contracts.Declaration.V1;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Materials.Component;
 using Rasm.Numerics;
-using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Properties;
+
+public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
+    public static readonly WireLimits Declaration = new(4 << 20, 100);
+}
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // Rank and Grade are DIFFERENT axes on purpose — Rank orders assessments against each other inside this page's
@@ -55,7 +61,7 @@ public sealed partial class AssessmentModality {
     public static readonly AssessmentModality NonDestructive = new("non-destructive", rank: 2, relative: 0.20, grade: EvidenceGrade.Measured);   // rebound hammer, UPV, cover meter
     public static readonly AssessmentModality Core           = new("core",           rank: 3, relative: 0.12, grade: EvidenceGrade.Measured);   // extracted core / in-situ coupon
     public static readonly AssessmentModality Laboratory     = new("laboratory",     rank: 4, relative: 0.05, grade: EvidenceGrade.Measured);   // certified batch test to the standard's own method
-    // This row's grade is what a declaration with no stated class wears; a classed one reads DeclarationSubtype.Grade.
+    // This row's grade is what a declaration with no stated class wears; a classed one reads DeclarationProfile.Grade.
     public static readonly AssessmentModality Declaration    = new("declaration",    rank: 5, relative: 0.05, grade: EvidenceGrade.Import);
     public int Rank { get; }
     public double Relative { get; }
@@ -100,64 +106,34 @@ public sealed partial class AssessedProperty {
     public PropertyLanding Landing { get; }
 }
 
-// --- [CONTRACT_TOKENS]
-// The declaration contract's three closed token rosters, declared WHOLE rather than as the subset this consumer can
-// seat: a token the contract does not name and a contract token this seam cannot express are different failures, and
-// a lookup table holding only the mappable rows reports them as one. The keys ARE the frozen contract spellings.
-// `DeclarationUnit` names the DECLARATION-CONTRACT altitude — the unit roster THIS seam's published declaration
-// record admits (`t`, `l`, `pcs`, `m2r1` among them) — against the `Rasm.Compute` `Analysis/lifecycle#EC3_BOUNDARY`
-// `DeclaredUnit`, the openEPD REST provider's own roster (`item`, `use`, `MJ`, `MPa`, `W`, `kgCO2e`, `t * km`,
-// `m2 * RSI`). Neither key set contains the other and no mirror law joins them, so the two rosters carry two names
-// and one spelling would invite a provider token crossing the contract rail unrejected.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DeclarationUnit {
-    public static readonly DeclarationUnit Kilogram        = new("kg",   Some(MeasurementBasis.PerKg));
-    public static readonly DeclarationUnit Tonne           = new("t",    Option<MeasurementBasis>.None);
-    public static readonly DeclarationUnit Metre           = new("m",    Option<MeasurementBasis>.None);
-    public static readonly DeclarationUnit SquareMetre     = new("m2",   Some(MeasurementBasis.PerM2));
-    public static readonly DeclarationUnit CubicMetre      = new("m3",   Some(MeasurementBasis.PerM3));
-    public static readonly DeclarationUnit Litre           = new("l",    Option<MeasurementBasis>.None);
-    public static readonly DeclarationUnit Piece           = new("pcs",  Some(MeasurementBasis.PerItem));
-    public static readonly DeclarationUnit SquareMetreYear = new("m2r1", Option<MeasurementBasis>.None);
-    // The seam basis this unit lands on, ABSENT where the four-basis closure holds no counterpart — never a per-kg
-    // default, which would renormalize a declaration the contract publishes per running metre.
-    public Option<MeasurementBasis> Basis { get; }
-}
+// --- [CONTRACT_PROJECTION] -----------------------------------------------------------------
+// The generated enums own the contract rosters. This projection declares only what the Materials domain adds:
+// which declared units its four-basis seam can seat, which revision owns the A2 matrix, and attribution grade.
+public static class DeclarationProfile {
+    public static Option<MeasurementBasis> Basis(DeclaredUnit unit) => unit switch {
+        DeclaredUnit.Kg => Some(MeasurementBasis.PerKg),
+        DeclaredUnit.M2 => Some(MeasurementBasis.PerM2),
+        DeclaredUnit.M3 => Some(MeasurementBasis.PerM3),
+        DeclaredUnit.Pcs => Some(MeasurementBasis.PerItem),
+        _ => None,
+    };
 
-// The EPD standard revision, carrying the seam matrix arity ITS OWN indicator roster fills. A2 declares the thirteen
-// A2 indicators the seam matrix axis is built from; A1's roster is a different characterization set that fills no
-// seam matrix at all, so it declares NO arity and the full-matrix arm is unreachable for it BY THE COLUMN. The arity
-// gate and the revision gate are therefore ONE read — the identity compare a two-row bool column would have needed
-// never appears.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class EpdStandard {
-    public static readonly EpdStandard En15804A1 = new("en15804a1", Option<int>.None);
-    public static readonly EpdStandard En15804A2 = new("en15804a2", Some(MaterialPropertySet.Environmental.MatrixArity));
-    public Option<int> MatrixArity { get; }
-}
+    public static Option<int> MatrixArity(Standard standard) => standard == Standard.En15804A2
+        ? Some(MaterialPropertySet.Environmental.MatrixArity)
+        : None;
 
-// Representativeness decides ATTRIBUTABILITY: a specific-product declaration names an accountable product, while a
-// generic or industry declaration is the same industry average the curated roster already publishes and enters at the
-// catalogue grade, so an average never outranks a curated row merely by arriving as a declaration.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DeclarationSubtype {
-    public static readonly DeclarationSubtype Specific       = new("specific",       EvidenceGrade.Import);
-    public static readonly DeclarationSubtype Representative = new("representative", EvidenceGrade.Import);
-    public static readonly DeclarationSubtype Industry       = new("industry",       EvidenceGrade.Catalogue);
-    public static readonly DeclarationSubtype Generic        = new("generic",        EvidenceGrade.Catalogue);
-    public EvidenceGrade Grade { get; }
+    public static EvidenceGrade Grade(Subtype subtype) => subtype is Subtype.Specific or Subtype.Representative
+        ? EvidenceGrade.Import
+        : EvidenceGrade.Catalogue;
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
 // The registry provenance an ingested declaration carries and an in-process one does not: the registry-native pair is
 // the key two registries republishing ONE declaration differ on, which the programme pair cannot separate. The
 // registry's own revision string is NOT carried — Issued is the revision discriminant the tie law already reads and
-// Uuid the identity a join uses, so a version column would be a third spelling nothing consults. Two plain columns is
-// what lets the contract's `source` object deserialize STRAIGHT into this record with no wire twin beside it.
-public sealed record DeclarationOrigin(string Registry, string Uuid);
+// Uuid the identity a join uses, so a version column would be a third spelling nothing consults. The generated source
+// message projects once into these two domain columns; no peer schema or serialization annotation sits beside it.
+public sealed record DeclarationOrigin(Registry Registry, string Uuid);
 
 // WHAT a producer declared, as a CLOSED TWO-CASE FAMILY rather than a vector-and-matrix pair guarded against holding
 // both. The carbon arm carries the per-EN-15978-module GWP vector beside the census of which modules the declaration
@@ -176,8 +152,8 @@ public abstract partial record DeclaredImpacts {
 
 // The product-declaration row: the EPD facts a curated industry average cannot carry. Issuer and Registration are the
 // declaration's PROGRAMME identity (the pair a procurement filter keys on), DeclaredUnit / Standard / Subtype the
-// contract's own tokens held VERBATIM as ingress text and crossed at Admit (an EPD is published per functional unit
-// and is admitted at THAT unit, never renormalized), Impacts the declared family whole, ValidUntil the calendar
+// generated contract values projected directly into the domain (an EPD is published per functional unit and is
+// admitted at THAT unit, never renormalized), Impacts the declared family whole, ValidUntil the calendar
 // expiry the resolution law compares. The two resource fractions are Option — scenario data many declarations omit,
 // absence never a fabricated fraction — mirroring the seam OfEnvironmental's own Option pair rather than forcing a
 // zero the producer never declared. The declared PRODUCT NAME is deliberately not mirrored: it is a display fact this
@@ -185,9 +161,9 @@ public abstract partial record DeclaredImpacts {
 public sealed record EpdRow(
     string Issuer,
     string Registration,
-    string DeclaredUnit,
-    string Standard,
-    string Subtype,
+    DeclaredUnit DeclaredUnit,
+    Standard Standard,
+    Subtype Subtype,
     Option<DeclarationOrigin> Origin,
     DeclaredImpacts Impacts,
     Option<double> RecycledContent,
@@ -282,42 +258,31 @@ public static class AssessmentAdmission {
     // arm's expectation is read off a ROW rather than restated: the carbon arm owes LifecycleStage arity on vector and
     // census alike (a short vector zero-pads downstream, publishing undeclared modules as measured zeros), the full
     // arm owes exactly the arity ITS OWN standard revision declares, so an A1 declaration reaches the matrix arm
-    // through no arity at all. The three contract tokens cross their rosters HERE and nowhere else.
+    // through no arity at all. The generated enums already crossed the descriptor gate before this domain projection.
     static Fin<Assessed> Declared(MaterialId material, EpdRow epd, Op key) =>
-        (Token<EpdStandard>(epd.Standard, "standard", key).Bind(standard => Arity(epd, standard, key)),
-         Token<DeclarationUnit>(epd.DeclaredUnit, "unit", key).Bind(unit => unit.Basis.Match(
+        (Arity(epd, key),
+         DeclarationProfile.Basis(epd.DeclaredUnit).Match(
              Some: static basis => Success<Error, MeasurementBasis>(basis),
              None: () => Fail<Error, MeasurementBasis>(
-                 new ElementFault.ValueRejected(key, $"<declaration-unit-unseated:{epd.DeclaredUnit}>")))),
-         Token<DeclarationSubtype>(epd.Subtype, "subtype", key),
+                 new ElementFault.ValueRejected(key, $"<declaration-unit-unseated:{epd.DeclaredUnit}>"))),
          AdmissionSlots.Gate(material.Value.Length > 0, key, $"<epd-material-blank:{epd.Reference}>"),
          AdmissionSlots.Optional(epd.RecycledContent, Band.Unit, "epd-recycled-content", key),
          AdmissionSlots.Optional(epd.EndOfLifeRecovery, Band.Unit, "epd-end-of-life-recovery", key))
-            .Apply((_, basis, subtype, _, recycled, recovery) => Lifecycle(
-                new AssessedIdentity(material, AssessmentModality.Declaration, EpdEvidence(epd, subtype), epd.Issued, Some(epd.ValidUntil)),
+            .Apply((_, basis, _, recycled, recovery) => Lifecycle(
+                new AssessedIdentity(material, AssessmentModality.Declaration, EpdEvidence(epd), epd.Issued, Some(epd.ValidUntil)),
                 basis, epd, recycled, recovery))
             .As()
             .ToFin();
 
-    // ONE railed crossing for every contract roster: the kernel `Op.AcceptValidated` bridge runs the GENERATED keyed
-    // lookup — no page re-spells a TryGet ladder the kernel already owns — and the refusal re-keys onto the seam band
-    // this page rails, so an off-roster token carries band 2500 and its [DETAIL_GRAMMAR] token like every sibling
-    // refusal. Three near-identical Parse bodies collapsed here; a fourth roster costs one call, not one method.
-    static Validation<Error, T> Token<T>(string token, string axis, Op key)
-        where T : IObjectFactory<T, string, ValidationError> =>
-        key.AcceptValidated<T>(token).Match(
-            Succ: static row => Success<Error, T>(row),
-            Fail: _ => Fail<Error, T>(new ElementFault.ValueRejected(key, $"<declaration-{axis}-unknown:{token}>")));
-
-    static Validation<Error, Unit> Arity(EpdRow epd, EpdStandard standard, Op key) => epd.Impacts.Switch(
+    static Validation<Error, Unit> Arity(EpdRow epd, Op key) => epd.Impacts.Switch(
         carbon: c => AdmissionSlots.Gate(
             c.Modules.Length == LifecycleStage.Count && c.Coverage.Length == LifecycleStage.Count, key,
             $"<epd-module-arity:{epd.Reference}:{c.Modules.Length}:{c.Coverage.Length}:expected={LifecycleStage.Count}>"),
-        full: f => standard.MatrixArity.Match(
+        full: f => DeclarationProfile.MatrixArity(epd.Standard).Match(
             Some: arity => AdmissionSlots.Gate(f.Matrix.Length == arity, key,
                 $"<epd-matrix-arity:{epd.Reference}:{f.Matrix.Length}:expected={arity}>"),
             None: () => Fail<Error, Unit>(new ElementFault.ValueRejected(key,
-                $"<epd-matrix-under-standard:{epd.Reference}:{standard.Key}>"))));
+                $"<epd-matrix-under-standard:{epd.Reference}:{epd.Standard}>"))));
 
     // The identity mint: the evidence, the band, and the tie key are all decided HERE, so no later arm re-derives
     // provenance and no record carries two spellings of one fact. ONE PropertyEvidence.Of threads the expiry Option
@@ -342,89 +307,60 @@ public static class AssessmentAdmission {
     // parallel per-record provenance column the seam would have to carry twice. The general Of carries the grade the
     // SUBTYPE row decides, where the sibling roster's PropertyEvidence.Declaration shorthand fixes it at Import for
     // rows whose representativeness the curator already settled.
-    static PropertyEvidence EpdEvidence(EpdRow epd, DeclarationSubtype subtype) =>
-        PropertyEvidence.Of("epd", subtype.Grade, Some(epd.Reference), Some(epd.ValidUntil));
+    static PropertyEvidence EpdEvidence(EpdRow epd) =>
+        PropertyEvidence.Of("epd", DeclarationProfile.Grade(epd.Subtype), Some(epd.Reference), Some(epd.ValidUntil));
 }
 
-// --- [DECLARATION_WIRE]
-// The contract shape, member-for-member. The two fractions are the contract's only optional cells and cross as
-// `double?`, absent meaning absent. `product` is the one contract key deliberately unmirrored (a display fact no
-// arm joins on). No declared-quantity member exists: the contract admits a declaration at quantity ONE —
-// the producer refuses any other amount at ingest — so every cell is already per one DeclaredUnit and this decoder
-// rescales nothing; a qty column here would invite a renormalization the wire law forecloses at its source.
-public sealed record DeclarationRecordWire {
-    public required string MaterialKey { get; init; }
-    public required string Issuer { get; init; }
-    public required string Registration { get; init; }
-    public required string DeclaredUnit { get; init; }
-    public required string Standard { get; init; }
-    public required string Subtype { get; init; }
-    public required string Issued { get; init; }
-    public required string ValidUntil { get; init; }
-    public required Dictionary<string, Dictionary<string, double>> Indicators { get; init; }
-    public required DeclarationOrigin Source { get; init; }
-    public double? RecycledContent { get; init; }
-    public double? EndOfLifeRecovery { get; init; }
-}
-
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
-[JsonSerializable(typeof(DeclarationRecordWire))]
-internal sealed partial class DeclarationJson : JsonSerializerContext;
-
-// The ONE [Mapper] on this seam: a pure SHAPE transcription with no domain decision inside it. Its mapping is
-// READER-FREE, so RMG020 keeps source-side force and the method's two ignore rows are the whole authored inventory. No
-// conversion knob is re-spelled here — the folder's assembly MapperDefaults owns EnabledConversions, and this seam is
-// inbound-only, so LanguageExt's throwing explicit Option<T> cast is unreachable and excluding it would be hygiene.
-[Mapper]
-public static partial class DeclarationMap {
-    // The material key lands on the union case, not on the row; the indicator block reaches the row already folded, so
-    // the whole impact declaration crosses as ONE member instead of three parallel columns.
-    [MapperIgnoreSource(nameof(DeclarationRecordWire.MaterialKey))]
-    [MapperIgnoreSource(nameof(DeclarationRecordWire.Indicators))]
-    [MapProperty(nameof(impacts), nameof(EpdRow.Impacts))]
-    [MapProperty(nameof(DeclarationRecordWire.Source), nameof(EpdRow.Origin), Use = nameof(Provenance))]
-    [MapProperty(nameof(DeclarationRecordWire.Issued), nameof(EpdRow.Issued), Use = nameof(Iso))]
-    [MapProperty(nameof(DeclarationRecordWire.ValidUntil), nameof(EpdRow.ValidUntil), Use = nameof(Iso))]
-    public static partial EpdRow ToEpd(DeclarationRecordWire wire, DeclaredImpacts impacts);
-
-    // Per-TYPE non-generic carriers, never a generic T? -> Option<T> (RMG001 refuses it wholesale).
-    [UserMapping] static Option<double> Fraction(double? value) => Optional(value);
-    [UserMapping] static Option<DeclarationOrigin> Provenance(DeclarationOrigin source) => Some(source);
-
-    // The contract declares `format: date`, so a value this pattern cannot read is a CONTRACT breach, not a domain
-    // fault: the raise lands in Decode's one Op.Catch beside the reader's own, and no arm invents a default date.
-    [UserMapping] static LocalDate Iso(string text) => LocalDatePattern.Iso.Parse(text).GetValueOrThrow();
-}
-
+// --- [DECLARATION_WIRE] --------------------------------------------------------------------
 public static class DeclarationWire {
-    static readonly FrozenDictionary<string, LifecycleStage> Bands = new Dictionary<string, LifecycleStage> {
-        ["a1-a3"] = LifecycleStage.A1A3, ["a4"] = LifecycleStage.A4, ["a5"] = LifecycleStage.A5,
-        ["b1"] = LifecycleStage.B, ["b2"] = LifecycleStage.B, ["b3"] = LifecycleStage.B, ["b4"] = LifecycleStage.B,
-        ["b5"] = LifecycleStage.B, ["b6"] = LifecycleStage.B, ["b7"] = LifecycleStage.B,
-        ["c1"] = LifecycleStage.C, ["c2"] = LifecycleStage.C, ["c3"] = LifecycleStage.C, ["c4"] = LifecycleStage.C,
-        ["d"] = LifecycleStage.D,
-    }.ToFrozenDictionary();
-
     public static Fin<AssessmentRecord> Decode(ReadOnlyMemory<byte> record, Op key) =>
-        key.Catch(() =>
-            from wire in Read(record, key)
-            from impacts in Banded(wire.Indicators, key)
-            select (AssessmentRecord)new AssessmentRecord.Declared(
-                MaterialId.Of(wire.MaterialKey), DeclarationMap.ToEpd(wire, impacts)));
+        key.Catch(() => Fin.Succ(DeclarationRecord.Parser.ParseFrom(
+                CodedInputStream.CreateWithLimits(
+                    record.AsStream(), WireLimits.Declaration.SizeLimit, WireLimits.Declaration.RecursionLimit))))
+            .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload, key))
+            .Map(admitted => (AssessmentRecord)new AssessmentRecord.Declared(
+                MaterialId.Of(admitted.MaterialKey), ToEpd(admitted, Banded(admitted.Cells))));
 
-    static Fin<DeclarationRecordWire> Read(ReadOnlyMemory<byte> record, Op key) =>
-        Optional(JsonSerializer.Deserialize(record.Span, DeclarationJson.Default.DeclarationRecordWire))
-            .Match(
-                Some: static wire => Fin.Succ(wire),
-                None: () => new ElementFault.ValueRejected(key, "<declaration-record-null>"));
+    static EpdRow ToEpd(DeclarationRecord wire, DeclaredImpacts impacts) => new(
+        wire.Issuer,
+        wire.Registration,
+        wire.DeclaredUnit,
+        wire.Standard,
+        wire.Subtype,
+        Some(new DeclarationOrigin(wire.Source.Registry, wire.Source.Uuid)),
+        impacts,
+        wire.HasRecycledContent ? Some(wire.RecycledContent) : None,
+        wire.HasEndOfLifeRecovery ? Some(wire.EndOfLifeRecovery) : None,
+        wire.Issued.ToLocalDate(),
+        wire.ValidUntil.ToLocalDate());
 
-    static Fin<DeclaredImpacts> Banded(Dictionary<string, Dictionary<string, double>> indicators, Op key);
-    // Per indicator: resolve the row token through the seam ImpactCategory.Parse and each module token through the
-    // Bands rows — an unknown token on either axis refuses typed rather than being dropped into a silent zero — then
-    // sum declared cells into each LifecycleStage band and cover a band on any member's presence. Complete coverage
-    // across all thirteen indicator rows and all six bands yields the Full arm (row-major, indicator × stage); any
-    // partial census yields the Carbon arm off the gwp-total row alone. The fold PICKS an arm rather than filling two
-    // slots, so the exclusivity it used to owe an admission gate is now the shape of its own return type.
+    // The generated enum ordinals are the schema's canonical indicator order. Module ordinals collapse the fifteen
+    // EN 15978 cells onto the seam's six lifecycle bands; no token roster or string parser stands beside the schema.
+    static DeclaredImpacts Banded(IEnumerable<ImpactCell> cells) {
+        double[] matrix = new double[MaterialPropertySet.Environmental.MatrixArity];
+        bool[] covered = new bool[matrix.Length];
+        foreach (ImpactCell cell in cells) {
+            int category = (int)cell.Category - 1;
+            int stage = Band(cell.Stage);
+            int at = (category * LifecycleStage.Count) + stage;
+            matrix[at] += cell.Value;
+            covered[at] = true;
+        }
+        return covered.AsSpan().IndexOf(false) < 0
+            ? new DeclaredImpacts.Full([.. matrix])
+            : new DeclaredImpacts.Carbon(
+                matrix.AsMemory(0, LifecycleStage.Count), covered.AsMemory(0, LifecycleStage.Count));
+    }
+
+    static int Band(Module stage) => (int)stage switch {
+        1 => 0,
+        2 => 1,
+        3 => 2,
+        >= 4 and <= 10 => 3,
+        >= 11 and <= 14 => 4,
+        15 => 5,
+        _ => throw new UnreachableException(),
+    };
 }
 ```
 

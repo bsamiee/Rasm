@@ -635,14 +635,19 @@ public static class MaterialsTap {
                 InstrumentSet.Tags(bind.Tenant)),
             acquisitionFit: static (bind, f) => {
                 TagList method = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Receipt.Method.Key));
-                // Rank deficiency reads as a non-finite condition number, the Svd contract the receipt carries, so
-                // the fit population stamps its own rank verdict and the [06] full-rank share partitions that series.
-                return bind.Rows.Write(MaterialsInstrument.AcquisitionFits.Row, 1L,
-                        Keyed(method, MaterialsInstrument.RankSlot,
-                            double.IsFinite(f.Receipt.FitConditionNumber)
-                                ? MaterialsInstrument.FullRank
-                                : MaterialsInstrument.RankDeficient))
-                    .Bind(_ => bind.Rows.Write(MaterialsInstrument.AcquisitionResidual.Row, f.Receipt.FitResidual, method));
+                // Only an actual solver fit enters fit telemetry. Inference and absent assessments carry different
+                // evidence and cannot manufacture a zero residual or a full-rank verdict.
+                return f.Receipt.Assessment
+                    .Map(assessment => assessment.Switch(
+                        state: (Rows: bind.Rows, Method: method),
+                        fit: static (state, fit) => state.Rows.Write(MaterialsInstrument.AcquisitionFits.Row, 1L,
+                                Keyed(state.Method, MaterialsInstrument.RankSlot,
+                                    fit.Rank == fit.ParameterCount
+                                        ? MaterialsInstrument.FullRank
+                                        : MaterialsInstrument.RankDeficient))
+                            .Bind(_ => state.Rows.Write(MaterialsInstrument.AcquisitionResidual.Row, fit.Residual, state.Method)),
+                        inference: static (_, _) => Fin.Succ(unit)))
+                    .IfNone(Fin.Succ(unit));
             },
             wireMint: static (bind, f) => bind.Rows.Write(MaterialsInstrument.WireMints.Row, 1L,
                 InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Receipt.Method))),

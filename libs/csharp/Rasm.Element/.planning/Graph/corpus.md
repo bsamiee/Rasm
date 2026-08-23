@@ -1,10 +1,10 @@
 # [ELEMENT_CORPUS]
 
-`GraphForge` owns deterministic synthetic models and the graded roster shared by benchmarks, property specifications, and cross-runtime parity. `CorpusProfile` closes occurrence count, edge density, bag width, discipline mix, composition depth, the observation and flavor witness cadences, and the seed. `GraphForge.Mint` admits every forged node and edge through `GraphDelta.AdmitOnto` over `Genesis`, exercising `LegalLink`, freeze, and incidence construction, and yields a second MUTATION delta carrying the removal and revision sections a creating delta leaves empty.
+`GraphForge` owns deterministic synthetic models and the graded roster shared by benchmarks and property specifications. `CorpusProfile` closes occurrence count, edge density, bag width, discipline mix, composition depth, observation and flavor cadences, and seed. `GraphForge.Mint` admits forged nodes and edges through `GraphDelta.AdmitOnto` over `Genesis`, exercising native graph law and producing a second mutation delta.
 
 Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and carry the Guid-v7 layout. Type ids mint through `NodeId.Of(NodeSeed.TypeSeed)`; non-rooted ids through `NodeId.Of(NodeSeed.Content)`. Magnitudes and index draws derive from the kernel `Deterministic` splitmix stream, never from a digest, so identity and derivation stay two rails. Each grade therefore reproduces one snapshot fingerprint on every runtime sharing the seed-zero content rail.
 
-`GraphForge` composes the existing `ElementGraph`, `GraphDelta`, `ContentAddress`, `CanonicalWriter`, `ElementWire`, and `GraphTable` owners. Forged payloads re-enter `Classification.Of`, `PropertyValue.Of`, `MeasureValue.OfSi`, `MaterialComposition.Of*`, `MaterialPropertySet.Of*`, `MaterialUsage.LayerSet.Of`/`ProfileSet.Of`, `CoverageGrid.Of`, `AssessmentPayload.Open`, and `AnalysisRoute.Of`; each refusal retains its owning kernel or Element fault.
+`GraphForge` composes the existing `ElementGraph`, `GraphDelta`, `ContentAddress`, `CanonicalWriter`, `ElementWire`, and `GraphTable` owners. `ElementWire` is exercised only for the generated `NodeWire` support seam used by Persistence edits; the corpus never promotes a graph or delta into a peer contract.
 
 ## [01]-[INDEX]
 
@@ -14,19 +14,17 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 ## [02]-[GRAPH_FORGE]
 
 - Owner: `CorpusProfile` the closed generation-parameter record — occurrence count, `[0,1]` edge density, bag width, discipline mix, composition depth, type-reuse ratio, observation stride and sample count, flavor stride, seed — railed through `Of`; `GraphForge` the deterministic realization fold.
-- Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key, typeRatio, observationStride, observationSamples, flavorStride)` admits positive counts, a unit-interval density, a non-empty discipline mix, a depth of at least one, and positive reuse, stride, and sample columns; numeric refusals stay `KernelFault.OutOfRange` while the empty discipline mix remains an Element semantic refusal; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)>` — the frozen snapshot a benchmark folds, the creating event body, and the change record the delta wire leg decodes.
+- Entry: `CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, key, typeRatio, observationStride, observationSamples, flavorStride)` admits positive counts, a unit-interval density, a non-empty discipline mix, a depth of at least one, and positive reuse, stride, and sample columns; numeric refusals stay `KernelFault.OutOfRange` while the empty discipline mix remains an Element semantic refusal; `GraphForge.Mint(profile, key)` realizes the profile into `Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)>` — the frozen snapshot a benchmark folds, the creating event body, and a native change record.
 - Auto: `Mint` builds one shared corpus header (`Header.Default` over the fixed corpus instant, WIDENED with a populated `StepHeader` and a one-override/one-axis `UnitScheme` — constants, so header bytes still never fork a grade), one `Node.Material` per type slot whose composition cycles the four `MaterialComposition` arms by slot ordinal and whose property bag carries the WHOLE twelve-case engineering roster, one deterministic Type `Object` per slot (id through the production `NodeId.Of(NodeSeed.TypeSeed)` streamed over `WriteIdentity`), then per occurrence one seeded Guid-v7 `Object`, one property bag of `BagWidth` rows whose value case steps the fourteen-case `PropertyValue` family off the flat slot ordinal (its quotient stepping the five `TemporalValue` leaves), one quantity bag row through `MeasureValue.OfSi`, one `Computed` assessment cycling the discipline mix, and — every `ObservationStride`-th occurrence — one `ObservationSeries` opened at the corpus instant and grown by one `Encode`-minted chunk under a `From`-derived summary; one shared `Node.Appearance` and one `Node.Coverage` whose smallest-admissible level run carries the one-cell base and its `Coarsen`-derived successor (both blob keys off the corpus lattice lane) that the whole model associates to; edges land as the `Aggregate` fanout spine (depth-derived fanout), the `PropertyDefinition`/`Assessment`/`TypeDefinition`/`Observation` assigns, the material `Associate`s carrying the `MaterialUsage` arm their material's composition slot selects (`LayerSet` and `ProfileSet` usage on the matching composition slots, the explicit `Unbound` arm elsewhere), the witness-resource `Associate`s under `MaterialUsage.Unbound`, `⌊density·nodes⌋` seeded `Connect` adjacencies, and — every `FlavorStride`-th occurrence — the `Compose.Contain`/`Nest`/`Reference` flavors, a `Void`, a realized `Connect` (on the strided pairs past occurrence zero) carrying occurrence zero as its distinct realizing intermediary beside a content-lane `Interface` key, and a `Generic` burying a `PropertyValue.Reference` in its attribute map. `AdmitOnto(Genesis(header))` admits the assembled normal-form delta, so `LegalLink` runs per forged edge.
 - Law: `Mint`'s witness run closes exactly six families, the optional-slot and presence duals (the realized `Connect` pair, the strided `OwnerHistory` with its alternating `Modified`, the alternating `EvidenceRun` window/correlation, the cycling `EvidenceGrade` roster with its expiry/attestation/run duals, the baked `ProfileSet` section), and two section pairs, and claims nothing wider — every `Node` case, every `Relationship` flavor, every `MaterialComposition` arm, every `MaterialPropertySet` case, every `MaterialUsage` arm, and every `PropertyValue` case with every `TemporalValue` leaf cross a graded witness; the strided `Connect` carries both optional slots (the realizing intermediary and the interface key), the coverage witness carries its two-level `Coarsen` run, and the mutation delta carries the removal and revision sections. Each cycle steps an ORDINAL whose run outsizes its family at the SMALLEST grade — four type slots against four composition arms and against the three usage arms riding the same slot ordinal, the whole twelve-case roster on every material, `Nodes × BagWidth` value slots against the fourteen cases times five leaves — so totality is a property of the arithmetic rather than of a grade's size. Sampled-curve coverage rides the thermal witness's `Some` conductivity curve, so `SampledCurveWire`, the `OptCurve` decode re-admission, and the `Curve` canon write cross every grade; the remaining curve columns ride `None`, so both presence duals witness.
 - Receipt: the mint result carries the frozen graph, the creating normal-form delta, and the mutation delta; `ContentAddress.OfGraph` supplies the snapshot's reproducibility fingerprint and `GraphDelta.Address` the mutation's.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (`Instant.FromUnixTimeTicks`/`Interval`/`Duration`, `Period`/`LocalDate`/`LocalTime` the temporal leaves), `Rasm` (`ContentHash`, `Deterministic.Stream`/`Unit`/`NextBelow`, `Op`, `Rasm/Domain/validation#ADMISSION_SLOTS`, `Rasm.Numerics`, `Rasm.Drawing`), `Graph/wire#WIRE_CODEC` (`ElementWire`, the `CrossingFamily` widths, `Graph/wire#EVENT_ENVELOPE` the announced crossing), `Graph/table#TABULATE_FOLD` (the `Tabulate` op row), and System.Buffers.Binary (`BinaryPrimitives` Guid shaping).
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Map`/`TraverseM`), Thinktecture.Runtime.Extensions (generated owners), NodaTime (temporal leaves), `Rasm` (content identity, deterministic streams, admission, numerics, and drawing), `Graph/wire#NODE_CODEC` (`ElementWire` and the `CrossingFamily` widths), and `Graph/table#TABULATE_FOLD` (the `Tabulate` row).
 - Growth: a new `Node` case or `Relationship` flavor is one witness row in the assembly; a new arm on any cycled family is one factory row beside its incremented arity const, which is what keeps the ordinal cycle total; a new payload family in the forge is one kernel arm beside the existing node kernels; a new generation axis is one `CorpusProfile` column threaded into the kernels, and a new random axis is one draw lane on `Deterministic` — never a sibling forge, never a parameter whose value the seed cannot replay, and never a magnitude projected off an id digest.
 - Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Open` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism never rides a runtime PRNG — a `Random(seed)` stream couples the corpus to a BCL implementation — and it splits by AXIS across the two kernel owners: an ID replays through `ContentHash` over `(seed, lane, ordinal)` and a MAGNITUDE or index draw through `Deterministic`, so neither a hash-seeded sampler (which the kernel rejects by design) nor a modulo-biased projection off a digest survives here; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.Buffers;
-using System.Buffers.Binary;
-using CloudNative.CloudEvents;
+using CommunityToolkit.HighPerformance.Buffers;
 using Google.Protobuf;
 using LanguageExt;
 using NodaTime;
@@ -137,13 +135,13 @@ public sealed record CorpusProfile {
 // derives from Deterministic, the kernel's one draw owner. The kernel rules a sampler seeded from a ContentHash a
 // design defect, and the concrete cost the split repays is bias: a hash modulo a non-power-of-two ceiling weights
 // its low residues, so a `% 1000` magnitude and a `% Nodes` index each skewed the corpus in the exact direction a
-// parity gate cannot see. Deterministic.Unit takes the top 53 bits and NextBelow rejects the biased tail, so the
+// property gate cannot see. Deterministic.Unit takes the top 53 bits and NextBelow rejects the biased tail, so the
 // forged distribution is flat by construction. The assembled normal-form delta still crosses AdmitOnto over Genesis
 // so LegalLink runs per forged edge — the forge is FOREIGN to the structural law, exactly like a wire payload.
 // Generation loops are the named measured-kernel statement seam.
 public static class GraphForge {
  const long CorpusUnixTicks = 17_672_256_000_000_000L;
- // Family widths read the ONE union-arity owner (Graph/wire#WIRE_CODEC CrossingFamily) — the four hand consts that
+ // Family widths read the ONE union-arity owner (Graph/wire#NODE_CODEC CrossingFamily) — the four hand consts that
  // mirrored it were the second spelling of one invariant, and a new arm now lands as one factory row here with the
  // width already moved at the owner.
  static int PropertyCases => CrossingFamily.PropertyValue.Arms;
@@ -161,7 +159,7 @@ public static class GraphForge {
 
  // Mint yields THREE values: the frozen snapshot, the Genesis-rooted creating delta, and the MUTATION delta — a
  // second change record over the same minted nodes carrying the removal and revision sections a creating delta leaves
- // empty, so the delta wire's own removed/revised sections and DecodeDelta's normal-form gate reach a graded witness.
+ // empty, so the native change record still reaches the removal and revision paths.
  // Both deltas cross NormalForm before use: the seeded id stream makes normal form true by construction, and the
  // gate is what turns a new witness row's id-lane collision into a named refusal rather than a silent coalesce.
  public static Fin<(ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation)> Mint(CorpusProfile profile, Op key) {
@@ -200,7 +198,7 @@ public static class GraphForge {
 
  // One measured series per strided occurrence, each opened at the corpus instant and grown by ONE real encoded
  // chunk — the forge crosses Open, Encode, From, and Append exactly as a live producer does, so a codec or
- // admission regression surfaces at the parity gate rather than at the first metered deployment. ONE chunk is
+ // admission regression surfaces at the corpus gate rather than at the first metered deployment. One chunk is
  // what makes the per-block summary exact: Append proves the census total against the WHOLE grown run, and a
  // fresh Open carries zero prior samples, so this block's From result IS that total. Appending a second chunk to
  // one series recomputes From over the concatenated run — a per-chunk summary appended second refuses at the
@@ -241,13 +239,15 @@ public static class GraphForge {
  static NodeId Seeded(long seed, CorpusLane lane, int ordinal) =>
   NodeId.Create(SeededGuid(seed, lane, ordinal).ToString("N"));
 
- // Guid-v7 shaping over the seed fold — the id projection and the correlation witness share one byte law.
+ // Guid-v7 shaping over the seed fold — the id projection and the correlation witness share one byte law: the
+ // kernel's big-endian `Wire` projection IS the RFC-4122 byte order, so the version nibble sits in byte 6 and the
+ // variant in byte 8, and the Guid constructs big-endian rather than through the platform's mixed-endian layout.
  static Guid SeededGuid(long seed, CorpusLane lane, int ordinal) {
   Span<byte> b = stackalloc byte[16];
-  BinaryPrimitives.WriteUInt128LittleEndian(b, Seed(seed, lane, ordinal));
-  b[7] = (byte)((b[7] & 0x0F) | 0x70);
+  ContentHash.Wire(Seed(seed, lane, ordinal)).Span.CopyTo(b);
+  b[6] = (byte)((b[6] & 0x0F) | 0x70);
   b[8] = (byte)((b[8] & 0x3F) | 0x80);
-  return new Guid(b);
+  return new Guid(b, bigEndian: true);
  }
 
  // One seed fold owns every lane; id and payload projections consume its UInt128 result.
@@ -276,7 +276,7 @@ public static class GraphForge {
     select payload)).As();
 
  // One property bag (BagWidth rows) and one quantity bag (a single [L3] volume row through the OfSi registry gate)
- // per occurrence — the counted-bag canonical layout every parity consumer re-hashes. Each property row's VALUE CASE
+ // per occurrence — the counted-bag canonical layout every native identity consumer re-hashes. Each row's value case
  // steps the closed fourteen-case family off the FLAT slot ordinal i*BagWidth + j rather than off j, so the cycle
  // closes over the whole model instead of over one bag: the smallest grade forges 256 slots against the
  // PropertyCases * TemporalArms the two cycles need, so every value case and every temporal leaf crosses at every grade.
@@ -431,7 +431,7 @@ public static class GraphForge {
 
  // Evidence cycles the six-grade roster and alternates every optional column's presence dual — grade token
  // variety, the calendar expiry, the attestation, and the run link each cross graded witnesses beside their
- // absent arms (the S-E3 columns the wire now carries on ledger row [16]).
+ // absent arms (the S-E3 columns carried by the generated evidence message).
  static Fin<PropertyEvidence> Evidence(int ordinal, int slot, Op key) =>
   (ordinal % 3 == 2
     ? EvidenceRun.Of("corpus", "GraphForge", "1", CorpusInstant, key).Map(Some)
@@ -467,7 +467,7 @@ public static class GraphForge {
  // Witnesses mints the two node cases no occurrence payload reaches — Appearance and Coverage — ONCE per model,
  // shared by every occurrence's Associate edge, which is exactly the dedup shape a real projector produces. Without
  // them the sixth and seventh Node arms, their canonical-bytes ordinals, their wire oneof arms, and the Associate
- // legality closure over the Material/Appearance/Coverage triple all ride untested behind arms no parity vector
+ // legality closure over the Material/Appearance/Coverage triple all ride untested behind arms no corpus witness
  // reaches. Coverage keeps the smallest admissible run — a one-cell base level, its Coarsen-derived successor, one
  // Gray band, the identity georeference — so the level-run wire columns and the decode re-admission proof (the
  // Coarsen-chain slot) cross every grade; both level keys derive from the corpus lattice lane, so the witness
@@ -478,11 +478,12 @@ public static class GraphForge {
      LatticeAxis.Create(1), LatticeAxis.Create(1), LatticeAxis.Create(1), ceiling: 1L, key).Bind(lattice =>
     lattice.Coarsen(key).Bind(coarse =>
      CoverageBand.Of(0, "corpus-band", ChannelDtype.Float32, BandRole.Gray, key).Bind(band =>
-      CoverageGrid.Of(
-        CoverageKind.Field,
-        Seq(new OverviewLevel(lattice, BlobKey.Of(Seed(CorpusLatticeSeed, CorpusLane.Lattice, 0))),
-            new OverviewLevel(coarse, BlobKey.Of(Seed(CorpusLatticeSeed, CorpusLane.Lattice, 1)))),
+      (from raster in ArtifactContent.Of(ContentHash.Wire(Seed(CorpusLatticeSeed, CorpusLane.Lattice, 0)).ToByteArray(), key)
+       from overview in ArtifactContent.Of(ContentHash.Wire(Seed(CorpusLatticeSeed, CorpusLane.Lattice, 1)).ToByteArray(), key)
+       from grid in CoverageGrid.Of(
+        CoverageKind.Field, Seq(new OverviewLevel(lattice, raster), new OverviewLevel(coarse, overview)),
         Seq(band), header.Reference, key)
+       select grid)
        .Map(grid => (
         Contented(new Node.Appearance(Draft, summary), tol),
         Contented(new Node.Coverage(Draft, grid), tol)))))));
@@ -605,12 +606,12 @@ public static class GraphForge {
 ## [03]-[CORPUS_ROSTER]
 
 - Owner: `CorpusGrade` the `[SmartEnum<string>]` size roster; `CorpusOp` the `[SmartEnum<string>]` hot-path vocabulary with a witness-returning run column; `CorpusModel` the minted carrier with its snapshot fingerprint; `CorpusWitness` the operation evidence; `CorpusGate` the mint/determinism capability.
-- Cases: `CorpusGrade` rows `S`/`M`/`L`/`XL` (64 → 262 144 occurrences, density, bag width, depth, and discipline mix widening together); `CorpusOp` rows `Bake` (every object root through the memoized fold), `Freeze` (thaw-and-freeze rebuild of the frozen structures), `CanonicalBytes` (the delta content-key projection), `Encode` (the full snapshot wire lowering), `DecodeGraph` (the snapshot round-trip under `WireLimits.Verified`), `DecodeDelta` (the mutation round-trip through the normal-form gate under `WireLimits.Default`), `Tabulate` (the columnar egress fold through its declaration-versus-projection gate); the closed hot-path family.
-- Entry: `CorpusGate.Mint(grade, key)` forges once and stamps its snapshot fingerprint. `Stable(grade, key)` forges twice and rejects address drift. Each `CorpusOp.Run(model, key)` returns a `CorpusWitness` with grade, operation, magnitude, snapshot, and operation artifact address; freeze and both decode rows reject content drift against the input they round-tripped, while every protobuf write/decode staging window crosses `Op.Catch` whole.
+- Cases: `CorpusGrade` rows `S`/`M`/`L`/`XL`; `CorpusOp` rows `Bake`, native `Freeze`, `CanonicalBytes`, `EncodeNode`, `DecodeNode`, and `Tabulate`. Node encoding exercises the generated support closure without inventing a graph actor.
+- Entry: `CorpusGate.Mint(grade, key)` forges once and stamps its native snapshot fingerprint. `Stable(grade, key)` proves integer-wire canonicality, forges twice, and rejects native-address drift. Each `CorpusOp.Run` returns a witness; node decode rejects content-address drift against the selected native node.
 - Receipt: `CorpusWitness` proves traversal and binds each operation result to its input fingerprint. Tests-estate timing maps it into AppHost `BenchmarkReceipt`: `Suite = "Rasm.Element"`, `Case = $"{grade}/{op}"`, `Corpus = Some(witness.Snapshot.Value)`, and `Operations = witness.Magnitude`; AppHost owns host evidence, timing, allocation, verdict, artifact key, and correlation.
-- Packages: Google.Protobuf (`MessageExtensions.WriteTo(IBufferWriter<byte>)` and `WriteTo(Stream)` — the wire legs stage through one buffer, so no hot-path row allocates a whole-snapshot array), System.Buffers (`ArrayBufferWriter<byte>` the encode sink whose `WrittenSpan` the digest reads in place), `Rasm` (`Op.Catch` preserving any provider throw across the complete staging window). BenchmarkDotNet and CsCheck consume this roster FROM THE TESTS ESTATE — the benchmark lane iterates `CorpusOp.Items` per grade and the property lane drives `Stable` and the wire round-trip over seeds; both are central-manifest packages with no `Rasm.Element` reference, so the seam page names the consumption shape and no benchmark member.
+- Packages: Google.Protobuf writes and parses generated node messages; CommunityToolkit.HighPerformance supplies the pooled encode sink; `Rasm` supplies `Op.Catch`. BenchmarkDotNet and CsCheck consume this roster from tests.
 - Growth: a new scale is one `CorpusGrade` row; a new hot path is one `CorpusOp` row and witness arm. Benchmarks reuse one minted model per grade.
-- Boundary: Element owns models, operation vocabulary, and semantic witnesses. AppHost owns benchmark receipts and regression verdicts. `XL` belongs to benchmark hosts, never unit defaults. [SPIKE]: the four graded `S`/`M`/`L`/`XL` snapshot addresses converge only on the first sanctioned execution of the settled forge — the `tests/contracts/MANIFEST.md` `[02.25]` blocker carries the arming, the DESIGN-PIN law rejects any transcribed stand-in ahead of it, and the pins land here and mirror to the `libs/python` `_CORPUS` `element-corpus` row and the `libs/typescript/core` bit-parity gate in one change; the deterministic floor is `CorpusGate.Stable`'s double-forge repeatability and the per-op drift gates, total without them — an unset placeholder cannot masquerade as a parity gate.
+- Boundary: Element owns models, operation vocabulary, and semantic witnesses. AppHost owns benchmark receipts and regression verdicts. `XL` belongs to benchmark hosts, never unit defaults. This corpus is branch-local test data, not a manifest actor or a hand-maintained cross-language mirror; `CorpusGate.Stable` proves native repeatability.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -653,9 +654,8 @@ public sealed partial class CorpusOp {
  public static readonly CorpusOp Bake = new("bake", RunBake);
  public static readonly CorpusOp Freeze = new("freeze", RunFreeze);
  public static readonly CorpusOp CanonicalBytes = new("canonical-bytes", RunCanonicalBytes);
- public static readonly CorpusOp Encode = new("encode", RunEncode);
- public static readonly CorpusOp DecodeGraph = new("decode-graph", RunDecodeGraph);
- public static readonly CorpusOp DecodeDelta = new("decode-delta", RunDecodeDelta);
+ public static readonly CorpusOp EncodeNode = new("encode-node", RunEncodeNode);
+ public static readonly CorpusOp DecodeNode = new("decode-node", RunDecodeNode);
  public static readonly CorpusOp Tabulate = new("tabulate", RunTabulate);
 
  [UseDelegateFromConstructor]
@@ -674,42 +674,42 @@ public sealed partial class CorpusOp {
   model.Delta.ToCanonicalBytes(model.Graph.Header.Tolerance, key).Bind(bytes =>
    Witness(model, CanonicalBytes, bytes.Length, ContentAddress.Of(bytes.Span), key));
 
- // Wire legs write through the buffer-writer entry the wire page's own boundary law names, so a whole-snapshot
- // ToByteArray copy never lands: the encode row digests the written span in place, and the decode rows write into one
- // stream buffer and rewind rather than allocating a second array to hand the parser.
- static Fin<CorpusWitness> RunEncode(CorpusModel model, Op key) => key.Catch(() => {
-  ArrayBufferWriter<byte> sink = new();
-  ElementWire.Encode(model.Graph).WriteTo(sink);
-  return Witness(model, Encode, sink.WrittenCount, ContentAddress.Of(sink.WrittenSpan), key);
- });
+ // The selected node is stable across FrozenDictionary implementations; no enumeration order becomes benchmark
+ // meaning. Encoding measures the generated support seam Persistence composes for EntityEdit member patches.
+ static Node Selected(CorpusModel model) =>
+  model.Graph.Nodes.Values.OrderBy(static node => node.Id.Value, StringComparer.Ordinal).First();
 
- static Fin<CorpusWitness> RunDecodeGraph(CorpusModel model, Op key) => key.Catch(() => {
-  using MemoryStream payload = new();
-  ElementWire.Encode(model.Graph).WriteTo(payload);
-  payload.Position = 0;
-  return ElementWire.DecodeGraph(payload, WireLimits.Verified, key).Bind(graph =>
-   Checked(model, DecodeGraph, graph.Nodes.Count, ContentAddress.OfGraph(graph), model.Snapshot, key));
- });
+ static Fin<CorpusWitness> RunEncodeNode(CorpusModel model, Op key) {
+  Node node = Selected(model);
+  return ElementWire.Encode(node, model.Graph.Header.Tolerance, key).Bind(wire => key.Catch(() => {
+   using ArrayPoolBufferWriter<byte> sink = new();
+   wire.WriteTo(sink);
+   return Witness(model, EncodeNode, sink.WrittenCount, ContentAddress.Of(sink.WrittenSpan), key);
+  }));
+ }
 
- // RunDecodeDelta crosses the mutation whole and re-enters through DecodeDelta's normal-form gate, so the removed
- // and revised sections, the ABSENT-header arm, and the shape gate itself are all timed and witnessed. The artifact
- // is the decoded delta's own content key, which the mutation's key must reproduce.
- static Fin<CorpusWitness> RunDecodeDelta(CorpusModel model, Op key) => key.Catch(() => {
-  using MemoryStream payload = new();
-  ElementWire.Encode(model.Mutation, model.Graph.Header).WriteTo(payload);
-  payload.Position = 0;
+ // Parse the generated support message, then cross the same validated native projection Persistence relies on.
+ // ContentAddress is the semantic witness; protobuf bytes are not promoted into graph identity.
+ static Fin<CorpusWitness> RunDecodeNode(CorpusModel model, Op key) {
+  Node node = Selected(model);
   double tolerance = model.Graph.Header.Tolerance;
-  return ElementWire.DecodeDelta(payload, model.Graph.Header, WireLimits.Default, key).Bind(delta =>
-   Checked(model, DecodeDelta, delta.NodeCount + delta.EdgeCount, delta.Address(tolerance), model.Mutation.Address(tolerance), key));
- });
+  return ElementWire.Encode(node, tolerance, key).Bind(wire => key.Catch(() => {
+   using MemoryStream payload = new();
+   wire.WriteTo(payload);
+   payload.Position = 0;
+   global::Rasm.Contracts.Element.V1.NodeWire parsed =
+    global::Rasm.Contracts.Element.V1.NodeWire.Parser.ParseFrom(payload);
+   return ElementWire.Decode(parsed, key).Bind(decoded =>
+    Checked(
+     model, DecodeNode, payload.Length,
+     ContentAddress.Of(decoded, tolerance), ContentAddress.Of(node, tolerance), key));
+  }));
+ }
 
- // RunTabulate folds the columnar egress: every row family the snapshot carries crosses its declaration-versus-projection
- // gate, so a column roster that drifted from its payload arm fails here rather than at a landing that infers nothing.
  static Fin<CorpusWitness> RunTabulate(CorpusModel model, Op key) =>
   GraphTable.Tabulate(model.Graph, key).Bind(snapshot =>
    snapshot.Batches(key).Bind(_ => Witness(model, Tabulate, snapshot.Rows.Count, snapshot.Address, key)));
-
- // ONE drift gate all three round-trip rows compose — the witness's own op column names WHICH operation drifted,
+ // One native drift gate the freeze and node-decode rows compose — the witness's own op column names the operation,
  // so the three per-op tokens collapsed onto it (the stated named loss, recovered by the column).
  static Fin<CorpusWitness> Checked(
   CorpusModel model, CorpusOp operation, long magnitude, ContentAddress artifact, ContentAddress expected, Op key) =>
@@ -727,25 +727,38 @@ public sealed partial class CorpusOp {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // Tests-estate gate: Mint forges once and fingerprints the snapshot; Stable proves repeatability by double-forge.
 public static class CorpusGate {
+ // Protovalidate admits non-empty bytes but pinned CEL cannot index bytes, so the seam inverse owns minimal width.
+ // These are the sign-transition boundaries: 00/FF are canonical zero/minus-one; 0080/FF7F are the first values
+ // needing a sign-preserving prefix. Empty and redundant 00/FF extension rows must all refuse.
+ static readonly Seq<(ByteString Bytes, bool Accepted)> IntegerWireCases = Seq(
+  (ByteString.CopyFrom([0x00]), true),
+  (ByteString.CopyFrom([0xFF]), true),
+  (ByteString.CopyFrom([0x00, 0x80]), true),
+  (ByteString.CopyFrom([0xFF, 0x7F]), true),
+  (ByteString.Empty, false),
+  (ByteString.CopyFrom([0x00, 0x00]), false),
+  (ByteString.CopyFrom([0x00, 0x01]), false),
+  (ByteString.CopyFrom([0xFF, 0xFF]), false),
+  (ByteString.CopyFrom([0xFF, 0xFE]), false));
+
  public static Fin<CorpusModel> Mint(CorpusGrade grade, Op key) =>
   GraphForge.Mint(grade.Profile, key).Map(step =>
    new CorpusModel(grade, step.Graph, step.Delta, step.Mutation, ContentAddress.OfGraph(step.Graph)));
 
- // The GraphEventType.Snapshot PRODUCER: one crossing per minted grade — body the encoded snapshot, subject its
- // content key — so the [04] transport vocabulary at Graph/wire#EVENT_ENVELOPE has an in-folder producer and a
- // broker lane consumes a corpus announcement exactly as a live one.
- public static Fin<CloudEvent> Announce(CorpusModel model, Op key) =>
-  GraphCrossing.Mint(
-   GraphEventType.Snapshot, model.Snapshot, model.Graph.Header.At,
-   ElementWire.Encode(model.Graph),
-   new CrossingPorts($"corpus-mint-{model.Grade.Key}", None, TraceCarrier.Of(null), Seq<(EventExtension, object)>()),
-   key);
-
  public static Fin<ContentAddress> Stable(CorpusGrade grade, Op key) =>
-  Mint(grade, key).Bind(first => Mint(grade, key).Bind(second =>
+  IntegerCanonicality(key).Bind(_ => Mint(grade, key).Bind(first => Mint(grade, key).Bind(second =>
    first.Snapshot == second.Snapshot
     ? Fin.Succ(first.Snapshot)
-    : Fin.Fail<ContentAddress>(new ElementFault.ValueRejected(key, $"<corpus-nondeterministic:{grade.Key}>"))));
+    : Fin.Fail<ContentAddress>(new ElementFault.ValueRejected(key, $"<corpus-nondeterministic:{grade.Key}>")))));
+
+ static Fin<Unit> IntegerCanonicality(Op key) => IntegerWireCases.TraverseM(row => {
+  Fin<PropertyValue> admitted = WireCodec.ToValue(
+   new global::Rasm.Contracts.Element.V1.PropertyValueWire { Integer = row.Bytes }, key);
+  return admitted.IsSucc == row.Accepted
+   ? Fin.Succ(unit)
+   : Fin.Fail<Unit>(new ElementFault.ValueRejected(
+      key, $"<integer-wire-canonicality:{Convert.ToHexString(row.Bytes.Span)}:expected={row.Accepted}>"));
+ }).As().Map(static _ => unit);
 }
 ```
 

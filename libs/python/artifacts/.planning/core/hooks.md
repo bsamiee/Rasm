@@ -224,6 +224,12 @@ class TransmittalIssued(Struct, frozen=True, gc=False):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
+TRANSMITTAL_POINT: Final[HookPoint[TransmittalIssued]] = HookPoint(
+    id=ArtifactHook.TRANSMITTAL_ISSUED,
+    payload=TransmittalIssued,
+    modality=Modality(observe=None),
+)
+
 ARTIFACT_POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
     HookPoint(id=ArtifactHook.ISSUE_ADMITTED, payload=IssueAdmitted, modality=Modality(veto=None)),
     HookPoint(id=ArtifactHook.ISSUE_PLANNED, payload=IssuePlanned, modality=Modality(observe=None)),
@@ -234,7 +240,7 @@ ARTIFACT_POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
     # sheet-set issue drains, so a late subscriber reads the whole last drain.
     HookPoint(id=ArtifactHook.FRONT_DRAINED, payload=StageMark, modality=Modality(replay=8)),
     HookPoint(id=ArtifactHook.RECEIPT_EMITTED, payload=ReceiptEmitted, modality=Modality(observe=None)),
-    HookPoint(id=ArtifactHook.TRANSMITTAL_ISSUED, payload=TransmittalIssued, modality=Modality(observe=None)),
+    TRANSMITTAL_POINT,
 ])
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -314,6 +320,7 @@ __all__ = (
     "Production",
     "ReceiptEmitted",
     "TransmittalIssued",
+    "TRANSMITTAL_POINT",
     "scoped",
 )
 ```

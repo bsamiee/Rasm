@@ -75,7 +75,7 @@ public sealed record FieldSpace(FieldStation Station, FieldRank Rank, int Dim, l
     // every FieldSpace-shaped producer reads its grid here, so a second chunk arithmetic never forks the address a
     // consumer computes. The grid RAILS: an extent, component count, or budget the derivation cannot serve refuses
     // by name rather than answering a tuple whose dims a caller would have to disbelieve.
-    public Validation<Error, ChunkGrid> Layout(int targetChunkElements = FieldCodec.ChunkElementTarget) =>
+    public Validation<Error, ChunkGrid> Layout(int targetChunkElements = FieldPack.ChunkElementTarget) =>
         ChunkGrid.Derive([checked((int)Count)], Components, targetChunkElements);
 }
 
@@ -107,8 +107,8 @@ public sealed partial record DiscreteMesh(
         // A filtered dataset MUST be chunked — the filter pipeline applies per chunk — so both grids derive
         // through the ONE `ChunkGrid` owner rather than each naming its own row block; the two derivations
         // accumulate, so a mesh whose node and cell extents are both unservable reports both.
-        (ChunkGrid.Derive([checked((int)NodeCount)], components: 3, FieldCodec.ChunkElementTarget),
-         ChunkGrid.Derive([checked((int)ElementCount)], Element.Nodes, FieldCodec.ChunkElementTarget))
+        (ChunkGrid.Derive([checked((int)NodeCount)], components: 3, FieldPack.ChunkElementTarget),
+         ChunkGrid.Derive([checked((int)ElementCount)], Element.Nodes, FieldPack.ChunkElementTarget))
             .Apply(static (nodes, cells) => (Nodes: nodes, Cells: cells)).As().ToFin()
             .Bind(grids => Op.Of(name: "mesh.archive").Catch(() => {
                 H5Dataset<float[]> nodes = new(grids.Nodes.FileDims.ToArray(), grids.Nodes.Chunk.ToArray(), datasetCreation: policy.Creation());
@@ -123,8 +123,8 @@ public sealed partial record DiscreteMesh(
                 using HdfWriter writer = HdfArchive.Begin(graph, sink, policy);
                 // The cursor holds the only ordinal each slot will accept, so a repeated or out-of-order chunk is
                 // a value no caller can spell rather than a mid-encode library fault after the work is spent.
-                return writer.Open(nodes, grids.Nodes).Write(Nodes.ToArray())
-                    .Bind(_ => writer.Open(cells, grids.Cells).Write(Connectivity.ToArray()));
+                return writer.Open(nodes, grids.Nodes).WriteAll(Nodes.ToArray())
+                    .Bind(_ => writer.Open(cells, grids.Cells).WriteAll(Connectivity.ToArray()));
             }));
 
     public ReadOnlySpan<float> Coordinates => Nodes.Span;

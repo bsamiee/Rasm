@@ -383,11 +383,6 @@
         "resolved": "9.0.6",
         "contentHash": "Gny8p2mX0jc5rjh+PA4Gx5GG66sj2C+e+ro7+j/3IsKT/bmQ84tGRV+XKaG+5/CTCdwkSSKDWEQ1rJd0J5jE0Q=="
       },
-      "System.Security.Cryptography.ProtectedData": {
-        "type": "Transitive",
-        "resolved": "9.0.6",
-        "contentHash": "yErfw/3pZkJE/VKza/Cm5idTpIKOy/vsmVi59Ta5SruPVtubzxb8CtnE8tyUpzs5pr0Y28GUFfSVzAhCLN3F/Q=="
-      },
       "System.Security.Permissions": {
         "type": "Transitive",
         "resolved": "4.5.0",
@@ -458,10 +453,7 @@
         "type": "Project"
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "Humanizer.Core": {
         "type": "CentralTransitive",
@@ -653,6 +645,12 @@
           "System.Composition.Hosting": "10.0.10",
           "System.Composition.Runtime": "10.0.10"
         }
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
       },
       "xunit.v3.assert": {
         "type": "CentralTransitive",

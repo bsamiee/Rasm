@@ -58,14 +58,14 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Claims.cs          # BenchmarkInput admits, BenchDistribution measures, ProfileArtifact addresses, BenchmarkClaim binds, HostClaims forecasts
 │   ├── Ledger.cs          # CostVector the per-axis monoid, CostPolicy the admitted rate table proving substrate coverage, ChargebackDataset
 │   ├── Board.cs           # FactSelector samples facts, ComputeObjective binds a kernel indicator, PanelRow/ComputeDescriptors and ComputeHookRail
-│   ├── Wire.cs            # Proto vocabulary with minted/unminted state, evolution law, and the fault projection; client-side compile
-│   ├── Channels.cs        # RemoteTransport dial axis warmed by its row's WarmProbe; one GrpcChannelPolicy; the artifact-frame law
+│   ├── Wire.cs            # Proto vocabulary, ParseGuard admission, the stage crossing, and the client fault rail over Rasm.Contracts
+│   ├── Channels.cs        # RemoteTransport dial axis warmed by its row's WarmProbe; one GrpcChannelPolicy; WireLimits and the artifact-frame law
 │   ├── Ingest.cs          # BrokerBinding carries MQTT 5.0 and NATS whole; CaptureAdmission fans each delivery two ways; BsddTransport the REST leg
 │   ├── Observation.cs     # ObservationLane accumulates and flushes per binding; SensorBinding custody, SensorQuality flags, ObservationSink ports
 │   ├── Codecs.cs          # DeltaCodec owns FastCDC chunking and the Quantization bit budget; CanonicalForm/InterchangeIdentity, ArrowBatch
 │   ├── Archive.cs         # HdfArchive/HdfHandle/HdfWriter bracket the session, HdfArchivePolicy seats DeflateGrade/FilterStage, ChunkGrid inverts
-│   ├── Field.cs           # FieldCodec encodes the 64-byte header; FieldResidence/Compression/FieldElement gate wire codes; InterchangeIo dispatches
-│   ├── Tiles.cs           # CompanionRequest family, 3D-Tiles octree, tileset manifest
+│   ├── Field.cs           # FieldPack encodes the 64-byte header; FieldResidence/Compression/FieldElement gate wire codes; InterchangeIo dispatches
+│   ├── Tiles.cs           # Tessellation companion client, 3D-Tiles octree, tileset manifest
 │   └── Payload.cs         # Four encode arms on one ResidencyKind axis; cone-cullable clusters and level-clamped quantization
 └── Analysis/              # C#-first discipline-assessment rail over the ElementGraph
     ├── Assessment.cs      # Route/request/fact algebra, commissioning, AnalysisReads planar owner
@@ -82,7 +82,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type: `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Fault` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
 
-`ComputeFault` projects through `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant` off the threaded `IClock` and `Duration` off kernel `MonotonicTimeline`, both built at the app root where `ClockPolicy` stays.
+`ComputeFault` projects through AppHost `FaultWire.Raise` onto one `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant` off the threaded `IClock` and `Duration` off kernel `MonotonicTimeline`, both built at the app root where `ClockPolicy` stays.
 
 ## [02]-[STRATA]
 
@@ -213,7 +213,6 @@ flowchart LR
     Model e39@-->|"[WIRE]: StageResult"| Materials
     Fabrication e40@-->|"[PROJECTION]: NestYield"| Analysis
     Bim e41@<-->|"[TESSELLATION]: TessellationOutcome"| Runtime
-    Bim e42@<-->|"[TRANSPORT]: IdsVerdict"| Runtime
     Bim e43@-->|"[CONTENT_KEY]: RepresentationContentHash"| Runtime
     Bim e44@-->|"[CONTENT_KEY]: EnergyArtifact"| Analysis
     Analysis e45@-->|"[WIRE]: EnergyResult"| Bim
@@ -303,7 +302,7 @@ Spine admits once, selects substrate over row data, enqueues on bounded lanes, d
 
 One owner per concern rules the interior: `Tensor<T>` is the tensor and `TensorBridge` the sole `OrtValue` C-data factory feeding the single `BoundFlow` capsule; oracles couple only through the `Func<DesignPoint, Fin<Seq<double>>>` contract; one `HybridCache` binds per cache lane and one session per model identity.
 
-Assessment outcome is the one `ComputeReceipt.Assessment` case `Analysis/assessment` declares as a `Runtime/receipts` partial, every discipline runner returning the uniform `AssessmentResult` stream. `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes; each lane appends its arm at the band's free frontier, and every fault crosses the wire through the compact `FaultDetail` envelope with numeric code as its sole identity.
+Assessment outcome is the one `ComputeReceipt.Assessment` case `Analysis/assessment` declares as a `Runtime/receipts` partial, every discipline runner returning the uniform `AssessmentResult` stream. `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes; each lane appends its arm at the band's free frontier, and every fault crosses the wire through the compact `FaultDetail` envelope with `domain` and `case` as its sole identity.
 
 ## [05]-[ROUTING]
 

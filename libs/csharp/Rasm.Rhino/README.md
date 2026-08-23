@@ -136,8 +136,10 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Telemetry.Abstractions`
 
 [WIRE_CODEGEN]:
-- `Google.Protobuf` — Runtime message surface behind the `rasm.organization.v1` and `rasm.scene.v1` egress.
-- `Grpc.Tools` — Build-only `<Protobuf>` compile of the corpus-homed organization and scene sources.
+- `Rasm.Contracts` — Generated `rasm.contracts.organization.v1` and `rasm.contracts.scene.v1` messages, referenced by project.
+- `Celly.Protovalidate` — Evaluates organization descriptor rules before recursive forest bytes leave the host boundary.
+- `Google.Protobuf` — Runtime message surface behind the organization and scene egress.
+- `NodaTime.Serialization.Protobuf` — `Instant` to `Timestamp` projection on the scene descriptor capture moment.
 
 [DEPENDENCY_FLOORS]:
 - `Microsoft.Extensions.Compliance.Abstractions` — Transitive `DataClassification` attribute surface over kernel `Sensitivity` values.

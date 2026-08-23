@@ -1,6 +1,6 @@
 # [FABRICATION_ARCHITECTURE]
 
-`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`. `Process/owner` declares the one `FabricationPolicy`/`FabricationResult` pair each production sub-domain seats a case arm in; a support one seats none. Every flagship terminates in a content-keyed machine artifact; `EgressKind` collapses egress onto entry vocabulary, and its fold seeds `ContentHash.Of`. `FabricationProjector.Of` returns the sole `IElementProjection` dependency while its implementation stays internal; AEC alignment crosses seam contracts and the content-keyed wire.
+`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`. `Process/owner` declares one `FabricationPolicy`/`FabricationResult` pair each production sub-domain seats a case arm in, a support sub-domain seating none. Every flagship terminates in a content-keyed machine artifact, `EgressKind` collapsing egress onto entry vocabulary and seeding `ContentHash.Of`. `FabricationProjector.Of` returns the sole `IElementProjection` dependency, AEC alignment crosses seam contracts and the wire, and `Spec/tolerance#FEATURE_CONTROL_WIRE` alone reaches `Rasm.Contracts`.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -217,7 +217,7 @@ flowchart LR
     Element e2@-->|"[SHAPE]: ElementGraph"| Ingress
     Ingress e3@<-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Element
     Process e4@<-->|"[SHAPE]: DetailSchema + PropertyCategory"| Element
-    Spec e5@-->|"[WIRE]: GdtFrameWire"| Artifacts
+    Spec e5@-->|"[WIRE]: FeatureControl"| Artifacts
     Telemetry e6@-->|"[RECEIPT]: FabricationFact"| AppHost
     AppHost e7@-->|"[PORT]: TelemetryContributorPort"| Telemetry
     Telemetry e8@-->|"[PORT]: FabricationHooks"| AppHost

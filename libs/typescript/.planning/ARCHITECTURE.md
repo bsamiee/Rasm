@@ -11,17 +11,21 @@ libs/typescript/
 ├── data/       # Journal record of truth, byte planes, and read folds; engine names never leak upward
 ├── runtime/    # Serve door, work economy, otel egress, and provider tables across process and browser planes
 ├── ui/         # Two Nx projects — the app surface and the render-only spatial viewer
-└── iac/        # Pulumi programs realizing StackSpec into capability-admitted deployments; plane-distinct
+├── iac/        # Pulumi programs realizing StackSpec into capability-admitted deployments; plane-distinct
+└── contracts/  # Generated corpus bindings imported by module path; generation is the only author, no rank held
 ```
 
 ## [02]-[STRATA]
 
 - S0 `core` — imports nothing and runs identically under node, bun, and the browser; every runtime folder composes it.
+- S3→S0 `runtime` hands `core` the scoped Node adapter and credential interceptor as values through `Invoke.Dial`; core owns the pair selection.
 - S1 `security` — composes core alone (`Identity.Tenant`); downstream folders satisfy every stateful port Tag; never imports `data`.
 - S2 `data` — composes core (`Digest.Key`) and security (`Shredder`, `TenantScope`); a backend is a guarantee row.
-- S3 `runtime` — composes core (`Fault.Budget`), security (`CookieSpec`), and data (`Embedder`); browser rides the same package.
+- S3 `runtime` — composes core (`Fault.Budget`), security (`CookieSpec`), and data (`Embedder`, `Dataref`); browser rides the same package.
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the ports it declares and the atom-bridge bindings.
 - S4 `iac` — composes core, data, and runtime as reads and decodes `security`'s `LeaseSpec` as data, plane-distinct outside the runtime graph.
+
+Generated `contracts/` composes as an external package, never a stratum — it imports `@bufbuild/protobuf` alone, no folder, and carries no authored law.
 
 Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root, with `security` ports filling from `data` and `ui`'s `GlbViewport` filling from runtime's browser depot arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
 
@@ -64,7 +68,7 @@ flowchart TB
     Iac e9@-.->|"[PORT]: analytics residence"| Data
     Runtime e10@-->|"[IMPORT]: Fault.Budget"| Core
     Runtime e11@-->|"[IMPORT]: CookieSpec"| Security
-    Runtime e12@-->|"[IMPORT]: Embedder"| Data
+    Runtime e12@-->|"[IMPORT]: Embedder + Dataref"| Data
     Data e13@-->|"[IMPORT]: Digest.Key&lt;&quot;content&quot;&gt;"| Core
     Data e14@-->|"[IMPORT]: TenantScope"| Security
     Data e15@-.->|"[COUNTER]: Board.Query.Target"| Core
@@ -101,26 +105,26 @@ flowchart LR
     AppHost([Rasm.AppHost])
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Core
-    Compute e19@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire + FaultDetail"| Core
-    Element e2@<-->|"[WIRE]: rasm.element.v1"| Core
-    Persistence e4@-->|"[WIRE]: CrdtOpWire"| Core
-    Persistence e14@<-->|"[CONTRACT]: BackendContract"| Data
+    Compute e19@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail"| Core
+    Element e2@<-->|"[WIRE]: rasm.contracts.element.v1"| Core
+    Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.v1.CrdtOpWire)"| Core
+    Persistence e14@<-->|"[CONTRACT]: rasm.contracts.parity.v1.Backend"| Data
     Bim e6@-->|"[WIRE]: IfcWire"| Core
-    Materials e7@-->|"[WIRE]: MaterialWire"| Core
-    AppUi e8@-->|"[WIRE]: CommandPayloadWire"| Core
-    AppHost e5@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
+    Materials e7@-->|"[WIRE]: Material"| Core
+    AppUi e8@-->|"[WIRE]: CommandInvocation"| Core
     Bim e12@-->|"[WIRE]: BcfTopicWire"| Ui
     Bim e18@-->|"[WIRE]: BcfViewpointWire"| Ui
-    Bim e15@-->|"[WIRE]: ModelDiff"| Ui
-    Materials e13@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
-    AppUi e11@-->|"[WIRE]: ControlIntentWire"| Ui
-    AppHost e10@-->|"[WIRE]: BindingStatusWire"| Ui
+    Bim e15@-->|"[WIRE]: ModelDiffWire"| Ui
+    AppUi e11@-->|"[WIRE]: AppUiSurfaceProgram + CommandGateWire"| Ui
+    AppHost e10@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteReceiptWire"| Ui
     AppHost e9@-->|"[TRANSPORT]: OtelExport"| Runtime
     AppHost e16@-->|"[WIRE]: DescriptorPinWire"| Core
-    Artifacts e17@-->|"[WIRE]: AssetSetManifest"| Core
+    Artifacts e17@-->|"[WIRE]: Set"| Core
 ```
 
-Every contract family decodes once at the core interchange codec registry: `core` edges freeze the wire spelling from the owning endpoint file, `ui` edges name the landing decoded there, and the one `data` edge names a contract both ends mint, so neither end decodes. Schema drift grades as a boot verdict there: an additive change admits decode, a breaking change refuses as typed evidence, never a runtime decode failure. TypeScript consumes the GLB tessellation rail there; Python `artifacts` sends `AssetSetManifest` into core through the neutral corpus, never a direct package or runtime import.
+Every contract family decodes once at the core interchange codec registry: `core` edges freeze the wire spelling from the owning endpoint file, and `ui` and `data` edges name decoded shapes landed there. Backend is the composition exception: every persistence branch mints one generated contribution, then the data composition owner decodes foreign peers and merges the deployment generation.
+
+`buf breaking` FILE at the corpus refuses a breaking source before any binding regenerates, and a consumer tolerates unknown fields while refusing a peer whose advertised protobuf package identity differs from its generated service descriptor. TypeScript consumes the GLB tessellation rail there, and Python `artifacts` sends generated `rasm.contracts.appearance.v1.Set` into core through the neutral corpus, never an import.
 
 Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 
@@ -229,4 +233,4 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 
 ## [07]-[ADMISSION_POLICY]
 
-One workspace manifest (`pnpm-workspace.yaml`) owns package admission and version bounds; `viewer` is the second Nx project inside `ui` carrying the same edge set, and dev infrastructure stays under `tests/`, never the branch. Installation rationale stays in the manifest; folder pages name capability, entrypoints, boundaries, and exclusions. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+One workspace manifest (`pnpm-workspace.yaml`) declares package admission and version bounds, and the architecture suite refuses the manifest departing from it; `viewer` is the second Nx project inside `ui` carrying the same edge set, and dev infrastructure stays under `tests/`, never the branch. Installation rationale stays in the manifest; folder pages name capability, entrypoints, boundaries, and exclusions. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.

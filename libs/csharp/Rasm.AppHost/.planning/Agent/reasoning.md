@@ -54,7 +54,7 @@ public abstract partial record ReasoningTurn {
     public sealed record ToolCalled(string CallId, string Descriptor, JsonElement Arguments, Option<CommandReceipt> Receipt) : ReasoningTurn;
     public sealed record Message(string Text) : ReasoningTurn;
     public sealed record Completed(Option<ChatFinishReason> Reason, Option<UsageDetails> Usage) : ReasoningTurn;
-    public sealed record Faulted(FaultObservationWire Fault) : ReasoningTurn;
+    public sealed record Faulted(Rasm.Contracts.Fault.V1.FaultObservation Fault) : ReasoningTurn;
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -112,7 +112,7 @@ public static class ReasoningSession {
             .ToFrozenDictionary(static result => result.CallId, StringComparer.Ordinal);
         return contents.Choose(content => Row(content, results, wire)).ToSeq()
             .Add(fault.Match(
-                Some: static error => new ReasoningTurn.Faulted(AppHostFaultMap.Wire(error)) as ReasoningTurn,
+                Some: static error => new ReasoningTurn.Faulted(FaultWire.Observe(error)) as ReasoningTurn,
                 None: () => new ReasoningTurn.Completed(Optional(response.FinishReason), Optional(response.Usage))));
     }
 
@@ -141,15 +141,15 @@ public static class ReasoningSession {
 - Owner: `IntentMatch` the ranked descriptor-to-intent projection; `EmbeddingIndex` the frozen descriptor-embedding cell; `SemanticDiscovery` the static embedding-rank fold; the new `DiscoveryQuery.ByIntent(string)` case extending `Agent/capability#DISCOVERY_FOLD`.
 - Cases: `DiscoveryQuery` gains one case — `ByIntent(string Intent)` — alongside the settled `ById`/`BySurface`/`ByEffect`/`Permitting`/`All`, so the `Discover` switch is a total dispatch the new case breaks at compile time on every consumer arm; the registry's `Discover` fold gains the `byIntent` arm reading the embedding index.
 - Entry: `Index(CapabilityRegistry registry, IEmbeddingGenerator<string, Embedding<float>> embedder)` returns `IO<EmbeddingIndex>` — embeds each descriptor's op-surface text into one frozen `Embedding<float>` per descriptor id at composition; `Rank(EmbeddingIndex index, IEmbeddingGenerator<string, Embedding<float>> embedder, string intent, int top)` returns `IO<Seq<IntentMatch>>` — embeds the intent string and ranks descriptors by cosine similarity over the frozen index, returning the top matches.
-- Auto: the embedding index is a FROZEN projection over the registry built once at composition — `Index` folds `DiscoveryQuery.All` into the descriptor rows, embeds each row's `{surface}.{op}` text and its effect/idempotency keys through one batched `IEmbeddingGenerator.GenerateAsync`, and freezes the result into a `FrozenDictionary<string, ReadOnlyMemory<float>>`, so discovery is a read-only vector lookup, never a runtime mutation, mirroring the `CapabilityRegistry` composition-freeze law; the rank rides the BCL numerics primitives end to end and never a hand-rolled loop — `TensorPrimitives.Norm` and `Divide` unit-normalize each row ONCE at composition, so `TensorPrimitives.Dot` over two unit spans IS the cosine and the per-candidate norm a similarity call recomputes on every query is hoisted out of the whole catalog scan; `ByIntent` folds `Rank` to its top descriptors and projects them through the same `DiscoveryResult` projection the other query cases produce so an intent query and an id query return the identical result shape; the embedder is the `MODEL_GOVERNANCE`-composed `IEmbeddingGenerator` — the `Compose(GovernanceRuntime, IEmbeddingGenerator<string, Embedding<float>>)` overload folding `UseOpenTelemetry`/`UseDistributedCache` on the embedding builder and handing the built pipeline back as the one generator a composition root binds — so an intent embedding is content-cached and traced on the same source and store a chat draw rides, and an identical intent re-resolves from the cache without a fresh embedding draw.
-- Receipt: `IntentMatch` carries the descriptor id, the cosine score, and the projected `DiscoveryResult`; the index build logs one `SpineLog` event; no parallel discovery receipt.
+- Auto: the embedding index is a FROZEN projection over the registry built once at composition — `Index` folds `DiscoveryQuery.All` into the descriptor rows, embeds each row's `{surface}.{op}` text and its effect/idempotency keys through one batched `IEmbeddingGenerator.GenerateAsync`, and freezes the result into a `FrozenDictionary<string, ReadOnlyMemory<float>>`, so discovery is a read-only vector lookup, never a runtime mutation, mirroring the `CapabilityRegistry` composition-freeze law; the rank rides the BCL numerics primitives end to end and never a hand-rolled loop — `TensorPrimitives.Norm` and `Divide` unit-normalize each row ONCE at composition, so `TensorPrimitives.Dot` over two unit spans IS the cosine and the per-candidate norm a similarity call recomputes on every query is hoisted out of the whole catalog scan; `ByIntent` folds `Rank` to its top descriptors and projects them through the same `CapabilityMatch` projection the other query cases produce so an intent query and an id query return the identical result shape; the embedder is the `MODEL_GOVERNANCE`-composed `IEmbeddingGenerator` — the `Compose(GovernanceRuntime, IEmbeddingGenerator<string, Embedding<float>>)` overload folding `UseOpenTelemetry`/`UseDistributedCache` on the embedding builder and handing the built pipeline back as the one generator a composition root binds — so an intent embedding is content-cached and traced on the same source and store a chat draw rides, and an identical intent re-resolves from the cache without a fresh embedding draw.
+- Receipt: `IntentMatch` carries the descriptor id, the cosine score, and the projected `CapabilityMatch`; the index build logs one `SpineLog` event; no parallel discovery receipt.
 - Packages: Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.Numerics.Tensors, BCL inbox
 - Growth: the `ByIntent` case is one `DiscoveryQuery` row breaking every consumer; a new ranking signal is one column on `IntentMatch`; a new embedding model is one `IEmbeddingGenerator` injection, never a second index; zero new surface.
 - Boundary: `Index` and `Rank` take the governed generator alone — a raw provider generator reaching either is the deleted form, because an untraced uncached embedding draw leaves this card's own re-resolution claim with no mechanism; the semantic discovery is the only intent-resolution owner — a keyword-match heuristic, a hand-tuned synonym table, and a per-op intent annotation are the deleted forms, so an agent resolving "diffuse heat across this mesh" to `TensorOpFamily.HeatFlow` reads the one embedding rank; the `ByIntent` case extends the `Agent/capability#DISCOVERY_FOLD` `[Union]` rather than adding a parallel discovery surface, so the registry's `Discover` stays the single discovery entrypoint and the intent path is one fold arm; the embedding index is frozen at composition so a descriptor added after freeze is invisible to intent resolution until re-index, the same read-only-after-freeze contract the registry carries — a runtime descriptor-embedding mutation is the deleted form; the cosine rank is a similarity heuristic, not a guarantee, so an intent below the policy floor returns no match and the agent falls back to the exact-id path rather than dispatching a wrong tool; the embedded text is the op surface's self-description (`{surface}.{op}` and effect/classification), never the op's body or arguments, so the index is metadata-only and an op's payload never leaks into an embedding.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
-public sealed record IntentMatch(string Descriptor, float Score, DiscoveryResult Result);
+public sealed record IntentMatch(string Descriptor, float Score, CapabilityMatch Result);
 
 public sealed record EmbeddingIndex(
     FrozenDictionary<string, ReadOnlyMemory<float>> Vectors,
@@ -194,7 +194,8 @@ public static class SemanticDiscovery {
             .Take(top))
         select scored;
 
-    static string Surface(DiscoveryResult row) => $"{row.Surface}.{row.Descriptor} effect={row.Effect} idempotency={row.Idempotency}";
+    static string Surface(CapabilityMatch row) =>
+        $"{row.Surface}.{row.Descriptor} effect={row.Effect.Key} idempotency={row.Idempotency.Key}";
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -698,6 +699,7 @@ public static class ModelGovernance {
         CapabilityDescriptor.Of(
             surface: "agent",
             op: "reasoning",
+            arguments: new ArgumentContract.Native(SuiteContracts.Host.GetTypeInfo(typeof(JsonElement))),
             effect: EffectClass.External,
             idempotency: Idempotency.NonIdempotent,
             cost: CostModel.Constant(cost),

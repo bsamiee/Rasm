@@ -7,6 +7,7 @@
 ```text codemap
 libs/csharp/
 ├── Rasm/              # [KERNEL]         RhinoCommon-aware geometry and numeric kernel
+├── Rasm.Contracts/    # [WIRE]           Generated assembly and NuGet distribution; protoc + grpc_csharp_plugin own emitted code
 ├── Rasm.Element/      # [AEC_DOMAIN]     Lowest AEC element seam onto the one ElementGraph
 ├── Rasm.Materials/    # [AEC_DOMAIN]     Host-neutral profiles, appearance, and construction
 ├── Rasm.Bim/          # [AEC_DOMAIN]     Host-neutral BIM object model and IFC/glTF/STEP exchange
@@ -20,27 +21,31 @@ libs/csharp/
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY]  GH2 host APIs; references only Rasm
 ```
 
-Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Rhino` and `Rasm.Grasshopper` add a folder `.api/` tier over their host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto). `Rasm.Generation` is the branch's one target package, turning a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry; the map seats it, `libs/.planning/planning-targets.md` registers it, and its folder lands with its first design page.
+Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Contracts` carries index docs and configuration outside its generator-owned `Generated/` tree and no `.planning/`; the two host-boundary packages add a folder `.api/` tier over their host assemblies. `Rasm.Generation` turns a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry, its folder landing with its first design page.
 
 ## [02]-[STRATA]
 
 Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference, which is why the app platform spreads across four ranks rather than wearing one label.
 
 - S0 kernel — `Rasm` references no sibling and carries every rank above it.
+- S0 wire — `Rasm.Contracts` distributes generated bindings and holds no rank: no sibling reference, generation its only author, one NuGet identity.
+- S0 wire law — `Rasm.Contracts` imports its generated runtime closure alone, and the host plane's `only Rasm` law admits it beside the kernel.
 - S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
 - S1 spine — `Rasm.AppHost` references only `Rasm` and PORT-decodes store shapes without a downward reference.
 - S1 law — the seam and the spine never reference each other, so a package composes either alone.
 - S1 host plane — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm`, sit outside the host-neutral graph, and enter at the host app root.
 - S1 host law — bake stays at the host boundary, no host-neutral package references it, and the two boundaries never reference each other.
 - S2 domain — `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Materials` reference `{Rasm, Rasm.Element}`.
-- S2 benchmark — `Rasm.Materials` adds `Rasm.AppHost` for its stamped benchmark receipt alone.
+- S2 spine — `Rasm.Materials` adds `Rasm.AppHost` for its stamped benchmark receipt and neutral generated-message admission.
 - S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
 - S2 recovery — `Rasm.Persistence` adds `Rasm.AppHost` for the settled `RecoveryObjective` alone.
+- S2 wire — `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Persistence` add `Rasm.Contracts` for the families their pages bind.
+- S2 wire law — binary and ProtoJSON codecs compose the spine's neutral `WireAdmission`; S2 members hold generated messages, never a validator.
 - S2 law — S2 members never reference each other; alignment travels seam contracts and the content-keyed wire.
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
 - S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
 - S3 law — the two S3 members never reference each other, and generation composes the kernel's geometry operations rather than owning primitives.
-- S4 leaf — `Rasm.AppUi` references `{Rasm, Rasm.AppHost, Rasm.Compute, Rasm.Fabrication, Rasm.Materials, Rasm.Persistence}`; nothing references it.
+- S4 leaf — `Rasm.AppUi` references every host-neutral package below it, `Rasm.Contracts` included, and nothing references it.
 - S5 app shell — `apps/<host>/<Plugin>/` shells seat outside `libs/csharp` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
 
@@ -78,6 +83,7 @@ flowchart TB
     end
     subgraph S0["S0 KERNEL"]
         Rasm[Rasm]
+        Contracts[Rasm.Contracts]
     end
     Rhino e1@-->|"[IMPORT]: PerceptualColor"| Rasm
     Grasshopper e2@-->|"[IMPORT]: MonotonicTimeline"| Rasm
@@ -106,12 +112,22 @@ flowchart TB
     AppUi e25@-->|"[IMPORT]: TextureSet"| Materials
     AppUi e26@-->|"[IMPORT]: HiddenLineResult"| Fabrication
     AppUi e27@-->|"[IMPORT]: DuckProfileReceipt"| Persistence
+    Element e28@-->|"[IMPORT]: NodeWire support closure"| Contracts
+    AppHost e29@-->|"[IMPORT]: ControlService + FaultDetail"| Contracts
+    Compute e30@-->|"[IMPORT]: ComputeService"| Contracts
+    Rhino e31@-->|"[IMPORT]: SceneDescriptor"| Contracts
+    Materials e32@-->|"[IMPORT]: Set + Material"| Contracts
+    AppUi e33@-->|"[IMPORT]: Predicate"| Element
+    Bim e34@-->|"[IMPORT]: BcfTopicWire"| Contracts
+    Fabrication e35@-->|"[IMPORT]: FeatureControl"| Contracts
+    Persistence e36@-->|"[IMPORT]: EntityEditWire"| Contracts
+    AppUi e37@-->|"[IMPORT]: EvidenceReceiptWire"| Contracts
     Rasm f1@-->|"forbidden: upward import"| S4
 ```
 
 ## [03]-[SEAMS]
 
-Every cross-runtime seam is data-bearing: the peer decodes the contract-conforming wire without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation crosses one seam: python's `HandoffAxis` names the forward receipt axis, and C# spells the reverse evidence message envelope `GraduationEvidence` against python's `EvidenceBundle`.
+Every cross-runtime seam is data-bearing: the peer decodes the contract-conforming wire or publisher container without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation's descriptor exchange uses python's `HandoffAxis` and C#'s `GraduationEvidence`; its serving-population reference is the separate native `GraduationEnvelope` container.
 
 ```mermaid
 ---
@@ -143,18 +159,19 @@ flowchart LR
     Element e2@<-->|"[WIRE]: GlbContentHash"| PyGeometry
     Element e3@<-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
     Bim e4@<-->|"[WIRE]: IfcWire"| PyGeometry
-    Materials e5@-->|"[WIRE]: MaterialWire"| PyRuntime
-    Materials e6@-->|"[WIRE]: TextureSetWire"| PyRuntime
-    PyArtifacts e7@-->|"[WIRE]: AssetSetManifest"| Materials
-    Fabrication e8@-->|"[WIRE]: GdtFrameWire"| PyArtifacts
-    AppHost e9@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
-    Compute e10@<-->|"[WIRE]: ComputeService"| PyGeometry
-    Compute e11@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| PyRuntime
-    Compute e12@-->|"[GRADUATION]: GraduationEvidence"| PyCompute
-    Compute e13@-->|"[SHAPE]: DoeDataset"| PyData
-    Persistence e14@<-->|"[WIRE]: OpLogEntry"| PyRuntime
-    PyArtifacts e15@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
-    Persistence e16@<-->|"[WIRE]: SubstraitPlan"| PyData
+    Materials e5@-->|"[WIRE]: appearance.v1.Material"| PyRuntime
+    Materials e6@<-->|"[WIRE]: appearance.v1.Set"| PyArtifacts
+    Fabrication e7@-->|"[WIRE]: fabrication.v1.FeatureControl"| PyArtifacts
+    AppHost e8@-->|"[WIRE]: capability.v1.DiscoverResponse"| PyRuntime
+    Compute e9@-->|"[WIRE]: ComputeService.Tessellate unary + ArtifactService.Fetch server-stream"| PyGeometry
+    Compute e10@<-->|"[WIRE]: fault.v1.FaultDetail"| PyRuntime
+    Compute e11@-->|"[GRADUATION]: GraduationEvidence"| PyCompute
+    Compute e12@-->|"[SHAPE]: DoeDataset"| PyData
+    Persistence e13@<-->|"[WIRE]: native MessagePack OpLogEntry; crdt payload = crdt.v1.CrdtOpWire"| PyRuntime
+    Persistence e14@<-->|"[WIRE]: SubstraitPlan"| PyData
+    Compute e15@-->|"[CONTAINER]: FieldContainer"| PyData
+    Compute e16@<-->|"[CONTAINER]: SparseExchange"| PyCompute
+    PyCompute e17@-->|"[CONTAINER]: GraduationEnvelope"| Compute
 ```
 
 ```mermaid
@@ -183,24 +200,16 @@ flowchart LR
     TsUi([typescript:ui])
     TsRuntime([typescript:runtime])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| TsCore
-    Element e2@<-->|"[WIRE]: rasm.element.v1"| TsCore
-    Persistence e3@-->|"[WIRE]: CrdtOpWire"| TsCore
+    Persistence e3@-->|"[WIRE]: native MessagePack OpLogEntry; crdt payload = crdt.v1.CrdtOpWire"| TsCore
     Bim e4@-->|"[WIRE]: IfcWire"| TsCore
-    Materials e5@-->|"[WIRE]: MaterialWire"| TsCore
-    Materials e6@-->|"[WIRE]: TextureSetWire"| TsCore
-    AppUi e7@-->|"[WIRE]: CommandPayloadWire"| TsCore
-    AppHost e8@-->|"[WIRE]: ReceiptEnvelopeWire"| TsCore
-    Persistence e9@<-->|"[CONTRACT]: BackendContract"| TsData
-    Materials e10@-->|"[WIRE]: OpenPbrGroupsWire"| TsUi
-    AppUi e11@-->|"[WIRE]: ControlIntentWire"| TsUi
-    AppUi e12@-->|"[WIRE]: CommandGateWire"| TsUi
-    AppUi e13@-->|"[WIRE]: LayoutConstraintWire"| TsUi
-    AppHost e14@-->|"[WIRE]: BindingStatusWire"| TsUi
-    AppHost e15@-->|"[WIRE]: CoercedValueWire"| TsUi
-    AppHost e16@-->|"[WIRE]: WriteReceiptWire"| TsUi
-    AppHost e17@-->|"[WIRE]: HostFingerprintWire"| TsUi
-    AppHost e18@-->|"[TRANSPORT]: OtelExport"| TsRuntime
-    Compute e19@-->|"[WIRE]: FaultDetail"| TsCore
+    Bim e5@<-->|"[WIRE]: bcf.v1 BcfTopicWire"| TsUi
+    Materials e6@-->|"[WIRE]: appearance.v1.Material + Set"| TsCore
+    AppUi e7@-->|"[WIRE]: ui.v1 command + control + layout + evidence; render.v1 residency + view"| TsUi
+    AppHost e8@-->|"[WIRE]: receipt.v1 ReceiptEnvelopeWire"| TsCore
+    AppHost e9@-->|"[WIRE]: outbox.v1 + binding.v1"| TsUi
+    Persistence e10@<-->|"[CONTRACT]: parity.v1.Backend"| TsData
+    AppHost e11@-->|"[TRANSPORT]: OtelExport"| TsRuntime
+    Compute e12@-->|"[WIRE]: fault.v1.FaultDetail"| TsCore
 ```
 
 ## [04]-[INTERNAL]

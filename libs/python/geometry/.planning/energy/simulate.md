@@ -11,20 +11,19 @@ Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype cor
 ## [02]-[SIMULATE]
 
 - Owner: `Simulation` holds the admitted `BuildingModel`, the `LanePolicy` its CPU legs offload under, the `RecipeExecution` handle, and the `composition` custody key every weave and bench stamps — constructed once at the composition edge, never per call. `TranslateTarget` keys the `WRITERS` row, whose values are the `energy/climate` `LateBound` values the standards loaders read, so a format is a row over one late-binding grammar rather than a parallel translator; `SimPar` folds onto one `SimulationParameter` document through the owned `add_*` request rows, never a hand-stitched JSON.
-- Law: fidelity GRADES, never guesses — `TessellationFidelity` declares the deflection and angular deflection the capture tessellated at beside the shadow-overlap figure budget, and `_graded` refuses `shading_fidelity` when the declared linear deflection crosses the consuming model's own tolerance or the delivered triangle count crosses the declared budget; `UNITS_TOLERANCES` is honeybee's own per-unit floor and this page reads it rather than pinning a literal.
+- Law: fidelity GRADES, never guesses — the shared generated `TessellationPolicy` declares the linear deflection, angular tolerance, and triangle budget the capture used; `_graded` refuses `shading_fidelity` when the declared linear deflection crosses the consuming model's own tolerance or the delivered triangle count crosses the declared budget. `UNITS_TOLERANCES` is honeybee's own per-unit floor and this page reads it rather than pinning a literal.
 - Law: `authored` sun and `sited` sun answer two different questions — a manual-control sun carries angles and no site, so a point-in-time sky admits it and any recipe demanding a `Site:Location` refuses `authored_sun` by name instead of back-solving coordinates from an altitude and an azimuth.
 - Law: irradiance never rides the descriptor — the host document holds no `W/m2`, so `sky` mints the angle-only CIE arm by default and the climate-based arm only where the caller hands the EPW's own direct-normal and diffuse-horizontal pair; a sky synthesized from `intensity_scale` fabricates radiation.
 - Law: incomplete and wrong split — a photometric web no consuming engine reads and a light whose power carries `relative-scale` both COUNT onto the receipt and neither refuses, since a daylight study needs neither, while a coarse mesh and a siteless annual run both make results wrong and refuse.
-- Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact. The weave runs on the PARENT floor around `lane.offload`, so the crossing carries a span, a cost band, and an evidence row; the kernel itself is bare and raises into the lane's own fence. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log; `RunSpec.recipe` selects which catalog row runs, so annual energy, daylight, and the three comfort-map workflows ride the one shape. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally. `results` is one polymorphic decode over `ResultQuery`, each case carrying its OWN source: the four EnergyPlus arms address a `.sql`, the `matrix` arm addresses a recipe product. `scene` is the captured-descriptor decode — one `SceneDescriptor` off the shared wire vocabulary in, one `SceneContext` of engine-ready values out. Sun angles project STRAIGHT onto the sky, never back through `Sunpath`: the producer solved them on the kernel almanac and a second ephemeris here answers a different number for the same instant. Shading decodes the GLB body the artifact seam already delivered into `ShadeMesh` rows over `Mesh3D`, which is the population `Model.shade_meshes` holds and `Model.shades` never counts — the two are disjoint, so a receipt reading `len(model.shades)` reports zero context on a fully contextualized model.
+- Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact. The weave runs on the PARENT floor around `lane.offload`, so the crossing carries a span, a cost band, and an evidence row; the kernel itself is bare and raises into the lane's own fence. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log; `RunSpec.recipe` selects which catalog row runs, so annual energy, daylight, and the three comfort-map workflows ride the one shape. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally. `results` is one polymorphic decode over `ResultQuery`, each case carrying its OWN source: the four EnergyPlus arms address a `.sql`, the `matrix` arm addresses a recipe product. `scene` resolves `SceneDescriptor.shading.artifact` through the injected `ArtifactTransfer`, holds its verified `OwnedArtifact` only while the path-based GLB decode runs, and returns one `SceneContext` of engine-ready values. Sun angles project STRAIGHT onto the sky, never back through `Sunpath`: the producer solved them on the kernel almanac and a second ephemeris here answers a different number for the same instant. Shading becomes `ShadeMesh` rows over `Mesh3D`, which is the population `Model.shade_meshes` holds and `Model.shades` never counts — the two are disjoint, so a receipt reading `len(model.shades)` reports zero context on a fully contextualized model.
 - Auto: `simulate`/`job` delegate to the runtime owner's own span and receipt — never a doubled page-level weave over the delegated leg; the translate crossing declares `idempotent=False`, dropping the `HOSTILE` trait's `WORKER` retry default — deterministic translation owns no transiency AND the kernel writes artifacts, so a worker death rails typed instead of re-running the write, while the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is the band's `EnergyFault.unknown_output` case carrying the missing names beside the census size, and a recipe output the product never resolved is `unresolved_output` at the `matrix` arm, one closed refusal family either way and never a guessed address; the CLI translate fall-through refuses its unserved target through the same family, so a consumer matches one tag rather than parsing three coordinate strings.
 - Receipt: `results` returns `(frame, receipt)` built inside the fold off the frame it just sealed, so no caller hand-asserts a row count or a frame key. `spec` is the evidence subject — the model key beside the recipe and the query — and `graduates` derives its own `ContentKey` from it. Total EUI is the measured graduation fact against the caller's compliance ceiling, and only the `eui` arm measures it: every other query OMITS the key so the spine reports `unmeasured:eui` and refuses honestly rather than crossing clean on a zero that reads as a zero-energy building. That same arm records the total onto the `rasm.geometry.energy.eui` charter distribution at the producing fold.
-- Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is MIT schema only — outside the AGPL band, so it binds `lazy` at module scope like the MIT `trimesh` GLB reader the shading decode calls; `numpy` seals the frame columns and the data `arrow_columns` (columnar) / `arrow_bytes` (interop) pair is the one serialization, so no `pyarrow` symbol appears on this page at all.
+- Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is MIT schema only — outside the AGPL band, so it binds `lazy` at module scope like the MIT `trimesh` GLB reader the shading decode calls; `rasm.contracts.artifact` owns verified ArtifactService fetch lifecycle and temporary-path custody; `numpy` seals the frame columns and the data `arrow_columns` (columnar) / `arrow_bytes` (interop) pair is the one serialization, so no `pyarrow` symbol appears on this page at all.
 - Growth: a new translation format is one `WRITERS` row; a new output family one `SimPar` policy row over its `add_*` method; a new result decode is one `ResultQuery` case — `loadbalance`/`emissions`/`generation`/`component_sizes` the named next rows over their `honeybee_energy.result` parsers; a new workflow is one `RunSpec.recipe` value over the runtime catalog, zero page edits; a cloud submission consumes `job()` when a consumer names it.
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame whose table diverges from `FRAME_SCHEMA` is the deleted form — the C# decoder can neither attribute nor dedupe it.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-import io
 from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from functools import partial
@@ -34,6 +33,7 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
 from builtins import frozendict
+from connectrpc.errors import ConnectError
 from expression import Error, Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
@@ -49,6 +49,8 @@ lazy from queenbee.recipe.recipe import RecipeInterface
 
 from rasm.data.tabular.columnar import arrow_columns
 from rasm.data.tabular.interop import arrow_bytes
+from rasm.contracts import AdmissionError
+from rasm.contracts.artifact import ArtifactError, ArtifactTransfer
 from rasm.geometry.energy.climate import ENERGY_REGIMES, EnergyFault, EnergyRegime, LateBound, RegimeKey
 from rasm.geometry.energy.model import BuildingModel
 from rasm.geometry.graduation import (
@@ -64,7 +66,10 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.recipe import RECIPES, RecipeExecution, RecipeName, RecipeProduct, RecipeSpec
-from rasm.runtime.shapes import SceneDescriptor, SceneSun, ScenePhotometry, SolarAngles, TessellationFidelity
+from rasm.runtime.shapes import remote_fault
+from protobuf import Oneof
+from rasm.contracts.gen.rasm.contracts.geometry.v1.tessellation_pb import TessellationPolicy
+from rasm.contracts.gen.rasm.contracts.scene.v1.scene_pb import Photometry, SceneDescriptor, SceneSun, SolarAngles
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:  # AGPL band ONLY: annotations resolve here, every runtime use riding a function-local or LateBound seam; the MIT `queenbee` names bind lazily at module scope instead
@@ -136,9 +141,9 @@ _UNMEASURED: Final[float] = float("nan")
 
 _ENCODER: Final = msgjson.Encoder(order="deterministic")  # one module-level canonical-bytes codec; never per-call construction
 
-# Authority keys the descriptor's own ranking: a row claiming it carries a photometric quantity an engine lighting
-# level reads, so every other row counts as unranked rather than seating a watt figure nobody authored.
-_RADIANT_FLUX: Final[str] = "radiant-flux-w"
+# Authority is the `Power.authority` oneof's own arm: the `radiant_flux_w` arm carries the photometric quantity an
+# engine lighting level reads, so a `relative_scale` row counts as unranked rather than seating a watt figure nobody authored.
+_RADIANT_FLUX: Final[str] = "radiant_flux_w"
 
 # recipes whose run is driven by a weather file, where a sun the modeller authored by hand cannot be proven to
 # belong to the same place the EPW describes.
@@ -276,6 +281,7 @@ class Simulation(Struct, frozen=True):
     building: BuildingModel
     lane: LanePolicy
     recipes: RecipeExecution
+    artifacts: ArtifactTransfer
     composition: ScopeKey = DEFAULT_SCOPE
 
     async def translate(self, target: TranslateTarget, folder: Path) -> "RuntimeRail[Path]":
@@ -340,39 +346,58 @@ class Simulation(Struct, frozen=True):
 
         return evidence_run(EvidenceScope.ENERGY_SIMULATE, f"results.{query.tag}", fold, composition=self.composition)
 
-    def scene(
+    async def scene(
         self,
         descriptor: SceneDescriptor,
-        glb: bytes,
         run: RunSpec,
         sky: SkySource = SkySource(cie=0),
         *,
         units: str = "Meters",
     ) -> "RuntimeRail[tuple[SceneContext, SceneReceipt]]":
-        def fold() -> tuple[SceneContext, SceneReceipt]:
-            derivation, angles, site, north = _derived_sun(sun=descriptor.sun, recipe=run.recipe)
-            shades, triangles = _shades(glb=glb, identifier=descriptor.content_key)
-            _graded(fidelity=descriptor.shading.fidelity, triangles=triangles, units=units)
-            lighting, unranked, unrouted = _lighting(rows=descriptor.lights)
-            context = SceneContext(
-                descriptor_key=descriptor.content_key,
-                shade_meshes=shades,
-                sky=_sky(angles=angles, source=sky),
-                north_angle=north,
-                site=site,
-                lighting=lighting,
-            )
-            return context, SceneReceipt(
-                descriptor_key=descriptor.content_key,
-                derivation=derivation,
-                shade_meshes=len(shades),
-                triangles=triangles,
-                lights=len(lighting),
-                unranked_lights=unranked,
-                unrouted_webs=unrouted,
-            )
+        try:
+            async with self.artifacts.fetch(descriptor.shading.artifact) as owned:
+                def fold() -> tuple[SceneContext, SceneReceipt]:
+                    derivation, angles, site, north = _derived_sun(sun=descriptor.sun, recipe=run.recipe)
+                    shades, triangles = _shades(glb=owned.path, identifier=descriptor.key.hex())
+                    _graded(
+                        fidelity=descriptor.shading.fidelity,
+                        element_count=descriptor.shading.element_count,
+                        decoded_elements=len(shades),
+                        triangle_count=descriptor.shading.triangle_count,
+                        decoded_triangles=triangles,
+                        units=units,
+                    )
+                    lighting, unranked, unrouted = _lighting(rows=tuple(descriptor.lights))
+                    context = SceneContext(
+                        descriptor_key=descriptor.key.hex(),
+                        shade_meshes=shades,
+                        sky=_sky(angles=angles, source=sky),
+                        north_angle=north,
+                        site=site,
+                        lighting=lighting,
+                    )
+                    return context, SceneReceipt(
+                        descriptor_key=descriptor.key.hex(),
+                        derivation=derivation,
+                        shade_meshes=len(shades),
+                        triangles=triangles,
+                        lights=len(lighting),
+                        unranked_lights=unranked,
+                        unrouted_webs=unrouted,
+                    )
 
-        return evidence_run(EvidenceScope.ENERGY_SIMULATE, f"scene.{run.recipe.value}", fold, composition=self.composition)
+                return evidence_run(
+                    EvidenceScope.ENERGY_SIMULATE,
+                    f"scene.{run.recipe.value}",
+                    fold,
+                    composition=self.composition,
+                )
+        except ArtifactError as refused:
+            return Error(EnergyFault(artifact_integrity=refused.proof.value))
+        except AdmissionError as refused:
+            return Error(EnergyFault(artifact_admission=refused.phase.value))
+        except ConnectError as refused:
+            return Error(remote_fault(refused))
 
     def crossing(self, frame: ResultFrame) -> "RuntimeRail[tuple[bytes, ContentKey]]":
         # the ONE admitting entry the data owner declares for this carrier by name: a declared roster beside sealed
@@ -407,20 +432,23 @@ def _derived_sun(sun: SceneSun, recipe: RecipeName) -> tuple[str, SolarAngles, O
     # Two arms answer two questions. A sited sun proves its angles against a place, so a weather-driven run checks
     # that the capture and the EPW describe one location; an authored sun carries angles alone and refuses that
     # class by name rather than back-solving coordinates out of an altitude and an azimuth.
-    if sun.sited is not None:
-        frame = sun.sited.frame
-        return (
-            "sited",
-            sun.sited.angles,
-            Some((frame.latitude_deg, frame.longitude_deg, frame.time_zone_hours, frame.elevation_m)),
-            frame.north_axis_deg,
-        )
-    if recipe in _WEATHER_DRIVEN:
-        raise EnergyFault(authored_sun=(recipe.value, "sited-frame"))
-    if sun.authored is None:
-        # Unset derivations name no arm at all, so the coordinate a sited run reads is the derivation itself.
-        raise EnergyFault(authored_sun=(recipe.value, "sun-derivation"))
-    return "authored", sun.authored.angles, Nothing, 0.0
+    match sun.derivation:
+        case Oneof(field="sited", value=sited):
+            frame = sited.frame
+            return (
+                "sited",
+                sited.angles,
+                Some((frame.latitude_deg, frame.longitude_deg, frame.time_zone_hours, frame.elevation_m)),
+                frame.north_axis_deg,
+            )
+        case Oneof(field="authored", value=angles) if recipe not in _WEATHER_DRIVEN:
+            return "authored", angles, Nothing, 0.0
+        case Oneof(field="authored"):
+            raise EnergyFault(authored_sun=(recipe.value, "sited-frame"))
+        case _:
+            # an unset derivation names no arm at all — the corpus `oneof.required` rule refuses it at decode, and
+            # the coordinate a sited run reads is the derivation itself.
+            raise EnergyFault(authored_sun=(recipe.value, "sun-derivation"))
 
 
 def _sky(angles: SolarAngles, source: SkySource) -> "CIE | ClimateBased":
@@ -438,7 +466,14 @@ def _sky(angles: SolarAngles, source: SkySource) -> "CIE | ClimateBased":
             assert_never(unreachable)
 
 
-def _graded(fidelity: TessellationFidelity, triangles: int, units: str) -> None:
+def _graded(
+    fidelity: TessellationPolicy,
+    element_count: int,
+    decoded_elements: int,
+    triangle_count: int,
+    decoded_triangles: int,
+    units: str,
+) -> None:
     # honeybee publishes its own per-unit tolerance floor, so the grade reads that rather than pinning a literal the
     # library moves out from under. The descriptor is metres and the model is in `units`, so the floor converts
     # before the comparison — grading a metre deflection against a foot tolerance passes ten times too coarse.
@@ -447,11 +482,15 @@ def _graded(fidelity: TessellationFidelity, triangles: int, units: str) -> None:
     floor = UNITS_TOLERANCES[units] * conversion_factor_to_meters(units)
     if fidelity.deflection_m > floor:
         raise EnergyFault(shading_fidelity=("deflection_m", fidelity.deflection_m, floor))
-    if fidelity.triangle_budget > 0 and triangles > fidelity.triangle_budget:
-        raise EnergyFault(shading_fidelity=("triangle_count", float(triangles), float(fidelity.triangle_budget)))
+    if decoded_triangles > fidelity.triangle_budget:
+        raise EnergyFault(shading_fidelity=("triangle_count", float(decoded_triangles), float(fidelity.triangle_budget)))
+    if decoded_elements != element_count:
+        raise EnergyFault(shading_census=("element_count", element_count, decoded_elements))
+    if decoded_triangles != triangle_count:
+        raise EnergyFault(shading_census=("triangle_count", triangle_count, decoded_triangles))
 
 
-def _shades(glb: bytes, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
+def _shades(glb: Path, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
     # walk the scene GRAPH and apply each node's resolved transform: a GLB meaning Y-up carries that rotation as a
     # node transform, and a round-trip through this reader is identity, so composing the graph lands the geometry
     # under either producer convention where a hand-applied axis swap doubles one of them.
@@ -459,7 +498,7 @@ def _shades(glb: bytes, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
     from ladybug_geometry.geometry3d.mesh import Mesh3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
     from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
 
-    scene = trimesh.load_scene(io.BytesIO(glb), file_type="glb")
+    scene = trimesh.load_scene(glb, file_type="glb")
     posed = tuple(
         scene.geometry[scene.graph[node][1]].copy().apply_transform(scene.graph[node][0])
         for node in scene.graph.nodes_geometry
@@ -479,7 +518,7 @@ def _shades(glb: bytes, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
     return rows, sum(len(geometry.faces) for geometry in posed)
 
 
-def _lighting(rows: tuple[ScenePhotometry, ...]) -> tuple[tuple[SceneLighting, ...], int, int]:
+def _lighting(rows: tuple[Photometry, ...]) -> tuple[tuple[SceneLighting, ...], int, int]:
     # Disabled lights contribute nothing and unranked ones carry no quantity to contribute; both count rather
     # than refuse, since a daylight study needs neither and a run that stopped for one would be wrong in the loud
     # direction. The web census counts the payload the capture authored and no consuming engine on this rail reads.
@@ -487,14 +526,14 @@ def _lighting(rows: tuple[ScenePhotometry, ...]) -> tuple[tuple[SceneLighting, .
     ranked = tuple(
         SceneLighting(
             identifier=row.id.hex(),
-            kind=row.kind,
-            watts=row.power.watts,
+            kind=row.kind.name.lower(),
+            watts=row.power.authority.value,
             spectrum=(row.diffuse.r, row.diffuse.g, row.diffuse.b),
         )
         for row in live
-        if row.power.authority == _RADIANT_FLUX
+        if row.power.authority is not None and row.power.authority.field == _RADIANT_FLUX
     )
-    return ranked, len(live) - len(ranked), sum(1 for row in rows if row.web is not None and row.web.content_key)
+    return ranked, len(live) - len(ranked), sum(1 for row in rows if row.web is not None)
 
 
 def _product_rows(name: str, value: object) -> tuple[Row, ...]:
@@ -623,4 +662,3 @@ def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) 
 -->
 
 (none)
-

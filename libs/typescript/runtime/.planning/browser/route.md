@@ -290,11 +290,11 @@ const Router: {
 - Law: `Authenticated` carries evidence, not secrets — `subject` is a display-grade identity string and `expiresAt` the refresh watermark; the credential itself never exists in this vocabulary because the cookie residency law keeps it out of script reach entirely, and a token string in Web Storage or a readable session cookie is the named residency defect.
 - Law: `include` is the posture's whole vocabulary — `BrowserHttpClient.layerXMLHttpRequest` constructs a bare `XMLHttpRequest` whose `withCredentials` reads false, so an unstamped cross-origin dial drops the session cookie this plane issued, and `omit` has no spelling on that transport because XHR carries same-origin cookies unconditionally; the stamp therefore rides the XHR factory Tag `fetch#DIAL_SURFACE`'s `_stamped` binds into every dial's context, never a request header.
 - Law: cold boot reconstructs, never guesses — the cell seeds `Authenticating` and the construction forks ONE `spec.refresh` probe (the edge round-trip is the only reader of the HttpOnly cookie), whose fold settles `Authenticated` or `Anonymous`; a guard therefore observes a settled phase or waits out the in-flight one, and an `Anonymous` seed that hides a live cookie session is unspellable.
-- Law: the refresh arm is supersede-keyed — one `FiberHandle` holds at most one sleeper; each `Authenticated` transition re-arms it to wake at `expiresAt` minus the lead, run `spec.refresh` (the edge round-trip that re-establishes the cookie session), and fold the outcome (`some` re-establishes, `none` expires); any other phase replaces the sleeper with `Effect.void`, so a signed-out tab holds no timer and two sleepers cannot race; a refresh success publishes the fresh expiry to the channel, so sibling tabs fold forward and re-arm to the later watermark — the first refresher wins and the others move their timers instead of re-dialing.
+- Law: the refresh arm is supersede-keyed — one `FiberHandle` holds at most one sleeper; each `Authenticated` transition re-arms it from the signed `DateTime.distance(now, expiresAt)` minus the lead, clamped at zero so an already-expired watermark refreshes immediately instead of sleeping its absolute age, then runs `spec.refresh` and folds the outcome (`some` re-establishes, `none` expires); any other phase replaces the sleeper with `Effect.void`, so a signed-out tab holds no timer and two sleepers cannot race; a refresh success publishes the fresh expiry to the channel, so sibling tabs fold forward and re-arm to the later watermark — the first refresher wins and the others move their timers instead of re-dialing.
 - Law: cross-tab truth is one `BroadcastChannel` held `Effect.acquireRelease` — a decoded `Established` folds the foreign fact into the local cell, `Cleared` signs every tab out at once, and an undecodable message is dropped because a foreign tab's garbage is not this rail's fault; `Expired` and `Authenticating` are local phases that never cross the channel, because a foreign tab observing them acts on another tab's transient.
 - Law: the CSRF read is the one sanctioned `document.cookie` touch in the branch — the cookie scan is expression-shaped over the split rows, the value decodes through `Encoding.decodeUriComponent` (an `Either`, never a thrown `URIError`), and absence is `Option.none` the caller folds; the server refuses a mutation without the echo so no browser-side guard re-checks it.
 - Law: the stamped pair reads ONE `CookieSpec.csrf` row on both axes — the cookie under `name`, the echo header under `header` — because the two halves of a double-submit are one field spelling and `serve/route#CEREMONY_ROWS`'s gate reads that same row; reusing the cookie name as the header name is the fork that fails every mutation closed while both ends type-check.
-- Law: the pending flow is single-use and time-bounded — `land` drops the record before acting on it, so a replayed callback finds nothing and folds to `replay`; a record older than `spec.grace` folds to `lapsed`; the state echo, when the record carries one, equals the callback's or folds to `replay` — defense in depth beside the server-side single-use stash `security/authn/oauth` owns. The departure commit is the module's platform-forced statement seam — `location.assign` unloads the document, nothing sequences after it, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_departed`'s first line.
+- Law: the pending flow is single-use and time-bounded — `land` drops the record before acting on it, so a replayed callback finds nothing and folds to `replay`; a record older than `spec.grace` folds to `lapsed`, while a minted instant ahead of the observed clock folds to `skew` instead of turning an absolute distance into a plausible age; the state echo, when the record carries one, equals the callback's or folds to `replay` — defense in depth beside the server-side single-use stash `security/authn/oauth` owns. The departure commit is the module's platform-forced statement seam — `location.assign` unloads the document, nothing sequences after it, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_departed`'s first line.
 - Law: passkey ceremonies stay out of this plane — `security/authn/webauthn`'s `Passkeys` owns the `navigator.credentials` invocation and the ui wave owns the option/response POST-back legs; this plane owns only the phase cell those legs drive through the transitions.
 - Receipt: `land` yields the flow's `returnTo` beside the established session so the traversal owner restores the interrupted destination; `csrf` yields the ready `[name, value]` header pair.
 - Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one reason on the `FlowFault` family mint, which derives the type and the class projection together.
@@ -302,7 +302,7 @@ const Router: {
 
 ```typescript signature
 import { CookieSpec } from "@rasm/ts/security"
-import { DateTime, Duration, Encoding, FiberHandle, Order } from "effect"
+import { DateTime, Duration, Encoding, FiberHandle } from "effect"
 
 const _CHANNEL = "rasm-session"
 const _FLOW_KEY = "pending"
@@ -323,7 +323,7 @@ const SessionStatus: Data.TaggedEnum.Constructor<SessionStatus> = Data.taggedEnu
 // `replay` guards TWO forgeries against one live flow — a callback arriving with nothing pending and a callback whose
 // state never matched — so the row carries a closed `mismatch` column rather than a free string that named neither.
 // `lapsed` carries the measured age beside the grace it outran, which is what an operator widening the window reads.
-const _flowFamily = Fault.Class.family(["replay", "lapsed", "malformed"] as const, {
+const _flowFamily = Fault.Class.family(["replay", "lapsed", "skew", "malformed"] as const, {
   replay: Fault.Class.row({
     class: "conflicted",
     leg: "session",
@@ -338,6 +338,13 @@ const _flowFamily = Fault.Class.family(["replay", "lapsed", "malformed"] as cons
     leg: "session",
     detail: Schema.Struct({ aged: Schema.DurationFromSelf, grace: Schema.DurationFromSelf }),
     render: ({ aged, grace }) => `flow aged ${Duration.toMillis(aged)}ms past a ${Duration.toMillis(grace)}ms grace`,
+  }),
+  skew: Fault.Class.row({
+    class: "breached",
+    leg: "session",
+    detail: Schema.Struct({ minted: Schema.DateTimeUtc, observed: Schema.DateTimeUtc }),
+    render: ({ minted, observed }) =>
+      `flow minted at ${DateTime.formatIso(minted)} is ahead of the observed clock ${DateTime.formatIso(observed)}`,
   }),
   malformed: Fault.Class.row({
     class: "malformed",
@@ -401,10 +408,10 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
               sleeper,
               Effect.gen(function* () {
                 const now = yield* DateTime.now
-                const wait = Order.max(Duration.Order)(
-                  Duration.subtract(DateTime.distanceDuration(now, expiresAt), Duration.decode(spec.lead)),
-                  Duration.zero,
-                )
+                const wait = Duration.millis(globalThis.Math.max(
+                  0,
+                  DateTime.distance(now, expiresAt) - Duration.toMillis(Duration.decode(spec.lead)),
+                ))
                 yield* Effect.sleep(wait)
                 const fresh = yield* spec.refresh
                 yield* Option.match(fresh, {
@@ -469,7 +476,12 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
           const now = yield* DateTime.now
           // The age and the grace are measured ONCE and both ride the refusal: the guard that decides and the row
           // that renders read the same two values, so a widened window can never disagree with what the fault reported.
-          const aged = DateTime.distanceDuration(flow.minted, now)
+          const distance = DateTime.distance(flow.minted, now)
+          yield* Effect.when(
+            Effect.fail(new FlowFault({ case: { reason: "skew", minted: flow.minted, observed: now } })),
+            () => distance < 0,
+          )
+          const aged = Duration.millis(distance)
           const grace = Duration.decode(spec.grace)
           yield* Effect.when(
             Effect.fail(new FlowFault({ case: { reason: "lapsed", aged, grace } })),

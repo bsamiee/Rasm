@@ -10,7 +10,7 @@
 ## [02]-[RETENTION_CLASSES]
 
 - Owner: `ArtifactKind` the `[SmartEnum<string>]` ASSET-CLASS axis every durable artifact admits under, carrying its derived `RetentionClass` and `CacheTier` and owning the two provenance selectors (`Texture`, `Representation`) that answer both the row and the origin key one producer value projects; `CacheTier` the two-row recency-lane vocabulary the app platform reads settled; `RetentionClass` the `[SmartEnum<string>]` lifecycle axis carrying its five decisions; `StorageLane` the durable-home axis; `RetentionCapability` the loss vocabulary and `RetentionLoss` its three legal corners under one `CapabilityLaw`; `IdentityScheme` the content-keyed-versus-name-plus-epoch families carrying the total-`Switch` `Identity` mint; `RetentionCeiling` the sensitivity rank and cold-tier ladder; `RetentionFault` the closed admission fault; `RetentionCatalog` the one-fold admission.
-- Cases: each artifact family is one `ArtifactKind` row, and a family whose retention derives from PROVENANCE is two rows behind one selector reading the discriminant off a value the producer already holds — `Texture(planKey)` answers the rebuildable `TextureSet` against the unreproducible `TextureAcquired`, and `Representation(slot, bodyKey)` — a total `Switch` over the COMPOSED `Rasm.Element` `Graph/element#NODE_MODEL` `RepresentationSlot` roster, this page holding only the correspondence column — the lossless `RepresentationBox` against the re-tessellated `Body`/`Axis`/`Footprint`, each beside the origin key the admission records. Retention closes at six rows — `snapshot`, `stream`, `blob`, `evidence`, `cache`, `ephemeral` — and a class fitting no row is an admission rejection, never a default. Class membership is immutable and reclassification is export-then-readmit, so every lived lifecycle stays receipted.
+- Cases: each artifact family is one `ArtifactKind` row, and a family whose retention derives from PROVENANCE is selected behind one fold reading the discriminant off a value the producer already holds — `Texture(planKey)` answers the rebuildable `TextureSet` against the unreproducible `TextureAcquired`, and `Representation(slot, bodyKey)` is a total `Switch` over the COMPOSED `Rasm.Element` `Graph/element#NODE_MODEL` `RepresentationSlot` roster. Its proven reconstructible arms select their cache rows only when the body origin is present and otherwise preserve durably; `Box` selects its lossless row with no origin; every other opaque slot selects the one durable `RepresentationPreserved` row with no invented reconstruction source. Retention closes at six rows — `snapshot`, `stream`, `blob`, `evidence`, `cache`, `ephemeral` — and a class fitting no row is an admission rejection, never a default. Class membership is immutable and reclassification is export-then-readmit, so every lived lifecycle stays receipted.
 - Entry: `RetentionCatalog.Admit(cls, contentKey, name, epoch, stamp, tier, resident, write, frame)` is the one admission fold answering `IO<Fin<RetentionFact>>`; `RetentionCeiling.Admit(stamp, ceiling)` is the ONE ceiling rail answering the typed fault (`Unstamped` for an unranked stamp, `CeilingBreach` for a ranked one over the ceiling), so no call site pairs a mapped-ness probe with a comparison; `cls.Scheme.Identity(contentKey, name, epoch)` mints the catalog key inside the fold, so a caller never pre-mints identity; `cls.Schedule` projects cadence, budget, and the class's own `RedrivePolicy`.
 - Auto: admission is one rail — ceiling-admit, identity-derive, race-admit, lane-write. Ceiling admission rejects an UNRANKED stamp before any compare, because absence of a seam rank is not clearance and a `CeilingBreach` reporting a comparison that never happened is the deleted form. Identity-derive dispatches on the scheme's generated total `Switch`: content-keyed passes its address through, name-plus-epoch streams `(name, epoch)` through the ONE kernel `CanonicalWriter` field stream, so the preimage is length-framed and no separator literal can forge a key. Race-admit gives content-keyed classes dedup and race-loser disposal free and name-plus-epoch classes versioned replacement free, with zero conditional code. Byte counts come from the artifact's own sealed length fields, never a later filesystem stat.
 - Receipt: an admission rides `store.retention.admit` carrying the class and bytes; a ceiling breach and an unranked stamp both ride `store.retention.reject` carrying the fault's own payload.
@@ -202,12 +202,13 @@ public sealed partial class ArtifactKind {
     public static readonly ArtifactKind ChunkContent = new("chunk-content", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind CloudRun = new("cloud-run", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Assessment = new("assessment", RetentionClass.Cache, CacheTier.ModelResult);
-    // Per-slot economics: the lossless body is an observation no fold reproduces (`Blob`), while mesh, line, and ring
-    // re-tessellate from that body (`Cache`); no row may pin the process-local tier.
-    public static readonly ArtifactKind RepresentationBox = new("representation-box", RetentionClass.Blob, CacheTier.ArtifactBlob);
+    // Per-slot economics: the three proven derived forms re-tessellate from the recorded body origin (`Cache`), while
+    // `Box` and every opaque form lacking a reconstruction source remain durable (`Blob`); no row pins a process tier.
     public static readonly ArtifactKind RepresentationBody = new("representation-body", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationAxis = new("representation-axis", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationFootprint = new("representation-footprint", RetentionClass.Cache, CacheTier.ArtifactBlob);
+    public static readonly ArtifactKind RepresentationBox = new("representation-box", RetentionClass.Blob, CacheTier.ArtifactBlob);
+    public static readonly ArtifactKind RepresentationPreserved = new("representation-preserved", RetentionClass.Blob, CacheTier.ArtifactBlob);
     // `CoverageRaster` keys a `Node.Coverage` MEASURED field grid, never a `RepresentationContentHash` slot, so it
     // carries no provenance discriminant and admits as its own row — routing it through the representation selector
     // handed a measured raster the producing body's key as a re-derivation origin nothing can rebuild it from.
@@ -255,15 +256,27 @@ public sealed partial class ArtifactKind {
     // vocabulary the producing node already keys its `RepresentationContentHash` by — composed, never re-declared,
     // so the correspondence is this page's own column and a slot mint upstream breaks HERE. Dispatch takes the
     // roster's generated total `Switch` rather than a row-identity compare, so the retention arm and the origin arm
-    // answer together per row: derived rows admitting with `None` origin would claim re-derivability while the index
-    // names nothing to re-derive from, and the `Box` arm alone returns `None` because the lossless body IS the origin.
+    // answer together per row: the three proven derived rows take their cache class only with a body origin, while a
+    // missing origin, `Box`, and every opaque slot select durable preservation and carry no fabricated source.
     public static (ArtifactKind Kind, Option<UInt128> Source) Representation(RepresentationSlot slot, Option<UInt128> bodyKey) =>
         slot.Switch(
             state: bodyKey,
-            body: static key => (RepresentationBody, key),
-            axis: static key => (RepresentationAxis, key),
+            body: static key => Derived(RepresentationBody, key),
+            axis: static key => Derived(RepresentationAxis, key),
+            footPrint: static key => Derived(RepresentationFootprint, key),
             box: static _ => (RepresentationBox, Option<UInt128>.None),
-            footPrint: static key => (RepresentationFootprint, key));
+            annotation: static _ => (RepresentationPreserved, Option<UInt128>.None),
+            surface: static _ => (RepresentationPreserved, Option<UInt128>.None),
+            profile: static _ => (RepresentationPreserved, Option<UInt128>.None),
+            clearance: static _ => (RepresentationPreserved, Option<UInt128>.None),
+            cog: static _ => (RepresentationPreserved, Option<UInt128>.None),
+            lighting: static _ => (RepresentationPreserved, Option<UInt128>.None),
+            reference: static _ => (RepresentationPreserved, Option<UInt128>.None));
+
+    private static (ArtifactKind Kind, Option<UInt128> Source) Derived(ArtifactKind kind, Option<UInt128> bodyKey) =>
+        bodyKey.Match(
+            Some: key => (kind, Some(key)),
+            None: static () => (RepresentationPreserved, Option<UInt128>.None));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

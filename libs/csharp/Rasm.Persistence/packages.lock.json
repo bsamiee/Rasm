@@ -2151,11 +2151,6 @@
         "resolved": "9.0.0",
         "contentHash": "H7UZoctQ2xFQgU6eGFRavMDJQGebLaqG9OqWg5dm3WFpPJ8mhdTDcJhz/ihxzUZm1I+wiykzp+tu3hYtQ0omMQ=="
       },
-      "System.Security.Cryptography.ProtectedData": {
-        "type": "Transitive",
-        "resolved": "4.5.0",
-        "contentHash": "wLBKzFnDCxP12VL9ANydSYhk59fC4cvOr9ypYQLPnAj48NQIhqnjdD2yhP8yEKyBJEjERWS9DisKL7rX5eU25Q=="
-      },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
         "resolved": "10.4.0",
@@ -2209,10 +2204,7 @@
         }
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "rasm": {
         "type": "Project",
@@ -2260,19 +2252,17 @@
         "type": "Project",
         "dependencies": {
           "Celly.Protovalidate": "[1.2.0, )",
-          "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Microsoft.Extensions.Compliance.Abstractions": "[10.8.0, )",
           "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
+          "Rasm.Contracts": "[0.1.0, )",
           "System.IO.Hashing": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -3068,6 +3058,12 @@
         "requested": "[7.0.0, )",
         "resolved": "7.0.0",
         "contentHash": "VYaSP2Kt+45GFnr3q7c/b4awT48VvueOJV4jPjdUXi5MxC9mSUy+HkJYtm8rGZ6fC3tNHG9gBu/YwNAR/FYqhg=="
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
       },
       "System.Threading.RateLimiting": {
         "type": "CentralTransitive",

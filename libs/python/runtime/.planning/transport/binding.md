@@ -2,9 +2,9 @@
 
 Every protocol lowering of a message envelope seats here: `BINDINGS` is the one row family carrying content mode, header prefix, routing key, `protocolsettings` slice, filter pushdown, execution arm, and payload-residence policy per protocol, and `Emitter` is the `observe` subscription that turns a fired hook fact into a message envelope and hands it to a bound binding. Rows span HTTP, Kafka, both MQTT protocol versions, AMQP 1.0, NATS, and RabbitMQ; growth is one row and every consumer stands untouched, because binding is DATA and never a type a caller switches on.
 
-Specification law owns each lowering and the SDK accelerates four of them: the four SDK binding modules carry distinct prefix families and MQTT carries none, so the MQTT and NATS rows are branch-owned whole. Composed owners: `transport/event#MESSAGE` the message envelope, `transport/event#FORMAT` the codec, `transport/roots#STORE` the `dataref` residence, `reliability/resilience#RESILIENCE` every curve, window, and rate, `observability/hooks#HOOKS` the fired facts, `observability/journal#FACT` the durable write, `execution/admission#CONTEXT` the profile and the tenant.
+Specification law owns each lowering and the SDK accelerates four of them: the four SDK binding modules carry distinct prefix families and MQTT carries none, so the MQTT and NATS rows are branch-owned whole. Composed owners: `transport/event#MESSAGE` the message envelope, `transport/event#FORMAT` the codec, `transport/roots#STORE` the `dataref` residence, `reliability/resilience#RESILIENCE` every curve, window, and rate, `observability/hooks#HOOKS` the fired facts, `observability/journal#FACT` the durable write, `execution/admission#CONTEXT` the profile, principal scope, and tenancy adoption.
 
-`BrokerLane` closes the connection half the rows describe: one owner drives every protocol's membership, settlement, transactional boundary, poll cadence, and drain off its `ADAPTERS` row and a composition-bound `Client` port, so a seventh protocol is one row beside one bound port, with no adapter class, arm, or subclass to add. No package on this page creates or owns an event loop — every lane composes inside the caller's `anyio` task group and `lifecycle` defaults `caller-owned`.
+`BrokerLane` closes the connection half the rows describe: one owner drives every protocol's membership, settlement, transactional boundary, poll cadence, and drain off the same `BINDINGS` row that lowers its carrier and a composition-bound `Client` port. A seventh protocol is one row beside one bound port, with no adapter class, arm, or second authority to add. No package on this page creates or owns an event loop — every lane composes inside the caller's `anyio` task group and `lifecycle` defaults `caller-owned`.
 
 ## [01]-[INDEX]
 
@@ -16,38 +16,58 @@ Specification law owns each lowering and the SDK accelerates four of them: the f
 
 - Owner: `BindingRow` is the branch's whole protocol vocabulary and `BINDINGS` the table every consumer reads — a lowering, a subscription's `protocolsettings` slice, a filter's pushdown verdict, an execution arm, and a payload threshold all derive from one row, so a new protocol is ONE row and no fold, adapter, or admission gate is edited. `Content` closes the mode vocabulary and `Prefix` the header family, both spelled once rather than as literals at four lowering sites.
 - Cases: distinct prefix families span the SDK bindings — `ce-` for HTTP and RabbitMQ, `ce_` for Kafka, `cloudEvents_` for AMQP writing and `cloudEvents:` for AMQP reading — while MQTT carries NO prefix at all, its attributes riding bare User Property names, and NATS carries `ce-` under a branch-owned lowering the distribution does not ship. Reading `ce-` as one estate-wide spelling is the drift this table forecloses.
-- Cases: mode support is per row and never a caller flag. HTTP and Kafka carry binary, structured, and batch; `Binding.MQTT5` carries binary and structured because User Properties exist there; `Binding.MQTT311` carries STRUCTURED ONLY and states that restriction on its own `degrade`; AMQP 1.0, NATS, and RabbitMQ carry binary and structured. Modes a row does not hold refuse at admission with the row named, never by silently lowering the other way.
-- Law: `protocolsettings` is the subscription's own per-binding slice and REPLACES every hand-rolled per-sink knob — HTTP `headers`/`method`; MQTT `topicname` required beside `qos`/`retain`/`expiry`/`userproperties`; AMQP `address`/`linkname`/`sendersettlementmode`/`linkproperties`; Kafka `topicname`/`partitionkeyextractor`/`clientid`/`acks`; NATS `subject`; RabbitMQ the branch's own `exchange`/`routingkey`/`deliverymode`/`expiration`, since the specification carries no RabbitMQ entry. Knobs outside a row's slice are unspellable.
+- Cases: mode and structured-format support are per row. HTTP, Kafka, MQTT 5, AMQP 1.0, NATS, and RabbitMQ carry binary and singular structured formats; MQTT 3.1.1 carries JSON structured only, whose media type is implied because that protocol has no Content Type property. Generic JSON/protobuf batch codecs remain at the format owner, while this connection owner declines batch send until a bounded producer can return per-event custody. Unsupported combinations refuse at admission and never lower another way.
+- Law: `protocolsettings` is the subscription's own per-binding slice and REPLACES every hand-rolled per-sink knob — MQTT `topicname` required beside `qos`/`retain`/`expiry`/`userproperties`; AMQP `address`/`linkname`/`sendersettlementmode`/`linkproperties`; Kafka `topicname`/`partitionkeyextractor`/`clientid`/`acks`; NATS `subject`; RabbitMQ the branch's own `exchange`/`routingkey`/`deliverymode`/`expiration`, since the specification carries no RabbitMQ entry. A dual-residence row admits `datarefprojection=reference` only as explicit peer-negotiation evidence; without it the row refuses rather than weakening carriage. HTTP request method, destination, authorization, and application headers remain on its bound client/target policy; this carrier row invents none. Unknown keys refuse before any codec or client sees them, while the complete admitted slice reaches the bound dialer.
 - Law: pushdown is a row verdict, never a runtime probe. MQTT resolves a topic filter at the BROKER through SUBSCRIBE, NATS through subject wildcards, RabbitMQ through the exchange binding on its routing key, and AMQP through link-source filters under a `copy` or `move` distribution mode; Kafka has no server-side filtering and HTTP no native mechanism, so both filter consumer-side. `transport/filter#DIALECT` owns the dialect half of that join and reads THIS column rather than carrying one of its own — a composite pushes only where every child does, and negation and `sql` never do.
 - Law: routing keys are the row's, derived from the roster rather than restated — Kafka takes `partitionkey` onto the record key through the SDK's own `_default_key_mapper`, MQTT and NATS take the topic and subject, RabbitMQ the routing key, and HTTP and AMQP take none. Hand-spelled key extractors beside the helper that owns the roster are the deleted form.
 - Law: NO row owns `retry`, and no row carries a column for it either. Transport families foreclose the coordinate and `reliability/resilience#RESILIENCE` holds every schedule, so the answer is uniform across the whole family and rides this line rather than a cell each row re-answers — the adapter that owns a connection binds the class, and a row carrying its own curve makes the effective attempts a product of two.
-- Law: tenancy is NOT a column, on `transport/roots#RESOURCE`'s own reason — a binding isolates no tenant, the subscription's admitted profile and its resolved credential do — and a coordinate a row cannot express records the divergence on `degrade` rather than dropping the column.
+- Law: tenancy is NOT a row column, on `transport/roots#RESOURCE`'s own reason — a protocol name isolates no tenant. The admitted profile decides the tenancy shape and the application-owned binder supplies an authenticated `PrincipalScope` per received delivery; the generic lane never derives scope from a resolved credential. A coordinate a row cannot express records the divergence on `degrade` rather than dropping the column.
 - Law: the execution arm rides the row because it is a protocol fact, and NO row creates or owns an event loop. `KAFKA` is a blocking librdkafka client whose every blocking call releases the GIL, so it rides a `CapacityLimiter`-bounded `to_thread` lane with its delivery, rebalance, and settlement callbacks re-entering through one `BlockingPortalProvider`. `RABBITMQ` is blocking and single-threaded by contract, so it takes one dedicated worker per connection whose only inbound door is `add_callback_threadsafe`, and its pump calls `process_data_events` on its own cadence because deliveries and heartbeats dispatch nowhere else. `MQTT` needs no thread at all — `socket()` registers on the caller's own readiness and `loop_read`/`loop_write`/`loop_misc` run as bounded steps inside the task group. `NATS` is asyncio-native and composes directly, forfeiting the trio backend on its own `degrade`. `HTTP` rides the `transport/roots#RESOURCE` arm already bound.
-- Law: `dataref` is ONE policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `threshold` derives from the binding's own NEGOTIATED limit where the protocol negotiates one — NATS reads the live connection's `max_payload`, MQTT 5.0 the session's `Maximum Packet Size`, AMQP the per-link `max-frame-size` — and from the row's declared floor otherwise. `residence` binds at the composition root as a `transport/roots#STORE` port and refuses at admission when unbound rather than shipping a reference nothing resolves; `ref` IS the digest in the one `subject` spelling; `retain` names a `Retain` class and never a window; `dual` gates reference-alone shipping on the subscription's own `protocolsettings`, since the specification carries no capability negotiation.
-- Law: `dataclassification` gates what crosses which binding, and `CLASSIFICATION_ROWS` is where that gate is DATA — one row per `execution/admission#CONTEXT` `Classification` grade carrying its `redact` transform and its `broker` reach, so a grade a binding cannot honor refuses AT that binding rather than at a later hop and a payload crossing without the redaction route is the exfiltration path the row forecloses. `SECRET` reaches no broker at all: its `broker` cell is empty, so every broker row refuses it by name while HTTP still carries it under the redaction the same row names.
-- Entry: `lower(envelope, binding, mode)` is one entry over every protocol and both modes, folding the row's own codec and prefix off the table, and `raise_(message, binding)` is its inverse discriminating content mode by the row's own rule — HTTP and Kafka on the header prefix, AMQP and RabbitMQ on the content type's `application/cloudevents` stem. Both rail; neither takes a knob the row already answers.
+- Law: `dataref` is ONE policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `threshold` comes from the live client ceiling where the protocol negotiates one — NATS `max_payload`, MQTT 5.0 `Maximum Packet Size`, AMQP link `max-frame-size` — and from the row floor otherwise. `Residence` binds the existing `transport/roots#STORE` `ResourceRoot`/`ObjectStoreLane` at composition, persists the exact event-data bytes under the subject content key with the row's `Retain` tag, and resolves the admitted URI-reference through that confined root. Its mandatory `DataIdentity` table binds each event type to the existing content-identity policy and seed, so acquired bytes must prove the envelope's `subject`; dual carriage additionally proves byte equality. An unbound residence refuses before any reference ships. `ResidenceProjection` records dual versus reference-only carriage. A row declaring reference-only projects once past its threshold. A dual row never silently changes semantics: beyond its live ceiling it refuses until admitted `protocolsettings` carry a real negotiation proof. `ResidenceReceipt` proves the reference, retention, projection, and byte count.
+- Law: `dataclassification` gates what crosses which binding, and `CLASSIFICATION_ROWS` is where that gate is DATA — the generated extension carries the canonical string and admission resolves it through `Classification(value)` before table lookup. Missing and unknown values both refuse before lowering, trust, routing, or settlement; no transport arm fabricates an `internal` grade. A grade a binding cannot honor refuses before encoding. Transport never mutates a typed payload under a generic "redaction" label; `SECRET` reaches no binding at all, and application projection owns any sanctioned lower-sensitivity fact.
+- Entry: `lower(value, binding, mode, suffix, settings, formats)` is one entry over every protocol: the row admits the mode, binary requires no suffix and one envelope, structured requires one envelope plus a suffix, and batch requires a block plus a suffix. The composition-bound `EventFormat` owns bytes; this owner lowers only the carrier. `raise_(message, binding, formats)` derives structured/batch from media type and otherwise delegates binary attributes to the official SDK before the same generated-profile admission. `Residence.resolve(envelope)` is the inverse data leg, admitting and confining `dataref`, acquiring its bytes, verifying `subject`, and comparing dual data before returning.
 - Auto: a binding a deployment cannot serve refuses on the `providers` OPEN axis as one `execution/admission#CONTEXT` descriptor row, never a boolean knob, because a knob re-mints the assumed consumer roster the open form forecloses. AMQP 1.0 is exactly that case in this branch: the row lowers and raises an `AMQPMessage` value and names no client, so a composition binding it refuses at admission with the axis named.
 - Growth: a new protocol is one `BindingRow` with its `Dataref` row, reaching every `CLASSIFICATION_ROWS` `broker` cell that admits it; a new sensitivity grade is one `Classification` member at its admission owner with one `CLASSIFICATION_ROWS` row here; a new content mode is one `Content` member on the rows that hold it; a new protocol setting is one key on that row's slice; a new pushdown mechanism is one `Pushdown` value; a new execution arm is one `Arm` member with its lane law; a new residence is one port binding at the composition root.
 - Boundary: protocol lowering, its policy rows, and payload residence only — the connection half seats at `[04]-[ADAPTER]` on this same page, so a row states the protocol fact and the lane realizes it. Composes — never re-mints — the message envelope, the format contract, the resilience curves, the store lane, and the hook registry. Rejected: a per-sink knob outside its row's `protocolsettings` slice; a `ce-` literal at a lowering site; a hand-spelled partition-key extractor beside `_default_key_mapper`; a global `dataref` threshold; a `retry` column on a transport row; a boolean capability knob where the `providers` axis refuses.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+from collections.abc import Iterable
+from copy import replace
 from enum import StrEnum
-from typing import Final, Literal
+from hmac import compare_digest
+from typing import Final, Literal, Never, assert_never, cast
 
-from expression import Nothing, Option, Some
-from expression.collections import Map
-from msgspec import Struct
+from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block, Map
+from msgspec import Raw, Struct
+from obstore import Bytes
+from protobuf import Message as ProtoMessage
 
 from cloudevents.core.bindings import amqp, http, kafka, rabbitmq
+from cloudevents.core.bindings.common import encode_header_value
 from cloudevents.core.bindings.kafka import PARTITIONKEY_ATTR
+from cloudevents.core.exceptions import CloudEventValidationError
+from cloudevents.core.formats.base import Format
+from cloudevents.core.v1.event import CloudEvent
 
 from rasm.runtime.admission import Classification
-from rasm.runtime.event import Content, MessageEnvelope, Suffix
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.event import (
+    Content,
+    Decoded,
+    Encoded,
+    EventFormat,
+    EventType,
+    MediaType,
+    MessageEnvelope,
+    Suffix,
+    WireKey,
+    parse_media,
+)
+from rasm.runtime.faults import BINDING_ADMIT, BINDING_DECODE, BINDING_ENCODE, RuntimeRail, boundary
+from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, IdentityPolicy, U64
 from rasm.runtime.journal import Retain
-from rasm.runtime.receipts import Scrub
-from rasm.runtime.roots import ResourceRef
+from rasm.runtime.roots import ObjectStoreLane, ResourceRef, ResourceRoot, StoreOp, StoreOutcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -114,17 +134,47 @@ class Pushdown(StrEnum):
     CONSUMER = "consumer"  # no server-side mechanism; every expression evaluates after delivery
 
 
+class ResidenceProjection(StrEnum):
+    DUAL = "dual"
+    REFERENCE = "reference"
+
+
+class Pump(StrEnum):
+    ABSENT = "absent"
+    POLL = "poll"
+    WORKER = "worker"
+    READY = "ready"
+    NATIVE = "native"
+    REQUEST = "request"
+
+
+class Grouping(StrEnum):
+    NONE = "none"
+    GROUP = "group"
+    QUEUE = "queue"
+    WORK = "work"
+
+
+class Settle(StrEnum):
+    JOURNAL = "journal"
+    BROKER = "broker"
+    RESPONSE = "response"
+
+
+class Producing(StrEnum):
+    TRANSACTIONAL = "transactional"
+    IDEMPOTENT = "idempotent"
+    CONFIRMED = "confirmed"
+    UNCONFIRMED = "unconfirmed"
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class ClassificationRow(Struct, frozen=True, gc=False):
-    # handling law per sensitivity grade, transcribed meaning-identical from the estate seam. `redact` is the
-    # receipts-owned `Scrub` transform vocabulary, distinct in NAME because it is a distinct concept — one spelling
-    # over a grade and a transform resolves to whichever module imported last. `broker` names the
-    # bindings a payload at this grade may cross AT ALL, derived nowhere else: an empty set is a total refusal every
-    # broker row reads by name rather than a policy each adapter re-derives.
+    # handling law per sensitivity grade. `broker` names the bindings a payload at this grade may cross AT ALL;
+    # content transformation remains the typed payload producer's owner and is never a transport-side mutation.
     grade: Classification
-    redact: Scrub
     broker: frozenset[Binding]
     carries: str
 
@@ -134,27 +184,23 @@ CLASSIFICATION_ROWS: Final[Map[Classification, ClassificationRow]] = Map.of_seq(
     for row in (
         ClassificationRow(
             Classification.PUBLIC,
-            redact="hash",
             broker=frozenset(Binding),
-            carries="a fact whose payload is publishable as it stands, so every binding carries it and the transform only stabilizes identity",
+            carries="a fact whose payload is publishable as it stands, so every binding carries it",
         ),
         ClassificationRow(
             Classification.INTERNAL,
-            redact="hash",
             broker=frozenset(Binding),
-            carries="the default grade: estate-interior facts every admitted binding carries under the standing trust row",
+            carries="an explicitly classified estate-interior fact every admitted binding carries under the standing trust row",
         ),
         ClassificationRow(
             Classification.RESTRICTED,
-            redact="mask",
             broker=frozenset({Binding.HTTP, Binding.KAFKA, Binding.RABBITMQ}),
-            carries="a fact whose payload masks before it crosses, and only onto the bindings whose trust row this branch verifies per destination",
+            carries="a fact only the bindings with a verified destination trust row may carry",
         ),
         ClassificationRow(
             Classification.SECRET,
-            redact="drop",
             broker=frozenset(),
-            carries="a fact no broker carries at all — the payload DROPS and only the attribute projection crosses, so the reference-carrying leg is the whole delivery",
+            carries="a fact no broker carries at all; transport never strips its payload into a weaker event",
         ),
     )
 )
@@ -168,7 +214,110 @@ class Dataref(Struct, frozen=True, gc=False):
     threshold: int
     negotiated: bool
     retain: Retain
-    dual: bool
+    projection: ResidenceProjection
+
+
+class ResidenceReceipt(Struct, frozen=True, gc=False):
+    ref: ResourceRef
+    retain: Retain
+    projection: ResidenceProjection
+    quantity: int
+
+
+class DataIdentityRow(Struct, frozen=True, gc=False):
+    fmt: str
+    policy: IdentityPolicy = CANONICAL_POLICY
+    seed: Option[U64] = Nothing
+
+
+class DataIdentity(Struct, frozen=True, gc=False):
+    # Event semantics own the content-key namespace and seed. One row per event type binds those producer facts to the
+    # existing identity owner, so residence verification never guesses them from a URI, media type, or payload shape.
+    rows: Map[EventType, DataIdentityRow]
+
+    def verify(self, event_type: EventType, expected: WireKey, body: bytes, /) -> RuntimeRail[None]:
+        return self.rows.try_find(event_type).to_result_with(
+            lambda: BINDING_DECODE.raised("residence", f"missing-identity:{event_type.wire}")
+        ).bind(
+            lambda row: ContentIdentity.of(
+                row.fmt,
+                body,
+                row.policy,
+                view="wire",
+                seed=row.seed,
+            ).bind(
+                lambda actual: Ok(None)
+                if compare_digest(actual, expected)
+                else Error(BINDING_DECODE.raised("residence", "subject-mismatch"))
+            )
+        )
+
+
+class Residence(Struct, frozen=True, gc=False):
+    # Concrete composition over the branch's ONE object-store owner. It persists event DATA, not a second envelope,
+    # and the resolver reads the identical object through the same provider/ref admission and retry rail.
+    root: ResourceRoot
+    identity: DataIdentity
+
+    async def externalize(
+        self, envelope: MessageEnvelope, policy: Dataref, projection: ResidenceProjection, /
+    ) -> RuntimeRail[tuple[MessageEnvelope, ResidenceReceipt]]:
+        match envelope.subject:
+            case Option(tag="none"):
+                return Error(BINDING_ADMIT.raised("residence", "dataref-without-subject"))
+            case Option(tag="some", some=subject):
+                referred = self.root.child(f"events/{subject}.payload")
+        match referred:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=ref):
+                payload = _event_data(envelope)
+        match payload:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=body):
+                projected = replace(
+                    envelope,
+                    payload=envelope.payload if projection is ResidenceProjection.DUAL else None,
+                    extensions=replace(envelope.extensions, dataref=ref.relative),
+                )
+        match projected.event():
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok"):
+                stored = await ObjectStoreLane.of(ref).run_async(StoreOp.Put(body, tags={"retain": policy.retain.value}))
+        return stored.bind(
+            lambda outcome: _stored(outcome, len(body)).map(
+                lambda quantity: (
+                    projected,
+                    ResidenceReceipt(
+                        ref=ref,
+                        retain=policy.retain,
+                        projection=projection,
+                        quantity=quantity,
+                    ),
+                )
+            )
+        )
+
+    async def resolve(self, envelope: MessageEnvelope, /) -> RuntimeRail[bytes]:
+        if not envelope.extensions.has_field("dataref"):
+            return Error(BINDING_DECODE.raised("residence", "missing-dataref"))
+        match envelope.subject:
+            case Option(tag="none"):
+                return Error(BINDING_DECODE.raised("residence", "dataref-without-subject"))
+            case Option(tag="some", some=subject):
+                referred = self.root.child(envelope.extensions.dataref)
+        match referred:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=ref):
+                acquired = (await ObjectStoreLane.of(ref).run_async(StoreOp.Get())).bind(_resolved)
+        return acquired.bind(
+            lambda body: self.identity.verify(envelope.event_type, subject, body)
+            .bind(lambda _: _same_data(envelope, body))
+            .map(lambda _: body)
+        )
 
 
 class BindingRow(Struct, frozen=True, gc=False):
@@ -178,12 +327,21 @@ class BindingRow(Struct, frozen=True, gc=False):
     # owns the schedule, since a row carrying its own curve makes the effective attempts a product of two.
     binding: Binding
     modes: frozenset[Content]
+    formats: frozenset[Suffix]
     prefix: Prefix
     routes_on: Option[str]
     settings: frozenset[str]
     pushdown: Pushdown
     arm: Arm
     dataref: Dataref
+    pump: Pump
+    grouping: Grouping
+    settlement: Settle
+    producing: Producing
+    lane: Option[str]
+    portal: bool
+    rebalanced: bool
+    prefetch: int
     fits: str
     admit: str
     lifetime: str
@@ -201,18 +359,32 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
     for row in (
         BindingRow(
             Binding.HTTP,
-            modes=frozenset({Content.BINARY, Content.STRUCTURED, Content.BATCH}),
+            modes=frozenset({Content.BINARY, Content.STRUCTURED}),
+            formats=frozenset({"json", "protobuf", "avro"}),
             prefix=Prefix.DASH,
             routes_on=Nothing,
-            settings=frozenset({"headers", "method"}),
+            settings=frozenset(),
             pushdown=Pushdown.CONSUMER,
             arm=Arm.NATIVE,
-            dataref=Dataref(threshold=8 << 10, negotiated=False, retain=Retain.OPERATIONAL, dual=False),
-            fits="a webhook target or a synchronous ingress door, the one binding carrying the abuse-protection handshake",
+            dataref=Dataref(
+                threshold=8 << 10,
+                negotiated=False,
+                retain=Retain.OPERATIONAL,
+                projection=ResidenceProjection.REFERENCE,
+            ),
+            pump=Pump.REQUEST,
+            grouping=Grouping.NONE,
+            settlement=Settle.RESPONSE,
+            producing=Producing.CONFIRMED,
+            lane=Nothing,
+            portal=False,
+            rebalanced=False,
+            prefetch=0,
+            fits="an application-bound HTTP ingress or egress carrier whose request and response lifetime another owner holds",
             admit="`lower` over `cloudevents.core.bindings.http`, dialed through the `transport/roots#RESOURCE` http arm already bound",
             lifetime="the request; nothing survives the response and no subscription state accumulates here",
             deliver="at-most-once on a bare POST, at-least-once where the target answers and the producer re-drives",
-            order="none across requests; a consumer orders on `sequence` alone",
+            order="none across requests; `sequence` crosses as producer metadata and establishes no transport order",
             settle="the response status IS the settlement, so a 2xx is the whole acknowledgement",
             replay="none; the producer re-issues or the fact is lost",
             bound="the server's own header budget, which is why binary mode is the constrained one here",
@@ -225,13 +397,27 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
         ),
         BindingRow(
             Binding.KAFKA,
-            modes=frozenset({Content.BINARY, Content.STRUCTURED, Content.BATCH}),
+            modes=frozenset({Content.BINARY, Content.STRUCTURED}),
+            formats=frozenset({"json", "protobuf", "avro"}),
             prefix=Prefix.UNDERSCORE,
             routes_on=Some(PARTITIONKEY_ATTR),
-            settings=frozenset({"topicname", "partitionkeyextractor", "clientid", "acks"}),
+            settings=frozenset({"topicname", "partitionkeyextractor", "clientid", "acks", "datarefprojection"}),
             pushdown=Pushdown.CONSUMER,
             arm=Arm.THREAD,
-            dataref=Dataref(threshold=1 << 20, negotiated=False, retain=Retain.OPERATIONAL, dual=True),
+            dataref=Dataref(
+                threshold=1 << 20,
+                negotiated=False,
+                retain=Retain.OPERATIONAL,
+                projection=ResidenceProjection.DUAL,
+            ),
+            pump=Pump.POLL,
+            grouping=Grouping.GROUP,
+            settlement=Settle.JOURNAL,
+            producing=Producing.TRANSACTIONAL,
+            lane=Some("broker.kafka"),
+            portal=True,
+            rebalanced=True,
+            prefetch=1000,
             fits="the durable, partitioned, replayable log every analytic and audit consumer reads, and the one binding carrying a registry-framed payload",
             admit="`lower` over `cloudevents.core.bindings.kafka`, produced through the `confluent-kafka` client on a bounded thread lane",
             lifetime="the topic's own retention; this branch commits offsets and deletes nothing",
@@ -250,12 +436,26 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
         BindingRow(
             Binding.MQTT5,
             modes=frozenset({Content.BINARY, Content.STRUCTURED}),
+            formats=frozenset({"json", "protobuf", "avro"}),
             prefix=Prefix.NONE,
             routes_on=Some("topicname"),
-            settings=frozenset({"topicname", "qos", "retain", "expiry", "userproperties"}),
+            settings=frozenset({"topicname", "qos", "retain", "expiry", "userproperties", "datarefprojection"}),
             pushdown=Pushdown.BROKER,
             arm=Arm.READY,
-            dataref=Dataref(threshold=64 << 10, negotiated=True, retain=Retain.EPHEMERAL, dual=True),
+            dataref=Dataref(
+                threshold=64 << 10,
+                negotiated=True,
+                retain=Retain.EPHEMERAL,
+                projection=ResidenceProjection.DUAL,
+            ),
+            pump=Pump.READY,
+            grouping=Grouping.QUEUE,
+            settlement=Settle.BROKER,
+            producing=Producing.CONFIRMED,
+            lane=Nothing,
+            portal=False,
+            rebalanced=False,
+            prefetch=20,
             fits="the edge and telemetry plane — many small producers on constrained links, filtered at the broker",
             admit="the branch-owned lowering onto MQTT 5.0 User Properties; the distribution ships no MQTT binding at all",
             lifetime="the session; a retained message outlives it only where the row's `retain` setting says so",
@@ -274,12 +474,26 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
         BindingRow(
             Binding.MQTT311,
             modes=frozenset({Content.STRUCTURED}),
+            formats=frozenset({"json"}),
             prefix=Prefix.NONE,
             routes_on=Some("topicname"),
-            settings=frozenset({"topicname", "qos", "retain"}),
+            settings=frozenset({"topicname", "qos", "retain", "datarefprojection"}),
             pushdown=Pushdown.BROKER,
             arm=Arm.READY,
-            dataref=Dataref(threshold=64 << 10, negotiated=False, retain=Retain.EPHEMERAL, dual=True),
+            dataref=Dataref(
+                threshold=64 << 10,
+                negotiated=False,
+                retain=Retain.EPHEMERAL,
+                projection=ResidenceProjection.DUAL,
+            ),
+            pump=Pump.READY,
+            grouping=Grouping.NONE,
+            settlement=Settle.BROKER,
+            producing=Producing.UNCONFIRMED,
+            lane=Nothing,
+            portal=False,
+            rebalanced=False,
+            prefetch=20,
             fits="a legacy broker or device fleet that never negotiated 5.0, reached without forking the producer",
             admit="the same branch-owned lowering, structured mode only",
             lifetime="the session, on the 5.0 row's own law",
@@ -298,12 +512,26 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
         BindingRow(
             Binding.AMQP,
             modes=frozenset({Content.BINARY, Content.STRUCTURED}),
+            formats=frozenset({"json", "protobuf", "avro"}),
             prefix=Prefix.QUALIFIED,
             routes_on=Nothing,
-            settings=frozenset({"address", "linkname", "sendersettlementmode", "linkproperties"}),
+            settings=frozenset({"address", "linkname", "sendersettlementmode", "linkproperties", "datarefprojection"}),
             pushdown=Pushdown.LINK,
             arm=Arm.ABSENT,
-            dataref=Dataref(threshold=128 << 10, negotiated=True, retain=Retain.OPERATIONAL, dual=True),
+            dataref=Dataref(
+                threshold=128 << 10,
+                negotiated=True,
+                retain=Retain.OPERATIONAL,
+                projection=ResidenceProjection.DUAL,
+            ),
+            pump=Pump.ABSENT,
+            grouping=Grouping.NONE,
+            settlement=Settle.BROKER,
+            producing=Producing.UNCONFIRMED,
+            lane=Nothing,
+            portal=False,
+            rebalanced=False,
+            prefetch=0,
             fits="an AMQP 1.0 peer this branch must LOWER for without dialing — the value crosses, the connection is another runtime's",
             admit="`lower` over `cloudevents.core.bindings.amqp`, whose value a foreign sender transmits",
             lifetime="the link's, which this branch neither opens nor ends",
@@ -322,12 +550,26 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
         BindingRow(
             Binding.NATS,
             modes=frozenset({Content.BINARY, Content.STRUCTURED}),
+            formats=frozenset({"json", "protobuf", "avro"}),
             prefix=Prefix.DASH,
             routes_on=Some("subject"),
-            settings=frozenset({"subject"}),
+            settings=frozenset({"subject", "datarefprojection"}),
             pushdown=Pushdown.BROKER,
             arm=Arm.NATIVE,
-            dataref=Dataref(threshold=1 << 20, negotiated=True, retain=Retain.EPHEMERAL, dual=True),
+            dataref=Dataref(
+                threshold=1 << 20,
+                negotiated=True,
+                retain=Retain.EPHEMERAL,
+                projection=ResidenceProjection.DUAL,
+            ),
+            pump=Pump.NATIVE,
+            grouping=Grouping.QUEUE,
+            settlement=Settle.JOURNAL,
+            producing=Producing.IDEMPOTENT,
+            lane=Nothing,
+            portal=False,
+            rebalanced=False,
+            prefetch=256,
             fits="the low-latency subject-addressed plane, and through JetStream the durable one, reached with no thread lane at all",
             admit="the branch-owned lowering onto NATS headers; the distribution ships no NATS binding",
             lifetime="core NATS holds nothing past delivery; a JetStream stream holds its own declared retention",
@@ -346,12 +588,26 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
         BindingRow(
             Binding.RABBITMQ,
             modes=frozenset({Content.BINARY, Content.STRUCTURED}),
+            formats=frozenset({"json", "protobuf", "avro"}),
             prefix=Prefix.DASH,
             routes_on=Some("routingkey"),
-            settings=frozenset({"exchange", "routingkey", "deliverymode", "expiration"}),
+            settings=frozenset({"exchange", "routingkey", "deliverymode", "expiration", "datarefprojection"}),
             pushdown=Pushdown.BROKER,
             arm=Arm.PUMP,
-            dataref=Dataref(threshold=128 << 10, negotiated=False, retain=Retain.OPERATIONAL, dual=True),
+            dataref=Dataref(
+                threshold=128 << 10,
+                negotiated=False,
+                retain=Retain.OPERATIONAL,
+                projection=ResidenceProjection.DUAL,
+            ),
+            pump=Pump.WORKER,
+            grouping=Grouping.WORK,
+            settlement=Settle.JOURNAL,
+            producing=Producing.CONFIRMED,
+            lane=Some("broker.rabbitmq"),
+            portal=True,
+            rebalanced=False,
+            prefetch=64,
             fits="a work-queue and routed-fanout plane where the exchange binding does the filtering the consumer would otherwise pay for",
             admit="`lower` over `cloudevents.core.bindings.rabbitmq`, published through `pika`'s blocking channel on its own worker",
             lifetime="the queue's own policy; a durable queue outlives every connection that fed it",
@@ -376,61 +632,422 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
 BROKER_FILTERED: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.pushdown is not Pushdown.CONSUMER)
 DIALABLE: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.arm is not Arm.ABSENT)
 NEGOTIATED_BOUND: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.dataref.negotiated)
+THREADED: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.lane.is_some())
+PORTALED: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.portal)
+JOURNAL_SETTLED: Final[frozenset[Binding]] = frozenset(
+    row.binding for row in BINDINGS.values() if row.settlement is Settle.JOURNAL
+)
 
 
-def lower(envelope: MessageEnvelope, /, *, binding: Binding, mode: Content, suffix: Suffix) -> RuntimeRail[Message]:
-    # ONE entry over every protocol and both modes: the row answers prefix, codec, and routing key, so no caller
-    # threads a knob the table already holds and a mode outside `row.modes` refuses here naming the row.
-    ...
+def _event_data(envelope: MessageEnvelope, /) -> RuntimeRail[bytes]:
+    # The dataref extension references EVENT DATA, never structured envelope bytes. Generated payloads retain their
+    # protobuf bytes and require their existing datacontenttype/dataschema coordinates; opaque Raw remains identical.
+    match envelope.payload:
+        case Raw() as body:
+            return Ok(bytes(body))
+        case ProtoMessage() as message:
+            return (
+                Ok(message.to_binary())
+                if envelope.content_type.is_some() and envelope.data_schema.is_some()
+                else Error(BINDING_ADMIT.raised("residence", "protobuf-data-without-content-coordinate"))
+            )
+        case None:
+            return Error(BINDING_ADMIT.raised("residence", "dataref-without-data"))
 
 
-def raise_(message: Message, /, *, binding: Binding) -> RuntimeRail[MessageEnvelope]:
-    # inverse leg, discriminating content mode by the ROW's own rule rather than one estate-wide test: `http` and
-    # `kafka` read the header prefix, `amqp` and `rabbitmq` the content type's `application/cloudevents` stem, and
-    # both MQTT rows read the presence of a user-property carrier at all.
-    ...
+def _stored(outcome: StoreOutcome, expected: int, /) -> RuntimeRail[int]:
+    return (
+        Ok(outcome.quantity)
+        if outcome.operation == "put" and outcome.quantity == expected
+        else Error(BINDING_ENCODE.raised("residence", "incomplete-put"))
+    )
 
 
-def residence(row: BindingRow, ref: Option[ResourceRef], /) -> RuntimeRail[ResourceRef]:
-    # `residence` binds at the composition root as a port; an unbound port REFUSES at admission rather than shipping
-    # a `dataref` nothing resolves, which is the whole reason the column is a port and not a value.
-    ...
+def _resolved(outcome: StoreOutcome, /) -> RuntimeRail[bytes]:
+    return (
+        Ok(bytes(outcome.payload))
+        if outcome.operation == "get" and isinstance(outcome.payload, (Bytes, bytes, bytearray, memoryview))
+        else Error(BINDING_DECODE.raised("residence", "non-byte-payload"))
+    )
+
+
+def _same_data(envelope: MessageEnvelope, acquired: bytes, /) -> RuntimeRail[None]:
+    match envelope.payload:
+        case None:
+            return Ok(None)
+        case Raw() as inline:
+            held = bytes(inline)
+        case ProtoMessage() as message:
+            held = message.to_binary()
+    return (
+        Ok(None)
+        if compare_digest(held, acquired)
+        else Error(BINDING_DECODE.raised("residence", "inline-dataref-mismatch"))
+    )
+
+
+def lower(
+    value: MessageEnvelope | Block[MessageEnvelope],
+    /,
+    *,
+    binding: Binding,
+    mode: Content,
+    suffix: Option[Suffix],
+    settings: Settings,
+    formats: EventFormat,
+) -> RuntimeRail[Message]:
+    # The mode/suffix pair admits once: binary takes NO structured-format coordinate; structured and batch require one.
+    # That removes "binary Avro" as a spellable request while retaining the binding row's independent mode support.
+    row = BINDINGS[binding]
+    admitted_settings = _settings(row, settings)
+    if admitted_settings.is_error():
+        return admitted_settings
+    classified = _classified(value, binding)
+    if classified.is_error():
+        return classified
+    if mode not in row.modes:
+        return Error(BINDING_ADMIT.raised(binding.value, mode.value))
+    if mode is Content.BINARY:
+        if suffix.is_some() or not isinstance(value, MessageEnvelope):
+            return Error(BINDING_ADMIT.raised(binding.value, "binary-format-or-batch"))
+        return value.event().bind(
+            lambda event: boundary(
+                BINDING_ENCODE,
+                lambda: _binary(event, binding, settings, formats),
+                catch=(CloudEventValidationError, TypeError, ValueError, UnicodeError, OverflowError),
+            )
+        )
+    return suffix.to_result_with(lambda: BINDING_ADMIT.raised(binding.value, f"{mode.value}-without-format")).bind(
+        lambda selected: Error(BINDING_ADMIT.raised(binding.value, f"{mode.value}-{selected}"))
+        if selected not in row.formats
+        else _framed(value, mode, selected, binding, settings, formats)
+    )
+
+
+def raise_(message: Message, /, *, binding: Binding, formats: EventFormat) -> RuntimeRail[Decoded]:
+    # Media type distinguishes structured/batch. A carrier without the application/cloudevents stem is binary and
+    # delegates its attribute mapping to the official SDK, including branch-owned MQTT/NATS normalization into HTTP's
+    # specification-equivalent carrier.
+    return boundary(
+        BINDING_DECODE,
+        lambda: _parts(message, binding),
+        catch=(TypeError, UnicodeError),
+    ).bind(lambda parts: _raised(parts, message, binding, formats))
+
+
+def _framed(
+    value: MessageEnvelope | Block[MessageEnvelope],
+    mode: Content,
+    suffix: Suffix,
+    binding: Binding,
+    settings: Settings,
+    formats: EventFormat,
+    /,
+) -> RuntimeRail[Message]:
+    if mode is Content.STRUCTURED:
+        if not isinstance(value, MessageEnvelope):
+            return Error(BINDING_ADMIT.raised(binding.value, "structured-batch"))
+        # Narrow the structured-single arm before the two-argument profile codec entry. Enum comparison does not
+        # narrow the independent value union, and widening `EventFormat.codec` to batches would weaken its contract.
+        if binding in (Binding.HTTP, Binding.KAFKA, Binding.AMQP, Binding.RABBITMQ):
+            return formats.codec(suffix, value).bind(
+                lambda codec: value.event().bind(
+                    lambda event: boundary(
+                        BINDING_ENCODE,
+                        lambda: _sdk_structured(event, binding, codec),
+                        catch=(CloudEventValidationError, TypeError, ValueError, UnicodeError, OverflowError),
+                    )
+                )
+            )
+        return formats.encode(value, suffix=suffix).bind(
+            lambda encoded: _carried(encoded, binding, settings)
+        )
+    if mode is Content.BATCH and not isinstance(value, Block):
+        return Error(BINDING_ADMIT.raised(binding.value, "batch-single"))
+    return formats.encode(value, suffix=suffix).bind(lambda encoded: _carried(encoded, binding, settings))
+
+
+def _classified(
+    value: MessageEnvelope | Block[MessageEnvelope], binding: Binding, /
+) -> RuntimeRail[None]:
+    envelopes = Block.singleton(value) if isinstance(value, MessageEnvelope) else value
+    return envelopes.fold(
+        lambda admitted, envelope: admitted.bind(
+            lambda _: _grade(envelope, binding).map(lambda _grade: None)
+        ),
+        Ok(None),
+    )
+
+
+def _grade(envelope: MessageEnvelope, binding: Binding, /) -> RuntimeRail[Classification]:
+    # ONE explicit-grade admission for both ingress and egress. Presence precedes conversion, and the row gate
+    # precedes lowering, trust, routing, and settlement; no caller can accidentally recover an INTERNAL default.
+    if not envelope.extensions.has_field("dataclassification"):
+        return Error(BINDING_ADMIT.raised(binding.value, "missing-dataclassification"))
+    return boundary(
+        BINDING_ADMIT,
+        lambda: Classification(envelope.extensions.dataclassification),
+        catch=ValueError,
+    ).bind(
+        lambda grade: Ok(grade)
+        if binding in CLASSIFICATION_ROWS[grade].broker
+        else Error(BINDING_ADMIT.raised(binding.value, grade.value))
+    )
+
+
+def _carried(encoded: Encoded, binding: Binding, settings: Settings, /) -> RuntimeRail[Message]:
+    match binding:
+        case Binding.HTTP:
+            return Ok(http.HTTPMessage(headers={"content-type": encoded.media}, body=encoded.body))
+        case Binding.MQTT5:
+            return _setting(settings, "topicname", binding).map(
+                lambda topic: MqttMessage(topic=topic, properties=(), content_type=Some(encoded.media), payload=encoded.body)
+            )
+        case Binding.MQTT311:
+            return _setting(settings, "topicname", binding).map(
+                lambda topic: MqttMessage(topic=topic, properties=(), content_type=Nothing, payload=encoded.body)
+            )
+        case Binding.NATS:
+            return _setting(settings, "subject", binding).map(
+                lambda subject: NatsMessage(
+                    subject=subject,
+                    headers=Map.of_seq((("content-type", encoded.media),)),
+                    payload=encoded.body,
+                )
+            )
+        case Binding.KAFKA | Binding.AMQP | Binding.RABBITMQ:
+            return Error(BINDING_ADMIT.raised(binding.value, "unreachable-manual-structured-carrier"))
+
+
+def _sdk_structured(event: CloudEvent, binding: Binding, codec: Format, /) -> Message:
+    match binding:
+        case Binding.HTTP:
+            return http.to_structured(event, codec)
+        case Binding.KAFKA:
+            return kafka.to_structured(event, codec)
+        case Binding.AMQP:
+            return amqp.to_structured(event, codec)
+        case Binding.RABBITMQ:
+            return rabbitmq.to_structured(event, codec)
+        case Binding.MQTT5 | Binding.MQTT311 | Binding.NATS:
+            raise ValueError(f"{binding.value}:no-sdk-structured-binding")
+
+
+def _binary(event: CloudEvent, binding: Binding, settings: Settings, formats: EventFormat, /) -> Message:
+    match binding:
+        case Binding.HTTP:
+            return http.to_binary(event, formats.payload_codec)
+        case Binding.KAFKA:
+            return kafka.to_binary(event, formats.payload_codec)
+        case Binding.AMQP:
+            return amqp.to_binary(event, formats.payload_codec)
+        case Binding.RABBITMQ:
+            return rabbitmq.to_binary(event, formats.payload_codec)
+        case Binding.MQTT5:
+            topic = _required_setting(settings, "topicname", binding)
+            attributes = event.get_attributes()
+            row = BINDINGS[binding]
+            properties = tuple(
+                (_attribute_name(row, name), encode_header_value(value))
+                for name, value in attributes.items()
+                if name != "datacontenttype" and value is not None
+            )
+            return MqttMessage(
+                topic=topic,
+                properties=properties,
+                content_type=Option.of_optional(event.get_datacontenttype()),
+                payload=formats.payload_codec.write_data(event.get_data(), event.get_datacontenttype()),
+            )
+        case Binding.NATS:
+            subject = _required_setting(settings, "subject", binding)
+            attributes = event.get_attributes()
+            row = BINDINGS[binding]
+            headers = {
+                _attribute_name(row, name): encode_header_value(value)
+                for name, value in attributes.items()
+                if name != "datacontenttype" and value is not None
+            }
+            if (content_type := event.get_datacontenttype()) is not None:
+                headers["content-type"] = content_type
+            return NatsMessage(
+                subject=subject,
+                headers=Map.of_seq(headers.items()),
+                payload=formats.payload_codec.write_data(event.get_data(), content_type),
+            )
+        case Binding.MQTT311:
+            raise ValueError("mqtt311 is structured-only")
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _raised_binary(message: Message, binding: Binding, formats: EventFormat, /) -> CloudEvent:
+    match binding, message:
+        case Binding.HTTP, http.HTTPMessage() as held:
+            return cast(CloudEvent, http.from_binary(held, formats.payload_codec, CloudEvent))
+        case Binding.KAFKA, kafka.KafkaMessage() as held:
+            return cast(CloudEvent, kafka.from_binary(held, formats.payload_codec, CloudEvent))
+        case Binding.AMQP, amqp.AMQPMessage() as held:
+            return cast(CloudEvent, amqp.from_binary(held, formats.payload_codec, CloudEvent))
+        case Binding.RABBITMQ, rabbitmq.RabbitMQMessage() as held:
+            return cast(CloudEvent, rabbitmq.from_binary(held, formats.payload_codec, CloudEvent))
+        case Binding.MQTT5, MqttMessage() as held:
+            headers = _http_headers(held.properties, BINDINGS[binding])
+            headers |= {"content-type": value for value in held.content_type.to_list()}
+            return cast(CloudEvent, http.from_binary(http.HTTPMessage(headers, held.payload), formats.payload_codec, CloudEvent))
+        case Binding.NATS, NatsMessage() as held:
+            headers = _http_headers(held.headers.items(), BINDINGS[binding])
+            headers |= {key: value for key, value in held.headers.items() if key.lower() == "content-type"}
+            return cast(
+                CloudEvent,
+                http.from_binary(http.HTTPMessage(headers, held.payload), formats.payload_codec, CloudEvent),
+            )
+        case Binding.MQTT311, MqttMessage():
+            raise ValueError("mqtt311 is structured-only")
+        case _:
+            raise TypeError(f"{binding.value}:{type(message).__name__}")
+
+
+def _parts(message: Message, binding: Binding, /) -> tuple[str, bytes]:
+    match binding, message:
+        case Binding.HTTP, http.HTTPMessage() as held:
+            return _header(held.headers, "content-type"), held.body
+        case Binding.KAFKA, kafka.KafkaMessage() as held:
+            return _byte_header(held.headers, "content-type"), held.value
+        case Binding.AMQP, amqp.AMQPMessage() as held:
+            return str(held.properties.get("content-type", "")), held.application_data
+        case Binding.RABBITMQ, rabbitmq.RabbitMQMessage() as held:
+            return held.content_type or "", held.body
+        case Binding.MQTT5, MqttMessage() as held:
+            return held.content_type.default_value(""), held.payload
+        case Binding.MQTT311, MqttMessage() as held:
+            return "application/cloudevents+json", held.payload
+        case Binding.NATS, NatsMessage() as held:
+            return next((value for key, value in held.headers.items() if key.lower() == "content-type"), ""), held.payload
+        case _:
+            raise TypeError(f"{binding.value}:{type(message).__name__}")
+
+
+def _message_body_size(message: Message, binding: Binding, /) -> int:
+    # Protocol binders hand `Client.payload_limit` a safe event-body ceiling with their frame/header reserve already
+    # removed. This fold therefore measures the exact body the selected content mode produced, once.
+    return len(_parts(message, binding)[1])
+
+
+def _ceiling(value: int, /) -> int:
+    if isinstance(value, bool) or value <= 0:
+        raise ValueError("payload ceiling must be a positive integer")
+    return value
+
+
+def _header(headers: dict[str, str], name: str, /) -> str:
+    return next((value for key, value in headers.items() if key.lower() == name), "")
+
+
+def _raised(parts: tuple[str, bytes], message: Message, binding: Binding, formats: EventFormat, /) -> RuntimeRail[Decoded]:
+    media, body = parts
+    if not media:
+        return _binary_decoded(message, binding, formats)
+    return boundary(
+        BINDING_DECODE,
+        lambda: parse_media(media),
+        catch=(TypeError, ValueError),
+    ).bind(
+        lambda parsed: formats.decode(body, media=media).bind(formats.admit)
+        if _event_media(parsed)
+        else _binary_decoded(message, binding, formats)
+    )
+
+
+def _binary_decoded(message: Message, binding: Binding, formats: EventFormat, /) -> RuntimeRail[Decoded]:
+    return boundary(
+        BINDING_DECODE,
+        lambda: _raised_binary(message, binding, formats),
+        catch=(CloudEventValidationError, TypeError, ValueError, UnicodeError, OverflowError),
+    ).bind(formats.admitted)
+
+
+def _event_media(media: MediaType, /) -> bool:
+    return media.maintype == "application" and (
+        media.subtype.startswith("cloudevents+") or media.subtype.startswith("cloudevents-batch+")
+    )
+
+
+def _attribute_name(row: BindingRow, name: str, /) -> str:
+    return f"{row.prefix.value}{name}"
+
+
+def _http_headers(attributes: Iterable[tuple[str, str]], row: BindingRow, /) -> dict[str, str]:
+    target = BINDINGS[Binding.HTTP]
+    prefix = row.prefix.value
+    return {
+        _attribute_name(target, name.removeprefix(prefix)): value
+        for name, value in attributes
+        if not prefix or name.startswith(prefix)
+    }
+
+
+def _byte_header(headers: dict[str, bytes], name: str, /) -> str:
+    return next((value.decode() for key, value in headers.items() if key.lower() == name), "")
+
+
+def _setting(settings: Settings, name: str, binding: Binding, /) -> RuntimeRail[str]:
+    return settings.try_find(name).to_result_with(lambda: BINDING_ADMIT.raised(binding.value, f"missing-{name}"))
+
+
+def _settings(row: BindingRow, settings: Settings, /) -> RuntimeRail[None]:
+    unknown = frozenset(settings.keys()) - row.settings
+    return (
+        Ok(None)
+        if not unknown
+        else Error(BINDING_ADMIT.raised(row.binding.value, f"unknown-setting:{sorted(unknown)[0]}"))
+    )
+
+
+def _required_setting(settings: Settings, name: str, binding: Binding, /) -> str:
+    return settings.try_find(name).to_optional() or (_raise_missing(binding, name))
+
+
+def _raise_missing(binding: Binding, name: str, /) -> Never:
+    raise ValueError(f"{binding.value}:missing-{name}")
+
+
 ```
 
 ## [03]-[EMISSION]
 
 - Owner: `Emitter` is an `observe` subscription over `observability/hooks#HOOKS` fired facts and never an emit inside a domain fold — a producer fires its fact once and this owner projects it into an message envelope, so the domain never learns a transport exists and a composition with no emitter bound loses no fact. `Delivery` is what a fan across bound bindings answers, carrying accepted beside matched-duplicate as separate halves.
 - Law: the modality is `OBSERVE` and nothing else. `VETO` inverts the announcement law an message envelope exists under, letting a broker refusal reject a domain operation that already happened; a raising observe tap becomes a `rejected` receipt while the emitter's own rail stays `Ok`, which is exactly the isolation a fact stream needs.
-- Law: batches settle PER EVENT. Receipts carry `accepted` beside `duplicate` as separate halves because a matched duplicate under `(source, id)` is not an acceptance, and folding them erases the exactly-once evidence `Uniqueness` exists to carry. `sequence` survives batching and no re-batch reorders events inside one `source`; a batch past the row's own budget splits at the PRODUCER, since a relay re-framing one cannot re-sign it.
-- Law: every long-tail state crosses a declared rail rather than a default. Poison messages route to the dead-letter address on the subscription's own slice; a redelivery is distinguished from a duplicate by `(source, id)` alone; an out-of-order arrival with `sequence` present reorders inside its `source` window and without it does not reorder at all; a stamp after its own observation drops to unmeasured and REFUSES rather than publishing a negative lag; an oversized payload after compression takes the row's `dataref` leg; a broker refusing an attribute name surfaces that name rather than the whole message; an extension name colliding with a native transport header refuses at the lowering; an absent `datacontenttype` under the JSON format defaults to that format's own declared payload type.
+- Law: a decoded batch yields one identity-correlated outcome per event, while the shared provider handle settles only when the complete frame returns. Receipts keep `accepted`, `duplicate`, and `moot` separate because matched duplication and expiry are not acceptance. Batch position and D20 `sequence` establish no transport order. This connection owner exposes no batch producer until one bounded send can prove custody for every event.
+- Law: every long-tail state crosses a declared rail rather than a default. Poison messages route to the dead-letter address on the subscription's own slice; a redelivery is distinguished from a duplicate by `(source, id)` alone; D20 `sequence` crosses unchanged and ordering remains the consumer's declared window; a producer `recordedtime` after local arrival drops lag to unmeasured and REFUSES rather than publishing a negative reading; an oversized payload takes the row's `dataref` leg; a broker refusing an attribute name surfaces that name rather than the whole message; an extension name colliding with a native transport header refuses at the lowering; an absent `datacontenttype` under the JSON format defaults to that format's own declared payload type.
 - Law: a never-shedding consumer closes by FLUSHING, never by cancelling the in-flight window — the drain stops admitting first, then awaits what is already in flight, so a fact accepted at the boundary is never lost to its own teardown.
-- Law: `dataclassification` gates before the lowering and not after, so a classification a row cannot honor never reaches an encoder; `source` and `authcontext` are producer claims verified against the trust row before any routing decision reads them.
+- Law: `dataclassification` admits through the closed `Classification` vocabulary and gates before the lowering, so a classification a row cannot honor never reaches an encoder; `source` is the producer claim verified against the trust row before any routing decision reads it.
 - Entry: `Emitter.bound(points, scope=...)` registers one subscription over a whole hook roster and returns the detacher, so a producer's entire point table is tapped at one grain and the emitter dies with the composition that bound it. `scope` is the composition whose points it reaches — the SAME `ScopeKey` the producer registered under — because two compositions embedding the runtime in one process partition point custody structurally, and an emitter bound at the default scope reaches none of an embedded composition's roster. `Emitter.project` is the one fact-to-envelope arm, so a new fact family is one projection row and no binding is edited.
 - Auto: fan-out across bound bindings inherits the bounds the single delivery already takes — the row's own retry class on every hop, the lane's capacity on every thread arm — so it buys concurrency and never a second bound. Refused bindings shed no sibling's delivery, so the caller re-drives exactly what failed.
-- Receipt: `Delivery` carries the two halves, the per-binding disposition, and the residence reference where the payload externalized; receipt SEMANTICS stay the producing surface's, on `transport/roots#STORE`'s own split.
+- Receipt: `Delivery` carries the two settlement halves, the per-binding refusals, and each binding's `ResidenceReceipt` — reference, retention, dual/reference projection, and stored byte count — when payload data externalized; receipt SEMANTICS stay the producing surface's, on `transport/roots#STORE`'s own split.
 - Growth: a new fact family is one `project` row; a new bound binding is one member of the emitter's set with no projection edited; a new long-tail state is one declared rail on this cluster and one arm on the fold that reads it; a new composition is one `ScopeKey` threaded through `bound`, never a sibling emitter.
-- Boundary: hook-fact projection and delivery fan only. Mints no hook point, no receipt semantics, no retention window, and no client connection. Rejected: an emit inside a domain fold; a `VETO` subscription over a fact stream; accepted and matched-duplicate folded into one count; a re-batch at a relay; a drain that cancels the in-flight window.
+- Boundary: hook-fact projection and delivery fan only. Mints no hook point, no receipt semantics, no retention window, and no client connection. Rejected: an emit inside a domain fold; a `VETO` subscription over a fact stream; accepted and matched-duplicate folded into one count; batch position treated as event order; a drain that cancels the in-flight window.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable
-from typing import Final
+from collections.abc import Awaitable, Callable
+from typing import Self, TypeIs
 
-from expression import Option
-from expression.collections import Block, Map
+from expression import Error, Option
+from expression.collections import Block
 from msgspec import Struct
 
 from rasm.runtime.event import MessageEnvelope, Uniqueness
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.hooks import HookPoint
+from rasm.runtime.faults import BINDING_ADMIT, BoundaryFault, RuntimeRail
+from rasm.runtime.hooks import Attachment, HookId, HookPoint, Hooks
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
-from rasm.runtime.roots import ResourceRef
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 # projections are per FACT family and carry their own grammar decisions, so a new family is one row rather than a
 # branch inside one emitter body.
 type Project[P: Struct] = Callable[[P], RuntimeRail[MessageEnvelope]]
+type ProjectionApply = Callable[[HookId, Struct], RuntimeRail[MessageEnvelope]]
+type Fan = Callable[[HookId, RuntimeRail[MessageEnvelope], frozenset[Binding]], Awaitable["Delivery"]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -442,14 +1059,33 @@ class Delivery(Struct, frozen=True, gc=False):
     accepted: Block[Uniqueness]
     duplicate: Block[Uniqueness]
     refused: Block[tuple[Binding, BoundaryFault]]
-    externalized: Option[ResourceRef]
+    externalized: Block[tuple[Binding, ResidenceReceipt]]
+
+
+class Projection(Struct, frozen=True, gc=False):
+    # the generic factory captures point and projector together, then erases only the closed payload parameter after
+    # installing its runtime type proof. Heterogeneous rows therefore share one block without a string key, cast, or
+    # unsound covariant consumer.
+    point_id: HookId
+    payload: type[Struct]
+    apply: ProjectionApply
+
+    @classmethod
+    def of[P: Struct](cls, point: HookPoint[P], project: Project[P], /) -> Self:
+        def apply(point_id: HookId, payload: Struct, /) -> RuntimeRail[MessageEnvelope]:
+            if point_id is not point.id or not _payload(payload, point.payload):
+                return Error(BINDING_ADMIT.raised("emitter", f"projection-type:{point_id.value}"))
+            return project(payload)
+
+        return cls(point_id=point.id, payload=point.payload, apply=apply)
 
 
 class Emitter(Struct, frozen=True, gc=False):
     # an OBSERVE subscriber and never an emit inside a domain fold. A veto here would let a broker refusal reject an
     # operation that already happened, which inverts the law an announcement exists under.
-    projections: Map[str, Project[Struct]]
+    projections: Block[Projection]
     bindings: frozenset[Binding]
+    fan: Fan
 
     def bound(self, points: Block[HookPoint[Struct]], /, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Callable[[], None]]:
         # one subscription over the producer's WHOLE point table, answering the detacher the composition holds — the
@@ -457,97 +1093,119 @@ class Emitter(Struct, frozen=True, gc=False):
         # `scope` is the composition the producer REGISTERED under: the registry partitions point custody by that key,
         # so an emitter bound at the default scope over an embedded composition's roster subscribes to nothing at all
         # and the fact stream reads as an empty producer rather than as a missed binding.
-        ...
+        claimed = tuple(row.point_id for row in self.projections)
+        if len(claimed) != len(frozenset(claimed)):
+            return Error(BINDING_ADMIT.raised("emitter", "duplicate-projection"))
+        missing = points.filter(
+            lambda point: self.projections.forall(
+                lambda row: row.point_id is not point.id or row.payload is not point.payload
+            )
+        )
+        if not missing.is_empty():
+            return Error(BINDING_ADMIT.raised("emitter", f"missing-projection:{missing.head().id.value}"))
+        return Hooks.subscribe(points, self._observed, scope=scope).map(_detacher)
 
-    def project[P: Struct](self, point_id: str, payload: P, /) -> RuntimeRail[MessageEnvelope]:
-        ...
+    def project[P: Struct](self, point_id: HookId, payload: P, /) -> RuntimeRail[MessageEnvelope]:
+        return self.projections.filter(lambda row: row.point_id is point_id).try_head().to_result_with(
+            lambda: BINDING_ADMIT.raised("emitter", f"missing-projection:{point_id.value}")
+        ).bind(lambda row: row.apply(point_id, payload))
+
+    async def _observed[P: Struct](self, point_id: HookId, payload: P, /) -> Delivery:
+        # The fan receives the projection rail WHOLE, so an absent or refusing projector becomes delivery evidence
+        # for every selected binding rather than an isolated hook fault that disappears from the producer receipt.
+        return await self.fan(point_id, self.project(point_id, payload), self.bindings)
+
+
+def _detacher(attachments: Block[Attachment], /) -> Callable[[], None]:
+    def detach() -> None:
+        for attachment in attachments:
+            attachment.close()
+
+    return detach
+
+
+def _payload[P: Struct](value: Struct, expected: type[P], /) -> TypeIs[P]:
+    return isinstance(value, expected)
 ```
 
 ## [04]-[ADAPTER]
 
-- Owner: `BrokerLane` is the ONE connection owner for every dialable protocol and `ADAPTERS` the table it reads — membership shape, settlement join, producer guarantee, poll cadence, lane and portal need, in-flight window, dead-letter route, and drain law, one row per protocol. Protocol-specific machinery reaches it as a composition-bound `Client` port carrying six thunks and nothing else, so a seventh protocol is one `ADAPTERS` row beside one bound port: no adapter subclass, no per-protocol arm inside the lane, and no branch on `Binding` anywhere in the fold. `Consumption` is the caller's subscription coordinate and `Drained` the terminal evidence.
+- Owner: `BrokerLane` is the ONE connection owner for every dialable protocol and reads the same `BINDINGS` row as lowering — membership shape, settlement join, producer guarantee, poll cadence, lane and portal need, in-flight window, dead-letter route, and drain law all sit beside the carrier facts. Protocol-specific machinery reaches it as one composition-bound `Client` of normalized awaitable thunks, so a seventh protocol is one row beside one bound port: no adapter subclass, second table, or protocol switch inside the lane. `Consumption` is the caller's subscription coordinate and `Drained` the terminal evidence.
 - Cases: `Pump` closes the loop vocabulary and each value is a protocol FACT the row states rather than a knob. `POLL` is the blocking librdkafka `poll`/`consume` on a `CapacityLimiter`-bounded `to_thread` lane, sound because every blocking C call releases the GIL. `WORKER` is the single-threaded `pika` connection whose one worker calls `process_data_events` on its own cadence and whose only inbound door is `add_callback_threadsafe`. `READY` is `paho`'s socket-first triple — `socket()` registers on the caller's own readiness and `loop_read`/`loop_write`/`loop_misc` run as bounded steps inside the task group, since `loop_start`'s daemon thread outlives every cancel scope. `NATIVE` is the already-async `nats` client. `REQUEST` is HTTP, where the request IS the crossing and no loop exists to bound.
 - Cases: `Grouping` closes membership. `GROUP` is Kafka's cooperative-sticky consumer group: `on_assign` calls `incremental_assign` and `on_revoke`/`on_lost` call `incremental_unassign`, so a rebalance moves exactly the partitions that changed hands and every other member keeps fetching. `QUEUE` is one message to one member of a named set — a NATS queue group, an MQTT 5.0 shared subscription. `WORK` is RabbitMQ's competing consumers over one queue under `basic_qos` prefetch. `NONE` is a fan where every consumer sees every message, which is what makes a non-shared MQTT topic and a core NATS subject unfit for a work split.
 - Law: NO lane creates or owns a loop, and `lifecycle` defaults `caller-owned`. `bound(group, ...)` composes every leg inside the caller's `anyio` task group, so the poll loop's lifetime IS that group's and a cancelled scope reaches a checkpoint rather than orphaning a thread. Sync clients ride the row's own `CapacityLimiter`, and every callback the client fires on its own thread re-enters through ONE `BlockingPortalProvider` — the portal is per lane and never per callback, since a provider minted inside a callback is a second loop owner in the shape the ban exists to foreclose. `Pump.NATIVE` composes under the anyio asyncio backend and forfeits trio on its own `degrade`, stated rather than assumed.
 - Law: a settlement never outruns the durable write it stands for. `Settle.JOURNAL` rows disarm every automatic path at construction — Kafka takes `enable.auto.commit=false` beside `enable.auto.offset.store=false`, RabbitMQ takes `auto_ack=False`, JetStream takes an explicit acknowledgement policy — and the lane stores the offset only after `observability/journal#FACT` reports the write durable, then commits synchronously and reads the per-partition `.error` off the answered `TopicPartition` list. Committed offsets sit ONE PAST the message offset, so a lane storing the delivered offset replays the last message on every restart. Automatic commit is the deleted form outright: it acknowledges what a crash then loses, and that loss is invisible at both ends.
-- Law: the producer guarantee is the row's, and a `deliver` claim better than at-least-once BUYS a boundary rather than asserting one. `Producing.IDEMPOTENT` arms the producer's own sequencing so a broker-side retry mints no duplicate. `TRANSACTIONAL` opens `init_transactions` once per lane and brackets each unit with `begin_transaction`, `send_offsets_to_transaction(positions, consumer_group_metadata())`, and `commit_transaction`, so the consumed offsets and the produced records settle as ONE fact and a read-process-write leg is exactly-once end to end. Raises inside the bracket read `KafkaException.args[0]`: `txn_requires_abort()` takes `abort_transaction` and re-drives, `fatal()` tears the lane down, and anything else rides the `RetryClass.BROKER` curve. `CONFIRMED` is publisher confirms, where a publish either round-trips or the composition declared at-most-once; `UNCONFIRMED` states that fire-and-forget in the open.
+- Law: the producer guarantee is the row's, and a `deliver` claim better than at-least-once BUYS a boundary rather than asserting one. `Producing.IDEMPOTENT` arms the producer's own sequencing so a broker-side retry mints no duplicate. `TRANSACTIONAL` brackets one explicit delivered block with begin, the awaitable unit, durable record plus offset send, and commit; every failing leg aborts before its typed fault returns for the standing broker retry policy. `CONFIRMED` is publisher confirms, where a publish either round-trips or the composition declared at-most-once; `UNCONFIRMED` states that fire-and-forget in the open.
 - Law: rebalance callbacks fire on whichever thread drove the poll, so they cross the portal and start NO work of their own. Each callback records the assignment delta as a value and returns; the task group reads it and reacts. Starting a fetch, a commit, or a journal write from inside a rebalance callback runs library work on the client's own thread under a lock the client holds, which is the deadlock the portal boundary exists to foreclose, and a callback that raises kills the network loop it fired on rather than surfacing.
 - Law: backpressure is ONE bound, not two. `CapacityLimiter` bounds concurrent handler work and the row's `prefetch` bounds what the broker hands this member before it stops feeding — Kafka's fetch window, RabbitMQ's `basic_qos` count, MQTT's in-flight maximum, JetStream's batch — and the two are sized together so a saturated handler stops the broker rather than growing an unbounded in-memory queue behind it. Raising prefetch above the limiter buys latency the lane then pays as memory.
-- Law: a poison message routes to the dead-letter address on the subscription's own `protocolsettings` slice and settles as a shed half on the receipt, never as an infinite redelivery. Redelivery is distinguished from duplication by `(source, id)` alone, so a redelivered fact the journal already holds settles as a matched duplicate and a genuinely new fact over identical bytes settles as an acceptance.
-- Law: the drain FLUSHES and never cancels. `drained(deadline)` stops admitting first, then awaits the in-flight window, then flushes the producer — `flush` polls until the queue empties, so every pending delivery report lands and `purge` surfaces an unsent message as its own report rather than dropping it silently — then settles what the handlers finished, and only then closes. Cancelling the in-flight window instead loses facts already accepted at the boundary, which is exactly the loss the acceptance promised against.
-- Entry: `BrokerLane.bound(group, binding, client, consumption)` is the one composition entry, answering the lane beside the detacher the caller holds; `published` is the one produce arm over a lowered `Message`, and `consumed` the one async iterator every handler drains. `drained(deadline)` is the terminal, and `transacted(unit)` brackets a read-process-write unit where the row's `producing` earns it. Every one rails, and none takes a knob its row already answers.
-- Auto: ingress ADMITS through `execution/admission#TENANCY` and inherits nothing — a decoded message envelope carries no authority its transport happened to hold, so `source` and `authcontext` verify against the trust row before any routing decision reads them and a refused claim sheds that fact alone. Classification gates before the lowering on `CLASSIFICATION_ROWS`, so a grade a binding cannot honor never reaches an encoder.
-- Auto: every dial and every attempt crosses the `RetryClass.BROKER` message envelope, so the failure window and the admission rate arrive already bound — an open circuit refuses without dialing and a throttle directive re-seats the lane's own bucket through `RateGate.directed`, which is where a librdkafka throttle event and a JetStream stall both land.
-- Auto: the observability join is three `observability/metrics#METRIC` rows and no second emit path. `rasm.broker.ingest_lag` takes `Delivered.lag` — the `recordedtime` minus `time` this crossing measured, which is the reading collapsing the two stamps erases — and `rasm.broker.settled` beside `rasm.broker.shed` split acceptance, matched duplicate, and every export loss into two monotonic series keyed on the binding, so a fact that did not cross names its cause rather than vanishing between a produce and a receipt. Every one records off the same `Delivery`/`Drained` value the receipt carries, so the series and the log line cannot disagree about one crossing.
-- Receipt: `Drained` carries what the teardown PROVED — the facts flushed, the settlements landed, the in-flight window that finished, and the shed halves with their causes — so a drain that lost nothing and a drain that shed are distinguishable rather than both reading as a clean close. Receipt semantics stay the producing surface's, on `transport/roots#STORE`'s own split.
-- Growth: a new protocol is one `ADAPTERS` row beside one bound `Client`; a new membership shape is one `Grouping` member with its arm on the one membership fold; a new settlement join is one `Settle` member; a new producer guarantee is one `Producing` member with its bracket; a new loop cadence is one `Pump` member with its step; a new dead-letter route is one value on the subscription's slice.
+- Law: delivery custody is one serialized state agent, not a shared mutable cell. Provider coordinates key frame ownership while `(source, id)` alone keys deduplication and journal verdicts. Commands cross one memory-stream door and each has one reply stream; the sole consumer replaces immutable state after each transition. Publish and receive steps hold an activity lease, so drain closes admission before waiting for both `active == 0` and empty `inflight`; the caller's deadline scope bounds that event-driven reply without polling.
+- Law: a poison message with a bound dead-letter address routes there and settles its original handle only after that publish confirms; only then does it enter `Drained.shed`. Without that address the decode refusal and shed evidence return while the handle remains live, so the operator sees an unconfigured poison route rather than a fabricated settlement. Redelivery is distinguished from duplication by `(source, id)` alone.
+- Law: the drain FLUSHES and never cancels. `drained(deadline)` closes admission through the state agent, awaits its empty-window reply under one deadline scope, then flushes the producer — `flush` polls until the queue empties, so every pending delivery report lands and `purge` surfaces an unsent message as its own report rather than dropping it silently — and only then closes. Cancelling the in-flight window instead loses facts already accepted at the boundary, which is exactly the loss the acceptance promised against.
+- Entry: `BrokerLane.bound(group, binding, client, consumption, context, settings, formats, trust, residence)` is the composition entry. Each protocol binder's authenticated receive arm places a `PrincipalScope` beside the provider message; the generic lane receives no credentials and supplies no fallback scope. `Client.payload_limit(connection)` exposes the safe live event-body ceiling after the protocol binder reserves frame/header overhead; `published` lowers once to measure the selected mode, externalizes past the effective threshold, re-lowers the projected envelope, and answers `Published` with its `ResidenceReceipt`. `consumed` is the railed async iterator every handler drains. `drained(deadline)` is terminal, and `transacted(delivered, unit)` brackets only the explicit delivered block whose handles the package must send into its transaction.
+- Auto: ingress ADMITS through `execution/admission#TENANCY` and inherits nothing. The generated event profile intentionally carries no tenant claim; `TenantAdoption` compares the composition-authenticated principal scope beside the provider delivery against the admitted deployment axis and source issuer row. `source` remains an untrusted event claim verified before routing, and missing or unknown `dataclassification` refuses before trust, routing, or settlement. The admitted delivery retains `TenantAdoption`, so downstream work consumes the verified principal, tenant, and issuer row rather than re-resolving them.
+- Auto: every package thunk returns through one binding fault anchor. Retry schedules, failure windows, and broker throttle directives remain composition-owned resilience policy; the lane neither duplicates those owners nor performs an invisible retry around a transaction.
+- Auto: `Delivered.lag` measures local arrival minus producer `recordedtime` once. An expired `expirytime` yields `Moot` immediately, remains attached to the provider delivery so a shared frame settles whole, bypasses the durable fact record, and lands under the distinct `MOOT` verdict. `Drained` keeps acceptance, duplicate, moot, and shed evidence disjoint.
+- Receipt: `Published` carries the event composite beside the exact residence evidence when externalization occurred. `Settlement` and `Drained` carry accepted, matched-duplicate, and moot composites separately; `Drained` additionally carries the finished window and shed causes, so clean, expired, duplicate, and lossy crossings never collapse.
+- Growth: a new protocol is one `BINDINGS` row beside one bound `Client`; a new membership shape is one `Grouping` member with its arm on the one membership fold; a new settlement join is one `Settle` member; a new producer guarantee is one `Producing` member with its bracket; a new loop cadence is one `Pump` member with its step; a new dead-letter route is one value on the subscription's slice.
 - Boundary: connection lifetime, membership, settlement, and drain only. Mints no message envelope, no format, no retry curve, no failure window, no receipt semantics, and no hook point. Rejected: a lane creating a loop or a thread the caller's group does not own; `loop_start`'s daemon thread; a `BlockingPortalProvider` minted per callback; an automatic offset commit; a prefetch unpaired with its limiter; work started inside a rebalance callback; a drain that cancels the in-flight window; a per-protocol adapter class beside the one row-driven lane.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Final, Protocol, Self
+from typing import Annotated, Final, Self
 
 import anyio
-from anyio import CapacityLimiter
+from anyio import BrokenResourceError, CancelScope, CapacityLimiter, ClosedResourceError, create_memory_object_stream
 from anyio.abc import TaskGroup
 from anyio.from_thread import BlockingPortalProvider
-from expression import Nothing, Option, Some
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block, Map
-from msgspec import Struct
+from msgspec import Meta, Struct
 
-from rasm.runtime.admission import RuntimeContext, TenantAdoption
-from rasm.runtime.event import MessageEnvelope, Uniqueness
-from rasm.runtime.faults import BoundaryFault, RuntimeRail
-from rasm.runtime.journal import Fact
-from rasm.runtime.resilience import RateGate, RetryClass
+from rasm.runtime.admission import Claim, Classification, PrincipalScope, RuntimeContext, TenantAdoption, Trust
+from rasm.runtime.event import MessageEnvelope, Uniqueness, stamped
+from rasm.runtime.faults import (
+    BINDING_ADMIT,
+    BINDING_CONNECT,
+    BINDING_DECODE,
+    BINDING_DRAIN,
+    BINDING_ENCODE,
+    BINDING_SETTLE,
+    BINDING_TRANSACTION,
+    BoundaryFault,
+    Catch,
+    RuntimeRail,
+    async_boundary,
+    boundary,
+)
 
 # `Binding`, `Content`, `Suffix`, `Message`, `BINDINGS`, `CLASSIFICATION_ROWS`, and `lower`/`raise_` are this
 # module's [02]-[BINDING] owners and `Emitter` its [03]-[EMISSION] one — one module, three regions.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# six thunks a protocol's own package supplies, bound at the composition root and nothing more: `dial` opens the
-# connection, `emit` hands it one lowered message, `step` advances that protocol's machine ONE bounded unit and
-# answers what it delivered, `settle` acknowledges a settled batch, `flush` drains the producer's own queue, and
-# `shut` closes. Every other protocol fact is row data, so the lane below branches on no `Binding` value at all.
-type Dial = Callable[[], object]
-type Emit = Callable[[object, Message], None]
-type Step = Callable[[object, float], Block[Message]]
-type SettleThunk = Callable[[object, Block["Delivered"]], None]
-type Flush = Callable[[object, float], int]
-type Shut = Callable[[object], None]
-
-
-class Pump(StrEnum):
-    # loop cadence as a protocol FACT, never a knob: each value names the ONE integration shape whose cancellation
-    # reaches a checkpoint, so the shapes that orphan a thread or outlive a scope are unspellable here.
-    POLL = "poll"        # a blocking poll on a bounded thread lane; every blocking call releases the GIL
-    WORKER = "worker"    # one dedicated worker owning a single-threaded connection, entered threadsafe
-    READY = "ready"      # socket readiness stepped inside the caller's task group with no thread at all
-    NATIVE = "native"    # an already-async client composing directly under the asyncio backend
-    REQUEST = "request"  # no loop exists: the request IS the crossing
-
-
-class Grouping(StrEnum):
-    NONE = "none"    # every consumer sees every message, so a work split needs a second mechanism
-    GROUP = "group"  # broker-assigned partitions under a cooperative protocol
-    QUEUE = "queue"  # the broker hands one message to one member of a named set
-    WORK = "work"    # competing consumers over one queue, bounded by prefetch
-
-
-class Settle(StrEnum):
-    JOURNAL = "journal"    # the settlement JOINS a durable write and never outruns it
-    BROKER = "broker"      # the broker's own acknowledgement is the whole settlement
-    RESPONSE = "response"  # the response status IS the settlement
-
-
-class Producing(StrEnum):
-    TRANSACTIONAL = "transactional"  # consumed offsets and produced records settle as one fact
-    IDEMPOTENT = "idempotent"        # broker-side retries mint no duplicate
-    CONFIRMED = "confirmed"          # a publish round-trips or the composition declared at-most-once
-    UNCONFIRMED = "unconfirmed"      # fire-and-forget, stated in the open
+# The protocol package binds these normalized awaitable thunks at composition. Blocking packages cross anyio's
+# limiter inside that binding; native packages await directly. The lane therefore owns one lifetime without a
+# sync/async union or a protocol switch, while each received value retains its opaque settlement handle.
+type Dial = Callable[
+    [TaskGroup, "Consumption", Settings, Option[CapacityLimiter], Option[BlockingPortalProvider]],
+    Awaitable[object],
+]
+type Emit = Callable[[object, Message], Awaitable[None]]
+# Protocol binders authenticate their native principal before constructing each `Received`; the generic step sees
+# only the typed scope and never a credential or an optional authority it could default.
+type Step = Callable[[object, float], Awaitable[Block["Received"]]]
+type Empty = Callable[[object, "Received"], Awaitable[None]]
+type Record = Callable[[Block["Delivered"]], Awaitable[Map[Uniqueness, "SettlementVerdict"]]]
+type SettleThunk = Callable[[object, Block["Delivered"]], Awaitable[None]]
+type DeadLetter = Callable[[object, str, "Received", BoundaryFault], Awaitable[None]]
+type TransactionThunk = Callable[[object], Awaitable[None]]
+type Flush = Callable[[object, float], Awaitable[int]]
+type Shut = Callable[[object], Awaitable[None]]
+type PayloadLimit = Callable[[object], int]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -560,9 +1218,19 @@ class Client(Struct, frozen=True, gc=False):
     dial: Dial
     emit: Emit
     step: Step
+    empty: Empty
+    record: Record
     settle: SettleThunk
+    dead_letter: DeadLetter
+    begin: TransactionThunk
+    commit: TransactionThunk
+    abort: TransactionThunk
     flush: Flush
     shut: Shut
+    # Safe event-body ceiling off the LIVE connection/session. Protocol binders subtract their frame/header reserve,
+    # so the generic lane compares event bytes rather than re-deriving provider packet arithmetic.
+    payload_limit: PayloadLimit
+    raises: Catch
 
 
 class Consumption(Struct, frozen=True, gc=False):
@@ -574,13 +1242,82 @@ class Consumption(Struct, frozen=True, gc=False):
     dead_letter: Option[str] = Nothing
 
 
+class Received(Struct, frozen=True, gc=False):
+    # Provider delivery beside its authenticated application-boundary scope and exact opaque settlement handle.
+    # The protocol binder constructs principal, tenant grants, and selection after native authentication; this lane
+    # sees no raw credential and cannot widen authority.
+    message: Message
+    authority: PrincipalScope
+    coordinate: "ProviderCoordinate"
+    handle: object
+
+
+class ProviderCoordinate(Struct, frozen=True, order=True, gc=False):
+    # provider-native delivery identity rendered at the package boundary: Kafka topic/partition/offset, AMQP delivery
+    # tag, JetStream stream/consumer/sequence, MQTT packet id, or the HTTP request identity.
+    value: Annotated[str, Meta(min_length=1)]
+
+
+class SettlementVerdict(StrEnum):
+    ACCEPTED = "accepted"
+    DUPLICATE = "duplicate"
+    MOOT = "moot"
+
+
 class Delivered(Struct, frozen=True, gc=False):
     # one raised message envelope beside the opaque settlement handle its protocol needs to acknowledge it — an offset, a
     # delivery tag, an ack subject. The handle stays OPAQUE so the lane settles without knowing the protocol, and
-    # `lag` is the measured `recordedtime - time` this crossing observed rather than a stamp a consumer re-derives.
+    # `lag` is local arrival minus producer `recordedtime`, measured once; receiver arrival never crosses on the event.
     envelope: MessageEnvelope
+    adoption: TenantAdoption
+    coordinate: ProviderCoordinate
+    composite: Uniqueness
     handle: object
-    lag: float
+    lag: Option[float]
+    expiry: Option[datetime]
+    moot: bool
+
+
+class Moot(Struct, frozen=True, gc=False):
+    # Expiry is a matched drop rather than a fault. The original delivery stays attached because a batch shares one
+    # provider handle and the caller must settle the complete frame while declining work for this member.
+    delivery: Delivered
+    expiry: datetime
+
+
+type DeliveryOutcome = Delivered | Moot
+
+
+class Published(Struct, frozen=True, gc=False):
+    composite: Uniqueness
+    residence: Option[ResidenceReceipt]
+
+
+class Prepared(Struct, frozen=True, gc=False):
+    envelope: MessageEnvelope
+    message: Message
+    residence: Option[ResidenceReceipt]
+
+
+class LaneState(Struct, frozen=True, gc=False):
+    # Immutable state held only by `_lane_state`. Provider coordinates prove frame custody while CloudEvents
+    # uniqueness alone keys dedup and journal verdicts; combining them would make replay identity provider-specific.
+    admitting: bool = True
+    active: int = 0
+    inflight: Map[Uniqueness, Delivered] = Map.empty()
+    frames: Map[ProviderCoordinate, frozenset[Uniqueness]] = Map.empty()
+    claimed: frozenset[Uniqueness] = frozenset()
+    prepared: Map[Uniqueness, SettlementVerdict] = Map.empty()
+    settled: Map[Uniqueness, SettlementVerdict] = Map.empty()
+    shed: Block[tuple[Option[Uniqueness], BoundaryFault]] = Block.empty()
+
+
+class LaneSnapshot(Struct, frozen=True, gc=False):
+    accepted: Block[Uniqueness]
+    duplicate: Block[Uniqueness]
+    moot: Block[Uniqueness]
+    finished: int
+    shed: Block[tuple[Option[Uniqueness], BoundaryFault]]
 
 
 class Drained(Struct, frozen=True, gc=False):
@@ -588,158 +1325,312 @@ class Drained(Struct, frozen=True, gc=False):
     # producer flushed, the settlements that landed, the in-flight window that finished, and each shed half with its
     # cause. A bare success verdict here reports a clean close for a teardown that dropped an accepted fact.
     flushed: int
-    settled: Block[Uniqueness]
+    accepted: Block[Uniqueness]
+    duplicate: Block[Uniqueness]
+    moot: Block[Uniqueness]
     finished: int
-    shed: Block[tuple[Uniqueness, BoundaryFault]]
+    shed: Block[tuple[Option[Uniqueness], BoundaryFault]]
 
 
-class AdapterRow(Struct, frozen=True, gc=False):
-    # one protocol's whole connection vocabulary. `lane` names the limiter a thread-crossing arm borrows and is
-    # `Nothing` where no thread crosses at all; `portal` marks the arms whose client fires callbacks on its own
-    # thread; `prefetch` is the in-flight window the broker honors, sized WITH the limiter rather than beside it.
-    binding: Binding
-    pump: Pump
-    grouping: Grouping
-    settle: Settle
-    producing: Producing
-    lane: Option[str]
-    portal: bool
-    rebalanced: bool
-    prefetch: int
-    fits: str
-    admit: str
-    lifetime: str
-    degrade: tuple[str, ...]
+class Settlement(Struct, frozen=True, gc=False):
+    accepted: Block[Uniqueness]
+    duplicate: Block[Uniqueness]
+    moot: Block[Uniqueness]
 
 
-ADAPTERS: Final[Map[Binding, AdapterRow]] = Map.of_seq(
-    (row.binding, row)
-    for row in (
-        AdapterRow(
-            Binding.KAFKA,
-            pump=Pump.POLL,
-            grouping=Grouping.GROUP,
-            settle=Settle.JOURNAL,
-            producing=Producing.TRANSACTIONAL,
-            lane=Some("broker.kafka"),
-            portal=True,
-            rebalanced=True,
-            prefetch=1000,
-            fits="the durable, partitioned, replayable log every analytic and audit consumer reads, and the one arm carrying an exactly-once read-process-write unit",
-            admit="the synchronous client on a `CapacityLimiter`-bounded `to_thread` lane, cooperative-sticky assignment armed at construction, offsets stored only past the durable write",
-            lifetime="the caller's task group; the poll loop ends with the scope and the group membership leaves on the close",
-            degrade=(
-                "delivery, rebalance, and settlement callbacks fire on whichever thread drove the poll, so every one crosses the portal and starts no work of its own",
-                "a poll may answer an EVENT rather than a record, so `error()` reads before `value()` and a partition-eof arrives that way",
-                "headers do not propagate onto the message handed to a delivery report, so producer-side evidence reads the envelope it sent",
-                "the shipped asyncio layer is refused: it dials the running loop and answers asyncio futures, pinning every composition to one backend",
-            ),
-        ),
-        AdapterRow(
-            Binding.RABBITMQ,
-            pump=Pump.WORKER,
-            grouping=Grouping.WORK,
-            settle=Settle.JOURNAL,
-            producing=Producing.CONFIRMED,
-            lane=Some("broker.rabbitmq"),
-            portal=True,
-            rebalanced=False,
-            prefetch=64,
-            fits="a work-queue and routed-fanout plane where the exchange binding does the filtering a consumer would otherwise pay for",
-            admit="the blocking connection on one dedicated worker, publisher confirms armed at composition, `basic_qos` prefetch sized with the lane limiter",
-            lifetime="the caller's task group; the worker owns the connection for exactly that scope",
-            degrade=(
-                "the connection is single-threaded by contract, so every inbound crossing is one threadsafe callback and no other member is touched off-thread",
-                "deliveries, timers, and heartbeats dispatch ONLY inside the pump, so a worker that stops pumping stops answering the broker entirely",
-                "`start_consuming` refuses re-entry from inside any callback, so the pump advances through bounded `process_data_events` steps instead",
-                "a cancel on an `auto_ack=False` consumer auto-nacks undispatched deliveries, so the requeue is the shed and never a silent loss",
-            ),
-        ),
-        AdapterRow(
-            Binding.NATS,
-            pump=Pump.NATIVE,
-            grouping=Grouping.QUEUE,
-            settle=Settle.JOURNAL,
-            producing=Producing.IDEMPOTENT,
-            lane=Nothing,
-            portal=False,
-            rebalanced=False,
-            prefetch=256,
-            fits="the low-latency subject-addressed plane, and through JetStream the durable one, reached with no thread lane at all",
-            admit="the async client composing directly in the caller's task group, JetStream pull consumers under an explicit acknowledgement policy",
-            lifetime="the caller's task group for the pull loop; the connection's own reader, ping, and flusher legs end on an explicit drain",
-            degrade=(
-                "the client is asyncio-locked whole, so this arm forfeits the trio backend and composes under the asyncio one alone",
-                "its internal legs are loop-level tasks rather than children of the caller's group, so teardown is an explicit drain and not a cancelled scope",
-                "each subscription is a bounded queue whose overflow reaches the error callback as a slow-consumer fact, so the shed is evidence and never silence",
-                "the payload ceiling is the connection's advertised maximum, read live, so an oversized fact takes the reference-carrying leg before any encode",
-            ),
-        ),
-        AdapterRow(
-            Binding.MQTT5,
-            pump=Pump.READY,
-            grouping=Grouping.QUEUE,
-            settle=Settle.BROKER,
-            producing=Producing.CONFIRMED,
-            lane=Nothing,
-            portal=False,
-            rebalanced=False,
-            prefetch=20,
-            fits="the edge and telemetry plane — many small producers on constrained links, filtered at the broker",
-            admit="the socket-first triple stepped inside the caller's task group, manual acknowledgement armed so a settlement can defer past the callback",
-            lifetime="the caller's task group; the session outlives it only where the subscription's own retain setting says so",
-            degrade=(
-                "the daemon-thread loop is refused outright: it outlives every cancel scope and fires callbacks nothing can join",
-                "a callback raise propagates out of the network loop, so the crossing rails its own faults rather than letting one kill the pump",
-                "a publish never blocks and never raises on overflow — it answers a queue-size code — so the shed reads off the returned handle and never off an exception",
-                "keepalive liveness is the misc step's alone, so a lane that stops stepping stops observing its own disconnection",
-            ),
-        ),
-        AdapterRow(
-            Binding.MQTT311,
-            pump=Pump.READY,
-            grouping=Grouping.NONE,
-            settle=Settle.BROKER,
-            producing=Producing.UNCONFIRMED,
-            lane=Nothing,
-            portal=False,
-            rebalanced=False,
-            prefetch=20,
-            fits="a legacy broker or device fleet that never negotiated 5.0, reached without forking the producer",
-            admit="the same socket-first triple, structured mode only, with no property surface at all",
-            lifetime="the session, on the 5.0 row's own law",
-            degrade=(
-                "no shared subscription exists, so every consumer sees every message and a work split needs a second mechanism entirely",
-                "no message expiry and no reason codes, so an expired fact drops at the consumer rather than at the broker",
-                "the property surface is absent, so binary mode is unspellable and every attribute rides inside the body",
-            ),
-        ),
-        AdapterRow(
-            Binding.HTTP,
-            pump=Pump.REQUEST,
-            grouping=Grouping.NONE,
-            settle=Settle.RESPONSE,
-            producing=Producing.CONFIRMED,
-            lane=Nothing,
-            portal=False,
-            rebalanced=False,
-            prefetch=0,
-            fits="a webhook target or a synchronous ingress door, the one arm carrying the abuse-protection handshake",
-            admit="the `transport/roots#RESOURCE` http arm already bound, so this lane opens no client of its own",
-            lifetime="the request; nothing survives the response and no subscription state accumulates",
-            degrade=(
-                "no loop and no membership: a delivery is one request, so ordering, replay, and group settlement are all absent by construction",
-                "the target's published rate is the only pacing there is, so the handshake answer re-seats the lane's own bucket",
-            ),
-        ),
-    )
+class EnterCommand(Struct, tag="enter", frozen=True, gc=False):
+    reply: MemoryObjectSendStream[bool]
+
+
+class LeaveCommand(Struct, tag="leave", frozen=True, gc=False):
+    reply: MemoryObjectSendStream[None]
+
+
+class TrackCommand(Struct, tag="track", frozen=True, gc=False):
+    delivered: Block[Delivered]
+    reply: MemoryObjectSendStream[RuntimeRail[None]]
+
+
+class LiveCommand(Struct, tag="live", frozen=True, gc=False):
+    delivered: Block[Delivered]
+    reply: MemoryObjectSendStream[RuntimeRail[None]]
+
+
+class ClaimCommand(Struct, tag="claim", frozen=True, gc=False):
+    delivered: Block[Delivered]
+    reply: MemoryObjectSendStream[RuntimeRail[None]]
+
+
+class ReleaseCommand(Struct, tag="release", frozen=True, gc=False):
+    delivered: Block[Delivered]
+    reply: MemoryObjectSendStream[None]
+
+
+class PreparedCommand(Struct, tag="prepared", frozen=True, gc=False):
+    identities: frozenset[Uniqueness]
+    reply: MemoryObjectSendStream[Map[Uniqueness, SettlementVerdict]]
+
+
+class RetainCommand(Struct, tag="retain", frozen=True, gc=False):
+    verdicts: Map[Uniqueness, SettlementVerdict]
+    reply: MemoryObjectSendStream[None]
+
+
+class LandCommand(Struct, tag="land", frozen=True, gc=False):
+    delivered: Block[Delivered]
+    verdicts: Map[Uniqueness, SettlementVerdict]
+    reply: MemoryObjectSendStream[Settlement]
+
+
+class DrainCommand(Struct, tag="drain", frozen=True, gc=False):
+    reply: MemoryObjectSendStream[LaneSnapshot]
+
+
+class ShedCommand(Struct, tag="shed", frozen=True, gc=False):
+    key: Option[Uniqueness]
+    fault: BoundaryFault
+    reply: MemoryObjectSendStream[None]
+
+
+type LaneCommand = (
+    EnterCommand
+    | LeaveCommand
+    | TrackCommand
+    | LiveCommand
+    | ClaimCommand
+    | ReleaseCommand
+    | PreparedCommand
+    | RetainCommand
+    | LandCommand
+    | DrainCommand
+    | ShedCommand
 )
 
-# derived: a protocol whose arm crosses a thread borrows a limiter and re-enters through a portal, so the two rosters
-# a composition sizes are comprehensions over the one table rather than hand-listed sets a seventh row misses.
-THREADED: Final[frozenset[Binding]] = frozenset(row.binding for row in ADAPTERS.values() if row.lane.is_some())
-PORTALED: Final[frozenset[Binding]] = frozenset(row.binding for row in ADAPTERS.values() if row.portal)
-JOURNAL_SETTLED: Final[frozenset[Binding]] = frozenset(row.binding for row in ADAPTERS.values() if row.settle is Settle.JOURNAL)
+
+class LaneAgent(Struct, frozen=True, gc=False):
+    # The only door into delivery custody. Every caller gets a single-slot reply stream; `_lane_state` is the sole
+    # consumer and replaces immutable state after each pure transition, so concurrent handlers never mutate maps.
+    door: MemoryObjectSendStream[LaneCommand]
+
+    async def enter(self, /) -> bool:
+        return await _answer(self.door, lambda reply: EnterCommand(reply))
+
+    async def leave(self, /) -> None:
+        await _answer(self.door, lambda reply: LeaveCommand(reply))
+
+    async def track(self, delivered: Block[Delivered], /) -> RuntimeRail[None]:
+        return await _answer(self.door, lambda reply: TrackCommand(delivered, reply))
+
+    async def live(self, delivered: Block[Delivered], /) -> RuntimeRail[None]:
+        return await _answer(self.door, lambda reply: LiveCommand(delivered, reply))
+
+    async def claim(self, delivered: Block[Delivered], /) -> RuntimeRail[None]:
+        return await _answer(self.door, lambda reply: ClaimCommand(delivered, reply))
+
+    async def release(self, delivered: Block[Delivered], /) -> None:
+        await _answer(self.door, lambda reply: ReleaseCommand(delivered, reply))
+
+    async def prepared(self, identities: frozenset[Uniqueness], /) -> Map[Uniqueness, SettlementVerdict]:
+        return await _answer(self.door, lambda reply: PreparedCommand(identities, reply))
+
+    async def retain(self, verdicts: Map[Uniqueness, SettlementVerdict], /) -> None:
+        await _answer(self.door, lambda reply: RetainCommand(verdicts, reply))
+
+    async def land(
+        self, delivered: Block[Delivered], verdicts: Map[Uniqueness, SettlementVerdict], /
+    ) -> Settlement:
+        return await _answer(self.door, lambda reply: LandCommand(delivered, verdicts, reply))
+
+    async def drain(self, /) -> MemoryObjectReceiveStream[LaneSnapshot]:
+        reply, answer = create_memory_object_stream[LaneSnapshot](1)
+        await self.door.send(DrainCommand(reply))
+        return answer
+
+    async def shed(self, key: Option[Uniqueness], fault: BoundaryFault, /) -> None:
+        await _answer(self.door, lambda reply: ShedCommand(key, fault, reply))
+
+
+async def _answer[T](
+    door: MemoryObjectSendStream[LaneCommand], command: Callable[[MemoryObjectSendStream[T]], LaneCommand], /
+) -> T:
+    reply, answer = create_memory_object_stream[T](1)
+    async with reply, answer:
+        await door.send(command(reply))
+        return await answer.receive()
+
+
+async def _respond[T](reply: MemoryObjectSendStream[T], value: T, /) -> None:
+    try:
+        await reply.send(value)
+    except (BrokenResourceError, ClosedResourceError):
+        pass
+    finally:
+        await reply.aclose()
+
+
+async def _lane_state(
+    binding: Binding, commands: MemoryObjectReceiveStream[LaneCommand], /
+) -> None:
+    state = LaneState()
+    draining: Block[MemoryObjectSendStream[LaneSnapshot]] = Block.empty()
+    async with commands:
+        async for command in commands:
+            match command:
+                case EnterCommand(reply=reply):
+                    entered = state.admitting
+                    if entered:
+                        state = replace(state, active=state.active + 1)
+                    await _respond(reply, entered)
+                case LeaveCommand(reply=reply):
+                    state = replace(state, active=state.active - 1)
+                    await _respond(reply, None)
+                case TrackCommand(delivered=delivered, reply=reply):
+                    state, outcome = _tracked_state(state, delivered, binding)
+                    await _respond(reply, outcome)
+                case LiveCommand(delivered=delivered, reply=reply):
+                    await _respond(reply, _live_state(state, delivered, binding))
+                case ClaimCommand(delivered=delivered, reply=reply):
+                    state, outcome = _claimed_state(state, delivered, binding)
+                    await _respond(reply, outcome)
+                case ReleaseCommand(delivered=delivered, reply=reply):
+                    state = replace(
+                        state,
+                        claimed=state.claimed - frozenset(held.composite for held in delivered),
+                    )
+                    await _respond(reply, None)
+                case PreparedCommand(identities=identities, reply=reply):
+                    await _respond(
+                        reply,
+                        Map.of_seq(
+                            (identity, state.prepared[identity])
+                            for identity in identities
+                            if state.prepared.contains_key(identity)
+                        )
+                    )
+                case RetainCommand(verdicts=verdicts, reply=reply):
+                    prepared = state.prepared
+                    for identity, verdict in verdicts.items():
+                        prepared = prepared.add(identity, verdict)
+                    state = replace(state, prepared=prepared)
+                    await _respond(reply, None)
+                case LandCommand(delivered=delivered, verdicts=verdicts, reply=reply):
+                    state, settlement = _landed_state(state, delivered, verdicts)
+                    await _respond(reply, settlement)
+                case DrainCommand(reply=reply):
+                    state = replace(state, admitting=False)
+                    draining = draining.append(Block.singleton(reply))
+                case ShedCommand(key=key, fault=fault, reply=reply):
+                    state = replace(state, shed=state.shed.append(Block.singleton((key, fault))))
+                    await _respond(reply, None)
+            if state.inflight.is_empty() and state.active == 0 and not draining.is_empty():
+                snapshot = _snapshot(state)
+                for reply in draining:
+                    await _respond(reply, snapshot)
+                draining = Block.empty()
+
+
+def _tracked_state(
+    state: LaneState, delivered: Block[Delivered], binding: Binding, /
+) -> tuple[LaneState, RuntimeRail[None]]:
+    if delivered.is_empty():
+        return state, Ok(None)
+    coordinates = frozenset(held.coordinate for held in delivered)
+    identities = frozenset(held.composite for held in delivered)
+    if len(coordinates) != 1 or len(identities) != len(delivered):
+        return state, Error(BINDING_DECODE.raised(binding.value, "invalid-delivery-frame"))
+    coordinate = next(iter(coordinates))
+    if state.frames.contains_key(coordinate) or any(
+        state.inflight.contains_key(identity) or state.settled.contains_key(identity)
+        for identity in identities
+    ):
+        return state, Error(BINDING_DECODE.raised(binding.value, "duplicate-delivery-identity"))
+    inflight = state.inflight
+    for held in delivered:
+        inflight = inflight.add(held.composite, held)
+    return replace(
+        state,
+        frames=state.frames.add(coordinate, identities),
+        inflight=inflight,
+    ), Ok(None)
+
+
+def _live_state(state: LaneState, delivered: Block[Delivered], binding: Binding, /) -> RuntimeRail[None]:
+    identities = frozenset(held.composite for held in delivered)
+    if len(identities) != len(delivered):
+        return Error(BINDING_SETTLE.raised(binding.value, "repeated-delivery"))
+    coordinates = frozenset(held.coordinate for held in delivered)
+    if any(
+        state.frames.try_find(coordinate).default_value(frozenset())
+        != frozenset(held.composite for held in delivered if held.coordinate == coordinate)
+        for coordinate in coordinates
+    ):
+        return Error(BINDING_SETTLE.raised(binding.value, "partial-frame-settlement"))
+    for held in delivered:
+        standing = state.inflight.try_find(held.composite)
+        if standing.is_none() or standing.default_value(held) != held:
+            return Error(BINDING_SETTLE.raised(binding.value, "unadmitted-settlement"))
+    return Ok(None)
+
+
+def _claimed_state(
+    state: LaneState, delivered: Block[Delivered], binding: Binding, /
+) -> tuple[LaneState, RuntimeRail[None]]:
+    identities = frozenset(held.composite for held in delivered)
+    if not identities.isdisjoint(state.claimed):
+        return state, Error(BINDING_SETTLE.raised(binding.value, "delivery-already-settling"))
+    return replace(state, claimed=state.claimed | identities), Ok(None)
+
+
+def _landed_state(
+    state: LaneState,
+    delivered: Block[Delivered],
+    verdicts: Map[Uniqueness, SettlementVerdict],
+    /,
+) -> tuple[LaneState, Settlement]:
+    accepted: Block[Uniqueness] = Block.empty()
+    duplicate: Block[Uniqueness] = Block.empty()
+    moot: Block[Uniqueness] = Block.empty()
+    inflight = state.inflight
+    prepared = state.prepared
+    settled = state.settled
+    frames = state.frames
+    for held in delivered:
+        verdict = verdicts[held.composite]
+        inflight = inflight.remove(held.composite)
+        prepared = prepared.remove(held.composite)
+        settled = settled.add(held.composite, verdict)
+        match verdict:
+            case SettlementVerdict.ACCEPTED:
+                accepted = accepted.append(Block.singleton(held.composite))
+            case SettlementVerdict.DUPLICATE:
+                duplicate = duplicate.append(Block.singleton(held.composite))
+            case SettlementVerdict.MOOT:
+                moot = moot.append(Block.singleton(held.composite))
+    for coordinate in frozenset(held.coordinate for held in delivered):
+        frames = frames.remove(coordinate)
+    return replace(
+        state,
+        inflight=inflight,
+        frames=frames,
+        claimed=state.claimed - frozenset(held.composite for held in delivered),
+        prepared=prepared,
+        settled=settled,
+    ), Settlement(accepted=accepted, duplicate=duplicate, moot=moot)
+
+
+def _snapshot(state: LaneState, /) -> LaneSnapshot:
+    return LaneSnapshot(
+        accepted=_settled_block(state, SettlementVerdict.ACCEPTED),
+        duplicate=_settled_block(state, SettlementVerdict.DUPLICATE),
+        moot=_settled_block(state, SettlementVerdict.MOOT),
+        finished=len(state.settled),
+        shed=state.shed,
+    )
+
+
+def _settled_block(state: LaneState, verdict: SettlementVerdict, /) -> Block[Uniqueness]:
+    return Block.of_seq(identity for identity, held in state.settled.items() if held is verdict)
+
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -748,56 +1639,452 @@ class BrokerLane(Struct, frozen=True, gc=False):
     # ONE lane over every protocol, driven by its row and its bound port. `portal` is per LANE: a provider minted
     # inside a callback is a second loop owner in exactly the shape D16 forecloses, and one provider serves every
     # callback the client fires for this connection's whole life.
-    row: AdapterRow
+    row: BindingRow
     client: Client
     consumption: Consumption
     context: RuntimeContext
+    connection: object
+    settings: Settings
+    formats: EventFormat
+    trust: Trust
+    residence: Option[Residence]
+    agent: LaneAgent
     limiter: Option[CapacityLimiter]
     portal: Option[BlockingPortalProvider]
 
     @classmethod
     async def bound(
-        cls, group: TaskGroup, binding: Binding, client: Client, consumption: Consumption, context: RuntimeContext, /
+        cls,
+        group: TaskGroup,
+        binding: Binding,
+        client: Client,
+        consumption: Consumption,
+        context: RuntimeContext,
+        settings: Settings,
+        formats: EventFormat,
+        trust: Trust,
+        residence: Option[Residence],
+        /,
     ) -> RuntimeRail[Self]:
         # ONE composition entry. Every leg starts on the CALLER's group, so the poll loop's lifetime is that
         # group's and `lifecycle` stays caller-owned — a lane starting its own group or thread would outlive the
         # scope that opened it and answer a broker nobody is reading.
-        ...
+        match BINDINGS.try_find(binding):
+            case Option(tag="none"):
+                return Error(BINDING_ADMIT.raised(binding.value, "provider-unavailable"))
+            case Option(tag="some", some=row) if row.arm is Arm.ABSENT:
+                return Error(BINDING_ADMIT.raised(binding.value, "provider-unavailable"))
+            case Option(tag="some", some=row):
+                limiter = Some(CapacityLimiter(row.prefetch)) if row.lane.is_some() else Nothing
+                portal = Some(BlockingPortalProvider()) if row.portal else Nothing
+        admitted_settings = _settings(row, settings)
+        if admitted_settings.is_error():
+            return admitted_settings
+        connected = await async_boundary(
+            BINDING_CONNECT,
+            lambda: client.dial(group, consumption, settings, limiter, portal),
+            catch=client.raises,
+        )
+        match connected:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=connection):
+                door, commands = create_memory_object_stream[LaneCommand](max(1, row.prefetch))
+                group.start_soon(_lane_state, binding, commands)
+                return Ok(
+                    cls(
+                        row=row,
+                        client=client,
+                        consumption=consumption,
+                        context=context,
+                        connection=connection,
+                        settings=settings,
+                        formats=formats,
+                        trust=trust,
+                        residence=residence,
+                        agent=LaneAgent(door),
+                        limiter=limiter,
+                        portal=portal,
+                    )
+                )
 
-    async def published(self, envelope: MessageEnvelope, /, *, mode: Content, suffix: Suffix) -> RuntimeRail[Uniqueness]:
-        # one produce arm over every protocol: `lower` answers the message, the row's `producing` decides the
-        # boundary around it, and the composite answers so the caller keys its own dedup off the same value the
-        # settlement will.
-        ...
+    async def published(
+        self, envelope: MessageEnvelope, /, *, mode: Content, suffix: Option[Suffix] = Nothing
+    ) -> RuntimeRail[Published]:
+        # One produce arm over every protocol. Preparation measures the selected encoding against the live client
+        # ceiling, externalizes through the bound store when required, and returns the exact residence evidence.
+        if not await self.agent.enter():
+            return Error(BINDING_DRAIN.raised(self.row.binding.value, "lane-closed"))
+        try:
+            match await self._publish_prepared(envelope, mode, suffix):
+                case Result(tag="error") as refused:
+                    return refused
+                case Result(tag="ok", ok=prepared):
+                    return (await async_boundary(
+                        BINDING_ENCODE,
+                        lambda: self.client.emit(self.connection, prepared.message),
+                        catch=self.client.raises,
+                    )).map(
+                        lambda _: Published(
+                            composite=Uniqueness.of(prepared.envelope),
+                            residence=prepared.residence,
+                        )
+                    )
+        finally:
+            with CancelScope(shield=True):
+                await self.agent.leave()
 
-    def consumed(self) -> AsyncIterator[Delivered]:
+    async def _publish_prepared(
+        self, envelope: MessageEnvelope, mode: Content, suffix: Option[Suffix], /
+    ) -> RuntimeRail[Prepared]:
+        lowered = lower(
+            envelope,
+            binding=self.row.binding,
+            mode=mode,
+            suffix=suffix,
+            settings=self.settings,
+            formats=self.formats,
+        )
+        match lowered, boundary(
+            BINDING_ADMIT,
+            lambda: _ceiling(self.client.payload_limit(self.connection)),
+            catch=(TypeError, ValueError, OverflowError),
+        ):
+            case Result(tag="error") as refused, _:
+                return refused
+            case _, Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=message), Result(tag="ok", ok=ceiling):
+                size = _message_body_size(message, self.row.binding)
+        threshold = ceiling if self.row.dataref.negotiated else min(ceiling, self.row.dataref.threshold)
+        if size <= threshold:
+            return Ok(Prepared(envelope=envelope, message=message, residence=Nothing))
+        projection = self.row.dataref.projection
+        if projection is ResidenceProjection.DUAL and size > ceiling:
+            if self.settings.try_find("datarefprojection") != Some(ResidenceProjection.REFERENCE.value):
+                return Error(BINDING_ADMIT.raised(self.row.binding.value, "dual-over-ceiling-without-negotiation"))
+            projection = ResidenceProjection.REFERENCE
+        match self.residence:
+            case Option(tag="none"):
+                return Error(BINDING_ADMIT.raised(self.row.binding.value, "dataref-without-residence"))
+            case Option(tag="some", some=residence):
+                externalized = await residence.externalize(envelope, self.row.dataref, projection)
+        match externalized:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=(projected, receipt)):
+                reframed = lower(
+                    projected,
+                    binding=self.row.binding,
+                    mode=mode,
+                    suffix=suffix,
+                    settings=self.settings,
+                    formats=self.formats,
+                )
+        return reframed.bind(
+            lambda framed: Ok(
+                Prepared(envelope=projected, message=framed, residence=Some(receipt))
+            )
+            if _message_body_size(framed, self.row.binding) <= ceiling
+            else Error(BINDING_ENCODE.raised(self.row.binding.value, "dataref-frame-over-ceiling"))
+        )
+
+    async def consumed(self) -> AsyncIterator[RuntimeRail[DeliveryOutcome]]:
         # ONE handler surface. Each step is bounded by the row's `pump`, so cancellation reaches a checkpoint
         # between steps and never inside a provider call; the iterator ends when the caller's scope does.
-        ...
+        while await self.agent.enter():
+            try:
+                stepped = await async_boundary(
+                    BINDING_DECODE,
+                    lambda: self.client.step(self.connection, 1.0),
+                    catch=self.client.raises,
+                )
+                match stepped:
+                    case Result(tag="error") as refused:
+                        yield refused
+                        return
+                    case Result(tag="ok", ok=received):
+                        for held in received:
+                            raised = raise_(held.message, binding=self.row.binding, formats=self.formats)
+                            match raised:
+                                case Result(tag="error") as refused:
+                                    rerouted = await self._shed(held, Nothing, refused.error)
+                                    yield refused if rerouted.is_ok() else rerouted
+                                case Result(tag="ok", ok=decoded):
+                                    if decoded.events.is_empty():
+                                        emptied = await async_boundary(
+                                            BINDING_SETTLE,
+                                            lambda: self.client.empty(self.connection, held),
+                                            catch=self.client.raises,
+                                        )
+                                        if emptied.is_error():
+                                            yield emptied
+                                        continue
+                                    live: Block[Delivered] = Block.empty()
+                                    refused: Block[RuntimeRail[Delivered]] = Block.empty()
+                                    faults: Block[BoundaryFault] = Block.empty()
+                                    for envelope in decoded.events:
+                                        delivered = self._delivery(
+                                            envelope, held.authority, held.coordinate, held.handle
+                                        )
+                                        match delivered:
+                                            case Result(tag="ok", ok=admitted):
+                                                live = live.append(Block.singleton(admitted))
+                                            case Result(tag="error") as rejected:
+                                                refused = refused.append(Block.singleton(rejected))
+                                                faults = faults.append(Block.singleton(rejected.error))
+                                    if not refused.is_empty():
+                                        rerouted = await self._shed(held, Nothing, faults.head())
+                                        if rerouted.is_error():
+                                            yield rerouted
+                                        for rejected in refused:
+                                            yield rejected
+                                        continue
+                                    tracked = await self.agent.track(live)
+                                    match tracked:
+                                        case Result(tag="error") as rejected:
+                                            rerouted = await self._shed(held, Nothing, rejected.error)
+                                            yield rejected if rerouted.is_ok() else rerouted
+                                        case Result(tag="ok"):
+                                            for admitted in live:
+                                                match admitted.expiry:
+                                                    case Option(tag="some", some=expiry) if admitted.moot:
+                                                        yield Ok(Moot(delivery=admitted, expiry=expiry))
+                                                    case _:
+                                                        yield Ok(admitted)
+            finally:
+                with CancelScope(shield=True):
+                    await self.agent.leave()
+            await anyio.lowlevel.checkpoint()
 
-    async def settled(self, delivered: Block[Delivered], /) -> RuntimeRail[Block[Uniqueness]]:
+    async def settled(self, delivered: Block[Delivered], /) -> RuntimeRail[Settlement]:
         # `Settle.JOURNAL` rows await the durable write FIRST and settle second, so a commit never stands for a fact
         # no journal took. Committed offsets sit one past the delivered offset, which is why the handle stays the
         # protocol's own opaque value and never an offset this owner arithmetics.
-        ...
+        if delivered.is_empty():
+            return Ok(Settlement(accepted=Block.empty(), duplicate=Block.empty(), moot=Block.empty()))
+        live = await self.agent.live(delivered)
+        if live.is_error():
+            return live
+        claimed = await self.agent.claim(delivered)
+        if claimed.is_error():
+            return claimed
+        settled = await self._settlement_prepared(delivered)
+        match settled:
+            case Result(tag="error") as refused:
+                await self.agent.release(delivered)
+                return refused
+            case Result(tag="ok", ok=verdicts):
+                return Ok(await self.agent.land(delivered, verdicts))
 
-    async def transacted[T](self, unit: Callable[[Block[Delivered]], RuntimeRail[T]], /) -> RuntimeRail[T]:
+    async def _settlement_prepared(
+        self, delivered: Block[Delivered], /
+    ) -> RuntimeRail[Map[Uniqueness, SettlementVerdict]]:
+        identities = frozenset(held.composite for held in delivered)
+        retained = await self.agent.prepared(identities)
+        if not retained.is_empty() and len(retained) != len(identities):
+            return Error(BINDING_SETTLE.raised(self.row.binding.value, "partial-record-verdict"))
+        active = delivered.filter(lambda held: not held.moot)
+        if not retained.is_empty():
+            recorded: RuntimeRail[Map[Uniqueness, SettlementVerdict]] = Ok(retained)
+        elif active.is_empty():
+            recorded = Ok(Map.empty())
+        elif self.row.settlement is Settle.JOURNAL:
+            recorded = await async_boundary(
+                BINDING_SETTLE,
+                lambda: self.client.record(active),
+                catch=self.client.raises,
+            )
+        else:
+            recorded = Ok(Map.of_seq((held.composite, SettlementVerdict.ACCEPTED) for held in active))
+        match recorded:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=verdicts):
+                for held in delivered.filter(lambda item: item.moot):
+                    verdicts = verdicts.add(held.composite, SettlementVerdict.MOOT)
+                if frozenset(verdicts.keys()) != identities:
+                    return Error(BINDING_SETTLE.raised(self.row.binding.value, "record-verdict-mismatch"))
+                await self.agent.retain(verdicts)
+                settled = await async_boundary(
+                    BINDING_SETTLE,
+                    lambda: self.client.settle(self.connection, delivered),
+                    catch=self.client.raises,
+                )
+                return settled.map(lambda _: verdicts)
+
+    async def transacted[T](
+        self, delivered: Block[Delivered], unit: Callable[[Block[Delivered]], Awaitable[RuntimeRail[T]]], /
+    ) -> RuntimeRail[T]:
         # read-process-write bracket, reachable only where the row's `producing` is TRANSACTIONAL: consumed
         # positions and produced records settle as ONE fact. An abort-requiring raise re-drives the whole unit, a
         # fatal one tears the lane down, and every other raise rides the `RetryClass.BROKER` curve.
-        ...
+        if self.row.producing is not Producing.TRANSACTIONAL:
+            return Error(BINDING_TRANSACTION.raised(self.row.binding.value, self.row.producing.value))
+        if delivered.is_empty():
+            return Error(BINDING_TRANSACTION.raised(self.row.binding.value, "empty-delivery-unit"))
+        live = await self.agent.live(delivered)
+        if live.is_error():
+            return live
+        claimed = await self.agent.claim(delivered)
+        if claimed.is_error():
+            return claimed
+        opened = await async_boundary(
+            BINDING_TRANSACTION,
+            lambda: self.client.begin(self.connection),
+            catch=self.client.raises,
+        )
+        if opened.is_error():
+            await self.agent.release(delivered)
+            return opened
+        outcome = await unit(delivered)
+        match outcome:
+            case Result(tag="error") as refused:
+                aborted = await async_boundary(
+                    BINDING_TRANSACTION,
+                    lambda: self.client.abort(self.connection),
+                    catch=self.client.raises,
+                )
+                await self.agent.release(delivered)
+                return refused if aborted.is_ok() else aborted
+            case Result(tag="ok", ok=value):
+                settled = await self._settlement_prepared(delivered)
+                match settled:
+                    case Result(tag="error") as refused:
+                        aborted = await async_boundary(
+                            BINDING_TRANSACTION,
+                            lambda: self.client.abort(self.connection),
+                            catch=self.client.raises,
+                        )
+                        await self.agent.release(delivered)
+                        return refused if aborted.is_ok() else aborted
+                    case Result(tag="ok", ok=verdicts):
+                        committed = await async_boundary(
+                            BINDING_TRANSACTION,
+                            lambda: self.client.commit(self.connection),
+                            catch=self.client.raises,
+                        )
+                        if committed.is_ok():
+                            await self.agent.land(delivered, verdicts)
+                            return committed.map(lambda _: value)
+                        aborted = await async_boundary(
+                            BINDING_TRANSACTION,
+                            lambda: self.client.abort(self.connection),
+                            catch=self.client.raises,
+                        )
+                        await self.agent.release(delivered)
+                        return committed if aborted.is_ok() else aborted
 
     async def drained(self, /, *, deadline: float) -> RuntimeRail[Drained]:
         # FLUSH, never cancel: stop admitting, await the in-flight window, flush the producer until its queue empties
         # so every delivery report lands, settle what the handlers finished, then close. A cancelled window loses
         # facts already accepted at the boundary, which is the one loss an acceptance promised against.
-        ...
+        if deadline < 0.0:
+            return Error(BINDING_DRAIN.raised(self.row.binding.value, "negative-deadline"))
+        until = anyio.current_time() + deadline
+        snapshot: LaneSnapshot | None = None
+        answer = await self.agent.drain()
+        async with answer:
+            with anyio.move_on_after(deadline):
+                snapshot = await answer.receive()
+        if snapshot is None:
+            return Error(BINDING_DRAIN.raised(self.row.binding.value, "inflight-deadline"))
+        flushed = await async_boundary(
+            BINDING_DRAIN,
+            lambda: self.client.flush(self.connection, max(0.0, until - anyio.current_time())),
+            catch=self.client.raises,
+        )
+        match flushed:
+            case Result(tag="error") as refused:
+                return refused
+            case Result(tag="ok", ok=count):
+                closed = await async_boundary(
+                    BINDING_DRAIN,
+                    lambda: self.client.shut(self.connection),
+                    catch=self.client.raises,
+                )
+                return closed.map(
+                    lambda _: Drained(
+                        flushed=count,
+                        accepted=snapshot.accepted,
+                        duplicate=snapshot.duplicate,
+                        moot=snapshot.moot,
+                        finished=snapshot.finished,
+                        shed=snapshot.shed,
+                    )
+                )
 
-    def _admitted(self, envelope: MessageEnvelope, /) -> RuntimeRail[MessageEnvelope]:
-        # ingress ADMITS and inherits nothing: the tenant claim, the asserted principal, and the `source` claim all
-        # verify against the trust row before any routing decision reads them, so a decoded message envelope never carries
-        # authority its transport happened to hold and a refused claim sheds that fact alone.
-        ...
+    def _admitted(
+        self, envelope: MessageEnvelope, authority: PrincipalScope, /
+    ) -> RuntimeRail[TenantAdoption]:
+        # Ingress inherits nothing. Tenant authority is the scope the application-owned protocol binder authenticated;
+        # source and grade remain event claims. Missing grade refuses instead of fabricating an INTERNAL claim.
+        return _grade(envelope, self.row.binding).bind(
+            lambda admitted_grade: TenantAdoption.of(
+                self.context,
+                self.trust,
+                authority,
+                Claim(source=envelope.source.reference, grade=admitted_grade),
+            )
+        )
+
+    def _delivery(
+        self,
+        envelope: MessageEnvelope,
+        authority: PrincipalScope,
+        coordinate: ProviderCoordinate,
+        handle: object,
+        /,
+    ) -> RuntimeRail[Delivered]:
+        arrived = datetime.now(UTC)
+        lag = (
+            stamped(envelope.extensions.recordedtime.to_datetime(), arrived).map(Some)
+            if envelope.extensions.has_field("recordedtime")
+            else Ok(Nothing)
+        )
+        expiry = (
+            Some(envelope.extensions.expirytime.to_datetime())
+            if envelope.extensions.has_field("expirytime")
+            else Nothing
+        )
+        return self._admitted(envelope, authority).bind(
+            lambda adoption: lag.map(
+                lambda measured: Delivered(
+                    envelope=envelope,
+                    adoption=adoption,
+                    coordinate=coordinate,
+                    composite=Uniqueness.of(envelope),
+                    handle=handle,
+                    lag=measured,
+                    expiry=expiry,
+                    moot=expiry.map(lambda expires: expires <= arrived).default_value(False),
+                )
+            )
+        )
+
+    async def _shed(
+        self,
+        received: Received,
+        key: Option[Uniqueness],
+        fault: BoundaryFault,
+        /,
+    ) -> RuntimeRail[None]:
+        match self.consumption.dead_letter:
+            case Option(tag="none"):
+                await self.agent.shed(key, fault)
+                return Ok(None)
+            case Option(tag="some", some=address):
+                # This normalized provider thunk publishes the original carrier and settles its original handle only
+                # after the dead-letter publish confirms, keeping poison routing one package-owned atomic mechanism.
+                routed = await async_boundary(
+                    BINDING_SETTLE,
+                    lambda: self.client.dead_letter(self.connection, address, received, fault),
+                    catch=self.client.raises,
+                )
+                if routed.is_error():
+                    return routed
+                await self.agent.shed(key, fault)
+                return Ok(None)
 ```
 
 ## [05]-[RESEARCH]

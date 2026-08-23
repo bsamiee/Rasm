@@ -38,6 +38,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using ACadSharp.IO;                            // ICadReader/DxfReader/DwgReader + the ProgressEventArgs/ReadStage pair
 using Assimp;
+using CommunityToolkit.HighPerformance;
 using GeometryGym.Ifc;
 using g3;
 using LanguageExt;
@@ -476,13 +477,18 @@ public static partial class BimIo {
 
     // --- [GLTF]
     static Fin<ImportedGeometry> Gltf(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
-        bool compressed = Compression.IsPresent(bytes);
+        string json = Compression.JsonChunk(bytes);
+        bool compressed = Compression.IsPresent(json);
         var validation = compressed ? ValidationMode.Skip : ValidationMode.Strict;
-        var model = format == InterchangeFormat.Glb
-            ? ModelRoot.ParseGLB(new ArraySegment<byte>(bytes.ToArray()), new ReadSettings { Validation = validation })
-            : TextContext(bytes, validation).ReadTextSchema2(new MemoryStream(bytes.ToArray()));
+        ModelRoot model;
+        if (format == InterchangeFormat.Glb) {
+            using Stream source = bytes.AsStream();
+            model = ModelRoot.ReadGLB(source, new ReadSettings { Validation = validation });
+        } else {
+            model = TextContext(bytes, validation).ReadTextSchema2(new MemoryStream(bytes.ToArray()));
+        }
         DecodeStage.Opened.Beat(rail, key);
-        return Decoded(format, compressed ? Compression.Decompress(model, bytes) : model, at, rail, key);
+        return Decoded(format, compressed ? Compression.Decompress(model, json) : model, at, rail, key);
     }
 
     static ReadContext TextContext(ReadOnlyMemory<byte> bytes, ValidationMode validation) {
@@ -635,18 +641,18 @@ public static partial class BimIo {
             public static Option<MeshoptFilter> Route(string token) => TryGet(token, out var row) ? Some(row) : None;
         }
 
-        public static bool IsPresent(ReadOnlyMemory<byte> glb) =>
+        public static bool IsPresent(string json) =>
             KhrExtension.MeshoptCompression.Key is var meshopt
             && KhrExtension.DracoMeshCompression.Key is var draco
-            && JsonChunk(glb) is { Length: > 0 } json
+            && json.Length > 0
             && (json.Contains(draco, StringComparison.Ordinal) || json.Contains(meshopt, StringComparison.Ordinal));
 
         // SharpGLTF.Core drops unrecognized extension JSON (Draco/meshopt have no in-box JsonSerializable extension
         // class), so the extension parameters are read from the raw glTF/GLB JSON tree the parse discards. The tree
         // admits ONCE into per-ordinal Option rows here, so no index chain and no fabricated empty array survives
         // past this member.
-        public static ModelRoot Decompress(ModelRoot model, ReadOnlyMemory<byte> bytes) {
-            var root = JsonNode.Parse(JsonChunk(bytes))!.AsObject();
+        public static ModelRoot Decompress(ModelRoot model, string json) {
+            var root = JsonNode.Parse(json)!.AsObject();
             Rows(root, "meshes").Iter((m, mesh) => mesh.Iter(entry =>
                 toSeq(model.LogicalMeshes[m].Primitives).Iter((p, primitive) =>
                     Reach(entry, "primitives", p, KhrExtension.DracoMeshCompression.Key)
@@ -743,10 +749,12 @@ public static partial class BimIo {
                     () => throw new InvalidDataException(string.Join(':', new object?[] { "import-decode", $"meshopt-{member}", token }))),
                 None: () => fallback);
 
-        static string JsonChunk(ReadOnlyMemory<byte> glb) =>
-            ReadContext.IdentifyBinaryContainer(new MemoryStream(glb.ToArray()))
-                ? ReadContext.ReadJson(new MemoryStream(glb.ToArray()))
-                : Encoding.UTF8.GetString(glb.Span);
+        public static string JsonChunk(ReadOnlyMemory<byte> glb) {
+            using Stream source = glb.AsStream();
+            if (!ReadContext.IdentifyBinaryContainer(source)) { return Encoding.UTF8.GetString(glb.Span); }
+            source.Position = 0L;
+            return ReadContext.ReadJson(source);
+        }
     }
 
     // --- [PLY]
@@ -1633,7 +1641,7 @@ public static partial class BimIo {
 - Receipt: `ExplicitTessellation` carries the decoded `ImportedGeometry`, the decoded product count, the deferred `GlobalId` set, and the bound texture identities — the split evidence a composition reads to know how much of a model needed an evaluator at all, and the reason a texture-bearing or colour-bearing IFC now round-trips its parameterization and its radiometry when the companion path cannot.
 - Packages: GeometryGymIFC_Core (`IfcTessellatedFaceSet`/`IfcTextureVertexList`/`IfcIndexedTriangleTextureMap` — the triangulated UV-index payload reached through the `Semantics/appearance#APPEARANCE_PROJECTION` `IfcInternals` capsule under that catalog's `[INTERNAL_ACCESS_LAW]`; the polygonal `IfcTextureCoordinateIndices` row is PUBLIC and needs no capsule, as does the `IfcTextureCoordinate.Maps` bound-texture list; the colour payload crosses through that page's `IndexedColour`), Rasm.Element, Rasm, NodaTime, LanguageExt.Core
 - Growth: a new tessellated subtype is one arm on the representation-item dispatch and one row on the corner run; a new attribute lane is one lane entry the SAME walk fills; a corner-indexed presentation payload beyond these joins the existing `Gather` discriminant rather than adding a second emit path, and an n-gon's arity is absorbed by the ONE `Fan` owner before `Slot`; never a second IFC mesh decoder and never an in-process evaluator for a swept, BREP, or voided-face item.
-- Boundary: `ImportIfcTessellation` decodes EXPLICIT indexed meshes and nothing else — an `IfcExtrudedAreaSolid`, an `IfcAdvancedBrep`, or any item requiring a solid kernel routes to `tessellation#TESSELLATION_BRIDGE` unchanged, so the no-in-process-solid-evaluator law is untouched and `TessellationRequiresCompanion` keeps its meaning. Face-set SUBTYPES this decode holds no row for REFUSE typed rather than yielding an empty corner run: the retired empty tail imported a third subtype silently as a product with no geometry. Reading a UV coordinate list or a colour palette is neither a codec nor a texel resample, so the "CLASSIFIES and CARRIES texture payloads and decodes none" ruling holds whole; the internal-payload reach is the `IfcInternals` capsule and the colour shape is `IndexedColour`, so this page declares neither — a presentation item seats on the presentation owner and `ARCHITECTURE.md` `[02]-[STRATA]` puts `Exchange` above `Semantics`, so composing them here is the downward edge the acyclic law admits while the reverse seating inverts the strata AND forks the palette fold into an ingest copy and an egress copy. Decoded geometry lands the SAME carrier the managed arms produce through the SAME kernel accumulator, so no second pool exists; frame normalization does not apply because IFC coordinates are already in the model frame the seam header declares. Texture PAYLOAD stays the appearance roster's — this owner carries only the coordinate set and the texture identity it binds to.
+- Boundary: `ImportIfcTessellation` decodes explicit indexed meshes and nothing else. Solids requiring an evaluator route to `tessellation#TESSELLATION_BRIDGE`, whose `TessellationRequest.Plan` door admits only the IFC source the real peer implements. Unsupported face-set subtypes refuse typed rather than yielding an empty product. UV coordinates and colour palettes are carried through the existing `IfcInternals`/`IndexedColour` owners; this page mints neither. Decoded geometry lands the same kernel accumulator as every managed arm, and IFC coordinates remain in the declared model frame. Texture payload remains the appearance roster's; this owner carries only coordinates and the texture identity they bind to.
 
 ```csharp signature
 // Split product: what decoded here, and what still needs the evaluator. Deferred is a GlobalId set precisely so it

@@ -2,22 +2,22 @@
 
 The GlobalId-stable federation diff over the seam graph: one `ModelDiff` change-set carries the baseline and revision `ContentAddress.OfGraph` identities and folds both `Rasm.Element/Graph/element#ELEMENT_GRAPH` snapshots into the `ElementChange` added/removed/modified/moved arms, joining by the Bim-stored `Rasm.Element/Graph/element#NODE_MODEL` `Node.Object.ExternalId` (the IFC `GlobalId` [H6] — the ONE identity two federated submissions share, because the neutral kernel `NodeId` is minted afresh per ingest and never coincides across parties) and classifying each matched pair by the seam `Rasm.Element/Projection/address#CONTENT_ADDRESS` content and placement keys so an unchanged element dedups by content address and a re-check bakes only the changed elements. PLACEMENT-SPACE LAW: the placement key folds the element's OBJECT PLACEMENT TRANSFORM explicitly beside its content-hashed representations, and every geometry hash it reads is stated in the representation's OWN local space — an IFC representation is authored local and positioned by `IfcLocalPlacement`, so a rigid relocation leaves every representation hash byte-identical and a placement key over hashes ALONE reads a moved element as unchanged. The transform enters the key through the seam `CanonicalWriter` at model-space tolerance, so the `Moved` discriminant answers the question its name asks. The diff consumes two `ElementGraph` snapshots as settled vocabulary and mints no second element shape; the consumer element is the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Bake(objectNode)` fold, the retired `BimModel`/`BimElement` snapshot pair GONE.
 
-The diff is the cross-party twin of two same-lineage owners and re-derives neither. The `Rasm.Persistence/Version/merge#STRUCTURAL_DIFF` `StructuralMerge` is the NodeId-keyed (re-ingest `Reconcile`-aligned on `ExternalId`) version-lineage THREE-way merge over one model's history; the `Review/versioning#VERSION_GRAPH` commit-DAG is the branching revision graph. This page is the PAIRWISE two-way federation diff over two INDEPENDENT submissions whose neutral `NodeId`s never coincide, so the join is the IFC `GlobalId` directly (no `Reconcile`); all three compose the one `Generator.Equals` `Inequalities` member-diff substrate and the one seam `ContentAddress` codec, none re-deriving another. Every terminal diff rejection lifts `BimFault.Refused` with its closed scope/reason axes BARE; captured serializer errors remain their original `Error`. The page is HOST-LOCAL; the `ModelDiff.Encode`/`Decode` cross-runtime wire payload is HOST-FREE.
+The diff is the cross-party twin of two same-lineage owners and re-derives neither. The `Rasm.Persistence/Version/merge#STRUCTURAL_DIFF` `StructuralMerge` is the NodeId-keyed (re-ingest `Reconcile`-aligned on `ExternalId`) version-lineage THREE-way merge over one model's history; the `Review/versioning#VERSION_GRAPH` commit-DAG is the branching revision graph. This page is the PAIRWISE two-way federation diff over two INDEPENDENT submissions whose neutral `NodeId`s never coincide, so the join is the IFC `GlobalId` directly (no `Reconcile`); all three compose the one `Generator.Equals` `Inequalities` member-diff substrate and the one seam `ContentAddress` codec, none re-deriving another. Every terminal diff rejection lifts `BimFault.Refused`; the package remains host-neutral and crosses through generated `ModelDiffWire`.
 
 ## [01]-[INDEX]
 
-- [02]-[MODEL_DIFF]: the `ModelDiff` change-set, the `ElementChange` closed `[Union]` (Added/Removed/Modified/Moved/Split/Merged) with the `ChangeKind` token projection that also owns the wire discriminators, the `ElementFingerprint` content/placement keys the join dedups on, the `Generator.Equals` `Inequalities` `AspectDelta` member-level delta the `Modified` arm carries (each delta shaped by the `DeltaShape` terminal-segment token and valued by the typed `DeltaValue` leaf), and the `ModelDiff.Encode`/`Decode` host-free cross-runtime projection.
+- [02]-[MODEL_DIFF]: the `ModelDiff` change-set, the `ElementChange` closed `[Union]` (Added/Removed/Modified/Moved/Split/Merged), the `ChangeKind` audit token, the `ElementFingerprint` content/placement keys the join dedups on, the `Generator.Equals` `Inequalities` `AspectDelta` member-level delta the `Modified` arm carries, and the generated `Bim.V1.ModelDiffWire` `Seal`/`Admit` crossing.
 - [03]-[AUDIT]: the chained content-addressed `AuditEntry` log folding `ModelDiff` change-sets across a version sequence into a tamper-evident per-element mutation trail, the `AuditTrail.For(globalId)` lifecycle query, and `AuditTrail.Verify()`.
 
 ## [02]-[MODEL_DIFF]
 
-- Owner: `ModelDiff` the change-set carrying the baseline and revision graph addresses beside one change sequence and the unchanged count; `ElementChange` the closed `[Union]` over IFC `GlobalId` — `Added`, `Removed`, `Modified`, `Moved`, `Split`, `Merged`; `ChangeKind` the `[SmartEnum<string>]` projecting each arm into the audit and wire vocabularies at once; `ElementFingerprint` the `(GlobalId, content key, placement key)` triple the join dedups on and the `Review/versioning#VERSION_GRAPH` commit map keys on; `PlacementPose` the rigid frame a `Moved` arm crosses whole so no peer re-fetches either snapshot; `AspectDelta` the member-level delta the `Modified` arm carries — path, `DeltaShape` terminal-segment token, and typed `DeltaValue` leaves.
-- Entry: `ModelDiff.Between(ElementGraph baseline, ElementGraph revision, Op key)` folds the two snapshots into one `ModelDiff` — a `GlobalId` present in the revision but not the baseline is `Added`, present in the baseline but not the revision is `Removed`, present in both with a differing content key is `Modified` (or `Moved` when only the placement key differs), and present in both with both keys identical dedups as unchanged; the added/removed partition then re-folds by CONTENT key — the content key excludes geometry, so one source and its fragments carry ONE content signature — lifting a one-removed-to-many-added group onto `Split` and a many-removed-to-one-added group onto `Merged`, each carrying its counterpart set and leaving the add/remove partition; `Fin<T>` because the `Modified` enrichment bakes the changed elements through `Rasm.Element/Graph/element#ELEMENT_GRAPH` `Bake` (which rails `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault` on a corrupt subgraph), so an unchanged element never bakes and a re-check costs only the changed elements. `ModelDiff.Encode(diff, key)`/`Decode(json, key)` is the host-free cross-runtime projection and `ModelDiff.Fingerprint(graph, node)` the per-element content fingerprint the `Review/versioning#VERSION_GRAPH` commit-DAG and this diff both key on.
+- Owner: `ModelDiff` the change-set carrying the baseline and revision graph addresses beside one change sequence and the unchanged count; `ElementChange` the closed `[Union]` over IFC `GlobalId`; `ChangeKind` the audit vocabulary projected from those arms; `ElementFingerprint` the `(GlobalId, content key, placement key)` triple; `AspectDelta` the path, `DeltaShape`, and typed `DeltaValue` evidence. A moved arm carries `Option<PlacementTransform>` directly—the seam value, not a flattened Bim mirror.
+- Entry: `ModelDiff.Between(ElementGraph baseline, ElementGraph revision, Op key)` folds the two snapshots into one diff; `ModelDiff.Seal(diff, key)` returns the generated `Rasm.Contracts.Bim.V1.ModelDiffWire`; `ModelDiff.Admit(wire, key)` dispatches generated oneof cases and re-enters shared Element conversions. Protobuf binary or ProtoJSON rendering remains the higher transport owner's concern.
 - Auto: `Between` `Federate`s each graph into a `GlobalId`-keyed map over the `ExternalId`-bearing `Object` nodes (the `Review/coordination#COORDINATION` `ExternalId` `Choose`-discard-`None` law — an authored Object with no IFC `GlobalId` sits off the federation surface, never a fault), `Fingerprint`s each through the seam `ContentAddress`, then partitions the common set: a differing `ContentKey` is `Modified`, an equal `ContentKey` with a differing `PlacementKey` is `Moved`, both equal is unchanged. The content key folds the `Object`'s semantic head (kind/classification/predefined/name/tag) with the order-independent content addresses of its bound non-`Object` nodes (`PropertySet`/`QuantitySet`/`Material`/`Assessment`/`Appearance`/`Coverage`) and its outgoing-edge structure; the placement key folds the `Object`'s geometry through the `RepresentationContentHash` map ALONE — EVERY geometry content-hashed there, the heavy display `Body` AND the lightweight analytical `Axis`/`FootPrint` the structural/energy disciplines resolve one-hop by content key — so a relocation moves the geometry bytes, the content hashes, and thus the placement key, while the semantic content key stays stable; an inline `BoundaryPolygon`/`Axis` coordinate read is the named seam violation (the seam carries no raw coordinate field — `Graph/element#NODE_MODEL` M2). The `Modified` arm carries BOTH currencies — the content-key pair AND the placement-key pair, so a content edit that also relocates the element keeps the axis the `Review/versioning#VERSION_GRAPH` merge weighs — plus `Generator.Equals` `Inequalities` over the two baked `Element`s as `AspectDelta` rows (the `Id`/`ExternalId`/`History`/`Parts` noise axes excluded at the `Rasm.Element` owner's own `[IgnoreEquality]` declarations, so the comparer composes bare and every consumer agrees by construction), each row's terminal `MemberPathSegment` projected onto the `DeltaShape` token so a downstream consumer reads the exact `Properties[Pset].FireRating` member that moved AND the shape of the move — a scalar `Replace` distinguished from an ordered-collection `Index`, a keyed-bag `Key`, or a set-membership `Added`/`Removed` — with each side's leaf kept typed, not an opaque content-key delta and not two rendered strings.
-- Receipt: the `ModelDiff` change-set is the incremental federation evidence; a `Review/issues#BCF_ARCHIVE` `BcfTopic` anchors a `BcfViewpoint.SelectedGlobalIds` on the `Modified`/`Moved` element `GlobalId`s this diff names, the `Review/coordination#COORDINATION` `Coordination.Between` folds two change-sets into the downstream-affected element/task/cost sets, and the `Review/versioning#VERSION_GRAPH` `BimCommit` keys its `Map<string, ElementFingerprint>` on the SAME `ElementFingerprint` so a commit, a diff, and the audit chain carry one content-key identity; the `ModelDiff.Encode` payload is the one cross-runtime contract the `ts:ui/bcf-anchor` live-binding decodes to highlight the changed `GlobalId`s.
-- Packages: Rasm.Element, Generator.Equals, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, Rasm, BCL `System.Text.Json`
-- Growth: a new change kind is one `ElementChange` union arm plus one `ChangeKind` row plus one `[JsonDerivedType]` row reading that row's own `nameof` plus one `AuditTrail.Keys` arm (an unregistered leaf fails serialization loudly, never a silent slice); a new content dimension is one column folded into the content key over the same seam `ContentAddress` codec; the join keys by `GlobalId` plus the content/placement keys so a new identity dimension is a content-key field, never a second identity scheme; a new delta projection is one richer `AspectDelta` over the same `Inequalities`, a new change shape is one `DeltaShape` row plus its factory-keyed correspondence entry, and a new leaf carrier is one `DeltaValue` arm plus its wire row; never a per-change-kind type and never a parallel diff record.
-- Boundary: the federation join is the `Node.Object.ExternalId` IFC `GlobalId` [H6] and a join on the neutral `NodeId` is the deleted form — two independent submissions re-mint rooted `NodeId`s, so only the `GlobalId` is cross-party stable; the content and placement keys are the seam `ContentAddress` over the ONE `Rasm.Element/Projection/address#CONTENT_ADDRESS` codec [H7], and consuming `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key` — LIVE at that Compute owner as the policy-seeded interchange cache key, and an up-stratum reach this S2 page cannot make — AND a hand-rolled `XxHash128`/`Encoding.UTF8` string-join hasher are the named defects — the diff content bytes and the `NodeId` content hash share the one seam projection; the `Moved` arm is distinguished from `Modified` by the placement-key delta (the placement TRANSFORM plus the geometry bucket — representations and analytical geometry — moved while the content bucket held), and collapsing the two buckets is the deleted form; the `Moved` arm carries the two rigid `PlacementPose` frames beside the key pair — a content address is opaque, so a key-pair-only `Moved` forced every peer to re-fetch both snapshots to draw a relocation it had just been told about, and the pose crosses in the layout the seam `ObjectWire` placement field already carries so the JSON and protobuf crossings state one frame; a consumer re-deriving a transform from the placement key is the deleted form; the placement key folds the transform EXPLICITLY and a key over representation hashes alone is the deleted form — an IFC representation is authored in local space and positioned by `IfcLocalPlacement`, so a rigid relocation leaves every hash byte-identical and the `Moved` arm becomes unreachable while the element silently reads unchanged; `Split`/`Merged` derive from CONTENT-key matching across the added/removed partition (the content key excludes geometry, so a source and its fragments share one signature while their placements diverge), one-to-many lifting `Split` and many-to-one `Merged`, and reporting a split as unrelated adds beside an unrelated remove is the deleted form that discards the only correspondence the federation surface holds — a 1:1 content match is a re-identification the add/remove pair already states and an N:M group names no source and no survivor, so both stay plain; the `Modified` delta is the `Generator.Equals` `Inequalities` member-path projection carrying the terminal segment kind as the typed `DeltaShape` token and each side's leaf as a typed `DeltaValue` — a string-formatted whole-record diff, a consumer re-parsing the rendered `Path` brackets to recover the change shape, a `"<absent>"` string sentinel indistinguishable from a real value, and a `_` floor that reads an unmodelled foreign segment kind as a scalar replace are the deleted forms; the noise axes are `[IgnoreEquality]` declarations on the `Rasm.Element` owner and the wire discriminators read through `nameof`, so a call-site member-name roster — hardcoded or `nameof`-derived — is the deleted form beside the owner's own exclusion; the `Modified` arm carries the placement pair beside the content pair, matching the `Review/versioning#VERSION_GRAPH` law that weighs both axes on the same currency, and a content-only `Modified` that discards a simultaneous relocation is the deleted form; the `ElementChange` family is a closed `[Union]` and a per-change-kind class is the deleted form; the consumer element is the `Bake` fold and the retired `BimModel`/`BimElement` snapshot pair is GONE (a diff that re-stores a second element record off the seam graph is the deleted form); the cross-runtime wire rides `ModelDiff.Encode`/`Decode` (HOST-FREE — `GlobalId` strings, the seam `ContentAddress` keys, the typed deltas, never a host geometry type) — the `[Union]` crossing on its per-leaf `[JsonDerivedType]` `kind` discriminant (a regular `[Union]` carries no key metadata, so the `ThinktectureJsonConverterFactory` cannot convert it — a factory-only wire that slices the abstract root on write and faults on read is the deleted illusory form), the keyed `[SmartEnum]`/`[ValueObject]` owners on the factory's key conversion — and the retired `Exchange/wire#WIRE_PROJECTION` `BimWireContext`/`BimWireOptions.Json` (GONE — the strata-leaking generic-model serializer is retired, `wire.md` now owning the `IfcWire` IFC interchange wire) plus a parallel `DiffWire` record duplicating `ModelDiff`'s shape are the deleted forms — the seam-graph snapshot wire is `Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec`'s, not minted here; this page is the cross-party PAIRWISE diff and re-deriving the `Rasm.Persistence/Version/merge#STRUCTURAL_DIFF` NodeId-keyed three-way merge here is the deleted form.
+- Receipt: the `ModelDiff` change-set is the incremental federation evidence; a `Review/issues#BCF_ARCHIVE` `BcfTopic` anchors a `BcfViewpoint.SelectedGlobalIds` on the `Modified`/`Moved` element `GlobalId`s this diff names, the `Review/coordination#COORDINATION` `Coordination.Between` folds two change-sets into the downstream-affected element/task/cost sets, and the `Review/versioning#VERSION_GRAPH` `BimCommit` keys its `Map<string, ElementFingerprint>` on the SAME `ElementFingerprint`; the generated `ModelDiffWire` is the cross-runtime artifact a future app may render or decode.
+- Packages: Rasm.Contracts (generated `Bim.V1` diff messages), Google.Protobuf, Rasm.Element (shared measure/classification/placement/key converters), Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
+- Growth: a new change kind is one `ElementChange` arm, one `ChangeKind` audit row, one additive corpus oneof arm with regenerated bindings, and one `AuditTrail.Keys` arm. A new delta leaf or shape widens its domain union and generated oneof or enum together; no language-local wire type participates.
+- Boundary: federation joins on `Node.Object.ExternalId`, never the locally minted `NodeId`; content and placement keys compose the seam `ContentAddress`, never another hasher. A `Moved` arm carries the placement keys and the seam `PlacementTransform` options, then `Seal` projects them through the shared generated converter—no `PlacementPose` mirror. `Modified` keeps both content and placement currencies and typed member deltas. `Split`/`Merged` derive from content-key groups. The sole cross-runtime value is generated `ModelDiffWire`; Bim neither serializes JSON nor references AppHost, and no `Payload`, `DiffWire`, hand discriminator family, or transport option exists here.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -25,10 +25,10 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Generator.Equals;
+using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
+using Rasm.Contracts.Bim.V1;
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
@@ -36,21 +36,15 @@ using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
-using Thinktecture.Text.Json.Serialization;
 using static LanguageExt.Prelude;
+using static Rasm.Element.Graph.SeamConverters;
 using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The neutral change-kind token an audit row persists and a TS decode switches on — the [SmartEnum] projection
-// of the ElementChange union case (the Relations/relation#EDGE_ALGEBRA Relationship.Kind idiom), never a
-// stringly "added"/"removed" literal and never a per-call-site discriminant. The rows are ALSO the wire
-// discriminator roster: ElementChange's [JsonDerivedType] rows spell these same keys, so one vocabulary owns both
-// the audit token and the polymorphic wire tag.
-// DISTINCT-BY-DESIGN (E-P6 allowlist): the wire-frozen six-row [JsonDerivedType] discriminator set carrying the
-// model-topology Moved/Split/Merged arms — never Rasm.Persistence `Version/timetravel`'s three lowercase storage
-// AUDIT scrub tokens; the rosters are disjoint.
+// The neutral change-kind token an audit row persists, projected from the ElementChange union. The generated
+// ElementChangeWire oneof owns the wire discriminant separately and no string tag is copied between them.
 [SmartEnum<string>]
 public sealed partial class ChangeKind {
     public static readonly ChangeKind Added = new(nameof(Added));
@@ -97,11 +91,6 @@ public sealed partial class DeltaShape {
 // delta carries on the side it has no value for, replacing the "<absent>" sentinel a real string could forge — the
 // wire needs a discriminated absence because no LanguageExt Option converter rides this payload.
 [Union]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind", UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FailSerialization)]
-[JsonDerivedType(typeof(Measure), "measure")]
-[JsonDerivedType(typeof(Address), "address")]
-[JsonDerivedType(typeof(Label), "label")]
-[JsonDerivedType(typeof(Absent), "absent")]
 public abstract partial record DeltaValue {
     private DeltaValue() { }
 
@@ -139,42 +128,15 @@ public readonly record struct AspectDelta(string Path, DeltaShape Shape, DeltaVa
 // SAME carrier the Review/versioning#VERSION_GRAPH BimCommit keys its fingerprint map on.
 public readonly record struct ElementFingerprint(string GlobalId, ContentAddress ContentKey, ContentAddress PlacementKey);
 
-// The rigid pose a Moved entry crosses WHOLE: the nine ordered doubles the seam PlacementTransform holds, in the
-// EXACT layout the seam Graph/wire ObjectWire optional placement field flattens, so this JSON crossing and the
-// protobuf one state one frame and a peer reading either renders the same relocation. Plain doubles because a seam
-// [ComplexValueObject] exposes no key for ThinktectureJsonConverterFactory to bind and Vector3 is not a wire shape;
-// Of lowers the seam value verbatim, so the pose is a projection and never a second placement authority.
-public readonly record struct PlacementPose(
-    double LocationX, double LocationY, double LocationZ,
-    double AxisX, double AxisY, double AxisZ,
-    double RefDirectionX, double RefDirectionY, double RefDirectionZ) {
-    public static PlacementPose Of(PlacementTransform frame) =>
-        new(frame.Location.X, frame.Location.Y, frame.Location.Z,
-            frame.Axis.X, frame.Axis.Y, frame.Axis.Z,
-            frame.RefDirection.X, frame.RefDirection.Y, frame.RefDirection.Z);
-}
-
-// The closed federation change family — each arm carries the IFC GlobalId through the base accessor and its own
-// typed evidence, Modified carrying BOTH currencies because a content edit that also relocates the element is one
-// change and dropping its placement axis loses the evidence the version merge weighs. The wire discriminant is the
-// per-leaf [JsonDerivedType] row whose string is READ off the ChangeKind row rather than re-typed: a regular
-// [Union] carries no key metadata, so ThinktectureJsonConverterFactory refuses it and the abstract root would
-// slice on write and fault on read. An unregistered leaf FAILS serialization, and the computed Kind is
-// [JsonIgnore]d so the one "kind" property on the wire is the discriminator itself.
+// The closed federation change family — each arm carries the IFC GlobalId and typed evidence. Modified carries
+// BOTH currencies because a content edit that also relocates the element is one change. Generated oneof dispatch
+// is confined to Seal/Admit and the domain union remains serialization-free.
 [Union]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind", UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FailSerialization)]
-[JsonDerivedType(typeof(Added), nameof(ChangeKind.Added))]
-[JsonDerivedType(typeof(Removed), nameof(ChangeKind.Removed))]
-[JsonDerivedType(typeof(Modified), nameof(ChangeKind.Modified))]
-[JsonDerivedType(typeof(Moved), nameof(ChangeKind.Moved))]
-[JsonDerivedType(typeof(Split), nameof(ChangeKind.Split))]
-[JsonDerivedType(typeof(Merged), nameof(ChangeKind.Merged))]
 public abstract partial record ElementChange {
     private ElementChange() { }
 
     public abstract string GlobalId { get; }
 
-    [JsonIgnore]
     public ChangeKind Kind => Switch(
         added:    static _ => ChangeKind.Added,
         removed:  static _ => ChangeKind.Removed,
@@ -186,13 +148,9 @@ public abstract partial record ElementChange {
     public sealed record Added(string GlobalId, Classification Class, PredefinedType Predefined, ContentAddress Content) : ElementChange;
     public sealed record Removed(string GlobalId, Classification Class, PredefinedType Predefined, ContentAddress Content) : ElementChange;
     public sealed record Modified(string GlobalId, ContentAddress BaselineContent, ContentAddress RevisionContent, ContentAddress BaselinePlacement, ContentAddress RevisionPlacement, ImmutableArray<AspectDelta> Deltas) : ElementChange;
-    // Moved carries the placement KEYS (the discriminant that classified it) AND the two POSES the relocation ran
-    // between: a content address is opaque, so a peer holding key pairs alone must re-fetch both snapshots to draw
-    // the move it was just told about. A pose is NULL where the node declares no placement — a Moved verdict also
-    // arises from a re-hashed representation under an absent frame — and null cannot forge a value here because a
-    // real pose is a JSON object, so the DeltaValue.Absent discriminated-absence precedent buys nothing.
+    // The optional pose is the seam PlacementTransform itself; only the generated PlacementWire projects it.
     public sealed record Moved(string GlobalId, ContentAddress BaselinePlacement, ContentAddress RevisionPlacement,
-        PlacementPose? BaselinePose, PlacementPose? RevisionPose) : ElementChange;
+        Option<PlacementTransform> BaselinePose, Option<PlacementTransform> RevisionPose) : ElementChange;
     // Re-identification: the CONTENT key excludes geometry, so a source and its fragments share ONE content
     // signature while their placement keys diverge — that is what makes a split recoverable from the add/remove
     // partition at all. GlobalId is the SOURCE for a Split and the SURVIVOR for a Merged; the counterpart set is
@@ -237,7 +195,7 @@ public sealed record ModelDiff(
             .Filter(id => prior[id].Fp.ContentKey == next[id].Fp.ContentKey && prior[id].Fp.PlacementKey != next[id].Fp.PlacementKey)
             .Map(id => (ElementChange)new ElementChange.Moved(
                 id, prior[id].Fp.PlacementKey, next[id].Fp.PlacementKey,
-                Pose(prior[id].Obj), Pose(next[id].Obj)));
+                prior[id].Obj.Placement, next[id].Obj.Placement));
         int unchanged = common.Count(id => prior[id].Fp == next[id].Fp);
         return common
             .Filter(id => prior[id].Fp.ContentKey != next[id].Fp.ContentKey)
@@ -254,12 +212,6 @@ public sealed record ModelDiff(
                 added + removed + reidentified + moved + modified,
                 unchanged));
     }
-
-    // The seam Object's own placement column lowered at the wire boundary: Option to nullable, because the payload
-    // carries no LanguageExt converter and the pose is read, never re-derived — the diff states the frame the graph
-    // holds and no consumer recomputes one from the opaque placement key.
-    static PlacementPose? Pose(Node.Object node) =>
-        node.Placement.Match<PlacementPose?>(Some: static frame => PlacementPose.Of(frame), None: static () => null);
 
     // The one re-identification fold: group both partitions by content key, lift the 1:N and N:1 groups onto
     // Split/Merged, and return the residue as plain adds and removes. The counterpart ids sort ordinal so a
@@ -283,25 +235,173 @@ public sealed record ModelDiff(
                 splits + merges);
     }
 
-    // The cross-runtime projection the ts:ui/bcf-anchor live-binding decodes — HOST-FREE. Both [Union]s ride their
-    // per-leaf [JsonDerivedType] rows so a TS decode switches on the kind string; the KEYED owners ride the
-    // ThinktectureJsonConverterFactory key conversion and the [ComplexValueObject] carriers their generator-emitted
-    // converters. The Seq projects through an array at the boundary, so no LanguageExt converter is required.
-    public static Fin<byte[]> Encode(ModelDiff diff, Op key) =>
-        key.Catch(() => JsonSerializer.SerializeToUtf8Bytes(
-            new Payload(diff.Baseline, diff.Revision, [.. diff.Changes], diff.UnchangedCount), Wire));
+    // The generated message is the crossing. Serialization format and transport framing stay above Bim.
+    public static Fin<ModelDiffWire> Seal(ModelDiff diff, Op key) {
+        if (diff.UnchangedCount < 0) { return Rejected<ModelDiffWire>(key, "diff-unchanged-count-negative"); }
+        ModelDiffWire wire = new() {
+            Baseline = ToWire(diff.Baseline.Value),
+            Revision = ToWire(diff.Revision.Value),
+            UnchangedCount = (uint)diff.UnchangedCount,
+        };
+        wire.Changes.AddRange(diff.Changes.Map(SealChange));
+        return Fin.Succ(wire);
+    }
 
-    public static Fin<ModelDiff> Decode(ReadOnlyMemory<byte> json, Op key) =>
-        key.Catch(() => JsonSerializer.Deserialize<Payload>(json.Span, Wire))
-            .Bind(payload => payload.Baseline is null || payload.Revision is null
-                || payload.Changes is null || payload.Changes.Any(static change => change is null)
-                || payload.UnchangedCount < 0
-                    ? Fin.Fail<ModelDiff>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "diff-wire", "decode", "shape" })))
-                    : Fin.Succ(new ModelDiff(
-                        payload.Baseline,
-                        payload.Revision,
-                        toSeq(payload.Changes),
-                        payload.UnchangedCount)));
+    public static Fin<ModelDiff> Admit(ModelDiffWire? wire, Op key) => wire is null
+        ? Rejected<ModelDiff>(key, "diff-message-absent")
+        : from baseline in ToKey(wire.Baseline, key)
+          from revision in ToKey(wire.Revision, key)
+          from unchanged in wire.UnchangedCount <= int.MaxValue
+              ? Fin.Succ((int)wire.UnchangedCount)
+              : Rejected<int>(key, "diff-unchanged-count-overflow")
+          from changes in toSeq(wire.Changes).TraverseM(change => AdmitChange(change, key)).As()
+          select new ModelDiff(ContentAddress.Of(baseline), ContentAddress.Of(revision), changes, unchanged);
+
+    static ElementChangeWire SealChange(ElementChange change) => change.Switch(
+        added: static value => new ElementChangeWire { Added = SealEnd(value.GlobalId, value.Class, value.Predefined, value.Content) },
+        removed: static value => new ElementChangeWire { Removed = SealEnd(value.GlobalId, value.Class, value.Predefined, value.Content) },
+        modified: static value => SealModified(value),
+        moved: static value => SealMoved(value),
+        split: static value => SealRegroup(value.GlobalId, value.Content, value.Into, split: true),
+        merged: static value => SealRegroup(value.GlobalId, value.Content, value.From, split: false));
+
+    static DiffEndWire SealEnd(string globalId, Classification classification, PredefinedType predefined, ContentAddress content) => new() {
+        GlobalId = globalId,
+        Classification = ToWire(classification),
+        Predefined = predefined.Token,
+        Content = ToWire(content.Value),
+    };
+
+    static ElementChangeWire SealModified(ElementChange.Modified value) {
+        DiffModifiedWire wire = new() {
+            GlobalId = value.GlobalId,
+            BaselineContent = ToWire(value.BaselineContent.Value),
+            RevisionContent = ToWire(value.RevisionContent.Value),
+            BaselinePlacement = ToWire(value.BaselinePlacement.Value),
+            RevisionPlacement = ToWire(value.RevisionPlacement.Value),
+        };
+        wire.Deltas.AddRange(value.Deltas.Select(SealDelta));
+        return new ElementChangeWire { Modified = wire };
+    }
+
+    static ElementChangeWire SealMoved(ElementChange.Moved value) {
+        DiffMovedWire wire = new() {
+            GlobalId = value.GlobalId,
+            BaselinePlacement = ToWire(value.BaselinePlacement.Value),
+            RevisionPlacement = ToWire(value.RevisionPlacement.Value),
+        };
+        value.BaselinePose.IfSome(pose => wire.BaselinePose = ToWire(pose));
+        value.RevisionPose.IfSome(pose => wire.RevisionPose = ToWire(pose));
+        return new ElementChangeWire { Moved = wire };
+    }
+
+    static ElementChangeWire SealRegroup(
+        string globalId, ContentAddress content, ImmutableArray<string> counterparts, bool split) {
+        DiffRegroupWire wire = new() { GlobalId = globalId, Content = ToWire(content.Value) };
+        wire.Counterparts.AddRange(counterparts);
+        return split ? new ElementChangeWire { Split = wire } : new ElementChangeWire { Merged = wire };
+    }
+
+    static AspectDeltaWire SealDelta(AspectDelta value) => new() {
+        Path = value.Path,
+        Shape = SealShape(value.Shape),
+        Before = SealDeltaValue(value.Before),
+        After = SealDeltaValue(value.After),
+    };
+
+    static Rasm.Contracts.Bim.V1.DeltaShape SealShape(DeltaShape value) =>
+        Enum.TryParse(value.Key, ignoreCase: true, out Rasm.Contracts.Bim.V1.DeltaShape wire)
+        && wire != Rasm.Contracts.Bim.V1.DeltaShape.Unspecified
+            ? wire
+            : throw new InvalidOperationException($"<diff-delta-shape:{value.Key}>");
+
+    static DeltaValueWire SealDeltaValue(DeltaValue value) => value.Switch(
+        measure: static item => new DeltaValueWire { Measure = ToWire(item.Value) },
+        address: static item => new DeltaValueWire { Address = ToWire(item.Value.Value) },
+        label: static item => new DeltaValueWire { Label = item.Value },
+        absent: static _ => new DeltaValueWire { Absent = new Empty() });
+
+    static Fin<ElementChange> AdmitChange(ElementChangeWire? wire, Op key) => wire is null
+        ? Rejected<ElementChange>(key, "diff-change-message-absent")
+        : wire.KindCase switch {
+            ElementChangeWire.KindOneofCase.Added => AdmitEnd(wire.Added, key)
+                .Map(static ElementChange (value) => new ElementChange.Added(value.GlobalId, value.Classification, value.Predefined, value.Content)),
+            ElementChangeWire.KindOneofCase.Removed => AdmitEnd(wire.Removed, key)
+                .Map(static ElementChange (value) => new ElementChange.Removed(value.GlobalId, value.Classification, value.Predefined, value.Content)),
+            ElementChangeWire.KindOneofCase.Modified => AdmitModified(wire.Modified, key),
+            ElementChangeWire.KindOneofCase.Moved => AdmitMoved(wire.Moved, key),
+            ElementChangeWire.KindOneofCase.Split => AdmitRegroup(wire.Split, key)
+                .Map(static ElementChange (value) => new ElementChange.Split(value.GlobalId, value.Content, value.Counterparts)),
+            ElementChangeWire.KindOneofCase.Merged => AdmitRegroup(wire.Merged, key)
+                .Map(static ElementChange (value) => new ElementChange.Merged(value.GlobalId, value.Content, value.Counterparts)),
+            _ => Rejected<ElementChange>(key, "diff-change-kind-unset"),
+        };
+
+    static Fin<(string GlobalId, Classification Classification, PredefinedType Predefined, ContentAddress Content)> AdmitEnd(
+        DiffEndWire? wire, Op key) => wire is null
+        ? Rejected<(string, Classification, PredefinedType, ContentAddress)>(key, "diff-end-message-absent")
+        : from classification in ToClassification(wire.Classification, key)
+          from content in ToKey(wire.Content, key)
+          select (wire.GlobalId, classification, PredefinedType.Create(wire.Predefined), ContentAddress.Of(content));
+
+    static Fin<ElementChange> AdmitModified(DiffModifiedWire? wire, Op key) => wire is null
+        ? Rejected<ElementChange>(key, "diff-modified-message-absent")
+        : from baselineContent in ToKey(wire.BaselineContent, key)
+          from revisionContent in ToKey(wire.RevisionContent, key)
+          from baselinePlacement in ToKey(wire.BaselinePlacement, key)
+          from revisionPlacement in ToKey(wire.RevisionPlacement, key)
+          from deltas in toSeq(wire.Deltas).TraverseM(delta => AdmitDelta(delta, key)).As()
+          select (ElementChange)new ElementChange.Modified(
+              wire.GlobalId, ContentAddress.Of(baselineContent), ContentAddress.Of(revisionContent),
+              ContentAddress.Of(baselinePlacement), ContentAddress.Of(revisionPlacement), [.. deltas]);
+
+    static Fin<ElementChange> AdmitMoved(DiffMovedWire? wire, Op key) => wire is null
+        ? Rejected<ElementChange>(key, "diff-moved-message-absent")
+        : from baselinePlacement in ToKey(wire.BaselinePlacement, key)
+          from revisionPlacement in ToKey(wire.RevisionPlacement, key)
+          from baselinePose in Optional(wire.BaselinePose).Traverse(pose => ToPlacement(pose, key)).As()
+          from revisionPose in Optional(wire.RevisionPose).Traverse(pose => ToPlacement(pose, key)).As()
+          select (ElementChange)new ElementChange.Moved(
+              wire.GlobalId, ContentAddress.Of(baselinePlacement), ContentAddress.Of(revisionPlacement),
+              baselinePose, revisionPose);
+
+    static Fin<(string GlobalId, ContentAddress Content, ImmutableArray<string> Counterparts)> AdmitRegroup(
+        DiffRegroupWire? wire, Op key) => wire is null
+        ? Rejected<(string, ContentAddress, ImmutableArray<string>)>(key, "diff-regroup-message-absent")
+        : ToKey(wire.Content, key).Map(content =>
+            (wire.GlobalId, ContentAddress.Of(content), wire.Counterparts.ToImmutableArray()));
+
+    static Fin<AspectDelta> AdmitDelta(AspectDeltaWire? wire, Op key) => wire is null
+        ? Rejected<AspectDelta>(key, "diff-delta-message-absent")
+        : from shape in AdmitShape(wire.Shape, key)
+          from before in AdmitDeltaValue(wire.Before, key)
+          from after in AdmitDeltaValue(wire.After, key)
+          select new AspectDelta(wire.Path, shape, before, after);
+
+    static Fin<DeltaShape> AdmitShape(Rasm.Contracts.Bim.V1.DeltaShape wire, Op key) => wire switch {
+        Rasm.Contracts.Bim.V1.DeltaShape.Replace => Fin.Succ(DeltaShape.Replace),
+        Rasm.Contracts.Bim.V1.DeltaShape.Index => Fin.Succ(DeltaShape.Index),
+        Rasm.Contracts.Bim.V1.DeltaShape.Key => Fin.Succ(DeltaShape.Key),
+        Rasm.Contracts.Bim.V1.DeltaShape.Added => Fin.Succ(DeltaShape.Added),
+        Rasm.Contracts.Bim.V1.DeltaShape.Removed => Fin.Succ(DeltaShape.Removed),
+        Rasm.Contracts.Bim.V1.DeltaShape.Unknown => Fin.Succ(DeltaShape.Unknown),
+        _ => Rejected<DeltaShape>(key, "diff-delta-shape-undefined"),
+    };
+
+    static Fin<DeltaValue> AdmitDeltaValue(DeltaValueWire? wire, Op key) => wire is null
+        ? Rejected<DeltaValue>(key, "diff-delta-value-absent")
+        : wire.ValueCase switch {
+            DeltaValueWire.ValueOneofCase.Measure => ToMeasure(wire.Measure, key)
+                .Map(static DeltaValue (value) => new DeltaValue.Measure(value)),
+            DeltaValueWire.ValueOneofCase.Address => ToKey(wire.Address, key)
+                .Map(static DeltaValue (value) => new DeltaValue.Address(ContentAddress.Of(value))),
+            DeltaValueWire.ValueOneofCase.Label => Fin.Succ<DeltaValue>(new DeltaValue.Label(wire.Label)),
+            DeltaValueWire.ValueOneofCase.Absent => Fin.Succ<DeltaValue>(new DeltaValue.Absent()),
+            _ => Rejected<DeltaValue>(key, "diff-delta-value-unset"),
+        };
+
+    static Fin<T> Rejected<T>(Op key, string detail) =>
+        Fin.Fail<T>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, detail));
 
     // The per-element content fingerprint over the seam ContentAddress codec: the content key folds the Object's
     // non-geometry semantics with its bound nodes, the placement key folds its geometry — the split distinguishing a
@@ -383,8 +483,8 @@ public sealed record ModelDiff(
             w.Bool(n.Placement.IsSome);
             n.Placement.IfSome(placement => placement.CanonicalBytes(w)); // the carrier's ONE sibling-fold projection
             w.Ordinal(n.Representations.ByIdentifier.Count);
-            foreach (var (identifier, hash) in n.Representations.ByIdentifier.OrderBy(static pair => pair.Key, StringComparer.Ordinal)) {
-                w.String(identifier).U128(hash);
+            foreach (var (slot, hash) in n.Representations.ByIdentifier.OrderBy(static pair => pair.Key.Key)) {
+                w.Ordinal(slot.Key).U128(hash);
             }
         });
 
@@ -402,15 +502,6 @@ public sealed record ModelDiff(
                 DeltaValue.Of(inequality.Left),
                 DeltaValue.Of(inequality.Right)))];
 
-    static readonly JsonSerializerOptions Wire = new(JsonSerializerDefaults.Web) {
-        Converters = { new ThinktectureJsonConverterFactory() },
-    };
-
-    readonly record struct Payload(
-        ContentAddress Baseline,
-        ContentAddress Revision,
-        ElementChange[] Changes,
-        int UnchangedCount);
 }
 ```
 

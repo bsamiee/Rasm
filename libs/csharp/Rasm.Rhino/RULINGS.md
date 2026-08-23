@@ -9,15 +9,15 @@
 
 ## [02]-[SHAPE]
 
-- Contracts this boundary produces name the HOST-FREE concept — a host-spelled contract binds every peer decode to Rhino's own model.
 - Federation keys reach the wire through `IOrganizationAuthority` alone — the host-object-to-entity binding seats above this package's reference set.
+- Organization egress preserves the recursive ordered forest; detached edges, ordinals, and free current keys never cross.
 - Content-key preimages frame at their PRODUCING owner — `CanonicalWriter` seats at the kernel `Domain/identity`, composed directly by this plane.
 - `ProgressLease` is the ONE governance-band producer — every paced carrier reads its `Fraction`/`Ticks` and armed `Cancel`; a local shim forks it.
 - `PolicyMap` generates `Apply` seats under `RequiredMappingStrategy.Source`; `IgesFitPolicy` seats by hand — two prefixes defeat generation.
 - `SolarFrame` narrows the georeference to engine bounds at the PRODUCER — refusing downstream loses which document wrote the site.
 - `PhotometricPower` ranks four host readings by producer RULE — `Light` publishes converted views and names no authored quantity.
 - `ConeEvidence` crosses WITHOUT the kernel cone's model-unit apex — the stamp's location already carries it, and two positions reconcile wrong.
-- `Objects/lights#ASK_AND_COMMIT` is the ONE `rasm.scene.v1` emitter — the sun band and the shading band stack beside its own photometric rows.
+- `Objects/lights#ASK_AND_COMMIT` is the ONE scene-descriptor emitter — the sun band and the shading band stack beside its own photometric rows.
 - Descriptor identity crosses RFC-4122 big-endian on `SceneMap` alone — the platform `Guid` layout renames every row against a hex-reading peer.
 - `SceneSpectrum` crosses scene-LINEAR and opaque — the sRGB byte leg keys content, never a wire declaring light, and dropped coverage refuses.
 - Capture derives metres and `source_unit` from ONE `ModelUnit` read, so the scale factor and its stated provenance cannot disagree.
@@ -64,9 +64,7 @@
 - `FormatDial.Admit` refuses seat and axis demands at the entry gate; `Mint` stays TOTAL, a rail on a body that cannot fail being ceremony.
 - Vocabulary rank is the kernel's derived declaration-order member — a hand-kept `rank:` column restating it is the deleted second authority.
 - `FormatDial` closes on its private root constructor and carries no `[Union]` — a generated dispatch surface nothing reads is decoration.
-
 - Kernel motion crosses as `MotionDrive` alone — `SpringShape`, `DecayShape`, and `SpringState` ride `MotionScript`/`MotionSample` cases.
-- Kernel hooks cross as `HookRail` — this boundary composes the rail over its own `RhinoPoint` roster and names no bare `HookPoint` seat.
 
 ## [03]-[COLLAPSE]
 

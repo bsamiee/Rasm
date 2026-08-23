@@ -16,7 +16,7 @@ import msgspec.inspect as msgspec_inspect
 import pytest
 
 from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic
+from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, refutes
 from tests.python.tools.assay.kit import (
     api_resolution_st,
     api_source_st,
@@ -25,6 +25,7 @@ from tests.python.tools.assay.kit import (
     assert_counts_consistent,
     binds_st,
     completed_st,
+    contracts_run_st,
     counts_st,
     detail_st,
     diagnostic_st,
@@ -52,12 +53,14 @@ from tools.assay.core.model import (
     ApiSurface,
     Artifact,
     ArtifactKind,
+    Band,
     Base,
     BaseParams,
     Bind,
     Check,
     Claim,
     Completed,
+    ContractsRun,
     Counts,
     Detail,
     Diagnostic,
@@ -117,6 +120,7 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (StaticRun, static_run_st),
     (PackageRun, package_run_st),
     (ProvisionRun, provision_run_st),
+    (ContractsRun, contracts_run_st),
     (ApiResolution, api_resolution_st),
     (Diagnostic, diagnostic_st),
     (RunSnapshot, run_snapshot_st),
@@ -149,6 +153,7 @@ _PRE_TRACE_ENVELOPE: bytes = (
 
 COVERS: tuple[object, ...] = (
     *(row[0] for row in _WIRE_ROWS),
+    Band,
     Base,
     BaseParams,
     Bind,
@@ -266,36 +271,123 @@ def test_alias_skipped_resolves_to_skip() -> None:
     assert RailStatus("skipped") is RailStatus.SKIP  # type: ignore[call-arg]  # enum value lookup, not the 3-arg member constructor
 
 
+# --- [CENSUS]
+
+
+def _census_law(statuses: tuple[RailStatus, ...], expected: Counts) -> None:
+    """Oracle: seating ``statuses`` yields exactly ``expected``.
+
+    Raises:
+        AssertionError: When the census over ``statuses`` differs from ``expected``.
+    """
+    assert Counts.of(*statuses) == expected, f"census {Counts.of(*statuses)} != {expected}"
+
+
+def test_only_a_reached_verdict_bands_as_proved_or_refused() -> None:
+    """The band column is the closed partition of the status vocabulary: a verdict bands PROVED or REFUSED, everything else UNPROVED.
+
+    This is the anti-drift gate on ``RailStatus.band``. A member minted without a band cannot compile; a member minted
+    with the wrong band lands here, because the roster each band admits is spelled out rather than derived from the column.
+    """
+    banded = {band: {status for status in RailStatus if status.band is band} for band in Band}
+    assert banded[Band.PROVED] == {RailStatus.OK, RailStatus.EMPTY}, "only a lane that ran and answered clean is proved"
+    assert banded[Band.REFUSED] == {RailStatus.FAILED}, "only a lane that ran and found defects is refused"
+    assert banded[Band.UNPROVED] == {
+        RailStatus.SKIP,
+        RailStatus.DEGRADED,
+        RailStatus.CANDIDATE,
+        RailStatus.UNSUPPORTED,
+        RailStatus.BUSY,
+        RailStatus.TIMEOUT,
+        RailStatus.FAULTED,
+    }, "a lane that reached no verdict proves nothing, however clean its exit code"
+    assert set().union(*banded.values()) == set(RailStatus), "the bands must cover the vocabulary"
+
+
+@pytest.mark.mutation
+@given(st.lists(rail_status_st, max_size=12))
+def test_census_seats_every_leaf_under_its_own_status(statuses: list[RailStatus]) -> None:
+    """Every leaf seats one row under its own status: nothing folds onto a neighbour, nothing vanishes, rows keep vocabulary order.
+
+    Falsified by: bucketing SKIP with OK, dropping a terminal status from the tally, or emitting an unordered or empty row.
+    """
+    counts = Counts.of(*statuses)
+    target(float(len(statuses)), label="census_leaf_count")
+    assert counts.total == len(statuses)
+    assert dict(counts.by_status) == {status: statuses.count(status) for status in set(statuses)}
+    assert tuple(status for status, _ in counts.by_status) == tuple(status for status in RailStatus if status in set(statuses))
+    assert all(rows > 0 for _, rows in counts.by_status)
+
+
+@pytest.mark.mutation
+@given(st.lists(rail_status_st, max_size=12))
+def test_census_bands_partition_the_leaves(statuses: list[RailStatus]) -> None:
+    """The band projection partitions the census: each band totals its own statuses and the three sum to the whole."""
+    counts = Counts.of(*statuses)
+    assert sum(counts.band(band) for band in Band) == counts.total
+    for band in Band:
+        assert counts.band(band) == sum(1 for status in statuses if status.band is band), band
+
+
+@given(st.lists(rail_status_st, max_size=8), st.lists(rail_status_st, max_size=8))
+def test_census_combines_associatively_across_partial_folds(left: list[RailStatus], right: list[RailStatus]) -> None:
+    """Seating two partial censuses equals seating both leaf sets at once, with the empty census as identity.
+
+    This is why the bands are read-time projections rather than stored slots: partial sums of a lossy partition
+    cannot recombine, while per-status rows can.
+    """
+    whole = Counts.of(*left, *right)
+    assert Counts.of(Counts.of(*left), Counts.of(*right)) == whole
+    assert Counts.of(Counts(), whole) == whole
+    assert Counts.of() == Counts()
+
+
+def test_census_law_refutes_every_way_a_leaf_could_be_miscounted() -> None:
+    """The census oracle fails on each historical miscount: a skip folded onto a proof, and a terminal status erased."""
+    _census_law((RailStatus.SKIP,), Counts.of(RailStatus.SKIP))
+    _census_law((RailStatus.FAULTED, RailStatus.FAILED), Counts.of(RailStatus.FAILED, RailStatus.FAULTED))
+    refutes((RailStatus.SKIP,), _census_law, Counts.of(RailStatus.OK))  # a governed skip counted as a proof
+    refutes((RailStatus.EMPTY,), _census_law, Counts.of(RailStatus.SKIP))  # a clean silent exit counted as never run
+    refutes((RailStatus.FAULTED,), _census_law, Counts())  # a broken tool erased from the tally
+    refutes((RailStatus.TIMEOUT,), _census_law, Counts())  # a lane cut short erased from the tally
+    refutes((RailStatus.OK, RailStatus.OK), _census_law, Counts.of(RailStatus.OK))  # a repeated status seated once
+
+
 # --- [FOLD]
 
 
 @pytest.mark.mutation
 @given(st.lists(completed_st, min_size=0, max_size=20))
-def test_fold_count_oracle(outcomes: list[Completed]) -> None:
-    """Fold counts OK/EMPTY/SKIP as ok, FAILED as failed, and terminal faults as neither."""
+def test_fold_census_seats_one_row_per_outcome(outcomes: list[Completed]) -> None:
+    """The fold seats every outcome in the census under its own status, so no lane is folded onto a proof or dropped."""
     tup = tuple(outcomes)
     report = fold(Claim.STATIC, "check", tup)
-    ok_n = sum(1 for o in tup if o.status in {RailStatus.OK, RailStatus.EMPTY, RailStatus.SKIP})
-    fail_n = sum(1 for o in tup if o.status is RailStatus.FAILED)
     target(float(len(tup)), label="fold_outcome_count")
-    target(float(ok_n + fail_n), label="fold_counted_total")
-    assert report.counts.ok == ok_n
-    assert report.counts.failed == fail_n
-    assert report.counts.total == ok_n + fail_n
+    assert report.counts.total == len(tup)
+    assert dict(report.counts.by_status) == {status: sum(1 for o in tup if o.status is status) for status in {o.status for o in tup}}
+    assert report.counts.band(Band.PROVED) == sum(1 for o in tup if o.status in {RailStatus.OK, RailStatus.EMPTY})
+    assert report.counts.band(Band.REFUSED) == sum(1 for o in tup if o.status is RailStatus.FAILED)
 
 
+@pytest.mark.mutation
 @given(st.lists(completed_st, min_size=1, max_size=10))
-def test_fold_defect_row_per_failed(outcomes: list[Completed]) -> None:
-    """Each FAILED Completed yields exactly one Match row with severity 'failed'; counts stay consistent."""
+def test_fold_mints_one_process_defect_row_per_refused_outcome(outcomes: list[Completed]) -> None:
+    """Each REFUSED outcome mints exactly one process-defect row, and no other outcome does.
+
+    The census band and the defect-row predicate are the one partition, so the two can never disagree about which
+    outcome carried a defect. Parsed tool diagnostics ride the same ``results`` tuple as separate evidence — a
+    ``Parser``-stamped clean lane yields code rows and no defect row — so the law counts process rows, not rows.
+    """
     report = fold(Claim.CODE, "check", tuple(outcomes))
-    failed_count = sum(1 for o in outcomes if o.status is RailStatus.FAILED)
-    assert len(report.results) == failed_count
-    assert all(m.severity == "failed" for m in report.results)
+    defects = tuple(m for m in report.results if m.kind is ArtifactKind.PROCESS)
+    assert len(defects) == report.counts.band(Band.REFUSED)
+    assert all(m.severity == "failed" for m in defects)
+    assert report.counts.band(Band.REFUSED) == sum(1 for o in outcomes if o.status is RailStatus.FAILED)
     assert_counts_consistent(report)
 
 
 def test_fold_empty_outcomes_is_empty_report() -> None:
-    """Fold over an empty tuple yields all-zero counts and EMPTY status."""
+    """Fold over an empty tuple yields an unseated census and EMPTY status."""
     report = fold(Claim.TEST, "run", ())
     assert report.counts == Counts()
     assert report.status is RailStatus.EMPTY
@@ -341,6 +433,16 @@ def test_fold_ignores_argv_text_without_parser_stamp() -> None:
     payload = b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n"
     report = fold(Claim.STATIC, "check", (receipt(("uv", "run", "mypy"), 1, stdout=payload),))
     assert [m.severity for m in report.results] == ["failed"], "unstamped output must fold to the defect tail only"
+
+
+def test_fold_non_static_claims_keep_converted_rows_and_stay_inert_for_none() -> None:
+    """A non-static claim keeps the rows its stamped parser converted ahead of the defect tail; a Parser.NONE receipt converts to nothing."""
+    annotation = b'{"path":"p.proto","start_line":4,"start_column":1,"end_line":4,"end_column":9,"type":"PACKAGE_DIRECTORY_MATCH","message":"m"}\n'
+    stamped = _stamped(receipt(("buf", "lint"), 100, stdout=annotation, status=RailStatus.FAILED), Parser.BUF)
+    report = fold(Claim.CONTRACTS, "check", (stamped,))
+    assert [(m.id, m.severity) for m in report.results] == [("buf:package_directory_match", "error"), ("buf lint", "failed")]
+    plain = fold(Claim.CONTRACTS, "check", (receipt(("buf", "lint"), 100, stdout=annotation, status=RailStatus.FAILED),))
+    assert [m.severity for m in plain.results] == ["failed"], "an unstamped receipt must fold to the defect tail alone"
 
 
 # --- [SARIF_FOLD]
@@ -392,7 +494,7 @@ def test_fold_sarif_error_rows_fail_static_report(tmp_path: Path) -> None:
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert [m.id for m in report.results] == ["csp0101", "csp0202", "csp0903"]
     assert report.status is RailStatus.FAILED
-    assert report.counts == Counts(ok=1, failed=0, total=1)
+    assert report.counts == Counts.of(RailStatus.OK)
     assert envelope(report, claim=Claim.STATIC, verb="build").exit_code == 1
 
 
@@ -439,7 +541,7 @@ def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> N
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 1, stderr=b"CS0103: boom"),), sarif_dir=sarif_dir)
     assert [(m.id, m.severity) for m in report.results] == [("csp0101", "error"), ("dotnet", "failed")]
     assert report.status is RailStatus.FAILED
-    assert report.counts == Counts(ok=0, failed=1, total=1)
+    assert report.counts == Counts.of(RailStatus.FAILED)
 
 
 def test_fold_static_note_only_sarif_promotes_empty_receipt_to_ok(tmp_path: Path) -> None:
@@ -448,7 +550,7 @@ def test_fold_static_note_only_sarif_promotes_empty_receipt_to_ok(tmp_path: Path
     report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.EMPTY),), sarif_dir=sarif_dir, promote_empty=True)
     assert [(m.id, m.severity) for m in report.results] == [("csp0903", "info")]
     assert report.status is RailStatus.OK
-    assert report.counts == Counts(ok=1, failed=0, total=1)
+    assert report.counts == Counts.of(RailStatus.EMPTY)
 
 
 def test_fold_static_green_executed_rows_are_ok() -> None:
@@ -456,17 +558,17 @@ def test_fold_static_green_executed_rows_are_ok() -> None:
     report = fold(Claim.STATIC, "check", (receipt(("ruff",), 0, status=RailStatus.EMPTY),), promote_empty=True)
     assert report.results == ()
     assert report.status is RailStatus.OK
-    assert report.counts == Counts(ok=1, failed=0, total=1)
+    assert report.counts == Counts.of(RailStatus.EMPTY)
 
 
 def test_fold_promote_empty_is_opt_in_per_claim() -> None:
     """``promote_empty`` gates the promotion: an eligible claim stays empty by default and folds to ok only on opt-in."""
-    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.TEST):
+    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.TEST):
         outcomes = (receipt((claim.value,), 0, status=RailStatus.EMPTY),)
         assert fold(claim, "check", outcomes).status is RailStatus.EMPTY
         promoted = fold(claim, "check", outcomes, promote_empty=True)
         assert promoted.status is RailStatus.OK
-        assert promoted.counts == Counts(ok=1, failed=0, total=1)
+        assert promoted.counts == Counts.of(RailStatus.EMPTY)
 
 
 def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:
@@ -662,6 +764,28 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
     assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "libs/python/contracts/src/rasm/contracts/compute/v1/compute_connect.py",
+        "libs/typescript/contracts/gen/rasm/contracts/compute/v1/compute_pb.ts",
+        "libs/csharp/Rasm.Contracts/Generated/Compute/V1/ComputeGrpc.cs",
+    ],
+    ids=["python", "typescript", "csharp"],
+)
+def test_fold_static_contracts_out_roots_census_as_generated(path: str) -> None:
+    """Rows under a committed generated out root census as generated evidence, and the tool's own exit still fails the lane.
+
+    A relative path is the shape every text parser emits, so the roster matches without a leading slash; an unlisted
+    root would census as source and flood the display cap on every generator bump.
+    """
+    payload = f"error[missing-override-decorator]: overrides without @override\n --> {path}:7:9\n".encode()
+    report = fold(Claim.STATIC, "check", (_stamped(receipt(("ty",), 1, stdout=payload), Parser.TY),))
+    assert [(m.id, m.kind, m.count) for m in report.results[:1]] == [("ty:missing-override-decorator", ArtifactKind.PROCESS, 1)]
+    assert report.status is RailStatus.FAILED
+    assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
+
+
 def test_fold_sarif_absent_or_empty_dir_is_silent(tmp_path: Path) -> None:
     """A None, missing, or empty sarif directory contributes no rows and leaves the fold untouched."""
     for sarif_dir in (None, str(tmp_path / "missing" / "sarif"), _sarif_drop(tmp_path)):
@@ -831,7 +955,7 @@ def test_tool_args_fill_identity_on_hole_free_commands(tokens: list[str]) -> Non
 
 def test_host_bound_claims_partition() -> None:
     """HOST_BOUND_CLAIMS pins exactly the claims that cannot run off-host; all are real Claim members."""
-    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION)) == HOST_BOUND_CLAIMS
+    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS)) == HOST_BOUND_CLAIMS
     assert frozenset(Claim) > HOST_BOUND_CLAIMS
 
 

@@ -559,7 +559,7 @@ const _cesqlSubstring = (operands: ReadonlyArray<CesqlValue>): Cesql.Reading =>
 
 - Owner: the owned expression family, the attribute reader, the pattern compile, and the one total fold every dialect's `sql` arm evaluates.
 - Law: an absent attribute answers `Boolean(false)` beside `missingAttribute`, and its peer operand never evaluates — a missing left operand reports the absence ALONE, so a division whose dividend does not exist carries no zero-divisor refusal beside it.
-- Law: the roster decides the DIAGNOSTIC, not the value — `Event.extensions` names which absent identifiers are declared extensions, so a rostered name refuses as an attribute the producer omitted and an unrostered one as a key the grammar never named.
+- Law: the generated roster decides the diagnostic through `Event.rasm.extensions`; no filter owns extension names.
 - Law: attribute values cross as the wire forms the envelope carries, so a URI reference and an RFC-3339 instant both read as String and only an integral number reads as Integer; a decoded domain value never enters the fold, because the specification compares what crosses.
 - Law: `EXISTS` is total over absence by construction and mints no fault, so a filter probing an optional attribute never reports the absence it exists to test.
 - Law: a pattern's backslash escapes the two wildcards and itself and stands literal before every other glyph, and every literal glyph splices through `RegExp.escape` OUTSIDE any character class, so an escaped hyphen cannot mint a range.
@@ -605,7 +605,7 @@ const _cesqlPattern = (pattern: string): globalThis.RegExp => {
 const _cesqlAttribute = (envelope: CloudEventV1<unknown>, name: string): Cesql.Reading =>
   Option.match(Option.fromNullable(envelope[name]), {
     onNone: () =>
-      _cesqlRaise({ reason: "missingAttribute", name, rostered: Event.extensions.is(name) }, _CESQL_ZERO.Boolean),
+      _cesqlRaise({ reason: "missingAttribute", name, rostered: Event.rasm.extensions.is(name) }, _CESQL_ZERO.Boolean),
     onSome: (held) =>
       _cesqlRead(
         Predicate.isBoolean(held)

@@ -26,7 +26,7 @@ Vocabulary here is TRANSCRIBED from the frozen cross-branch fragment and re-deci
 - Law: `raw` and `linear` share the identity transfer pair and differ only in what they DECLARE, so a `raw` plane's primaries are `NONE` and its transfer stamp rides the linear enumerator on every leg — the DFD vocabulary carries no raw row, and the ROLE law re-tags the plane at classification.
 - Entry: `decode(payload)` is total over bytes and takes NO format knob — `_sniffed` runs the SHIPPED `<codec>_check` on every probe-passing row and the DECODED dtype selects among the depth siblings one check claims (`jpegxl_check` claims both JXL rows — the ONE genuine sibling split; an 8-bit PNG or AVIF decodes on its production row with the recovered `U8` depth carried truthfully, no 8-bit sibling row existing to split to). `encode(plane, fmt, policy)` is the inverse under one `EncodePolicy` case per container. `converted(plane, container, *, depth, space, alpha)` is the ONE conversion surface every arm composes; a per-axis `to_linear`/`to_u16`/`premultiply` family is the sibling spam it refuses.
 - Auto: `DeepPlane.of` proves rank, dtype, component count, the halving chain, extent positivity, and finiteness before any consumer sees the record, so the interior is total over admitted planes and no kernel re-checks a shape. `np.isfinite(...).all()` is asserted at admission and NOT re-asserted per fold: a NaN entering a Poisson solve or an SH projection poisons every output texel, and catching it at the fold names the wrong site.
-- Packages: `numpy` (`libs/python/.api/numpy.md`) is the array substrate and its dtype IS the sample format every codec reads; `imagecodecs` (`.api/imagecodecs.md`) the flat deep-pixel codec quadruples and their `<CODEC>.available` capability probes; `openexr` (`.api/openexr.md`) the named-channel document `imagecodecs` cannot address; `pyktx` (`.api/pyktx.md`) and the provisioned `ktx` CLI the KTX2 container; `pyvips` (`.api/pyvips.md`) the float-lane resampler `derive#DERIVE` composes; `colour` (`.api/colour-science.md`) the perceptual difference the fidelity gate reads; `expression` the `Result` rail and the `TextureFault` tagged union; `msgspec` the frozen carrier `Struct`s; the builtin `frozendict` every static row table.
+- Packages: `numpy` (`libs/python/.api/numpy.md`) is the array substrate and its dtype IS the sample format every codec reads; `imagecodecs` (`.api/imagecodecs.md`) the flat deep-pixel codec quadruples and their `<CODEC>.available` capability probes; `openexr` (`.api/openexr.md`) the named-channel document `imagecodecs` cannot address; `pyktx` (`.api/pyktx.md`) and the provisioned `ktx` CLI the KTX2 container; `pyvips` (`.api/pyvips.md`) the float-lane resampler `derive#DERIVE` composes; `colour` (`.api/colour-science.md`) the perceptual difference the fidelity gate reads; `protobuf-py` (`libs/python/.api/protobuf-py.md`) the generated `Message` base retaining descriptor violations whole on `TextureFault`; `expression` the `Result` rail and tagged union; `msgspec` the frozen carrier `Struct`s; the builtin `frozendict` every static row table.
 - Growth: a new storage depth is one `PlaneDepth` row with its `_DEPTH_DTYPE` and `_DEPTH_RANGE` entries; a new transfer is one `PlaneSpace` row with its `_TRANSFER` encode/decode pair; a new chromaticity is one `PlanePrimaries` row the tool roster already spells; a new mip fold is one `MipPolicy` row with one `derive#DERIVE` arm; a new fault cause is one `TextureFault` case breaking every capture at type-check.
 - Boundary: 8-bit display rasters, thumbnails, montages, and the `RasterOp` working surface stay `graphic/raster/io#IO`'s and `graphic/raster/process#PROCESS`'s; role vocabulary, aliasing, and classification stay `ingest#INGEST`'s; kernels, folds, and resampling stay `derive#DERIVE`'s; set assembly, egress naming, receipts, and the lane crossing stay `set#TEXTURE_SET`'s; ICC-profile transforms stay `graphic/color/managed#MANAGED`'s and config-driven working-space resolution `opencolorio`'s — this page carries the transfer FUNCTION per the frozen tag and synthesizes no profile.
 
@@ -60,6 +60,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 from msgspec import Struct, structs
 from numpy.typing import NDArray
+from protobuf import Message
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.profiles import EXIFTOOL_TOOL, KTX_TOOL, resolved
@@ -192,6 +193,14 @@ class FidelityMetric(StrEnum):
     PERCEPTUAL = "perceptual"  # the signal set PLUS the CIE 2000 difference over the colour slice, structural reading included wherever the plane seats a window
 
 
+class ContractDefect(StrEnum):
+    BINARY_TYPE = "binary_type"
+    BINARY_VALUE = "binary_value"
+    BINARY_OVERFLOW = "binary_overflow"
+    RULE_COMPILATION = "rule_compilation"
+    RULE_EVALUATION = "rule_evaluation"
+
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
@@ -199,7 +208,7 @@ class FidelityMetric(StrEnum):
 class TextureFault:
     tag: Literal[
         "decode", "encode", "depth", "shape", "space", "primaries", "extent", "alpha", "chain", "role", "convention", "udim", "codec_absent",
-        "tool_absent", "level", "aggregate",
+        "tool_absent", "level", "contract", "contract_defect", "aggregate",
     ] = tag()
     decode: str = case()
     encode: str = case()
@@ -221,6 +230,8 @@ class TextureFault:
     # row raises `ExrError: exr_set_zip_compression_level returned EXR_ERR_INVALID_ARGUMENT` for anything past 9,
     # because `level` is the ZIP compression level on that family and the DWA quality on the other — one float, two
     # meanings, and the estate's own default of 45.0 beside a `zip` row raised on EVERY deep write until the band gated it.
+    contract: Message = case()  # exact generated `buf.validate.Violations`, retained whole from `ValidationError.to_proto()`
+    contract_defect: ContractDefect = case()  # typed engine/encoding defect; never an exception-name string
     aggregate: tuple["TextureFault", ...] = case()
 
     @staticmethod

@@ -38,9 +38,11 @@ from tools.assay.core.model import (
     ApiSource,
     ApiSurface,
     Artifact,
+    Band,
     Check,
     Claim,
     Completed,
+    ContractsRun,
     Counts,
     Diagnostic,
     Envelope,
@@ -124,6 +126,7 @@ verify_summary_st: st.SearchStrategy[VerifySummary] = resolve(VerifySummary)
 test_run_st: st.SearchStrategy[TestRun] = resolve(TestRun)
 package_run_st: st.SearchStrategy[PackageRun] = resolve(PackageRun)
 provision_run_st: st.SearchStrategy[ProvisionRun] = resolve(ProvisionRun)
+contracts_run_st: st.SearchStrategy[ContractsRun] = resolve(ContractsRun)
 diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 static_run_st: st.SearchStrategy[StaticRun] = resolve(StaticRun)
@@ -484,9 +487,16 @@ read_one_envelope = _ENV_ORACLE.from_capture
 
 
 def assert_counts_consistent(report: Report) -> None:
-    """Assert the report fold invariant: ``total == ok + failed`` and ``len(results) == failed``."""
-    assert report.counts.total == report.counts.ok + report.counts.failed, f"counts arithmetic broken: {report.counts}"
-    assert len(report.results) == report.counts.failed, f"defect rows != failed count: {len(report.results)} != {report.counts.failed}"
+    """Assert the report census is well-formed: one positive row per seated status, vocabulary-ordered, bands partitioning the total.
+
+    Every report answers this, however its rail assembled the census — the roster and health rows a rail splices into
+    ``results`` never touch it. The defect-row coupling is narrower, holding only where the fold alone mints the rows,
+    so it stays a law of the fold rather than of the report.
+    """
+    counts, seated = report.counts, tuple(status for status, _ in report.counts.by_status)
+    assert seated == tuple(status for status in RailStatus if status in frozenset(seated)), f"census rows are not vocabulary-ordered: {counts}"
+    assert all(rows > 0 for _, rows in counts.by_status), f"census carries an empty row: {counts}"
+    assert counts.total == sum(counts.band(band) for band in Band), f"census bands do not partition the total: {counts}"
 
 
 def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: RailStatus = RailStatus.OK) -> Envelope:

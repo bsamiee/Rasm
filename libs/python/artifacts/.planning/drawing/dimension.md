@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_DRAWING_DIMENSION]
 
-`Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame.decode` reads the `csharp:Rasm.Fabrication -> Drawing [WIRE]: GdtFrameWire` seam alone, seating every fact its `tests/contracts/tolerance-wire` pin spells — no parallel tolerance owner, no producer-admitted field this frame drops.
+`Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame.decode` reads the corpus `rasm.contracts.fabrication.v1.FeatureControl` message alone — `from_binary` plus one total fold onto the drawing vocabulary — seating every fact the `tolerance-frame` entry spells: no hand reader, no parallel tolerance owner, no producer-admitted field this frame drops.
 
 Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native path (`DXF` the `Drawing.write` blob, `SVG` the `SVGBackend`, `PDF` the `PyMuPdfBackend`) LEADS with `add_*_dim().render()` and the ISO tolerance as native DIM-variables (`dimtol`/`dimtp`/`dimtm`, `dimlim`, `MTextEditor.stack` for the stacked deviation), while the `LAYERED` path DECOMPOSES each dimension into named editable `graphic/layer#LAYER` `LayerNode` rows at full semantic parity — the extension/dimension-line geometry from `ezdxf.math.Construction*` anchor math (never hand-rolled trig) authored as `drawsvg` elements (never hand-formatted `<path d>` strings), per-case ISO 129-1 terminators anchored where the case actually terminates (arc ends tangent to the measured arc, one leader arrow on a radial, a datum triangle on a datum feature), the true measured value for EVERY case including the angular degrees and the `⌢`-prefixed arc length, the ISO 3098 measurement text outlined through `ziafont` (`typography/shape#SHAPE` owns the shaped run), and every `DimTol` mode typeset through the `typography/math#MATH` `Formula` owner seated through `seat` — `\pm` symmetric, stacked deviation, stacked limits, boxed basic — all penned by the discipline sRGB `Standard.rgb` resolves. `kiwisolver` `Solver` + `strength` bands solve the dimension-line offset STACK a fixed offset gets wrong. Rendering offloads through the owner's `lane: LanePolicy` instance seam onto the runtime thread lane, and the owner contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` case (or reused `ArtifactReceipt.Pdf` on the `PDF` backend) and one `core/plan#PLAN` `ArtifactWork` node — minting no IFC (`csharp:Rasm.Bim`) and computing no sheet placement, the dimensioned SVG/PDF bytes feeding `composition/sheet#SHEET`'s `FigurePlacement` as a bytes seam.
 
@@ -15,17 +15,15 @@ Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native p
 - Entry: `Dimension.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `DimOp | Iterable[DimOp]` by a structural `match` at the head — never a `batch` knob. `emit` returns `ArtifactWork` beside the `layered()` `RuntimeRail[LayerPlan]` projection; both execution paths ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`, whose returned rail composes directly. `_native` seeds `Standard`, solves the offset stack, lowers every `DimOp`, and egresses through the target `DimBackend`; `_layered` decomposes each dimension into named rows over `ezdxf.math`, `drawsvg`, `ziafont`, and the `typography/math#MATH` `Formula` owner, with `aec=Some(_DIMS)` deriving ISO 13567 names downstream.
 - Auto: `_facets` projects each case's `(family, tol)` once through one total or-pattern; `over = dict(standard.dimstyle(family)) | _tol_over(tol)` scales the DIM-variables by the ISO 5455 factor so a `1:50` dimension draws its 2.5 mm text at paper scale with zero per-arm literal. Each `DimTol` mode lowers onto its native mechanism — `Symmetric` onto `dimtol`, `Deviation` onto an `MTextEditor.stack` stacked fraction, `Limits` onto `dimlim`, `Basic` onto a negative-`dimgap` boxed value — never a hand-formatted `± ` string, and the `LAYERED` tolerance layer typesets ALL FOUR through `_tol_latex`, so no admitted tolerance is silently absent on either arm. `_stack` threads one `kiwisolver.Solver`: a `required` anchor, `required` min-separation ≥ DIMDLI, and a custom `strength.create(0,1,0,4)` equal-gap band above plain `weak`; `Constraint.violated()` reads which soft gaps the solve sacrificed, and a dense chain that collapses the distribution falls back to deterministic fixed DIMDLI stepping. `LAYERED`'s `_construction` DECOMPOSES a curved dimension to the actual `ConstructionArc`/`ConstructionCircle` it MEASURES (`.flattening(_SAGITTA)`) and an ordinate to its axis dogleg; `_measurement` reads the true value per case — length, `R`/`⌀`, the angular degrees off the construction geometry, the `⌢` arc length — `_terminator_anchors` places each mark where its case terminates with the tangent the mark aligns to, and `_terminator_kind` recovers the drawn end from the LOWERED DIM-variables against regime's one terminator row, so the layered arm marks exactly what the native arm renders. Text and tolerance runs are MEASURED via `getsize()`/`getyofst()` so the text floats above the dimension line and the tolerance clears the value, the annotation font falls to the bundled `ziafont` face when the profile names an `.shx` CAD font no sfnt reader parses, and `_PRECISION` pins the emitted `d`-floats so the content key stays deterministic.
 - Receipt: `_emit` awaits `Journal.record` over `receipt.evidence()` at that fold for whichever case the target minted — `ArtifactReceipt.Drawing` on the DXF/SVG/LAYERED arms, the reused `ArtifactReceipt.Pdf` on the PDF backend — both `OPERATIONAL` production trail charging `STORAGE` on their byte volume, and `evidence` is total over the roster so no arm here names a kind. Recording suspends, so the seat is the awaitable `_emit`, and `layered()` crosses for the layer tree alone.
-- Wire: `GdtFrame.decode` reads the producer's framed binary and refuses onto `Result` — magic before any length cell, so a foreign buffer refuses at byte 0; the zone kind alone discriminates the second dimension; a collection and an `Option` alike frame as a count then that many elements; and `sealed` refuses trailing bytes, since a decode reading less than the producer wrote is drift, never slack.
-- Wire: `GdtScope`, `GdtZone`, and `GdtZoneModifier` spell the producer key as their own value, so the enum constructor IS the `[WIRE_TOKEN]` ingest table; `GdtChar` and `GdtModifier` keep DXF gdt-font codes the `TOLERANCE` entity embeds and land through `_CHAR_INGEST` and `_MATERIAL_INGEST`.
+- Wire: `GdtFrame.decode` is `FeatureControl.from_binary` plus `_framed`, one total fold onto the drawing vocabulary — a malformed body is the `ValueError` protobuf-py raises, and the corpus message tolerates a trailing unknown field where the retired hand reader refused it, which is the right posture for a wire that grows. Every closed vocabulary crosses as a corpus enum and lands by MEMBER NAME — `Characteristic`/`Scope`/`ZoneKind`/`Modifier` onto `GdtChar`/`GdtScope`/`GdtZone`/`GdtZoneModifier`, one derivation each and no ingest table — while `Material` lands through the three-row `_MATERIAL` correspondence because its `REGARDLESS` member names the ISO 1101 default reading this vocabulary spells `NONE`. The second dimension is `has_field("second_mm")` under the corpus `feature_control.second_dimension` rule, the datum budget the corpus `max_items = 3`, and the one law the corpus cannot hold — the ISO 5459 datum letter set — stays `_admit_label`'s.
 - Law: decimal presentation is THIS standard's DIMDEC and never a producer-side rounding — `_gdt_magnitude` falls to shortest-round-trip on a zone the drawing's own precision rounds away, since a drawn zero reads as perfect form.
-- Growth: a new ISO 129-1 dimension kind or construction form is one `DimOp` case plus one `_lower` builder arm; a new ISO 1101 characteristic is one `GdtChar` member plus one `_GDT_GLYPH` and one `_CHAR_INGEST` row; a new zone kind, scope, or zone modifier is one enum member and its glyph row; a new egress is one `DimTarget` member plus one `_ENGINES` row (and one `_BACKENDS` row for a native backend); a new tolerance presentation is one `DimTol` case plus one `_tol_over`/`_tol_latex` arm; a new DIM-variable axis is one key on the `drawing/standard#STANDARD` `dimstyle` derivation; a new stacking rule is one `kiwisolver` constraint at its `strength` band; a new `LAYERED` component author is one layer function over the existing owners. Zero new surface for a new dimension or a new layer.
+- Growth: a new ISO 129-1 dimension kind or construction form is one `DimOp` case plus one `_lower` builder arm; a new ISO 1101 characteristic is one corpus `Characteristic` member, one same-named `GdtChar` member, and one `_GDT_GLYPH` row; a new zone kind, scope, or zone modifier is one enum member and its glyph row; a new egress is one `DimTarget` member plus one `_ENGINES` row (and one `_BACKENDS` row for a native backend); a new tolerance presentation is one `DimTol` case plus one `_tol_over`/`_tol_latex` arm; a new DIM-variable axis is one key on the `drawing/standard#STANDARD` `dimstyle` derivation; a new stacking rule is one `kiwisolver` constraint at its `strength` band; a new `LAYERED` component author is one layer function over the existing owners. Zero new surface for a new dimension or a new layer.
 - Boundary: no IFC, sheet-placement, or annotation-leader logic — `csharp:Rasm.Bim`, `composition/sheet#SHEET`, `drawing/annotate#ANNOTATE`. `ezdxf` owns the ISO 129-1 dimension entity, the `TOLERANCE` entity, and the render; `drawing/standard#STANDARD` the DIM-variable derivation and discipline pen; `graphic/vector/region#REGION` the landed `outline`/`boolean` the tapered-terminator premium composes; `ziafont` the ISO 3098 text outline; `typography/math#MATH` the tolerance math; `kiwisolver` the offset solve; `graphic/layer#LAYER` the layer vocabulary; `composition/sheet#SHEET` the placement; identity minting is the runtime's.
 - Packages: `ezdxf` the ISO 129-1 dimension family (`add_*_dim` each returning a `DimStyleOverride` whose `.render()` authors geometry, the `new_entity("TOLERANCE", ...)` GD&T frame, the `math.Construction*`/`.flattening` anchor + measured-arc geometry, `MTextEditor.stack`, the `Frontend`/`SVGBackend`/`PyMuPdfBackend` render), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `drawsvg` the LAYERED geometry authoring (`Drawing`/`Group`/`Lines`/`Circle` — no hand-formatted `d` string); `kiwisolver` the offset stack with the custom equal-gap band and `Constraint.violated` overlap QA; `typography/math#MATH` `Formula`/`LatexSpec` the tolerance-math typeset, seat-placed, measured; `ziafont` the ISO 3098 text outline, measured, centred, baseline-seated; `numpy` the perpendicular offset normal and the angular/arc measurement; `expression`/`msgspec`/`beartype` the vocabulary, value objects, and `over` contract; `graphic/vector/region#REGION` a bare owner pointer — the landed `outline` the tapered-terminator premium composes, NOT imported for the base where the self-contained marks are the default; `core/receipt#RECEIPT` `ArtifactReceipt.Drawing`/`Pdf`. `drawing/standard#STANDARD` composes as bare owner pointers, its `DimStyleFamily`/`Standard.dimstyle`/`seed`/`extent`/`LayerName` lowering onto the `ezdxf` tables.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
-import struct
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from itertools import accumulate, pairwise
@@ -40,6 +38,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.msgpack import Encoder
 
+from rasm.contracts.gen.rasm.contracts.fabrication.v1.fabrication_pb import Characteristic, Datum, Egress, FeatureControl, Material, Modifier, Scope, Segment as WireSegment, ZoneKind
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.journal import Journal
@@ -177,7 +176,6 @@ _SAGITTA: Final[float] = 0.05  # LAYERED arc/circle flattening tolerance (mm) �
 _ARC_SPAN: Final[float] = 30.0  # reference-arc half-span (deg) a radial dimension draws around its leader angle
 _DIMS: Final[LayerName] = LayerName.of(Discipline.GENERAL, "DIMS")  # the one ISO 13567 layer every dimension row derives from
 _DATUM_LETTERS: Final[frozenset[str]] = frozenset("ABCDEFGHJKLMNPRSTUVWXYZ")  # ISO 5459 reference letters — I, O, Q excluded as digit-confusable
-_LAYOUT: Final[int] = 1  # frame-wire layout generation — an unequal cell refuses rather than reading a shifted field
 _SECOND_DIMENSION: Final[frozenset["GdtZone"]] = frozenset({GdtZone.UNILATERAL, GdtZone.UNEQUALLY_DISPOSED, GdtZone.PROJECTED})
 
 
@@ -238,17 +236,18 @@ class GdtSegment(Struct, frozen=True):
 
 
 class GdtOrigin(Struct, frozen=True):
-    # producer identity a DECODED frame carries — the characteristic id and the kind-tagged specification key, whole.
-    # Kind rides beside the digest because two egress families mint equal digests over equal bytes, so a digest-only
-    # join merges two specifications; a locally authored frame carries no origin at all.
-    characteristic_id: str
-    source_kind: str
-    source_digest: str
+    # producer identity a DECODED frame carries — the characteristic id and the kind-tagged specification key, whole,
+    # each the corpus's own 16-byte column and the corpus `Egress` member. Kind rides beside the digest because two
+    # egress families mint equal digests over equal bytes, so a digest-only join merges two specifications; a locally
+    # authored frame carries no origin at all.
+    characteristic_id: bytes
+    source_kind: Egress
+    source_digest: bytes
 
 
 class GdtFrame(Struct, frozen=True):
-    # one ISO 1101 feature-control frame — admission target of the Fabrication `GdtFrameWire` bytes wire, and it
-    # carries every fact that wire spells: a field the decode cannot seat is a fact dropped onto the drawing.
+    # one ISO 1101 feature-control frame — admission target of the corpus `fabrication.v1.FeatureControl` message, and
+    # it carries every fact that message spells: a field the fold cannot seat is a fact dropped onto the drawing.
     characteristic: GdtChar
     tolerance: float  # zone magnitude in millimetres, exact — decimal presentation is this drawing standard's
     zone: GdtZone = GdtZone.BILATERAL
@@ -274,81 +273,42 @@ class GdtFrame(Struct, frozen=True):
 
     @staticmethod
     def decode(raw: bytes, /) -> Result["GdtFrame", str]:
-        # ONE reader of the Fabrication byte wire. Every vocabulary crosses as the producer's KEY and lands through
-        # its own ingest table, so a roster reordered at either end re-maps nothing; magic reads before any length
-        # cell, so a foreign buffer refuses at byte 0 rather than sizing an allocation from a field that is no length.
+        # ONE reader of the Fabrication wire: `FeatureControl.from_binary` is the whole parse — protobuf-py raises
+        # `ValueError` on a malformed body — and `_framed` the total fold onto this vocabulary, whose `__post_init__`
+        # refuses the one law the corpus rules cannot see, a datum letter outside ISO 5459. A corpus member this
+        # vocabulary has no name for raises `KeyError` off the name correspondence: a corpus edit this page has not
+        # absorbed, refused by name rather than drawn as a neighbour.
         try:
-            return Result.Ok(_decode_frame(_Reader(raw)))
-        except (ValueError, KeyError, IndexError, struct.error) as fault:
+            return Result.Ok(_framed(FeatureControl.from_binary(raw)))
+        except (ValueError, KeyError) as fault:
             return Result.Error(f"gdt frame wire refused: {fault}")
 
 
 # --- [WIRE_DECODE]
 
-class _Reader:
-    # cursor over the frame wire: every count, collection length, option arity, and token byte-length is one u32-LE
-    # cell, every magnitude one binary64-LE cell, and every digest 16 BIG-endian bytes — the one byte-order split.
-    __slots__ = ("_at", "_raw")
-
-    def __init__(self, raw: bytes, /) -> None:
-        self._raw, self._at = raw, 0
-
-    def take(self, width: int, /) -> bytes:
-        cell, self._at = self._raw[self._at : self._at + width], self._at + width
-        if len(cell) != width:
-            raise ValueError(f"wire ends mid-cell at offset {self._at - width}")
-        return cell
-
-    def count(self) -> int:
-        return int.from_bytes(self.take(4), "little")
-
-    def magnitude(self) -> float:
-        return struct.unpack("<d", self.take(8))[0]
-
-    def digest(self) -> str:
-        return self.take(16).hex()
-
-    def token(self) -> str:
-        return self.take(self.count()).decode("utf-8")
-
-    def rows[T](self, row: "Callable[[_Reader], T]", /) -> tuple[T, ...]:
-        # ONE framing law read back — a collection and an Option alike are a count then that many elements.
-        return tuple(row(self) for _ in range(self.count()))
-
-    def sealed(self) -> None:
-        # a decode leaving bytes behind read a shorter frame than the producer wrote, which is drift, never slack.
-        if self._at != len(self._raw):
-            raise ValueError(f"{len(self._raw) - self._at} trailing bytes past the frame")
+def _datum(wire: Datum, /) -> GdtDatum:
+    return GdtDatum(_admit_label(wire.label), _MATERIAL[wire.material])
 
 
-def _decode_datum(reader: _Reader, /) -> GdtDatum:
-    return GdtDatum(_admit_label(reader.token()), _MATERIAL_INGEST[reader.token()])
+def _segment(wire: WireSegment, /) -> GdtSegment:
+    return GdtSegment(wire.width_mm, tuple(GdtZoneModifier[modifier.name] for modifier in wire.modifiers), tuple(map(_datum, wire.datums)))
 
 
-def _decode_modifier(reader: _Reader, /) -> GdtZoneModifier:
-    return GdtZoneModifier(reader.token())
-
-
-def _decode_segment(reader: _Reader, /) -> GdtSegment:
-    return GdtSegment(reader.magnitude(), reader.rows(_decode_modifier), reader.rows(_decode_datum))
-
-
-def _decode_frame(reader: _Reader, /) -> GdtFrame:
-    # field order IS the producer's member declaration order, and the zone kind ALONE discriminates the second
-    # dimension, so the tail reads off the kind token already in hand and no arm tag rides beside it to contradict it.
-    if reader.take(4) != b"GDTF" or reader.count() != _LAYOUT:
-        raise ValueError("buffer is not a frame wire of this layout")
-    origin = GdtOrigin(reader.digest(), reader.token(), reader.digest())
-    characteristic, scope = _CHAR_INGEST[reader.token()], GdtScope(reader.token())
-    zone, tolerance = GdtZone(reader.token()), reader.magnitude()
-    second = Some(reader.magnitude()) if zone in _SECOND_DIMENSION else Nothing
-    modifiers, datums = reader.rows(_decode_modifier), reader.rows(_decode_datum)
-    material = _MATERIAL_INGEST[reader.token()]
-    segments = reader.rows(_decode_segment)
-    reader.sealed()
+def _framed(wire: FeatureControl, /) -> GdtFrame:
+    # the corpus message onto the drawing frame, field for field: every closed column lands by member NAME off the
+    # corpus enum, the kind-gated second dimension reads PRESENCE through `has_field` — the corpus CEL rule and
+    # `__post_init__` agree on exactly when it is set — and the composite lower row is the one `optional Segment`.
     return GdtFrame(
-        characteristic, tolerance, zone, scope, material, modifiers, datums, second,
-        Some(segments[0]) if segments else Nothing, Some(origin)
+        GdtChar[wire.characteristic.name],
+        wire.width_mm,
+        GdtZone[wire.zone_kind.name],
+        GdtScope[wire.scope.name],
+        _MATERIAL[wire.material],
+        tuple(GdtZoneModifier[modifier.name] for modifier in wire.modifiers),
+        tuple(map(_datum, wire.datums)),
+        Some(wire.second_mm) if wire.has_field("second_mm") else Nothing,
+        Some(_segment(wire.composite)) if wire.composite is not None else Nothing,
+        Some(GdtOrigin(wire.id, wire.source.kind, wire.source.digest)),
     )
 
 
@@ -1337,31 +1297,13 @@ _ZONE_MOD_GLYPH: Final[Map[GdtZoneModifier, str]] = Map.of_seq([
     (GdtZoneModifier.LEAST_SQUARES, "Ⓖ"),
     (GdtZoneModifier.MINIMAX_TANGENT, "Ⓝ"),
 ])
-# Two ingest tables the `[WIRE_TOKEN]` law demands: a producer key lands on this branch's own keyed owner, and a
-# roster reordered at either end re-maps nothing. `GdtScope`, `GdtZone`, and `GdtZoneModifier` need none — each spells
-# its producer key as its own value, so the enum constructor IS that one table and an unrostered key refuses there.
-_CHAR_INGEST: Final[Map[str, GdtChar]] = Map.of_seq([
-    ("straightness", GdtChar.STRAIGHTNESS),
-    ("flatness", GdtChar.FLATNESS),
-    ("circularity", GdtChar.CIRCULARITY),
-    ("cylindricity", GdtChar.CYLINDRICITY),
-    ("profile-line", GdtChar.PROFILE_LINE),
-    ("profile-surface", GdtChar.PROFILE_SURFACE),
-    ("parallelism", GdtChar.PARALLELISM),
-    ("perpendicularity", GdtChar.PERPENDICULARITY),
-    ("angularity", GdtChar.ANGULARITY),
-    ("position", GdtChar.POSITION),
-    ("concentricity", GdtChar.CONCENTRICITY),
-    ("symmetry", GdtChar.SYMMETRY),
-    ("circular-runout", GdtChar.CIRCULAR_RUNOUT),
-    ("total-runout", GdtChar.TOTAL_RUNOUT),
-])
-# `rfs` lands on NONE: regardless of feature size is the ISO 1101 default reading and draws no compartment symbol, so
-# no member holds the retired circled-S spelling and no producer path reaches one.
-_MATERIAL_INGEST: Final[Map[str, GdtModifier]] = Map.of_seq([
-    ("rfs", GdtModifier.NONE),
-    ("mmc", GdtModifier.MMC),
-    ("lmc", GdtModifier.LMC),
+# the ONE correspondence the name derivation cannot carry: the corpus `Material` spells the ISO 1101 default reading
+# `REGARDLESS`, which this vocabulary draws as `NONE` with no compartment symbol, so the three rows state it once and
+# every other closed column lands by member name with no table at all.
+_MATERIAL: Final[Map[Material, GdtModifier]] = Map.of_seq([
+    (Material.REGARDLESS, GdtModifier.NONE),
+    (Material.MAXIMUM, GdtModifier.MMC),
+    (Material.LEAST, GdtModifier.LMC),
 ])
 
 

@@ -282,11 +282,11 @@ public static class BoundaryActivation {
 ## [05]-[COMMAND_SURFACE]
 
 - Owner: `VerbRow` the seed-DATA verb table row; `AppRootVerbs` the one CLI boundary adapter mounting the table onto a `RootCommand`.
-- Cases: canonical rows — `dispatch` projects a descriptor + serialized arguments onto `Agent/runtime#DISPATCH_FRONT_DOOR` `CommandDispatch.Run`; `replay` and `bisect` are the `Runtime/determinism` ingress (the `ChangefeedPort.Load` windowed read feeding `ReplayVerify.Replay`/`AdversarialProbe.Bisect`); `capture-support` admits one `SupportTrigger.ExternalCommand` onto the `Observability/bundles` capture fan; `sandbox-release` projects onto `Sandbox/isolation#QUOTA_CONTROL` `QuotaControl.Release`, the one path a quarantined plugin takes back into service — every host modality that also carries the ControlService verbs shares these exact owners, so the CLI is a projection, never a parallel verb semantics.
+- Cases: canonical rows — `dispatch` projects a descriptor + serialized arguments onto `Agent/runtime#DISPATCH_FRONT_DOOR` `CommandDispatch.Run`; `replay` and `bisect` are the `Runtime/determinism` ingress (the `ChangefeedPort.Load` windowed read feeding `ReplayVerify.Replay`/`AdversarialProbe.Bisect`); `capture-support` admits one `SupportTrigger.ExternalCommand` onto the `Observability/bundles` capture fan; `sandbox-release` projects onto `Sandbox/isolation#QUOTA_CONTROL` `QuotaControl.Release`, the one path a quarantined plugin takes back into service.
 - Entry: `Mount(string description, Seq<VerbRow> rows)` returns `RootCommand` — the table mounts once at the app root; each row's `Command.SetAction(Func<ParseResult, CancellationToken, Task<int>>)` binds the projection; `ParseResult.GetValue<T>(Option<T>)`/`GetValue<T>(Argument<T>)` are the only argument reads.
 - Packages: System.CommandLine, LanguageExt.Core, BCL inbox
 - Growth: a new operator verb is one `VerbRow` in the table projecting onto an existing owner; a verb whose owner does not exist yet is a missing case on the owning page, never a CLI-local body; zero new surface.
-- Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation seam); a rejected parse never reaches a row's action because a non-empty `ParseResult.Errors` blocks invocation by the package's own contract, so parse failure is DATA the host entry projects to an exit code and a thrown parse has no spelling here; `Exit` is the ONE exit projection every row leaves through and the status it answers is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, so a banded fault code CANNOT be one: `FaultBand.Config.Code(offset: 0)` is 4100, `4100 & 0xFF` is 4 — a number naming no verdict — and any code ≡ 0 mod 256 reports SUCCESS outright to every shell, supervisor, and CI gate that reads it, which is why `(int)error.Code` as a status is the deleted form — the STATUS carries the verdict (0 admitted, 1 refused); the STREAM renders a typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns; the ControlService verbs stay the service-modality wire route — the CLI row and the control verb project onto the SAME owner so an operator at a terminal and an operator over the control hop invoke one semantics; removal of this table is legal only on proof every verb rides ControlService for every host modality.
+- Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation seam); a rejected parse never reaches a row's action because a non-empty `ParseResult.Errors` blocks invocation by the package's own contract, so parse failure is DATA the host entry projects to an exit code and a thrown parse has no spelling here; `Exit` is the ONE exit projection every row leaves through and the status it answers is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, so a banded fault code CANNOT be one: `FaultBand.Config.Code(offset: 0)` is 4100, `4100 & 0xFF` is 4 — a number naming no verdict — and any code ≡ 0 mod 256 reports SUCCESS outright to every shell, supervisor, and CI gate that reads it, which is why `(int)error.Code` as a status is the deleted form — the STATUS carries the verdict (0 admitted, 1 refused); the STREAM renders a typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns; these remain local CLI projections and do not imply a ControlService RPC.
 
 ```csharp signature
 // Seed DATA: one verb row per operator concern, each a projection onto an existing owner.
@@ -411,8 +411,9 @@ Seat law:
 - `verdict-fallback` binds `FlagVerdict.Inert` as the whole verdict function so an absent features rail and an unready provider answer ONE shape at every consumer.
 - `membership` seats the cluster view over the resolver, the per-authority `UriHealthCheck`, and the three decoded membership arrows; `peer-roster` seats the local attach set whose `contribute` closure is the two-tier edge `Wire/companion` and `Wire/coordination` both declare — the two rows reference each other only inside lambdas the fold never runs, so the mutual read resolves after both are registered, and the peer endpoint projects from the manifest's own `SocketPath` through `UnixDomainSocketEndPoint` so the UDS contract carries one address rather than two encodings obliged to agree.
 - `coordination-seat` constructs the ONE `LeaseElection.Runtime` off the coordination seed's four decoded lease arrows, because those decoded arrows are its only producer and no fold below this one reaches them; the same row FORCES `LeasePolicy.Outlasts`, since this is where the reclamation window meets the drain bounds it must outlast and a proof no reader forces guarantees nothing.
-- `control-inbound` completes `ControlRuntime` with the columns the control hop adds — the command front door, the drain arrow, the descriptor-classification lookup, and the redactor provider — over the `ControlSeed` its config, bundles, telemetry, and ports owners fill, because composing their halves here absorbs three pages' laws into one ledger row.
+- `control-inbound` completes `ControlRuntime` with the drain arrow over the degradation, support, source, and wire values in `ControlSeed`.
 - `design-regime` is the seat-law row this doctrine binds on any PRODUCT root that composes `Rasm.Bim` — it lives on that root's own ledger, never here, because this package references the kernel alone and a Bim type cannot appear in this fence, exactly as the `BrickBinding` class election rides the composing root. The root elects the project's national design regime ONCE: `StageLabels.Nation` (the typed `Option<ICountry>` off the compiled `IGovernance.Country` pin, `Rasm.Bim/Planning/schedule#SCHEDULE`) feeds `AnnexRegime.Of(ICountry)` (`Rasm.Bim/Model/eurocode#EUROCODE_ALGEBRA` — the ISO-keyed nation→annex bridge whose row KEY is the SAF `ExcelNationalCode`) into the `EurocodePolicy` the root constructs, and the SAME `Option<AnnexRegime>` threads to `SafEmit.Export` (`Rasm.Bim/Exchange/export#SAF_EMIT`). Both parameters are REQUIRED and undefaulted at their Bim owners, so an unelected root breaks loudly at compile rather than silently designing under `Recommended` or writing no design code cell; a second election beside the export call, or a free country string standing in for the typed nation, forks the national annex the eurocode tables and the SAF workbook must share.
+- `bim-compute-tessellation` is likewise a PRODUCT-root module row, never an AppHost project reference: the root that references both packages binds Bim's `ITessellationCompanion` directly to one `BimComputeCompanion`. The outer app call supplies its existing `CorrelationId` to `TessellationRequest.Resolve`; the adapter passes it to the Compute-owned singleton `CallSpineFactory`, which mints one spine for source Put, Tessellate, and output Fetch. The adapter frames and puts the IFC source, projects that admitted `ArtifactRef` through `TessellationWire.Project`, drives `CompanionEdge`, proves the peer's reported content key and projects its count, semantic, and generated spill fields through `TessellationWire.Admit`, and returns one `TessellationCross` on the asynchronous port. The module seats `CallSpineFactory` itself; `ClockPolicy`, `WireServices`, `StreamPool`, and `ReceiptSurface` are one-per-composition singleton dependencies already seated by that root's Compute module. `ValidateOnBuild` and `ValidateScopes` prove the complete singleton constructor graph and refuse any missing or shorter-lived dependency. No `IServiceProvider` crosses the adapter, no blocking wait collapses `IO`, no correlation is derived from `Op` or captured at composition, no `AdmittedIntent` is fabricated for a call outside the compute-dispatch algebra, and no second request, frame, semantic, spill, or fault shape exists.
 - Every `<module>-seat` row registers what its owners declare while the collection is editable; every `<module>-boot` row runs the gates whose facts exist only after the build. A gate whose refusal must stop the process rails there, so a refused trust anchor, an unhosted solver, an unrebuilt member set, or a peer surface the registry never took names itself at boot rather than at first call.
 
 ```csharp signature
@@ -473,17 +474,9 @@ public sealed record CoordinationArrows(
     Func<string, ulong, Fin<Unit>> GuardWrite,
     Func<string, ulong, Fin<Unit>> ReleaseLease);
 
-// The half of `ControlRuntime` this ledger does NOT own: the config page fills the invalidation, active-root,
-// and revalidation arrows beside the reload section and class, the bundles page the support runtime, the
-// telemetry composition its own minted source, and the ports page the merged wire options. Every remaining
-// column is the control hop's own, and the ledger row composes it there.
+// The half of `ControlRuntime` this ledger does not own: the degradation, support, source, and wire values.
 public sealed record ControlSeed(
     DegradationCell Degradation,
-    Func<Option<string>, Unit> InvalidateOptions,
-    Func<IConfigurationRoot> ActiveConfig,
-    string ReloadSection,
-    ReloadClass ReloadClass,
-    Func<string, Func<JsonObject, Validation<Error, Unit>>> Revalidate,
     ActivitySource Source,
     SupportRuntime Support,
     JsonSerializerOptions Wire);
@@ -516,7 +509,6 @@ public sealed record WireSeed(
     KeyedLane.Composition Keyed,
     OutboxRelay.Runtime Outbox,
     Func<Fin<HlcOrdinal>> Watermark,
-    Func<DropReceipt, DropReceiptWire> DropWire,
     LiveWireRuntime LiveWire,
     IngressPolicy Ingress,
     Seq<ServedPlane> Planes,
@@ -532,7 +524,6 @@ public sealed record AgentSeed(
     Func<TensorOpFamily, JsonElement, Fin<CommandBody>> TensorCompile,
     Func<string, JsonElement, Fin<CommandBody>> ModelCompile,
     GovernanceLedger Ledger,
-    JsonNode ReceiptSchema,
     FederationRuntime Federation,
     Seq<(FederatedServer Server, string Uri, BindingSpec Spec)> Subscriptions,
     IdentityRuntime Identity,
@@ -673,6 +664,10 @@ public static class CompositionRoot {
                         MemberRelease: inputs.Coordination.MemberRelease,
                         MemberScan: inputs.Coordination.MemberScan,
                         View: Atom(MembershipView.Empty),
+                        // Scheme is the resolver QUERY's own ordered preference, so it lands as a declared
+                        // composition value rather than a literal inside the projection: `Secure` states TLS
+                        // only, and a deployment wanting the package's ordered fallback flips one row.
+                        Scheme: DialScheme.Secure,
                         Clocks: inputs.Clocks,
                         Staleness: LeasePolicy.Maintenance.CrashStaleness,
                         Fan: Fanned<CoordinationSignal>(provider, inputs, static signal => new AppHostFact.Coordination(signal))),
@@ -705,37 +700,18 @@ public static class CompositionRoot {
                     key: inputs.Key),
                 ServiceLifetime.Singleton)))),
 
-        // Control-hop dependency frame: this row binds the columns the hop itself adds and takes the reload,
-        // support, and identity half as the composed `ControlSeed` its owning pages fill, because composing
-        // here what those owners declare re-implements three laws inside a ledger row — exactly the shape
-        // this ledger's own Boundary rules out. `Source` is the composition's minted source, never a
-        // process-static one, so a continued verb span carries this composition's identity.
+        // Control-hop dependency frame: this row binds the drain arrow beside the composed seed.
         new RootBinding.Seated("control-inbound", static (services, inputs) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(ControlRuntime),
                 provider => new ControlRuntime(
                     Degradation: inputs.Control.Degradation,
-                    InvalidateOptions: inputs.Control.InvalidateOptions,
-                    ActiveConfig: inputs.Control.ActiveConfig,
-                    ReloadSection: inputs.Control.ReloadSection,
-                    ReloadClass: inputs.Control.ReloadClass,
-                    Revalidate: inputs.Control.Revalidate,
-                    Dispatch: intent => CommandDispatch.Run(provider.GetRequiredService<DispatchRuntime>(), intent),
-                    // The inherited budget is DISCARDED at this seat rather than threaded onward: the conductor
-                    // reads `DeadlineClass.DrainCooperative` and `DrainForced` itself, so a budget handed down
-                    // the hop and applied a second time here narrows a ceiling the fold already owns, and
-                    // neither seat can see the other doing it. The hop's contract keeps the column because the
-                    // hop-topology law is what narrows it; this composition is what proves it narrows once.
-                    Drain: _ => Conducted(provider),
-                    // Option, not Fin: `CapabilityRegistry.Resolve` answers `Option<CapabilityDescriptor>`, and
-                    // a tool it cannot resolve falls to `Unknown`, whose erase treatment keeps the audit record
-                    // fail-closed — an ungraded tool must not leak the argument text nobody classified.
-                    Classify: tool => provider.GetRequiredService<CapabilityRegistry>().Resolve(tool)
-                        .Match(Some: static row => row.Permission.Classification, None: static () => DataClassification.Unknown),
-                    Redactors: provider.GetRequiredService<IRedactorProvider>(),
+                    // The admitted peer remainder reaches the one conductor; it intersects local policy once.
+                    Drain: inherited => Conducted(provider, inherited),
+                    Clocks: inputs.Clocks,
+                    Correlation: inputs.Correlation,
                     Source: inputs.Control.Source,
                     Support: inputs.Control.Support,
-                    Clocks: inputs.Clocks,
                     Fan: Fanned<CompanionSignal>(provider, inputs, static signal => new AppHostFact.Companion(signal)),
                     Wire: inputs.Control.Wire),
                 ServiceLifetime.Singleton)))),
@@ -853,7 +829,7 @@ public static class CompositionRoot {
                             Drops: drop => ignore(provider.GetRequiredService<ReceiptSinkPort>().Send(
                                 inputs.Correlation, TenantContext.Current, TelemetrySource.AppHost,
                                 ReceiptKind.Drop.Key,
-                                JsonSerializer.SerializeToElement(inputs.Wire.DropWire(drop), SuiteContracts.Host)).Run()),
+                                WireJson.Element(drop)).Run()),
                             // Bus subscriptions open after the build, so their drain rows land in the late cell
                             // the conductor folds rather than on a contributor fan that closed at the freeze.
                             Register: row => ignore(provider.GetRequiredService<Atom<Seq<DrainRow>>>().Swap(held => held.Add(row))),
@@ -1017,11 +993,7 @@ public static class CompositionRoot {
                         typeof(McpAdoption),
                         provider => ToolProjection.Adopt(
                             provider.GetRequiredService<McpRuntime>(),
-                            ToolProjection.Project(
-                                provider.GetRequiredService<CapabilityRegistry>(),
-                                provider.GetRequiredService<DegradationCell>().Level,
-                                provider.GetRequiredService<McpRuntime>().SchemaOf,
-                                inputs.Agent.ReceiptSchema)),
+                            ToolProjection.Project(provider.GetRequiredService<McpRuntime>())),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(typeof(IdentityRuntime), _ => inputs.Agent.Identity, ServiceLifetime.Singleton))
                     .AddAuthorizationCore()
@@ -1295,13 +1267,13 @@ public static class CompositionRoot {
     // born after the freeze, and one `DrainThread` mint per drain carries the conductor's whole telemetry
     // tail. `Seal` belongs to the act, not to a caller after it — that context is minted per drain, so
     // draining without exporting its frozen ledger discards exactly the checkpoints the phase recorded.
-    static IO<DrainReceipt> Conducted(IServiceProvider provider) =>
+    static IO<DrainReceipt> Conducted(IServiceProvider provider, Duration inherited) =>
         from thread in IO.lift(provider.GetRequiredService<Func<DrainThread>>())
         from receipt in provider.GetRequiredService<Lifecycle>().Drain(
             toSeq(provider.GetServices<DrainParticipantPort>())
                 .Map(static row => new DrainRow(row.Name, row.Band, row.Rank, row.Drain))
                 + provider.GetRequiredService<Atom<Seq<DrainRow>>>().Value,
-            thread.Latency, thread.Checkpoint, thread.Instruments)
+            thread.Latency, thread.Checkpoint, thread.Instruments, inherited)
         from _sealed in LatencySpine.Seal(thread.Exporter, thread.Latency)
         select receipt;
 
@@ -1463,6 +1435,68 @@ public static class CompositionRoot {
 
     static ScheduleEntry Cadence(string key, ScheduleEntry declared, Func<IO<Unit>> work) =>
         declared with { Key = key, Work = work };
+}
+```
+
+The following fence belongs in each product composition assembly that admits both Bim and Compute. The product passes its Compute module before `ProductModules.BimCompute` so the descriptor graph proves every constructor dependency at the one provider build; AppHost itself keeps its kernel-and-contracts-only dependency direction.
+
+```csharp signature
+using System;
+using System.Threading;
+using LanguageExt;
+using Microsoft.Extensions.DependencyInjection;
+using Rasm;
+using Rasm.AppHost;
+using Rasm.Bim;
+using Rasm.Compute;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Product;
+
+// The product root is the only assembly that may name both sides. This adapter is a typed projection and owns no
+// request vocabulary, transport policy, retry, frame admission, artifact identity, or re-import logic.
+public sealed class BimComputeCompanion(
+    WireServices services,
+    CallSpineFactory spines,
+    StreamPool pool,
+    ReceiptSurface receipts) : ITessellationCompanion {
+    public IO<Fin<TessellationCross>> Cross(
+        Rasm.Bim.TessellationRequest request,
+        CorrelationId correlation,
+        CancellationToken cancel,
+        Op key) {
+        CallSpine spine = spines.Create(correlation);
+        WireCall calls = services.Bind(spine);
+        return FrameEdge.Frames(request.SourceBytes).Match(
+            Succ: partition => FrameEdge.Put(calls, spine, partition, cancel).Bind(uploaded => uploaded.Match(
+                Succ: source => TessellationWire.Project(request, source, key).Match(
+                    Succ: wire => CompanionEdge
+                        .Tessellate(services, spine, pool, receipts, wire, cancel)
+                        .Map(outcome => outcome.Bind(artifact =>
+                            TessellationWire.Admit(request, artifact.Receipt, artifact.Glb, key))),
+                    Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error))),
+                Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)))),
+            Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)));
+    }
+}
+
+public static class ProductModules {
+    public static readonly ModuleContribution BimCompute = new(
+        Module: nameof(BimComputeCompanion),
+        Assembly: typeof(BimComputeCompanion).Assembly,
+        Scan: None,
+        Descriptors: HashMap<DescriptorSlot, Seq<ServiceDescriptor>>()
+            .Add(DescriptorSlot.Service, Seq(
+                ServiceDescriptor.Describe(
+                    typeof(CallSpineFactory),
+                    typeof(CallSpineFactory),
+                    ServiceLifetime.Singleton),
+                ServiceDescriptor.Describe(
+                    typeof(ITessellationCompanion),
+                    typeof(BimComputeCompanion),
+                    ServiceLifetime.Singleton))),
+        Registrars: Seq<Func<IServiceCollection, IServiceCollection>>(),
+        Decorations: Seq<DecorationRow>());
 }
 ```
 

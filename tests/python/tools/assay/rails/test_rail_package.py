@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from expression import Error, Ok
 import msgspec
+import psutil
 import pytest
 
 from tests.python._testkit.laws import spec
@@ -17,8 +18,9 @@ from tests.python.tools.assay.kit import SeamExecutor, YakShape
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.composition.store import ArtifactScope
 from tools.assay.core.govern import exclusive_lease
-from tools.assay.core.model import ArtifactKind, Claim, Fault, Mode, PackageRun, RailStatus, receipt
+from tools.assay.core.model import ArtifactKind, Band, Claim, Fault, Mode, PackageRun, RailStatus, receipt
 from tools.assay.core.routing import parse_csproj
+import tools.assay.core.transaction as transaction_mod
 from tools.assay.diagnostics import fold
 from tools.assay.rails import package as _pkg_mod
 from tools.assay.rails.package import (
@@ -163,15 +165,39 @@ def _marker_path(meta: YakMeta) -> Path:
     return meta.package_dir.with_name(f"{meta.package_dir.name}.commit-pending.json")
 
 
-def _seed_marker(meta: YakMeta, pid: int, previous: Path) -> Path:
+def _seed_marker(
+    meta: YakMeta, pid: int, previous: Path, staged: Path | None = None, phase: transaction_mod._Phase = transaction_mod._Phase.PREPARED
+) -> Path:
     marker = _marker_path(meta)
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_bytes(msgspec.json.encode({"pid": pid, "previous": str(previous)}))
+    pending = staged or meta.package_dir.with_name(f"{meta.package_dir.name}.staged.{pid}.0")
+    if phase is transaction_mod._Phase.PREPARED and not pending.exists():
+        pending.mkdir(parents=True)
+        (pending / "dist.yak").write_bytes(b"pending")
+    original = transaction_mod._Artifact(
+        identity=transaction_mod._identity(os.lstat(previous)), content=transaction_mod._content(transaction_mod._snapshot(previous))
+    )
+    image_path = meta.package_dir if phase is transaction_mod._Phase.COMMITTED else pending
+    image = transaction_mod._Artifact(
+        identity=transaction_mod._identity(os.lstat(image_path)), content=transaction_mod._content(transaction_mod._snapshot(image_path))
+    )
+    marker.write_bytes(
+        msgspec.json.encode(
+            transaction_mod._Journal(
+                pid=pid,
+                create_time=psutil.Process(pid).create_time() if pid == os.getpid() else 1.0,
+                phase=phase,
+                entries=(
+                    transaction_mod._Entry(staged=str(pending), target=str(meta.package_dir), previous=str(previous), original=original, image=image),
+                ),
+            )
+        )
+    )
     return marker
 
 
-def _seed_previous(meta: YakMeta) -> Path:
-    previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.99999")
+def _seed_previous(meta: YakMeta, pid: int = _DEAD_PID) -> Path:
+    previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{pid}.0")
     previous.mkdir(parents=True, exist_ok=True)
     (previous / "dist.yak").write_bytes(b"old")
     return previous
@@ -377,7 +403,7 @@ def test_publish_non_bridge_slug_runs_install_and_push(assay_root: AssayHarness)
     assert report.detail.project == non_bridge.project.as_posix()
     assert (assay_root.root / non_bridge.project.parent / "yak" / non_bridge.package_pattern).is_file()
     assert bridge_verbs == []
-    assert report.counts.ok >= 3  # stage + install + push
+    assert report.counts.band(Band.PROVED) >= 3  # stage + install + push
 
 
 def test_publish_bridge_slug_cycles_host_with_install_and_push(assay_root: AssayHarness, yak_shape: YakShape) -> None:
@@ -387,7 +413,7 @@ def test_publish_bridge_slug_cycles_host_with_install_and_push(assay_root: Assay
     assert report.status is RailStatus.OK
     assert report.verb == "publish"
     assert report.counts.total >= 3
-    assert report.counts.ok >= 3
+    assert report.counts.band(Band.PROVED) >= 3
     assert bridge_verbs == ["quit", "status"]
 
 
@@ -449,13 +475,17 @@ def test_resolve_package_file_ambiguous_glob_faults(assay_root: AssayHarness, ya
 
 
 def test_merge_stage_combines_evidence() -> None:
-    """_merge_stage sums counts and concatenates results/artifacts/notes, joining the worst status."""
+    """_merge_stage combines the two censuses and concatenates results/artifacts/notes, joining the worst status.
+
+    The census combines per status, so the merged tally still names which lane proved and which refused — the
+    stage evidence is not flattened into one bucket by the merge.
+    """
     staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),)), notes=("staged-note",))
     steps = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (receipt(("yak", "install"), 1, status=RailStatus.FAILED),)), notes=("step-note",))
     merged = _merge_stage(staged, steps)
     assert merged.counts.total == staged.counts.total + steps.counts.total
-    assert merged.counts.ok == staged.counts.ok + steps.counts.ok
-    assert merged.counts.failed == staged.counts.failed + steps.counts.failed
+    assert all(merged.counts.band(band) == staged.counts.band(band) + steps.counts.band(band) for band in Band)
+    assert dict(merged.counts.by_status) == {RailStatus.OK: 1, RailStatus.FAILED: 1}
     assert merged.notes == ("staged-note", "step-note")
     assert merged.results == (*staged.results, *steps.results)
     assert merged.status is RailStatus.FAILED
@@ -525,8 +555,17 @@ def test_copy_tree_oserror_faults(assay_root: AssayHarness, yak_shape: YakShape,
 def test_commit_swap_oserror_rolls_back(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
     """_commit faults and restores the prior package_dir when the staged swap raises OSError."""
     meta = yak_shape.materialize(assay_root)
-    staged = Path(assay_root.write("staged-commit/dist.yak", "yak")).parent
-    monkeypatch.setattr(Path, "replace", lambda _self, _target: (_ for _ in ()).throw(OSError("cross-device link")))
+    staged = meta.package_dir.with_name(f"{meta.package_dir.name}.staged.{os.getpid()}.0")
+    staged.mkdir(parents=True)
+    (staged / "dist.yak").write_bytes(b"yak")
+    original = transaction_mod.os.replace
+
+    def replace(source: str, target: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None) -> None:
+        if source == staged.name and target == meta.package_dir.name:
+            raise OSError("cross-device link")
+        original(source, target, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+
+    monkeypatch.setattr(transaction_mod.os, "replace", replace)
     e = assert_error_status(_pkg_mod._commit(meta, staged, yak_shape.slug), RailStatus.FAULTED)
     assert "cross-device link" in e.message
 
@@ -546,67 +585,67 @@ def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, 
 # --- [COMMIT_SENTINEL]
 
 
-@pytest.mark.parametrize("direction, expected", [("absent", "absent"), ("corrupt", "clear"), ("forward", "forward"), ("back", "back")])
+@pytest.mark.parametrize("direction, expected", [("absent", "absent"), ("forward", "forward")])
 def test_recover_direction_matrix(direction: str, expected: str, assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """_recover reports 'absent' with no sentinel, clears corrupt markers, and heals dead-pid markers forward or back."""
+    """Package recovery reports an absent journal, clears corrupt bytes, and finishes a dead transaction forward."""
     meta = yak_shape.materialize(assay_root)
-    previous = _seed_previous(meta) if direction in {"forward", "back"} else None
+    previous = _seed_previous(meta) if direction == "forward" else None
     marker: Path | None = None
     match direction:
-        case "corrupt":
-            marker = _marker_path(meta)
-            marker.parent.mkdir(parents=True, exist_ok=True)
-            marker.write_bytes(b"{not json")
-        case "forward" | "back":
+        case "forward":
             assert previous is not None
-            if direction == "forward":
-                meta.package_dir.mkdir(parents=True, exist_ok=True)
-                (meta.package_dir / "dist.yak").write_bytes(b"committed")
-            marker = _seed_marker(meta, _DEAD_PID, previous)
+            meta.package_dir.mkdir(parents=True, exist_ok=True)
+            (meta.package_dir / "dist.yak").write_bytes(b"committed")
+            marker = _seed_marker(meta, _DEAD_PID, previous, phase=transaction_mod._Phase.COMMITTED)
         case _:
             pass
-    assert assert_ok(_pkg_mod._recover(meta, yak_shape.slug)) == expected
+    assert assert_ok(_pkg_mod._transaction(meta, yak_shape.slug).recover()) == expected
     assert marker is None or not marker.exists()
     assert previous is None or not previous.exists()
-    if direction in {"forward", "back"}:
-        assert (meta.package_dir / "dist.yak").read_bytes() == (b"committed" if direction == "forward" else b"old")
+    if direction == "forward":
+        assert (meta.package_dir / "dist.yak").read_bytes() == b"committed"
 
 
 def test_recover_live_pid_marker_is_busy(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """Live-pid marker yields BUSY and preserves the pending commit."""
     meta = yak_shape.materialize(assay_root)
-    marker = _seed_marker(meta, os.getpid(), meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}"))
-    e = assert_error_status(_pkg_mod._recover(meta, yak_shape.slug), RailStatus.BUSY)
+    marker = _seed_marker(meta, os.getpid(), _seed_previous(meta, os.getpid()))
+    e = assert_error_status(_pkg_mod._transaction(meta, yak_shape.slug).recover(), RailStatus.BUSY)
     assert str(os.getpid()) in e.message
     assert marker.exists()
 
 
-def test_recover_delegates_liveness_to_engine_proc_dead(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_recover delegates marker liveness to the engine-owned proc_dead ladder."""
+def test_recover_delegates_liveness_to_engine_process_identity(
+    assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Package recovery delegates pid-reuse-safe liveness to the engine process-identity ladder."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
     marker = _seed_marker(meta, _DEAD_PID, previous)
-    monkeypatch.setattr(_pkg_mod, "proc_dead", lambda _pid: False)
-    e = assert_error_status(_pkg_mod._recover(meta, yak_shape.slug), RailStatus.BUSY)
+    monkeypatch.setattr(transaction_mod, "proc_identity_dead", lambda _pid, _created: False)
+    e = assert_error_status(_pkg_mod._transaction(meta, yak_shape.slug).recover(), RailStatus.BUSY)
     assert str(_DEAD_PID) in e.message
     assert marker.exists()
     assert previous.exists()
 
 
-def test_recover_corrupt_marker_clears(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """An undecodable sentinel is cleared without touching package_dir or any previous tree."""
+def test_recover_corrupt_marker_fails_closed(assay_root: AssayHarness, yak_shape: YakShape) -> None:
+    """An undecodable journal fails closed without touching package_dir or discarding the recovery evidence."""
     meta = yak_shape.materialize(assay_root)
     marker = _marker_path(meta)
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_bytes(b"{not json")
-    assert assert_ok(_pkg_mod._recover(meta, yak_shape.slug)) == "clear"
-    assert not marker.exists()
+    e = assert_error_status(_pkg_mod._transaction(meta, yak_shape.slug).recover(), RailStatus.FAULTED)
+    assert "undecodable transaction journal retained" in e.message
+    assert marker.exists()
 
 
 def test_commit_success_clears_pending_marker(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """_commit brackets the swap with the sentinel and leaves no marker after a successful commit."""
     meta = yak_shape.materialize(assay_root)
-    staged = Path(assay_root.write(f"staged-sentinel/{yak_shape.package_pattern}", "yak")).parent
+    staged = meta.package_dir.with_name(f"{meta.package_dir.name}.staged.{os.getpid()}.0")
+    staged.mkdir(parents=True)
+    (staged / yak_shape.package_pattern).write_bytes(b"yak")
     assert_ok(_pkg_mod._commit(meta, staged, yak_shape.slug))
     assert (meta.package_dir / yak_shape.package_pattern).is_file()
     assert not _marker_path(meta).exists()
@@ -616,7 +655,10 @@ def test_stage_heals_dead_pid_marker_under_lease(assay_root: AssayHarness, yak_s
     """Publish heals dead-pid stage markers inside the package lease before committing the distribution."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)
-    marker = _seed_marker(meta, _DEAD_PID, previous)
+    staged = meta.package_dir.with_name(f"{meta.package_dir.name}.staged.{_DEAD_PID}.0")
+    staged.mkdir(parents=True)
+    (staged / "dist.yak").write_bytes(b"interrupted")
+    marker = _seed_marker(meta, _DEAD_PID, previous, staged)
     assay_root.supervisor()
     executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
     report = assert_ok(publish(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), executor))

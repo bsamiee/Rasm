@@ -2,7 +2,7 @@
 
 One array-native computational-geometry owner rules: `SpatialQuery` discriminates Qhull tessellation, KD-tree proximity, the pairwise/condensed distance matrix, the rotation-and-alignment algebra, and the alpha-shape boundary fold over a point set, and `resolve` folds every case to a `SpatialEvidence` outcome the `SpatialReceipt` carries whole. This owner emits point-set evidence as compute-native receipts and never re-owns the geometry-branch `trimesh` mesh surface; the graduation direction is closed one-way — geometry's reconstruction plane mints `reconstructed-mesh`, the alpha-shape `Boundary` stays a compute-native receipt product, and an outward crossing requires a named consumer and a compute-owned axis case, never the geometry case.
 
-Each point set admits through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the query-owned `identity_parts` fold handed to `IdentitySource(parts=...)`, so the count-and-length framing runs at the identity owner and two different queries over one point set never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.spatial` is not Array-API-aware, so the point set is the numpy `np.ndarray` the Qhull/KD-tree/BLAS backends bind under the `RELEASING` trait, isolation and band deriving at the runtime `Kernel` crossing; the KD-tree scan team binds to `LanePolicy.capacity` threaded through the kernel, never the unbounded `workers=-1` team that oversubscribes an already-offloaded kernel against the band.
+Each point set admits through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the query-owned `identity_parts` fold handed to `IdentitySource(parts=...)`, so the count-and-length framing runs at the identity owner and two different queries over one point set never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.spatial` is not Array-API-aware, so the point set is the numpy `np.ndarray` the Qhull/KD-tree/BLAS backends bind under the `RELEASING` trait, isolation and band deriving at the runtime `Kernel` crossing. The direct native kernel enters through `LanePolicy.whole`, and the resulting `LaneGrant.width` is the KD-tree scan width threaded through the kernel — never an allocator-total read or the unbounded `workers=-1` team that multiplies inner and outer parallelism.
 
 ## [01]-[INDEX]
 
@@ -263,7 +263,7 @@ class SpatialQuery:
                 return int(self.points.shape[0])
 
     def resolve(self, workers: int) -> SpatialEvidence:
-        # `workers` is the lane capacity both KD-tree scans bind — `-1` fans a full-CPU team inside a band-bounded worker.
+        # `workers` is the whole-lane grant width both KD-tree scans bind — `-1` creates an unbounded nested team.
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(pts, qs, k)):
                 # admission precedes the clamp: a non-positive `k` and an empty reference set are caller defects the
@@ -469,10 +469,14 @@ def _spatial_kernel(query: SpatialQuery, workers: int) -> "RuntimeRail[SpatialRe
 
 
 async def solve(query: SpatialQuery, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SpatialReceipt]":
-    # Weave owns span, fence, and the fenced contributor harvest; `lane.capacity` bounds the KD-tree scan team.
+    # Weave owns span, fence, and the fenced contributor harvest; the whole-lane grant bounds the KD-tree scan team.
     async def dispatch() -> RuntimeRail[SpatialReceipt]:
         # One flatten from `RuntimeRail[RuntimeRail[SpatialReceipt]]` to `RuntimeRail[SpatialReceipt]`.
-        return (await lane.offload(Kernel.of(_spatial_kernel, KernelTrait.RELEASING), query, lane.capacity)).bind(lambda rail: rail)
+        return (
+            await lane.whole(
+                lambda grant: lane.offload(Kernel.of(_spatial_kernel, KernelTrait.RELEASING), query, grant.width)
+            )
+        ).bind(lambda rail: rail)
 
     return await evidence_run(EvidenceScope.SPATIAL, f"spatial.{query.tag}", dispatch, facts={"query": query.tag, "points": query.cardinality}, composition=composition)
 ```

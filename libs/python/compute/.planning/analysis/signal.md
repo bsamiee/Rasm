@@ -1,12 +1,13 @@
 # [PY_COMPUTE_SIGNAL]
 
-`SignalOp` is the one classical signal-analysis operation owner, discriminating the `scipy.signal` stationary rows — zero-phase IIR/FIR filtering, `welch`/`spectrogram` estimation, polyphase resampling, `find_peaks` structure — beside the `pywt` multiresolution rows — decimated/stationary decomposition with optional coefficient-shrink denoise, additive `mra` bands, the CWT scalogram, the frequency-ordered packet tree — folded through the single `apply` entry, so a transient or non-stationary mode the Welch estimate averages away is first-class evidence on the same owner, never a per-transform method family. Output is parameterized as tightly as input: `SignalEvidence` discriminates one carrier per evidence shape and the thin `SignalReceipt` holds the union whole. No learned or neural filter enters this owner.
+`SignalOp` is the one classical signal-analysis operation owner, discriminating the `scipy.signal` stationary rows — zero-phase IIR/FIR filtering, `welch`/`spectrogram` estimation, polyphase resampling, `find_peaks` structure — beside the `pywt` multiresolution rows — decimated/stationary decomposition with optional coefficient-shrink denoise, additive `mra` bands, the CWT scalogram, the frequency-ordered packet tree — folded through the single `apply` entry, so a transient or non-stationary mode the Welch estimate averages away is first-class evidence on the same owner, never a per-transform method family. `WaveformExchange` writes the admitted two-axis float corpus through the native HDF5 seam the C# signal lane consumes; it is the boundary producer, not a second analysis owner. Output is parameterized as tightly as input: `SignalEvidence` discriminates one carrier per evidence shape and the thin `SignalReceipt` holds the union whole. No learned or neural filter enters this owner.
 
 Operands admit through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. Both paths ride one numpy floor — `scipy.signal` entrypoints stay out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait. Receipts key the RESULT: `SignalOp.identity_parts` hands op tag, payload rows, sample rate, and operand key to `IdentitySource(parts=...)` as N SEMANTIC fields, so the count-and-length framing runs at the identity owner and distinct operations over one operand carry distinct receipt keys.
 
 ## [01]-[INDEX]
 
 - [02]-[DSP]: the stationary `scipy.signal` rows beside the `pywt` wavelet rows on one `SignalOp` owner, evidence discriminated over `SignalEvidence`.
+- [03]-[WAVEFORM_EXCHANGE]: native HDF5 publication of finite `[samples, channels]` float corpora for the C# interchange reader.
 
 ## [02]-[DSP]
 
@@ -20,7 +21,7 @@ Operands admit through `numerics/array#PAYLOAD` for the finite gate and the oper
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import cache
-from math import gcd
+from math import gcd, isfinite
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
@@ -35,10 +36,12 @@ from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.roots import ResourceRef
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # cold scientific dependencies: the `lazy` binds defer the wavelet and scipy trees to the first route build or kernel body.
 lazy import pywt
+lazy import h5py
 lazy import scipy.signal as sig
 
 if TYPE_CHECKING:
@@ -273,7 +276,10 @@ class SignalOp:
 SIGNAL_APPLY: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.SIGNAL, point="apply", arm="boundary", defect="kernel-refused", retriability=TERMINAL
 )
-RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SIGNAL_APPLY]))
+WAVEFORM_WRITE: Final[FaultRow[ComputeLeg]] = FaultRow(
+    leg=ComputeLeg.SIGNAL, point="waveform_write", arm="boundary", defect="waveform-write", retriability=TERMINAL
+)
+RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SIGNAL_APPLY, WAVEFORM_WRITE]))
 
 
 # one row per DecompMode: `_decompose` indexes the (forward, inverse, max-level) triple and runs one forward and one inverse body
@@ -422,9 +428,56 @@ def _decompose(wavelet: str, level: int, mode: DecompMode, denoise: ThresholdMod
     rebuilt = inverse(coeffs if shrink is None else [coeffs[0], *map(shrink, coeffs[1:])], wavelet)[: x.size]
     residual = float(np.linalg.norm(rebuilt - x) / (np.linalg.norm(x) + 1e-30))
     return SignalReceipt.of("decompose", x.size, lineage, SignalEvidence.Multiresolution(_coeff_energy(coeffs), residual, denoise))
+
+
+# --- [WAVEFORM_EXCHANGE] ---------------------------------------------------------------
+
+
+class WaveformExchange:
+    """The native `[samples, channels]` HDF5 publisher consumed by C# `ImportWaveforms`."""
+
+    @staticmethod
+    def write(ref: ResourceRef, samples: object, sample_rate: float) -> "RuntimeRail[int]":
+        def landed(payload: ArrayPayload) -> int:
+            values = np.asarray(samples)
+            if len(payload.shape) != 2 or any(extent <= 0 for extent in payload.shape):
+                raise ValueError(f"waveform shape: {payload.shape}")
+            if not np.issubdtype(values.dtype, np.floating):
+                raise TypeError(f"waveform dtype: {values.dtype}")
+            if not isfinite(sample_rate) or sample_rate <= 0.0:
+                raise ValueError(f"waveform sample rate: {sample_rate}")
+            wire = np.asarray(values, dtype="<f4")
+            sample_chunk = max(1, min(wire.shape[0], (1 << 16) // wire.shape[1]))
+            with h5py.File(str(ref.path), "x") as file:
+                dataset = file.create_dataset(
+                    "waveform",
+                    data=wire,
+                    chunks=(sample_chunk, wire.shape[1]),
+                    compression="gzip",
+                    compression_opts=4,
+                    shuffle=True,
+                )
+                dataset.attrs["sample-rate"] = np.asarray(sample_rate, dtype="<f8")
+            return ref.path.stat().st_size
+
+        return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
+            lambda payload: boundary(
+                WAVEFORM_WRITE,
+                lambda: landed(payload),
+                catch=(OSError, OverflowError, TypeError, ValueError),
+            )
+        )
 ```
 
-## [03]-[RESEARCH]
+## [03]-[WAVEFORM_EXCHANGE]
+
+- Owner: `WaveformExchange` — the Python producer paired with `csharp:Rasm.Compute/Runtime/field#SCIENTIFIC_INGEST` `InterchangeIo.ImportWaveforms`; it emits one fixed `/waveform` dataset and no format registry or alternate carrier.
+- Entry: `write(ref, samples, sample_rate)` admits finiteness through `ArrayPayload`, requires a non-empty two-axis floating operand and a finite positive rate, writes create-only HDF5, and returns the flushed byte extent.
+- Wire: `/waveform` is little-endian float32 `[samples, channels]`, chunked along samples with the whole channel axis, Shuffle then gzip level 4; its only attribute is little-endian float64 `sample-rate`, and the root owns no attributes.
+- Packages: `h5py` (`File`, `create_dataset`, dataset attributes), `numpy`, and the `numerics/array#PAYLOAD` admission substrate.
+- Boundary: matrix coefficients, long SHM records, and reference spectra share this two-axis carrier because the C# reader frames them under its own admitted window. A Python-side frame array, arbitrary dataset-name knob, second HDF owner, or hidden structure metadata is rejected.
+
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

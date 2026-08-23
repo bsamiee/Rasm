@@ -12,7 +12,7 @@ runtime/
 │   ├── metrics.py      # Instrument census, metric-stream view rows and tenant budget, the record mapping, and the instrumentor train
 │   ├── hooks.py        # HookPoint rows, the Modality family, the shared StageMark long-fold payload; custody keyed and released per scope
 │   ├── profiles.py     # SignalProfile selection, BenchmarkReceipt and JobRun.bounded rows over the install gate
-│   ├── telemetry.py    # One install gate over providers and detectors, and the ConformanceDocument this branch mints
+│   ├── telemetry.py    # One install gate over providers and detectors, plus the native conformance receipt
 │   ├── bundle.py       # BUNDLE_DESCRIPTOR/BUNDLE_WIRE shapes and the pull-only capsule; collectors run fenced
 │   └── journal.py      # Fact family with Retain classes, the JournalGate hook roster, KEK shredding, and the Ledger/Custody ports
 ├── reliability/        # One fault family and resilience policy every sibling returns through
@@ -20,15 +20,15 @@ runtime/
 │   └── resilience.py   # RetryClass rows, RateGate, and the guard/guarded/guarded_sync decorators at the free BASE
 ├── transport/          # Resource roots, the companion server, the wire codec, and the message-envelope owner with its bindings and filters
 │   ├── roots.py        # ResourceRef mint the transport and worker legs resolve bytes through
-│   ├── serve.py        # ServerHost, the WireService/WireMethod roster alignment, and the Supervisor drain order
-│   ├── shapes.py       # PROTO_VOCABULARY and SPLAT_FORMS rows; one boot gate grades drift, correspondence, and closure
-│   ├── wire.py         # WireProtoCodec, the MIRROR_* vocabulary checks, and the WireU64/Hlc two-half encode
-│   ├── event.py        # MessageEnvelope mint, Uniqueness composite, Content modes, and the NUMERIC_EXTENSIONS carve
-│   ├── binding.py      # BINDINGS row table, the CLASSIFICATION_ROWS gate, and BrokerLane's one connection owner
+│   ├── serve.py        # Connect host with metadata admission, body validation, health, typed details, and the Supervisor drain order
+│   ├── shapes.py       # SPLAT_FORMS rows, the FaultRecovery correspondence, the REGISTRY descriptor seat, and the two-way boot census over services
+│   ├── wire.py         # Decode, the CRDT op-log codec, and one-family fields with retained presence/RGA horizons
+│   ├── event.py        # Strict generic CloudEvents, MessageEnvelope profile, format rows, and extension codecs
+│   ├── binding.py      # Binding rows, payload residence, authenticated delivery scope, and BrokerLane custody
 │   └── filter.py       # Cesql lowered closures over the LALR grammar; FilterDialect pushdown rows and the Subscription seat
 ├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker crossing, and recipe execution
-│   ├── admission.py    # RuntimeContext/RuntimeProfile owners, SecretBoundary and SettingsAdmission, TenantAdoption
-│   ├── lanes.py        # LanePolicy/Admit task groups and StagePlan; capacity projects from the profile row
+│   ├── admission.py    # RuntimeContext/Profile, SecretBoundary, SettingsAdmission, PrincipalScope, and TenantAdoption
+│   ├── lanes.py        # LanePolicy/Admit task groups, whole-capacity grants, and StagePlan; capacity projects from the profile row
 │   ├── workers.py      # Kernel/KernelTrait crossing values, WorkerPool and Charge, Enforcement and Supervisor arms
 │   └── recipe.py       # RecipeSpec/RecipeName rows and the port seat geometry binds; lbt binds function-local
 └── evidence/           # Logical time, content-addressing, the seed-parity corpus, and structural-surface evidence
@@ -87,8 +87,7 @@ flowchart TB
         Faults[faults]
     end
     Serve e1@-->|"[IMPORT]: RecipeSpec"| Recipe
-    Serve e2@-->|"[IMPORT]: SupportBundle"| Bundle
-    Serve e3@-->|"[IMPORT]: WireProtoCodec"| Wire
+    Serve e3@-->|"[IMPORT]: RecoveryCell"| Shapes
     Serve e4@-->|"[IMPORT]: Emitter"| Binding
     Serve e5@-->|"[IMPORT]: Ledger"| Journal
     Binding e6@-->|"[IMPORT]: MessageEnvelope"| Event
@@ -98,7 +97,6 @@ flowchart TB
     Filter e10@-->|"[IMPORT]: EventType"| Event
     Bundle e11@-->|"[IMPORT]: Profiles"| Profiles
     Bundle e12@-->|"[IMPORT]: Hooks"| Hooks
-    Bundle e13@-->|"[IMPORT]: SupportBundleReply"| Shapes
     Journal e14@-->|"[IMPORT]: HookPoint"| Hooks
     Journal e15@-->|"[IMPORT]: Hlc"| Clock
     Journal e16@-->|"[IMPORT]: SecretBoundary"| Admission
@@ -113,7 +111,7 @@ flowchart TB
     Telemetry e25@-->|"[IMPORT]: RuntimeProfile"| Admission
     Telemetry e26@-->|"[IMPORT]: LogShip"| Logging
     Wire e27@-->|"[IMPORT]: ElementId"| Clock
-    Wire e28@-->|"[IMPORT]: PROTO_VOCABULARY"| Shapes
+    Wire e28@-->|"[IMPORT]: WireU64"| Shapes
     Admission e29@-->|"[IMPORT]: CausalFrame"| Clock
     Admission e30@-->|"[IMPORT]: RetryClass"| Resilience
     Roots e31@-->|"[IMPORT]: RetryClass"| Resilience
@@ -154,7 +152,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime C# platform and kernel seams
-    accDescr: Runtime sub-domain owners exchanging content keys, wire codecs, gRPC transport, and clock stamps with the C# peers.
+    accDescr: Runtime sub-domain owners exchanging content keys, wire codecs, Connect transport, and clock stamps with the C# peers.
     subgraph runtime[RUNTIME]
         Evidence[Evidence]
         Admission[Admission]
@@ -167,18 +165,15 @@ flowchart LR
     Persistence[(Rasm.Persistence)]
     AppHost{{Rasm.AppHost}}
     Materials([Rasm.Materials])
-    Materials e1@-->|"[WIRE]: MaterialWire"| Transport
-    Materials e2@-->|"[WIRE]: TextureSetWire"| Transport
     Evidence e3@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     Evidence e4@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Compute e5@-->|"[WIRE]: XxHash128"| Evidence
     Transport e6@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| Compute
     Transport e7@<-->|"[WIRE]: OpLogEntry"| Persistence
     Persistence e8@<-->|"[CONTRACT]: BackendContract"| Admission
-    Transport e9@<-->|"[WIRE]: DiscoveryResult"| AppHost
+    AppHost e9@-->|"[WIRE]: capability.v1.DiscoverResponse"| Transport
     Observability e10@<-->|"[TRANSPORT]: TraceContext"| AppHost
     AppHost e11@<-->|"[WIRE]: HlcStampWire"| Evidence
-    Observability e12@<-->|"[CONTRACT]: ConformanceDocument"| AppHost
 ```
 
 ```mermaid
@@ -202,7 +197,7 @@ flowchart LR
     Data{{python:data}}
     Artifacts{{python:artifacts}}
     Compute{{python:compute}}
-    Transport e1@<-->|"[WIRE]: TessellationRequest"| Geometry
+    Transport e1@<-->|"[WIRE]: TessellateRequest"| Geometry
     Geometry e2@-->|"[CONTENT_KEY]: ContentIdentity"| Evidence
     Geometry e3@-->|"[PORT]: RecipeInterface"| Execution
     Data e4@-->|"[CONTENT_KEY]: ContentIdentity"| Evidence
@@ -218,7 +213,7 @@ flowchart LR
     Artifacts e14@-->|"[RECEIPT]: ArtifactReceipt"| Observability
     Execution e15@-->|"[CONTENT_KEY]: ContentKey"| Artifacts
     Execution e16@-->|"[PORT]: Kernel"| Artifacts
-    Transport e17@-->|"[SHAPE]: AssetSetManifest"| Artifacts
+    Transport e17@-->|"[SHAPE]: appearance.v1.Set"| Artifacts
     Artifacts e18@-->|"[PORT]: HookPoint"| Observability
     Evidence e19@-->|"[CONTENT_KEY]: ParityReceipt"| Compute
     Transport e20@-->|"[BOUNDARY]: ResourceRef"| Compute
@@ -238,7 +233,11 @@ flowchart LR
     Observability e28@-->|"[PORT]: Hooks"| Geometry
 ```
 
-Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the C# peers. Frozen registry names spell from the counterpart's endpoint page; `ServerHost`/`CommandReceipt`, `PROTO_VOCABULARY`, `FaultDetail`, `CrdtOp`, and `ContentKey` are this package's interior spellings behind the `DiscoveryResult`, `ProtoVocabulary`, `FaultDetail`, `OpLogEntry`, and `ContentAddress` wires.
+Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the C# peers.
+
+Frozen registry names spell from the counterpart's endpoint page, so `ServerHost`/`CommandReceipt`, the generated `rasm.contracts` classes, `FaultDetail`, generated `CrdtOpWire`, and `ContentKey` are this package's interior spellings behind their counterpart wires.
+
+Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-status leg over the companion UDS, and upstream `health.proto` is the frozen publisher source both ends generate from.
 
 ## [04]-[INTERNAL]
 
@@ -282,14 +281,14 @@ flowchart LR
 - `observability` produces local evidence alone — never an AppHost message envelope or health status.
 - Collector ingest admits an OTLP receiver alone; no stdout tail promotes anything.
 - Only the telemetry root registers the `LoggerProvider` the log chain resolves.
-- Bundle capsules serve only through the registered diagnostic route.
+- Bundle capsules remain local evidence values; no diagnostic RPC is declared.
 - Journal facts are the branch's evidence truth; every projected series is derived, dropping at warm-up cost.
 - Durable ledgers bind as a port at composition beside the emitter identity their rows partition on.
 - This stratum opens no connection and executes no retention mechanism.
 - `reliability` owns the one boundary-fault surface, the retry policy, the per-dependency failure window, and the per-destination admission rate.
 - `transport`'s `BrokerLane` is the one connection owner — every protocol lowering is a row, and no consumer opens a socket of its own.
 - `execution` admits host facts caller-owned, reads secrets through the settings-admitted boundary, and mints no stamp beside the inbound frame.
-- Ingress ADMITS producer claims against a composition-bound trust row and inherits nothing — a decoded fact carries no authority its transport held.
+- Ingress admits event source and grade against a composition-bound trust row, taking tenancy from the authenticated principal scope alone.
 - Concurrency stays bounded under `StagePlan` and the one scheduler owner, every work lane draining to a `DrainReceipt`.
 - Every kernel leaves the loop as one `Kernel` value on the closed worker-kind family.
 - Warm pools, restart actuation, and the serve health-flip verdict projection stay the workers owner's.

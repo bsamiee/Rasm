@@ -10,7 +10,7 @@ import pytest
 
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.core.model import Claim, Fault, ProvisionRun, RailStatus, receipt
+from tools.assay.core.model import Band, Claim, Fault, ProvisionRun, RailStatus, receipt
 from tools.assay.rails import provision as provision_rail
 from tools.assay.rails.provision import ProvisionParams
 
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_STACK_VERB_NAMES = ("up", "down", "status", "doctor", "ports", "inventory", "extensions", "plan", "env", "apply")
+_STACK_VERB_NAMES = ("up", "down", "status", "doctor", "ports", "inventory", "extensions", "plan", "env", "apply", "tools")
 
 COVERS: tuple[object, ...] = (ProvisionParams, provision_rail.check, *(getattr(provision_rail, verb) for verb in _STACK_VERB_NAMES))
 
@@ -637,7 +637,7 @@ def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness, rc: in
     report = assert_ok(_run(provision_rail.status, assay_root, executor))
     detail = _detail(report)
     assert report.status is RailStatus.FAILED
-    assert report.counts.failed == 1
+    assert report.counts.band(Band.REFUSED) == 1
     assert not report.artifacts
     assert detail.ok is False
     assert detail.error == (("code", "port-conflict"), ("message", "fixed port is busy"), ("exitCode", str(rc)))

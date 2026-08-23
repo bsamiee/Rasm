@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-`libs/python` is the independently adoptable host-free science, compute, data, geometry, IFC, and artifact platform. `runtime` mints the shared Python value shapes; `compute`, `data`, `geometry`, and `artifacts` compose them at their boundaries.
+`libs/python` orders the branch packages in acyclic upward-only import strata: the `runtime` floor, `data` above it, the `compute` and `geometry` peers over both, and `artifacts` beneath the app root. `contracts` seats below the floor as the installable generated SDK every package consumes, and `cad` rides plane-distinct on it alone.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -10,7 +10,9 @@ libs/python/
 ├── compute/    # Offline scientific evidence that graduates through one rail
 ├── data/       # Portable data interchange: tabular, spatial, gridded, graph
 ├── geometry/   # Host-free geometry + IFC/BIM production and cross-boundary owner
-└── artifacts/  # Publication and print-production engine under one ArtifactReceipt
+├── artifacts/  # Publication and print-production engine under one ArtifactReceipt
+├── contracts/  # Generated rasm.contracts bindings; the wire vocabulary every folder imports
+└── cad/        # OCCT exact-modeling provider; generated CadService is its only branch boundary
 ```
 
 ## [02]-[STRATA]
@@ -18,6 +20,8 @@ libs/python/
 Cross-package coupling is a published boundary import or a content-keyed wire; no package imports another's interior.
 
 - S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
+- `contracts` — installable generated SDK beneath S0: generation authors wire modules, packaging owns distribution, and siblings only consume it.
+- S1 `cad` — plane-distinct exact-modeling provider seating above `contracts` alone; no sibling imports its owners or native handles.
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; geometry evidence enters `compute` as `GeometryHandoff` wire, never an import.
 - S2→S1 `geometry` lands its mesh facts on data's `FactJournal` ledger leg — a wire-grain crossing beside its `arrow_bytes` import.
@@ -52,6 +56,9 @@ flowchart TB
     subgraph S0["S0 RUNTIME"]
         Runtime[runtime]
     end
+    subgraph ISO["PLANE-DISTINCT OCCT PROVIDER"]
+        Cad[cad]
+    end
     Artifacts e1@-->|"[IMPORT]: GraduationReceipt"| Compute
     Artifacts e2@-->|"[IMPORT]: ContentKey"| Runtime
     Artifacts e3@-->|"[IMPORT]: ObjectStoreLane"| Runtime
@@ -69,11 +76,14 @@ flowchart TB
     Data e15@-.->|"[COUNTER]: Ledger"| Runtime
     Artifacts ~~~ Compute
     Runtime f1@-->|"forbidden: upward import"| S3
+    Cad e16@-.->|"[WIRE]: CadService"| Geometry
 ```
 
 ## [03]-[SEAMS]
 
-Python meets peer branches through corpus contracts and serialized artifacts. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling and folds its peer legs to prose: runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, runtime↔Rasm.Persistence a bidirectional `[CONTRACT]: BackendContract` leg beside its drawn wire, `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation reverse payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`.
+Python meets peer branches through corpus contracts, serialized artifacts, and native publisher containers. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling and folds its peer legs to prose: runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, and runtime↔Rasm.Persistence a bidirectional `[CONTRACT]: BackendContract` leg beside its drawn wire.
+
+`ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation descriptor payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`; its serving-population reference crosses separately as `GraduationEnvelope`.
 
 ```mermaid
 ---
@@ -106,22 +116,23 @@ flowchart LR
     Geometry e3@<-->|"[WIRE]: ComputeService"| RasmCompute
     Runtime e4@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Runtime e5@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
-    Runtime e6@<-->|"[WIRE]: DiscoveryResult"| AppHost
+    AppHost e6@-->|"[WIRE]: capability.v1.DiscoverResponse"| Runtime
     Runtime e7@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| RasmCompute
     Runtime e8@<-->|"[WIRE]: OpLogEntry"| Persistence
-    Materials e9@-->|"[WIRE]: MaterialWire"| Runtime
-    Materials e10@-->|"[WIRE]: TextureSetWire"| Runtime
     Compute e11@<-->|"[GRADUATION]: HandoffAxis"| RasmCompute
     RasmCompute e12@-->|"[SHAPE]: DoeDataset"| Data
     Data e13@<-->|"[WIRE]: SubstraitPlan"| Persistence
-    Data e14@-->|"[WIRE]: Environmental"| Materials
+    Data e14@-->|"[WIRE]: declaration.v1.DeclarationRecord"| Materials
     Bim e15@-->|"[PROJECTION]: GeoWire"| Data
-    Artifacts e16@-->|"[WIRE]: AssetSetManifest"| Materials
+    Artifacts e16@-->|"[WIRE]: appearance.v1.Set"| Materials
     Artifacts e17@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
-    Fabrication e18@-->|"[WIRE]: GdtFrameWire"| Artifacts
+    Fabrication e18@-->|"[WIRE]: fabrication.v1.FeatureControl"| Artifacts
+    RasmCompute e19@-->|"[CONTAINER]: FieldContainer"| Data
+    Compute e20@<-->|"[CONTAINER]: SparseExchange"| RasmCompute
+    Compute e21@-->|"[CONTAINER]: GraduationEnvelope"| RasmCompute
 ```
 
-Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Runtime's transport plane alone holds the branch proto vocabulary and its descriptor drift gate, grading schema drift at boot before the first RPC.
+Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Generated `contracts` classes carry the branch proto vocabulary every folder imports, runtime's transport plane holds the generated-bindings edge — the served Connect applications, the one descriptor registry, and the two-way boot census over closure and generated services — and contract compatibility is the corpus gate's (`buf breaking`), never a runtime descriptor diff.
 
 ## [04]-[INTERNAL]
 
@@ -184,22 +195,22 @@ flowchart LR
 
 ## [05]-[ROUTING]
 
-| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]                     | [SHAPE_OF_THE_EDIT]                              |
-| :-----: | :---------------------------------- | :---------------------------------- | :----------------------------------------------- |
-|  [01]   | machinery a second sibling composes | `runtime`                           | one S0 owner row every consumer imports          |
-|  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`     | one `HandoffAxis` case                           |
-|  [03]   | a branch metric or signal           | `runtime/observability/metrics.py`  | one `INSTRUMENTS` row                            |
-|  [04]   | a hook point                        | `runtime/observability/hooks.py`    | one `HookPoint` row under a package-qualified id |
-|  [05]   | an external proto wire family       | `runtime/transport/shapes.py`       | one `PROTO_VOCABULARY` row the drift gate proves |
-|  [06]   | a package dependency                | root `pyproject.toml`               | one admission row in the owning group            |
-|  [07]   | a durable evidence fact             | `runtime/observability/journal.py`  | one `Fact` case beside its `Retain` class        |
-|  [08]   | a metered resource                  | `runtime/observability/journal.py`  | one `Resource` row in both branch spellings      |
-|  [09]   | a retention class                   | `runtime/observability/journal.py`  | one `Retain` member with its window row          |
-|  [10]   | an analytics residence              | `data/tabular/lakehouse.py`         | one row answering the estate residence floor     |
-|  [11]   | a remote columnar query end         | `data/tabular/query.py`             | one `RemoteDriver` row on the one Flight plane   |
-|  [12]   | a graded benchmark subject          | `runtime/observability/profiles.py` | one roster row at the owning folder              |
-|  [13]   | a store-reaching residence consumer | `runtime/transport/roots.py`        | one `store_handle` call carrying config+provider |
+| [INDEX] | [CHANGE]                            | [OWNER_SURFACE]                     | [SHAPE_OF_THE_EDIT]                                   |
+| :-----: | :---------------------------------- | :---------------------------------- | :---------------------------------------------------- |
+|  [01]   | machinery a second sibling composes | `runtime`                           | one S0 owner row every consumer imports               |
+|  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`     | one `HandoffAxis` case                                |
+|  [03]   | a branch metric or signal           | `runtime/observability/metrics.py`  | one `INSTRUMENTS` row                                 |
+|  [04]   | a hook point                        | `runtime/observability/hooks.py`    | one `HookPoint` row under a package-qualified id      |
+|  [05]   | an external proto wire family       | `tests/contracts/proto/…/<f>.proto` | one message on its family source; consumers import it |
+|  [06]   | a package dependency                | root `pyproject.toml`               | one admission row in the owning group                 |
+|  [07]   | a durable evidence fact             | `runtime/observability/journal.py`  | one `Fact` case beside its `Retain` class             |
+|  [08]   | a metered resource                  | `runtime/observability/journal.py`  | one `Resource` row in both branch spellings           |
+|  [09]   | a retention class                   | `runtime/observability/journal.py`  | one `Retain` member with its window row               |
+|  [10]   | an analytics residence              | `data/tabular/lakehouse.py`         | one row answering the estate residence floor          |
+|  [11]   | a remote columnar query end         | `data/tabular/query.py`             | one `RemoteDriver` row on the one Flight plane        |
+|  [12]   | a graded benchmark subject          | `runtime/observability/profiles.py` | one roster row at the owning folder                   |
+|  [13]   | a store-reaching residence consumer | `runtime/transport/roots.py`        | one `store_handle` call carrying config+provider      |
 
 ## [06]-[ADMISSION_POLICY]
 
-One root manifest owns interpreter admission, dependency groups, version bounds, and `python_version` markers; `RULINGS.md` settles which packages that interpreter floor gates and which stay ungated. Native rendering and OCCT/STEP admissions home to the owning `artifacts` and `geometry` registries. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+Root manifest owns the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers, and it is the branch's only manifest. Native distributions whose wheels stop below the floor ride the Forge python-overlay `.pth` behind one marker row; `RULINGS.md` settles that rail. Native rendering homes to `artifacts`; OCCT/STEP admission homes to the `cad` provider. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.

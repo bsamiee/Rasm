@@ -11,13 +11,13 @@ One cluster-coordination owner for the runtime spine: one `RoleName` identity is
 
 ## [02]-[ENDPOINT_RESOLUTION]
 
-- Owner: `RoleName` `[ValueObject<string>]` the logical cluster-role identity under the shipped `ComparerAccessors.StringOrdinal` accessor; `RoleResolution` the static authority surface every coordination row dials through.
-- Entry: `Authority(EndPoint endpoint)` returns `Validation<Error, Uri>` — projects ONE endpoint shape onto the authority the outbound hop dials and REFUSES an endpoint family it cannot name; `Balanced(RoleName role)` returns `Uri` — the service-name authority the resolving `HttpClient` balances across the live instance set.
-- Auto: coordination rows address peers by logical role, never a host literal — a `Balanced` authority naming the role is what a membership probe, an election peer, and a lock holder dial, and the package resolves that name to a live endpoint INSIDE the handler through the registered `ConfigurationServiceEndpointProvider` (cluster rows under the `Services` config section), so this page never calls a resolver and never holds the endpoint set that call returns; INSTANCE SELECTION IS THE PACKAGE'S — the round-robin selector is `internal`, registered as the default, and reached by giving the probe client `IHttpClientBuilder.AddServiceDiscovery()`, so one authority resolves to one live instance per call under the package's own `Interlocked` advance; the resolver caches per-role watchers and evicts unused entries on its own cleanup timer, so this page holds no endpoint cache, registers no change callback, and keeps no cursor; scheme admission rides `ServiceDiscoveryOptions.AllowedSchemes` so a resolved authority honors the configured scheme set; a contributor that supplied its OWN `EndPoint` is dialled at the `Authority` that endpoint projects, which seats the `OutboundHop.HttpApi(Uri)`/`Grpc(Uri)` the resilient hop already carries.
+- Owner: `RoleName` `[ValueObject<string>]` the logical cluster-role identity under the shipped `ComparerAccessors.StringOrdinal` accessor; `DialScheme` `[SmartEnum<string>]` the scheme half of the resolver query, its ordered-fallback row spelled the package's own way; `RoleResolution` the static authority surface every coordination row dials through.
+- Entry: `Authority(EndPoint endpoint, DialScheme scheme)` returns `Validation<Error, Uri>` — projects ONE endpoint shape onto the authority the outbound hop dials, applies the composition's scheme to the two families carrying none, and REFUSES an endpoint family it cannot name; `Balanced(RoleName role, DialScheme scheme)` returns `Uri` — the service-name authority the resolving `HttpClient` balances across the live instance set.
+- Auto: coordination rows address peers by logical role, never a host literal — a `Balanced` authority naming the role is what a membership probe, an election peer, and a lock holder dial, and the package resolves that name to a live endpoint INSIDE the handler through the registered `ConfigurationServiceEndpointProvider` (cluster rows under the `Services` config section), so this page never calls a resolver and never holds the endpoint set that call returns; INSTANCE SELECTION IS THE PACKAGE'S — the round-robin selector is `internal`, registered as the default, and reached by giving the probe client `IHttpClientBuilder.AddServiceDiscovery()`, so one authority resolves to one live instance per call under the package's own `Interlocked` advance; the resolver caches per-role watchers and evicts unused entries on its own cleanup timer, so this page holds no endpoint cache, registers no change callback, and keeps no cursor; the authority's own scheme IS the query's ordered `IncludedSchemes` list — `ServiceEndpointQuery.TryParse` splits it on `'+'`, so `https+http` states a real preference order the resolver walks — and `ServiceDiscoveryOptions.ApplyAllowedSchemes` intersects that list once `AllowAllSchemes` goes false, so a resolved authority honors both the requested order and the configured set; a contributor that supplied its OWN `EndPoint` is dialled at the `Authority` that endpoint projects, which seats the `OutboundHop.HttpApi(Uri)`/`Grpc(Uri)` the resilient hop already carries.
 - Receipt: an authority projection mints no fact of its own — the dial it seats is graded by `MEMBERSHIP_VIEW`, whose `MembershipReceipt` is the one transition a probe records, and a refused endpoint family accumulates onto that sweep's `Validation` rather than logging a parallel discovery event.
 - Packages: Microsoft.Extensions.ServiceDiscovery, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new addressable role is one `RoleName` with its config endpoint row; a non-resolving already-addressable target rides the `AddPassThroughServiceEndpointProvider` so a fixed endpoint enters the same resolution path; a new endpoint family is one `Authority` arm that must be NAMED to be admitted; zero new surface.
-- Boundary: the role NAME is the address this page owns and endpoint resolution itself is the PACKAGE's — a hard-coded host string, a second endpoint cache, a hand-rolled instance round-robin, and an explicit resolver call this page then folds are the deleted forms; the prior `cursor % Endpoints.Count` selection re-implemented the package's own internal selector AND assigned member A the endpoint of member B, so a per-member probe graded whichever instance the counter happened to land on; NAMED LOSS — the eager `Resolve` fold and the non-empty `ResolvedRole` carrier it filled, which no consumer ever read: a resolution materialized here is stale the moment the watcher moves, so the two honest addresses a member can hold (the one its contributor supplied and the role's own balanced authority) are what the record carries and the resolution happens at the dial; `Authority` REFUSES an unknown `EndPoint` family instead of stringifying it into a `UriBuilder`, because a fabricated authority dials a host nobody configured and reports the result as that member's health; the authority feeds the existing outbound hops so the resilience, breaker, and rate-limit stay the `Wire/outbound` hop policy, never a coordination-private client; the in-app companion attach stays the `Wire/companion` `DiscoveryManifest` UDS owner so `ServiceDiscovery` resolves only outbound network endpoints and never the local-IPC peer; the resolver the package registers is `IAsyncDisposable` and owned by the composition root, never seated on a runtime capsule here.
+- Growth: a new addressable role is one `RoleName` with its config endpoint row; a new dial preference is one `DialScheme` row spelling its ordered scheme list; a non-resolving already-addressable target rides the `AddPassThroughServiceEndpointProvider` so a fixed endpoint enters the same resolution path; a new endpoint family is one `Authority` arm that must be NAMED to be admitted; zero new surface.
+- Boundary: the role NAME is the address this page owns and endpoint resolution itself is the PACKAGE's — a hard-coded host string, a second endpoint cache, a hand-rolled instance round-robin, and an explicit resolver call this page then folds are the deleted forms; the prior `cursor % Endpoints.Count` selection re-implemented the package's own internal selector AND assigned member A the endpoint of member B, so a per-member probe graded whichever instance the counter happened to land on; NAMED LOSS — the eager `Resolve` fold and the non-empty `ResolvedRole` carrier it filled, which no consumer ever read: a resolution materialized here is stale the moment the watcher moves, so the two honest addresses a member can hold (the one its contributor supplied and the role's own balanced authority) are what the record carries and the resolution happens at the dial; `Authority` REFUSES an unknown `EndPoint` family instead of stringifying it into a `UriBuilder`, because a fabricated authority dials a host nobody configured and reports the result as that member's health, and the SCHEME falls under that same law — a `DnsEndPoint` and an `IPEndPoint` state none, so the one the composition declared crosses rather than a literal that pinned every cluster to TLS and left the package's ordered-fallback spelling unreachable, while a `UriEndPoint` keeps the scheme its contributor already supplied; the authority feeds the existing outbound hops so the resilience, breaker, and rate-limit stay the `Wire/outbound` hop policy, never a coordination-private client; the in-app companion attach stays the `Wire/companion` `DiscoveryManifest` UDS owner so `ServiceDiscovery` resolves only outbound network endpoints and never the local-IPC peer; the resolver the package registers is `IAsyncDisposable` and owned by the composition root, never seated on a runtime capsule here.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -40,20 +40,36 @@ namespace Rasm.AppHost.Wire;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct RoleName;
 
+// Scheme is QUERY DATA, not decoration: `ServiceEndpointQuery.TryParse` splits the authority's scheme on `'+'`
+// into an ORDERED `IncludedSchemes` list, and `ServiceDiscoveryOptions.ApplyAllowedSchemes` intersects it once
+// `AllowAllSchemes` goes false. A literal `https` on every projection pinned every role query to one scheme, so
+// a plain-http cluster row resolved nothing and the ordered-fallback spelling stayed unreachable, which is the
+// fabricated-coordinate defect the `NoEndpoint` refusal below exists to prevent, one field over.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class DialScheme {
+    public static readonly DialScheme Secure = new("https");
+    public static readonly DialScheme SecureFirst = new("https+http");
+    public static readonly DialScheme Plain = new("http");
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // `RoleName` IS the address: `Balanced` hands the resolving handler an authority it resolves per call, and
 // `Authority` projects the one endpoint a contributor supplied for itself. No resolver call, no endpoint set,
 // and no cursor lives here — a set materialized at this seam is stale the instant the package's watcher moves.
 public static class RoleResolution {
-    public static Validation<Error, Uri> Authority(EndPoint endpoint) =>
+    // `UriEndPoint` already STATES its scheme, so the composition value applies to the two families that carry
+    // none — inventing one for a value that has it would overwrite what the contributor supplied.
+    public static Validation<Error, Uri> Authority(EndPoint endpoint, DialScheme scheme) =>
         endpoint switch {
             UriEndPoint uri => Success<Error, Uri>(uri.Uri),
-            DnsEndPoint dns => Success<Error, Uri>(new UriBuilder(Uri.UriSchemeHttps, dns.Host, dns.Port).Uri),
-            IPEndPoint ip => Success<Error, Uri>(new UriBuilder(Uri.UriSchemeHttps, ip.Address.ToString(), ip.Port).Uri),
+            DnsEndPoint dns => Success<Error, Uri>(new UriBuilder(scheme.Key, dns.Host, dns.Port).Uri),
+            IPEndPoint ip => Success<Error, Uri>(new UriBuilder(scheme.Key, ip.Address.ToString(), ip.Port).Uri),
             var other => Fail<Error, Uri>(new CoordinationFault.NoEndpoint(other.GetType().Name)),
         };
 
-    public static Uri Balanced(RoleName role) => new($"{Uri.UriSchemeHttps}://{(string)role}");
+    public static Uri Balanced(RoleName role, DialScheme scheme) => new($"{scheme.Key}://{(string)role}");
 }
 ```
 
@@ -143,6 +159,7 @@ public static class Membership {
         Func<string, string, Fin<Unit>> MemberRelease,
         Func<string, Fin<Seq<(string Member, Instant Until)>>> MemberScan,
         Atom<MembershipView> View,
+        DialScheme Scheme,
         ClockPolicy Clocks,
         Duration Staleness,
         FactSink<CoordinationSignal> Fan) {
@@ -162,7 +179,9 @@ public static class Membership {
     // An unprojectable authority is a REFUSAL, not a dead peer: the member keeps the state it held and the
     // sweep reports why it could not be graded.
     internal static IO<Validation<Error, HealthStatus>> Dialled(Runtime runtime, MemberRecord member) =>
-        member.Endpoint.Match(Some: RoleResolution.Authority, None: () => Success<Error, Uri>(RoleResolution.Balanced(member.Role)))
+        member.Endpoint.Match(
+                Some: endpoint => RoleResolution.Authority(endpoint, runtime.Scheme),
+                None: () => Success<Error, Uri>(RoleResolution.Balanced(member.Role, runtime.Scheme)))
             .Match(
                 Succ: authority => IO.liftAsync(async () => Success<Error, HealthStatus>(
                     await runtime.Remote(authority, CancellationToken.None))),

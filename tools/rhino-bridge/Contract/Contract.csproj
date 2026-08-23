@@ -1,11 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Bridge wire contract shared by the supervisor, shell, cargo, and tests.</Description>
-        <CspScope>Boundary</CspScope>
         <!-- Wire assembly avoids LanguageExt in the shell ALC; Thinktecture owns generated wire vocabulary. -->
         <AssemblyName>Rasm.Bridge.Contract</AssemblyName>
         <RootNamespace>Rasm.Bridge.Contract</RootNamespace>
-        <!-- CA1819: arrays are the wire DTO shape. StreamJsonRpc0008 targets MessagePack shape rows unused by SystemTextJsonFormatter. -->
+        <!-- CA1819: arrays are the wire DTO shape. StreamJsonRpc0008 prescribes [GenerateShape], whose PolyType generator cannot construct the Thinktecture-generated wire types (CS1729 on EndpointRecord, EvidenceClass, PhaseStatus, ReferenceAdmission) and buys nothing while SystemTextJsonFormatter is the only formatter either end builds. -->
         <NoWarn>$(NoWarn);CA1819;StreamJsonRpc0008</NoWarn>
     </PropertyGroup>
     <ItemGroup Label="Wire Packages">

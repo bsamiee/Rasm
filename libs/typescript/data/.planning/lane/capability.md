@@ -7,7 +7,7 @@ One fail-closed rail carries this folder: a closed row/ensure vocabulary, one `C
 - [02]-[ROW_VOCABULARY]: row, ensure, and demand shapes, the two demand relations, the version-order fold, one fault family.
 - [03]-[BATCHED_PROBE]: probe request family and the one-statement `RequestResolver` over the roster.
 - [04]-[PROBE_SERVICE]: `Capability` service construction-time proof, corner phase, granted set, `require`/`when` gates.
-- [05]-[CONTRACT]: generated contract decode, canonical identity, local adapter admission, staged accumulating admission, recovery grading.
+- [05]-[CONTRACT]: generated contract admission, semantic identity, local adapter admission, staged accumulating admission, recovery grading.
 
 ## [02]-[ROW_VOCABULARY]
 
@@ -429,92 +429,60 @@ declare namespace Capability {
 
 ## [05]-[CONTRACT]
 
-- Owner: `Backend.compose` mints this branch's own contribution; `Backend.merge` folds contributions into the deployment unit; `Backend.project` decodes a foreign branch's contribution; `Backend.observe` maps one local reading — realized catalogue and recovery stamps together — into an observation; `Backend.admit` grades one verdict on the two proofs.
-- Cases: Effect SQL migrations, journal DDL, the PGLite generation, object-plane ensures, and the object custody descriptor each land as one `Source` row carrying key, role, bytes, providers, and dependencies — the branch composes from its own artifacts alone; the custody row's canonical bytes derive from settled retention and conformance tables with operator coordinates excluded from the preimage, minted at `object/store#CUSTODY_CONTRACT` beside its capability rows and realized-state observation.
-- Law: compose encodes the contract ONCE and digests the bytes it just framed; `project` reads transported octets and never re-encodes to compare, because `JSON.stringify` is canonical in no runtime but its own. `JSONSchema.make` derives the schema artifact from the same AST, so the encode and the schema cannot drift.
-- Law: core `Digest.mint("content", bytes)` mints the generation over the canonical UTF-8 artifact; data imports no hash package and reads no peer's digest.
+- Owner: `Backend.compose` mints this branch's own contribution; `Backend.merge` folds a non-empty contribution set into the deployment unit and retains the generated document's own contract coordinate; `Backend.project` decodes a foreign branch's contribution; `Backend.observe` maps one local reading — realized catalogue and recovery stamps together — into an observation; `Backend.admit` grades one verdict on the two proofs.
+- Cases: Effect SQL migrations, journal DDL, the PGLite generation, object-plane ensures, and the object custody descriptor each land as one generated `Artifact` carrying key, role, content, providers, and dependencies — the branch composes from its own artifacts alone; the custody row's stable content derives from settled retention and conformance tables with operator coordinates excluded from the preimage, minted at `object/store#CUSTODY_CONTRACT` beside its capability rows and realized-state observation.
+- Law: generated `Backend`, `Artifact`, and `Capability` messages are the contract vocabulary; `Format.proto` validates every message against the generated descriptor and protovalidate rules and emits the peer document through ProtoJSON. `CanonicalWriter` derives generation identity from the message's known semantic fields, never from protobuf or JSON serialization.
+- Law: ProtoJSON has no canonical byte spelling; `project` retains transported octets only for deployment, admits their semantic message once, and never compares them with a local re-encode. Merge collision checks use generated message equality over `Artifact` and `Capability` values.
+- Law: one generated-message projection defines the published order of every set-like repeated field; local and foreign documents must already equal that semantic projection before admission, so artifact, capability, provider, and dependency order cannot mint a second generation from one set.
+- Law: core `Digest.mint("content", chunks)` mints the generation over the one framed preimage: contract string; counted artifacts as key, role ordinal, framed content, counted provider ordinals, counted dependency strings; counted capabilities as their six generated fields in tag order. The schema is map-free and float-free, and unknown protobuf residue enters no field call, so map order, NaN spelling, and parser retention cannot fork it.
 - Law: contributions union by artifact key under `_byKey`, artifact and capability rows alike; a key two branches claim with differing content raises `collision`, so neither first-wins nor last-wins resolves one and the merged generation re-mints from the union.
+- Law: the generated document owns `contract` — `merge` derives the coordinate from the non-empty contribution set and proves every peer carries the same value; a deploy pointer, target name, or registry coordinate never enters the fold, so deployment naming cannot rename a branch contract or make one contribution merge for one target and refuse for another.
 - Law: artifact key order is the whole wire order — a dependency-depth or topological rank inside the stream mints a second generation from one artifact set, so `_projection` proves the dependency keys and no path validates by sorting.
-- Law: `failureRank` and `restartClass` decode as closed literals whose tokens are corpus law; `_RESTART_ORDER` declares the restart tokens in rank order and its index IS the rank, so `Backend.worst` folds an aggregated repair to the worst disruption across its gap set rather than the least.
+- Law: generated `FailureRank` carries the explicit absorption policy and is never ordinal-ranked. `RestartClass` alone carries disruption order; every admitted optional gap survives on `Generation.gaps`, and `restart` folds the worst repair disruption while required gaps still refuse admission.
+- Law: `_BACKEND_DOCUMENT_CEILING` rejects transported ProtoJSON before generated decode and emitted ProtoJSON before publication. Its 512 KiB budget sits beneath the 1 MiB ConfigMap residence after base64 and object metadata; descriptor string, content, and repeated-field ceilings remain the constructed-message floor.
 - Law: admission ACCUMULATES across independent columns and SEQUENCES across dependent ones, and the shape at the call site is the whole disposition — `_prove` takes stages, censuses every failing row inside one stage through `Effect.validateAll`, and aborts between stages; projection, merge, and admission each grade one stage whose rows read values already in hand, while the artifact proof is three stages because a repeated key makes the key set a lie, an out-of-set edge names no row, and the peel reads a closed set. A first-failure abort over independent columns hands the operator one repair at a time and hides how many the store actually owes.
 - Law: one refusal carries every failing column as a typed ISSUE its own family row renders, so a verdict names which proof failed beside its subjects, and class, leg, and both recovery axes follow the DOMINANT issue — a store carrying the wrong generation on a stale window grades on the breach rather than on whichever proof was seated first.
 - Law: provider rows map the contract's canonical capability key onto the GRANT that proves it, and the granted set is the one membership value observation reads; a probed-version lookup answers floor evidence alone, and a semantic fallback proves nothing.
 - Law: capabilities enter an observation two ways and the split is the probe's REACH — a relational grant resolves through the adapter map against `report.granted`, while a provider plane whose custody no SQL catalog scans hands its canonical keys in already resolved on `Reading.granted`, the mirror of the `artifacts` slot beside it. `Capability.Grant<G>` stays closed against those keys: no probe ever finds a canonical contract key as a grant, and a roster admitting one fails every `require` that names it.
 - Law: the composition root builds ONE `Reading` from the relational report and adapters beside every provider plane's observed set — `granted` empty on a purely relational reading — so one `Backend.admit` verdict covers relational and object state together and no plane publishes a second generation against the same contract.
-- Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the corpus and the transported bytes rather than a local re-encode.
+- Law: generation, required grants, and artifact observations all hold before `Backend.Generation` exists, each proved against the admitted generated message rather than a branch-local mirror.
 - Law: recovery is ONE verdict on two proofs, never two generations — contract identity proves the store carries the composed generation, and recency proves the frontier behind it is current for the window the deployment declared; both refuse through `BackendFault`, so a stale store never publishes as an admitted generation.
 - Law: the measured window derives from the observation's OWN stamps, so a provider hands in the readings it took and never a lag it computed against a clock this owner never saw; a lag admits at ZERO — a frontier stamped at its own reading instant is the freshest measured recency — and only a frontier stamped after that reading is skew grading as unmeasured.
 - Law: absence splits opposite ways and the split is a COLUMN on the axis table — an unmeasured recovery point refuses, because a restore admitted with no recency evidence grades a window nobody took, while an absent restore duration passes on a store that never restored; each axis reads its own window half, its own objective half, and its own absence posture from one row, so a third axis is one row rather than a third hand-written arm.
 - Law: the objective is a value the composition root supplies off its consumption profile row; this page grades a declared window and owns no durability table of its own.
-- Packages: `effect` Schema, JSONSchema, collections, and rails; core `Digest.Key`, `Digest`, and `Fault.Class`.
-- Growth: a provider adds adapter rows over its existing matrix, and a provider plane holding no probeable catalog adds canonical keys on `Reading.granted` instead; a new invariant is one `_Check` row inside the stage that already holds its inputs; a generated field changes the one projection schema; a new recovery axis is one `_AXES` token with its `_WINDOWS` row carrying both readers and its absence posture.
+- Packages: `@bufbuild/protobuf` generated construction and semantic equality; `@rasm\/contracts` parity descriptors and enums; `effect` collections, schemas, and rails; core `Digest.Key`, `Digest`, `Fault.Class`, and `Format.proto`.
+- Growth: a provider adds adapter rows over its existing matrix, and a provider plane holding no probeable catalog adds canonical keys on `Reading.granted` instead; a new invariant is one `_Check` row inside the stage that already holds its inputs; a generated field changes the corpus message and regenerated binding; a new recovery axis is one `_AXES` token with its `_WINDOWS` row carrying both readers and its absence posture.
 - Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence. Assembling the one `Reading` — relational report and adapters beside every provider plane's already-canonical grants and artifacts — is the composition root's obligation, and this page grades whatever that root hands it.
 
 ```typescript signature
-import { Digest, Fault } from "@rasm/ts/core"
-import { Array, DateTime, Duration, Effect, Equivalence, HashSet, JSONSchema, Option, Order, Schema, String } from "effect"
+import { equals, type MessageInitShape, type MessageValidType } from "@bufbuild/protobuf"
+import {
+  ArtifactSchema,
+  BackendSchema,
+  CapabilitySchema,
+  FailureRank,
+  RestartClass,
+} from "@rasm\/contracts/rasm/contracts/parity/v1/parity_pb"
+import { CanonicalWriter, Digest, Fault, Format } from "@rasm/ts/core"
+import { Array, DateTime, Duration, Effect, HashSet, Option, Order, Schema, String } from "effect"
 
 // --- [TYPES] ----------------------------------------------------------------------------
-
-const _ArtifactWire = Schema.Struct({
-  key: Schema.String,
-  role: Schema.String,
-  content: Schema.String,
-  providers: Schema.Array(Schema.String),
-  dependsOn: Schema.Array(Schema.String),
-})
-
-// Both vocabularies are closed corpus law, so the decoder refuses a foreign token at the wire instead of
-// carrying it inward as a string a downstream comparison silently misses. `_RESTART_ORDER` is declared in rank
-// order and its index IS the rank: an aggregated repair folds the WORST disruption across its gap set, so a
-// token set read as unordered would report a per-row minimum that understates the bounce the operator pays.
-const _RESTART_ORDER = ["session", "reload", "restart"] as const
 
 // The recovery axes are a closed vocabulary before they are a table: the fault row renders against these tokens and
 // the policy rows below key on them, so an axis exists in exactly one place and both surfaces move with it.
 const _AXES = ["rpo", "rto"] as const
 
-const _CapabilityWire = Schema.Struct({
-  key: Schema.String,
-  lane: Schema.String,
-  requirement: Schema.String,
-  requirementValue: Schema.String,
-  failureRank: Schema.Literal("required", "degradable", "observational"),
-  restartClass: Schema.Literal(..._RESTART_ORDER),
-})
-
-const _ContractWire = Schema.Struct({
-  contract: Schema.String,
-  artifacts: Schema.Array(_ArtifactWire),
-  capabilities: Schema.Array(_CapabilityWire),
-})
-
-const _ConformanceWire = Schema.Struct({
-  contract: Schema.String,
-  generation: Digest.Key.content,
-  canonical: Schema.Uint8ArrayFromBase64,
-  jsonSchema: Schema.Uint8ArrayFromBase64,
-  artifactKeys: Schema.Array(Schema.String),
-  capabilityKeys: Schema.Array(Schema.String),
-  requiredCapabilities: Schema.Array(Schema.String),
-})
-
-const _ContractJson = Schema.parseJson(_ContractWire)
-const _ConformanceJson = Schema.parseJson(_ConformanceWire)
+const _codec = {
+  message: Format.proto.message(BackendSchema),
+  document: Format.proto.frame(BackendSchema, "json"),
+} as const
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
 
-const _utf8 = { decode: new TextDecoder(), encode: new TextEncoder() } as const
-// Provisioning names this rank required — the one value promoting a capability row into the
-// required set both this branch's compose and a foreign branch's conformance corpus report.
-const _REQUIRED = "required" satisfies Backend.FailureRank
-const _keys = Array.getEquivalence(String.Equivalence)
-// Uint8Array carries no structural Equal instance, so Equal.equals answers reference identity and
-// every byte comparison over distinct buffers passes vacuously; the byte-wise row is the honest one.
-const _bytes: Equivalence.Equivalence<Uint8Array> = Equivalence.make(
-  (self, that) => self.length === that.length && self.every((byte, index) => byte === that[index]),
-)
+const _REQUIRED = FailureRank.REQUIRED satisfies Backend.FailureRank
+const _BACKEND_DOCUMENT_CEILING = 512 * 1024
 const _byKey = Order.mapInput(String.Order, (row: { readonly key: string }) => row.key)
+const _byRestart: Order.Order<Backend.RestartClass> = Order.number
 const _sameKey = (self: { readonly key: string }, that: { readonly key: string }): boolean =>
   self.key === that.key
 
@@ -597,33 +565,29 @@ class BackendFault extends _backendFamily.census("BackendFault") {}
 
 declare namespace Backend {
   type Axis = (typeof _AXES)[number]
-  type FailureRank = typeof _CapabilityWire.Type["failureRank"]
+  type Artifact = MessageValidType<typeof ArtifactSchema>
+  type Capability = MessageValidType<typeof CapabilitySchema>
+  type Document = MessageValidType<typeof BackendSchema>
+  type FailureRank = Capability["failureRank"]
   type Issue = typeof _backendFamily.payload.Type
-  type RestartClass = typeof _CapabilityWire.Type["restartClass"]
+  type RestartClass = Capability["restartClass"]
   type Files = {
     readonly contract: Uint8Array
-    readonly schema: Uint8Array
-    readonly conformance: Uint8Array
   }
   type Adapter = {
     readonly canonical: string
     readonly local: string
   }
-  type Source = {
-    readonly key: string
-    readonly role: string
-    readonly bytes: Uint8Array
-    readonly providers: ReadonlyArray<string>
-    readonly dependsOn: ReadonlyArray<string>
-  }
-  type Sources = {
-    readonly contract: string
-    readonly artifacts: ReadonlyArray<Source>
-    readonly capabilities: ReadonlyArray<typeof _CapabilityWire.Type>
-  }
+  // Composition input is a required readonly view of the generated init shape. Field selection is deliberate —
+  // callers cannot smuggle message internals into this boundary — while every selected field's value type still
+  // moves with BackendSchema rather than surviving as a hand-maintained wire twin.
+  type Sources = Readonly<Required<Pick<
+    MessageInitShape<typeof BackendSchema>,
+    "contract" | "artifacts" | "capabilities"
+  >>>
   type Contract = {
     readonly id: Digest.Key<"content">
-    readonly wire: typeof _ContractWire.Type
+    readonly document: Document
     readonly required: HashSet.HashSet<string>
     readonly artifacts: HashSet.HashSet<string>
   }
@@ -666,7 +630,12 @@ declare namespace Backend {
     readonly frontier: Option.Option<DateTime.Utc>
     readonly restoredIn: Option.Option<Duration.Duration>
   }
-  type Generation = Contract & { readonly observed: Observation }
+  type Gap = Pick<Capability, "key" | "failureRank" | "restartClass">
+  type Generation = Contract & {
+    readonly observed: Observation
+    readonly gaps: ReadonlyArray<Gap>
+    readonly restart: Option.Option<RestartClass>
+  }
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -693,11 +662,13 @@ const _prove = (stages: ReadonlyArray<ReadonlyArray<_Check>>): Effect.Effect<voi
     { discard: true },
   )
 
-// Worst disruption across a gap set, read off the declared rank order — an aggregated repair names ONE bounce
-// cost so the operator never reads a per-row minimum understating it, and an empty set is the floor rank.
-const _worst = (over: ReadonlyArray<Backend.RestartClass>): Backend.RestartClass =>
-  Array.reduce(over, _RESTART_ORDER[0], (held: Backend.RestartClass, next) =>
-    _RESTART_ORDER.indexOf(next) > _RESTART_ORDER.indexOf(held) ? next : held)
+// Generated ordinals carry the declared disruption order; absence means the gap set owes no restart at all.
+const _worst = (over: ReadonlyArray<Backend.RestartClass>): Option.Option<Backend.RestartClass> =>
+  Array.reduce(over, Option.none<Backend.RestartClass>(), (held, next) =>
+    Option.some(Option.match(held, {
+      onNone: () => next,
+      onSome: (current) => Order.greaterThan(_byRestart)(next, current) ? next : current,
+    })))
 
 // Window derives HERE from the two stamps the observation carries, so no provider hands in a lag it measured
 // against a clock this verdict never saw. The SIGN is the whole discriminant and ZERO sits on the measured side: a
@@ -753,22 +724,34 @@ const _wire = <A, I>(
     Effect.mapError(() => new BackendFault({ issues: [{ reason: "wire", document: subject }] })),
   )
 
-const _canonical = (wire: typeof _ContractWire.Type): Effect.Effect<Uint8Array, BackendFault> =>
-  Schema.encode(_ContractJson)(wire).pipe(
-    Effect.mapBoth({
-      onFailure: () => new BackendFault({ issues: [{ reason: "wire", document: "canonical" }] }),
-      onSuccess: (json) => _utf8.encode.encode(json),
-    }),
+const _encoded = <A, I>(
+  schema: Schema.Schema<A, I>,
+  subject: string,
+): ((value: A) => Effect.Effect<I, BackendFault>) =>
+(value) =>
+  Schema.encode(schema)(value).pipe(
+    Effect.mapError(() => new BackendFault({ issues: [{ reason: "wire", document: subject }] })),
+  )
+
+const _document = (encoded: Uint8Array): Effect.Effect<Backend.Document, BackendFault> =>
+  encoded.byteLength <= _BACKEND_DOCUMENT_CEILING
+    ? _wire(_codec.document, "contract")(encoded)
+    : Effect.fail(new BackendFault({ issues: [{ reason: "wire", document: "contract document ceiling" }] }))
+
+const _documentEncoded = (value: Backend.Document): Effect.Effect<Uint8Array, BackendFault> =>
+  _encoded(_codec.document, "contract")(value).pipe(
+    Effect.filterOrFail(
+      (encoded) => encoded.byteLength <= _BACKEND_DOCUMENT_CEILING,
+      () => new BackendFault({ issues: [{ reason: "wire", document: "contract document ceiling" }] }),
+    ),
   )
 
 // Kahn peel over the artifact set: each pass releases every row whose dependencies already left, and a pass
 // releasing nothing while rows remain names exactly the cycle members. Acyclicity therefore costs no traversal
 // state and no throw, and the remainder IS the witness the fault reports.
-const _cyclic = (
-  rows: ReadonlyArray<typeof _ArtifactWire.Type>,
-): ReadonlyArray<string> => {
+const _cyclic = (rows: ReadonlyArray<Backend.Artifact>): ReadonlyArray<string> => {
   const peel = (
-    held: ReadonlyArray<typeof _ArtifactWire.Type>,
+    held: ReadonlyArray<Backend.Artifact>,
     settled: HashSet.HashSet<string>,
   ): ReadonlyArray<string> => {
     const [waiting, ready] = Array.partition(held, (row) =>
@@ -783,13 +766,13 @@ const _cyclic = (
 // `_distinct` marks every row distinct, so two rows sharing one key never agree their way out — a repeated key
 // inside ONE contribution is malformed whatever its content carries, while a cross-contribution scan passes its
 // own content equivalence.
-const _distinct: Equivalence.Equivalence<{ readonly key: string }> = Equivalence.make(() => false)
+const _distinct = (): boolean => false
 
 // One key whose rows disagree under the given mark is a collision; deduplication downstream is then safe
 // because every surviving group agrees, so first-wins and last-wins both decide nothing.
 const _collided = <A extends { readonly key: string }>(
   rows: ReadonlyArray<A>,
-  same: Equivalence.Equivalence<A>,
+  same: (self: A, that: A) => boolean,
 ): ReadonlyArray<string> =>
   Array.dedupe(Array.map(
     Array.filter(rows, (row, index) =>
@@ -797,27 +780,86 @@ const _collided = <A extends { readonly key: string }>(
     (row) => row.key,
   ))
 
-// Every mint path lands on this one projection, so the dependency proof binds compose and merge alike instead
-// of a single path that happened to sort: dependency keys are digest-bearing payload the funnel proves closed
-// and acyclic, and artifact key order stays the whole wire order. Proof order is load-bearing — a repeated key
-// makes the key set a lie, an out-of-set edge names no row, and the peel reads a closed set.
+const _sameArtifact = (self: Backend.Artifact, that: Backend.Artifact): boolean =>
+  equals(ArtifactSchema, self, that)
+
+const _sameCapability = (self: Backend.Capability, that: Backend.Capability): boolean =>
+  equals(CapabilitySchema, self, that)
+
+// Repeated fields are ordered protobuf values even where this contract uses them as sets. One generated-message
+// projection owns their published order; local mints pass through it and a foreign document must already equal it.
+const _normalized = (document: Backend.Document): Backend.Document =>
+  Format.proto.create(BackendSchema, {
+    contract: document.contract,
+    artifacts: Array.map(Array.sort(document.artifacts, _byKey), (row) =>
+      Format.proto.create(ArtifactSchema, {
+        key: row.key,
+        role: row.role,
+        content: row.content,
+        providers: Array.sort(row.providers, Order.number),
+        dependsOn: Array.sort(row.dependsOn, String.Order),
+      })),
+    capabilities: Array.sort(document.capabilities, _byKey),
+  })
+
+// The schema fixes semantic field order and the core writer fixes widths, byte order, and every variable boundary.
+// No serialized-message byte enters this stream: protobuf map/unknown ordering and floating encodings therefore
+// cannot become generation inputs now or through an additive field the old reader does not know.
+const _preimage = (document: Backend.Document): Iterable<Uint8Array> =>
+  new CanonicalWriter()
+    .string(document.contract)
+    .rows(document.artifacts, (row, writer) => {
+      writer
+        .string(row.key)
+        .ordinal(row.role)
+        .bytes(row.content)
+        .rows(row.providers, (provider, nested) => { nested.ordinal(provider) })
+        .rows(row.dependsOn, (dependency, nested) => { nested.string(dependency) })
+    })
+    .rows(document.capabilities, (row, writer) => {
+      writer
+        .string(row.key)
+        .string(row.lane)
+        .string(row.requirement)
+        .string(row.requirementValue)
+        .ordinal(row.failureRank)
+        .ordinal(row.restartClass)
+    })
+    .close()
+
+// Every mint path lands on this one projection. Dependency keys prove closed and acyclic before the map-free
+// binary identity projection, while the peer document remains ordinary ProtoJSON whose transported bytes carry no
+// equality claim.
 const _projection = (
-  wire: typeof _ContractWire.Type,
+  document: Backend.Document,
+  transported: Option.Option<Uint8Array>,
 ): Effect.Effect<Backend.Projection, BackendFault> =>
   Effect.gen(function* () {
-    const declared = HashSet.fromIterable(wire.artifacts.map((row) => row.key))
-    const repeated = _collided(wire.artifacts, _distinct)
-    const dangling = wire.artifacts.flatMap((row) =>
+    const normalized = _normalized(document)
+    const declared = HashSet.fromIterable(document.artifacts.map((row) => row.key))
+    const repeatedArtifacts = _collided(document.artifacts, _distinct)
+    const repeatedCapabilities = _collided(document.capabilities, _distinct)
+    const dangling = document.artifacts.flatMap((row) =>
       row.dependsOn.filter((key) => !HashSet.has(declared, key)))
-    const cyclic = () => _cyclic(wire.artifacts)
+    const cyclic = () => _cyclic(document.artifacts)
 
-    // Three STAGES, never three rows: each proof consumes what the one before it settled, so an out-of-set edge is
-    // never reported against a key set already known to be a lie and the peel only ever reads a closed set.
+    // Three stages: claim uniqueness settles both key spaces before dependency closure, and the peel reads only a
+    // closed artifact set.
     yield* _prove([
-      [{
-        holds: () => repeated.length === 0,
-        issue: () => ({ reason: "artifact", keys: repeated } satisfies Backend.Issue),
-      }],
+      [
+        {
+          holds: () => equals(BackendSchema, document, normalized),
+          issue: () => ({ reason: "wire", document: "contract order" } satisfies Backend.Issue),
+        },
+        {
+          holds: () => repeatedArtifacts.length === 0,
+          issue: () => ({ reason: "artifact", keys: repeatedArtifacts } satisfies Backend.Issue),
+        },
+        {
+          holds: () => repeatedCapabilities.length === 0,
+          issue: () => ({ reason: "capability", keys: repeatedCapabilities } satisfies Backend.Issue),
+        },
+      ],
       [{
         holds: () => dangling.length === 0,
         issue: () => ({ reason: "dependency", keys: dangling } satisfies Backend.Issue),
@@ -828,32 +870,24 @@ const _projection = (
       }],
     ])
 
-    const contract = yield* _canonical(wire)
-    const id = yield* Digest.mint("content", contract)
-    const schema = _utf8.encode.encode(JSON.stringify(JSONSchema.make(_ContractWire)))
-    const artifactKeys = wire.artifacts.map((row) => row.key)
-    const capabilityKeys = wire.capabilities.map((row) => row.key)
-    const required = wire.capabilities
+    const contract = yield* Option.match(transported, {
+      onNone: () => _documentEncoded(normalized),
+      onSome: Effect.succeed,
+    })
+    const id = yield* Digest.mint("content", _preimage(normalized))
+    const artifactKeys = normalized.artifacts.map((row) => row.key)
+    const required = normalized.capabilities
       .filter((row) => row.failureRank === _REQUIRED)
       .map((row) => row.key)
-    const conformance = yield* Schema.encode(_ConformanceJson)({
-      contract: wire.contract,
-      generation: id,
-      canonical: contract,
-      jsonSchema: schema,
-      artifactKeys,
-      capabilityKeys,
-      requiredCapabilities: required,
-    }).pipe(Effect.mapError(() => new BackendFault({ issues: [{ reason: "wire", document: "conformance" }] })))
 
     return {
       contract: {
         id,
-        wire,
+        document: normalized,
         required: HashSet.fromIterable(required),
         artifacts: HashSet.fromIterable(artifactKeys),
       },
-      files: { contract, schema, conformance: _utf8.encode.encode(conformance) },
+      files: { contract },
     }
   })
 
@@ -861,100 +895,57 @@ const Backend = {
   worst: _worst,
   compose: (sources: Backend.Sources): Effect.Effect<Backend.Projection, BackendFault> =>
     Effect.gen(function* () {
-      const artifacts = yield* Effect.forEach(
-        Array.sort(sources.artifacts, _byKey),
-        (row) =>
-          Digest.mint("content", row.bytes).pipe(
-            Effect.map((content) => ({
-              key: row.key,
-              role: row.role,
-              content,
-              providers: row.providers,
-              dependsOn: row.dependsOn,
-            })),
-          ),
-      )
-      return yield* _projection({
+      const document = yield* _wire(_codec.message, "contract")(Format.proto.create(BackendSchema, {
         contract: sources.contract,
-        artifacts,
+        artifacts: Array.sort(sources.artifacts, _byKey),
         capabilities: Array.sort(sources.capabilities, _byKey),
-      })
+      }))
+      return yield* _projection(document, Option.none())
     }),
   merge: (
-    contributions: ReadonlyArray<Backend.Projection>,
-    contract: string,
+    contributions: Array.NonEmptyReadonlyArray<Backend.Projection>,
   ): Effect.Effect<Backend.Projection, BackendFault> =>
     Effect.gen(function* () {
-      const artifacts = contributions.flatMap((one) => [...one.contract.wire.artifacts])
-      const capabilities = contributions.flatMap((one) => [...one.contract.wire.capabilities])
-      // Artifacts collide on their content digest and capability rows on their WHOLE record, because a lane,
-      // requirement, rank, or restart-class disagreement forks the deployment exactly as a byte disagreement
-      // does; both refuse, so neither first-wins nor last-wins ever elects a branch.
+      const [head, ...tail] = contributions
+      const contract = head.contract.document.contract
+      const artifacts = contributions.flatMap((one) => [...one.contract.document.artifacts])
+      const capabilities = contributions.flatMap((one) => [...one.contract.document.capabilities])
+      const mismatched = Array.dedupe(
+        tail
+          .map((one) => one.contract.document.contract)
+          .filter((held) => held !== contract),
+      )
       const collided = Array.appendAll(
-        _collided(artifacts, Equivalence.mapInput(String.Equivalence, (row: typeof _ArtifactWire.Type) => row.content)),
-        _collided(capabilities, Schema.equivalence(_CapabilityWire)),
+        _collided(artifacts, _sameArtifact),
+        _collided(capabilities, _sameCapability),
       )
 
-      yield* _prove([[{
-        holds: () => collided.length === 0,
-        issue: () => ({ reason: "collision", keys: collided } satisfies Backend.Issue),
-      }]])
-
-      return yield* _projection({
-        contract,
-        artifacts: Array.sort(Array.dedupeWith(artifacts, _sameKey), _byKey),
-        capabilities: Array.sort(Array.dedupeWith(capabilities, _sameKey), _byKey),
-      })
-    }),
-  project: (files: Backend.Files): Effect.Effect<Backend.Projection, BackendFault> =>
-    Effect.gen(function* () {
-      const wire = yield* _wire(_ContractJson, "contract")(_utf8.decode.decode(files.contract))
-      const corpus = yield* _wire(_ConformanceJson, "conformance")(
-        _utf8.decode.decode(files.conformance),
-      )
-      const id = yield* Digest.mint("content", files.contract)
-      const capabilityKeys = wire.capabilities.map((row) => row.key)
-      const artifactKeys = wire.artifacts.map((row) => row.key)
-
-      // ONE stage: every row reads values already decoded, so a transported set disagreeing on its generation, its
-      // bytes, AND its rosters answers with all of them rather than sending an operator back six times.
       yield* _prove([[
         {
-          holds: () => id === corpus.generation,
-          issue: () => ({ reason: "identity", expected: id, actual: corpus.generation } satisfies Backend.Issue),
+          holds: () => mismatched.length === 0,
+          issue: () => ({
+            reason: "identity",
+            expected: contract,
+            actual: Array.join(mismatched, ","),
+          } satisfies Backend.Issue),
         },
         {
-          holds: () => corpus.contract === wire.contract,
-          issue: () =>
-            ({ reason: "identity", expected: corpus.contract, actual: wire.contract } satisfies Backend.Issue),
-        },
-        {
-          holds: () => _bytes(corpus.canonical, files.contract),
-          issue: () => ({ reason: "wire", document: "corpus.canonical" } satisfies Backend.Issue),
-        },
-        {
-          holds: () => _bytes(corpus.jsonSchema, files.schema),
-          issue: () => ({ reason: "wire", document: "corpus.jsonSchema" } satisfies Backend.Issue),
-        },
-        {
-          holds: () => _keys(corpus.capabilityKeys, capabilityKeys),
-          issue: () => ({ reason: "capability", keys: capabilityKeys } satisfies Backend.Issue),
-        },
-        {
-          holds: () => _keys(corpus.artifactKeys, artifactKeys),
-          issue: () => ({ reason: "artifact", keys: artifactKeys } satisfies Backend.Issue),
+          holds: () => collided.length === 0,
+          issue: () => ({ reason: "collision", keys: collided } satisfies Backend.Issue),
         },
       ]])
 
-      return {
-        contract: {
-          id,
-          wire,
-          required: HashSet.fromIterable(corpus.requiredCapabilities),
-          artifacts: HashSet.fromIterable(artifactKeys),
-        },
-        files,
-      }
+      const document = yield* _wire(_codec.message, "contract")(Format.proto.create(BackendSchema, {
+        contract,
+        artifacts: Array.sort(Array.dedupeWith(artifacts, _sameKey), _byKey),
+        capabilities: Array.sort(Array.dedupeWith(capabilities, _sameKey), _byKey),
+      }))
+      return yield* _projection(document, Option.none())
+    }),
+  project: (files: Backend.Files): Effect.Effect<Backend.Projection, BackendFault> =>
+    Effect.gen(function* () {
+      const document = yield* _document(files.contract)
+      return yield* _projection(document, Option.some(files.contract))
     }),
   // `report.granted` is the one authoritative membership value the PROBE publishes — the closed grant vocabulary
   // holding core spine keys, primitives, atomicity, and every capability an admitted extension carries.
@@ -984,7 +975,12 @@ const Backend = {
     objective: Backend.Objective,
   ): Effect.Effect<Backend.Generation, BackendFault> =>
     Effect.gen(function* () {
-      const missingCapabilities = HashSet.difference(expected.required, observed.capabilities)
+      const gaps = expected.document.capabilities
+        .filter((row) => !HashSet.has(observed.capabilities, row.key))
+        .map(({ key, failureRank, restartClass }) => ({ key, failureRank, restartClass }))
+      const missingCapabilities = gaps
+        .filter((row) => row.failureRank === _REQUIRED)
+        .map((row) => row.key)
       const missingArtifacts = HashSet.difference(expected.artifacts, observed.artifacts)
 
       // ONE stage over four independent columns of one store — generation, capabilities, artifacts, and each recovery
@@ -997,8 +993,8 @@ const Backend = {
             ({ reason: "identity", expected: expected.id, actual: observed.generation } satisfies Backend.Issue),
         },
         {
-          holds: () => HashSet.size(missingCapabilities) === 0,
-          issue: () => ({ reason: "capability", keys: [...missingCapabilities] } satisfies Backend.Issue),
+          holds: () => missingCapabilities.length === 0,
+          issue: () => ({ reason: "capability", keys: missingCapabilities } satisfies Backend.Issue),
         },
         {
           holds: () => HashSet.size(missingArtifacts) === 0,
@@ -1010,6 +1006,8 @@ const Backend = {
       return {
         ...expected,
         observed,
+        gaps,
+        restart: _worst(gaps.map((row) => row.restartClass)),
       }
     }),
 } as const

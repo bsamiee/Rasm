@@ -1,6 +1,6 @@
 # [PY_GEOMETRY]
 
-`geometry` is the Python branch's standalone host-free geometry and IFC/BIM platform, every crossing content-keyed, receipted, and produced off the event loop. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSyncService` gRPC contract, and it graduates evidence through its own `rasm.geometry.graduation` spine, never an import.
+`geometry` is the Python branch's standalone host-free geometry and IFC/BIM platform, every crossing content-keyed, receipted, and produced off the event loop. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactService` Connect contract, and it graduates evidence through its own `rasm.geometry.graduation` spine, never an import.
 
 ## [01]-[ROUTER]
 
@@ -21,11 +21,11 @@
 - [10]-[STRUCTURAL](.planning/ifc/structural.md): Section-property integrals over `IfcProfileDef` and the warping/plastic/shear FE tier.
 
 [MESH]:
-- [11]-[DAEMON](.planning/mesh/daemon.md): IfcOpenShell tessellation daemon folding source bytes and policy into per-element GLB, source-keyed.
-- [12]-[SERVE](.planning/mesh/serve.md): Geometry wire owner streaming GLB over contract-conforming `ArtifactSyncService`.
-- [13]-[CAD](.planning/mesh/cad.md): ISO 10303 STEP and IGES tessellation hop over `cadquery-ocp`, companion to the C# `StepIso10303` codec.
+- [11]-[DAEMON](.planning/mesh/daemon.md): Reference-resolved IFC tessellation with canonical request keys and path-backed GLB publication.
+- [12]-[SERVE](.planning/mesh/serve.md): Complete `ComputeService` and `ArtifactService` owner over one daemon repository.
+- [13]-[CAD](.planning/mesh/cad.md): One `CadService` client entry over the generated rpc roster as route values.
 - [14]-[REPAIR](.planning/mesh/repair.md): Robust mesh repair, winding and normal fix, and the public exact-boolean `to_manifold` kernel.
-- [15]-[BREP](.planning/mesh/brep.md): B-rep evaluation over `cadquery-ocp`, minting the `mesh-algebra` subject.
+- [15]-[BREP](.planning/mesh/brep.md): Generated typed B-rep evidence projection minting the `mesh-algebra` subject.
 - [16]-[SPATIAL](.planning/mesh/spatial.md): Proximity, ray, containment, and signed-clearance query over in-memory triangulation.
 - [17]-[QUALITY](.planning/mesh/quality.md): Mesh-topology conditioning and metrology — decimate, subdivide, smooth, and the exact `closure_fold`.
 
@@ -73,9 +73,8 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `compas_tna` — Thrust-network analysis.
 
 [MESH_CAD]:
-- `trimesh` — In-memory mesh operations, proximity, ray, and containment.
+- `trimesh` — In-memory mesh operations, GLB scene census, proximity, ray, and containment.
 - `manifold3d` — Exact-boolean and clearance backend.
-- `cadquery-ocp` — OCCT B-rep kernel and XCAF assembly for the STEP/IGES hop.
 - `sectionproperties` — Warping, plastic, and shear enrichment.
 - `rtree` — R-tree bounding-box index for the spatial bounds arm.
 - `python-fcl` — Narrow-phase collision and signed-distance for the clearance arm.
@@ -119,6 +118,7 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 - `networkx`
 
 [WIRE_CODEGEN]:
-- `grpcio`
-- `grpcio-tools`
-- `protobuf`
+- `protobuf-py` — generated message, enum, and oneof carriers for tessellation admission, receipts, and artifact frames.
+- `connectrpc` — `RequestContext` the generated servicer signatures take; the host and dial stay runtime's.
+- `rasm.contracts` — generated compute/artifact protocols and the shared lifecycle helper; `scene_pb` is the energy-simulation decode surface.
+- `rasm.contracts.cad.v1` — generated CAD requests, unary replies, artifact references, and `CadServiceClient` for the isolated provider boundary.

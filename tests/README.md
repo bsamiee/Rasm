@@ -8,28 +8,30 @@ One folder scheme spans all languages:
 
 ```text conceptual
 tests/
-├── contracts/         # cross-language contract corpus: seam schemas define, frozen assets prove
-│   ├── .api/          # corpus tool catalogs — the proto gate binary the root buf.yaml drives
-│   └── rasm/          # descriptor sources, one <family>/v1/ directory per proto package
+├── contracts/          # Cross-language registry, estate proto sources, publisher bytes, and frozen proof assets
+│   ├── .api/           # Corpus tool catalogs — the buf gate and generation surface the root buf.yaml drives
+│   ├── proto/          # Estate buf module: rasm/contracts/<family>/v1/, with ownership-sized sibling files
+│   ├── vendor/         # Publisher bytes: independent modules, schemata, and conformance vectors
+│   └── <seam>/         # Materialized only for verified case assets; blocked cases create no empty directory
 ├── csharp/
-│   ├── .api/          # dev-tool API catalogs the kit and suites compose
-│   ├── _architecture/ # boundary + infra-primitive laws proving both kits
-│   ├── _benchmarks/   # BenchmarkDotNet switcher + the regression gate verb
-│   ├── _scenariokit/  # host-aware scenario SDK (Rasm.ScenarioKit)
-│   ├── _testkit/      # host-free adversarial law substrate (Rasm.TestKit)
-│   ├── libs/          # per-package suite shells mirroring libs/csharp
-│   ├── scenarios/     # scenario content home (Rasm.Scenarios)
-│   └── tools/         # infra suites: cs-analyzer, rhino-bridge Contract/Supervisor
+│   ├── .api/           # Dev-tool API catalogs the kit and suites compose
+│   ├── _architecture/  # Boundary + infra-primitive laws proving both kits
+│   ├── _benchmarks/    # BenchmarkDotNet switcher + the regression gate verb
+│   ├── _scenariokit/   # Host-aware scenario SDK (Rasm.ScenarioKit)
+│   ├── _testkit/       # Host-free adversarial law substrate (Rasm.TestKit)
+│   ├── libs/           # Per-package suite shells mirroring libs/csharp
+│   ├── scenarios/      # Scenario content home (Rasm.Scenarios)
+│   └── tools/          # Infra suites: cs-analyzer, rhino-bridge Contract/Supervisor
 ├── python/
-│   ├── .api/          # dev-tool API catalogs the kit and suites compose
-│   ├── _testkit/      # project-agnostic kit: spec/strategies/seams/env/bench/laws/runtime
-│   ├── libs/          # per-package suites mirroring libs/python
-│   └── tools/         # assay suites
+│   ├── .api/           # Dev-tool API catalogs the kit and suites compose
+│   ├── _testkit/       # Project-agnostic kit: spec/strategies/seams/env/bench/laws/runtime
+│   ├── libs/           # Per-package suites mirroring libs/python
+│   └── tools/          # Assay suites
 └── typescript/
-    ├── .api/          # dev-tool API catalogs the kit and suites compose
-    ├── _architecture/ # branch-boundary gauge suites; manifest gauges live, source gauges self-activate
-    ├── _testkit/      # @rasm/ts-testkit: corpus readers, laws, arbitraries, harness, bench, gauges
-    └── e2e/           # playwright + k6 estate: fixture tower, engine rows, committed goldens
+    ├── .api/           # Dev-tool API catalogs the kit and suites compose
+    ├── _architecture/  # Branch-boundary gauge suites; manifest gauges live, source gauges self-activate
+    ├── _testkit/       # @rasm/ts-testkit: corpus readers, laws, arbitraries, harness, bench, gauges
+    └── e2e/            # Playwright + k6 estate: fixture tower, engine rows, committed goldens
 ```
 
 [CASING_LAW]:
@@ -40,7 +42,7 @@ tests/
 [KIT_LAW]:
 - Shared test logic lives in exactly one per-language `_testkit`, C# adding `_scenariokit` for the host-aware scenario SDK.
 - Kits never live under `libs/` — libs is the production plane.
-- Nothing cross-language lives inside one language's tree — the neutral seams are `tests/contracts/`, `tests/containers.json`, and the assay operator.
+- Nothing cross-language lives inside one language's tree — neutral seams are `tests/contracts/`, `tests/containers.json`, and the assay operator.
 
 ## [02]-[LANES]
 
@@ -114,10 +116,11 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [12]   | TS e2e suite                | `tests/typescript/e2e`                                                                   |
 |  [13]   | TS architecture gauge       | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
 |  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
-|  [15]   | contract corpus seam        | `tests/contracts/<seam>/` per the corpus law                                             |
-|  [16]   | shared corpus definition    | `tests/contracts/<vocabulary>.schema.json`, beside the seam directories                  |
-|  [17]   | corpus descriptor source    | `tests/contracts/rasm/<family>/v1/`, the source beside its frozen descriptor snapshot    |
-|  [18]   | corpus tool API catalog     | `tests/contracts/.api/`, one catalog per binary gating the corpus                        |
+|  [15]   | contract corpus asset seam  | `tests/contracts/<seam>/`, only when an atomic case carries verified frozen evidence     |
+|  [16]   | derived corpus schema       | `tests/contracts/<seam>/<fqn>.jsonschema.strict.bundle.json`, only for a real evaluator  |
+|  [17]   | corpus proto source         | `tests/contracts/proto/rasm/contracts/<family>/v1/*.proto`, then regenerate              |
+|  [18]   | vendored publisher source   | `tests/contracts/vendor/<publisher>/`, a proto as its own buf module under `proto/`      |
+|  [19]   | corpus tool API catalog     | `tests/contracts/.api/`, one catalog per binary gating the corpus                        |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 
@@ -147,7 +150,7 @@ Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark s
 
 ## [08]-[CONTRACTS_CORPUS]
 
-`tests/contracts/` is the cross-language contract corpus: each seam schema defines the contract, and the frozen assets prove it. Each `infrastructure` entry names every branch that mints the shape, and a `domain` entry names the one producer that emits it. [tests/contracts/README.md](contracts/README.md) carries the authority, layout, manifest, and regeneration law.
+`tests/contracts/` is the cross-language contract corpus. Estate Protobuf and publisher sources define the wire; `manifest.json` groups atomic cases by decoder-visible boundary and binds each case to its domain, infrastructure, application-origin, or publisher authority, exact definition, actors, readiness, and oracle. Frozen assets prove verified cases; blocked cases name missing executable evidence without materializing empty directories. [tests/contracts/README.md](contracts/README.md) carries the full authority and regeneration law.
 
 ## [09]-[TOOLING_AWARENESS]
 
@@ -156,7 +159,7 @@ Before touching any testing surface, an agent checks the owners that carry the f
 | [INDEX] | [SURFACE]                                            | [CARRIES]                                                                         |
 | :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring, coverage routing            |
-|  [02]   | `Directory.Build.targets`                            | classifier vocabulary sealing: each tests/csharp project carries one classifier   |
+|  [02]   | `Directory.Build.targets`                            | the `IsTestProject` verdict and its runtime config, after the body sets its lane  |
 |  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers    |
 |  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                   |
 |  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                   |

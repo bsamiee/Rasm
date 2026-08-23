@@ -7,7 +7,7 @@ Rasm.Compute owns ONE HDF5 container-session capsule for the whole branch: every
 ## [01]-[INDEX]
 
 - [02]-[HDF_ARCHIVE]: the session capsule — source-cased opens, the bracketed session, the process-static filter seat, and the concrete `NativeDataset`/`NativeGroup` resolve on the rail.
-- [03]-[CHUNK_CURSOR]: the chunk-grid owner, the ONE declared-write session capsule every archive artifact class composes, and the per-slot monotone cursor that makes an out-of-order chunk unrepresentable rather than thrown.
+- [03]-[CHUNK_CURSOR]: the chunk-grid owner, the declared-slot session capsule for chunk-streamed artifacts, and the per-slot monotone cursor that makes an out-of-order chunk unrepresentable rather than thrown.
 
 ## [02]-[HDF_ARCHIVE]
 
@@ -106,6 +106,8 @@ public sealed class HdfHandle : IDisposable {
     public bool Parallel { get; }
     public H5DatasetAccess Access { get; }
 
+    public bool Exists(string path) => File.LinkExists(path);
+
     // Concrete resolve on the RAIL: the Span/H5DatasetAccess overloads and the real chunk grid live on
     // NativeDataset alone, and `LinkExists` is what separates "no such link" from "a link of another kind" in the
     // slug — which is the whole reason the guard-then-resolve two-call protocol needed a second public member.
@@ -130,14 +132,18 @@ public sealed class HdfHandle : IDisposable {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class HdfArchive {
-    static int _mounted;
+    static readonly object MountGate = new();
+    static bool _mounted;
 
-    // Token-gated one-shot: the registry is a process-static ConcurrentDictionary, so a per-read register writes
-    // shared state on the hot path and a second Mount is a no-op, never a re-seed.
+    // Retryable one-shot: the registry is process-static, so registration holds one gate and publishes mounted
+    // only after both filters land; a registration fault leaves the next composition free to retry the whole seat.
     public static void Mount() {
-        if (Interlocked.Exchange(ref _mounted, 1) == 1) { return; }
-        H5Filter.Register(new LzfFilter());
-        H5Filter.Register(new BZip2SharpZipLibFilter());
+        lock (MountGate) {
+            if (_mounted) { return; }
+            H5Filter.Register(new LzfFilter());
+            H5Filter.Register(new BZip2SharpZipLibFilter());
+            _mounted = true;
+        }
     }
 
     // The BRACKETED scope every bounded read takes: acquisition, use, and release ride one `IO.Bracket`, so the
@@ -145,7 +151,7 @@ public static class HdfArchive {
     // whose handle outlives one expression — the discriminant is WHO OWNS THE BOUNDARY, the scope here and the
     // job there, and a `using` inside a rail lambda is the release-bound-to-the-success-arm form both delete.
     public static IO<Fin<A>> Session<A>(HdfSource source, HdfArchivePolicy policy, Func<HdfHandle, IO<Fin<A>>> read) =>
-        IO.pure(Open(source, policy)).Bind(opened => opened.Match(
+        IO.lift(() => Open(source, policy)).Bind(opened => opened.Match(
             Succ: handle => IO.lift(() => handle).Bracket(read, static handle => IO.lift(() => { handle.Dispose(); return unit; })),
             Fail: error => IO.pure(Fin<A>.Fail(error))));
 
@@ -167,8 +173,22 @@ public static class HdfArchive {
             ? Fin.Fail<Seq<HdfHandle>>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.Type(source.GetType()))))
             : workers < 1
             ? Fin.Fail<Seq<HdfHandle>>(new ComputeFault.PayloadOverBounds($"<hdf5-fan-workers:{workers}>"))
-            : toSeq(Range(0, workers)).Traverse(_ => Open(source, policy).ToValidation<Error>()).As()
-                .ToFin().MapFail(static error => error);
+            : OpenFan(source, policy, workers);
+
+    static Fin<Seq<HdfHandle>> OpenFan(HdfSource source, HdfArchivePolicy policy, int workers) {
+        List<HdfHandle> handles = new(workers);
+        Error? failure = null;
+        for (int worker = 0; worker < workers; worker++) {              // Exemption: partial acquisition must release the already-open prefix before returning its fault
+            bool opened = Open(source, policy).Match(
+                Succ: handle => { handles.Add(handle); return true; },
+                Fail: error => { failure = error; return false; });
+            if (!opened) {
+                handles.ForEach(static handle => handle.Dispose());
+                return Fin.Fail<Seq<HdfHandle>>(failure!);
+            }
+        }
+        return Fin.Succ(toSeq(handles));
+    }
 
     // Zero-copy view over an array-backed payload; a non-array payload takes its one staging copy HERE, typed,
     // never an unreceipted ToArray at a call site.
@@ -184,17 +204,17 @@ public static class HdfArchive {
 
 ## [03]-[CHUNK_CURSOR]
 
-- Owner: `ChunkGrid` — the ONE station-outermost container-grid correspondence, forward and inverse under one owner: the `(extent, components, budget) → (FileDims, Chunks)` derivation, the grid-ordinal decomposition, and the chunk-aligned `HyperslabSelection` that ordinal names; `ArchiveSession` the ONE declared-write capsule every archive artifact class composes, folding the slot mint, the graph build, the attribute stamp, the writer open, and the release into one act; `ArchiveSlot<T>` the typed dataset declaration and `ArchiveAttribute` the closed attribute vocabulary a container stamps; `HdfWriter` the `BeginWrite` session wrapper the capsule holds; `ChunkCursor<T>` the per-slot typed write cursor the session hands back, holding the monotone ordinal the caller used to carry.
-- Entry: `ArchiveSession.Open(Stream, HdfArchivePolicy, Seq<IArchiveSlot>, Seq<(string, ArchiveAttribute)>)` mints the declared-write capsule and `ArchiveSession.Write` is its bracketed form, releasing on every outcome arm; `session.Cursor(ArchiveSlot<T>)` is the one write door; `ChunkGrid.Derive(ReadOnlySpan<int> extent, int components, int targetChunkElements)` is the derivation every producer and archive consumer composes — station axis chunks at 1, the component axis rides whole as the trailing extent, interior axes halve largest-first until the slab meets the element budget; `ChunkGrid.Seat(ReadOnlySpan<ulong> fileDims, ReadOnlySpan<uint> chunks)` seats a container's OWN declared chunk grid without re-deriving it; `grid.Selection(int ordinal)` is the chunk-aligned hyperslab that ordinal addresses and `grid.Slice(int ordinal, int elementBytes, int payloadBytes)` the byte extent a random-access read takes, empty past the payload bound; `HdfWriter.Open<T>(H5Dataset<T[]> slot, ChunkGrid grid)` mints the per-slot cursor and `ChunkCursor<T>.Write(T[] chunk)` advances it, returning `Fin<Unit>`.
-- Auto: the cursor OWNS the ordinal, so an out-of-order or repeated chunk is unrepresentable rather than refused — the only ordinal the cursor accepts is the one it already holds, so the parameter reconstructed nothing and every call site drops a hand-maintained counter with it. The cursor's own `Count` bound closes the write: a chunk past the grid's declared count faults typed rather than reaching the library's dataspace.
+- Owner: `ChunkGrid` — the ONE station-outermost container-grid correspondence, forward and inverse under one owner: the `(extent, components, budget) → (FileDims, Chunks)` derivation, the grid-ordinal decomposition, and the chunk-aligned `HyperslabSelection` that ordinal names; `ArchiveSession` the declared-slot capsule for an artifact whose datasets stream chunkwise, folding the slot mint, graph build, root-or-group attribute stamp, writer open, completion gate, and release into one act; `ArchiveSlot<T>` the typed dataset declaration, `ArchiveAttributes` the object coordinate for a typed attribute set, and `ArchiveAttribute` the closed value vocabulary for that capsule; `HdfWriter` the `BeginWrite` session wrapper also held directly by a mixed inline/deferred graph or job-lived history; `ChunkCursor<T>` the typed view over the session-owned monotone state for one slot.
+- Entry: `ArchiveSession.Open(Stream, HdfArchivePolicy, Seq<IArchiveSlot>, Seq<(string, ArchiveAttribute)>, Seq<ArchiveAttributes> = default)` mints the declared-write capsule and `ArchiveSession.Write` is its bracketed form, requiring every declared slot complete before a successful result and releasing on every outcome arm; the first attribute sequence stamps the file root and each `ArchiveAttributes` stamps the exact group path it carries; `session.Cursor(ArchiveSlot<T>)` is the one write door and every handle for one slot shares the session-owned ordinal; `session.Seal()` proves all declared slots complete; `ChunkGrid.Derive(ReadOnlySpan<int> extent, int components, int targetChunkElements)` is the derivation every producer and archive consumer composes — station axis chunks at 1, the component axis rides whole as the trailing extent, interior axes halve largest-first until the slab meets the element budget; `ChunkGrid.Seat(ReadOnlySpan<ulong> fileDims, ReadOnlySpan<uint> chunks)` seats a container's OWN declared chunk grid without re-deriving it; `grid.Selection(int ordinal)` is the edge-clipped hyperslab that ordinal addresses, `grid.Pack(source, ordinal)` gathers that hyperslab from a row-major whole payload, and `grid.LogicalSlice(int ordinal, int elementBytes, int payloadBytes)` projects the same ordinal into an already chunk-packed payload, never an HDF5 file offset; `ChunkCursor<T>.Write(T[] chunk)` advances one exact chunk, and `WriteAll(T[])` gathers and drains a whole row-major payload.
+- Auto: the cursor OWNS the ordinal, so an out-of-order or repeated chunk is unrepresentable rather than refused — the only ordinal the cursor accepts is the one it already holds, so the parameter reconstructed nothing and every call site drops a hand-maintained counter with it. The cursor gates each chunk's exact edge-clipped element count before provider IO; `WriteAll` gathers a row-major whole payload through the grid rather than slicing it as if every multidimensional hyperslab were contiguous.
 - Receipt: none new — a chunked write's evidence rides the composing consumer's own receipt (`StreamSegment` bytes and segments), never a second row here.
 - Packages: PureHDF (`H5Dataset<T>`, `H5NativeWriter.Write<T>`, `HyperslabSelection(int, ulong[], ulong[])` and the four-argument stride/count form), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new archive artifact class DECLARES its slots and attributes and takes its cursors off the one session — zero rows here; a new attribute shape is one `ArchiveAttribute` case; a new grid-shaping law is one column on `ChunkGrid` the derivation reads.
-- Boundary: `Chunks can only be written once.` throws from the library's v4 index MID-ENCODE, after the producing work is already spent — the cursor refuses at admission instead, and with the ordinal no longer a parameter the refusal is a state no caller can construct; `ChunkGrid` is the SINGLE owner of the ordinal↔hyperslab correspondence, so the forward derivation, the write selection, and the random-access byte slice cannot fork — the three hand spellings this collapse replaces agreed only by inspection and each carried its own row-major decomposition; the grid is a value with no container attached, so a producer derives one before any file exists and an ingest seats the container's own without a second concept entering.
+- Boundary: `Chunks can only be written once.` throws from the library's v4 index MID-ENCODE, after the producing work is already spent — the cursor refuses at admission instead, and with the ordinal no longer a parameter the refusal is a state no caller can construct; `ChunkGrid` is the SINGLE owner of the ordinal correspondence, so derivation, edge-clipped write selection, and packed-payload projection cannot fork; `LogicalSlice` never claims an encoded-file byte range because HDF5 filter output and chunk-index placement are provider-owned; the grid is a value with no container attached, so a producer derives one before any file exists and an ingest seats the container's own without a second concept entering.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
-// ONE chunk-grid owner: derivation, ordinal decomposition, write selection, and byte slice are four projections
+// ONE chunk-grid owner: derivation, ordinal decomposition, write selection, and logical-payload slice are projections
 // of one correspondence, so no consumer re-spells a row-major decompose. The factory ACCUMULATES — a grid with a
 // rank mismatch AND a non-positive extent reports both, because a caller cannot see the second defect after the
 // first refusal. `Grid` is chunks-per-axis, `Chunk` the chunk extent per axis with the COMPONENT axis trailing,
@@ -210,8 +230,19 @@ public sealed partial class ChunkGrid {
     public int ChunkElements => Chunk.Span.ToArray().Aggregate(1, static (acc, axis) => acc * (int)axis);
 
     // Grid ordinal -> chunk-aligned hyperslab: coordinates decompose row-major over the grid, starts land on
-    // chunk boundaries, blocks are one chunk — the only write shape the write-once law admits.
-    public HyperslabSelection Selection(int ordinal) {
+    // chunk boundaries, and an edge block clips to the file extent.
+    public HyperslabSelection Selection(int ordinal) => Selection(ordinal, ReadOnlySpan<ulong>.Empty);
+
+    public HyperslabSelection Selection(int ordinal, ReadOnlySpan<ulong> origin) {
+        if (!origin.IsEmpty && origin.Length != Rank) { throw new ArgumentException("selection origin rank", nameof(origin)); }
+        (ulong[] local, ulong[] blocks) = Bounds(ordinal);
+        ulong[] starts = [.. local];
+        for (int axis = 0; axis < Rank; axis++) { starts[axis] += origin.IsEmpty ? 0UL : origin[axis]; }
+        return new HyperslabSelection(Rank, starts, blocks);
+    }
+
+    (ulong[] Starts, ulong[] Blocks) Bounds(int ordinal) {
+        if ((uint)ordinal >= (uint)Count) { throw new ArgumentOutOfRangeException(nameof(ordinal)); }
         ulong[] starts = new ulong[Rank];
         ReadOnlySpan<int> grid = Grid.Span;
         ReadOnlySpan<uint> chunk = Chunk.Span;
@@ -221,24 +252,58 @@ public sealed partial class ChunkGrid {
             remainder /= grid[axis];
         }
         ulong[] blocks = new ulong[Rank];
-        for (int axis = 0; axis < Rank; axis++) { blocks[axis] = chunk[axis]; }
-        return new HyperslabSelection(Rank, starts, blocks);
+        ReadOnlySpan<ulong> dims = FileDims.Span;
+        for (int axis = 0; axis < Rank; axis++) { blocks[axis] = Math.Min(chunk[axis], dims[axis] - starts[axis]); }
+        return (starts, blocks);
     }
 
-    // The SAME ordinal read as a flat byte extent — the frustum-cull seam a viewport takes after mapping its
-    // frustum onto grid coordinates. Out-of-range answers an empty range rather than a fault, because a cull that
-    // walks past the last chunk is a bound, never a corruption.
-    public Range Slice(int ordinal, int elementBytes, int payloadBytes) {
-        long start = (long)ordinal * ChunkElements * elementBytes;
-        return start >= payloadBytes || start < 0L
+    public int SelectionElements(int ordinal) => checked((int)Selection(ordinal).TotalElementCount);
+
+    public T[] Pack<T>(ReadOnlySpan<T> source, int ordinal) {
+        ReadOnlySpan<ulong> dims = FileDims.Span;
+        long total = dims.ToArray().Aggregate(1L, static (acc, axis) => acc * (long)axis);
+        if (source.Length != total) { throw new ArgumentException("chunk source extent", nameof(source)); }
+        (ulong[] starts, ulong[] blocks) = Bounds(ordinal);
+        int count = checked((int)blocks.Aggregate(1UL, static (acc, axis) => acc * axis));
+        T[] packed = new T[count];
+        ulong[] strides = new ulong[Rank];
+        ulong stride = 1UL;
+        for (int axis = Rank - 1; axis >= 0; axis--) { strides[axis] = stride; stride *= dims[axis]; }
+        for (int index = 0; index < count; index++) {                  // Exemption: row-major hyperslab gather into the provider's contiguous chunk payload
+            int remainder = index;
+            ulong sourceIndex = 0UL;
+            for (int axis = Rank - 1; axis >= 0; axis--) {
+                ulong coordinate = (ulong)(remainder % (int)blocks[axis]);
+                remainder /= (int)blocks[axis];
+                sourceIndex += (starts[axis] + coordinate) * strides[axis];
+            }
+            packed[index] = source[checked((int)sourceIndex)];
+        }
+        return packed;
+    }
+
+    // The SAME ordinal projected into a producer's concatenated logical payload, never an HDF5 encoded-file
+    // offset. Out-of-range answers an empty range because a cull past the last logical chunk is a bound.
+    public Range LogicalElements(int ordinal, int payloadElements) {
+        if ((uint)ordinal >= (uint)Count || payloadElements < 1) { return new Range(0, 0); }
+        long start = 0L;
+        for (int prior = 0; prior < ordinal; prior++) { start += SelectionElements(prior); }
+        return start >= payloadElements || start < 0L
             ? new Range(0, 0)
-            : new Range((int)start, (int)Math.Min(start + ((long)ChunkElements * elementBytes), payloadBytes));
+            : new Range((int)start, (int)Math.Min(start + SelectionElements(ordinal), payloadElements));
+    }
+
+    public Range LogicalSlice(int ordinal, int elementBytes, int payloadBytes) {
+        if (elementBytes < 1 || payloadBytes < 1 || payloadBytes % elementBytes != 0) { return new Range(0, 0); }
+        Range elements = LogicalElements(ordinal, payloadBytes / elementBytes);
+        (int offset, int length) = elements.GetOffsetAndLength(payloadBytes / elementBytes);
+        return new Range(checked(offset * elementBytes), checked((offset + length) * elementBytes));
     }
 
     // ONE station-outermost derivation serves the native layout, the HDF5 encode, and every archive consumer —
     // `Solver/discretization` `FieldSpace` composes it downward, so two chunk grids never fork one concept.
     public static Validation<Error, ChunkGrid> Derive(ReadOnlySpan<int> extent, int components, int targetChunkElements) {
-        if (extent.Length < 1 || components < 1 || targetChunkElements < 1) {
+        if (extent.Length < 1 || components < 1 || targetChunkElements < components) {
             return Fail<Error, ChunkGrid>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Counts(extent.Length, components, targetChunkElements))));
         }
         ulong[] dims = [.. extent.ToArray().Select(static axis => (ulong)axis), (ulong)components];
@@ -255,7 +320,7 @@ public sealed partial class ChunkGrid {
     }
 
     // Seat a container's OWN declared grid: an ingested corpus states its chunking, so re-deriving one would
-    // publish a layout the file never carries and strand `Selection`/`Slice` against the real chunk addresses.
+    // publish a layout the file never carries and strand `Selection` against the real chunk addresses.
     public static Validation<Error, ChunkGrid> Seat(ReadOnlySpan<ulong> fileDims, ReadOnlySpan<uint> chunks) {
         int[] grid = [.. fileDims.ToArray().Zip(chunks.ToArray(), static (whole, chunk) => chunk == 0U ? 0 : (int)(((long)whole + chunk - 1) / chunk))];
         return Create(grid, chunks.ToArray(), fileDims.ToArray());
@@ -282,7 +347,7 @@ public sealed partial class ChunkGrid {
 // --- [TYPES] ------------------------------------------------------------------------------
 // The attribute vocabulary a declared container carries, CLOSED. `H5File.Attributes[name] = value` takes `object`,
 // so an untyped bag let a producer stamp a value the library then boxes and a foreign reader cannot type; these
-// four are what every archive artifact class on the branch actually writes.
+// five are what every declared-slot archive artifact on the branch writes.
 [Union]
 public abstract partial record ArchiveAttribute {
     private ArchiveAttribute() { }
@@ -290,10 +355,12 @@ public abstract partial record ArchiveAttribute {
     public sealed record Text(string Value) : ArchiveAttribute;
     public sealed record Real(double Value) : ArchiveAttribute;
     public sealed record Whole(long Value) : ArchiveAttribute;
+    public sealed record WholeVector(ReadOnlyMemory<long> Value) : ArchiveAttribute;
     public sealed record Flag(bool Value) : ArchiveAttribute;
 
     internal object Boxed => Switch<object>(
-        text: static t => t.Value, real: static r => r.Value, whole: static w => w.Value, flag: static f => f.Value);
+        text: static t => t.Value, real: static r => r.Value, whole: static w => w.Value,
+        wholeVector: static w => w.Value.ToArray(), flag: static f => f.Value);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -301,14 +368,10 @@ public abstract partial record ArchiveAttribute {
 // stays TYPED so the cursor a composer takes is typed, while `Seat` erases exactly as far as the graph needs —
 // the `H5File` indexer takes the dataset object and nothing more.
 public sealed record ArchiveSlot<T>(string Path, ChunkGrid Grid) : IArchiveSlot where T : unmanaged {
-    public Option<H5Dataset<T[]>> Dataset { get; private set; }
-
     // Seating is the ONE erasure point and it is one hop wide: the `H5File` indexer takes the dataset object and
     // nothing more, so the type survives on this slot for the cursor the composer then opens.
     object IArchiveSlot.Seat(HdfArchivePolicy policy) {
-        H5Dataset<T[]> seated = new(Grid.FileDims.ToArray(), Grid.Chunk.ToArray(), datasetCreation: policy.Creation());
-        Dataset = Some(seated);
-        return seated;
+        return new H5Dataset<T[]>(Grid.FileDims.ToArray(), Grid.Chunk.ToArray(), datasetCreation: policy.Creation());
     }
 }
 
@@ -318,62 +381,135 @@ public interface IArchiveSlot {
     internal object Seat(HdfArchivePolicy policy);
 }
 
+// One attribute roster names the exact HDF5 object it decorates. Empty path is unnecessary here because root
+// attributes keep the direct parameter above; group paths are slash-separated and resolve through the same graph
+// builder that seats nested dataset slots, so metadata cannot silently drift from `/A` onto `/`.
+public sealed record ArchiveAttributes(string Path, Seq<(string Key, ArchiveAttribute Value)> Values);
+
 // --- [SERVICES] ---------------------------------------------------------------------------
-// THE deferred-write capsule every archive artifact class composes. Four producers — this branch's solve archive,
-// the mesh container, the clash twin seal, and the ensemble seal — each re-spelled the SAME five steps: mint one
+// THE declared-slot capsule chunk-streamed artifacts compose. Producers once re-spelled the SAME five steps: mint one
 // `H5Dataset<T[]>` per slot off the policy's filter pipeline, build the `H5File` graph, stamp its attributes,
-// `Begin` the writer, and dispose it under a `using`. Four copies of one shape means a filter-pipeline change,
-// an attribute-typing rule, or a release-on-fault repair had four places to miss. Here the declaration is a
+// `Begin` the writer, and dispose it under a `using`. Repeated copies meant a filter-pipeline change,
+// an attribute-typing rule, or a release-on-fault repair had multiple places to miss. Here the declaration is a
 // VALUE, the session is the handle a composer holds, and the cursor it hands back is the only write door.
 public sealed class ArchiveSession : IDisposable {
     readonly HdfWriter _writer;
-    readonly HdfArchivePolicy _policy;
+    readonly Dictionary<IArchiveSlot, object> _datasets;
+    readonly Dictionary<IArchiveSlot, ChunkState> _states;
+    bool _released;
 
-    ArchiveSession(HdfWriter writer, HdfArchivePolicy policy) => (_writer, _policy) = (writer, policy);
+    ArchiveSession(HdfWriter writer, Dictionary<IArchiveSlot, object> datasets, Dictionary<IArchiveSlot, ChunkState> states) =>
+        (_writer, _datasets, _states) = (writer, datasets, states);
 
     // Declaration THEN open, in one act: slots seat against the policy's own `Creation()`, attributes stamp
     // through the closed vocabulary, and the writer opens over the composition's sink. A refusal here has
     // allocated no chunk, so there is nothing to release that the caller must remember.
     public static Fin<ArchiveSession> Open(
-        Stream sink, HdfArchivePolicy policy, Seq<IArchiveSlot> slots, Seq<(string Key, ArchiveAttribute Value)> attributes) =>
+        Stream sink, HdfArchivePolicy policy, Seq<IArchiveSlot> slots, Seq<(string Key, ArchiveAttribute Value)> attributes,
+        Seq<ArchiveAttributes> grouped = default) =>
         slots.IsEmpty
             ? Fin.Fail<ArchiveSession>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Input)))
             : slots.Map(static slot => slot.Path).Distinct().Count != slots.Count
             ? Fin.Fail<ArchiveSession>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(slots.Map(static slot => slot.Path).Distinct().Count, slots.Count))))
             : Op.Of(name: "hdf5.session-open").Catch(() => {
                 H5File graph = new();
-                slots.Iter(slot => graph[slot.Path] = slot.Seat(policy));
+                Dictionary<IArchiveSlot, object> datasets = new(ReferenceEqualityComparer.Instance);
+                Dictionary<IArchiveSlot, ChunkState> states = new(ReferenceEqualityComparer.Instance);
+                slots.Iter(slot => { Seat(graph, slot, policy, datasets); states.Add(slot, new ChunkState(slot.Grid)); });
                 attributes.Iter(pair => graph.Attributes[pair.Key] = pair.Value.Boxed);
-                return Fin.Succ(new ArchiveSession(HdfArchive.Begin(graph, sink, policy), policy));
+                grouped.Iter(set => set.Values.Iter(pair => Group(graph, set.Path).Attributes[pair.Key] = pair.Value.Boxed));
+                return Fin.Succ(new ArchiveSession(new HdfWriter(graph.BeginWrite(sink, new H5WriteOptions())), datasets, states));
             });
 
-    // The one write door: a typed cursor over a slot this session actually declared. A slot from another session
-    // has no seated dataset, so the refusal is a state the type system reaches rather than a mid-encode fault.
+    static void Seat(H5File graph, IArchiveSlot slot, HdfArchivePolicy policy, Dictionary<IArchiveSlot, object> datasets) {
+        string[] cells = slot.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (cells.Length == 0) { throw new InvalidOperationException("archive slot path is empty"); }
+        H5Group parent = Group(graph, string.Join('/', cells.Take(cells.Length - 1)));
+        object dataset = slot.Seat(policy);
+        parent[cells[^1]] = dataset;
+        datasets.Add(slot, dataset);
+    }
+
+    static H5Group Group(H5File graph, string path) {
+        H5Group parent = graph;
+        foreach (string cell in path.Split('/', StringSplitOptions.RemoveEmptyEntries)) {
+            if (parent.TryGetValue(cell, out object? found)) {
+                parent = found as H5Group ?? throw new InvalidOperationException($"archive path is not a group: {path}");
+            } else {
+                H5Group child = new();
+                parent[cell] = child;
+                parent = child;
+            }
+        }
+        return parent;
+    }
+
+    // The one write door resolves by slot identity against this session's declaration map; an equal-looking slot
+    // from another session cannot borrow its dataset. Re-opening the same slot yields another typed view over the
+    // SAME session-owned state, so it cannot reset the ordinal and overwrite an earlier chunk.
     public Fin<ChunkCursor<T>> Cursor<T>(ArchiveSlot<T> slot) where T : unmanaged =>
-        slot.Dataset
-            .Map(dataset => _writer.Open(dataset, slot.Grid))
-            .ToFin(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Initialized, new ContractEvidence.Key(slot.Path))));
+        !_released && _datasets.TryGetValue(slot, out object? seated) && seated is H5Dataset<T[]> dataset
+            && _states.TryGetValue(slot, out ChunkState? state)
+            ? Fin.Succ(_writer.Open(dataset, state))
+            : Fin.Fail<ChunkCursor<T>>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Initialized, new ContractEvidence.Key(slot.Path))));
+
+    // Success means every DECLARED slot drained, including one for which the composer never requested a cursor.
+    // PureHDF lawfully fills unwritten fixed chunks with zero, so this gate is the difference between a complete
+    // artifact and a plausible-looking partial archive.
+    public Fin<Unit> Seal() {
+        int incomplete = _states.Values.Count(static state => !state.Complete);
+        return !_released && incomplete == 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Runtime,
+                new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(_states.Count - incomplete, _states.Count))));
+    }
 
     // The bracketed form, for a composer whose whole emit fits one expression — release binds to EVERY outcome
     // arm, where a `using` inside a rail lambda binds it to the success arm alone.
     public static IO<Fin<A>> Write<A>(
         Stream sink, HdfArchivePolicy policy, Seq<IArchiveSlot> slots,
-        Seq<(string Key, ArchiveAttribute Value)> attributes, Func<ArchiveSession, IO<Fin<A>>> emit) =>
-        IO.pure(Open(sink, policy, slots, attributes)).Bind(opened => opened.Match(
-            Succ: session => IO.lift(() => session).Bracket(emit, static s => IO.lift(() => { s.Dispose(); return unit; })),
+        Seq<(string Key, ArchiveAttribute Value)> attributes, Func<ArchiveSession, IO<Fin<A>>> emit,
+        Seq<ArchiveAttributes> grouped = default) =>
+        IO.pure(Open(sink, policy, slots, attributes, grouped)).Bind(opened => opened.Match(
+            Succ: session => IO.lift(() => session).Bracket(
+                s => emit(s).Map(result => result.Bind(value => s.Seal().Map(_ => value))),
+                static s => IO.lift(() => { s.Release(); return unit; })),
             Fail: error => IO.pure(Fin<A>.Fail(error))));
 
-    public void Dispose() => _writer.Dispose();
+    internal void Release() {
+        if (_released) { return; }
+        _released = true;
+        _writer.Dispose();
+    }
+
+    // Direct/session-lived composers cannot silently finalize a partial fixed-extent archive. The bracketed
+    // `Write` path returns the typed `Complete` refusal; `IDisposable` has no result channel, so its incomplete
+    // edge releases the native writer and then raises rather than publishing fill-valued missing chunks.
+    public void Dispose() {
+        int incomplete = _states.Values.Count(static state => !state.Complete);
+        Release();
+        if (incomplete != 0) { throw new InvalidOperationException($"archive session incomplete: {_states.Count - incomplete}/{_states.Count} slots"); }
+    }
 }
 
-// Deferred-write session. The per-slot cursor lives on `ChunkCursor<T>` rather than an `object`-keyed dictionary
-// here: erasing the slot's own type to key a map is what forced the caller to carry the ordinal back in.
+// One non-generic state per declared slot lets the session census completion without erasing the dataset payload
+// type. Every typed cursor view shares this exact state.
+internal sealed class ChunkState(ChunkGrid grid) {
+    public ChunkGrid Grid { get; } = grid;
+    public int Next { get; private set; }
+    public bool Complete => Next == Grid.Count;
+    public void Advance() => Next++;
+}
+
+// Deferred-write session. Dataset type remains on `ChunkCursor<T>`; only its ordinal state is non-generic.
 public sealed class HdfWriter : IDisposable {
     readonly H5NativeWriter _writer;
 
     internal HdfWriter(H5NativeWriter writer) => _writer = writer;
 
-    public ChunkCursor<T> Open<T>(H5Dataset<T[]> slot, ChunkGrid grid) where T : unmanaged => new(this, slot, grid);
+    public ChunkCursor<T> Open<T>(H5Dataset<T[]> slot, ChunkGrid grid) where T : unmanaged => new(this, slot, new ChunkState(grid));
+
+    internal ChunkCursor<T> Open<T>(H5Dataset<T[]> slot, ChunkState state) where T : unmanaged => new(this, slot, state);
 
     internal Fin<Unit> Write<T>(H5Dataset<T[]> slot, T[] chunk, HyperslabSelection file) where T : unmanaged =>
         Op.Of(name: "hdf5.chunk-write").Catch(() => { _writer.Write(slot, chunk, fileSelection: file); return Fin.Succ(unit); });
@@ -388,18 +524,25 @@ public sealed class HdfWriter : IDisposable {
 public sealed class ChunkCursor<T> where T : unmanaged {
     readonly HdfWriter _writer;
     readonly H5Dataset<T[]> _slot;
-    readonly ChunkGrid _grid;
-    int _next;
+    readonly ChunkState _state;
 
-    internal ChunkCursor(HdfWriter writer, H5Dataset<T[]> slot, ChunkGrid grid) => (_writer, _slot, _grid) = (writer, slot, grid);
+    internal ChunkCursor(HdfWriter writer, H5Dataset<T[]> slot, ChunkState state) => (_writer, _slot, _state) = (writer, slot, state);
 
-    public int Next => _next;
-    public bool Complete => _next == _grid.Count;
+    public int Next => _state.Next;
+    public bool Complete => _state.Complete;
 
     public Fin<Unit> Write(T[] chunk) =>
-        _next >= _grid.Count
-            ? Fin.Fail<Unit>(new ComputeFault.PayloadOverBounds($"<hdf5-chunk-count:{_next}:{_grid.Count}>"))
-            : _writer.Write(_slot, chunk, _grid.Selection(_next)).Map(_ => { _next++; return unit; });
+        _state.Next >= _state.Grid.Count
+            ? Fin.Fail<Unit>(new ComputeFault.PayloadOverBounds($"<hdf5-chunk-count:{_state.Next}:{_state.Grid.Count}>"))
+            : chunk.Length != _state.Grid.SelectionElements(_state.Next)
+            ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(chunk.Length, _state.Grid.SelectionElements(_state.Next)))))
+            : _writer.Write(_slot, chunk, _state.Grid.Selection(_state.Next)).Map(_ => { _state.Advance(); return unit; });
+
+    public Fin<Unit> WriteAll(T[] source) =>
+        source.LongLength != _state.Grid.FileDims.Span.ToArray().Aggregate(1L, static (acc, axis) => acc * (long)axis)
+            ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(source.LongLength, _state.Grid.FileDims.Span.ToArray().Aggregate(1L, static (acc, axis) => acc * (long)axis)))))
+            : Range(_state.Next, _state.Grid.Count - _state.Next).Fold(Fin.Succ(unit), (rail, ordinal) =>
+                rail.Bind(_ => Write(_state.Grid.Pack(source, ordinal))));
 }
 ```
 

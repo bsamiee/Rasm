@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package rasm.contracts.capability.v1;
+
+import "buf/validate/validate.proto";
+
+message DescriptorPinWire {
+  string document = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_bytes: 4194304
+  }];
+  bytes digest = 2 [(buf.validate.field).bytes.len = 16];
+  uint32 descriptors = 3 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65536
+  }];
+}

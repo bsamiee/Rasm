@@ -20,11 +20,12 @@
 ## [02]-[SHAPE]
 
 - Organization edge relations carry NO repository — a producer re-reads its document whole, so replacement scopes to the source key, never one row.
+- Organization fold derives parent and sibling position from the recursive forest once; no detached containment or ordinal survives.
 - Grouped results re-anchor on the model class's `.fields` where a predicate proves a `FieldOption` column — a group key never unwraps by throw.
-- `_RESIDENCES` states `cap` as a literal false, never a gap — unbounded dimensionality IS the plane, so a later pass overwrites a claim, not a hole.
 - `Retain.Policy` classes extend with `transitions` and foreclose `admit` and `tenancy` — writers stamp the class, `_GROOMS` settling sweep tenancy.
-- `Backend.admit` grades recovery on two proofs and takes its `Objective` as a supplied profile value — no branch-local durability table exists.
-- Capability admission censuses independent checks in ONE refusal and stages dependent proofs; a declared corner rides the demand gate or deletes.
+- `Backend.admit` refuses required gaps, retains optional gaps with their policy, and grades a caller-supplied recovery objective.
+- Capability admission censuses independent checks in ONE refusal and stages dependent proofs — a sequenced census hides every sibling miss.
+- Capability corners ride `_RELATIONS` rows the demand gate reads or delete — a corner on a matrix row as prose is documentation, never law.
 - Analytics fills stamp `Convention.identity` on arrival as the journal's join key — a plane filled without it answers nothing until a rewrite.
 - `absorb` obligates `plant` at the same owner and `Olap.mount` creates both in one statement — a collector-planted residence carries neither.
 - `_POINTS` enumerates the OTLP point model, never the mount roster — `_KIND` maps a subset and the unreached relations still hold foreign rows.
@@ -37,6 +38,8 @@
 - Journal-stratum custody crosses `RefRead` and `Preserve`, ports the object plane satisfies — a fence naming a store member inverts the strata.
 - Data hook ports answer `Tap.Verdict` whole — collapsing it to an option erases fan arity, delivery census, and the unrostered arm.
 - Digest-preimage payload columns are TEXT in EVERY dialect — JSONB respells bytes off the minted key; json survives where no digest addresses it.
+- Relay envelopes carry the subject-bound journal JSON as exact UTF-8 `data`; no reserialization or `dataref` twin exists.
+- `Dataref` confines claim-check references to one HTTPS root and proves subject, resident, and dual-carriage byte equality.
 - Cross-tenant planes compose the `Tenancy.sweep` maintenance posture, never a bare client — FORCE RLS answers zero rows to an unpinned session.
 - Tenancy enforcement rendered as TEXT is the PG plane's — a rendered string holds no client to fork on and no other dialect carries the policy.
 - Staging-band expiry never exceeds `_REAP_FLOOR` — the reap closes abandoned uploads band-blind, so a wider window promises an aborted resume.
@@ -45,9 +48,7 @@
 - Derivative cascades heal on the ledger side — each sweep pass closes with the orphan census, re-probing the source at the engine before re-running.
 - Registered lane scans admit only a pre-pumped bounded source — `rowCount` 0 spells exhausted and nothing-yet alike; `Atomics.wait` blocks fibers.
 - Lane scans pin `supportsProjectionPushdown`; predicate pushdown does not exist — the source row's ceiling is the one bound a filtered read holds.
-- `DateTime.distanceDurationEither` splits at `> 0` — a same-instant pair lands `Left`, so a gate admitting zero reads signed `DateTime.distance`.
 - Table-function registration is undroppable, re-registration keeping the first mint — one name per source per handle, content resolved by name.
-- Monotone CAS rides its verdict in the swapped value — `Journal.advance` gates each ASSIGNMENT, and outbox `lease` fences what `claimed_at` expires.
 
 ## [03]-[COLLAPSE]
 
@@ -55,7 +56,7 @@
 - `CacheLane.lease` owns the pool's ONE held-level series — a second row publishes the cache lane's lease under a name only its minter reads.
 - Driver divergence stays a ROW on `_DRIVERS` — result grain, bind vocabulary, and execution members ride columns, so no arm branches on a driver.
 - One re-runnable subject slice serves the resume rail — tus finalize and the preservation port take one landing, so no coordinate drifts.
-- Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so the hoist waits on a SECOND consumer.
+- Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so a journal hoist onto it inverts the strata.
 
 ## [04]-[STRUCTURE]
 

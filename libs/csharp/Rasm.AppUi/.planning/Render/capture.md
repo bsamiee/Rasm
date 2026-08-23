@@ -696,8 +696,20 @@ public sealed record RenderReceipt(
 // version, `Ordinal` writes each extent little-endian, and `Raw` lands the pixel plane as the trailing whole-payload
 // leaf whose extent the two ordinals already recover. The version bumps to v2 because that framing IS the identity
 // space — the prior hand preimage wrote the version bytes unframed, so the same pixels key differently.
-public sealed record PixelIdentity(string Version, int Width, int Height, string Hash) {
+public sealed record PixelIdentity {
     public const string CanonicalVersion = "rgba8-srgb-straight-top-left-v2";
+
+    private PixelIdentity(int width, int height, UInt128 hash) =>
+        (Width, Height, Hash) = (width, height, hash);
+
+    public int Width { get; }
+    public int Height { get; }
+    public UInt128 Hash { get; }
+
+    public static Fin<PixelIdentity> Admit(int width, int height, UInt128 hash, Op key) =>
+        width > 0 && height > 0
+            ? Fin.Succ(new PixelIdentity(width, height, hash))
+            : Fin.Fail<PixelIdentity>(key.InvalidInput($"canonical pixel extent {width}x{height}"));
 
     // No preimage buffer exists to pool: the streaming writer feeds the accumulator span by span, so the prior
     // `GC.AllocateUninitializedArray` copy of the whole plane is gone and a `MemoryOwner<byte>` rental is REFUSED
@@ -716,8 +728,7 @@ public sealed record PixelIdentity(string Version, int Width, int Height, string
         CanonicalWriter frame = CanonicalWriter.Streaming(
             tolerance: EpsilonPolicy.ZeroTolerance, accumulator: new XxHash128(seed: 0L));
         ignore(frame.String(CanonicalVersion).Ordinal(info.Width).Ordinal(info.Height).Raw(canonical.GetPixelSpan()));
-        return Fin.Succ(new PixelIdentity(
-            CanonicalVersion, info.Width, info.Height, ContentHash.Hex(frame.Digest())));
+        return Fin.Succ(new PixelIdentity(info.Width, info.Height, frame.Digest()));
     }
 }
 
@@ -726,7 +737,7 @@ public sealed record PixelIdentity(string Version, int Width, int Height, string
 // present row as `Diagnostics/evidence`'s `EvidenceReceipt.NativeAssetIdentity`. A runtime delegate here that
 // re-probed the loaded modules would be a second producer of one fact, and its answer would be the process state at
 // encode time rather than the identity the mount admitted.
-public sealed record NativeAssetFact(string Library, string Version, string Path, string Rid);
+public sealed record NativeAssetFact(string Library, Option<string> Version, string Path, string Rid);
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class VisualCodec {

@@ -8,7 +8,7 @@ Codec, compression, and hash variance are delegate rows on string-keyed smart en
 
 ## [01]-[INDEX]
 
-- [02]-[CODEC_AXIS]: four codec rows, the package wire context, generated converter admission, the `GeoJsonProjection` dual service, and the AOT resolver landmark.
+- [02]-[CODEC_AXIS]: five codec rows, the package wire context, generated converter admission, the `GeoJsonProjection` dual service, and the AOT resolver landmark.
 - [03]-[CONTENT_ADDRESS]: `ContentAddress` composed off the kernel seed-zero entry, the canonical-byte projection, the precomputed-digest wrap, the seam `GraphMembers` incremental accumulator, and the streaming digest leg.
 - [04]-[COMPRESSION_HASHING]: compression rows, the two-row hash axis, framing routes, and identity values.
 - [05]-[SNAPSHOT_SPINE]: fixed-offset header trust boundary, the tier rejection ladder, the single-pass atomic write fold, and the orphan sweep.
@@ -17,16 +17,17 @@ Codec, compression, and hash variance are delegate rows on string-keyed smart en
 ## [02]-[CODEC_AXIS]
 
 - Owner: `SnapshotCodec` `[SmartEnum<string>]` under the `ComparerAccessors.StringOrdinal` accessor; `ElementJson` the package `JsonSerializerContext` partial joining the suite STJ merge; `InstantFormatter` the one primitive-mapped NodaTime MessagePack formatter; `WireSurface` the wire-surface vocabulary each codec admits through its frozen `Membership` set, so content negotiation is the codec rows a surface admits, never a parallel format enum; `GeoJsonProjection` the one `GeoJsonConverterFactory` admission; `PersistenceResolver` the AOT MessagePack resolver landmark.
-- Cases: codec rows `json-stj`/`messagepack`/`file-raw`/`cbor`; wire surfaces `snapshot`/`cache`/`sync`/`web`.
+- Cases: codec rows `json-stj`/`messagepack`/`file-raw`/`cbor`/`proto-binary`; wire surfaces `snapshot`/`cache`/`sync`/`web`.
 - Entry: `Serialize(Type, object?)` and `Deserialize(Type, ReadOnlyMemory<byte>)` are the row transforms, both on `Fin` because the codec takes an UNTYPED `object?`/byte window at a boundary its `Admits` predicate gates only when a caller consulted it — a `throw` inside a row delegate escapes the one rail every consumer of this page already runs; `Negotiate(WireSurface, Type, Seq<string>)` filters by surface and verified shape admission before ranking accepted rows, so attribute-free seam graphs cannot enter MessagePack through negotiation.
 - Auto: registering `ThinktectureJsonConverterFactory` and `ThinktectureMessageFormatterResolver.Instance` once derives every `[ValueObject]`/`[SmartEnum]`/`[Union]` converter and formatter, so a `NodeId`/`ContentAddress`/`Discipline` crosses both the Marten-event STJ wire and the MessagePack cache wire as its bare key with zero hand codec; `GeoJsonProjection` admits one `GeoJsonConverterFactory` deriving the GeoJSON projection of every `NetTopologySuite` geometry, feature, and attribute table the `Coverage`/`GeoReference` nodes carry; `Marten.UseSystemTextJsonForSerialization(ElementJson.Options)` binds the `json-stj` options as the event-store serializer so a stored `GraphEvent` and an inspector projection share one converter set; registering the kernel `LanguageExtJsonConverterFactory` (`Rasm/Domain/rails#CARRIER_CODEC`) once gives every `Seq`/`Set`/`Option`/`HashMap` member both legs — LanguageExt ships no STJ support, so without it the read leg fails on every carrier member while the write leg succeeds.
 - Receipt: codec negotiation rides `store.codec.negotiate` carrying the surface and the resolved codec; the AOT resolver swap rides no receipt (a build-time selection).
 - Packages: Rasm (`Rasm.Domain` `LanguageExtJsonConverterFactory` — the kernel carrier codec), MessagePack, MessagePackAnalyzer, System.Formats.Cbor, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions.MessagePack, NetTopologySuite.IO.GeoJSON4STJ, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
-- Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `ElementJson` and, when polymorphic, one MessagePack union tag; a new GeoJSON consumer composes the SAME `GeoJsonProjection.Default.Factory` — `Ingest/geospatial` reifies feature `properties` through `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` under its own open-resolver `GeoWire.Options` carrying THIS factory (two options views, one converter/factory owner), never a second `GeoJsonConverterFactory`, and that page's Mapperly half over the NTS feature model is the wire's OTHER end: `GeoWire` is a BRANCH-INTERIOR pair — `Rasm.Bim` `Semantics/feature` ↔ this factory plus `Ingest/geospatial` — so the two folder `[03]-[SEAMS]` maps ARE its whole registration, it mints no `tests/contracts/MANIFEST.md` entry, and no surface here claims a python or typescript end; the AOT landmark swaps the runtime resolver LIST for the single source-generated `PersistenceResolver` (Thinktecture + generated, dropping the reflection `StandardResolver` AOT cannot trim), the custom `InstantFormatter` staying the prepended formatter head in BOTH chains because a `[CompositeResolver]` composes resolver TYPES and cannot carry a standalone `IMessagePackFormatter<Instant>` instance; zero new surface.
-- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; the SEAM graph types (`GraphDelta`/`Header`/`Node`/`Relationship` carrying LanguageExt `Seq`/`Option` and Thinktecture `[Union]`/`[SmartEnum]`/`[ValueObject]` members, with NO `[MessagePackObject]` because the seam stays library-neutral) ride the `json-stj` row ONLY — source-gen-registered on `ElementJson` (`GraphEvent`/`GraphProjection`/`GraphDelta` roots, the rest reachable transitively), whose STJ set handles `Seq`/`Option`/`[Union]`/NodaTime — because the `messagepack` row's `GeneratedMessagePackResolver` finds only `[MessagePackObject]` owners and its `StandardResolver` rejects an attribute-free `Seq<Node>`, so MessagePack on the seam graph is the deleted phantom and the `messagepack` row covers ONLY the `[MessagePackObject]`/`[MessagePack.Union]`-attributed Persistence-owned wire types (`Version/commits#CRDT_WIRE` `CrdtOpWire`); the `messagepack` row is the Marten cache/sync wire and pairs with the `none` compression row because `Lz4BlockArray` owns compression in-codec (double framing is the deleted pattern); the `cbor` row is the self-describing IETF blob codec whose `CborConformanceMode.Canonical` map-key order makes the bytes content-stable for the `ContentAddress` (the guarantee a schemaless MessagePack body cannot give across insertion order) and whose `Strict` reader over a FIXED `ReadOnlyMemory` is the untrusted-egress guard — the buffer length bounds an over-declared byte-string (a `CborContentException` on a length bomb, never an over-read) and the trailing-bytes check rejects a smuggled suffix — so a structured self-describing blob routes through `Cbor` while an evolving typed record stays `messagepack`; the `json-stj` row is the inspector/web wire and the Marten event-store serializer; the `file-raw` row is the geometry-blob passthrough that never re-frames; every `messagepack` decode uses `MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(256)`, and the `#SNAPSHOT_SPINE` `Snapshots.Verify` ladder adds header, length, schema, epoch, checksum, and content-address admission before decode; MemoryPack and protobuf snapshot encodings stay rejected — proto owns RPC payloads only.
+- Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `ElementJson` and, when polymorphic, one MessagePack union tag — a corpus-carried family (the `Version/merge` `Element.V1.EntityEditWire`) binds its generated message and registers NOTHING here; a new GeoJSON consumer composes the SAME `GeoJsonProjection.Default.Factory` — `Ingest/geospatial` reifies feature `properties` through `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>` under its own open-resolver `GeoWire.Options` carrying THIS factory (two options views, one converter/factory owner), never a second `GeoJsonConverterFactory`, and that page's Mapperly half over the NTS feature model is the wire's OTHER end: `GeoWire` is a BRANCH-INTERIOR pair — `Rasm.Bim` `Semantics/feature` ↔ this factory plus `Ingest/geospatial` — so the two folder `[03]-[SEAMS]` maps ARE its whole registration, it mints no `tests/contracts/manifest.json` entry, and no surface here claims a python or typescript end; the AOT landmark swaps the runtime resolver LIST for the single source-generated `PersistenceResolver` (Thinktecture + generated, dropping the reflection `StandardResolver` AOT cannot trim), the custom `InstantFormatter` staying the prepended formatter head in BOTH chains because a `[CompositeResolver]` composes resolver TYPES and cannot carry a standalone `IMessagePackFormatter<Instant>` instance; zero new surface.
+- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; the SEAM graph types (`GraphDelta`/`Header`/`Node`/`Relationship` carrying LanguageExt `Seq`/`Option` and Thinktecture `[Union]`/`[SmartEnum]`/`[ValueObject]` members, with NO `[MessagePackObject]` because the seam stays library-neutral) ride the `json-stj` row ONLY — source-gen-registered on `ElementJson` (`GraphEvent`/`GraphProjection`/`GraphDelta` roots, the rest reachable transitively), whose STJ set handles `Seq`/`Option`/`[Union]`/NodaTime — because the `messagepack` row's `GeneratedMessagePackResolver` finds only `[MessagePackObject]` owners and its `StandardResolver` rejects an attribute-free `Seq<Node>`, so MessagePack on the seam graph is the deleted phantom; the `messagepack` row remains the Marten cache/sync codec for Persistence-owned positional records and pairs with the `none` compression row because `Lz4BlockArray` owns compression in-codec (double framing is the deleted pattern). The `proto-binary` row admits generated `IMessage` values on `sync` alone and carries the `Version/commits#CRDT_WIRE` payload; descriptor validation and domain admission stay at that wire owner, while this row only invokes the generated runtime. The `cbor` row is the self-describing IETF blob codec whose `CborConformanceMode.Canonical` map-key order makes the bytes content-stable for the `ContentAddress` and whose `Strict` reader over a FIXED `ReadOnlyMemory` rejects a length bomb and smuggled suffix; the `json-stj` row is the inspector/web wire and Marten event-store serializer; the `file-raw` row is the geometry-blob passthrough. Every `messagepack` decode uses `MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(256)`, and the `#SNAPSHOT_SPINE` `Snapshots.Verify` ladder adds header, length, schema, epoch, checksum, and content-address admission before decode; MemoryPack and protobuf SNAPSHOT encodings stay rejected — proto-binary is a sync payload codec, never a snapshot residence.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
+using Google.Protobuf;
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -50,7 +51,6 @@ public sealed partial class WireSurface {
 [JsonSerializable(typeof(SnapshotCatalogRow))]
 [JsonSerializable(typeof(SnapshotHeader))]
 [JsonSerializable(typeof(ElementIdentity))]
-[JsonSerializable(typeof(Rasm.Persistence.Version.EntityEditWire))]
 public partial class ElementJson : JsonSerializerContext {
     public static readonly JsonSerializerOptions Options =
         new JsonSerializerOptions(JsonSerializerOptions.Strict) {
@@ -89,6 +89,10 @@ public sealed partial class SnapshotCodec {
         admits: static shape => shape == typeof(byte[]) || shape == typeof(ReadOnlyMemory<byte>),
         serialize: static (_, value) => Opaque(value).Map(CborBlob.Encode),
         deserialize: static (_, payload) => CborBlob.Decode(payload).Map(static bytes => (object?)bytes));
+    public static readonly SnapshotCodec ProtoBinary = new("proto-binary", headerId: 5, negotiationRank: 4, membership: FrozenSet.ToFrozenSet([WireSurface.Sync]),
+        admits: static shape => typeof(IMessage).IsAssignableFrom(shape),
+        serialize: ProtoEncode,
+        deserialize: ProtoDecode);
 
     public int HeaderId { get; }
     public int NegotiationRank { get; }
@@ -101,6 +105,15 @@ public sealed partial class SnapshotCodec {
         ReadOnlyMemory<byte> memory => Fin.Succ(memory),
         _ => Fin.Fail<ReadOnlyMemory<byte>>(new CodecFault.ShapeRefused(value?.GetType().Name ?? "null")),
     };
+
+    static Fin<byte[]> ProtoEncode(Type shape, object? value) => value is IMessage message && shape.IsInstanceOfType(message)
+        ? Fin.Succ(message.ToByteArray())
+        : Fin.Fail<byte[]>(new CodecFault.ShapeRefused(shape.Name));
+
+    static Fin<object?> ProtoDecode(Type shape, ReadOnlyMemory<byte> payload) =>
+        Op.Of().Catch(() => Activator.CreateInstance(shape) is IMessage message
+            ? (message.MergeFrom(payload.Span), Fin.Succ<object?>(message)).Item2
+            : Fin.Fail<object?>(new CodecFault.ShapeRefused(shape.Name)));
 
     // `HeaderId` is a NON-KEY column on a `[SmartEnum<string>]` roster, so the resolve composes the kernel
     // `Rasm/Domain/validation#FACTORY_BRIDGE` `Op.Row<TColumn, TKey, TRow>` column-type-DECOUPLED arm — the
@@ -381,6 +394,7 @@ public sealed partial class HashPolicy {
 - Receipt: `SnapshotCatalogRow` is the durable evidence; `StoredLength`/`PlainLength` are the artifact's own sealed length fields the retention sweep reads, never a later filesystem stat.
 - Packages: Rasm (`ContentHash.Of`), System.IO.Hashing (`Crc32` — the structural header checksum), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new header capability is one flag-bit row; a new rejection cause is one `[FaultCase]` ladder row at the next free offset, breaking every ladder arm (it rails through the SAME `CodecFault.SnapshotRejected` case — the band wraps the ladder, never grows a parallel case per rung); a new codec-fault class is one `CodecFault` case; one artifact kind is one catalog row value; zero new surface.
+- Law: the 88-byte `SnapshotHeader` is the ONE remaining fixed-width hand frame in this folder — every field is a constant-width word at a declared offset, so it rides `docs/laws/patterns.md` `[PREIMAGE_FRAMING]`'s fixed-width-spine clause and needs no framing, while its two 16-byte digests persist through the kernel `ContentHash.Wire`/`Admit` correspondence (big-endian, `[CONTENT_KEY]`) and every other word is a `BinaryPrimitives` little-endian read; no corpus family replaces it because no peer decodes the prologue and the CRC must reject before any parser binds.
 - Boundary: the single-pass seal `Clear`s the stack-allocated prefix buffer before both writes so the placeholder header is genuinely zeroed (terminally invalid magic) and no uninitialized padding byte ever persists into the reserved-gap offsets — the CRC is then computed over the same zeroed-gap layout it verifies against, deterministic across runtimes — and both 128-bit digests flow un-truncated to the header (a 64-bit truncation collides distinct contents and is the deleted form); the seal writes the zeroed placeholder header, the stored bytes, then seeks to zero and writes the final header, `Flush(flushToDisk: true)` before `File.Move` does the atomic rename, so a crash leaves the temp swept rather than a torn final; the header is the artifact's ENTIRE trust boundary and `Verify` runs the ordered ladder — magic/identity, the TWO-SIDED layout ratchet, header checksum, then, on the now-self-consistent header, hash-domain capability (the `HashDomain` byte must equal `HashPolicy.Identity.DomainId` — any other value is `SnapshotTier.HashDomainGap` until a future row's epoch gate admits it through `ByDomainId`, whose `Fin` refusal carries the offending byte the tier reports), stored-length truncation, the `StoredDigest` over stored bytes through the kernel entry, codec/compression capability, then the epoch-then-fingerprint ratchet — each tier verifying before the next so corrupted or foreign input rejects before any decoder with attack surface binds; the ladder verifies `StoredDigest` and NEVER the plaintext `ContentHash`, because the plaintext does not exist until a decompressor has already run and a ladder claiming to prove it would be asserting a digest it never took — the unpack leg proves that one; layout-version, epoch, and fingerprint are one-way ratchets, and the layout ratchet bars BOTH directions because a superseded layout passes a future-only test and then reads every field at the wrong offset, so a below-floor artifact is `SnapshotTier.Foreign` and a future-layout one is deployment evidence rejected by one process and restored by a newer sibling; temp residue and catalog-orphaned payloads leave only through the age-gated `Sweep` (a final artifact lands on disk before its catalog `persist` `Bind` commits, so the sweep reaps only residue older than the grace window) and the swept count is the crash-loop signal.
 
 ```csharp signature
@@ -450,9 +464,10 @@ public readonly record struct SnapshotHeader(
     // The layout ratchet is TWO-SIDED. `LayoutVersion` bars the future half (an artifact a newer sibling wrote);
     // `MinLayoutVersion` bars the past half, which a one-sided ratchet left open — a layout-1 artifact passes a
     // `> LayoutVersion` test and then has every field read at the wrong offset, so a superseded layout is FOREIGN
-    // to this reader and says so at the first tier.
-    public const byte LayoutVersion = 2;
-    public const byte MinLayoutVersion = 2;
+    // to this reader and says so at the first tier. Layout 3 turns both digest words big-endian under the one
+    // `[CONTENT_KEY]` correspondence; a layout-2 artifact therefore reads `Foreign`, never a silently reversed key.
+    public const byte LayoutVersion = 3;
+    public const byte MinLayoutVersion = 3;
 
     // `Seal` takes BOTH windows because it mints both digests: the plain bytes carry identity, the packed bytes
     // carry integrity. A caller holding only one of the two cannot seal, which is the point — the pair is the
@@ -478,8 +493,10 @@ public readonly record struct SnapshotHeader(
         BinaryPrimitives.WriteUInt64LittleEndian(d[28..], Epoch);
         BinaryPrimitives.WriteInt64LittleEndian(d[36..], PlainLength);
         BinaryPrimitives.WriteInt64LittleEndian(d[44..], StoredLength);
-        BinaryPrimitives.WriteUInt128LittleEndian(d[ContentOffset..StoredOffset], ContentHash);
-        BinaryPrimitives.WriteUInt128LittleEndian(d[StoredOffset..ChecksumOffset], StoredDigest);
+        // Both digests PERSIST, so they take the kernel's one 16-byte correspondence — big-endian, the same bytes a
+        // wire field or a store key carries — never a page-local word order.
+        Rasm.Domain.ContentHash.Wire(ContentHash).Span.CopyTo(d[ContentOffset..StoredOffset]);
+        Rasm.Domain.ContentHash.Wire(StoredDigest).Span.CopyTo(d[StoredOffset..ChecksumOffset]);
     }
 }
 
@@ -524,7 +541,7 @@ public static class Snapshots {
         : artifact[4] < SnapshotHeader.MinLayoutVersion ? new CodecFault.SnapshotRejected(SnapshotTier.Foreign, $"layout:{artifact[4]}<{SnapshotHeader.MinLayoutVersion}")
         : artifact[4] > SnapshotHeader.LayoutVersion ? new CodecFault.SnapshotRejected(SnapshotTier.FutureLayout, $"{artifact[4]}>{SnapshotHeader.LayoutVersion}")
         : BinaryPrimitives.ReadUInt32LittleEndian(artifact[SnapshotHeader.ChecksumOffset..]) != Crc32.HashToUInt32(artifact[..SnapshotHeader.ChecksumOffset]) ? new CodecFault.SnapshotRejected(SnapshotTier.HeaderCorrupt, "crc")
-        : Admit(Read(artifact), artifact, admission);
+        : Read(artifact).Bind(header => Admit(header, artifact, admission));
 
     // Typed tiers, in the ONE order the trust boundary demands: reserved-bit drift and hash domain before any
     // length is believed, lengths before the payload digest reads a span they bound, the payload digest before a
@@ -595,12 +612,21 @@ public static class Snapshots {
         return header;
     }
 
-    static SnapshotHeader Read(ReadOnlySpan<byte> a) =>
-        new(BinaryPrimitives.ReadUInt32LittleEndian(a), a[4], a[5], BinaryPrimitives.ReadInt32LittleEndian(a[8..]), BinaryPrimitives.ReadInt32LittleEndian(a[12..]),
-            BinaryPrimitives.ReadUInt64LittleEndian(a[20..]), BinaryPrimitives.ReadUInt64LittleEndian(a[28..]), BinaryPrimitives.ReadInt64LittleEndian(a[36..]), BinaryPrimitives.ReadInt64LittleEndian(a[44..]),
-            BinaryPrimitives.ReadUInt128LittleEndian(a[SnapshotHeader.ContentOffset..SnapshotHeader.StoredOffset]),
-            BinaryPrimitives.ReadUInt128LittleEndian(a[SnapshotHeader.StoredOffset..SnapshotHeader.ChecksumOffset]),
-            BinaryPrimitives.ReadUInt32LittleEndian(a[SnapshotHeader.ChecksumOffset..]));
+    // The two digest words admit through the kernel `ContentHash.Admit` — the one 16-byte read — on the rail the
+    // ladder already runs; the fixed-offset slices are exactly sixteen bytes, so the refusal arm is unreachable by
+    // construction and stays spelled because the correspondence is the rail's, never this page's.
+    static Fin<SnapshotHeader> Read(ReadOnlySpan<byte> a) {
+        Op key = Op.Of();
+        // Fixed-width words read into locals FIRST: the span cannot cross into the applicative arm, and every word
+        // is a constant-offset read the layout ratchet already proved.
+        (uint magic, byte version, byte domain, int codec, int compression) = (BinaryPrimitives.ReadUInt32LittleEndian(a), a[4], a[5], BinaryPrimitives.ReadInt32LittleEndian(a[8..]), BinaryPrimitives.ReadInt32LittleEndian(a[12..]));
+        (ulong fingerprint, ulong epoch, long plain, long stored) = (BinaryPrimitives.ReadUInt64LittleEndian(a[20..]), BinaryPrimitives.ReadUInt64LittleEndian(a[28..]), BinaryPrimitives.ReadInt64LittleEndian(a[36..]), BinaryPrimitives.ReadInt64LittleEndian(a[44..]));
+        uint checksum = BinaryPrimitives.ReadUInt32LittleEndian(a[SnapshotHeader.ChecksumOffset..]);
+        return (Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.ContentOffset..SnapshotHeader.StoredOffset], key),
+                Rasm.Domain.ContentHash.Admit(a[SnapshotHeader.StoredOffset..SnapshotHeader.ChecksumOffset], key))
+            .Apply((content, storedDigest) => new SnapshotHeader(magic, version, domain, codec, compression, fingerprint, epoch, plain, stored, content, storedDigest, checksum))
+            .As();
+    }
 }
 ```
 

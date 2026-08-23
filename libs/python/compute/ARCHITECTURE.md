@@ -23,7 +23,7 @@ compute/                    # Offline scientific evidence, graduating outward th
 │   ├── study.py            # Study spine; DOE frames admit through the published data contract
 │   ├── history.py          # Multi-run cohort; Partial resume recomputing indices over the whole response vector
 │   ├── inference.py        # Inference owner; InferenceReceipt projects onto the graduation rail
-│   └── model.py            # ModelAsset owner; the GraduationEnvelope layout hand-copies the C# writer, never imports
+│   └── model.py            # ModelAsset owner; Python writes the native GraduationEnvelope law that the C# identity gate admits
 ├── numerics/               # Numeric substrate every sub-domain admits through
 │   ├── array.py            # ArrayPayload admission floor every producer stratum composes
 │   ├── jit.py              # JitBackend capture table; experiments and quadrature compose it

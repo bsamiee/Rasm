@@ -8,7 +8,7 @@
 
 ## [02]-[SHAPE]
 
-- (none)
+- Biome disarms the `project` and `types` domains — whole-graph inference belongs to the `tsc` gate, and a second inferring pass forks one verdict.
 
 ## [03]-[COLLAPSE]
 

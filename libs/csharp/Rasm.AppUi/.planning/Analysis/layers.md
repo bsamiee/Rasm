@@ -546,7 +546,7 @@ public abstract partial record AnalysisFact {
     public sealed record Baked(BakeVerb Verb, ResultLayer Layer, LayerProvenance Provenance, BakeProduct Product) : AnalysisFact;
 
     // Every column means ONE thing across both arms: `Flag` is the layer's visibility at the moment the fact
-    // was taken, `Count` its sample census, and `Magnitude` the input digest that reproduces it — so a board
+    // was taken, `Count` its sample census, and the digest measure the input identity that reproduces it — so a board
     // reading the analysis plane never has to ask which arm a column came from.
     public EvidenceReceipt Evidence => Switch(
         mounted: static fact => (EvidenceReceipt)new EvidenceReceipt.Effect(
@@ -554,15 +554,15 @@ public abstract partial record AnalysisFact {
             Key: fact.Layer.Key,
             Outcome: $"{fact.Layer.Kind.Key}/{fact.Provenance.Tier.Key}",
             Flag: fact.Layer.Visible,
-            Count: fact.Layer.Payload.Samples.Count,
-            Magnitude: fact.Provenance.Digest.ToString()),
+            Count: checked((uint)fact.Layer.Payload.Samples.Count),
+            Measure: new EffectMeasure.Digest(fact.Provenance.Digest)),
         baked: static fact => new EvidenceReceipt.Effect(
             Plane: AnalysisLayers.Plane,
             Key: $"{fact.Layer.Key}/{fact.Verb.Key}",
             Outcome: $"{fact.Verb.Key}/{fact.Product.Carries}",
             Flag: fact.Layer.Visible,
-            Count: fact.Layer.Payload.Samples.Count,
-            Magnitude: fact.Provenance.Digest.ToString()));
+            Count: checked((uint)fact.Layer.Payload.Samples.Count),
+            Measure: new EffectMeasure.Digest(fact.Provenance.Digest)));
 
     public LayerProvenance Run => Switch(
         mounted: static fact => fact.Provenance,

@@ -12,13 +12,13 @@
 - [05]-[WORKER](.planning/proc/worker.md): Off-thread compute at full platform depth — a closed schema union speaks for every crossing.
 
 [NET]:
-- [06]-[CLIENT](.planning/net/client.md): One lane table for every branch egress — status admission, transient retry pulses, budgets inherited whole.
-- [07]-[CHANNEL](.planning/net/channel.md): Long-lived byte conversations framed once, whatever the transport carries them.
+- [06]-[CLIENT](.planning/net/client.md): One egress lane table with optional or required machine presentation.
+- [07]-[CHANNEL](.planning/net/channel.md): Long-lived byte channels and source-gated MQTT event ingress.
 - [08]-[PUBSUB](.planning/net/pubsub.md): Broadcast, replay, and blob handoff behind one engine-blind broker port.
 - [09]-[COORDINATE](.planning/net/coordinate.md): Distributed agreement beside the fanout plane — lease, elect, and guarded state as one port.
 
 [OTEL]:
-- [10]-[EMIT](.planning/otel/emit.md): OTLP egress as one policy value and one Layer beside the W3C continuation ingress.
+- [10]-[EMIT](.planning/otel/emit.md): OTLP egress, W3C continuation, and a native local conformance receipt from one live policy.
 - [11]-[SERVER](.planning/otel/server.md): Node auto-instrumentation rows over the async-local manager — self-egress excluded, engine series bound.
 - [12]-[INSTRUMENT](.planning/otel/instrument.md): Document instrumentation rows over the zone manager; interaction admission gates span cardinality.
 - [13]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
@@ -28,7 +28,7 @@
 
 [SERVE]:
 - [17]-[API](.planning/serve/api.md): Front-door assembly law — domain groups as data, one app-assembled `HttpApi`, derived secondary surfaces.
-- [18]-[ROUTE](.planning/serve/route.md): Routes as Layers — api mount, upload dispatch, and intake verify in one serving fold.
+- [18]-[ROUTE](.planning/serve/route.md): Routes as Layers — closed event framing, confined `dataref`, dedupe, and settlement.
 - [19]-[LIVE](.planning/serve/live.md): Realtime SSE and WebSocket serving over branch feeds under resume-token and admission laws.
 - [20]-[PROBLEM](.planning/serve/problem.md): RFC 9457 outbound-fault law — every leaving fault renders itself.
 - [21]-[CLI](.planning/serve/cli.md): Verb families contributed as `Command` values, folded by the app into one root.
@@ -70,7 +70,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@nats-io/obj`
 - `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane.
 - `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
-- `@connectrpc/connect-node` — Node Connect/gRPC transport factories; `net/client` owns transport dispatch.
+- `@connectrpc/connect-node` — public Node Connect, gRPC-Web, and gRPC transports over one scoped HTTP/2 manager, and the server adapter.
 - `mqtt` — `net/channel` owns the MQTT v5 channel seam and the branch-owned CloudEvents binding riding it.
 - `avsc` — `net/channel` mints the one `AvroCloudEvent` codec filling the empty arm `core/interchange/format`'s Avro media row leaves.
 - `chevrotain` — `work/filter` owns the CESQL lexer and LL(k) grammar behind the `sql` filter dialect.
@@ -149,6 +149,15 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
+[CONTRACT_BINDINGS]:
+- `@bufbuild/protobuf` — Generated backend-contract message typing and official ProtoJSON values.
+- `@rasm/contracts` — Generated backend-contract descriptors and the CloudEvents Avro publisher asset.
+
+[BRANCH_PEERS]:
+- `@rasm/ts/core` — Fault, budget, carrier, event, invocation, evidence, and content-identity rails consumed across runtime capabilities.
+- `@rasm/ts/data` — Data-owned backend generation and `dataref` residence ports consumed by readiness, event intake, and Kafka admission.
+- `@rasm/ts/security` — Authentication, credential, signature, tenancy, and secret-custody capabilities consumed at runtime boundaries.
+
 [TYPING_RAILS]:
 - `effect`
 
@@ -160,7 +169,7 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 - `@effect/experimental`
 
 [EVENT_FABRIC]:
-- `cloudevents` — HTTP, MQTT, NATS, and Kafka bindings riding the owning channel, fanout, delivery, and intake rows.
+- `cloudevents` — HTTP, MQTT, and Kafka bindings riding their owning rows; NATS falls to the core structured-JSON codec the SDK leaves unbound.
 
 [BENCH]:
 - `mitata` — `proc/exec` owns the trial-engine route.

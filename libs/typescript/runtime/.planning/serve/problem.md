@@ -123,6 +123,7 @@ const _hop = (facts: { readonly retryable: boolean; readonly terminal: boolean }
 - Law: the net is self-rendering-first, never a mapper — `Problem.net(cause)` folds the cause once, then renders: a failure implementing the symbol runs its OWN projection, and everything else rides the total ladder into `Problem.respond`. Both arms split on `HttpServerRespondable.isRespondable` because the ladder's render is effectful (it reads the ambient stamp) where the platform's `toResponseOrElse` demands a settled response value.
 - Law: the opt-in arm invokes the symbol DIRECTLY and catches its whole cause — `HttpServerRespondable.toResponse` is `orDie` over a `respond` the platform types `unknown`, so it converts a refusing projection into a defect this seam's cause fold never observes and the platform answers a bare 500 carrying no body, no correlation, and no derived shield. Catching that cause routes the refusal back onto the ladder, the render the fault takes when it never opts in, so the served app's error channel is `never` in fact.
 - Law: declared endpoint faults keep their `HttpApiEndpoint.addError` status at the spec altitude; this net is the floor under everything undeclared, and the class family DECIDES no tenancy and no lifetime — a status grades a refusal, and the request that carried it ended at the seam that rendered this body.
+- Law: unsupported request media is the protocol's exact 415 row, minted only through `Problem.media`; it does not masquerade as malformed syntax and no route authors a status literal.
 - Boundary: attachment is `route#SEAM_ROWS`'s one composition; log/OTLP emission of the folded cause is `otel/crash#CAPTURE`'s, fed from the same seam; the class table and blame axis are `core/value/fault#CLASS_VOCABULARY`'s.
 - Growth: a new probe rung is one arm in `_of` plus its row in `[02]`; a new extension is one field row under `[03]`'s band plus its populate line.
 - Packages: `effect` (`Schema`, `Option`, `Effect`, `Cause`, `Predicate`); `@effect/platform` (`HttpServerRespondable`, `HttpServerResponse`); `./api.ts` (`Current`).
@@ -221,6 +222,16 @@ const _of = (fault: unknown): Problem =>
           ? _classed({ class: "absent", message: "route absent" })
           : _classed(fault)
 
+const _media = (detail: string): Problem => new Problem({
+  type: `${_TYPE_BASE}unsupported-media`,
+  title: "unsupported media type",
+  status: 415,
+  detail,
+  instance: Option.none(),
+  retry: Option.none(),
+  extensions: {},
+})
+
 class Problem extends Schema.Class<Problem>("Problem")({
   type: Schema.NonEmptyString,
   title: Schema.NonEmptyString,
@@ -231,6 +242,7 @@ class Problem extends Schema.Class<Problem>("Problem")({
   extensions: _Extensions,
 }) {
   static readonly of: (fault: unknown) => Problem = _of
+  static readonly media = _media
   static readonly fromCause = <E>(cause: Cause.Cause<E>): Problem =>
     Cause.isInterruptedOnly(cause)
       ? _classed({ class: "unavailable", message: "request interrupted" })

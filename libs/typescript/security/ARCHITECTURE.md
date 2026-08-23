@@ -94,7 +94,7 @@ config:
 ---
 flowchart LR
     accTitle: Security package seam registry
-    accDescr: Security owners exchanging identity, custody, tenancy, and telemetry contracts with the core, data, runtime, and iac peers.
+    accDescr: Security owners exchanging identity, custody, tenancy, and telemetry contracts with the core, data, runtime, and iac peers, and admitting the AppHost credential wire.
     subgraph security[SECURITY]
         Crypt[Crypt authority]
         Authn[Authn spine]
@@ -104,6 +104,7 @@ flowchart LR
     Data[(data)]
     Runtime{{runtime}}
     Iac([iac])
+    AppHost[/csharp:Rasm.AppHost/]
     Core e1@-->|"[SHAPE]: Identity.Tenant"| Access
     Data e2@-->|"[PORT]: ClaimStore"| Access
     Access e3@-->|"[BOUNDARY]: TenantScope"| Data
@@ -120,6 +121,7 @@ flowchart LR
     Access e14@-->|"[SHAPE]: TenantScope.metered"| Runtime
     Data e15@-->|"[PORT]: AuditJournal"| Access
     Core e16@-->|"[SHAPE]: Tap.Name"| Access
+    AppHost e17@-->|"[WIRE]: CredentialPublicWire"| Crypt
 ```
 
 ## [04]-[INTERNAL]

@@ -2,12 +2,12 @@
 
 `Rasm.Materials` is the host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
 
-`Rasm.Materials` also references `Rasm.AppHost` by name under the branch benchmark-peer ruling, and `Projection/benchmarks#GATE_COMPOSITION` is that reference's one compile consumer.
+`Rasm.Materials` also references `Rasm.AppHost` by name under the cycle-safe branch ruling. `Projection/benchmarks#GATE_COMPOSITION` reads the benchmark gate; appearance and declaration boundaries compose its neutral `WireAdmission` after bounded protobuf-binary parsing. It references `Rasm.Contracts` for both generated families and carries no validator or generated-message mirror of its own.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost}; VividOrange in-folder; no host geometry
+Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost, Rasm.Contracts}; no host geometry
 ├── Component/             # One polymorphic Component over the closed component-family axis, class-discriminated
 │   ├── Component.cs       # Component record, closed SectionProfile algebra, MaterialGrade rows, and the ComponentSeed traverse and gates
 │   ├── Masonry.cs         # ComponentFamily.Masonry policy row and the bond algebra; a unit is a Component row, never a Brick type
@@ -38,7 +38,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   ├── Weathering.cs      # WeatheringEffect policy rows drive a library row along AgeParameter, so a row carries its trajectory
 │   ├── Acquisition.cs     # Acquisition.Import produces AcquiredMaterial with its CaptureProvenance receipt and admitted plane set
 │   ├── Finish.cs          # Finish.Resolve over a pigment-weight vector and coat stack; spectrally-grounded BaseColor, measured provenance
-│   ├── Interchange.cs     # One resolved library row crosses in three reconciled shapes keyed by ONE content hash; CorpusBorne states the entry
+│   ├── Interchange.cs     # Generated appearance egress, descriptor-admitted Set boundary, MaterialX, and the interior stage crossing
 │   ├── Environment.cs     # SkyModel [Union], EnvironmentMap admission, and the IBL prefilter; scene-linear radiance end to end
 │   └── Neural.cs          # ModelCard frozen registry keyed by ModelCardId; stage, licence, weights, tensor contract, provider ladder as DATA
 ├── Raster/                # Texture-map generation — the plane substrate, the bake engine, and its container estate
@@ -62,7 +62,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.
 
-C# is the sole producer of the appearance wire vocabulary: `Appearance/Interchange` mints each document once as an `IAppearanceWire` whose `CorpusBorne` column states whether a `tests/contracts/MANIFEST.md` entry is owed, and the TypeScript and Python peers decode the corpus-borne pair. Two wires cross inbound: the python-minted `AssetSetManifest` lands at `Raster/Set` `SetIngest.Peer` as classification input, and the `python:data`-minted `DeclarationRecord` lands at `Properties/Assessment` `DeclarationWire.Decode`, reaching `AssessmentSet.Of` unchanged.
+C# is the sole producer of the generated appearance family: `Appearance/interchange.md` mints `Material` and each completed `Set`, with the Set crossing the shared `WireAdmission` descriptor gate once. TypeScript and Python consume generated bindings rather than mirrors. Python-minted `Set` values land at `Raster/set.md` `SetIngest.Peer` as classification input through the same gate; the generated declaration family independently lands at `Properties/assessment.md` `DeclarationWire.Decode` and reaches `AssessmentSet.Of` unchanged.
 
 ## [02]-[STRATA]
 
@@ -90,7 +90,7 @@ flowchart TB
         Projector[ComponentProjector]
     end
     subgraph S2["S2 APPEARANCE EGRESS"]
-        Wire[MaterialWire]
+        Wire[Generated Material + Set]
         Environment[EnvironmentLight]
     end
     subgraph S1["S1 PROPERTIES + RASTER"]
@@ -196,12 +196,12 @@ flowchart LR
     Appearance e16@-->|"[WIRE]: StageRequest"| Compute
     Compute e17@-->|"[WIRE]: StageResult"| Appearance
     Appearance e18@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
-    Appearance e19@-->|"[WIRE]: MaterialWire"| Core
-    Appearance e20@-->|"[WIRE]: MaterialWire"| PyRuntime
-    Appearance e21@-->|"[WIRE]: TextureSetWire"| Core
-    Appearance e22@-->|"[WIRE]: TextureSetWire"| PyRuntime
-    Appearance e23@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
-    PyArtifacts e24@-->|"[WIRE]: AssetSetManifest"| Raster
+    Appearance e19@-->|"[WIRE]: appearance.v1.Material"| Core
+    Appearance e20@-->|"[WIRE]: appearance.v1.Material"| PyRuntime
+    Appearance e21@-->|"[WIRE]: appearance.v1.Set"| Core
+    Appearance e22@-->|"[WIRE]: appearance.v1.Set"| PyRuntime
+    Appearance e23@-->|"[WIRE]: appearance.v1.Material"| Ui
+    PyArtifacts e24@-->|"[WIRE]: appearance.v1.Set"| Raster
     PyData e25@-->|"[WIRE]: DeclarationRecord"| Properties
     Host e26@-->|"[WIRE]: CaptureSource"| Appearance
     Projection e27@-->|"[PORT]: TelemetryContributorPort"| AppHost
@@ -250,7 +250,7 @@ flowchart LR
     Press e2@--> Planes[[TexturePlane products]]
     Planes e3@--> SetMint[[TextureSet mint]]
     SetMint e4@--> Bind[[SetBind rebind]]
-    SetMint e5@--> WireEg[/IAppearanceWire egress/]
+    SetMint e5@--> WireEg[/Generated Set egress/]
     Press f1@-.->|"content-identity veto"| Fault2[/RasterFault band/]
     WireEg f2@-.->|"container refusal"| Fault2
 ```
@@ -275,7 +275,7 @@ flowchart LR
 |  [14]   | new plane transform or curve        | `Raster/filter.md`          | one `PlaneOp`, `RemapCurve`, or `HeightDerivative` case           |
 |  [15]   | new tiling method                   | `Raster/tile.md`            | one `TileStrategy` row carrying its `Solve` delegate              |
 |  [16]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and golden  |
-|  [17]   | new appearance wire document        | `Appearance/interchange.md` | one `IAppearanceWire` record with its `CorpusBorne` verdict       |
+|  [17]   | new appearance wire document        | `Appearance/interchange.md` | one proto message, generated bindings, and one egress fold        |
 |  [18]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
 |  [19]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
 |  [20]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |

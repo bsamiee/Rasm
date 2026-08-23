@@ -194,19 +194,16 @@ def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
 # decisions the public verb cannot isolate per-language without spawning real toolchains.
 
 
-def test_typescript_scope_gates_tsc_and_keeps_scoped_fixer(assay_root: AssayHarness) -> None:
-    """Full TS keeps the project-wide tsc build row; scoped TS skips it whole while the scoped Biome write fixer stays."""
-    full_phases, full_skipped = static_rail._phase_checks(
-        Routed(Language.TYPESCRIPT, Scope.FULL, files=(".",)), assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES
-    )
-    scoped_phases, scoped_skipped = static_rail._phase_checks(
-        Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",)), assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES
-    )
-    assert any(check.tool.name == "tsc" for _, checks in full_phases for check in checks)
-    assert not any(row[1] == "tsc" for row in full_skipped)
-    assert all(check.tool.name != "tsc" for _, checks in scoped_phases for check in checks)
-    assert ("build", "tsc", "project-wide tool unsupported by scoped static") in scoped_skipped
-    assert any(check.tool.name == "biome" and check.tool.mode is Mode.WRITE for _, checks in scoped_phases for check in checks)
+def test_typescript_scope_escalates_tsc_and_keeps_scoped_fixer(assay_root: AssayHarness) -> None:
+    """The root config carries no `include`, so a scoped TS route escalates to FULL and still owes tsc its whole-estate run."""
+    scoped = Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",))
+    escalated = static_rail._build_route(scoped)
+    assert escalated.scope is Scope.FULL
+    phases, skipped = static_rail._phase_checks(escalated, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
+    assert any(check.tool.name == "tsc" for _, checks in phases for check in checks)
+    assert not any(row[1] == "tsc" for row in skipped)
+    # Escalation re-scopes the whole-estate compiler alone; the Biome fixer keeps the route's own file list.
+    assert any(check.tool.name == "biome" and check.tool.mode is Mode.WRITE for _, checks in phases for check in checks)
 
 
 def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
@@ -214,7 +211,7 @@ def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
     routed = Routed(Language.TYPESCRIPT, Scope.FULL, files=("vite.config.ts", "vitest.config.ts"))
     phases, _ = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
-    assert ("build", "tsc", "pnpm --silent exec tsc --noEmit -p tsconfig.json") in planned
+    assert ("build", "tsc", "pnpm --silent exec tsc --noEmit --pretty false -p tsconfig.json") in planned
 
 
 _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], ...]], bool]], ...] = (
@@ -235,6 +232,21 @@ _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], 
         lambda planned: any(argv.endswith("src/App/App.csproj") for _, name, argv in planned if name == "dotnet-format"),
     ),
 )
+
+
+_EMPTY_ROUTE_ROWS: tuple[tuple[str, Routed, bool], ...] = (
+    ("governor-escalated-no-source", Routed(Language.TYPESCRIPT, Scope.CHANGED, files=(), full_triggers=("tsconfig.json",)), False),
+    ("no-source-no-governor", Routed(Language.TYPESCRIPT, Scope.CHANGED, files=()), True),
+    ("source-file-routes", Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",)), False),
+)
+
+
+@pytest.mark.parametrize("routed, empty", [row[1:] for row in _EMPTY_ROUTE_ROWS], ids=[row[0] for row in _EMPTY_ROUTE_ROWS])
+def test_glob_route_survives_on_its_trigger_not_its_scope(*, routed: Routed, empty: bool) -> None:
+    """A sourceless glob route earns its whole-lane checks from a governor alone; escalation itself proves nothing."""
+    # White-box: `_build_route` escalates off the catalog before any verb runs, so only the pair reveals whether a
+    # scope test would admit every sourceless route — the public verb reports one folded status for both arms.
+    assert static_rail._empty_route(static_rail._build_route(routed)) is empty
 
 
 @pytest.mark.parametrize("routed, admitted", [row[1:] for row in _PLACEMENT_ROWS], ids=[row[0] for row in _PLACEMENT_ROWS])

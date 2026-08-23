@@ -1,6 +1,6 @@
 # [RASM_BIM_ARCHITECTURE]
 
-`Rasm.Bim` is the host-neutral BIM/IFC owner and IFC arm of the `Rasm.Element` seam. `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph`, `IfcLegality : IGraphConstraint` owns IFC-semantic legality, terminal BIM refusals land on the compact `BimFault` band, and captured foreign errors retain their cause. Consumer-facing element is the seam `Bake(objectNode)` fold, never a parallel `BimModel`; Bim stays the sole GeometryGym/IFC owner, references no AEC peer, and aligns through the shared seam graph and content-keyed wire, and Compute owns simulation.
+`Rasm.Bim` owns the host-neutral BIM/IFC domain and the IFC arm of the `Rasm.Element` seam, lowering GeometryGym models into the canonical `ElementGraph` under its own IFC-semantic legality. Terminal BIM refusals land on the compact `BimFault` band and captured foreign errors retain their cause. Consumers reach the domain through the seam `Bake(objectNode)` fold; Bim references no AEC peer, aligns through the shared seam graph and content-keyed wire, and cedes simulation to Compute.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -179,7 +179,6 @@ flowchart LR
     Rasm e20@-->|"[PORT]: ReceiptSinkPort"| Model
     Model e21@-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Exchange e22@<-->|"[TESSELLATION]: TessellationOutcome"| Compute
-    Review e23@<-->|"[TRANSPORT]: IdsVerdict"| Compute
     Energy e24@-->|"[CONTENT_KEY]: EnergyArtifact"| Compute
     Compute e25@-->|"[WIRE]: EnergyResult"| Energy
     Model e26@-->|"[PROJECTION]: BimOpenSchema"| Persistence
@@ -221,7 +220,6 @@ flowchart LR
     Ui([typescript:ui])
     Exchange e1@<-->|"[WIRE]: IfcWire"| Geometry
     Model e2@-->|"[CONTENT_KEY]: RepresentationContentHash"| Geometry
-    Geometry e3@-->|"[BOUNDARY]: IdsVerdict"| Review
     Energy e4@<-->|"[WIRE]: Hbjson"| Geometry
     Energy e5@-->|"[RECEIPT]: EnergyResults"| AppUi
     Semantics e6@-->|"[SHAPE]: GeoTiles"| AppUi
@@ -237,7 +235,6 @@ flowchart LR
     Exchange e16@-->|"[EVENT]: CloudEvents announcement"| AppHost
     Host e17@-->|"[BOUNDARY]: GlobalId"| Exchange
     Semantics e18@-->|"[PROJECTION]: GeoWire"| Data
-    Model e19@-->|"[WIRE]: PredicateWire"| Core
     Exchange e20@-->|"[WIRE]: IfcWire"| Core
     Review e21@-->|"[WIRE]: BcfTopicWire"| Core
     Semantics e22@-->|"[PROJECTION]: GeoWire"| Core
@@ -252,7 +249,7 @@ Two fences partition by counterpart role: the same-branch AEC peers with Compute
 
 That same root owns the `BrickGraph` leg's other half: it supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport axis, so `Rasm.Bim` mints the operations topology and names no live transport.
 
-`GeoWire` produces every `GeoFeature` crossing, its `ToGeoJson` text and `ToGpkgBlob` blob the only two wire forms `Semantics/feature` publishes, so each cross-runtime geo edge carries `[PROJECTION]` and never `[WIRE]`: `tests/contracts/MANIFEST.md` `[02.23]` records `GeoFeatureWire` ABSENT because no typed family crosses, and an edge naming that family claims a decoder roster, a parity gate, and a producer row no fence on either side holds.
+`GeoWire` produces every `GeoFeature` crossing, its `ToGeoJson` text and `ToGpkgBlob` blob the only two wire forms `Semantics/feature` publishes, so each cross-runtime geo edge carries `[PROJECTION]` and never `[WIRE]`: `tests/contracts/manifest.json` `BIM_WIRE` records `GeoFeatureWire` ABSENT because no typed family crosses, and an edge naming that family claims a decoder roster, a parity gate, and a producer row no fence on either side holds.
 
 `typescript:core` decodes that projection behind its own `interchange/codec` `WkbParser` port over raw bytes and mints a `Wire.GeoFeature` landing its family roster excludes; `typescript:ui` reaches the landing through `@rasm/ts/core` alone, so no geo edge runs from here to it. Persistence's geo-store takes the GeoPackage blob leg without a runtime crossing, and `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 

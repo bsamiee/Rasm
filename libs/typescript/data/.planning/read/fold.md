@@ -10,25 +10,25 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 - [03]-[INLINE_SLOT]: zero-staleness lane — the slot the publish transaction executes.
 - [04]-[DRAIN_ACTOR]: checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the machine Layer.
 - [05]-[MAINTENANCE]: cron/ivm/incremental rows and the shadow-table rebuild with atomic swap.
+- [06]-[ORGANIZATION_FOLD]: generated organization forest admission and ordered relational projection.
 
 ## [02]-[LANE_SPEC]
 
-- Owner: `Lane.Spec` — one `Fold.Plan` bound to one keyed relation under a `Live.Band`, carrying the state codec, stamp projection, upcast plan, and batch engine; `Lane.at` realizes the per-cell `Fold.AsOf` coordinate from the relation's own position columns, `Lane.Edit` folds content-addressed node edits under the graph's redaction manifest, and `Lane.Organization` folds one decoded organization document into the three read-side relations `read/query#ORGANIZATION_ROWS` owns.
-- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Record`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/ts/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.ElementGraph`, `Wire.Organization`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Upcast.Plan`); `read/query.md` (`Query.Relation`, `Organization`); `read/live.md` (`Live.Keys`).
+- Owner: `Lane.Spec` — one `Fold.Plan` bound to one keyed relation under a `Live.Band`, carrying the state codec, stamp projection, upcast plan, and batch engine; `Lane.at` realizes the per-cell `Fold.AsOf` coordinate from the relation's own position columns, and `Lane.Edit.fold` decodes each foreign `EntityEditWire` document once before folding content-addressed edits under the graph's redaction manifest.
+- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/ts/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Upcast.Plan`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
 - Entry: an owning lane declares one `Lane.Spec` beside its relation and hands it to `Lane.of`, which settles the coordinate read and the inline slot together.
 - Law: `Lane.Spec.name` mints through `Live.scope` at the composition, never as a bare literal — the band carries its scope discriminant by construction, so a lane declared under two scopes wakes apart and no spec author can spell an unqualified band.
 - Law: every projection row carries its own position — `sequence`, `stamp_physical`, and `stamp_logical` sit on the row, so `Fold.AsOf` reads what a caller already fetched and a staleness question costs no second relation.
 - Law: each lane's DDL pair is total over the profile set — one `Capability.Ensure` states pg and sqlite together, so a lane this branch writes cannot fail its first upsert against a relation nobody planted.
 - Law: edit admission is content-addressed — an unstable node refuses before any patch applies, a held `contentAddress` disagreeing with the edit's `base` refuses `conflicted`, and a patch renaming its own key refuses `invalid`; all three close through `Fault.Class`, so blame and retryability derive from the core row table and no local policy column rides beside them.
 - Law: reduction and encoding are separate owners — `Fold.Plan` owns the fold and `Lane.Spec.state` owns the persisted codec, so a storage-shape change is a codec swap with a rebuild, never a plan rewrite.
-- Law: organization admission is STRUCTURAL, whole-source, and ACCUMULATING — the absent-container column and the absent-nesting-target column decide nothing about each other, so one `Fault.Class.family(…).census` refusal carries EVERY offending edge of both and a producer repairing its document reads the whole damage in one round trip; a first-failure ladder here answers one edge per attempt against damage that is usually plural, and the census carrier is minted at the core family rather than re-declared as a local `{ issues, class, message }`. Each column refuses `invalid` before any row lands, mirroring the producer's own orphan refusal, while a member target names a foreign key space and admits unresolved because its join miss belongs to the consuming query. Replacement is per source key, never per row: a producer re-reads its document whole, so a surviving stale entity from a prior fold is exactly the drift a scoped delete forecloses.
-- Law: content-key spelling lowers at the core landing and never here — `Wire.Organization` presents lowercase-hex addresses, so this fold moves strings and the 16-big-endian-byte face resolves once, at the one decode.
+- Law: content-key spelling lowers at the core landing and never here — `Wire.decode("EntityEditWire", …)` presents lowercase-hex addresses, so this fold moves strings and the 16-big-endian-byte face resolves once at ingress.
 - Law: each budget answers its own lifetime, admit, AND tenancy — `[3]` admits through the publish transaction's slot and inherits its pin (`single`, the committing tenant), `[4]` admits through a claimed journal page and answers `multi` by `[4]`'s own stated law, `[5]` admits through an operator rebuild outside every request path; a projection row lives until its lane rebuilds, a checkpoint until its lane retires, and a quarantine row until an operator replays or a groom schedule ages it. Scope identity — app and isolation case — stays the binding's coordinate, so a tenancy COLUMN here restates what the pin or the page predicate already carries. What each budget forfeits is its selection cost — budget zero pays commit latency, budget seconds pays bounded staleness and cannot read its own write, and the maintenance budget pays a full re-fold and a swap window.
 - Growth: a new lane is one `Lane.Spec` value; a new position axis is one column on the DDL pair with its `_Position` field.
-- Boundary: `Fold.Plan`, `Clock.Hlc`, and the graph wire shapes arrive settled from core — this page binds them to a relation and re-derives no key, cell, or stamp.
+- Boundary: `Fold.Plan`, `Clock.Hlc`, and `Wire.ElementGraph` arrive settled from core; foreign edit bytes cross only at `Lane.Edit.fold`, and this page re-derives no key, cell, or stamp.
 
 ```typescript signature
-import { Array, Duration, Effect, HashMap, HashSet, Match, Option, type ParseResult, Record, Schema } from "effect"
+import { Array, Duration, Effect, Encoding, HashMap, HashSet, Match, Option, ParseResult, Schema } from "effect"
 import { Clock, Fault, Fold, Format, Wire } from "@rasm/ts/core"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
@@ -36,7 +36,7 @@ import { Journal } from "../journal/append.ts"
 import type { Upcast } from "../journal/evolve.ts"
 import { Batch } from "./batch.ts"
 import { Live } from "./live.ts"
-import { Organization, Query } from "./query.ts"
+import { Query } from "./query.ts"
 
 declare namespace Lane {
   type Spec<A extends Journal.Event, K, S, I> = {
@@ -61,16 +61,6 @@ declare namespace Lane {
     events: Array.NonEmptyReadonlyArray<A>,
     at: At,
   ) => Effect.Effect<ReadonlyArray<Live.Cell>, Fold.Fault | SqlError.SqlError | ParseResult.ParseError>
-  type Organization = Schema.Schema.Type<typeof Wire.Organization>
-  type OrganizationFault = InstanceType<typeof _OrganizationFault>
-  type OrganizationIssue = typeof _organizationFamily.payload.Type
-  type OrganizationReason = (typeof _organizationFamily.kinds)[number]
-  type OrganizationRows = {
-    readonly source: Organization["source"]
-    readonly entities: ReadonlyArray<typeof Organization.Entity.insert.Type>
-    readonly members: ReadonlyArray<{ readonly address: string; readonly member: string }>
-    readonly views: ReadonlyArray<{ readonly address: string; readonly view: string; readonly visible: boolean }>
-  }
 }
 
 // Edit clauses are DEPENDENT — the held node the base clause reads is what the patch clauses transform — so this arm
@@ -152,9 +142,11 @@ const _edited = (state: Lane.NodeState, edit: Lane.EntityEdit, checkpoint: Lane.
 
 const _editFold = (
   state: Lane.NodeState,
-  edits: Array.NonEmptyReadonlyArray<Lane.EntityEdit>,
+  documents: Array.NonEmptyReadonlyArray<Uint8Array>,
   checkpoint: Lane.At,
-) => Effect.reduce(edits, state, (held, edit) => _edited(held, edit, checkpoint))
+) =>
+  Effect.reduce(documents, state, (held, octets) =>
+    Effect.flatMap(Wire.decode("EntityEditWire", octets), (edit) => _edited(held, edit, checkpoint)))
 
 const _ddl = (relation: Query.Relation): Capability.Ensure => ({
   relation: relation.table,
@@ -198,97 +190,6 @@ const _at = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
       )
   })
 
-// Each reason renders its OWN subject, so the two columns stay distinguishable inside one census: a container this
-// document never declared and a nested entity this document never declared are different damage on the same edge set.
-const _organizationFamily = Fault.Class.family(["container", "target"] as const, {
-  container: Fault.Class.row({
-    class: "invalid",
-    leg: "organization",
-    detail: Schema.Struct({ container: Schema.String }),
-    render: ({ container }) => `containment names container ${container}, which this document declares no entity for`,
-  }),
-  target: Fault.Class.row({
-    class: "invalid",
-    leg: "organization",
-    detail: Schema.Struct({ entity: Schema.String }),
-    render: ({ entity }) => `containment nests entity ${entity}, which this document declares no entity for`,
-  }),
-})
-
-const _OrganizationFault = _organizationFamily.census("Lane.OrganizationFault")
-
-type _Wired = {
-  readonly known: HashSet.HashSet<string>
-  readonly containment: Lane.Organization["containment"]
-  readonly nesting: ReadonlyArray<{ readonly container: string; readonly entity: string }>
-}
-
-// Structural columns are a ROW TABLE keyed by the family's own reasons, never a ladder: an absent container and an
-// absent nesting target decide nothing about each other, so each column censuses EVERY offender against one known-set
-// read and a third structural column lands as one row with the verdict shape unmoved. The mapped contract proves each
-// column mints its own reason alone, and a clean document constructs no issue at all.
-const _COLUMNS = {
-  container: (wired: _Wired) =>
-    Array.filterMap(wired.containment, (edge) =>
-      HashSet.has(wired.known, edge.container) ? Option.none() : Option.some({ reason: "container", container: edge.container } as const)),
-  target: (wired: _Wired) =>
-    Array.filterMap(wired.nesting, (edge) =>
-      HashSet.has(wired.known, edge.entity) ? Option.none() : Option.some({ reason: "target", entity: edge.entity } as const)),
-} as const satisfies {
-  readonly [R in Lane.OrganizationReason]: (wired: _Wired) => ReadonlyArray<Extract<Lane.OrganizationIssue, { readonly reason: R }>>
-}
-
-// Structural admission over one document: containment resolves against the entity set BEFORE any row projects, so a
-// damaged document lands nothing rather than a half-written tree, and the refusal names every edge that broke rather
-// than the first one iteration reached — a producer repairing its document reads its whole damage in one round trip.
-// Membership targets deliberately skip that gate — their key space belongs to the producing authority, so an
-// unresolved member is a join miss at the query, not evidence of wire damage.
-const _organizationRows = (wire: Lane.Organization): Effect.Effect<Lane.OrganizationRows, Lane.OrganizationFault> => {
-  const known = HashSet.fromIterable(Array.map(wire.entities, (entity) => entity.address))
-  const nesting = Array.filterMap(wire.containment, (edge) =>
-    edge.target._tag === "entity" ? Option.some({ container: edge.container, entity: edge.target.entity }) : Option.none())
-  const container = HashMap.fromIterable(Array.map(nesting, (edge) => [edge.entity, edge.container] as const))
-  const wired: _Wired = { known, containment: wire.containment, nesting }
-  return Array.match(Array.flatMap(Record.toEntries(_COLUMNS), ([, census]) => census(wired)), {
-    onEmpty: () => Effect.succeed({
-      source: wire.source,
-      entities: Array.map(wire.entities, (entity) => ({
-        address: entity.address,
-        source: wire.source,
-        authority: wire.authority,
-        name: entity.name,
-        ordinal: entity.ordinal,
-        container: HashMap.get(container, entity.address),
-        visible: entity.visible,
-        locked: entity.locked,
-      })),
-      members: Array.filterMap(wire.containment, (edge) =>
-        edge.target._tag === "member"
-          ? Option.some({ address: edge.container, member: edge.target.member })
-          : Option.none()),
-      views: Array.map(wire.overrides, (probe) => ({
-        address: probe.entity,
-        view: probe.view,
-        visible: probe.visible,
-      })),
-    }),
-    onNonEmpty: (issues) => Effect.fail(new _OrganizationFault({ issues })),
-  })
-}
-
-// Replacement is per SOURCE and inside one transaction: a producer re-reads its document whole, so scoping the
-// delete to the source key retires every entity the prior fold landed and no stale branch survives a rename. Edge
-// relations clear through their entity scope, which is why neither carries a repository of its own.
-const _organizationLand = (rows: Lane.OrganizationRows) =>
-  Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    sql.withTransaction(Effect.all([
-      sql`DELETE FROM organization_view WHERE address IN (SELECT address FROM organization_entity WHERE source = ${rows.source})`,
-      sql`DELETE FROM organization_member WHERE address IN (SELECT address FROM organization_entity WHERE source = ${rows.source})`,
-      sql`DELETE FROM organization_entity WHERE source = ${rows.source}`,
-      sql`INSERT INTO organization_entity ${sql.insert(rows.entities)}`,
-      sql`INSERT INTO organization_member ${sql.insert(rows.members)}`,
-      sql`INSERT INTO organization_view ${sql.insert(rows.views)}`,
-    ])))
 ```
 
 ## [03]-[INLINE_SLOT]
@@ -787,7 +688,6 @@ const Lane = {
   Phase: _Phase,
   State: _State,
   Edit: { Fault: _EditFault, state: _nodeState, fold: _editFold },
-  Organization: { Fault: _OrganizationFault, rows: _organizationRows, land: _organizationLand },
   of: _of,
   ddl: _ddl,
   ledger: [_checkpointDdl, _quarantineDdl],
@@ -805,7 +705,124 @@ const Lane = {
 export { Lane }
 ```
 
-## [06]-[RESEARCH]
+## [06]-[ORGANIZATION_FOLD]
+
+- Owner: `Organization.decode` is the sole TypeScript landing for generated `organization.v1.Organization` bytes; it preserves the recursive forest's sibling order while projecting entity, member, and view rows for `read/query#ORGANIZATION_ROWS`.
+- Entry: `Organization.decode(bytes)` runs generated Protovalidate through `Format.proto.frame(OrganizationSchema)`, then one bounded frontier proves only schema-inexpressible laws: globally unique entity keys, at most 65,536 entities, depth at most 64, and exact current-path resolution.
+- Law: nesting is structural and every member/view row is emitted with its owning entity. `position` derives from repeated-list position at this landing; no ordinal crosses or survives beside it.
+- Boundary: duplicate entity keys refuse before any `Map` insert; current is the resolved entity address or absence, never an unchecked key. Generated rules already own member/view uniqueness and field bounds, so this fold does not revalidate them.
+- Packages: `@rasm/contracts` (generated `organization.v1.OrganizationSchema`); `@rasm/ts/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
+
+```typescript signature
+import { fromBinary, type MessageShape } from "@bufbuild/protobuf"
+import { OrganizationSchema } from "@rasm/contracts/rasm/contracts/organization/v1/organization_pb"
+
+type OrganizationEntityRow = {
+  readonly address: string
+  readonly container: Option.Option<string>
+  readonly position: number
+  readonly name: string
+  readonly visible: boolean
+  readonly locked: boolean
+}
+
+type OrganizationMemberRow = { readonly address: string; readonly member: string }
+type OrganizationViewRow = { readonly address: string; readonly view: string; readonly visible: boolean }
+type OrganizationRows = {
+  readonly entities: ReadonlyArray<OrganizationEntityRow>
+  readonly members: ReadonlyArray<OrganizationMemberRow>
+  readonly views: ReadonlyArray<OrganizationViewRow>
+  readonly current: Option.Option<string>
+}
+
+const _organizationMessage = Format.proto.message(OrganizationSchema)
+const _organizationRefused = (wire: unknown, reason: string) => new ParseResult.ParseError({
+  issue: new ParseResult.Type(_organizationMessage.ast, wire, reason),
+})
+
+const _organizationRows = (
+  wire: MessageShape<typeof OrganizationSchema>,
+): Effect.Effect<OrganizationRows, ParseResult.ParseError> => {
+      const entities: OrganizationEntityRow[] = []
+      const members: OrganizationMemberRow[] = []
+      const views: OrganizationViewRow[] = []
+      const addresses = new Set<string>()
+      let refusal: string | undefined
+      const stack = globalThis.Array.from(wire.roots, (entity, position) => ({
+        entity,
+        container: Option.none<string>(),
+        depth: 1,
+        position,
+      })).reverse()
+      while (stack.length > 0) {
+        const held = stack.pop()
+        if (held === undefined) break
+        if (held.depth > 64) {
+          refusal = "<organization-depth>"
+          break
+        }
+        if (entities.length >= 65_536) {
+          refusal = "<organization-nodes>"
+          break
+        }
+        const address = Encoding.encodeHex(held.entity.key).toLowerCase()
+        if (addresses.has(address)) {
+          refusal = `<organization-duplicate:${address}>`
+          break
+        }
+        addresses.add(address)
+        entities.push({
+          address,
+          container: held.container,
+          position: held.position,
+          name: held.entity.name,
+          visible: held.entity.visible,
+          locked: held.entity.locked,
+        })
+        members.push(...Array.map(held.entity.members, (member) => ({ address, member })))
+        views.push(...Array.map(held.entity.overrides, (override) => ({
+          address,
+          view: override.view,
+          visible: override.visible,
+        })))
+        for (let position = held.entity.children.length - 1; position >= 0; position -= 1) {
+          stack.push({
+            entity: held.entity.children[position]!,
+            container: Option.some(address),
+            depth: held.depth + 1,
+            position,
+          })
+        }
+      }
+      if (refusal !== undefined) return Effect.fail(_organizationRefused(wire, refusal))
+      let current = Option.none<string>()
+      if (wire.current !== undefined) {
+        let level = wire.roots
+        for (const index of wire.current.indexes) {
+          const selected = level[index]
+          if (selected === undefined) return Effect.fail(_organizationRefused(wire, "<organization-current>"))
+          current = Option.some(Encoding.encodeHex(selected.key).toLowerCase())
+          level = selected.children
+        }
+      }
+      return Effect.succeed({ entities, members, views, current })
+}
+
+const Organization = {
+  decode: (bytes: Uint8Array) =>
+    Effect.try({
+      try: () => fromBinary(OrganizationSchema, bytes, Format.proto.read),
+      catch: (cause) => _organizationRefused(bytes, String(cause)),
+    }).pipe(
+      Effect.flatMap((wire) => Effect.flatMap(
+        _organizationRows(wire),
+        (rows) => Effect.as(Schema.decode(_organizationMessage)(wire), rows),
+      )),
+    ),
+} as const
+```
+
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

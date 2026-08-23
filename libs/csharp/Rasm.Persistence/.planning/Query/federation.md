@@ -4,28 +4,28 @@ Rasm.Persistence admits protobuf, Substrait JSON, or registered-table SQL into o
 
 ## [01]-[INDEX]
 
-- [02]-[PLAN_INGRESS]: `PlanWire` three-door admission, the `SourceKind` capability axis, the `FederationMode` cadence union, the retained-wire-bytes round-trip law, the `ContentHash.Of(wireBytes)` plan digest, and the `FederationFault` closed band.
+- [02]-[PLAN_INGRESS]: `PlanWire` three-door admission under the ONE `WireLimits.Plan` ceiling, the `SourceKind` capability axis, the `FederationMode` cadence union, the retained-wire-bytes round-trip law, the `ContentHash.Of(wireBytes)` plan digest, and the `FederationFault` closed band.
 - [03]-[PLAN_LOWERING]: `RelationVisitor` double-dispatch lowering onto `LoweringTarget`, the seam-closure key-selection arm and the columnar/ADBC tabular arm, the ONE `Federation.Execute` entry owning the cut-shape default and the cadence dispatch, and the `FederatedResult` receipt with its replay triple.
 - [04]-[FLIGHT_RESULT_PLANE]: `FederationFlight` the Arrow Flight return wire — a `ReplayKey`-ticketed producer whose `GetFlightInfo` admits-and-executes a command-descriptor plan and whose `DoGet` streams the held result's record batches zero-copy to a cross-runtime consumer, and the host binding contract that subclass satisfies.
 - [05]-[PLAN_WIRE_SKEW]: extension-schema divergence across the frozen `SubstraitPlan` edge, why it parses clean in both directions, and which end refuses it.
 
 ## [02]-[PLAN_INGRESS]
 
-- Owner: `SourceKind` is the closed source-binding family; each case carries the identity required to distinguish an attested artifact or external binding, while `AcceptsPlan` and `IsLive` derive from the case. `FederationMode` owns cadence and materialized-view identity. `PlanWire` owns the three ingress forms. `FederationPlan.Admit` normalizes each form and mints one digest.
+- Owner: `SourceKind` is the closed source-binding family; each case carries the identity required to distinguish an attested artifact or external binding, while `AcceptsPlan` and `IsLive` derive from the case. `FederationMode` owns cadence and materialized-view identity. `PlanWire` owns the three ingress forms. `WireLimits` is this folder's decode-budget record and `Plan` its one row — the foreign-plan ceiling both plan doors read. `FederationPlan.Admit` normalizes each form and mints one digest; `PlanJson` is the page-declared `JsonParser` over the foreign Substrait descriptor.
 - Cases: `SourceKind` is `DurableStore | SignedArtifact(UInt128 Attestation) | AdbcWarehouse(Identifier Binding) | SqlStaged(Identifier Binding)`; `FederationMode` is `OneShot | Materialized(Identifier View, Seq<Identifier> Keys)`; `PlanWire` is `Protobuf | Json | Sql(string Text, Seq<(Identifier Table, NamedStruct Schema)> Tables)`; `FederationFault` occupies `8420` through `8428`.
-- Entry: `public static Fin<FederationPlan> Admit(PlanWire wire, SourceKind source, FederationMode mode)` admits the foreign plan ONCE — the `Protobuf` door parses `Substrait.Protobuf.Plan.Parser.ParseFrom(bytes.Span)` and lifts through `new SubstraitDeserializer().Deserialize(parsed)`; the `Json` door parses the Substrait-JSON through `JsonParser.Default.Parse<WirePlan>` (Substrait-JSON IS the message's own wire-JSON), retains `ToByteArray()` — the canonical protobuf twin, so a JSON plan and its byte-identical protobuf sibling share ONE digest — and lifts through the same `Deserialize(parsed)`; the `Sql` door registers each `(Table, Schema)` through `SqlPlanBuilder.AddTableDefinition`, lowers the text through `Sql(text)`, and composes `GetPlan()` — every door normalizing to its retained wire and stamping `Digest = ContentHash.Of(wireBytes)`; a `SubstraitParseException` or a protobuf decode fault rails `FederationFault.SubstraitParse`, and a plan door against a `SqlStaged` source rails `SourceUncapable` BEFORE any parse.
+- Entry: `public static Fin<FederationPlan> Admit(PlanWire wire, SourceKind source, FederationMode mode)` admits the foreign plan ONCE — the `Protobuf` door parses `WirePlan.Parser.ParseFrom(CodedInputStream.CreateWithLimits(bytes.AsStream(), WireLimits.Plan.SizeLimit, WireLimits.Plan.RecursionLimit))` (the ONLY limits entry, the span bridge `CommunityToolkit.HighPerformance` supplies) and lifts through `new SubstraitDeserializer().Deserialize(parsed)`; the `Json` door refuses a body past `SizeLimit` before any parse, parses the Substrait-JSON through `PlanJson.Parse<WirePlan>` under the same recursion ceiling with unknown fields tolerated (Substrait-JSON IS the message's own wire-JSON), retains `ToByteArray()` — the canonical protobuf twin, so a JSON plan and its byte-identical protobuf sibling share ONE digest — and lifts through the same `Deserialize(parsed)`; the `Sql` door registers each `(Table, Schema)` through `SqlPlanBuilder.AddTableDefinition`, lowers the text through `Sql(text)`, and composes `GetPlan()` — every door normalizing to its retained wire and stamping `Digest = ContentHash.Of(wireBytes)`; a `SubstraitParseException` or a protobuf decode fault rails `FederationFault.SubstraitParse`, and a plan door against a `SqlStaged` source rails `SourceUncapable` BEFORE any parse.
 - Auto: the retained bytes ARE the outbound wire — `SubstraitSerializer` is `internal`, so a managed `Plan` cannot re-lower to protobuf and the round-trip law is retention, never re-serialization (`api-flowtide-substrait#IMPLEMENTATION_LAW`); the digest composes the kernel seed-zero `ContentHash.Of` so the plan identity, the blob residence, and the reuse index share ONE identity scheme (a local `XxHash128` mint beside it is the deleted second hasher); function references inside a `Sql`-door plan resolve through the `FunctionExtensions.Functions*` URI catalogs (`FunctionsComparison.Equal`, `FunctionsArithmetic.Sum`, …) so no magic string names a Substrait function; custom federation tables and operators register through `ITableProvider`/`ISqlFunctionRegister` — the schema catalog is the table provider, never an ad-hoc string.
 - Receipt: an admission rides `store.federation.admit` carrying the door, the source row, and the digest; a refused admission rides the typed `FederationFault` on the rail, never a receipt.
-- Packages: FlowtideDotNet.Substrait (`Plan`/`SubstraitDeserializer`/`Substrait.Protobuf.Plan.Parser`/`SqlPlanBuilder`/`ITableProvider`/`ISqlFunctionRegister`/`FunctionExtensions`/`Exceptions.SubstraitParseException`), Google.Protobuf (`MessageParser<T>`/`IMessage`/`JsonParser` — the sole runtime wire dep; zero `Grpc.Tools` codegen; `JsonParser.Default.Parse<T>` the JSON-door protobuf-native transcode), Rasm (`Rasm.Domain` `ContentHash`/`Fault`), Rasm.Persistence (`Element/graph#FAULT_TABLES` `FaultBand`, `Query/columnar` `AdbcQuery`/`AdbcRequest` — the normalized statement door), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Packages: FlowtideDotNet.Substrait (`Plan`/`SubstraitDeserializer`/`Substrait.Protobuf.Plan.Parser`/`SqlPlanBuilder`/`ITableProvider`/`ISqlFunctionRegister`/`FunctionExtensions`/`Exceptions.SubstraitParseException`), Google.Protobuf (`MessageParser<T>`/`IMessage`/`CodedInputStream.CreateWithLimits` — the one bounded binary door; `JsonParser` + `JsonParser.Settings.WithIgnoreUnknownFields`/`WithRecursionLimit` — the page-declared foreign-descriptor parser, since the substrait messages ship in FlowtideDotNet outside the estate's `WireAdmission.Registry`), CommunityToolkit.HighPerformance (`ReadOnlyMemory<byte>.AsStream()` — the span-to-stream bridge `CreateWithLimits` demands), Rasm (`Rasm.Domain` `ContentHash`/`Fault`), Rasm.Persistence (`Element/graph#FAULT_TABLES` `FaultBand`, `Query/columnar` `AdbcQuery`/`AdbcRequest` — the normalized statement door), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new ingress, source, cadence, or refusal is one case on its existing closed family; every source case carries its execution binding and replay identity.
-- Boundary: the plan is a vendor-neutral IR, never a store connection — admission yields a value and opens nothing; `SourceKind` is CAPABILITY data, so `SourceUncapable` is a structural refusal (a SQL-only warehouse never sees a plan blob) and `SourceUnreachable` is the availability negative of the LIVE rows only; the cross-runtime producer seams stay GATED — the `python:data` portable-plan half (the `ARCHITECTURE.md [02]-[SEAMS]` `Query`↔`Data` `[WIRE]: SubstraitPlan` edge, signature-locked) and the `python:artifacts` `SignedArtifact` binding are named blockers this owner declares, never silently-working stubs — while the `KeySelection` receipt currency itself stays owned by `Query/lane`; the `SignedArtifact` row resolves its binding through the attested ledger so a federated read over an externally-computed (including cloud-run) result is tamper-evident locally before it executes.
+- Boundary: the plan is a vendor-neutral IR, never a store connection — admission yields a value and opens nothing; both plan doors are UNTRUSTED ingress bounded by the ONE `WireLimits.Plan` row — a plan past the size or recursion ceiling refuses as `SubstraitParse` at the binary door and `InvalidPlan` at the JSON size gate, never an unbounded allocation; `SourceKind` is CAPABILITY data, so `SourceUncapable` is a structural refusal (a SQL-only warehouse never sees a plan blob) and `SourceUnreachable` is the availability negative of the LIVE rows only; the cross-runtime producer seams stay GATED — the `python:data` portable-plan half (the `ARCHITECTURE.md [02]-[SEAMS]` `Query`↔`Data` `[WIRE]: SubstraitPlan` edge, signature-locked) and the `python:artifacts` `SignedArtifact` binding are named blockers this owner declares, never silently-working stubs — while the `KeySelection` receipt currency itself stays owned by `Query/lane`; the `SignedArtifact` row resolves its binding through the attested ledger so a federated read over an externally-computed (including cloud-run) result is tamper-evident locally before it executes.
 
 ```csharp signature
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using Apache.Arrow;
 using Apache.Arrow.Adbc;
+using CommunityToolkit.HighPerformance;            // ReadOnlyMemory<byte>.AsStream — the bridge into CreateWithLimits
 using FlowtideDotNet.Substrait;
 using FlowtideDotNet.Substrait.Conversion;
 using FlowtideDotNet.Substrait.Exceptions;
@@ -34,7 +34,7 @@ using FlowtideDotNet.Substrait.Expressions.Literals;
 using FlowtideDotNet.Substrait.Relations;
 using FlowtideDotNet.Substrait.Sql;
 using FlowtideDotNet.Substrait.Type;
-using Google.Protobuf;                             // JsonParser — the Json door's protobuf-native transcode to the wire twin
+using Google.Protobuf;                             // CodedInputStream.CreateWithLimits + JsonParser — the two bounded plan doors
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
@@ -137,6 +137,14 @@ public abstract partial record FederationFault : Fault {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// ONE foreign-plan ceiling, the folder's own decode-budget row on the shape `Rasm.Element` `WireLimits` set. It is
+// declared in THIS namespace so the bound type is the folder's row — a namespace member resolves ahead of the
+// `Rasm.Element.Graph` import, so no alias is owed. `Plan` names both axes: the size ceiling bounds the whole-plan
+// transfer, the recursion ceiling the nested relation/expression tree under protobuf's own default of 100.
+public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
+    public static readonly WireLimits Plan = new(SizeLimit: 16 << 20, RecursionLimit: 64);
+}
+
 // `FederationSource` closes registered SQL, normalized plan, and live-source ingress under one admission path.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlanWire {
@@ -158,18 +166,32 @@ public sealed class FederationPlan {
     public SourceKind Source { get; }
     public FederationMode Mode { get; }
 
+    // Substrait-JSON is a FOREIGN publisher descriptor — its messages ship inside FlowtideDotNet, outside the estate's
+    // `WireAdmission.Registry` — so this is the ONE page-declared parser: unknown fields tolerate (the one admission
+    // posture) and the recursion ceiling is the same `Plan` row the binary door reads.
+    static readonly JsonParser PlanJson = new(JsonParser.Settings.Default
+        .WithIgnoreUnknownFields(true)
+        .WithRecursionLimit(WireLimits.Plan.RecursionLimit));
+
     public static Fin<FederationPlan> Admit(PlanWire wire, SourceKind source, FederationMode mode) =>
         mode is FederationMode.Materialized { Keys.IsEmpty: true }
             ? Fin.Fail<FederationPlan>(new FederationFault.MaterializationRejected("<primary-key>"))
             : !source.AcceptsPlan && wire is not PlanWire.Sql
             ? Fin.Fail<FederationPlan>(new FederationFault.SourceUncapable(source.Identity))
+            // The JSON door's size gate sits BEFORE the parser, because a parser bounds depth and never length.
+            : wire is PlanWire.Json { Body.Length: > WireLimits.Plan.SizeLimit } oversize
+            ? Fin.Fail<FederationPlan>(new FederationFault.InvalidPlan($"<plan-size:{oversize.Body.Length}>"))
             : Op.Of().Catch(() => Fin.Succ(wire.Switch<(Plan Ir, AdbcQuery Wire, UInt128 Digest)>(
+                    // Bounded binary door: the limits entry takes a Stream, so the span bridges through `AsStream`
+                    // with no copy, and an over-ceiling payload throws `InvalidProtocolBufferException` into the
+                    // funnel below rather than allocating past the row.
                     protobuf: static p => {
-                        byte[] wireBytes = p.Bytes.ToArray();
-                        return (new SubstraitDeserializer().Deserialize(WirePlan.Parser.ParseFrom(wireBytes)), new AdbcQuery.Plan(wireBytes), ContentHash.Of(wireBytes));
+                        WirePlan parsed = WirePlan.Parser.ParseFrom(CodedInputStream.CreateWithLimits(
+                            p.Bytes.AsStream(), WireLimits.Plan.SizeLimit, WireLimits.Plan.RecursionLimit));
+                        return (new SubstraitDeserializer().Deserialize(parsed), new AdbcQuery.Plan(p.Bytes.ToArray()), ContentHash.Of(p.Bytes.Span));
                     },
                     json: static j => {
-                        WirePlan twin = JsonParser.Default.Parse<WirePlan>(j.Body);   // Substrait-JSON IS the message's wire-JSON; a JSON plan and its protobuf twin share ONE digest
+                        WirePlan twin = PlanJson.Parse<WirePlan>(j.Body);   // Substrait-JSON IS the message's wire-JSON; a JSON plan and its protobuf twin share ONE digest
                         byte[] wireBytes = twin.ToByteArray();
                         return (new SubstraitDeserializer().Deserialize(twin), new AdbcQuery.Plan(wireBytes), ContentHash.Of(wireBytes));
                     },
@@ -195,14 +217,15 @@ public sealed class FederationPlan {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                           | [BINDING]                                                     |
-| :-----: | :------------------ | :------------------------------------------------ | :------------------------------------------------------------ |
-|  [01]   | wire ingress        | `Plan.Parser.ParseFrom` + `SubstraitDeserializer` | zero `Grpc.Tools` codegen; `Google.Protobuf` sole runtime dep |
-|  [02]   | round trip          | NORMALIZED retained wire (`AdbcQuery` door)       | `SubstraitSerializer` `internal`; no managed-IR re-lowering   |
-|  [03]   | plan digest         | `ContentHash.Of(wireBytes)`                       | the kernel seed-zero entry; never a local `XxHash128`         |
-|  [04]   | source capability   | `SourceKind.AcceptsPlan`/`IsLive` derivations     | binding and currency follow the closed source case            |
-|  [05]   | function references | `FunctionExtensions.Functions*` URI catalogs      | no magic-string Substrait function names                      |
-|  [06]   | producers           | `python:data` + `python:artifacts` GATED          | named blockers; the wire never pretends to work               |
+| [INDEX] | [POLICY]            | [VALUE]                                            | [BINDING]                                                   |
+| :-----: | :------------------ | :------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | wire ingress        | `CreateWithLimits` under `WireLimits.Plan`         | one ceiling, both doors; `SubstraitDeserializer` lifts      |
+|  [02]   | round trip          | NORMALIZED retained wire (`AdbcQuery` door)        | `SubstraitSerializer` `internal`; no managed-IR re-lowering |
+|  [03]   | plan digest         | `ContentHash.Of(wireBytes)`                        | the kernel seed-zero entry; never a local `XxHash128`       |
+|  [04]   | source capability   | `SourceKind.AcceptsPlan`/`IsLive` derivations      | binding and currency follow the closed source case          |
+|  [05]   | function references | `FunctionExtensions.Functions*` URI catalogs       | no magic-string Substrait function names                    |
+|  [06]   | producers           | `python:data` + `python:artifacts` GATED           | named blockers; the wire never pretends to work             |
+|  [07]   | json door           | page-declared `PlanJson` over a FOREIGN descriptor | outside `WireAdmission.Registry`; unknown fields tolerate   |
 
 ## [03]-[PLAN_LOWERING]
 
@@ -548,10 +571,10 @@ public sealed class FederatedResult : IValidityEvidence {
 - Owner: `FederationFlight` the `Apache.Arrow.Flight.Server` `FlightServer` subclass — the result half of the plan wire: a portable plan flows in through `#PLAN_INGRESS` and its batches flow back through zero-copy Arrow record streams; the ticket registry is one constructor-injected `Atom<HashMap<UInt128, FederatedResult>>` hold keyed by `ReplayKey`.
 - Cases: `GetFlightInfo` takes a COMMAND descriptor whose `Command` bytes are the protobuf plan wire — it admits through `FederationPlan.Admit(new PlanWire.Protobuf(...), source, new FederationMode.OneShot())`, executes through the ONE `Federation.Execute`, holds the result under its `ReplayKey`, and answers a `FlightInfo` carrying the result schema, ONE `FlightEndpoint` whose `FlightTicket` is the big-endian `ReplayKey` bytes, the honest `TotalRecords`, and `TotalBytes` `-1` — the held batches carry no serialized-byte figure, so the Flight unknown sentinel is the honest claim, never a fabricated total; `DoGet` redeems the 16-byte ticket against the hold and streams every batch through `FlightServerRecordBatchStreamWriter.WriteAsync` (the first write auto-emits the schema message); an unknown or expired ticket rails `FederationFault.TicketUnknown`.
 - Entry: `public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context)` admits the command plan and mints a `ReplayKey` ticket; `public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)` redeems that ticket. Every other base verb keeps its base throw because this plane is a read-only result producer.
-- Auto: the ticket is the content-addressed result identity — `ReplayKey` frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the same ticket; a keyed result projects through the ONE `Query/residence#COLUMN_VOCABULARY` `ArrowLanding.Build` fold over the declared `KeyProjection` schema, so the batch, its field order, and its metadata all derive from one declaration; the hold is an idempotent `Atom` swap whose eviction rides the `Query/cache` reuse cadence; every typed refusal converts to its own gRPC status through the one `Refused` fold at the platform-forced verb edge.
+- Auto: the ticket is the content-addressed result identity — `ReplayKey` frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the same ticket; a keyed result projects through the ONE `Query/residence#COLUMN_VOCABULARY` `ArrowLanding.Build` fold over the declared `KeyProjection` schema, so the batch, its field order, and its metadata all derive from one declaration; the hold is an idempotent `Atom` swap whose eviction rides the `Query/cache` reuse cadence; every typed refusal leaves the rail at the platform-forced verb edge through the AppHost `FaultWire.Raise(fault, context)` — the ONE producer fold packing `FaultDetail` beside the status, so a Flight consumer reads numeric identity where a status-plus-message once carried a string alone.
 - Law: the keyed projection declares MODEL beside id and rides the one landing fold. NAMED LOSS: none — the single-`id` `RecordBatch.Builder` assembly it replaces reached for a `SetKey.Value` member that does not exist, so it ships bare node ids no consumer resolves back to a model, beside a second hand-built `Schema` that agrees with the batch only by inspection and carries no metadata seat at all. WITNESS: `KeyProjection` declares `(model, id, at)`, `SetKey` supplies the first two, `TimeSpine.Landing` obliges the third, and `Facts` rides the metadata the fold requires — plan digest, replay key, source, and stamp, none of which a redeemed batch previously carried.
 - Receipt: a described plan rides `store.federation.flight.describe` carrying the digest and the minted ticket; a redeemed stream rides `store.federation.flight.stream` carrying the ticket, the batch count, and the drained rows.
-- Packages: Apache.Arrow.Flight (`FlightServer`/`FlightDescriptor`/`FlightTicket`/`FlightInfo`/`FlightEndpoint`/`FlightServerRecordBatchStreamWriter`), Apache.Arrow.Flight.AspNetCore (`IGrpcServerBuilder.AddFlightServer<T>() where T : FlightServer`/`IEndpointRouteBuilder.MapFlightEndpoint()` — the composition-root binding pair, this package the sole holder of the server-adapter grant), Apache.Arrow (`RecordBatch` — the fold's own output; no builder crosses this page), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding.Build`), Google.Protobuf (`ByteString`), Grpc.Core (`ServerCallContext`/`RpcException`/`StatusCode`), LanguageExt.Core, BCL inbox.
+- Packages: Apache.Arrow.Flight (`FlightServer`/`FlightDescriptor`/`FlightTicket`/`FlightInfo`/`FlightEndpoint`/`FlightServerRecordBatchStreamWriter`), Apache.Arrow.Flight.AspNetCore (`IGrpcServerBuilder.AddFlightServer<T>() where T : FlightServer`/`IEndpointRouteBuilder.MapFlightEndpoint()` — the composition-root binding pair, this package the sole holder of the server-adapter grant), Apache.Arrow (`RecordBatch` — the fold's own output; no builder crosses this page), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding.Build`, `Element/graph#STORE_RAIL` `ProjectionContext` — the frame the refusal context reads), Rasm.AppHost (`Runtime/ports#WIRE_LAW` `FaultWire.Raise`/`FaultContext` — the one producer fold), Rasm.Contracts (`Clock.V1.Hlc` — the stamp the context carries), Rasm (`Rasm.Domain` `ContentHash.Wire`/`Admit` — the ticket byte correspondence), Google.Protobuf (`ByteString`), Grpc.Core (`ServerCallContext`/`RpcException`), LanguageExt.Core, BCL inbox.
 - Growth: a new result consumer dials the host channel and redeems tickets; a new served identity axis is one `ReplayKey` preimage field; a discovery need is the `ListFlights` verb over the same hold. One held result serves every consumer through that ticket — a bespoke file drop, a second result wire, a session-keyed ticket, or a `DoPut` ingest arm is the deleted form.
 - Boundary: the SERVER half is this package's and the MOUNT is AppHost's — `FederationFlight : FlightServer` is the whole Persistence contribution, bound at the composition root by `services.AddGrpc().AddFlightServer<FederationFlight>()` and served by the NON-GENERIC `app.MapFlightEndpoint()`, with the gRPC channel, TLS, and credentials AppHost's throughout. Those two calls arrive as ONE `Rasm.AppHost/Wire/companion#SERVICE_HOST` served-plane row the shell supplies, so an armed registration and an unmapped endpoint cannot drift apart; neither this package nor the spine names the other, since the shell is the only tier reaching both and an unsupplied row leaves the host serving control and health alone rather than degrading. `FlightServer` is NOT itself a gRPC service: no `[BindServiceMethod]` sits anywhere in its hierarchy, so `MapGrpcService<FederationFlight>()` resolves no binder and fails at startup, and the subclass reaches gRPC only DI-resolved AS `FlightServer` into the transport package's internal `FlightService.FlightServiceBase` adapter — reachable through the `Apache.Arrow.Flight.AspNetCore` `InternalsVisibleTo` grant alone (`api-arrow-egress#IMPLEMENTATION_LAW`). `DoGet` streams held batches, never a live `QueryResult`; `DoPut` and `DoExchange` keep their base throws because this plane is the lake's READ end and a Flight landing door forks the `Query/lakehouse#FLAT_TABLE_EGRESS` write custody; the serving window bounds memory, an evicted result re-executes, and `Authority.Admit` gates demand at the caller.
 - Boundary: `FlightSqlServer` is the DECLINED base and stays declined — it dispatches Flight SQL command messages alone (`CommandStatementQuery` carrying SQL text, the eleven catalog-metadata commands, the prepared-statement pair) and its `GetCommand`/`GetFlightInfo`/`DoGet` fold matches `CommandStatementSubstraitPlan` nowhere, even though the generated protocol declares it beside `SubstraitPlan { Plan = 1, Version = 2 }`. Subclassing it therefore obligates 28 protected abstract handlers with no base implementations, every one a SQL-catalog verb this read-only plane answers with nothing, and STILL demands a `GetFlightInfo` override to reach the plan command — a plain `FlightServer` carrying a command descriptor is the same wire at a fraction of the surface, and its nine `virtual` verbs let a read-only plane override the two it serves and inherit the rest as refusals.
@@ -562,6 +585,9 @@ using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Types;
 using Google.Protobuf;
 using Grpc.Core;
+using Rasm.AppHost.Runtime;                        // FaultWire/FaultContext — the ONE producer fault fold (ports#WIRE_LAW)
+using Rasm.Domain;                                 // ContentHash.Wire/Admit — the 16-byte ticket correspondence
+using Rasm.Persistence.Element;                    // ProjectionContext — correlation, tenant, and clock as kernel values
 
 namespace Rasm.Persistence.Query;
 
@@ -571,12 +597,15 @@ namespace Rasm.Persistence.Query;
 // `MapGrpcService<FederationFlight>()` — `FlightServer` carries no bind attribute, so that generic map
 // finds no binder and fails at startup; ctor dependencies still resolve because the internal adapter
 // takes `FlightServer` by injection.
-public sealed class FederationFlight(FederationPorts ports, SourceKind source, Atom<HashMap<UInt128, FederatedResult>> hold) : FlightServer {
+public sealed class FederationFlight(FederationPorts ports, SourceKind source, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) : FlightServer {
     public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context) =>
-        Describe(new PlanWire.Protobuf(descriptor.Command.Memory), descriptor, source, ports, hold);
+        Describe(new PlanWire.Protobuf(descriptor.Command.Memory), descriptor, source, ports, frame, hold);
 
-    // ONE admit-execute-hold-describe chain owns command admission and ticket minting.
-    internal static async Task<FlightInfo> Describe(PlanWire wire, FlightDescriptor descriptor, SourceKind source, FederationPorts ports, Atom<HashMap<UInt128, FederatedResult>> hold) {
+    // ONE admit-execute-hold-describe chain owns command admission and ticket minting. The verb edge is the one
+    // place a typed fault leaves the rail, because every `FlightServer` base verb returns `Task<T>` with no rail
+    // to fail on — and it leaves through `FaultWire.Raise`, so the status derives from the fault's own case on the
+    // AppHost producer table and a `FaultDetail` packs beside it; a hand status switch here was the second table.
+    internal static async Task<FlightInfo> Describe(PlanWire wire, FlightDescriptor descriptor, SourceKind source, FederationPorts ports, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) {
         Fin<FederatedResult> described = await FederationPlan
             .Admit(wire, source, new FederationMode.OneShot())
             .Match(
@@ -588,40 +617,37 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, A
             return new FlightInfo(
                 batches.Head.Match(Some: static b => b.Schema, None: () => KeyProjection.Fields(Facts(result))),
                 descriptor,
-                [new FlightEndpoint(new FlightTicket(ByteString.CopyFrom(TicketBytes(result.ReplayKey))), [])],
+                [new FlightEndpoint(new FlightTicket(ContentHash.Wire(result.ReplayKey)), [])],
                 batches.Sum(static b => (long)b.Length),
                 -1L);
-        })).Match(Succ: static info => info, Fail: Refused);
+        })).Match(Succ: static info => info, Fail: fault => throw FaultWire.Raise(fault, Context(frame)));
     }
 
     public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) =>
-        Redeem(ticket, responseStream, hold);
+        Redeem(ticket, responseStream, frame, hold);
 
-    // ONE ticket-redemption body — exact-width admission BEFORE the fixed-width decode:
-    // FlightTicket is an opaque caller-controlled token, so a non-16-byte payload rails its own typed refusal
-    // rather than reaching a decode that would read past the buffer.
-    internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, Atom<HashMap<UInt128, FederatedResult>> hold) {
+    // ONE ticket-redemption body: `ContentHash.Admit` is the one 16-byte big-endian decode and its refusal re-keys
+    // onto `TicketMalformed` carrying the width the caller sent — FlightTicket is an opaque caller-controlled token,
+    // so a wrong-width payload stays distinct from an unredeemable one.
+    internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) {
         Fin<Seq<RecordBatch>> held =
-            from _ in ticket.Ticket.Length == 16 ? Fin.Succ(unit) : Fin.Fail<Unit>(new FederationFault.TicketMalformed(ticket.Ticket.Length))
-            let key = BinaryPrimitives.ReadUInt128BigEndian(ticket.Ticket.Span)
+            from key in ContentHash.Admit(ticket.Ticket.Span, Op.Of()).MapFail(_ => (Error)new FederationFault.TicketMalformed(ticket.Ticket.Length))
             from result in hold.Value.Find(key).ToFin(new FederationFault.TicketUnknown(key))
             from batches in Batches(result)
             select batches;
-        foreach (RecordBatch batch in held.Match(Succ: static batches => batches, Fail: Refused)) {
+        foreach (RecordBatch batch in held.Match(Succ: static batches => batches, Fail: fault => throw FaultWire.Raise(fault, Context(frame)))) {
             await responseStream.WriteAsync(batch).ConfigureAwait(false);
         }
     }
 
-    // gRPC's verb edge is the ONE place a typed fault leaves the rail, because every `FlightServer` base verb
-    // returns `Task<T>` and offers no rail to fail on. `Refused` is that single conversion and the status derives
-    // from the fault's own case, so the three hand-picked status literals this replaced become one table and a
-    // new refusal declares its status beside the fault rather than at whichever verb happened to raise it.
-    static T Refused<T>(Error fault) => throw new RpcException(new Status(
-        fault switch {
-            FederationFault.TicketUnknown => StatusCode.NotFound,
-            FederationFault.SourceUnreachable => StatusCode.Unavailable,
-            _ => StatusCode.InvalidArgument,
-        }, fault.Message));
+    // The refusal context is the frame's own causal pair as kernel values — correlation and the partition-aware tenant
+    // read — with the stamp a fresh physical advance at raise (logical zero IS the HLC law for a physical step) and an
+    // empty violations run, since a Flight refusal is a typed case, never a field-level admission report.
+    static FaultContext Context(ProjectionContext frame) =>
+        new(frame.Correlation,
+            new Rasm.Contracts.Clock.V1.Hlc { Physical = frame.Now().ToUnixTimeTicks(), Logical = 0UL },
+            frame.Tenant.Key.Map(_ => frame.Tenant.TenantId),
+            Seq<Google.Rpc.BadRequest.Types.FieldViolation>());
 
     // `KeyProjection` is the declared shape of a keyed federation result, so the batch rides the ONE
     // `ArrowLanding.Build` fold every columnar landing takes rather than a `RecordBatch.Builder` assembly beside
@@ -660,29 +686,24 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, A
                         new ColumnCell.Moment(result.At)),
                     Facts(result))
                 .Map(static batch => Seq(batch)));
-
-    internal static byte[] TicketBytes(UInt128 key) {
-        byte[] bytes = new byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(bytes, key);
-        return bytes;
-    }
 }
 
 ```
 
 | [INDEX] | [POLICY]         | [VALUE]                                      | [BINDING]                                                     |
 | :-----: | :--------------- | :------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | ticket identity  | `ReplayKey` big-endian 16 bytes              | content-addressed; a re-described identical plan re-redeems   |
+|  [01]   | ticket identity  | `ContentHash.Wire(ReplayKey)` / `Admit`      | content-addressed; a re-described identical plan re-redeems   |
 |  [02]   | verbs            | `GetFlightInfo` + `DoGet` only               | read-only result plane; `DoPut`/`DoExchange` stay base throws |
 |  [03]   | keyed projection | `ArrowLanding.Build` over `KeyProjection`    | `(model, id, at)` declared once; metadata carries the receipt |
 |  [04]   | hosting          | `AddFlightServer<T>` + `MapFlightEndpoint()` | AppHost mounts; `MapGrpcService<T>` fails at startup          |
 |  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`    | one serving window; eviction re-executes                      |
+|  [06]   | refusal          | `FaultWire.Raise(fault, Context(frame))`     | AppHost producer table; `FaultDetail` packs beside the status |
 
 ## [05]-[PLAN_WIRE_SKEW]
 
 - Owner: the frozen `SubstraitPlan` edge to `python:data`, whose two ends parse INCOMPATIBLE extension schemas at the pinned versions and agree on every other field.
 - Cases: this producer's generated `Substrait.Protobuf.Plan` writes `ExtensionUris` at field 1 with each declaration back-referencing through `ExtensionUriReference` at field 1; the consumer's installed distribution reads `extension_urns` at field 8 with `extension_urn_reference` at field 4 and declares neither retired field.
-- Auto: proto3 files an unknown field rather than raising, so a plan minted here parses CLEAN across the edge — `relations`, `extensions`, `version`, and `advanced_extensions` all survive while the whole extension space vanishes into the unknown set, presenting as a plan declaring functions against no space at all.
+- Auto: proto3 files an unknown field rather than raising at BOTH doors here — the binary parser retains unknown fields by default and `PlanJson` ignores them by declaration — so a plan minted here parses CLEAN across the edge — `relations`, `extensions`, `version`, and `advanced_extensions` all survive while the whole extension space vanishes into the unknown set, presenting as a plan declaring functions against no space at all.
 - Boundary: the consumer refuses that signature on its own `RETIRED_EXTENSION_SCHEMA` row ahead of urn resolution, so the skew fails loudly at one named seam; without it the resolution check iterates an empty list, admits vacuously, and drops every function-vocabulary lineage edge the receipt was meant to carry.
 - Growth: parity arrives when this package's generated protobuf carries the URN-era schema — no released version does, so the refusal row is the standing form and a bump is what retires it, never a local re-encode inventing anchors this IR never held.
 

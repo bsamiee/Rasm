@@ -18,10 +18,7 @@
 - Provider sentinels never become seam column types — past admission a sentinel reads as measured, so `Option<T>` takes it at the projector read.
 - `Federate` takes ONE coordination `Header` and refuses divergence — measures mint at the SOURCE tolerance and no union re-quantizes them.
 - Rooted occurrence ids colliding across sources FAULT, never rename — content- and type-derived ids merge on equal payloads and fault on unequal.
-- Redacted crossings PRESERVE source content keys — redaction CLEARS protobuf field paths; re-deriving keys over them mints one space per policy.
 - Admission slots return the concrete `Validation<Error, _>` — C# bars interface targets from user-defined conversions, so the lift compiles nowhere.
-- Envelope attributes render through the kernel `EventKey` — `ContentAddress.ToValue()` is the protobuf upper-case spelling, forking the wire.
-- Crossing `id` arrives from the composing rail — this seam mints no operation identity, so a content key there merges two rails' announcements.
 - `SectionProperties` is the ONE cross-section algebra — a mm-basis carrier admits through `OfMillimetres`, so no column crosses unconverted.
 - `PropertyEvidence` + `EvidenceGrade` are the ONE evidence carrier and rank — the int key IS the precedence `ValueBag.Merge` reads.
 - `UnitScheme` carries the dimension-axis regime and display override — a peer-minted scheme forks the display read, so none survives.
@@ -38,6 +35,7 @@
 - Kernel `AdmissionSlots` owns reusable accumulation and scalar bands; Element supplies typed semantic refusals through its deferred gate.
 - `Gate(holds, concern, detail, refuse)` is the ONE refusal door, constructed on the failing arm — a pre-built fault or per-plane wrapper is deleted.
 - `GraphMembers.Advance` returns `Refold` only for a valid grid change — malformed deltas and absent members remain failures on its `Fin` rail.
+- Every 16-byte key column composes kernel `ContentHash.Wire`/`Admit` — a seam-local `BinaryPrimitives` spelling forks the byte order.
 
 ## [03]-[COLLAPSE]
 
@@ -46,11 +44,13 @@
 ## [04]-[STRUCTURE]
 
 - `Rasm.Element.Classification.Classification` keeps type-equals-namespace-segment; a consumer-side `using` alias resolves it in one hop.
-- Wire-unfreeze events do NOT re-enter — `rasm.element.v1` evolves additively, so an appended field or `oneof` arm lands with its seam feature.
+- Wire-unfreeze events do NOT re-enter — the family evolves additively under `buf breaking` FILE; a new arm lands with its seam feature.
 - `WireCodec` is ONE `[Mapper]` partial across the `Graph/` wire pages — the attribute, parity fold, key codecs, and shared gates ride `Graph/wire`.
 - `SeamConverters`-shaped peer reach resolves through `Graph/wire`'s `[UserMapping]` set — a copied converter forks the crossing's one spelling.
 - Wire-plane pages carry the `wire` prefix their fence carries — a bare `payload` page name hides the codec family and forks the router pairing.
 
 ## [05]-[PROCESS]
 
-- Family pages land each wire member's `Graph/wire` census and ledger row in the same edit — a lone member leaves the codec roster short.
+- Generated support-family union changes land their corpus arm, `Graph/wire` census, and transcription in one edit; the corpus proto numbers scalars.
+- Node encode and decode share one `Fin` rail; a product-only fact the generated payload closure cannot carry refuses before lowering.
+- `GraphReflection` roots one Celly evaluator for `NodeWire`; local gates add only domain key-space narrowing and never restate corpus rules.

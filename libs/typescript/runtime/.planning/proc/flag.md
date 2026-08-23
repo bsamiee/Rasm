@@ -1,6 +1,6 @@
 # [RUNTIME_FLAG]
 
-Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam, with `track` seating business outcomes on that same plane under the one targeting-identity join. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the one shape local evaluation mints and the one an interchange-decoded peer verdict admits into. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
+Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam, with `track` seating business outcomes on that same plane under the one targeting-identity join. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, error message, metadata, instant — the one shape local evaluation mints and the one a peer verdict decodes into at its admission boundary. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
 
 ## [01]-[INDEX]
 
@@ -21,7 +21,10 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 - Packages: `effect` (`Schema`, `Match`, `Array`, `Option`, `DateTime`).
 
 ```typescript signature
-import { Array, DateTime, Duration, Match, Option, Schema, pipe } from 'effect';
+import type { UnknownEnum } from '@bufbuild/protobuf';
+import { FlagReason } from '@rasm\/contracts/rasm/contracts/feature/v1/verdict_pb';
+import { Wire } from '@rasm/ts/core';
+import { Array, DateTime, Duration, Effect, Match, Option, Record, Schema, String, pipe } from 'effect';
 
 const _REASONS = ['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT', 'CACHED', 'DISABLED', 'STALE', 'ERROR', 'UNKNOWN'] as const;
 
@@ -217,11 +220,11 @@ const Sticky: Sticky.Shape = {
 
 [VERDICT_CONTRACT]:
 - Owner: `Verdict` — one `Schema.Class` carrying `flag`, `kind` (`boolean | string | number | object`), `value` (the kind-typed union whose object arm is the page's one recursive `_Json` schema), `variant: Option`, `reason`, the complete OpenFeature error-code row including `PROVIDER_FATAL`, optional `errorMessage`, `flagMetadata`, and `at`; the wire twins ride the owner — `Verdict.Ruleset` is the provider document, `Verdict.Shift` the live delta family (`Set | Clear | Reset`), `Verdict.codes` the error-code anchor — one import carries the whole contract.
-- Law: the contract is shared, not owned twice, and the wire DECODES ONCE — `csharp:Rasm.AppHost/Runtime/features#TS_PROJECTION` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics and `core/interchange/codec#LANDING_WIRE` is the sole seat that decodes it; this page ADMITS that decoded value through `Verdict.admitted` rather than re-decoding the wire under a shape of its own, so a second decode of one family is unspellable and this owner keeps evaluation alone.
+- Law: the contract is shared, not owned twice, and the wire DECODES ONCE — `csharp:Rasm.AppHost/Runtime/features#TS_PROJECTION` mints `FlagVerdictWire` over the same OpenFeature evaluation semantics, and `Verdict.admitted` is its first typed consumer: it accepts the opaque frame, calls `Wire.decode` for that direct family, and projects the decoded value without exporting a parallel wire shape or proof-only facade.
 - Law: the producer's reason roster is its own and crosses through one total map — it spells `targeting` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all, so `_WIRE_REASON` is the whole crossing and an arrival keeps the reason its own evaluator settled on rather than being restamped as this process's cache read.
 - Law: the document row is a flag definition — `FlagDef` carries `kind`, the targeting `rule`, and the per-variant value map whose values ride `_Json`, so an object-valued flag is one definition row and value resolution is a variant lookup; the definition's `kind` gates type agreement at resolution, a mismatch minting `TYPE_MISMATCH` evidence.
 - Law: every delta carries its source epoch — `Reset` replaces the document and `Set`/`Clear` patch one flag only when their epoch is equal to or newer than the held document; accepted rows advance `Ruleset.epoch`, stale rows are no-ops, and reset invalidation is the symmetric key difference so removed flags invalidate beside added and changed flags.
-- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@rasm/ts/core` (`Wire.Decoded` — the interchange-decoded peer verdict); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
+- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@rasm/ts/core` (`Wire.decode` — direct-family first-sight admission); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
 
 ```typescript signature
 const _CODES = [
@@ -264,20 +267,23 @@ const _Shift = Schema.Union(
     Schema.TaggedStruct('Reset', { ruleset: Ruleset }),
 );
 
-// The peer verdict's reason roster is the PRODUCER's, and it is neither of the two this page already holds: it spells
-// `targeting` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all. Deriving it from either
-// neighbour would refuse every real targeting document, so the crossing is one total map keyed by the decoded family
-// itself — a token added at the producer breaks this literal instead of arriving as an unroutable string.
-const _WIRE_REASON: { readonly [R in Wire.Decoded<'FlagVerdictWire'>['reason']]: Rollout.Reason } = {
-    cached: 'CACHED',
-    default: 'DEFAULT',
-    disabled: 'DISABLED',
-    error: 'ERROR',
-    split: 'SPLIT',
-    static: 'STATIC',
-    targeting: 'TARGETING_MATCH',
-    unknown: 'UNKNOWN',
-};
+// The peer verdict's reason roster is the corpus's `FlagReason` enum, and it is neither of the two this page already
+// holds: it spells `TARGETING` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all. Deriving it
+// from either neighbour would refuse every real targeting document, so the crossing is one total map keyed by the
+// generated members — a member added at the corpus breaks this table instead of arriving as an unroutable number —
+// and the producer's own `UNKNOWN` arm is the typed fall-through for the open-enum value the generated type admits.
+type _WireReason = Exclude<FlagReason, UnknownEnum | typeof FlagReason.UNSPECIFIED>;
+const _WIRE_REASON = {
+    [FlagReason.CACHED]: 'CACHED',
+    [FlagReason.DEFAULT]: 'DEFAULT',
+    [FlagReason.DISABLED]: 'DISABLED',
+    [FlagReason.ERROR]: 'ERROR',
+    [FlagReason.SPLIT]: 'SPLIT',
+    [FlagReason.STATIC]: 'STATIC',
+    [FlagReason.TARGETING]: 'TARGETING_MATCH',
+    [FlagReason.UNKNOWN]: 'UNKNOWN',
+} as const satisfies { readonly [R in _WireReason]: Rollout.Reason };
+const _wireReason = Schema.is(Schema.Literal(...Record.values(FlagReason).filter((member): member is _WireReason => member !== FlagReason.UNSPECIFIED)));
 
 class Verdict extends Schema.Class<Verdict>('Verdict')({
     flag: Schema.NonEmptyString,
@@ -294,21 +300,22 @@ class Verdict extends Schema.Class<Verdict>('Verdict')({
     static readonly Ruleset = Ruleset;
     static readonly Shift = _Shift;
     static readonly codes = _CODES;
-    // The one admission for an interchange-decoded peer verdict: the codec owns the decode and this projection owns
-    // the reason crossing, so no second decode of `FlagVerdictWire` exists in the branch. The producer evaluates
-    // booleans alone, and a peer that settled cleanly carries no error code or message to restate.
-    static readonly admitted = (wire: Wire.Decoded<'FlagVerdictWire'>, at: DateTime.Utc): Verdict =>
-        new Verdict({
-            flag: wire.flag,
-            kind: 'boolean',
-            value: wire.value,
-            variant: wire.variant,
-            reason: _WIRE_REASON[wire.reason],
-            code: Option.none(),
-            errorMessage: Option.none(),
-            flagMetadata: {},
-            at,
-        });
+    // The one admission decodes the direct family at first sight and projects its result without another wire shape.
+    static readonly admitted = (bytes: Uint8Array, at: DateTime.Utc) =>
+        Effect.map(Wire.decode('FlagVerdictWire', bytes), (wire) =>
+            new Verdict({
+                flag: wire.flag,
+                kind: 'boolean',
+                value: wire.value,
+                // proto3 spells an unset singular string as `""`, so absence lifts to the branch carrier at this one seat
+                variant: Option.liftPredicate(wire.variant, String.isNonEmpty),
+                reason: _wireReason(wire.reason) ? _WIRE_REASON[wire.reason] : 'UNKNOWN',
+                code: Option.none(),
+                errorMessage: Option.none(),
+                flagMetadata: {},
+                at,
+            }),
+        );
 }
 
 declare namespace Verdict {
@@ -365,10 +372,10 @@ import {
 } from '@openfeature/server-sdk';
 import { KeyValueStore } from '@effect/platform';
 import {
-    Cache, Cause, Data, Effect, Exit, Function, HashMap, Layer, Match, Metric, Option, Predicate, Record, Runtime, Schedule, Schema, Stream,
+    Cache, Cause, Data, Exit, Function, HashMap, Layer, Match, Metric, Option, Predicate, Record, Runtime, Schedule, Schema, Stream,
     SubscriptionRef,
 } from 'effect';
-import { Convention, Fault, Wire } from '@rasm/ts/core';
+import { Convention, Fault } from '@rasm/ts/core';
 import { FlagGate } from '@rasm/ts/security';
 import { Setting } from './config.ts';
 import { Feed } from '../net/channel.ts';

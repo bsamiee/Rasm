@@ -9,7 +9,7 @@ Component, Properties, Appearance, and observability owners supply already-admit
 ## [01]-[INDEX]
 
 - [02]-[DATASET_ROSTER]: `MaterialsDataset` declares the `materials.<source>` datasets over the Element column vocabulary, each row carrying its key, columns, spine, and rollup measure, and projecting the custodian's admission handoff.
-- [03]-[ROW_PROJECTION]: `PropertyColumn` tables every selector, `EnvironmentProduct` closes the stored-product axis, and `AnalyticsProjection` folds each registered input — catalogue rows, property carriers, lifecycle stages, appearance summaries, capacity facts, texture-set wires at both grains, and environment-light wires — onto flat rows.
+- [03]-[ROW_PROJECTION]: `PropertyColumn` tables every selector, and `AnalyticsProjection` folds each registered input — catalogue rows, property carriers, lifecycle stages, appearance summaries, capacity facts, generated surface sets at set and stored-level grains, and generated environment products — onto flat rows.
 
 ## [02]-[DATASET_ROSTER]
 
@@ -111,17 +111,18 @@ public sealed partial class MaterialsDataset {
             new TableColumn("elapsed_s", TableType.Float64, Nullable: false),
             new TableColumn("observed", TableType.Timestamp, Nullable: false)));
 
-    // ONE ROW PER CHANNEL, keyed by the set and the channel it carries — the grain the estate's own storage takes
+    // ONE ROW PER STORED LEVEL, keyed by set, channel, and level — the grain the estate's own storage takes
     // and the grain a real question asks: which materials carry a normal plane, how many bytes each container costs
     // across the estate, which sets never earned a tile proof. A set-grained row answers none of those without
     // unpacking a nested column every dialect renders differently. Press columns stay NULLABLE because an ingested
     // set was never pressed — a typed absence rather than a zero a rollup sums into a fabricated bake cost.
     public static readonly MaterialsDataset TextureChannels = new("materials.texture",
-        Seq("set", "channel"), spine: new TableSpine.Event("observed"), Some("byte_length"), Seq(
+        Seq("set", "channel", "level"), spine: new TableSpine.Event("observed"), Some("byte_length"), Seq(
             new TableColumn("set", TableType.KeyHex, Nullable: false),
-            new TableColumn("appearance", TableType.KeyHex, Nullable: false),
+            new TableColumn("appearance", TableType.KeyHex, Nullable: true),
             new TableColumn("material", TableType.Utf8, Nullable: true),
             new TableColumn("channel", TableType.Utf8, Nullable: false),
+            new TableColumn("level", TableType.Int64, Nullable: false),
             new TableColumn("transfer", TableType.Utf8, Nullable: false),
             new TableColumn("format", TableType.Utf8, Nullable: false),
             new TableColumn("ktx_payload", TableType.Utf8, Nullable: true),
@@ -133,7 +134,6 @@ public sealed partial class MaterialsDataset {
             new TableColumn("tiled", TableType.Bool, Nullable: false),
             new TableColumn("blob", TableType.KeyHex, Nullable: false),
             new TableColumn("byte_length", TableType.Int64, Nullable: false),
-            new TableColumn("backend", TableType.Utf8, Nullable: true),
             new TableColumn("texels", TableType.Int64, Nullable: true),
             new TableColumn("elapsed_s", TableType.Float64, Nullable: true),
             new TableColumn("observed", TableType.Timestamp, Nullable: false)));
@@ -146,7 +146,7 @@ public sealed partial class MaterialsDataset {
     public static readonly MaterialsDataset TextureSets = new("materials.texture-set",
         Seq("set"), spine: new TableSpine.Event("observed"), Some("elapsed_s"), Seq(
             new TableColumn("set", TableType.KeyHex, Nullable: false),
-            new TableColumn("appearance", TableType.KeyHex, Nullable: false),
+            new TableColumn("appearance", TableType.KeyHex, Nullable: true),
             new TableColumn("material", TableType.Utf8, Nullable: true),
             new TableColumn("channels", TableType.Int64, Nullable: false),
             new TableColumn("packs", TableType.Int64, Nullable: false),
@@ -155,26 +155,28 @@ public sealed partial class MaterialsDataset {
             new TableColumn("tile_score", TableType.Float64, Nullable: true),
             new TableColumn("tile_seam_ratio", TableType.Float64, Nullable: true),
             new TableColumn("tile_lattice_leak", TableType.Float64, Nullable: true),
-            new TableColumn("backend", TableType.Utf8, Nullable: true),
             new TableColumn("texels", TableType.Int64, Nullable: true),
             new TableColumn("elapsed_s", TableType.Float64, Nullable: true),
             new TableColumn("downgraded", TableType.Int64, Nullable: true),
             new TableColumn("faulted_texels", TableType.Int64, Nullable: true),
             new TableColumn("observed", TableType.Timestamp, Nullable: false)));
 
-    // ONE ROW PER LIGHT AND PRODUCT — the environment half of the estate-wide texture footprint, keyed the way the
-    // channel dataset is so one storage question sums both. `sky_model` is EMPTY for an ingested HDRI, the spelling
-    // the environment row itself publishes rather than a synthesized "none" this page would keep aligned; the
-    // coefficient digest is the fit asset that keyed a synthesized dome, so a revised fit reads as new rows.
+    // ONE ROW PER ENVIRONMENT PRODUCT LEVEL — the environment half of the estate-wide texture footprint. Product
+    // identity and level derive from the generated oneof and specular order; the plane carries every storage fact.
     public static readonly MaterialsDataset EnvironmentProducts = new("materials.environment",
-        Seq("light", "product"), spine: new TableSpine.Event("observed"), Some("byte_length"), Seq(
-            new TableColumn("light", TableType.Utf8, Nullable: false),
+        Seq("set", "product", "level"), spine: new TableSpine.Event("observed"), Some("byte_length"), Seq(
+            new TableColumn("set", TableType.KeyHex, Nullable: false),
             new TableColumn("product", TableType.Utf8, Nullable: false),
-            new TableColumn("sky_model", TableType.Utf8, Nullable: false),
-            new TableColumn("coefficient_key", TableType.Utf8, Nullable: false),
+            new TableColumn("level", TableType.Int64, Nullable: false),
+            new TableColumn("container", TableType.Utf8, Nullable: false),
+            new TableColumn("format", TableType.Utf8, Nullable: false),
+            new TableColumn("transfer", TableType.Utf8, Nullable: false),
+            new TableColumn("primaries", TableType.Utf8, Nullable: false),
+            new TableColumn("depth", TableType.Utf8, Nullable: false),
+            new TableColumn("layers", TableType.Int64, Nullable: false),
+            new TableColumn("mips", TableType.Int64, Nullable: false),
             new TableColumn("blob", TableType.KeyHex, Nullable: false),
             new TableColumn("byte_length", TableType.Int64, Nullable: false),
-            new TableColumn("specular_mips", TableType.Int64, Nullable: false),
             new TableColumn("observed", TableType.Timestamp, Nullable: false)));
 
     public Seq<string> KeyColumns { get; }
@@ -194,12 +196,11 @@ public sealed partial class MaterialsDataset {
 
 ## [03]-[ROW_PROJECTION]
 
-- Owner: `AnalyticsProjection` — the typed row records and the total folds from registered rows and typed receipts onto flat row streams; `PropertyColumn` — the selector table one scalar or dimensioned property occupies per row; `EnvironmentProduct` — the closed product axis one resolved light's stored blobs occupy, each row projecting its own wire key.
-- Cases: `EnvironmentProduct` rows — `equirect` the authored dome, `specular` the prefiltered level chain, `brdfLut` the split-sum lookup, `luminanceCdf` the optional importance guide whose absent key emits no row at all.
-- Entry: `Components` folds catalogue rows; `Properties` folds per-material property rows through the admitted `PropertyColumn` table; `Sustainability` folds one row per lifecycle stage; `Library` traverses material keys through an injected admitted appearance lookup; `Capacity` chooses capacity facts off the observability stream; `Textures` folds each `interchange#TEXTURE_EGRESS` `TextureSetWire`'s channel and pack rows into one row apiece; `TextureSets` folds the same wires at SET grain beside the tile evidence its caller pairs in; `Environments` fans each `EnvironmentLightWire` across the product axis against the store's own byte census. Every fold takes `ProjectionContext` and stamps `frame.At` onto its rows.
+- Owner: `AnalyticsProjection` — the typed row records and the total folds from registered rows and typed receipts onto flat row streams; `PropertyColumn` — the selector table one scalar or dimensioned property occupies per row. Generated `Set.product`, `EnvironmentSet.product`, and `PlaneRef` are the only product, environment, and stored-level discriminants.
+- Entry: `Components` folds catalogue rows; `Properties` folds per-material property rows through the admitted `PropertyColumn` table; `Sustainability` folds one row per lifecycle stage; `Library` traverses material keys through an injected admitted appearance lookup; `Capacity` chooses capacity facts off the observability stream; `Textures` exhaustively unwraps each generated `Set` surface arm and emits every `PlaneRef` level; `TextureSets` reads the same surface at set grain beside its caller-supplied tile evidence; `Environments` exhaustively unwraps `EnvironmentSet` and emits every generated environment product, including every specular level. Every fold stamps `frame.At`.
 - Auto: a dimensioned selector reads its SI accessor off the quantity the `Published` carrier holds, so the magnitude and the UCUM unit it is stated in derive from one owner and no fold re-scales; folds are total over their registered inputs — an unregistered library key aborts the library fold typed rather than emitting a partial dataset.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, UnitsNet, BCL inbox.
-- Growth: a new scalar or dimensioned property is one `PropertyColumn` row carrying its unit and its selector; a new environment product is one `EnvironmentProduct` row carrying its wire-key projection; a new dataset fold is one row record and one member beside its declaration.
+- Growth: a new scalar or dimensioned property is one `PropertyColumn` row carrying its unit and its selector; a new generated environment oneof arm breaks the exhaustive fold until its level projection lands; a new dataset fold is one row record and one member beside its declaration.
 - Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches through its own generic record-batch fold, so buffer custody, batch sizing, and dataset writes never enter this page. Folds read the already-projected WIRE wherever one exists, so a warehouse column and the document a consumer decoded agree byte for byte; evidence no wire carries — a `TileReceipt`, a blob's stored length — enters as a SECOND ARGUMENT rather than as a re-derivation or a widened wire, and a row whose measured column has no producer is not emitted, because the alternative is a zero the measure sums.
 
 ```csharp signature
@@ -215,6 +216,7 @@ using Rasm.Materials.Appearance.Interchange;
 using Rasm.Materials.Component;
 using Rasm.Materials.Raster;
 using Thinktecture;
+using Wire = Rasm.Contracts.Appearance.V1;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Projection;
@@ -246,25 +248,25 @@ public readonly record struct CapacityCheckRow(
 // One channel of one set. Press columns are Option-typed: an ingested set was never pressed, and a zero backend,
 // texel count, or duration would read to a cost query as a real bake that took no time.
 public readonly record struct TextureChannelAnalyticsRow(
-    string Set, string Appearance, Option<string> Material, string Channel, string Transfer, string Format,
+    string Set, Option<string> Appearance, Option<string> Material, string Channel, int Level, string Transfer, string Format,
     Option<string> KtxPayload, Option<string> BlockFormat, int Mips, int Width, int Height, int Layers, bool Tiled,
-    string Blob, long ByteLength, Option<string> Backend, Option<long> Texels, Option<double> ElapsedSeconds,
+    string Blob, long ByteLength, Option<long> Texels, Option<double> ElapsedSeconds,
     Instant Observed);
 
 // One SET. The tile columns are Option-typed for the reason the press columns are: an ungraded set carries no
 // strategy and no score, and a zero product would read to a quality query as the worst tiling in the estate rather
 // than as one nobody graded.
 public readonly record struct TextureSetAnalyticsRow(
-    string Set, string Appearance, Option<string> Material, int Channels, int Packs, bool Tiled,
+    string Set, Option<string> Appearance, Option<string> Material, int Channels, int Packs, bool Tiled,
     Option<string> TileStrategy, Option<double> TileScore, Option<double> TileSeamRatio, Option<double> TileLatticeLeak,
-    Option<string> Backend, Option<long> Texels, Option<double> ElapsedSeconds,
+    Option<long> Texels, Option<double> ElapsedSeconds,
     Option<long> Downgraded, Option<long> FaultedTexels, Instant Observed);
 
 // One STORED PRODUCT of one resolved light. Every column is present by construction: a product whose blob the store
 // census cannot price emits no row, so `byte_length` is always a measured length.
 public readonly record struct EnvironmentProductRow(
-    string Light, string Product, string SkyModel, string CoefficientKey, string Blob, long ByteLength,
-    int SpecularMips, Instant Observed);
+    string Set, string Product, int Level, string Container, string Format, string Transfer, string Primaries,
+    string Depth, int Layers, int Mips, string Blob, long ByteLength, Instant Observed);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------------------
 // ONE selector table over the ADMITTED seam cases, never over the ingress row. The catalogue's own Admit fold is
@@ -338,21 +340,6 @@ public sealed record PropertyColumn(
         new PropertyColumn("damping_ratio", None, "1", static sets => sets.Damping.Map(static d => d.DampingRatio)));
 }
 
-// Rows close the product axis one resolved light's stored blobs occupy, each projecting its own wire key off the
-// already-projected light, so the environment fan is one Items sweep and a fifth product lands as one row rather
-// than a fifth arm. Wire spells an ABSENT blob as the empty key, so absence is the key's own emptiness and no row
-// carries a synthesized sentinel.
-[SmartEnum<string>]
-public sealed partial class EnvironmentProduct {
-    public static readonly EnvironmentProduct Equirect = new("equirect", static light => light.EquirectKey);
-    public static readonly EnvironmentProduct Specular = new("specular", static light => light.SpecularKey);
-    public static readonly EnvironmentProduct BrdfLut = new("brdfLut", static light => light.BrdfLutKey);
-    public static readonly EnvironmentProduct LuminanceCdf = new("luminanceCdf", static light => light.LuminanceCdfKey);
-
-    [UseDelegateFromConstructor]
-    public partial string Blob(EnvironmentLightWire light);
-}
-
 public static class AnalyticsProjection {
     public static Seq<ComponentAnalyticsRow> Components(Seq<ComponentRow> rows, ProjectionContext frame) =>
         rows.Map(row => new ComponentAnalyticsRow(
@@ -398,45 +385,57 @@ public static class AnalyticsProjection {
         Func<MaterialId, Op, Fin<AppearanceSummary>> lookup) =>
         materials.TraverseM(id => lookup(id, frame.Key).Map(summary =>
             new LibrarySummaryRow(
-                // X32 — the wire spelling a warehouse column joins against, the same one TextureSetWire.AppearanceKey
-                // carries; lowering here forks the one join both datasets exist to serve.
+                // X32 — the wire spelling the generated baked-set appearance key carries; lowering here forks the
+                // one join both datasets exist to serve.
                 id.Value, summary.AppearanceKey.ToString("X32"), summary.BaseColorR, summary.BaseColorG,
                 summary.BaseColorB, summary.Metallic, summary.Roughness, summary.Opacity,
                 summary.Transmissive, frame.At))).As();
 
-    // Textures reads the already-projected TextureSetWire rather than the TextureSet: every column it needs is a
-    // wire column the interchange projection rendered once, so the analytics row re-derives NOTHING and a set's
-    // storage footprint in a warehouse matches the document its consumers decoded byte for byte. Packed sheets fold
-    // beside standalone channels under their own pack name in the `channel` slot, because a query asking which sets
-    // carry roughness must see an `orm` sheet as the row that carries it.
-    public static Seq<TextureChannelAnalyticsRow> Textures(Seq<TextureSetWire> sets, ProjectionContext frame) =>
-        sets.Bind(set => toSeq(set.Channels)
-            // ONE spelling of absence: a non-KTX2 channel's wire "none" lowers to the SAME typed absence the pack
-            // rows carry — otherwise a payload grouping counts the literal string "none" as a declaration while the
-            // pack rows' NULL sits outside it, and the query the design justifies itself with double-counts.
-            .Map(row => Row(set, row.Role, row.Transfer, row.Format,
-                row.KtxPayload == KtxPayload.None.Key ? None : Some(row.KtxPayload),
-                row.BlockFormat == BlockFormat.None.Key ? None : Some(row.BlockFormat),
-                (int)row.Mips, row.Blob, row.ByteLength, frame))
-            // Packs declare NO single payload class or block format: a sheet's lanes carry three different
-            // channels' policies, so the two columns stay absent rather than filled with one lane's value promoted
-            // to speak for the sheet. The two row streams CONCATENATE — `Append` seats ONE element beside a
-            // sequence, so it cannot take the pack stream at all.
-            + toSeq(set.Packs).Map(pack => Row(set, pack.Pack, PlaneTransfer.Raw.Key, pack.Format,
-                None, None, (int)pack.Mips, pack.Blob, pack.ByteLength, frame)));
+    sealed record SurfaceProjection(Wire.Set Set, Wire.SurfaceSet Surface, Option<Wire.BakedSet> Baked);
 
-    static TextureChannelAnalyticsRow Row(
-        TextureSetWire set, string channel, string transfer, string format, Option<string> payload, Option<string> block,
-        int mips, string blob, ulong byteLength, ProjectionContext frame) =>
-        new(Set: set.SetKey, Appearance: set.AppearanceKey,
-            Material: string.IsNullOrEmpty(set.MaterialId) ? None : Some(set.MaterialId),
-            Channel: channel, Transfer: transfer, Format: format, KtxPayload: payload, BlockFormat: block,
-            Mips: mips, Width: (int)set.Width, Height: (int)set.Height, Layers: (int)set.Layers, Tiled: set.Tiled,
-            Blob: blob, ByteLength: (long)byteLength,
-            Backend: set.Press is { } press ? Some(press.Backend) : None,
-            Texels: set.Press is { } counted ? Some((long)counted.Texels) : None,
-            ElapsedSeconds: set.Press is { } timed ? Some(timed.ElapsedMs / 1000.0) : None,
+    // The product oneof is the only kind test. Environment documents are outside this dataset; an unset arm is an
+    // invalid admitted message and fails on the caller's operation rail instead of disappearing as an empty set.
+    static Fin<Option<SurfaceProjection>> Surface(Wire.Set set, Op key) => set.ProductCase switch {
+        Wire.Set.ProductOneofCase.Pbr => Fin.Succ(Some(new SurfaceProjection(set, set.Pbr, None))),
+        Wire.Set.ProductOneofCase.Baked => Fin.Succ(Some(new SurfaceProjection(set, set.Baked.Surface, Some(set.Baked)))),
+        Wire.Set.ProductOneofCase.Environment => Fin.Succ(Option<SurfaceProjection>.None),
+        Wire.Set.ProductOneofCase.None or _ => Fin.Fail<Option<SurfaceProjection>>(key.InvalidInput()),
+    };
+
+    public static Fin<Seq<TextureChannelAnalyticsRow>> Textures(
+        Seq<Wire.Set> sets, ProjectionContext frame, Op key) =>
+        sets.Traverse(set => Surface(set, key).Map(surface => surface
+                .Map(value => TextureRows(value, frame))
+                .IfNone(Seq<TextureChannelAnalyticsRow>())))
+            .As()
+            .Map(static rows => rows.Bind(static row => row));
+
+    static Seq<TextureChannelAnalyticsRow> TextureRows(SurfaceProjection set, ProjectionContext frame) =>
+        toSeq(set.Surface.Planes).Bind(plane => toSeq(plane.Levels.Select((level, at) =>
+                TextureRow(set, plane.Role.ToString(), at, plane.HasTransfer ? plane.Transfer.ToString() : string.Empty,
+                    plane.Format.ToString(), Some(plane.KtxPayload.ToString()),
+                    plane.HasBlockFormat ? Some(plane.BlockFormat.ToString()) : None,
+                    checked((int)plane.Mips), level, frame))))
+        + toSeq(set.Surface.Packs).Bind(pack => toSeq(pack.Levels.Select((level, at) =>
+                TextureRow(set, pack.Pack.ToString(), at, Wire.Transfer.Raw.ToString(), pack.Format.ToString(),
+                    None, None, checked((int)pack.Mips), level, frame))));
+
+    static TextureChannelAnalyticsRow TextureRow(
+        SurfaceProjection set, string channel, int level, string transfer, string format,
+        Option<string> payload, Option<string> block, int mips, Wire.PlaneRef stored, ProjectionContext frame) {
+        Option<Wire.Press> press = set.Baked.Bind(static baked => Optional(baked.Press));
+        return new(
+            Set: Hex(set.Set.Key), Appearance: set.Baked.Map(static baked => Hex(baked.AppearanceKey)),
+            Material: Optional(set.Surface.MaterialId).Filter(static value => value.Length > 0),
+            Channel: channel, Level: level, Transfer: transfer, Format: format,
+            KtxPayload: payload, BlockFormat: block, Mips: mips,
+            Width: checked((int)set.Surface.Width), Height: checked((int)set.Surface.Height),
+            Layers: checked((int)set.Surface.Layers), Tiled: set.Surface.Tiled,
+            Blob: Hex(stored.Digest), ByteLength: checked((long)stored.ByteLength),
+            Texels: press.Map(static value => checked((long)value.Texels)),
+            ElapsedSeconds: press.Map(static value => value.Elapsed.ToNodaDuration().TotalSeconds),
             Observed: frame.At);
+    }
 
     public static Seq<CapacityCheckRow> Capacity(Seq<MaterialsFact> facts, ProjectionContext frame) =>
         facts.Choose(fact => fact as MaterialsFact.CapacityCheck).Map(check =>
@@ -457,26 +456,25 @@ public static class AnalyticsProjection {
     // Set grain takes the tile evidence as a SECOND ARGUMENT because a TileProof is not a wire column — the wire
     // carries the boolean projection of the measured-and-accepted read and never the score behind it — so pairing
     // the receipt in keeps the two component signals honest without widening the document.
-    public static Seq<TextureSetAnalyticsRow> TextureSets(
-        Seq<(TextureSetWire Set, Option<TileReceipt> Tile)> sets, ProjectionContext frame) =>
-        sets.Map(entry => (entry.Set, Strategy: entry.Tile.Map(static receipt => receipt.Strategy.Key), Score: Scored(entry.Tile)))
-            .Map(row => new TextureSetAnalyticsRow(
-                Set: row.Set.SetKey, Appearance: row.Set.AppearanceKey,
-                Material: string.IsNullOrEmpty(row.Set.MaterialId) ? None : Some(row.Set.MaterialId),
-                Channels: row.Set.Channels.Length, Packs: row.Set.Packs.Length, Tiled: row.Set.Tiled,
-                TileStrategy: row.Strategy,
-                TileScore: row.Score.Map(static score => score.Value),
-                TileSeamRatio: row.Score.Map(static score => score.SeamRatio),
-                TileLatticeLeak: row.Score.Map(static score => score.LatticeLeak),
-                Backend: row.Set.Press is { } press ? Some(press.Backend) : None,
-                Texels: row.Set.Press is { } counted ? Some((long)counted.Texels) : None,
-                ElapsedSeconds: row.Set.Press is { } timed ? Some(timed.ElapsedMs / 1000.0) : None,
-                // Quality tallies ride the press receipt's own wire columns, so a set-grained quality query and the
-                // channel-keyed press counters at `observability#INSTRUMENT_TAP` answer the same numbers on two
-                // grains rather than one number re-derived twice.
-                Downgraded: row.Set.Press is { } fell ? Some((long)fell.Downgraded) : None,
-                FaultedTexels: row.Set.Press is { } faulted ? Some((long)faulted.FaultedTexels) : None,
-                Observed: frame.At));
+    public static Fin<Seq<TextureSetAnalyticsRow>> TextureSets(
+        Seq<(Wire.Set Set, Option<TileReceipt> Tile)> sets, ProjectionContext frame, Op key) =>
+        sets.Traverse(entry => Surface(entry.Set, key).Map(surface => surface.Map(value => {
+            Option<TileScore> score = Scored(entry.Tile);
+            Option<Wire.Press> press = value.Baked.Bind(static baked => Optional(baked.Press));
+            return new TextureSetAnalyticsRow(
+                Set: Hex(value.Set.Key), Appearance: value.Baked.Map(static baked => Hex(baked.AppearanceKey)),
+                Material: Optional(value.Surface.MaterialId).Filter(static material => material.Length > 0),
+                Channels: value.Surface.Planes.Count, Packs: value.Surface.Packs.Count, Tiled: value.Surface.Tiled,
+                TileStrategy: entry.Tile.Map(static receipt => receipt.Strategy.Key),
+                TileScore: score.Map(static measured => measured.Value),
+                TileSeamRatio: score.Map(static measured => measured.SeamRatio),
+                TileLatticeLeak: score.Map(static measured => measured.LatticeLeak),
+                Texels: press.Map(static receipt => checked((long)receipt.Texels)),
+                ElapsedSeconds: press.Map(static receipt => receipt.Elapsed.ToNodaDuration().TotalSeconds),
+                Downgraded: press.Map(static receipt => checked((long)receipt.Downgraded)),
+                FaultedTexels: press.Map(static receipt => checked((long)receipt.FaultedTexels)),
+                Observed: frame.At);
+        }))).As().Map(static rows => rows.Choose(static row => row));
 
     // The receipt's score is kernel EVIDENCE and the warehouse row takes its stated Value() collapse once here
     // rather than per column: a refused spectral band and an absent receipt alike emit empty score columns, since
@@ -485,20 +483,46 @@ public static class AnalyticsProjection {
     // short an estate's tilings fall cannot answer off rows that dropped themselves.
     static Option<TileScore> Scored(Option<TileReceipt> tile) => tile.Bind(static receipt => receipt.Score.Value());
 
-    // Environments fans the CLOSED product axis against the store's own byte census keyed by the same X32 blob
-    // spelling the wire carries, so the join a footprint query runs is the join the fold already ran. A product
-    // whose key is empty (an absent luminance guide) or whose blob the census cannot price emits NO ROW — a zero
-    // length would sum into the estate footprint as a stored object nobody stored.
-    public static Seq<EnvironmentProductRow> Environments(
-        Seq<(EnvironmentLightWire Light, HashMap<string, long> Stored)> lights, ProjectionContext frame) =>
-        lights.Bind(entry => toSeq(EnvironmentProduct.Items).Choose(product =>
-            product.Blob(entry.Light) is { Length: > 0 } blob
-            && entry.Stored.Find(blob) is { IsSome: true, Case: long bytes }
-                ? Some(new EnvironmentProductRow(
-                    Light: entry.Light.Key, Product: product.Key, SkyModel: entry.Light.SkyModel,
-                    CoefficientKey: entry.Light.CoefficientKey, Blob: blob, ByteLength: bytes,
-                    SpecularMips: entry.Light.SpecularMips, Observed: frame.At))
-                : Option<EnvironmentProductRow>.None));
+    public static Fin<Seq<EnvironmentProductRow>> Environments(
+        Seq<Wire.Set> sets, ProjectionContext frame, Op key) =>
+        sets.Traverse(set => EnvironmentRows(set, frame, key)).As()
+            .Map(static rows => rows.Bind(static row => row));
+
+    static Fin<Seq<EnvironmentProductRow>> EnvironmentRows(Wire.Set set, ProjectionContext frame, Op key) =>
+        set.ProductCase switch {
+            Wire.Set.ProductOneofCase.Pbr or Wire.Set.ProductOneofCase.Baked =>
+                Fin.Succ(Seq<EnvironmentProductRow>()),
+            Wire.Set.ProductOneofCase.Environment => Products(set.Environment, key).Map(products =>
+                products.Map(product => new EnvironmentProductRow(
+                    Set: Hex(set.Key), Product: product.Product, Level: product.Level,
+                    Container: product.Plane.Container.ToString(), Format: product.Plane.Format.ToString(),
+                    Transfer: product.Plane.Transfer.ToString(), Primaries: product.Plane.Primaries.ToString(),
+                    Depth: product.Plane.Depth.ToString(), Layers: checked((int)product.Plane.Layers),
+                    Mips: checked((int)product.Plane.Mips), Blob: Hex(product.Plane.Plane.Digest),
+                    ByteLength: checked((long)product.Plane.Plane.ByteLength), Observed: frame.At))),
+            Wire.Set.ProductOneofCase.None or _ => Fin.Fail<Seq<EnvironmentProductRow>>(key.InvalidInput()),
+        };
+
+    static Fin<Seq<(string Product, int Level, Wire.EnvironmentPlane Plane)>> Products(
+        Wire.EnvironmentSet environment, Op key) => environment.ProductCase switch {
+            Wire.EnvironmentSet.ProductOneofCase.Hdri => Fin.Succ(SourceProducts(environment.Hdri.Source)),
+            Wire.EnvironmentSet.ProductOneofCase.Ibl => Fin.Succ(
+                SourceProducts(environment.Ibl.Source)
+                + toSeq(environment.Ibl.Specular.Select((plane, at) => ("specular", at, plane)))
+                + Seq(("brdfLut", 0, environment.Ibl.BrdfLut))
+                + Optional(environment.Ibl.LuminanceCdf)
+                    .Map(static plane => Seq(("luminanceCdf", 0, plane)))
+                    .IfNone(Seq<(string, int, Wire.EnvironmentPlane)>())),
+            Wire.EnvironmentSet.ProductOneofCase.None or _ =>
+                Fin.Fail<Seq<(string, int, Wire.EnvironmentPlane)>>(key.InvalidInput()),
+        };
+
+    static Seq<(string Product, int Level, Wire.EnvironmentPlane Plane)> SourceProducts(Wire.EnvironmentSource source) =>
+        Seq(("equirect", 0, source.Equirect))
+        + Optional(source.Cubemap).Map(static plane => Seq(("cubemap", 0, plane))).IfNone(Seq<(string, int, Wire.EnvironmentPlane)>())
+        + Optional(source.Preview).Map(static plane => Seq(("preview", 0, plane))).IfNone(Seq<(string, int, Wire.EnvironmentPlane)>());
+
+    static string Hex(Google.Protobuf.ByteString key) => Convert.ToHexString(key.Span);
 }
 ```
 

@@ -82,7 +82,7 @@ const Job = { of: _job }
 
 - Owner: `Throttle` — keyed quotas as one row table spent through two arms: `Throttle.spend(row, subject)` runs `DurableRateLimiter.rateLimit` as an activity whose consumption survives replay, so a retried step never double-spends its quota, and `Throttle.pace(row, subject)` is its transformer twin for every caller that sits OUTSIDE a durable step. Each generic row carries its scope, algorithm, window, limit, compound-key projection, and cost projection, so consumers cannot pass a key or cost inconsistent with the selected quota.
 - Law: cost is a parameter — a heavyweight item spends `cost > 1` against the same row; a parallel "heavy" quota row for the same scope is the rejected form. The column spells `cost` because the serving edge's own quota table spells it identically: window, limit, key, and cost are the four columns every posture in the branch shares, and only the posture differs.
-- Law: a row states its FAN AXIS, never its projections — every quota keys tenant-then-axis and costs the subject's own weight, so one generator mints both closures from the axis name and a row carries scope, algorithm, window, limit, and that one word. Hand-written projections re-spell the subject shape once per closure and let a row drift its key grammar silently; the table closes against `Row<never>`, whose contravariant subject admits every row while still refusing a bad algorithm, a missing projection, or a mistyped cost.
+- Law: a row states its FAN AXIS, never its projections — every quota keys tenant-then-axis and costs the subject's own weight, so one generator mints both closures from the axis name and a row carries scope, algorithm, window, its limit projection, and that one word. Hand-written projections re-spell the subject shape once per closure and let a row drift its key grammar silently; the table closes against `Row<never>`, whose contravariant subject admits every row while still refusing a bad algorithm, a missing projection, or a mistyped cost.
 - Law: the BUCKET is the scope joined to the projection, derived at the spend seams and nowhere else — `DurableRateLimiter`'s `name` namespaces the activity and its `DurableClock` sleep while the store receives `key` verbatim, so two rows fanning on different axes whose values coincide would spend one another's tokens under a bare projection. Both arms fold the identical `_bucket`, which is also what makes them one counter rather than two: a row's quota holds whether a step or a drain spent it.
 - Law: the store is a PORT, never a backing this page names — both arms resolve the one `Fleet.RateLimiter` Tag (the durable activity requires it exactly as the raw accessor does), and the composition root binds `layerStoreMemory` on a single node or a shared store-backed Layer across a fleet; a page that named a store would make one deployment's topology every deployment's, and a Redis or relational bucket store enters as that Layer's own seam.
 - Law: exhaustion delays and never refuses on BOTH arms — the durable arm's exceeded posture is a `DurableClock` sleep sized to the window turn, so a step that overdraws parks durably and resumes past process death with the spend already consumed, and the paced arm carries `onExceeded: "delay"` for the same posture without the replay guarantee. Each leaves only `RateLimitStoreError` (`_tag: "RateLimiterError"` — the quota STORE failed) on its channel, which classifies `unavailable` so a lane judge defers it on the lease; a hand-written wait-for-window loop, or a page modeling exhaustion as a refusal fault, contradicts the shipped posture and stays unspellable.
@@ -94,11 +94,17 @@ const Job = { of: _job }
 ```typescript signature
 declare namespace Throttle {
   type Subject<Axis extends string> = { readonly tenant: string; readonly weight: number } & { readonly [K in Axis]: string }
+  // Receiver-stated ceilings carry this subject: the axis coordinate beside the rate that destination's own
+  // abuse-protection grant named, so the row reads its bound off the value exactly as it reads its key and cost.
+  type Granted = Subject<"destination"> & { readonly rate: number }
+  // `limit` is a PROJECTION beside `key` and `cost`, not a constant among them — a ceiling some receiver states per
+  // destination and a ceiling this estate fixes are one row under one spend seam, and a scalar column could only
+  // re-guess the first. A row whose bound this estate owns answers a constant and reads nothing.
   type Row<A> = {
     readonly scope: string
     readonly algorithm: "fixed-window" | "token-bucket"
     readonly window: Duration.DurationInput
-    readonly limit: number
+    readonly limit: (subject: A) => number
     readonly key: (subject: A) => string
     readonly cost: (subject: A) => number
   }
@@ -112,9 +118,19 @@ const _keyed = <const Axis extends string>(axis: Axis) => ({
 })
 
 const _rows = {
-  tenantEgress: { scope: "tenant-egress", algorithm: "token-bucket", window: Duration.minutes(1), limit: 600, ..._keyed("channel") },
-  providerCall: { scope: "provider-call", algorithm: "fixed-window", window: Duration.minutes(1), limit: 240, ..._keyed("provider") },
-  reportRender: { scope: "report-render", algorithm: "token-bucket", window: Duration.minutes(5), limit: 50, ..._keyed("format") },
+  tenantEgress: { scope: "tenant-egress", algorithm: "token-bucket", window: Duration.minutes(1), limit: () => 600, ..._keyed("channel") },
+  providerCall: { scope: "provider-call", algorithm: "fixed-window", window: Duration.minutes(1), limit: () => 240, ..._keyed("provider") },
+  reportRender: { scope: "report-render", algorithm: "token-bucket", window: Duration.minutes(5), limit: () => 50, ..._keyed("format") },
+  // CloudEvents Webhook grants state a ceiling the RECEIVER owns and this sender promised to pace against, so the
+  // row spends it like any other quota and the promise stops being one nothing keeps. A target granting `*` states
+  // no ceiling, so its registration seats no rate and no subject ever reaches this row.
+  webhookGrant: {
+    scope: "webhook-grant",
+    algorithm: "fixed-window",
+    window: Duration.minutes(1),
+    limit: (subject: Throttle.Granted) => subject.rate,
+    ..._keyed("destination"),
+  },
   // contravariance makes `Row<never>` the shape check that admits every subject: scope, algorithm, window, limit, and
   // both projections refuse at the table instead of at the one `spend` call that happened to name a broken row
 } as const satisfies { readonly [Name: string]: Throttle.Row<never> }
@@ -129,7 +145,7 @@ const _spend = <A>(row: Throttle.Row<A>, subject: A) =>
     name: row.scope,
     algorithm: row.algorithm,
     window: row.window,
-    limit: row.limit,
+    limit: row.limit(subject),
     key: _bucket(row, subject),
     tokens: row.cost(subject),
   })
@@ -143,7 +159,7 @@ const _pace = <A>(row: Throttle.Row<A>, subject: A) =>
     limit({
       algorithm: row.algorithm,
       key: _bucket(row, subject),
-      limit: row.limit,
+      limit: row.limit(subject),
       onExceeded: "delay",
       tokens: row.cost(subject),
       window: row.window,
@@ -324,16 +340,28 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
 - Law: poison short-circuits — a terminal-recovery class (`absent`, `invalid`, `malformed`, `denied`, `breached`, `defect`) parks on first failure regardless of the ceiling, because redelivering a deterministic failure spends lease windows to learn nothing; the judge fold above encodes this through `Fault.Class.retryable`, the class owner's own derived projection over the recovery band, and a page-local poison list is unspellable.
 - Law: parking is terminal for the claim, never for the work — the outbox row completes so the drain set stays bounded; the evidence row is the work's continued existence, and replay is the one path back.
 - Law: the DLQ read is maintenance-plane material — the park evidence rows carry no tenant (the target is the deliverable, so the fact stores NULL tenant, visible only under the plane posture), so the parked-evidence projection a caller hands `Lane.replay` composes `Tenancy.sweep` around its read; an unpinned projection reads an empty dead set and a replay pass reports nothing to re-offer while parked work ages silently. `Fact.record` composes no bracket for the park WRITE — it is a buffered offer whose drain owns its own plane posture at the data seam.
-- Receipt: the park evidence row carries `{ tag, deliverable, sequence, class, route, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the claim's stream-prefix channel, so the OTel series and the dead-set history cannot disagree. `route` is what makes the dead set actionable outside the process: a `wait` row re-offers unchanged, a `restart` row needs its handle re-established first, and a `rescope` row needs its material re-authored — three postures the class table knows and an audit reader cannot derive.
+- Receipt: the park evidence row carries `{ tag, deliverable, sequence, class, route, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the channel `Lane.channel` reads off the announced tag, so the OTel series and the dead-set history cannot disagree and neither fans past the channel roster. `route` is what makes the dead set actionable outside the process: a `wait` row re-offers unchanged, a `restart` row needs its handle re-established first, and a `rescope` row needs its material re-authored — three postures the class table knows and an audit reader cannot derive.
 - Growth: a replay posture (selective by class or route, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
 - Packages: `@rasm/ts/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript signature
-const _channel = (tag: string): string => tag.split(":", 1)[0] ?? tag
+// Claim tags ARE the announced `type` — `data:journal/append#RELAY_ROWS` mints its envelope with
+// `type: deliverable.tag` — so `rasm.<domain>.<subject>.<fact>.v<N>` is the one grammar any reader of this column
+// has, and `<subject>` is the channel a drain routes on and a series fans on. `Lane` publishes the read because it
+// owns the column: a second grammar spelled beside it answers the WHOLE tag for every well-formed row, which is one
+// series per event family instead of one per channel and a routing predicate that agrees with nothing.
+const _SUBJECT = 2
+
+const _channel = (tag: string): Option.Option<string> => Array.get(tag.split("."), _SUBJECT)
+
+// Tags outside the grammar name no channel, and answering the tag itself fans this series on every family a
+// producer can spell; the roster stays bounded and the tag itself rides the fact row's own `parent`, which is where
+// an operator reads it without minting a series per spelling.
+const _UNROSTERED = "<unrostered>"
 
 const _park = (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) =>
   Effect.zipRight(
-    Pulse.mark("parked", _channel(claim.tag)),
+    Pulse.mark("parked", Option.getOrElse(_channel(claim.tag), () => _UNROSTERED)),
     Fact.record({
       action: "deliverable.parked",
       actor: { key: "lane", kind: "service" },
@@ -373,6 +401,7 @@ const _replay = <R, R2>(options: {
 
 const Lane = {
   row: _row,
+  channel: _channel,
   judge: _judge,
   settle: _settle,
   park: _park,

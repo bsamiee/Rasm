@@ -8,7 +8,7 @@
 
 - [02]-[ENCODING]: `PackOp` fold over its channel, dtype, and kind vocabulary into the descriptor-tiled `EncodedGeometry` with round-trip witness.
 - [03]-[CHANNEL]: `EncodingChannel` wire columns — the glTF accessor semantic and the `MeshoptFilter` post-decompression row every interchange writer reads instead of re-deriving.
-- [04]-[SCHEMA_AND_EVIDENCE]: `PackSchema` columnar schema identity, the frozen `EvidenceWire.Json` wire identity, and the `EvidenceWire` exact-hi/lo binary block.
+- [04]-[SCHEMA_AND_EVIDENCE]: `PackSchema` columnar schema identity, the frozen `EvidenceCodec.Json` wire identity, and the `EvidenceCodec` exact-hi/lo binary block.
 
 ## [02]-[ENCODING]
 
@@ -104,7 +104,7 @@ public sealed partial class ChannelDtype {
     // Every integer and unorm arm rounds, scales, and converts through TensorPrimitives: the lattice owns that
     // arithmetic and a per-element loop re-derives it once per row.
     public void Pack(ReadOnlySpan<float> raw, Span<byte> stored) {
-        if (this == Float32 || this == CFloat32) { MemoryMarshal.AsBytes(raw).CopyTo(stored); return; }
+        if (this == Float32 || this == CFloat32) { MemoryMarshal.Cast<float, byte>(raw).CopyTo(stored); return; }
         if (this == Float16 || this == CFloat16) { TensorPrimitives.ConvertToHalf(raw, MemoryMarshal.Cast<byte, Half>(stored)); return; }
         if (this == Float64 || this == CFloat64) { TensorPrimitives.ConvertChecked<float, double>(raw, MemoryMarshal.Cast<byte, double>(stored)); return; }
         using SpanOwner<float> staging = SpanOwner<float>.Allocate(raw.Length);
@@ -831,11 +831,11 @@ public sealed partial class EncodingChannel {
 
 ## [04]-[SCHEMA_AND_EVIDENCE]
 
-- Owner: `PackSchema` is the columnar schema identity every kernel wire carries beside its payload — a `ContentHash`-derived `SchemaId` over the owning `PackKind` and one `PackSchemaField` per active channel, each field carrying its wire token and filter row so a token or filter drift RE-KEYS the schema. `SchemaNullability` is the null-semantics vocabulary, DERIVED from the descriptor's own `Mask` column so a masked lane is one that names its validity channel rather than a row nothing constructs. `EvidenceWire` owns both evidence lanes: the lossless 106-bit count-prefixed binary block over `DoubleDoubleIOExpand`, and `Json`, one sealed `JsonSerializerOptions` identity carrying `DDoubleJsonConverter` over the `PackWireContext` resolver.
-- Entry: `PackSchema.Of` is ONE polymorphic derivation discriminating on input shape — the `PackKind` projects the declaration truth, an `EncodedGeometry` projects the packed instance — and `Describes` validates both carriers before comparing ids on the `Fin` rail; `EvidenceWire.WriteBlock`/`ReadBlock` are the binary arms, both on the `Fin` rail over `DoubleDoubleIOExpand`'s exact hi/lo extensions, and `EvidenceWire.Json` is the one options argument every JSON evidence read and write binds.
+- Owner: `PackSchema` is the columnar schema identity every kernel wire carries beside its payload — a `ContentHash`-derived `SchemaId` over the owning `PackKind` and one `PackSchemaField` per active channel, each field carrying its wire token and filter row so a token or filter drift RE-KEYS the schema. `SchemaNullability` is the null-semantics vocabulary, DERIVED from the descriptor's own `Mask` column so a masked lane is one that names its validity channel rather than a row nothing constructs. `EvidenceCodec` owns both evidence lanes: the lossless 106-bit count-prefixed binary block over `DoubleDoubleIOExpand`, and `Json`, one sealed `JsonSerializerOptions` identity carrying `DDoubleJsonConverter` over the `PackEvidenceContext` resolver.
+- Entry: `PackSchema.Of` is ONE polymorphic derivation discriminating on input shape — the `PackKind` projects the declaration truth, an `EncodedGeometry` projects the packed instance — and `Describes` validates both carriers before comparing ids on the `Fin` rail; `EvidenceCodec.WriteBlock`/`ReadBlock` are the binary arms, both on the `Fin` rail over `DoubleDoubleIOExpand`'s exact hi/lo extensions, and `EvidenceCodec.Json` is the one options argument every JSON evidence read and write binds.
 - Law: the schema id derives through the kernel `CanonicalWriter` — the framed writer, never a hand-joined preimage: one `String` for the kind key then one framed row per field in active-set order, so two kinds sharing an active set still key distinct and any field, arity, dtype, width, nullability, wire token, or filter drift re-keys. `Tag` is `ContentHash.Hex`, the ONE hex projection, so no consumer spells a format string.
 - Law: `Json` seals at type init through `JsonSerializerOptions.MakeReadOnly()`, so the converter set and resolver chain are fixed before the first evidence byte moves and a composition appending to either throws at the append; both lanes therefore carry the same 106-bit value and a `double`-degrading round trip is structurally unreachable.
-- Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consuming-seam projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer wraps every field zero-copy while the kernel never touches a columnar client — `Rasm.Compute` `Runtime/codecs#ARROW_BATCH` borrows those slices into record-batch columns and `Rasm.Persistence` `Query/lakehouse#FLAT_TABLE_EGRESS` owns the writers, hive generation, and Flight serving beneath them; the kernel reaches neither, and `SchemaId` is the identity the lake generation keys its tree on. `PackWireContext` declares the kernel evidence payload alone and folds into the app-root suite as one `SuiteContracts.Wire` context argument — the kernel mints no second suite and admits no reflection resolver.
+- Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consuming-seam projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer wraps every field zero-copy while the kernel never touches a columnar client — `Rasm.Compute` `Runtime/codecs#ARROW_BATCH` borrows those slices into record-batch columns and `Rasm.Persistence` `Query/lakehouse#FLAT_TABLE_EGRESS` owns the writers, hive generation, and Flight serving beneath them; the kernel reaches neither, and `SchemaId` is the identity the lake generation keys its tree on. `PackEvidenceContext` declares the kernel evidence payload alone and folds into the app-root suite as one `SuiteContracts.Wire` context argument — the kernel mints no second suite and admits no reflection resolver.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -925,10 +925,10 @@ public sealed partial record PackSchema(
 // Kernel declares its evidence payload alone; the app-root suite folds this context in as one argument, so no
 // reflection resolver and no second suite ever reach the kernel.
 [JsonSerializable(typeof(ddouble[]))]
-public sealed partial class PackWireContext : JsonSerializerContext;
+public sealed partial class PackEvidenceContext : JsonSerializerContext;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-public static class EvidenceWire {
+public static class EvidenceCodec {
     public static readonly JsonSerializerOptions Json = Sealed();
 
     // Options-level converters outrank resolver metadata, so the exact hi/lo codec wins over any generated
@@ -936,7 +936,7 @@ public static class EvidenceWire {
     // and a post-seal Converters or TypeInfoResolver write throws at the write.
     private static JsonSerializerOptions Sealed() {
         JsonSerializerOptions wire = new(JsonSerializerOptions.Strict) {
-            TypeInfoResolver = PackWireContext.Default,
+            TypeInfoResolver = PackEvidenceContext.Default,
             NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             Converters = { new DDoubleJsonConverter() },
         };

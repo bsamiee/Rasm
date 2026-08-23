@@ -2,7 +2,7 @@
 
 Scan-vs-model deviation and primitive extraction — the AEC payoff of the host-free scan plane, on top of the registered pose. `ScanDeviation` folds one construction-verification pipeline discriminated by a `DeviationStage` request value, never parallel modes: `SEGMENT` runs RANSAC plane segmentation classifying dominant planar primitives into the `PrimitiveClass` vocabulary by plane-normal axis, `DEVIATE` folds the signed nearest-surface deviation between the registered cloud and the IFC-tessellated reference into one `DeviationBand`, and `ATTRIBUTED` composes both so the per-primitive grouping and the per-face triangle-id attribution ride the one surface-projection pass the colored overlay reads. `signed_distance` is positive inside the watertight design solid and negative outside, so under-build (missing material, positive) and over-build (excess, negative) separate; the verdict reads the absolute band against tolerance while the overlay reads the sign and the triangle id. Where an element arrives carrying the `scan/registration#REGISTRATION` non-rigid arm's per-point deformation magnitudes, `DeformationSplit` partitions that same signed band once more — into the part the recovered field explains and the rigid residual it cannot — so settlement, deflection, and bowing separate from construction error and the compliance verdict is read on the residual a rigid re-fit still owes.
 
-A registered transform from `scan/registration#REGISTRATION` is the precondition, never re-derived here; a deformation field is that same producer's optional second product, arriving as the magnitude band alone on the element carrier — the warped positions ARE the element's cloud, so nothing crosses twice and no warp is re-solved here; the registered clouds arrive as the `scan/ingestion#INGESTION` `Cloud` array carrier, and the reference surface arrives as the `mesh/cad#BRIDGE` `GlbArtifact` — the wire-keyed welded GLB from `mesh/daemon#DAEMON` fetched over the `Rasm.Bim/Model` seam, scan never re-tessellating and never re-keying. The proximity index is `mesh/spatial#SPATIAL`'s `MeshSpatial`: this page constructs ONE capsule per reference, gates it through `mesh/quality`'s public `closure_fold` on admission, and folds the whole element set through its batched `SpatialQuery.Proximity` sweep, so N elements share one decode, one watertight proof, and one amortized surface index instead of re-spelling a `ProximityQuery` build per element. `evaluate` runs `async` under the `evidence_run` graduation weave seeded on `EvidenceScope.SCAN_DEVIATION`; the RANSAC peel keeps its own `KernelTrait.HOSTILE` kernel because the `open3d` band imports under no isolated subinterpreter and its batch amortizes the process crossing across the element set. Each deviation graduates as `GeometrySubject.SCAN_DEVIATION` keyed to the IFC element GlobalId, `graduates()` returning the local `GeometryHandoff` on a key its own `spec` preimage derives from the reference key, the element beside its cloud-and-field identity, the stage, and the policy bars — whose `wire()` projection is the compute crossing and whose ceilings are `DeviationPolicy` rows.
+A registered transform from `scan/registration#REGISTRATION` is the precondition, never re-derived here; a deformation field is that same producer's optional second product, arriving as the magnitude band alone on the element carrier — the warped positions ARE the element's cloud, so nothing crosses twice and no warp is re-solved here. The registered clouds arrive as the `scan/ingestion#INGESTION` `Cloud` array carrier, while the reference surface is one generated `ArtifactRef` resolved through the injected `ArtifactTransfer`. `evaluate` retains the helper-owned path for the one GLB decode, watertight proof, and `mesh/spatial#SPATIAL` index build; no raw bytes, retired geometry carrier, or second hash crosses. The proximity index folds the whole element set through one batched `SpatialQuery.Proximity` sweep, so N elements share one decode, one proof, and one amortized surface index. Each deviation graduates as `GeometrySubject.SCAN_DEVIATION` keyed to the IFC element GlobalId, with the reference SHA-256 included as an evidence coordinate rather than reinterpreted as the semantic `ContentKey`.
 
 ## [01]-[INDEX]
 
@@ -10,28 +10,28 @@ A registered transform from `scan/registration#REGISTRATION` is the precondition
 
 ## [02]-[DEVIATION]
 
-- Owner: `ScanDeviation`, the frozen owner discriminating by `DeviationStage` over registered `Cloud` carriers and a wire-keyed GLB reference, carrying the composition `ScopeKey` its weave and charter records stamp. `Element` is the request carrier — cloud, IFC GlobalId, and the optional per-point deformation magnitudes — a STRUCT rather than a tuple, because the arity probe at `evaluate` must separate one element from a sequence of them and a tuple of elements is itself a tuple. `DeviationBand.fold` runs the whole signed reduction once and `verdict(tolerance, fraction)` keeps the band math in one place; `DeformationSplit.fold` runs the second reduction over that same signed field, folding its rigid residual through the SAME band fold so the two halves are measured by identical statistics; `Segment` carries the plane model, unit normal, original-cloud inlier indices, and the `PrimitiveClass` the plane-normal axis resolves, plus a per-segment band and its own split under `ATTRIBUTED`; `DeviationPolicy` carries every ceiling as a value-object row — segmentation gains, the worst-point `tolerance`, the tighter per-point `working_tolerance`, the noncompliant `fraction`, the slab/wall verticality thresholds — never a module `Final`.
+- Owner: `ScanDeviation` holds one injected `ArtifactTransfer`, discriminates by `DeviationStage` over registered `Cloud` carriers and a generated GLB `ArtifactRef`, and carries the composition `ScopeKey` its weave and charter records stamp. `Element` is the request carrier — cloud, IFC GlobalId, and the optional per-point deformation magnitudes — a STRUCT rather than a tuple, because the arity probe at `evaluate` must separate one element from a sequence of them and a tuple of elements is itself a tuple. `DeviationBand.fold` runs the whole signed reduction once and `verdict(tolerance, fraction)` keeps the band math in one place; `DeformationSplit.fold` runs the second reduction over that same signed field, folding its rigid residual through the SAME band fold so the two halves are measured by identical statistics; `Segment` carries the plane model, unit normal, original-cloud inlier indices, and the `PrimitiveClass` the plane-normal axis resolves, plus a per-segment band and its own split under `ATTRIBUTED`; `DeviationPolicy` carries every ceiling as a value-object row — segmentation gains, the worst-point `tolerance`, the tighter per-point `working_tolerance`, the noncompliant `fraction`, the slab/wall verticality thresholds — never a module `Final`.
 - Cases: `DeviationStage` — `SEGMENT` (RANSAC outlier-peel oversegmentation classifying dominant planar primitives), `DEVIATE` (the signed band folded once over each element), `ATTRIBUTED` (both composed — per-`Segment` band and the per-point triangle-id map off the same projection pass). Three arms of one pipeline keyed by the request value, never three parallel result shapes; `SEGMENT` returns an identity zero-magnitude band the `verdict` reads as the as-yet-unmeasured element, never a vacuous `compliant=True`, so a segmentation-only request never graduates a false-positive handoff. The deformation split is NOT a fourth stage: it is the projection the element's own magnitude band admits, so `DEVIATE` and `ATTRIBUTED` both carry it wherever the non-rigid arm ran and neither grows a mode knob for data the request already shows.
 - Entry: `evaluate` is `async` and absorbs arity at the head — one `(cloud, element)` pair or a whole sequence of them against ONE reference — returning the singular result or the ordered `Block`. It admits the reference once through `_admitted`, folds the whole element set through the shared `MeshSpatial` capsule, and threads the optional `upstream` W3C carrier so the deviation span joins the tessellation producer's trace. Admission refuses a watertight-precondition breach or a deformation field misaligned with its own cloud's point count before any query runs — `FiniteField` proves finiteness, never arity, so the shape gate is the element boundary's own; a non-finite band raises inside the picklable module-level kernel and converts through the lane's `async_boundary`; the cleared band records the `rasm.geometry.deviation.*` charter distributions through `_distributed`, parent-side because the worker meter is the no-op.
 - Law: the reference is decoded, watertight-proved, and indexed EXACTLY once per evaluation — that is what content-keying the reference buys, so a model-wide pass over N elements pays one GLB decode, one closure fold, and one amortized surface index where a per-element build pays N of each; the surface projection itself is `mesh/spatial#SPATIAL`'s single owner, and a local `ProximityQuery` re-spelled here would fork the index vocabulary and forfeit the batch crossing the capsule already owns.
 - Auto: `segment_plane` returns the `[a,b,c,d]` model and the inlier set, `select_by_index(inliers, invert=True)` peels the remainder for the next `Block.unfold` step, and the unit normal's dominant axis resolves `PrimitiveClass` by table lookup, never a per-class extraction method. `SpatialResult.Proximity` carries the signed field and the on-surface triangle ids in one payload, so the attributed overlay reads the third and fourth slots of the SAME pass rather than paying a second query. `noncompliant_fraction` measures against the tighter `working_tolerance`, independent of the worst-point `tolerance` ceiling, so the bulk-surface gate and the max-distance gate stay separate. The split explains at most what was measured at each point — `minimum(field, |signed|)` — because an unclipped subtraction lets a warp larger than the deviation manufacture a residual with the sign inverted, and the residual keeps the ORIGINAL sign so over-build and under-build survive the partition the overlay reads them by. `compliant` then reads the CONSTRUCTION band: the rigid residual where a field partitioned it, the whole band where none did, so a deflecting slab within its structural allowance stops failing a construction tolerance that never described it, and the deformation extremum answers its own gate against the working band — a field inside that band is indistinguishable from the residual the band already admits.
 - Receipt: `DeviationResult.contribute` yields the one `emitted`-phase `Receipt.of("rasm.geometry.scan.deviation", ("emitted", element, facts))` the weave's harvest emits, the band facts produced once through `DeviationBand.facts` so receipt and graduation ledger read the same fold. `graduates` hands `GeometryHandoff.of(...)` TWO measured keys — `max_distance` against `policy.tolerance` and `noncompliant_fraction` against `policy.fraction` — so an element clearing on its worst point alone but out of band on the bulk surface does not cross clean; both read the same construction band `compliant` reads, so a ledger verdict and a receipt verdict can never disagree, and `deformation_extreme` joins as a third key against the working band ONLY where a field existed, since an unmeasured key breaches by the spine's own law and a rigidly registered element must not fail a monitoring bar it was in no position to measure. A `SEGMENT` result hands an EMPTY measured dict so that same unmeasured-ceiling law breaches it. That subject keys to the IFC GlobalId so the per-element deviation reaches the C# owner system and the TS viewer as a colored overlay. The receipt keeps the ELEMENT CENSUS — verdict, folded band, split summary, segment tally, per-class roster — and `frame` carries the ROWS at the finest grain the stage produced: one row per `Segment` with its class, inliers, plane, normal, own sub-band, and own rigid/deformation partition where segmentation ran, one element row otherwise on a roster that is a strict prefix of the segmented one. The per-segment split is the grain the monitoring answer lives at — an element-wide share averages one deflected span into its rigid neighbours and reports a facade as uniformly marginal. That split is what keeps the receipt from growing with the segment count, and it lands the per-segment bands that a class-count census flattens away — the evidence a facade or slab verdict is actually read on.
-- Packages: `open3d` (the `PointCloud.segment_plane`/`select_by_index` RANSAC peel, one module-scope `lazy import` so the marked distribution stays cold until the peel runs), `trimesh` (the GLB decode at reference admission — the surface index itself belongs to `mesh/spatial`), `numpy` (the band and peel folds), `beartype` (the `FiniteField` finiteness refinement under `FAULT_CONF`), `expression` (`Block.unfold` the peel state machine), `msgspec` (the frozen carriers), geometry (`evidence_run`/`charter_record`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`/`evidence_key` the graduation spine, `Cloud` the ingestion-minted crossing carrier, `GlbArtifact` the cad-minted reference carrier, `MeshSpatial`/`SpatialQuery`/`SpatialResult` the mesh proximity owner, `mesh/quality.closure_fold` the watertight gate — mesh tiers below the scan producers), runtime (`RuntimeRail`/`FAULT_CONF`, `LanePolicy.offload`/`Kernel`, `ContentIdentity`/`ContentKey`, `Receipt`).
+- Packages: `open3d` (the `PointCloud.segment_plane`/`select_by_index` RANSAC peel, one module-scope `lazy import` so the marked distribution stays cold until the peel runs), `trimesh` (path-based GLB decode at reference admission), `rasm.contracts.artifact` (`ArtifactTransfer.fetch` and its verified helper-owned path), `numpy`, `beartype`, `expression`, `msgspec`, the geometry graduation/mesh/scan owners named by the fence, and runtime rails.
 - Growth: a new primitive class is one `PrimitiveClass` member and one classification row; a new band statistic is one `DeviationBand` field inside the one fold and reaches the rigid half free, since the split folds through that same band; a new deformation statistic is one `DeformationSplit` field; a stricter verdict is a `DeviationPolicy` value; a per-storey or per-zone grouping is one segmentation post-fold; a new geometric probe against the reference is one `SpatialQuery` case at `mesh/spatial#SPATIAL`, already batched by the shared capsule.
-- Boundary: the registered pose and the deformation field are both `scan/registration#REGISTRATION`'s — this owner partitions a field it is handed and never solves a warp, so no `probreg` estimator, correspondence weighting, or transformation handle appears here; the reference GLB and its wire key are `mesh/daemon#DAEMON`'s output carried on the `mesh/cad#BRIDGE` `GlbArtifact`, fetched by content key over the `Rasm.Bim/Model` seam, never re-tessellated and never re-hashed here; the surface index is `mesh/spatial#SPATIAL`'s and the watertight truth `mesh/quality.closure_fold`'s; learned semantic segmentation is out of host-free CPU scope; no IFC parse, no durable store, no Rhino/GH mutation.
+- Boundary: the registered pose and deformation field are `scan/registration#REGISTRATION`'s; this owner partitions a field it is handed and never solves a warp. The generated `ArtifactRef` identifies the reference body through SHA-256 and extent; `ArtifactTransfer` proves and owns the fetched path, while the surface index is `mesh/spatial#SPATIAL`'s and watertight truth `mesh/quality.closure_fold`'s. No IFC parse, durable-store implementation, raw GLB body, or Rhino/GH mutation enters here.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-import io
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from functools import partial
+from pathlib import Path
 from typing import Annotated, Final, Literal, assert_never, overload
 
 import numpy as np
 from beartype import beartype
 from beartype.vale import Is
-from expression import Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, field
 from msgspec.structs import replace
@@ -46,7 +46,8 @@ from rasm.geometry.graduation import (
     evidence_key,
     evidence_run,
 )
-from rasm.geometry.mesh.cad import GlbArtifact
+from rasm.contracts.artifact import ArtifactTransfer
+from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactRef
 from rasm.geometry.mesh.quality import closure_fold
 from rasm.geometry.mesh.spatial import MeshSpatial, SpatialQuery, SpatialResult
 from rasm.geometry.scan.ingestion import Cloud
@@ -54,6 +55,7 @@ from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRa
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.shapes import admitted, custody
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # the RANSAC peel's provider, interpreter-marked: the module-scope proxy keeps it cold until the segmentation
@@ -112,15 +114,32 @@ class DeviationFault(Exception):
 DEV_ELEMENTS: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.DEVIATION, point="element", arm="boundary", defect="field-misaligned", retriability=TERMINAL
 )
-DEV_REFERENCE: Final[FaultRow[GeometryLeg]] = FaultRow(
-    leg=GeometryLeg.DEVIATION, point="reference", arm="boundary", defect="reference-refused", retriability=TERMINAL
+# This leg publishes TWO tokens from two different closed vocabularies, so it takes two rows and each declares
+# whichever slot its own weave fills. One `slots`-less row served both, and `FaultRow.raised`'s
+# `zip(..., strict=True)` arity guard RAISED `ValueError` out of the refusal path on every reference refusal —
+# that construction door faulting instead of the fault it was building.
+DEV_INTEGRITY: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.DEVIATION,
+    point="reference",
+    arm="boundary",
+    defect="reference-refused",
+    retriability=TERMINAL,
+    slots=("proof",),
 )
-RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([DEV_ELEMENTS, DEV_REFERENCE]))
+DEV_ADMISSION: Final[FaultRow[GeometryLeg]] = FaultRow(
+    leg=GeometryLeg.DEVIATION,
+    point="reference.admission",
+    arm="config",
+    defect="reference-refused",
+    retriability=TERMINAL,
+    slots=("phase",),
+)
+RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([DEV_ELEMENTS, DEV_INTEGRITY, DEV_ADMISSION]))
 
 # the reference leg's raise surface beside this owner's own token: `trimesh`'s GLB reader answers `ValueError` on a
 # bad header and `IndexError` on a truncated buffer, both proved against the installed distribution, and a
 # non-float vertex buffer answers `TypeError`. The element leg reaches THIS owner's token alone — it walks tuples.
-_GLB_RAISES: Final[Catch] = (DeviationFault, IndexError, TypeError, ValueError)
+_GLB_RAISES: Final[Catch] = (DeviationFault, IndexError, OSError, TypeError, ValueError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -134,7 +153,7 @@ class Element(Struct, frozen=True, gc=False):
     # elements is itself a tuple — the shape that discriminates has to be the element's own.
     cloud: Cloud
     element: str
-    deformation: np.ndarray | None = None  # (N,) float64 displacement magnitudes; absent wherever the solve was rigid
+    deformation: Option[np.ndarray] = Nothing  # (N,) float64 displacement magnitudes; `Nothing` wherever the solve was rigid
 
 
 class DeviationBand(Struct, frozen=True, gc=False):
@@ -243,7 +262,7 @@ class Segment(Struct, frozen=True, gc=False):
     members: tuple[int, ...]  # inlier indices into the ORIGINAL cloud, surviving the iterative peel
     kind: PrimitiveClass
     band: DeviationBand = field(default_factory=DeviationBand.identity)
-    split: DeformationSplit | None = None
+    split: Option[DeformationSplit] = Nothing
 
     @property
     def inliers(self) -> int:
@@ -267,7 +286,7 @@ class Segment(Struct, frozen=True, gc=False):
         return replace(
             self,
             band=DeviationBand.fold(signed[members], working_tolerance),
-            split=magnitude.map(lambda field: DeformationSplit.fold(signed[members], field[members], working_tolerance)).to_optional(),
+            split=magnitude.map(lambda field: DeformationSplit.fold(signed[members], field[members], working_tolerance)),
         )
 
 
@@ -306,30 +325,30 @@ class DeviationPolicy(Struct, frozen=True):
 class DeviationResult(Struct, frozen=True):
     stage: DeviationStage
     element: str
-    reference_key: ContentKey  # the reference GLB's own wire key, one half of the evidence identity
+    reference_sha256: bytes  # artifact custody identity included as evidence, never reinterpreted as ContentKey
     spec: bytes  # the minted identity preimage — stage, element, cloud-and-field identity, reference, policy bars
     band: DeviationBand
     segments: tuple[Segment, ...] = ()
     triangle_ids: tuple[int, ...] = ()
-    deformation: DeformationSplit | None = None
+    deformation: Option[DeformationSplit] = Nothing
     compliant: bool = False
 
     @staticmethod
     def of(
         stage: DeviationStage,
         element: Element,
-        reference_key: ContentKey,
+        reference_sha256: bytes,
         band: DeviationBand,
         policy: DeviationPolicy,
         *,
         segments: tuple[Segment, ...] = (),
         triangle_ids: tuple[int, ...] = (),
-        deformation: DeformationSplit | None = None,
+        deformation: Option[DeformationSplit] = Nothing,
     ) -> "DeviationResult":
         # the verdict reads the CONSTRUCTION band — the rigid residual where a field partitioned it, the whole band
         # where none did — so a deflecting slab inside its structural allowance stops failing a construction
         # tolerance that never described it, and an element with no field is judged exactly as before.
-        construction = band if deformation is None else deformation.rigid
+        construction = deformation.map(lambda split: split.rigid).default_value(band)
         compliant = stage is not DeviationStage.SEGMENT and construction.verdict(policy.tolerance, policy.fraction)
         # `spec` mints HERE, once: which reference, which element, WHICH CLOUD — the carrier's own digest joined
         # by the deformation bytes where a field rode in — which stage, and which policy bars. `graduates` and
@@ -341,10 +360,10 @@ class DeviationResult(Struct, frozen=True):
         # deformation unambiguously, where an undelimited join let a field's leading bytes impersonate one.
         scanned = ContentIdentity.key(
             "scan-element",
-            IdentitySource(parts=(element.cloud.digest.memory, b"" if element.deformation is None else element.deformation.tobytes())),
+            IdentitySource(parts=(element.cloud.digest.memory, element.deformation.map(lambda field: field.tobytes()).default_value(b""))),
         )
-        spec = f"{stage.value}|{element.element}|{reference_key.hex}|{scanned.hex}|".encode() + policy.spec
-        return DeviationResult(stage, element.element, reference_key, spec, band, segments, triangle_ids, deformation, compliant)
+        spec = f"{stage.value}|{element.element}|{reference_sha256.hex()}|{scanned.hex}|".encode() + policy.spec
+        return DeviationResult(stage, element.element, reference_sha256, spec, band, segments, triangle_ids, deformation, compliant)
 
     @property
     def census(self) -> dict[str, object]:
@@ -353,7 +372,7 @@ class DeviationResult(Struct, frozen=True):
         # it ride the frame, so the receipt never grows with the segment count and a consumer reading a support
         # bundle is not handed a table it has to re-aggregate.
         kinds = {f"class.{c.value}": sum(s.kind is c for s in self.segments) for c in PrimitiveClass}
-        split = {} if self.deformation is None else self.deformation.facts()
+        split = self.deformation.map(lambda held: held.facts()).default_value({})
         return {
             "stage": self.stage.value,
             "compliant": self.compliant,
@@ -373,8 +392,8 @@ class DeviationResult(Struct, frozen=True):
         # the surface gate already measures against is indistinguishable from the residual that gate admits — and it
         # joins ONLY where a field existed, because an unmeasured key breaches by that same law and a rigidly
         # registered element must not fail a monitoring ceiling it was in no position to measure.
-        construction = self.band if self.deformation is None else self.deformation.rigid
-        warp = {} if self.deformation is None else {"deformation_extreme": self.deformation.deformation_extreme}
+        construction = self.deformation.map(lambda held: held.rigid).default_value(self.band)
+        warp = self.deformation.map(lambda held: {"deformation_extreme": held.deformation_extreme}).default_value({})
         measured: dict[str, float] = (
             {}
             if self.stage is DeviationStage.SEGMENT
@@ -401,7 +420,7 @@ class DeviationResult(Struct, frozen=True):
         # consumer reads which PLANE is deflecting instead of an element average that hides the deflected span.
         common: dict[str, list[object]] = {"element": [self.element], "stage": [self.stage.value], "compliant": [self.compliant]}
         rows = Block.of_seq(self.segments)
-        split = {} if self.deformation is None else self.deformation.facts()
+        split = self.deformation.map(lambda held: held.facts()).default_value({})
         return EvidenceFrame.of(
             GeometrySubject.SCAN_DEVIATION,
             evidence_key(GeometrySubject.SCAN_DEVIATION, self.spec),
@@ -445,17 +464,17 @@ def _aligned(elements: Block[Element]) -> "RuntimeRail[Block[Element]]":
     return boundary(DEV_ELEMENTS, prove, catch=DeviationFault)
 
 
-def _admitted(reference: GlbArtifact, lane: LanePolicy, composition: ScopeKey) -> "RuntimeRail[MeshSpatial]":
+def _admitted(reference: Path, sha256: bytes, lane: LanePolicy, composition: ScopeKey) -> "RuntimeRail[MeshSpatial]":
     # ONE decode, ONE watertight proof, ONE index owner per evaluation — the whole point of the reference being
     # content-keyed. A signed distance has no reliable sign off an open surface, so the closure gate refuses the
     # evaluation here rather than letting every element fold a meaningless band.
     def build() -> MeshSpatial:
-        mesh = trimesh.load_mesh(io.BytesIO(reference.bytes), file_type="glb")
+        mesh = trimesh.load_mesh(reference, file_type="glb")
         if not closure_fold(mesh).watertight:
-            raise DeviationFault(open_reference=reference.wire_key.hex)
+            raise DeviationFault(open_reference=sha256.hex())
         return MeshSpatial(mesh, lane, composition=composition)
 
-    return boundary(DEV_REFERENCE, build, catch=_GLB_RAISES)
+    return boundary(DEV_INTEGRITY, build, catch=_GLB_RAISES)
 
 
 def _segment(cloud: "o3d.geometry.PointCloud", policy: DeviationPolicy) -> tuple[Segment, ...]:
@@ -485,7 +504,7 @@ def _segment_kernel(elements: tuple[Element, ...], policy: DeviationPolicy) -> t
 def _deviated(
     stage: DeviationStage,
     element: Element,
-    reference_key: ContentKey,
+    reference_sha256: bytes,
     projected: SpatialResult,
     segments: tuple[Segment, ...],
     policy: DeviationPolicy,
@@ -497,18 +516,18 @@ def _deviated(
             # the nullable band lifts to `Option` ONCE, here at the carrier boundary, and stays option-native down
             # both consumers — the element split and every segment's own — so no fold below re-asks whether a field
             # arrived, and the projection lands back on the result's nullable slot at exactly one point.
-            field = Option.of_obj(element.deformation)
+            field = element.deformation
             band = DeviationBand.fold(signed, policy.working_tolerance)
             attributed = tuple(s.attributed(signed, field, policy.working_tolerance) for s in segments)
             return DeviationResult.of(
                 stage,
                 element,
-                reference_key,
+                reference_sha256,
                 band,
                 policy,
                 segments=attributed,
                 triangle_ids=tuple(int(t) for t in np.asarray(triangle_ids)) if stage is DeviationStage.ATTRIBUTED else (),
-                deformation=field.map(lambda magnitude: DeformationSplit.fold(signed, magnitude, policy.working_tolerance)).to_optional(),
+                deformation=field.map(lambda magnitude: DeformationSplit.fold(signed, magnitude, policy.working_tolerance)),
             )
         case _ as unreachable:
             assert_never(unreachable)
@@ -520,7 +539,7 @@ def _distributed(result: DeviationResult, composition: ScopeKey) -> DeviationRes
     # spellings derived, never hand-picked; a SEGMENT identity band records nothing, and the composition key
     # partitions an embedded root's series from the process root's.
     if result.stage is not DeviationStage.SEGMENT:
-        split = {} if result.deformation is None else result.deformation.facts()
+        split = result.deformation.map(lambda held: held.facts()).default_value({})
         charter_record(GeometrySubject.SCAN_DEVIATION, result.band.facts() | split, composition=composition)
     return result
 
@@ -530,19 +549,22 @@ def _distributed(result: DeviationResult, composition: ScopeKey) -> DeviationRes
 
 class ScanDeviation(Struct, frozen=True):
     lane: LanePolicy
+    artifacts: ArtifactTransfer
     policy: DeviationPolicy = DeviationPolicy()
     composition: ScopeKey = DEFAULT_SCOPE  # the custody key every weave and charter record stamps
 
     @overload
     async def evaluate(
-        self, reference: GlbArtifact, element: Element, stage: DeviationStage, upstream: Mapping[str, str] | None = None
+        self, reference: ArtifactRef, element: Element, stage: DeviationStage, upstream: Mapping[str, str] | None = None
     ) -> "RuntimeRail[DeviationResult]": ...
     @overload
     async def evaluate(
-        self, reference: GlbArtifact, element: Sequence[Element], stage: DeviationStage, upstream: Mapping[str, str] | None = None
+        self, reference: ArtifactRef, element: Sequence[Element], stage: DeviationStage, upstream: Mapping[str, str] | None = None
     ) -> "RuntimeRail[Block[DeviationResult]]": ...
+    @custody(DEV_INTEGRITY)
+    @admitted(DEV_ADMISSION)
     async def evaluate(
-        self, reference: GlbArtifact, element: Element | Sequence[Element], stage: DeviationStage, upstream: Mapping[str, str] | None = None
+        self, reference: ArtifactRef, element: Element | Sequence[Element], stage: DeviationStage, upstream: Mapping[str, str] | None = None
     ) -> "RuntimeRail[DeviationResult] | RuntimeRail[Block[DeviationResult]]":
         # arity absorbs at the head — one element is the degenerate one-member model pass — and `upstream`, the
         # reference producer's W3C carrier beside the content-keyed GLB, joins that trace as a Link at span open.
@@ -550,28 +572,35 @@ class ScanDeviation(Struct, frozen=True):
         # admits any tuple reads a whole model pass as one element and folds the first cloud alone.
         lone = isinstance(element, Element)
         elements = Block.singleton(element) if lone else Block.of_seq(element)
-        railed = await evidence_run(
-            EvidenceScope.SCAN_DEVIATION,
-            f"evaluate.{stage}",
-            partial(self._folded, reference, elements, stage),
-            upstream=upstream,
-            composition=self.composition,
-        )
-        return railed.map(lambda kept: kept.head()) if lone else railed
+        async with self.artifacts.fetch(reference) as owned:
+            railed = await evidence_run(
+                EvidenceScope.SCAN_DEVIATION,
+                f"evaluate.{stage}",
+                partial(self._folded, reference.sha256, owned.path, elements, stage),
+                upstream=upstream,
+                composition=self.composition,
+            )
+            return railed.map(lambda kept: kept.head()) if lone else railed
 
-    async def _folded(self, reference: GlbArtifact, elements: Block[Element], stage: DeviationStage) -> "RuntimeRail[Block[DeviationResult]]":
+    async def _folded(
+        self,
+        reference_sha256: bytes,
+        reference: Path,
+        elements: Block[Element],
+        stage: DeviationStage,
+    ) -> "RuntimeRail[Block[DeviationResult]]":
         # admit the element set and the reference ONCE, then fold every element through that one capsule; a refused
         # admission short-circuits the whole set rather than repeating an identical refusal per element.
-        match _aligned(elements).bind(lambda _kept: _admitted(reference, self.lane, self.composition)):
+        match _aligned(elements).bind(lambda _kept: _admitted(reference, reference_sha256, self.lane, self.composition)):
             case Result(tag="ok", ok=spatial):
-                return (await self._banded(spatial, reference, elements, stage)).map(
+                return (await self._banded(spatial, reference_sha256, elements, stage)).map(
                     lambda kept: kept.map(lambda result: _distributed(result, self.composition))
                 )
             case Result(tag="error") as refused:
                 return refused
 
     async def _banded(
-        self, spatial: MeshSpatial, reference: GlbArtifact, elements: Block[Element], stage: DeviationStage
+        self, spatial: MeshSpatial, reference_sha256: bytes, elements: Block[Element], stage: DeviationStage
     ) -> "RuntimeRail[Block[DeviationResult]]":
         # SEGMENT touches no index at all, so it never admits the proximity crossing; the other two stages fold the
         # WHOLE element set through one batched sweep — one offload, one mesh, one amortized surface index.
@@ -580,7 +609,7 @@ class ScanDeviation(Struct, frozen=True):
             return segmented.map(
                 lambda peeled: elements.zip(peeled).map(
                     lambda pair: DeviationResult.of(
-                        stage, pair[0], reference.wire_key, DeviationBand.identity(), self.policy, segments=pair[1]
+                        stage, pair[0], reference_sha256, DeviationBand.identity(), self.policy, segments=pair[1]
                     )
                 )
             )
@@ -590,7 +619,7 @@ class ScanDeviation(Struct, frozen=True):
         return projected.map2(
             segmented,
             lambda results, peeled: elements.zip(results).zip(peeled).map(
-                lambda pair: _deviated(stage, pair[0][0], reference.wire_key, pair[0][1], pair[1], self.policy)
+                lambda pair: _deviated(stage, pair[0][0], reference_sha256, pair[0][1], pair[1], self.policy)
             ),
         )
 

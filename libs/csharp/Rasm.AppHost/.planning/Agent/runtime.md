@@ -146,7 +146,7 @@ flowchart LR
 // caller-neutral because tenant and correlation resolve per invocation inside the brokered function.
 McpAdoption adopted = ToolProjection.Adopt(
     mcpRuntime,
-    ToolProjection.Project(mcpRuntime.Registry, mcpRuntime.Level(), mcpRuntime.SchemaOf, receiptSchema));
+    ToolProjection.Project(mcpRuntime));
 
 IMcpServerBuilder server = services.AddMcpServer()
     .WithTools(adopted.ServerTools)

@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package rasm.contracts.binding.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum ExternalTransport {
+  EXTERNAL_TRANSPORT_UNSPECIFIED = 0;
+  EXTERNAL_TRANSPORT_OPC_UA = 1;
+  EXTERNAL_TRANSPORT_OPC_UA_PUBSUB = 2;
+  EXTERNAL_TRANSPORT_MODBUS = 3;
+  EXTERNAL_TRANSPORT_MQTT = 4;
+  EXTERNAL_TRANSPORT_SERIAL = 5;
+  EXTERNAL_TRANSPORT_BACNET = 6;
+  EXTERNAL_TRANSPORT_MTCONNECT = 7;
+  EXTERNAL_TRANSPORT_REST = 8;
+  EXTERNAL_TRANSPORT_GRAPHQL = 9;
+  EXTERNAL_TRANSPORT_SPREADSHEET = 10;
+  EXTERNAL_TRANSPORT_ERP_PLM = 11;
+}
+
+enum BindingState {
+  BINDING_STATE_UNSPECIFIED = 0;
+  BINDING_STATE_CONNECTING = 1;
+  BINDING_STATE_SUBSCRIBED = 2;
+  BINDING_STATE_POLLING = 3;
+  BINDING_STATE_STALE = 4;
+  BINDING_STATE_FAULTED = 5;
+}
+
+enum BindingDirection {
+  BINDING_DIRECTION_UNSPECIFIED = 0;
+  BINDING_DIRECTION_INBOUND = 1;
+  BINDING_DIRECTION_OUTBOUND = 2;
+  BINDING_DIRECTION_BIDIRECTIONAL = 3;
+}
+
+message BindingStatus {
+  string binding_id = 1 [(buf.validate.field).string.min_len = 1];
+  ExternalTransport transport = 2 [
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  BindingState state = 3 [
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  BindingDirection direction = 4 [
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+  google.protobuf.Timestamp last_good_at = 5;
+}

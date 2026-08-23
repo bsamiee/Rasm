@@ -4,7 +4,9 @@
 
 ## [01]-[PACKAGES]
 
-- (none)
+- `pnpm-workspace.yaml` `catalog:` owns every registry version while `catalogMode` gates `pnpm add` — a hand-written literal installs unrefused.
+- Folder-tier dependency isolation proves at the architecture suite — folders carry no manifest, so every root devDependency resolves from each.
+- `libs/typescript` declares no test dependency — proof reaches it from `tests/typescript/*`, and the reverse edge cycles the workspace graph.
 
 ## [02]-[SHAPE]
 
@@ -15,7 +17,7 @@
 - `retryable` is the derived projection `recovery !== "terminal"` alone — a stored column or raise-supplied field beside the band forks it.
 - Each owner mints its tagged fault through `Fault.Class.family` — a shared base or tag-blind factory erases the `_tag` identity `catchTag` reads.
 - Family rows carry class, owning leg, and their own subject schema, and each row renders its detail — a free-string `detail` re-opens `reason`.
-- Row subjects seat only columns EVERY raiser of that family holds — a coordinate one raiser alone owns makes its siblings forge or drop evidence.
+- Row subjects seat only columns EVERY raiser holds; a coordinate one raiser owns seats REQUIRED on its reason's subject, never a shared `Option`.
 - Accumulating admission mints once through `Fault.Class.family(…).census` — re-declaring `{ issues, class, message }` forks one taxonomy into two.
 - Family values publish their own census, spreading the vocabulary they mint — a `static readonly roster` restating that tuple drifts from it.
 - Untyped failure grades `defect` at `Fault.Class` — `terminal` recovery, `restart` re-offer, system-blamed, refused by every `Fault.Budget` gate.
@@ -47,13 +49,15 @@
 - Moderation verdicts never borrow the transport reason — transport bands `transient`, a verdict `denied`, so one shared cell re-drives the refusal.
 - `MachinePrincipal.credential` is the HTTP presentation alone — SASL and NATS CONNECT carry the bare `token`, so the prefixed form double-prefixes.
 - `dpop`-scheme principals present only through security's proved call — `DPoPHandle` publishes `calculateThumbprint()` alone, so other wires refuse.
-- `DateTime.distanceDuration` is ABSOLUTE — a lapsed instant reads as a positive window, so deadline checks take signed `distance` or `isPast`.
+- `DateTime.distanceDuration` is ABSOLUTE and `distanceDurationEither` lands an equal pair `Left` — deadline gates read signed `distance` or `isPast`.
 - `Schema.partialWith` drops the record's node annotation — a closed key domain piped through it re-seats its posture outside or silently reopens.
 - Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
 - Queue durability is the SKIP-LOCKED outbox — `data` owns the outbox relation and `runtime` the relay, so no broker deployment enters `iac`.
 
 ## [03]-[COLLAPSE]
 
+- Connect egress has ONE supported-pair selector — `core:interchange/invoke#DIAL_AXIS`; runtime supplies the scoped Node adapter alone.
+- One `Code`→fault table per branch — `core:interchange/codec` `Wire.Hops`; a folder grading a code beside it forks retry by which module dialled.
 - `VariantSchema` binds structurally parallel projections of ONE decoded truth — a semantically divergent form keeps its own declaration.
 - Rate limiting stays three postures — `Gate.window` refuses, `Throttle` and `Olap.ingest` delay, `RateLimiter` counts; one owner erases each price.
 - Fault altitudes stay three — interchange adopts `FaultDetail`, folders raise `Fault.Class`, `Problem` prices egress, each owning its own source.

@@ -1,6 +1,6 @@
 # [APPHOST_DIAGNOSTICS_AND_TELEMETRY]
 
-Telemetry identity, the correlation spine, log projection, signal governance, the latency plane, the data-classification taxonomy, and the conformance projection form one diagnostics concern owned by Rasm.AppHost — the L3 lacing over the kernel signal capsule: this platform alone stacks the OTel SDK, correlation, tenancy, and host evidence onto the surface the strata contribute, referencing that composed surface upward as knowledge only. Owned axes: the `ForeignSource` admission vocabulary over the kernel `TelemetrySource` roster, the `TelemetryDomain` roster every branch-minted `rasm.*` name resolves against, the four-row `TelemetrySignal` governance set whose per-signal posture rides one `CapabilitySet<SignalCapability>` column, the `LogPipeline` arbitration column, the `DataClassification` taxonomy enforced at every exporter seam, and the `ConformanceRow` projection that renders this branch's whole governance table from the surfaces it reports. One spine composes Microsoft.Extensions telemetry policy over the OpenTelemetry SDK, `LoggerMessage` source generation at lib level, Serilog projection at desktop composition roots, and a continuous-profiling rail linking CPU profiles to spans; siblings emit through minted identities and never construct telemetry owners of their own. Provider policy is not this page's — `Observability/instruments#PROVIDER_LIFETIME` `ProviderProgram` is the ONE record both provider owners bind, and every batch square, cadence, temporality, exemplar, propagator, promoted-baggage, and OTLP wire pin reads off it here. Durable OTLP transport is not this page's either: `Observability/egress#DURABLE_EGRESS` owns the queue, its disposition vocabulary, the mutual-auth mount, and the persistent handler, and `[05]`'s `Egress` seat is the one directed edge into it. OTel GenAI semantic conventions (`gen_ai.*` attributes, MCP spans, `gen_ai.usage.input_tokens`/`output_tokens`) ride the trace and metric signals so AppHost telemetry aligns with the agentic surface the host serves.
+Telemetry identity, correlation, log projection, signal governance, latency, data classification, and the local conformance receipt form one diagnostics concern owned by Rasm.AppHost. The platform stacks the OTel SDK, correlation, tenancy, and host evidence onto contributed surfaces while siblings emit through minted identities.
 
 ## [01]-[INDEX]
 
@@ -10,7 +10,7 @@ Telemetry identity, the correlation spine, log projection, signal governance, th
 - [05]-[SIGNAL_GOVERNANCE]: Branch domain roster, per-signal capability set, the composition capsule, and the registration folds every provider owner binds.
 - [06]-[LATENCY_PLANE]: This root's in-flight phase vocabulary, every contributor's roster, and the one boot-strict name registration.
 - [07]-[REDACTION_TAXONOMY]: Classification rows binding redactor policy at every exporter seam, each branch-contributed federation value proved against the roster at boot.
-- [08]-[CONFORMANCE_PROJECTION]: Governance rows render as one process-role document — the byte-deriving input the corpus conformance entry freezes and the source of this branch's own policy table.
+- [08]-[CONFORMANCE_PROJECTION]: Governance rows render as one native process-role diagnostic receipt.
 
 ## [02]-[TELEMETRY_IDENTITY]
 
@@ -215,7 +215,7 @@ public sealed class CausalEnricher : ILogEnricher {
 }
 ```
 
-[CAUSAL_CARRIAGE]: the causal stamp's four slots and the C# member carrying each. Carriage is PER-BRANCH and only the layout is shared — `tests/contracts/MANIFEST.md` `[02.7]-[HLC_TWO_HALF]` rosters three co-equal minters, so a peer proves its own dialect against this column rather than against a header vocabulary this branch mints; a text carrier key minted here freezes one peer's transport dialect as estate law while a second peer's typed metadata lane already carries the same frame:
+[CAUSAL_CARRIAGE]: the causal stamp's four slots and the C# member carrying each. Carriage is PER-BRANCH and only the layout is shared — `tests/contracts/manifest.json` `HLC_TWO_HALF` rosters three co-equal minters, so a peer proves its own dialect against this column rather than against a header vocabulary this branch mints; a text carrier key minted here freezes one peer's transport dialect as estate law while a second peer's typed metadata lane already carries the same frame:
 
 | [INDEX] | [SLOT]   | [CSHARP_CARRIAGE]                                    | [SHARED_LAW]                                                    |
 | :-----: | :------- | :--------------------------------------------------- | :-------------------------------------------------------------- |
@@ -468,7 +468,7 @@ public static class SerilogHost {
 - Growth: a new capability subject is one `TelemetryDomain` row and a second package emitting under a standing subject adds none — the roster grows on subjects, never on emitters; a contributor minting on its own load-context meter is one `Published` roster on its port that the standing gate and the standing view predicate already read; one governance decision is one `SignalCapability` row or one policy value on the row that holds it; one stream reshaping is one `Dimensions` edit at the roster that declares the instrument, which the one view predicate already reads — a second `AddView` row is the shape that mints a duplicate stream; a new store message shape is one `StoreWire<TKey, TValue>` closure at the composing root; a new resource dimension is one detector row inside `ResourceIdentity.Compose` and a new composition fact one `TelemetryComposition` column; a signal crossing onto the OTLP wire is one `Exported` capability the queue set and the exporter roster both fold; a new refusal is one `TelemetryFault` case on the page's own band; zero new surface.
 - Boundary: this platform admits all span custody — one `SpanBand` over contributed `Planes`, registered beside `ForeignSource`.
 - Boundary: a foreign meter admitted through `ForeignSource` publishes under the LIBRARY's grammar rather than this branch's, so `Rostered` never reaches its names and the view predicate's foreign arm keeps that vocabulary whole under the shared budget — the resilience family is the case pricing that decision. `resilience.polly.strategy.events` counts events while `resilience.polly.strategy.attempt.duration` and `resilience.polly.pipeline.duration` time attempts and pipelines in `ms`, every one partitioning on `event.name`, `event.severity`, `pipeline.name`, `pipeline.instance`, `strategy.name`, `operation.key`, and `exception.type` beside each `MeteringEnricher` tag a composing pipeline appends, with `attempt.number` and `attempt.handled` on the attempt histogram alone; `exception.type` renders a type's full name and `operation.key` fixes per execution, so this family carries the branch's widest foreign dimension product, it overflows at `SeriesCap` rather than at an exporter, and a lane, hop, or tenant enricher row spends that same budget. Both histograms mint with NO bucket advice, so the exponential foreign arm is their only ladder and the producer-fixed-ladder carve never engages here, and both instrument kinds are synchronous and additive, so the delta temporality pin loses nothing across the reader cadence. Absence is per dimension rather than per stream — an unnamed pipeline, an unset instance formatter, and a context leased without an operation key each drop their own key and leave the rest.
-- Boundary: the domain roster is this branch's projection of one estate vocabulary — the corpus `TELEMETRY_CONVENTION` entry carries it, so a segment this branch and a peer both admit spells one subject byte-identical or fails there rather than surviving as two unjoinable series, and `[08]-[CONFORMANCE_PROJECTION]` is what makes that comparison possible at all; estate identity dimensions ride the resource projection and carry no segment, which is why `Rostered` reads the program's promoted-baggage predicate as its carve rather than minting a second allowlist, and hook-point ids stay a package-keyed space this grammar never reaches; the OTLP exporter package enters only at service app roots — the otelExport arm binds one `AddOtlpExporter` per signal through the one `Egress` seat, which stamps the program's estate wire pins — HTTP+protobuf the one egress protocol, gzip the one payload encoding — while endpoint, headers, and mTLS material stay deploy-plane rows the `OTEL_EXPORTER_OTLP_*` keys carry; that egress boundary is the `OtelExport` seam; the per-signal rows and the cross-signal `UseOtlpExporter` seat are mutually exclusive by package law and the per-signal form is the branch's, because the cross-signal seat routes every knob the program pins through `internal` option types and a composition behind it can set no batch square, no temporality, no reader cadence, and no transport; EF Core emits no `ActivitySource` of its own, so the ORM-layer command span is the `AddEntityFrameworkCoreInstrumentation` row `StoreDriver` registers — nesting over the Npgsql ADO driver span, complementary never redundant — while gRPC client spans ride `AddGrpcClientInstrumentation` with `SuppressDownstreamInstrumentation` so the underlying HTTP/2 leg never double-traces, superseding the client's native `Grpc.Net.Client` source and its single `Grpc.Net.Client.GrpcOut` per-call activity, and neither surface adds an `AddSource` row; the otelExport arm carries `AddAspNetCoreInstrumentation` beside the wire host for inbound request spans; store telemetry is the PORT-peer arbitration — Persistence owns the driver and the instrumented builders while the app root alone registers, so no downward reference forms: `StoreDriver` subscribes `AddNpgsql` tracing, `AddEntityFrameworkCoreInstrumentation` ORM tracing, and `AddNpgsqlInstrumentation` metrics once at the store-composing root, with `NpgsqlDataSourceBuilder.Name` (`string?`, get/set) assigned Persistence-side per logical database so `db.client.connection.pool.name` keys stable pool dimensions, and `StoreWire<TKey, TValue>` registers `AddKafkaProducerInstrumentation`/`AddKafkaConsumerInstrumentation` on both providers once per message shape over the Persistence egress `AsInstrumentedProducerBuilder` and CDC ingress `InstrumentedConsumerBuilder` legs, closing the producer-only Kafka asymmetry; the builtin rows delete the meter-side `AddRuntimeInstrumentation` registration because the runtime publishes `System.Runtime` inbox and a meter-name row is that whole admission, while `AddProcessInstrumentation` survives as a verb on the always-on metrics arm because its absolute process series exist only on the meter its registered instrumentation instance constructs, so a `ForeignSource` row subscribes an empty scope; the trace-side `AddHttpClientInstrumentation` row keeps URL-query redaction; test-row trace assertions ride one `BaseProcessor<Activity>` through `AddProcessor` and metric assertions ride `MetricCollector<T>` — no in-memory exporter package enters a production tier, and the proof estate's own in-memory exporter row stays its own admission; the `Profile` signal is the continuous-profiling rail — the admitted `PyroscopeSpanProcessor` registers as `AddProcessor<PyroscopeSpanProcessor>()` through the same seat the test-row processor uses, gated to service app roots where the profiler endpoint resolves — `Profiler.Instance` carries no address member, so the ingest address is the agent `PYROSCOPE_SERVER_ADDRESS` environment row bound from the deploy-plane profiles endpoint beside `PYROSCOPE_APPLICATION_NAME` and the CLR-profiler enablement rows, with `SetAuthToken`/`SetBasicAuth` the credential seam and `PYROSCOPE_TENANT_ID` the tenancy row — and stamps the `pyroscope.profile.id` tag on each root span so a flame graph scopes to the exact trace that showed a regression; the GenAI semantic conventions ride the trace and metric signals — an MCP-served tool span carries `gen_ai.operation.name` and the `gen_ai.provider.name` provider discriminant beside the `gen_ai.usage.input_tokens`/`output_tokens` counts, and the token-usage instruments ride the minted `Rasm.AppHost` meter, so the agentic surface the host serves shares one telemetry taxonomy with the runtime, never a parallel agent-metrics owner; log-record identity is the resource projection and the shipped `AddApplicationLogEnricher` row is DELETED, not configured off — it writes an unqualified `service.name` and the deprecated `deployment.environment` spelling as package-owned tags, so leaving it seated puts two values of one dimension on two planes and a query joining a log record to a metric series compares neither, while `AddProcessLogEnricher` survives on its `ThreadId` column alone because the resource already carries `process.pid`; the latency breakdown and the `AddHttpClientInstrumentation` span are two projections of one hop — the checkpoint handler never mints a second trace, extended logging supersedes the built-in client logger so both active is the double-log defect, and `wrapHandlersPipeline` decides whether logging observes pre- or post-retry attempts on the resilience chain.
+- Boundary: the domain roster is branch-owned and every instrument reads that one vocabulary; estate identity dimensions ride the resource projection and carry no segment, which is why `Rostered` reads the program's promoted-baggage predicate as its carve rather than minting a second allowlist, and hook-point ids stay a package-keyed space this grammar never reaches; the OTLP exporter package enters only at service app roots — the otelExport arm binds one `AddOtlpExporter` per signal through the one `Egress` seat, which stamps the program's estate wire pins — HTTP+protobuf the one egress protocol, gzip the one payload encoding — while endpoint, headers, and mTLS material stay deploy-plane rows the `OTEL_EXPORTER_OTLP_*` keys carry; that egress boundary is the `OtelExport` seam; the per-signal rows and the cross-signal `UseOtlpExporter` seat are mutually exclusive by package law and the per-signal form is the branch's, because the cross-signal seat routes every knob the program pins through `internal` option types and a composition behind it can set no batch square, no temporality, no reader cadence, and no transport; EF Core emits no `ActivitySource` of its own, so the ORM-layer command span is the `AddEntityFrameworkCoreInstrumentation` row `StoreDriver` registers — nesting over the Npgsql ADO driver span, complementary never redundant — while gRPC client spans ride `AddGrpcClientInstrumentation` with `SuppressDownstreamInstrumentation` so the underlying HTTP/2 leg never double-traces, superseding the client's native `Grpc.Net.Client` source and its single `Grpc.Net.Client.GrpcOut` per-call activity, and neither surface adds an `AddSource` row; the otelExport arm carries `AddAspNetCoreInstrumentation` beside the wire host for inbound request spans; store telemetry is the PORT-peer arbitration — Persistence owns the driver and the instrumented builders while the app root alone registers, so no downward reference forms: `StoreDriver` subscribes `AddNpgsql` tracing, `AddEntityFrameworkCoreInstrumentation` ORM tracing, and `AddNpgsqlInstrumentation` metrics once at the store-composing root, with `NpgsqlDataSourceBuilder.Name` (`string?`, get/set) assigned Persistence-side per logical database so `db.client.connection.pool.name` keys stable pool dimensions, and `StoreWire<TKey, TValue>` registers `AddKafkaProducerInstrumentation`/`AddKafkaConsumerInstrumentation` on both providers once per message shape over the Persistence egress `AsInstrumentedProducerBuilder` and CDC ingress `InstrumentedConsumerBuilder` legs, closing the producer-only Kafka asymmetry; the builtin rows delete the meter-side `AddRuntimeInstrumentation` registration because the runtime publishes `System.Runtime` inbox and a meter-name row is that whole admission, while `AddProcessInstrumentation` survives as a verb on the always-on metrics arm because its absolute process series exist only on the meter its registered instrumentation instance constructs, so a `ForeignSource` row subscribes an empty scope; the trace-side `AddHttpClientInstrumentation` row keeps URL-query redaction; test-row trace assertions ride one `BaseProcessor<Activity>` through `AddProcessor` and metric assertions ride `MetricCollector<T>` — no in-memory exporter package enters a production tier, and the proof estate's own in-memory exporter row stays its own admission; the `Profile` signal is the continuous-profiling rail — the admitted `PyroscopeSpanProcessor` registers as `AddProcessor<PyroscopeSpanProcessor>()` through the same seat the test-row processor uses, gated to service app roots where the profiler endpoint resolves — `Profiler.Instance` carries no address member, so the ingest address is the agent `PYROSCOPE_SERVER_ADDRESS` environment row bound from the deploy-plane profiles endpoint beside `PYROSCOPE_APPLICATION_NAME` and the CLR-profiler enablement rows, with `SetAuthToken`/`SetBasicAuth` the credential seam and `PYROSCOPE_TENANT_ID` the tenancy row — and stamps the `pyroscope.profile.id` tag on each root span so a flame graph scopes to the exact trace that showed a regression; the GenAI semantic conventions ride the trace and metric signals — an MCP-served tool span carries `gen_ai.operation.name` and the `gen_ai.provider.name` provider discriminant beside the `gen_ai.usage.input_tokens`/`output_tokens` counts, and the token-usage instruments ride the minted `Rasm.AppHost` meter, so the agentic surface the host serves shares one telemetry taxonomy with the runtime, never a parallel agent-metrics owner; log-record identity is the resource projection and the shipped `AddApplicationLogEnricher` row is DELETED, not configured off — it writes an unqualified `service.name` and the deprecated `deployment.environment` spelling as package-owned tags, so leaving it seated puts two values of one dimension on two planes and a query joining a log record to a metric series compares neither, while `AddProcessLogEnricher` survives on its `ThreadId` column alone because the resource already carries `process.pid`; the latency breakdown and the `AddHttpClientInstrumentation` span are two projections of one hop — the checkpoint handler never mints a second trace, extended logging supersedes the built-in client logger so both active is the double-log defect, and `wrapHandlersPipeline` decides whether logging observes pre- or post-retry attempts on the resilience chain.
 - Swap: this owner holds the branch's profiles swap point, so migration off vendor push onto the OTLP profiles signal replaces rows rather than redesigning a lane — the `AddProcessor<PyroscopeSpanProcessor>()` seat and the agent environment rows give way to one OTLP profiles exporter row on the same otelExport arm, armed only once that signal reaches stable across the SDK trains; the span-profile stamp, tenant and phase projections, and every flamegraph query survive untouched.
 
 ```csharp signature
@@ -1126,111 +1126,39 @@ public static class RedactionRegistration {
 
 ## [08]-[CONFORMANCE_PROJECTION]
 
-- Owner: `MinterRole` `[SmartEnum<string>]` the three minter roles the row space spans; `RowDisposition` `[SmartEnum<string>]` the wire vocabulary a row's case projects onto; `ConformanceRow` `[Union]` the row itself, each case carrying exactly the payload its disposition admits beside the `[OWNER]` provenance the render reads; `ConformanceDocument` the ordered row set with its digest ordering and its table render; `Conformance` the projection that builds it.
+- Owner: `ConformanceDisposition`, `ConformanceRow`, and `ConformanceReceipt` own the native local diagnostic; `ConformanceMint` projects live C# governance owners into that immutable receipt.
 - Cases: three dispositions carry three different facts — a row is carried, the ROLE cannot reach it, or the plane exposes no seat at the pinned distribution. The third is what keeps a stated ceiling out of the dropped-row class: a value the branch honours with no member to declare it through still digests as that value. This minter constructs ALL THREE, which is what makes the vocabulary evidence rather than decoration: `metric.aggregation` is its withheld seat and `signal.vitals` its role-absent row, and a case no projection ever mints would be a disposition a reader could never observe.
-- Entry: `Conformance.Of(TelemetryComposition composition)` returns the `ConformanceDocument` — the one canonical projection of this branch's governance row set, whose serialized form is the byte-deriving input `tests/contracts/MANIFEST.md` `[02.13]-[TELEMETRY_CONVENTION]` freezes; `ConformanceDocument.Ordered` is the ordinal row order every digest reads; `ConformanceDocument.Table()` renders those rows as the `[INDEX]`/`[POLICY]`/`[VALUE]`/`[OWNER]` dash rows this branch publishes as its governance table.
-- Law: this page carries NO hand-written policy table. Governance values are the projection's own rows rendered through `Table()`, so a value and the surface it reports move together and a prose mirror cannot drift from the const it restates — the 78-row hand table that stood here is the deleted form, and the same render answers the `Observability/benchmarks` and `Observability/instruments` tables through their own contributed rows. NAMED LOSS: a reader no longer sees the values inline on this page; the render is the one authority and a stale value is now a compile-visible edit at the owner column rather than a paragraph nobody re-reads.
-- Auto: values PROJECT off their owners — the domain roster, the provider program, the promoted pair, the series cap, the wire pins, the disposition vocabularies — so a row cannot drift from the surface it reports, and a posture with no readable owner (a merge precedence, an allowlist semantic) is the one form a literal legitimately takes because the posture IS the fact; every roster projection sorts ORDINALLY before joining, since the three branch comparators diverge above printable ASCII and an unsorted or culture-sorted join mints a digest a peer reproduces from the same rows only by luck; every scalar renders INVARIANT, because the digest is compared across three runtimes and an ambient-culture separator or time render mints a document a peer reproduces from the same values only by locale.
-- Receipt: the document IS the receipt — one role, the semconv coordinate every scope stamps, and the row set sorted by key so three minters frame one order.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new conformance obligation is one `ConformanceRow` in the one projection, and a plane that opens a seat this branch reads as withheld re-values that same row rather than adding one; a new provenance column is one `Owner` argument; zero new surface.
-- Boundary: the row set is composition CODE until something projects it, and three branches holding equivalent code with no document prove nothing against each other — this member is what makes the estate comparison possible at all; the document serializes through the ONE suite merge as its own `[JsonSerializable]` row at `Runtime/ports#WIRE_LAW`, so no second encoder reaches it and an absent row's value key OMITS under that merge's one absence encoding rather than spelling a null a diff cannot tell from a carried empty string; domain rows cross as SEGMENT beside subject, because `libs/.planning/ARCHITECTURE.md` `[08]` grades a claimed segment on its subject spelling and a segment-only roster proves nothing about the spelling two minters must share; the projection is TERMINAL — nothing on this page reads it and its one consumer is the corpus conformance fixture, which is exactly what makes a producer for a contract fixture a producer.
+- Entry: `ConformanceMint.Of(TelemetryComposition composition)` returns the local receipt with rows in ordinal-key order.
+- Law: governance values project from the members that decide them into native rows, so a value and its reported surface move together and no prose mirror stands beside the receipt.
+- Auto: rows project from the domain roster, provider program, promoted pair, series cap, and wire pins. Ordinal row order and invariant scalar rendering make the local diagnostic stable across ambient culture and insertion order.
+- Receipt: one local role, the semconv coordinate every scope stamps, and one ordered row set.
+- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new diagnostic obligation is one row; a plane opening a withheld seat re-values that row; a new disposition changes `ConformanceDisposition` first.
+- Boundary: the receipt crosses no process boundary and owns no manifest case, generated message, or JSON mirror.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Roles name what a minter can reach, so a row a browser cannot carry and a row a branch dropped stay
-// distinguishable at the digest instead of both reading as absence.
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class MinterRole {
-    public static readonly MinterRole Process = new("process");
-    public static readonly MinterRole Browser = new("browser");
-    public static readonly MinterRole Deploy = new("deploy");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RowDisposition {
-    public static readonly RowDisposition Carried = new("carried");
-    public static readonly RowDisposition RoleAbsent = new("role-absent");
-    public static readonly RowDisposition SeatWithheld = new("seat-withheld");
-}
-
-// --- [MODELS] -------------------------------------------------------------------------------
-// Carried rows with no value and absent rows with one are both unspellable, where three factories over one
-// flat record left the pair to construction discipline; `Owner` names the member a value projects off.
 [Union]
-public abstract partial record ConformanceRow {
-    private ConformanceRow(string key, string owner) => (Key, Owner) = (key, owner);
-
-    public string Key { get; }
-    public string Owner { get; }
-
-    public sealed record Carried : ConformanceRow {
-        public Carried(string key, string value, string owner) : base(key, owner) => Value = value;
-        public string Value { get; }
-    }
-
-    public sealed record Absent : ConformanceRow {
-        public Absent(string key, string owner) : base(key, owner) { }
-    }
-
-    // Distributions opening the seat fail this row until it re-values.
-    public sealed record Withheld : ConformanceRow {
-        public Withheld(string key, string value, string pin, string owner) : base(key, owner) =>
-            (Value, Pin) = (value, pin);
-        public string Value { get; }
-        public string Pin { get; }
-    }
-
-    // Documents serialize this wire vocabulary; the case is the authority.
-    public RowDisposition Disposition => Switch(
-        carried: static _ => RowDisposition.Carried,
-        absent: static _ => RowDisposition.RoleAbsent,
-        withheld: static _ => RowDisposition.SeatWithheld);
-
-    public Option<string> Value => Switch(
-        carried: static row => Some(row.Value),
-        absent: static _ => Option<string>.None,
-        withheld: static row => Some(row.Value));
-
-    public Option<string> Pin => Switch(
-        carried: static _ => Option<string>.None,
-        absent: static _ => Option<string>.None,
-        withheld: static row => Some(row.Pin));
+public abstract partial record ConformanceDisposition {
+    private ConformanceDisposition() { }
+    public sealed record Carried(string Value) : ConformanceDisposition;
+    public sealed record Absent : ConformanceDisposition;
+    public sealed record Withheld(string Value, string Pin) : ConformanceDisposition;
 }
 
-public sealed record ConformanceDocument(MinterRole Role, string SchemaUrl, Seq<ConformanceRow> Rows) {
-    public Seq<ConformanceRow> Ordered => toSeq(Rows.OrderBy(static row => row.Key, StringComparer.Ordinal));
+public sealed record ConformanceRow(string Key, string Owner, ConformanceDisposition Disposition);
 
-    // Prose mirrors restate consts with no reader that refuses on
-    // drift, so the render is now the only table and the index is ordinal rather than a hand-edited number.
-    public Seq<string> Table() =>
-        Ordered.Map((row, index) => string.Create(CultureInfo.InvariantCulture,
-            $"| [{index + 1:D2}] | {row.Key} | {Rendered(row)} | `{row.Owner}` |"));
+public sealed record ConformanceReceipt(string Role, string SchemaUrl, Seq<ConformanceRow> Rows);
 
-    static string Rendered(ConformanceRow row) =>
-        row.Pin.Match(
-            Some: pin => $"{row.Value.IfNone(string.Empty)} (seat withheld: {pin})",
-            None: () => row.Value.IfNone("role-absent"));
-}
-```
-
-Rendered rows form the branch's ONE governance table — protocol pins, batch squares, sampling ratios, buffer caps, queue bounds, redaction install seam, latency vocabulary, and the resource chain, each beside the member it projects off. `Observability/benchmarks` and `Observability/instruments` render their own tables through the same projection over their contributed rows, so the estate carries one table generator and no page keeps a hand mirror of its own constants.
-
-```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-public static class Conformance {
+public static class ConformanceMint {
     // Every value reads off its owner, so a policy edit moves the row with it and the render can never restate a
     // const that changed underneath it.
-    public static ConformanceDocument Of(TelemetryComposition composition) =>
+    public static ConformanceReceipt Of(TelemetryComposition composition) =>
         Built(composition, ProviderProgram.Canonical,
             composition.Contributors.Bind(static port => port.Declared));
 
-    static ConformanceDocument Built(TelemetryComposition composition, ProviderProgram program, Seq<InstrumentSpec> declared) =>
-        new(MinterRole.Process, TelemetryIdentity.SchemaUrl, Seq(
+    static ConformanceReceipt Built(
+        TelemetryComposition composition, ProviderProgram program, Seq<InstrumentSpec> declared) {
+        Seq<ConformanceRow> rows = toSeq(Seq(
             Row("resource.identity", Joined(toSeq(ProfileIdentity.ResourceAttributes(composition.Resolved)).Map(static row => row.Key)), nameof(ProfileIdentity.ResourceAttributes)),
             Row("resource.precedence", "detector-chain-order, deployment-override-tail", $"{nameof(ResourceIdentity)}.{nameof(ResourceIdentity.Compose)}"),
             Row("resource.detectors", "host, os, process, process-runtime; container on the oci vehicle", $"{nameof(ResourceIdentity)}.{nameof(ResourceIdentity.Compose)}"),
@@ -1263,7 +1191,7 @@ public static class Conformance {
             // The one ROLE-absent row this minter carries: interaction vitals are a browser-plane signal and a
             // process minter reaches no seat for them. Marking the row rather than dropping it is what lets a
             // reader tell a role that cannot carry a signal from a branch that quietly stopped carrying one.
-            Role("signal.vitals", $"{nameof(MinterRole)}.{nameof(MinterRole.Process)}"),
+            Role("signal.vitals", nameof(TelemetrySignal)),
             Row("buffer.posture", string.Create(CultureInfo.InvariantCulture,
                 $"{SignalGovernance.BufferCapBytes}/{SignalGovernance.BufferRecordCapBytes}/{SignalGovernance.BufferFlushWindow:c}"), "AddGlobalBuffer"),
             Row("buffer.scopes", Joined(toSeq(BufferScope.Items).Map(static row => row.Key)), $"{nameof(IncidentBuffers)}.{nameof(IncidentBuffers.Flush)}"),
@@ -1301,14 +1229,19 @@ public static class Conformance {
             Row("genai.conventions", "gen_ai.* attributes and token usage on the apphost meter", $"{nameof(AppHostMeasure)}.{nameof(AppHostMeasure.ModelTokenUsage)}"),
             Row("store.driver", "npgsql spans, orm command spans, pool metrics", $"{nameof(SignalGovernance)}.{nameof(SignalGovernance.StoreDriver)}"),
             Row("store.wire", "kafka producer and consumer, per message shape", $"{nameof(SignalGovernance)}.StoreWire"),
-            Row("drain.release", "transports, then the span band, then the queues", $"{nameof(TelemetryComposition)}.{nameof(TelemetryComposition.Dispose)}")));
+            Row("drain.release", "transports, then the span band, then the queues", $"{nameof(TelemetryComposition)}.{nameof(TelemetryComposition.Dispose)}"))
+            .OrderBy(static row => row.Key, StringComparer.Ordinal));
+        return new ConformanceReceipt("process", TelemetryIdentity.SchemaUrl, rows);
+    }
 
-    static ConformanceRow Row(string key, string value, string owner) => new ConformanceRow.Carried(key, value, owner);
+    static ConformanceRow Row(string key, string value, string owner) =>
+        new(key, owner, new ConformanceDisposition.Carried(value));
 
-    static ConformanceRow Role(string key, string owner) => new ConformanceRow.Absent(key, owner);
+    static ConformanceRow Role(string key, string owner) =>
+        new(key, owner, new ConformanceDisposition.Absent());
 
     static ConformanceRow Ceiling(string key, string value, string pin, string owner) =>
-        new ConformanceRow.Withheld(key, value, pin, owner);
+        new(key, owner, new ConformanceDisposition.Withheld(value, pin));
 
     static string Joined(Seq<string> values) => string.Join(',', values.Distinct().Order(StringComparer.Ordinal));
 

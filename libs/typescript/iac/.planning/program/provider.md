@@ -135,19 +135,19 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
 - Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`; `internal` demands nothing and stages the app edgeless, so a worker-only workload deploys with no domain coordinate at all) into one `Option`-carried `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
 - Law: a provider vocabulary is a roster the arm ADMITS against, not a type it trusts — `_vocab` lifts the coordinate and its roster in one step, so the aws arm's `region` refuses a value the provider never published on the same `input` fault every other coordinate mints, and the roster is the generated const itself, so it widens with the installed tree. Only the arm-dependent case earns this proof — a coordinate whose governing roster is the same on every arm closes at `spec.md` as an admission alphabet (`profile.capacity.instanceType` is that shape) and never reaches this family, while `region` names one roster on aws and an unpublished one on gcp and therefore cannot close at the schema at all.
-- Law: `Dispatch.Pins` carries deploy-time facts absent from `StackSpec`, including backend files, runner policy, publication identity, the site roster with its decoder digests, and each managed cell's own coverage row — a pin states what a chosen instance IS and CARRIES, so the conformance proofs read data rather than a literal any arm body could re-spell.
+- Law: `Dispatch.Pins` carries deploy-time facts absent from `StackSpec`. Backend material is optional on the common shape; Kubernetes projects it through immutable ConfigMaps, Docker uploads the exact document and pointer, and Fargate materializes its private S3 publication through the pinned AWS CLI image into one ephemeral task volume. Site decoder digests and managed-cell coverage remain instance facts consumed by their owning arms.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
 - Growth: one record row and one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
 - Boundary: the run and receipt are `automation.md`'s; outputs keys are `spec.md`'s contract.
-- Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary — the tier admissions (`ConvergeRefused`, `DataRefused`, `BackendFault`) union with the coordinate rail's `DeployFault`, so a new admitting tier widens one type alias and every arm body inherits it.
-- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`, `BackendFault`).
+- Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary: tier admissions plus `DeployFault`. A new admitting tier widens one type alias and every arm body inherits it.
+- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`).
 
 ```typescript signature
 import type { PulumiFn } from "@pulumi/pulumi/automation"
-import type { Backend, BackendFault } from "@rasm/ts/data"
-import { Array, Config, Effect, Option, Record, Redacted } from "effect"
+import type { Backend } from "@rasm/ts/data"
+import { Array, Config, Effect, Encoding, Option, Record, Redacted } from "effect"
 import type { Board, Reliability } from "@rasm/ts/core"
 import type { DataRefused, Postgres } from "../kube/data.ts"
 import { Traffic } from "../kube/traffic.ts"
@@ -163,7 +163,7 @@ declare namespace Dispatch {
   type Planes = Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, pulumi.Input<string | number>>>
   // Every fault a program body can carry: the tier admissions the estate composes plus the coordinate
   // rail. The body converts to the engine's own contract exactly once, at `_bodied`.
-  type EstateFault = ConvergeRefused | BackendFault | DataRefused | DeployFault
+  type EstateFault = ConvergeRefused | DataRefused | DeployFault
   type ManagedEngine = (typeof _ENGINES)[number]
   // A managed data cell states its OWN coverage: the engine it is (the sibling plane's vocabulary, not a
   // cloud release name), the provider's release literal the resource takes, its machine tier, and the
@@ -203,9 +203,10 @@ declare namespace Dispatch {
     readonly context: string
     readonly registry?: { readonly address: string; readonly user: string }
     readonly managedData: Managed
-    readonly backend: {
+    readonly backend?: {
       readonly projection: Backend.Projection
       readonly runner: Converge.Runner
+      readonly materializer: pulumi.Input<string> // digest-pinned public ECR AWS CLI image
       readonly publication: string
       readonly recovery: (target: string) => Postgres.Recovery
     }
@@ -404,9 +405,10 @@ class Bootstrap extends Tier {
 [ARM_PROGRAMS]:
 - Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` over `_credentials` (the object and Grafana rows beside one `DB_ADMIN_PASSWORD`/`DB_PASSWORD`/`DB_ANALYST_PASSWORD` triple per scope `Postgres.scopes` enumerates, so the data tier's per-scope `auth` callback reads a mint no sibling cluster shares; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres.admit` (the scope-keyed admin, app, and analyst reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service and its own published selector, with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, the per-tenant `GRAFANA_VIEWER_*` keys from `Boards.viewers`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; the object plane's coordinates thread into `Lgtm` so the mimir escalation binds one storage truth; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
 - Law: app images are one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. One rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container loopback-published (`ip` bind + fence alias — the data plane exposes no public interface, in-fence consumers dial the alias, and the deployer's `postgresql.Provider` reaches it through one control-socket SSH forward riding the proven connection's own hardening coordinates, so `sslmode: "disable"` grades as a loopback fact rather than a cleartext credential hop) and finalized through that bridged provider at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
+- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container loopback-published (`ip` bind + fence alias — the data plane exposes no public interface, in-fence consumers dial the alias, and the deployer's `postgresql.Provider` reaches it through one control-socket SSH forward riding the proven connection's own hardening coordinates, so `sslmode: "disable"` grades as a loopback fact rather than a cleartext credential hop) and finalized through that bridged provider at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest, uploading the exact backend document and pointer at read-only file modes when armed, and injecting their runtime coordinates beside `DOPPLER_TOKEN` and the collector endpoint, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
 - Law: the estate builder rides the rail its tiers admit on — `_estate` and every `_AWS` row return `Effect<Dispatch.Planes, Dispatch.EstateFault>`, so `Converge.admit`, `Postgres.admit`, and the `_coord` proofs compose in one `Effect.gen` and a refused axis surfaces as a typed value rather than a half-built graph; `_bodied` is the sole conversion, the `PulumiFn` seam where the engine's one in-band error contract takes the rail's failure, and a `throw` anywhere inside a tier or an arm body is the defect this owner deletes.
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`eks.AuthenticationMode.Api` for access entries, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from the profile's own `capacity` row — the node-group arg is `Input<string>`, so the closed instance-type roster is spent at the spec boundary and this row spells no capacity literal — binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
+- Law: an armed Fargate backend publishes the exact contract and generation under one generation-scoped prefix in a dedicated versioned, ownership-enforced, public-blocked bucket; the task role reads only that prefix, the pinned AWS CLI materializer copies it into one ephemeral volume, and the app container depends on its `SUCCESS` before mounting the volume read-only. The general object/site bucket never holds this control material, and no document bytes or alternate variable names cross through environment.
 - Law: the gcp arm binds `credentials` from the `GCP_CREDENTIALS` fan-in read, realizes the versioned `gcp.storage.Bucket` object cell and the `gcp.sql.DatabaseInstance` + `Database` + `User` data cell, and returns only those planes with optional served assets; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell with its `R2BucketLifecycle` aging row and the `PagesProject` static origin, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain — each returns exactly the planes it realizes.
 - Law: the distribution cells construct what the map advertises — the aws and gcp arms converge the built frontend through `Source.distribute` over their own object cells when `pins.site` arrives (the versioned `BucketV2` behind one `BucketVersioningV2` row on aws, the versioned bucket on gcp), each returning the caller-owned `served` slug-to-path record as an output plane; the cloudflare arm's static origin stays its `PagesProject` rows, whose build product uploads out of graph.
 - Law: a converging arm publishes the viewer's decoder leaves beside the app's artifacts, because `pins.site.decoders` is a digest map both arms forward unchanged — the decoder distributions are estate-invariant and `_DECODERS` owns their leaf names, so no arm body spells a filename and the ui codec gate resolves `draco`, `ktx2`, and `meshopt` off the served plane rather than refusing `codec-absent` against addresses nothing published; a baked texture or environment set rides the same plane through the composing root's `Source.set` mints, so decoder leaves and set planes share one digest-directory law and one presence gate.
@@ -472,6 +474,30 @@ const _credentials = (spec: StackSpec, data: string): Record.ReadonlyRecord<stri
   )),
 })
 
+const _dockerBackend = (backend: Dispatch.Pins["backend"]): {
+  readonly envs: ReadonlyArray<string>
+  readonly uploads: ReadonlyArray<docker.types.input.ContainerUpload>
+} => backend === undefined
+  ? { envs: [], uploads: [] }
+  : {
+      envs: [
+        `${StackOutputs.backend.root}=${backend.runner.contractRoot}`,
+        `${StackOutputs.backend.pointer}=${backend.runner.contractRoot}/generation`,
+      ],
+      uploads: [
+        {
+          file: `${backend.runner.contractRoot}/contract.json`,
+          contentBase64: Encoding.encodeBase64(backend.projection.files.contract),
+          permissions: "0444",
+        },
+        {
+          file: `${backend.runner.contractRoot}/generation`,
+          content: backend.projection.contract.id,
+          permissions: "0444",
+        },
+      ],
+    }
+
 const _estate = (
   spec: StackSpec,
   pins: Dispatch.Pins,
@@ -479,6 +505,9 @@ const _estate = (
   app: Option.Option<Dispatch.App>,
 ): Effect.Effect<Dispatch.Planes, Dispatch.EstateFault> =>
   Effect.gen(function* () {
+    // Backend material belongs only to arms that realize the Kubernetes data estate. Prove that arm-local demand
+    // before declaring a resource; distribution-only and non-Kubernetes arms carry no meaningless contract pin.
+    const backend = yield* _coord(spec, Option.fromNullable(pins.backend), "backend")
     const bound = { providers: [provider] }
     const ns = new k8s.core.v1.Namespace(spec.name, { metadata: { name: spec.name } }, { provider })
     const secrets = new Secrets("secrets", { spec, entries: _credentials(spec, "data") })
@@ -496,7 +525,7 @@ const _estate = (
       operatorVersion: pins.operator,
       barmanVersion: pins.barman,
       objects,
-      recovery: pins.backend.recovery,
+      recovery: backend.recovery,
       auth: (scope) => ({
         admin: secrets.read(_scoped("DB_ADMIN_PASSWORD", scope)),
         app: secrets.read(_scoped("DB_PASSWORD", scope)),
@@ -504,15 +533,15 @@ const _estate = (
       }),
     }, bound)
     const identity = new random.RandomUuid7("deploy-id", { keepers: { epoch: spec.epoch } })
-    const converge = (target: Postgres.Target): Effect.Effect<Converge, ConvergeRefused | BackendFault> =>
+    const converge = (target: Postgres.Target): Effect.Effect<Converge, ConvergeRefused> =>
       Converge.admit(`backend-${target.name}`, {
         namespace: ns.metadata.name,
         profile: spec.profile,
-        backend: pins.backend.projection,
-        runner: pins.backend.runner,
+        backend: backend.projection,
+        runner: backend.runner,
         target,
         publication: {
-          name: `${pins.backend.publication}-${target.name}`,
+          name: `${backend.publication}-${target.name}`,
           fence: identity.result,
         },
       }, bound)
@@ -586,7 +615,7 @@ const _estate = (
       backend: {
         contract: primary.contract,
         pointer: primary.pointer,
-        root: pins.backend.runner.contractRoot,
+        root: backend.runner.contractRoot,
       },
     }, pulumi.mergeOptions(bound, { dependsOn: convergences }))
     if (Option.isNone(edge)) {
@@ -754,12 +783,99 @@ const _EDGED = {
     }, opts),
 } as const
 
+const _fargateBackend = (
+  backend: NonNullable<Dispatch.Pins["backend"]>,
+  image: pulumi.Input<string>,
+  port: number,
+  opts: { readonly provider: aws.Provider; readonly region: aws.types.enums.Region },
+): {
+  readonly dependsOn: ReadonlyArray<pulumi.Resource>
+  readonly taskDefinitionArgs: awsx.types.input.ecs.FargateServiceTaskDefinitionArgs
+} => {
+  const root = backend.runner.contractRoot
+  const volume = "backend"
+  const prefix = `${backend.publication}/${backend.projection.contract.id}`
+  const bucket = new aws.s3.BucketV2("backend", {}, opts)
+  const versioning = new aws.s3.BucketVersioningV2("backend-versioning", {
+    bucket: bucket.id,
+    versioningConfiguration: { status: "Enabled" },
+  }, opts)
+  const ownership = new aws.s3.BucketOwnershipControls("backend-ownership", {
+    bucket: bucket.id,
+    rule: { objectOwnership: "BucketOwnerEnforced" },
+  }, opts)
+  const closed = new aws.s3.BucketPublicAccessBlock("backend-closed", {
+    bucket: bucket.id,
+    blockPublicAcls: true,
+    blockPublicPolicy: true,
+    ignorePublicAcls: true,
+    restrictPublicBuckets: true,
+  }, opts)
+  const contract = new aws.s3.BucketObjectv2("backend-contract", {
+    bucket: bucket.id,
+    key: `${prefix}/contract.json`,
+    contentBase64: Encoding.encodeBase64(backend.projection.files.contract),
+    contentType: "application/json",
+  }, pulumi.mergeOptions(opts, { dependsOn: [versioning, ownership, closed] }))
+  const pointer = new aws.s3.BucketObjectv2("backend-generation", {
+    bucket: bucket.id,
+    key: `${prefix}/generation`,
+    content: backend.projection.contract.id,
+    contentType: "text/plain",
+  }, pulumi.mergeOptions(opts, { dependsOn: [versioning, ownership, closed] }))
+  const access = aws.iam.getPolicyDocumentOutput({
+    statements: [
+      {
+        actions: ["s3:ListBucket"],
+        resources: [bucket.arn],
+        conditions: [{ test: "StringLike", variable: "s3:prefix", values: [`${prefix}/*`] }],
+      },
+      {
+        actions: ["s3:GetObject"],
+        resources: [pulumi.interpolate`${bucket.arn}/${prefix}/*`],
+      },
+    ],
+  }, opts)
+  return {
+    dependsOn: [contract, pointer],
+    taskDefinitionArgs: {
+      containers: {
+        app: {
+          name: "app",
+          image,
+          essential: true,
+          portMappings: [{ containerPort: port }],
+          dependsOn: [{ containerName: "backend", condition: "SUCCESS" }],
+          environment: [
+            { name: StackOutputs.backend.root, value: root },
+            { name: StackOutputs.backend.pointer, value: `${root}/generation` },
+          ],
+          mountPoints: [{ sourceVolume: volume, containerPath: root, readOnly: true }],
+        },
+        backend: {
+          name: "backend",
+          image: backend.materializer,
+          essential: false,
+          environment: [{ name: "AWS_REGION", value: opts.region }],
+          command: [
+            "s3", "cp", pulumi.interpolate`s3://${bucket.bucket}/${prefix}/`, root,
+            "--recursive", "--only-show-errors",
+          ],
+          mountPoints: [{ sourceVolume: volume, containerPath: root, readOnly: false }],
+        },
+      },
+      volumes: [{ name: volume }],
+      taskRole: { args: { inlinePolicies: [{ name: "backend-read", policy: access.json }] } },
+    },
+  }
+}
+
 const _AWS: {
   readonly [K in StackSpec.Profile["compute"]]: (
     spec: StackSpec,
     pins: Dispatch.Pins,
     app: Option.Option<Dispatch.App>,
-    opts: { readonly provider: aws.Provider },
+    opts: { readonly provider: aws.Provider; readonly region: aws.types.enums.Region },
   ) => Effect.Effect<Dispatch.Planes, Dispatch.EstateFault>
 } = {
   serverless: (_spec, pins, _app, opts) => Effect.sync(() => {
@@ -768,13 +884,21 @@ const _AWS: {
     const image = new awsx.ecr.Image("app", { repositoryUrl: repo.url, context: pins.context }, opts)
     const alb = new awsx.lb.ApplicationLoadBalancer("edge", {}, opts)
     const cluster = new aws.ecs.Cluster("compute", {}, opts)
+    const backend = pins.backend === undefined
+      ? {
+          dependsOn: [] as ReadonlyArray<pulumi.Resource>,
+          taskDefinitionArgs: {
+            container: { name: "app", image: image.imageUri, portMappings: [{ containerPort: pins.port }] },
+          } satisfies awsx.types.input.ecs.FargateServiceTaskDefinitionArgs,
+        }
+      : _fargateBackend(pins.backend, image.imageUri, pins.port, opts)
     new awsx.ecs.FargateService("app", {
       cluster: cluster.arn,
       desiredCount: 2,
       networkConfiguration: { subnets: vpc.privateSubnetIds },
       loadBalancers: [{ targetGroupArn: alb.defaultTargetGroup.arn, containerName: "app", containerPort: pins.port }],
-      taskDefinitionArgs: { container: { name: "app", image: image.imageUri, portMappings: [{ containerPort: pins.port }] } },
-    }, opts)
+      taskDefinitionArgs: backend.taskDefinitionArgs,
+    }, pulumi.mergeOptions(opts, { dependsOn: backend.dependsOn }))
     const bucket = new aws.s3.BucketV2("objects", {}, opts)
     new aws.s3.BucketVersioningV2("objects-versioning", { bucket: bucket.id, versioningConfiguration: { status: "Enabled" } }, opts)
     // Ownership is DECLARED, not inherited: a fresh bucket already defaults to bucket-owner-enforced, and an
@@ -892,6 +1016,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           { data: "/var/lib/postgresql/data", object: "/data", fanout: "/data", app: "/var/lib/rasm" } as const,
           (path, name) => ({ path, volume: new docker.Volume(name, { driver: "local" }, machine) }),
         )
+        const backend = _dockerBackend(pins.backend)
         const bucket = `${spec.app}-artifacts`
         const data = new docker.Container("data", {
           image: pins.pgImage,
@@ -1008,7 +1133,9 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
             // the channel catalog names the variable, so the loop arm and the estate arm write ONE spelling
             // and neither re-states a key the reading process resolves through its own Setting group
             pulumi.interpolate`${StackOutputs.channels["otlp.endpoint"]}=${observe.collectorEndpoint}`,
+            ...backend.envs,
           ],
+          uploads: [...backend.uploads],
           ports: [{ internal: pins.port, external: pins.port }],
           networksAdvanced: [{ name: fence.name }],
           volumes: [{ volumeName: store.app.volume.name, containerPath: store.app.path }],
@@ -1069,7 +1196,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
       Effect.all({ region: _vocab(spec, spec.region, "region", aws.types.enums.Region), app: _staged(spec) }),
       ({ region, app }) => () => {
         const provider = new aws.Provider("aws", { region })
-        return _bodied(_AWS[spec.profile.compute](spec, pins, app, { provider }))
+        return _bodied(_AWS[spec.profile.compute](spec, pins, app, { provider, region }))
       },
     ),
   gcp: (spec, _material, pins) =>

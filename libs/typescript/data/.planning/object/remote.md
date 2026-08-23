@@ -19,7 +19,7 @@
 
 - Owner: `Origin` fuses URI decode with ONE scheme row table carrying the addressing group (`port`, `pooled`, `local`, `tls`) beside the `flags` capability group; `RemoteFault` closes its reasons through `Fault.Class.family`.
 - Law: one scheme-keyed table owns every per-scheme fact — a second table beside it (a port map, a TLS map, a connectionless roster) is the shape that lets an arm spell `scheme === "<name>"` where a column belongs, so the dial, the pool road, the rsync argv rendering, and the TLS posture all read columns and the page holds no scheme-name test.
-- Packages: `effect` (`Schema`, `Data`, `Either`, `ParseResult`); `@rasm/ts/core` (`Fault`).
+- Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `ParseResult`, `Schema`); `@rasm/ts/core` (`Fault`).
 - Entry: every consumer addresses the plane by `Origin` value — `Origin.parse("sftp://deploy@vps.example:22/srv/artifacts")` at a config seam, never scheme-forked code; the address seeds the acquire, and `session.flags` is the dispatch datum every operation reads.
 - Growth: a new protocol is one scheme key, one flag row, one session arm, and the op arms it earns — every consumer inherits it through the flags; a flag a server refuses at runtime narrows by row override, never by fork.
 - Law: capability flags are decision data — `serverCopy: false` makes `copy` degrade to read-then-write, `serverMove: false` makes `move` degrade to copy-then-remove, `changeNotify: false` routes `watch` to the poll row, `exec: false` refuses `exec` typed, `modTime: false` makes `stat` publish absence instead of sending a command the server never advertised; the degrade paths live in the op arms once, so no caller ever probes a protocol.
@@ -31,7 +31,7 @@
 - Law: the scheme row answers the descriptor a consumer selects on, and its two honest NON-answers carry as much weight as its columns — `flags` names what a row FITS and IS its degrade statement, since every false column is a capability given up that the op arms then degrade around, while `Remote.intake` is the one ADMISSION making remote bytes durable in this branch; TENANCY and LIFETIME no network row decides, because a foreign filesystem's isolation belongs to whoever operates it and its bytes outlive this branch's interest entirely, so `remove` is a caller verb rather than a retention policy and a row claiming either coordinate asserts authority over a host it merely dials; the `s3:` row alone answers both by delegating to the object plane's reference ledger, which is precisely why it is a bridge rather than a seventh protocol.
 
 ```typescript signature
-import { Data, Either, ParseResult, Schema } from "effect"
+import { Array, Data, Either, Option, ParseResult, Schema } from "effect"
 import { Fault } from "@rasm/ts/core"
 
 const _SCHEME_KEYS = ["file", "sftp", "ssh", "ftp", "ftps", "webdav", "s3"] as const
@@ -162,23 +162,22 @@ class Origin extends Schema.Class<Origin>("Origin")({
   static readonly parse = Schema.decodeUnknown(Schema.transformOrFail(Schema.String, Origin, {
     strict: true,
     decode: (uri, _options, ast) =>
-      Either.try({
-        try: () => {
-          const parsed = new URL(uri)
-          const scheme = _SCHEME_KEYS.find((key) => `${key}:` === parsed.protocol)
-          if (scheme === undefined) {
-            throw new Error(parsed.protocol)
-          }
-          return {
-            scheme,
-            host: parsed.hostname,
-            port: parsed.port === "" ? _SCHEMES[scheme].port : Number.parseInt(parsed.port, 10),
-            username: decodeURIComponent(parsed.username),
-            path: decodeURIComponent(parsed.pathname),
-          }
+      Either.flatMap(
+        Either.try({ try: () => new URL(uri), catch: () => new ParseResult.Type(ast, uri) }),
+        (parsed) => {
+          const scheme = Array.findFirst(_SCHEME_KEYS, (key) => `${key}:` === parsed.protocol)
+          return Option.match(scheme, {
+            onNone: () => Either.left(new ParseResult.Type(ast, uri)),
+            onSome: (admitted) => Either.right({
+              scheme: admitted,
+              host: parsed.hostname,
+              port: parsed.port === "" ? _SCHEMES[admitted].port : Number.parseInt(parsed.port, 10),
+              username: decodeURIComponent(parsed.username),
+              path: decodeURIComponent(parsed.pathname),
+            }),
+          })
         },
-        catch: () => new ParseResult.Type(ast, uri),
-      }),
+      ),
     encode: (origin) =>
       ParseResult.succeed(`${origin.scheme}://${origin.username}@${origin.host}:${origin.port}${origin.path}`),
   }))

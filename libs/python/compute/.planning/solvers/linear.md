@@ -611,8 +611,8 @@ def _operator_receipt(key: ContentKey, m: LinearMap, b: np.ndarray, shape: Solve
 - Owner: `SparseExchange` — the two-container correspondence with `csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE` `ReadArchive`/`WriteArchive`, hand-copied as a deliberate non-import mirror per estate law: `.mtx` through `scipy.io` is the SuiteSparse interop surface, and the scipy-convention HDF5 group (`indptr`/`indices` int32, `values` float64, `permutation` int32, `shape`/`format` group attributes) carries the `kind`/`ordering`/`fill`/`frobenius`/`symmetric` reproduction metadata `.mtx` drops. Both containers read and write here because the C# lane landed both directions of each: a reproduction artifact from a failed C# factorization re-factors python-side under its recorded policy, and a python-authored operand crosses back through the same two doors.
 - Cases: `ExchangeMeta` types the archive's metadata attributes; `ordering` carries the CSparse `ColumnOrdering` ordinal the producer wrote (`0` Natural, `1` MinimumDegreeAtPlusA, `2` MinimumDegreeStS, `3` MinimumDegreeAtA — decompile-proven declaration order) and `permc` projects it onto the `splu` `permc_spec` vocabulary, `MinimumDegreeStS` landing on `COLAMD` as the closest scipy ordering with the divergence stated here rather than hidden.
 - Law: both write legs carry the `composition` custody key and an awaitable twin — `write_mtx_async`/`write_archive_async` over the one `_written` half — because the sync bodies are pure `h5py`/`scipy.io` calls opening no loop while recording suspends. Each twin lands one `OPERATIONAL` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes written, through one `_evidence` fold so the two containers cannot drift into two vocabularies for one crossing; the container token rides the diff rather than the verb, since both legs write the same kind of thing to two encodings. `OPERATIONAL` is earned: a sparse operand is a reproduction artifact re-derivable from the factorization that produced it. The record rail BINDS into the verdict, and a refused write records nothing since there is no artifact to name. Reads land no evidence — an exchange plane recording each `read_mtx` prices the read path for rows no reconstruction ever reads.
-- Entry: `read_mtx`/`write_mtx` and `read_archive`/`write_archive` are the four legs of one owner, each write answering the container's byte extent; every inbound leg re-runs `_admit` — extent congruence, monotone pointer run, index bounds, one vectorized finiteness pass — because both routes end at admission exactly as both C# routes end at `Ingest`.
-- Auto: `.mtx` symmetry writes off the operand's `MatrixStructure` (`SYMMETRIC`/`SPD` emit `symmetry="symmetric"`), mirroring the C# rule that the flag reads off the factor row and never a caller knob; reads lift `mminfo` symmetry onto the structure axis so a symmetric corpus reaches the symmetric drivers without re-derivation.
+- Entry: `read_mtx`/`write_mtx` and `read_archive`/`write_archive` are the four legs of one owner, each write answering the container's byte extent; the HDF5 leg is pinned to `/A`, requires every dataset and metadata attribute, and gates explicit little-endian int32 indices/permutation, little-endian float64 values, little-endian int64 shape/scalars, and the PureHDF-compatible uint8 `symmetric` scalar before every inbound leg re-runs `_admit` — extent congruence, monotone pointer run, index bounds, one vectorized finiteness pass — because both routes end at admission exactly as both C# routes end at `Ingest`.
+- Auto: `.mtx` writes pin `symmetry="general"` because the pinned C# peer writer exposes no symmetry parameter and its reader exposes no header metadata; both branches exchange operand values, never a structure hint only one peer can recover. Factor structure and reproduction policy ride the HDF5 sibling.
 - Output: reads land a `LinearMap.SparseMat` the `[02]-[LINEAR]` routes consume directly — the exchange is solver currency, never a gridded field, so no gridded-plane page owns any of this.
 - Packages: `scipy` (`io.mmread`/`io.mmwrite`/`io.mminfo`, `sparse.csr_array`/`csc_array`, `sparse.linalg.norm`); `h5py` (module-top; `File`, `create_group`/`create_dataset`, attribute IO) under the compute-tier `.api/h5py.md` admission.
 - Growth: a new archive attribute is one `ExchangeMeta` field with its wire spelling; a new container format is one read/write leg pair with its awaitable twin over the shared `_written` half and one container token, never a sibling exchange surface; zero new knob on the solve routes.
@@ -635,11 +635,6 @@ _INT32_CEIL: Final[int] = 2**31 - 1
 # CSparse `ColumnOrdering` ordinal -> scipy `permc_spec`; `MinimumDegreeStS` (AMD on A'A, dense rows dropped)
 # has no exact scipy twin, so it lands on COLAMD — the closest column ordering — as recorded divergence.
 _PERMC: Final[Map[int, str]] = Map.of_seq([(0, "NATURAL"), (1, "MMD_AT_PLUS_A"), (2, "COLAMD"), (3, "MMD_ATA")])
-
-# `.mtx` symmetry token -> structure axis; every non-symmetric token lands GENERAL because the structure
-# vocabulary carries no skew/hermitian member and a wrong SPD guess mis-routes the Cholesky driver.
-_MM_STRUCTURE: Final[Map[str, MatrixStructure]] = Map.of_seq([("symmetric", MatrixStructure.SYMMETRIC)])
-
 
 def _evidence(container: str, ref: "ResourceRef", written: int) -> "Block[Fact]":
     # ONE exchange-write trail both containers reach, so the `.mtx` leg and the archive leg cannot drift into two
@@ -686,10 +681,8 @@ class SparseExchange:
     @staticmethod
     def read_mtx(ref: "ResourceRef") -> "RuntimeRail[LinearMap]":
         def read() -> LinearMap:
-            rows, cols, _, _, _, symmetry = sio.mminfo(str(ref.path))
             operand = sp.csr_array(sio.mmread(str(ref.path), spmatrix=False))  # coo -> csr once at the boundary
-            structure = _MM_STRUCTURE.try_find(symmetry).default_value(MatrixStructure.GENERAL)
-            return LinearMap.SparseMat(_admit(operand, (int(rows), int(cols))), structure)
+            return LinearMap.SparseMat(_admit(operand, tuple(map(int, operand.shape))), MatrixStructure.GENERAL)
 
         # `catch` names `scipy.io`'s OWN raise surface, probed by venv reflection (scipy 1.18.0) because
         # `compute/.api/scipy.md` rosters no exception section: a malformed Matrix Market header or body raises
@@ -698,13 +691,11 @@ class SparseExchange:
 
     @staticmethod
     def write_mtx(ref: "ResourceRef", m: LinearMap) -> "RuntimeRail[int]":
-        # symmetry off the structure axis, never a caller knob — the C# write binds the same rule to its factor row.
+        # Fixed GENERAL is cross-peer law: the C# package exposes no writer symmetry control or reader header fact.
         # The byte extent returns rather than `None`: the storage charge and any caller reconciling the artifact both
         # need what actually landed, and a writer answering nothing forces a second stat at every consumer.
-        symmetry = "symmetric" if m.structure in (MatrixStructure.SYMMETRIC, MatrixStructure.SPD) else "general"
-
         def write() -> int:
-            sio.mmwrite(str(ref.path), sp.coo_array(m.matrix()), symmetry=symmetry)
+            sio.mmwrite(str(ref.path), sp.coo_array(m.matrix()), symmetry="general")
             return ref.path.stat().st_size
 
         return boundary(MTX_WRITE, write, catch=(ValueError, OSError))
@@ -714,60 +705,123 @@ class SparseExchange:
         return await _written("mtx", ref, SparseExchange.write_mtx(ref, m), composition)
 
     @staticmethod
-    def read_archive(ref: "ResourceRef", group: str = "A") -> "RuntimeRail[tuple[LinearMap, ExchangeMeta, np.ndarray]]":
+    def read_archive(ref: "ResourceRef") -> "RuntimeRail[tuple[LinearMap, ExchangeMeta, np.ndarray]]":
         def read() -> tuple[LinearMap, ExchangeMeta, np.ndarray]:
             with h5py.File(str(ref.path), "r") as file:
-                node = file[group]
-                shape = tuple(int(extent) for extent in node.attrs["shape"])
-                ctor = sp.csr_array if str(node.attrs["format"]) == "csr" else sp.csc_array
-                operand = ctor((node["values"][:], node["indices"][:], node["indptr"][:]), shape=shape)
+                node = file["A"]
+                shape_wire = _wire_array(node.attrs["shape"], "<i8", "A.shape")
+                shape = tuple(int(extent) for extent in shape_wire)
+                if len(shape) != 2:
+                    raise ValueError(f"exchange shape rank: {shape}")
+                wire_format = str(node.attrs["format"])
+                if wire_format not in ("csr", "csc"):
+                    raise ValueError(f"exchange format: {wire_format}")
+                ctor = sp.csr_array if wire_format == "csr" else sp.csc_array
+                operand = ctor(
+                    (
+                        _wire_array(node["values"], "<f8", "A/values"),
+                        _wire_array(node["indices"], "<i4", "A/indices"),
+                        _wire_array(node["indptr"], "<i4", "A/indptr"),
+                    ),
+                    shape=shape,
+                )
                 meta = ExchangeMeta(
                     kind=str(node.attrs["kind"]),
-                    ordering=int(node.attrs["ordering"]),
-                    fill=int(node.attrs["fill"]),
-                    frobenius=float(node.attrs["frobenius"]),
-                    symmetric=bool(node.attrs["symmetric"]),
+                    ordering=int(_wire_scalar(node.attrs["ordering"], "<i8", "A.ordering")),
+                    fill=int(_wire_scalar(node.attrs["fill"], "<i8", "A.fill")),
+                    frobenius=float(_wire_scalar(node.attrs["frobenius"], "<f8", "A.frobenius")),
+                    symmetric=_wire_bool(node.attrs["symmetric"], "A.symmetric"),
                 )
-                permutation = node["permutation"][:] if "permutation" in node else np.arange(shape[1], dtype=np.int32)
+                if (
+                    meta.kind not in ("spd", "ldl", "lu", "qr")
+                    or meta.ordering not in range(4)
+                    or meta.fill < 0
+                    or not np.isfinite(meta.frobenius)
+                    or meta.frobenius < 0.0
+                    or meta.symmetric != (meta.kind in ("spd", "ldl"))
+                ):
+                    raise ValueError(f"exchange metadata: {meta}")
+                permutation = _wire_array(node["permutation"], "<i4", "A/permutation")
+                if permutation.shape != (shape[1],) or set(map(int, permutation)) != set(range(shape[1])):
+                    raise ValueError(f"exchange permutation: {permutation.shape} for {shape}")
             structure = MatrixStructure.SYMMETRIC if meta.symmetric else MatrixStructure.GENERAL
             return LinearMap.SparseMat(_admit(operand, shape), structure), meta, permutation
 
-        # `catch` names `h5py`'s OWN raise surface, probed by venv reflection (h5py 3.16.0) because
-        # `compute/.api/h5py.md` rosters no exception section: h5py raises the builtin `OSError` for an absent file
-        # AND for a non-HDF5 or truncated one, and `KeyError` for a group or dataset the archive does not carry.
-        return boundary(ARCHIVE_READ, read, catch=(KeyError, OSError))
+        # Provider absence/truncation is `OSError`/`KeyError`; dtype projection, checked integer conversion, and the
+        # local roster/admission gates add `TypeError`/`OverflowError`/`ValueError`. The boundary spans all of them.
+        return boundary(ARCHIVE_READ, read, catch=(KeyError, OSError, OverflowError, TypeError, ValueError))
 
     @staticmethod
-    def write_archive(ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray, group: str = "A") -> "RuntimeRail[int]":
+    def write_archive(ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray) -> "RuntimeRail[int]":
         # the byte extent returns for the same reason `write_mtx`'s does: the storage charge reads what landed.
         def write() -> int:
             operand = sp.csc_array(m.matrix())  # the C# lane's CSC is the archive's major axis
-            if operand.nnz > _INT32_CEIL or operand.indptr.size > _INT32_CEIL:
+            applied = np.asarray(permutation)
+            held_meta = (
+                meta.kind in ("spd", "ldl", "lu", "qr")
+                and meta.ordering in range(4)
+                and meta.fill >= 0
+                and np.isfinite(meta.frobenius)
+                and meta.frobenius >= 0.0
+                and meta.symmetric == (meta.kind in ("spd", "ldl"))
+            )
+            held_permutation = applied.shape == (operand.shape[1],) and set(map(int, applied)) == set(range(operand.shape[1]))
+            _admit(operand, tuple(map(int, operand.shape)))
+            if not held_meta or not held_permutation:
+                raise ValueError(f"exchange write roster: {meta}; permutation={applied.shape}")
+            if max(operand.shape) > _INT32_CEIL or operand.nnz > _INT32_CEIL or operand.indptr.size > _INT32_CEIL:
                 # int32 pin: the peer reader declares int32 dataset reads, so an over-ceiling operand cannot cross.
-                raise OverflowError(f"exchange int32 ceiling: nnz={operand.nnz}")
+                raise OverflowError(f"exchange int32 ceiling: shape={operand.shape}; nnz={operand.nnz}")
             with h5py.File(str(ref.path), "x") as file:  # create-only, matching the peer's create-only session
-                node = file.create_group(group)
-                node.create_dataset("indptr", data=operand.indptr.astype(np.int32))
-                node.create_dataset("indices", data=operand.indices.astype(np.int32))
+                node = file.create_group("A")
+                node.create_dataset("indptr", data=operand.indptr.astype("<i4"))
+                node.create_dataset("indices", data=operand.indices.astype("<i4"))
                 node.create_dataset("values", data=operand.data.astype("<f8"))
-                node.create_dataset("permutation", data=np.asarray(permutation, dtype=np.int32))
-                node.attrs["shape"] = np.asarray(operand.shape, dtype=np.int64)
+                node.create_dataset("permutation", data=applied.astype("<i4"))
+                node.attrs["shape"] = np.asarray(operand.shape, dtype="<i8")
                 node.attrs["format"] = "csc"
                 node.attrs["kind"] = meta.kind
-                node.attrs["ordering"] = np.int32(meta.ordering)
-                node.attrs["fill"] = np.int32(meta.fill)
-                node.attrs["frobenius"] = np.float64(meta.frobenius)
-                node.attrs["symmetric"] = np.bool_(meta.symmetric)
+                node.attrs["ordering"] = np.asarray(meta.ordering, dtype="<i8")
+                node.attrs["fill"] = np.asarray(meta.fill, dtype="<i8")
+                node.attrs["frobenius"] = np.asarray(meta.frobenius, dtype="<f8")
+                node.attrs["symmetric"] = np.uint8(meta.symmetric)
             # read past the close, so the extent names a flushed container rather than an open handle's buffer.
             return ref.path.stat().st_size
 
-        return boundary(ARCHIVE_WRITE, write, catch=(ValueError, OSError))
+        return boundary(ARCHIVE_WRITE, write, catch=(OSError, OverflowError, TypeError, ValueError))
 
     @staticmethod
     async def write_archive_async(
-        ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray, group: str = "A", *, composition: ScopeKey = DEFAULT_SCOPE
+        ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[int]":
-        return await _written("archive", ref, SparseExchange.write_archive(ref, m, meta, permutation, group), composition)
+        return await _written("archive", ref, SparseExchange.write_archive(ref, m, meta, permutation), composition)
+
+
+def _wire_array(source: object, dtype: str, coordinate: str) -> np.ndarray:
+    value = np.asarray(source)
+    expected = np.dtype(dtype)
+    if (
+        value.dtype.kind != expected.kind
+        or value.dtype.itemsize != expected.itemsize
+        or value.dtype.byteorder not in ("<", "=")
+        or (value.dtype.byteorder == "=" and not np.little_endian)
+    ):
+        raise TypeError(f"exchange dtype {coordinate}: {value.dtype.str} != {dtype}")
+    return value
+
+
+def _wire_scalar(source: object, dtype: str, coordinate: str) -> object:
+    value = _wire_array(source, dtype, coordinate)
+    if value.ndim != 0:
+        raise TypeError(f"exchange scalar {coordinate}: {value.shape}")
+    return value.item()
+
+
+def _wire_bool(source: object, coordinate: str) -> bool:
+    value = np.asarray(source)
+    if value.ndim != 0 or value.dtype.kind != "u" or value.dtype.itemsize != 1 or int(value.item()) not in (0, 1):
+        raise TypeError(f"exchange bool {coordinate}: {value.dtype.str}{value.shape}")
+    return bool(value.item())
 
 
 def _admit(operand: object, shape: tuple[int, int]) -> object:

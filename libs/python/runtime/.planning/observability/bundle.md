@@ -1,41 +1,37 @@
 # [PY_RUNTIME_BUNDLE]
 
-`SupportBundle` folds the daemon's whole evidence state into one pull-driven diagnostic capsule — the C# support-bundle peer at Python grain. One `COLLECTORS` table owns the capture surface — interpreter stacks and the native frame, the gated heap ranking, every hook REPLAY window, the install-receipt roster, the backend-free measurement reading, the admitted-context render, the supervision verdict — each row fenced, so a refusing collector lands as a skipped roster entry beside its rejected receipt, never a failed capture. Archive encoding passes collector facts through the receipts-owned `Redaction`, compresses with `compression.zstd`, and mints the `ContentIdentity.key`; identical state keys identically.
+`SupportBundle` folds the daemon's evidence state into one local, pull-driven diagnostic capsule. One `COLLECTORS` table owns the capture surface — interpreter stacks and the native frame, the gated heap ranking, every hook REPLAY window, the install-receipt roster, the backend-free measurement reading, the admitted-context render, and the supervision verdict — each row fenced, so a refusing collector lands as a skipped roster entry beside its rejected receipt, never a failed capture. Archive encoding passes collector facts through the receipts-owned `Redaction`, compresses with `compression.zstd`, and mints the `ContentIdentity.key`; identical state keys identically.
 
-Capture starts nothing and serializes whole-capsule cost through one in-flight band. Heap analysis reads only an already-tracing `tracemalloc`; snapshot and ranking cost still scale with the traced allocation set, while `HEAP_ROWS` caps only the emitted ranking. Replay rings arrive pre-trimmed to their registered `HookPoint.buffer`, and the stack dump spans exactly the live thread set — no sampling loop lands beside the admitted profilers. `Redaction`/`OPEN`, `Receipt`, `ENCODE`, and the fault fences arrive settled from `observability/receipts#RECEIPT`; the REPLAY rings from `observability/hooks#HOOKS`; the install receipts from their `observability/telemetry#TELEMETRY`, `observability/metrics#METRIC`, `observability/logging#PIPELINE`, and `observability/profiles#PROFILES` owners, the measurement reading from that telemetry owner's `snapshot`; the wire pair from `transport/shapes#VOCABULARY`; the verdict projection as data off the `execution/workers#SUPERVISION` accessor. Serve mounts one diagnostic `Route` through `SupportBundle.handler`, and the shapes registry proves all four of its wire facts against the compiled descriptors before the first RPC — the request and reply rows, and the service and rpc names it dials under — so a producer-side rename refuses at boot rather than at a pull.
+Capture starts nothing. Heap analysis reads only an already-tracing `tracemalloc`; snapshot and ranking cost still scale with the traced allocation set, while `HEAP_ROWS` caps only the emitted ranking. Replay rings arrive pre-trimmed to their registered `HookPoint.buffer`, and the stack dump spans exactly the live thread set — no sampling loop lands beside the admitted profilers. `Redaction`/`OPEN`, `Receipt`, `ENCODE`, and the fault fences arrive settled from `observability/receipts#RECEIPT`; the REPLAY rings from `observability/hooks#HOOKS`; the install receipts from their `observability/telemetry#TELEMETRY`, `observability/metrics#METRIC`, `observability/logging#PIPELINE`, and `observability/profiles#PROFILES` owners; the measurement reading from that telemetry owner's `snapshot`; and the verdict projection as data off the `execution/workers#SUPERVISION` accessor.
 
 ## [01]-[INDEX]
 
-- [02]-[BUNDLE]: one fenced collectors table, redaction-then-encode archive fold, content-keyed `Bundle` evidence, and the serve-facing handler.
+- [02]-[BUNDLE]: one fenced collectors table, redaction-then-encode archive fold, and content-keyed `Bundle` evidence.
 
 ## [02]-[BUNDLE]
 
 - Owner: `Collector` is one capture row — name, availability gate, collect — and `COLLECTORS` the closed roster every capture folds; `Bundle` carries the archive body beside its `ContentKey` and the collected/skipped rosters, contributing key, byte length, and roster counts to the receipt stream while the body stays bytes — the key correlates two captures on a log line, the archive itself never rides one.
-- Cases: a gate-closed row (the heap row with no tracer running) skips silently into the roster; a raising collector converts through the `boundary` fence into a `rejected` receipt under `bundle.<row>` and joins `skipped`; a collected row lands its redacted facts under its name in the one document. Archive finalization — deterministic encode, `zstd` compress, key mint — runs under its own `bundle.archive` fence, so `capture` returns `RuntimeRail[Bundle]`, a finalization fault lands as a rejected receipt beside the rail's refusal, and the handler projects the rail instead of throwing past the route. Self-emission rides a SECOND fence outside that one: a wedged sink is the condition a bundle gets pulled under, so the drained line stays evidence OF a capture rather than a term in it and a built archive survives a render or sink fault whole.
-- Entry: `capture(subject, *, selected, redaction)` is the one fold — an empty selection runs every row, a named selection bounds the roster — and `handler(verdicts, redaction, *, scope)` binds the capture into the serve-shaped async callable the composition root mounts as the diagnostic `Route`, offloading the dump-and-compress body through one single-token band so a capture never stalls the event loop and a concurrent second pull queues instead of doubling the dump cost. That band reports itself: the capture bracket registers the module-level `_capturing` probe under `band="capture"`, so queue depth reads off the standing occupancy level instead of being inferred from a reply that has not come back, and probe identity is what keeps concurrent pulls one reading of one limiter rather than N copies of it. `Subject` carries the admitted-context render, verdict thunk, and scope as one value, so replay and emitted evidence stay inside the mounting composition while the static table remains closed.
-- Auto: the document encodes through the receipts-owned deterministic `ENCODE`, so key order is stable and the `ContentKey` replays across captures of identical state; `zstd.compress` bounds the wire body; redaction applies per collector BEFORE encoding and classifies by key name at EVERY depth, so the caller-supplied context, the verdict facts, and the nested `_installs` receipt maps and `_replay` hook rings all scrub in place even under a permissive sink; the capture self-emits its `Bundle` facts through the contributor stream, so every pull leaves a drained line beside the served bytes.
+- Cases: a gate-closed row (the heap row with no tracer running) skips silently into the roster; a raising collector converts through the `boundary` fence into a `rejected` receipt under `bundle.<row>` and joins `skipped`; a collected row lands its redacted facts under its name in the one document. Archive finalization — deterministic encode, `zstd` compress, key mint — runs under its own `bundle.archive` fence, so `capture` returns `RuntimeRail[Bundle]` and a finalization fault lands as a rejected receipt beside the rail's refusal. Self-emission rides a SECOND fence outside that one: a wedged sink is the condition a bundle gets pulled under, so the drained line stays evidence OF a capture rather than a term in it and a built archive survives a render or sink fault whole.
+- Entry: `capture(subject, *, selected, redaction)` is the one fold — an empty selection runs every row and a named selection bounds the roster. `Subject` carries the admitted-context render, verdict thunk, and scope as one value, so replay and emitted evidence stay inside the calling composition while the static table remains closed.
+- Auto: the document encodes through the receipts-owned deterministic `ENCODE`, so key order is stable and the `ContentKey` replays across captures of identical state; `zstd.compress` bounds the archive body; redaction applies per collector BEFORE encoding and classifies by key name at EVERY depth, so the caller-supplied context, the verdict facts, and the nested `_installs` receipt maps and `_replay` hook rings all scrub in place even under a permissive sink; the capture self-emits its `Bundle` facts through the contributor stream, so every pull leaves a drained line beside the built archive.
 - Law: every fence resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.BUNDLE`; the collector name stays on the emitted receipt where an operator reads it, so a per-collector fence subject bought a coordinate the receipt already carries. Two fences keep a catch-all and state why — a collector body and the self-emitting sink are both the plane a capsule gets pulled UNDER, so neither may raise past `capture`.
-- Growth: a new evidence source is one `Collector` row; a new capture input is one `Subject` field; a new redaction transform stays the receipts owner's `Scrub` growth; the wire pair grows only at the shapes registry, and the served service and rpc only at its `SERVICE_VOCABULARY`; a new route fact this owner genuinely holds is one constant beside `BUNDLE_WIRE`.
-- Boundary: collection never starts an agent, thread, tracer, or sampling loop — the profilers stay the admitted owners, the heap gate reads, never arms, `tracemalloc`, and the readings row reads, never mounts, the diagnostic reader whose arming is the composition's `SignalProfile` value — and the capsule serves only through the registered diagnostic route; the calling host pulls over the standing wire and re-mints nothing. `memray` is DECLINED on that same law — its allocation profiler arms a tracker the capture then owns, the exact agent this row forecloses — so the heap artifact stays the read-only `tracemalloc` ranking and the continuous rail stays `pyroscope-io`.
+- Growth: a new evidence source is one `Collector` row; a new capture input is one `Subject` field; a new redaction transform stays the receipts owner's `Scrub` growth.
+- Boundary: collection never starts an agent, thread, tracer, or sampling loop — the profilers stay the admitted owners, the heap gate reads, never arms, `tracemalloc`, and the readings row reads, never mounts, the diagnostic reader whose arming is the composition's `SignalProfile` value. `memray` is DECLINED on that same law — its allocation profiler arms a tracker the capture then owns, the exact agent this row forecloses — so the heap artifact stays the read-only `tracemalloc` ranking and the continuous rail stays `pyroscope-io`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import faulthandler
 import json
 import tracemalloc
-from collections.abc import Awaitable, Callable, Iterable
-from functools import partial
+from collections.abc import Callable, Iterable
 from tempfile import TemporaryFile
 from typing import Final, assert_never
 
-import anyio.to_thread
 import compression.zstd as zstd
-from anyio import CapacityLimiter
 from expression import Result
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
-from rasm.runtime.admission import RuntimeContext
 from rasm.runtime.faults import BUNDLE_ARCHIVE, BUNDLE_COLLECT, BUNDLE_EMIT, RuntimeRail, boundary
 from rasm.runtime.hooks import Hooks
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -43,7 +39,6 @@ from rasm.runtime.logging import LogPipeline
 from rasm.runtime.metrics import Instrumentation, Metrics
 from rasm.runtime.profiles import Profiles
 from rasm.runtime.receipts import DEFAULT_SCOPE, ENCODE, OPEN, EventDict, Receipt, Redaction, ScopeKey, Signals
-from rasm.runtime.shapes import SupportBundleReply, SupportBundleRequest
 from rasm.runtime.telemetry import Telemetry
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -53,17 +48,8 @@ type Collect = Callable[["Subject"], EventDict]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# serve-facing route facts the composition root mounts; the wire pair names the shapes registry rows. The dialed
-# service and rpc are NOT here: both are `transport/shapes#REGISTRY_AND_DRIFT` `SERVICE_VOCABULARY` members the boot
-# gate resolves against the compiled descriptor, and a local literal beside them dialed a name no descriptor set
-# emits — a miss no boot could see and no pull answered with anything but UNIMPLEMENTED.
-BUNDLE_DESCRIPTOR: Final[str] = "rasm.runtime.diagnostic/capture"
-BUNDLE_WIRE: Final[tuple[str, str]] = ("support_bundle", "support_bundle_reply")
 
 HEAP_ROWS: Final[int] = 64  # output-row cap; snapshot and statistics still scan the full traced allocation set
-
-# one in-flight capture: the dump-and-compress body rides a worker thread, and a concurrent second pull queues here.
-_CAPTURE_BAND: Final[CapacityLimiter] = CapacityLimiter(1)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -97,14 +83,6 @@ class Bundle(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _capturing() -> int:
-    # `_capturing` reads the band's own borrowed slot, and MODULE-LEVEL identity is the whole contract: `Metrics.occupied` keys its
-    # registration on the probe OBJECT, so every concurrent pull enrols THIS one object and `rasm.band.in_flight`
-    # reports one reading of one limiter. A per-call closure would enrol a fresh row per queued pull and sum the same
-    # borrowed count once per row, publishing a saturation the process never reached.
-    return _CAPTURE_BAND.borrowed_tokens
-
-
 def _dumped(dump: Callable[..., None], **kwargs: object) -> str:
     # Exemption: faulthandler writes at file-descriptor grain, so the dump lands in a real temporary file and reads
     # back whole — the fd bracket is the platform-forced seam no expression reaches; the file dies with the block.
@@ -123,7 +101,7 @@ def _native(_: Subject) -> EventDict:
 
 
 def _heap(_: Subject) -> EventDict:
-    # Reads an ALREADY-tracing tracemalloc; the capture band serializes full-snapshot cost, and HEAP_ROWS caps output only.
+    # Reads an ALREADY-tracing tracemalloc; HEAP_ROWS caps output only.
     return {"rows": tuple(str(stat) for stat in tracemalloc.take_snapshot().statistics("lineno")[:HEAP_ROWS])}
 
 
@@ -245,30 +223,6 @@ class SupportBundle:
         outcome.map(lambda bundle: boundary(BUNDLE_EMIT, lambda: Signals.emit(bundle, redaction, scope=subject.scope), catch=Exception))
         return outcome
 
-    @staticmethod
-    def handler(
-        verdicts: Verdicts, redaction: Redaction = OPEN, *, scope: ScopeKey = DEFAULT_SCOPE
-    ) -> Callable[[SupportBundleRequest, RuntimeContext], Awaitable[RuntimeRail[SupportBundleReply]]]:
-        # serve-shaped bind: the admitted context renders into the capture subject, the dump-and-compress body offloads
-        # under the one-token band, and the reply projects the capsule onto the wire pair.
-        async def captured(request: SupportBundleRequest, context: RuntimeContext) -> RuntimeRail[SupportBundleReply]:
-            subject = Subject(facts={key: str(value) for key, value in context.attribute().items()}, verdicts=verdicts, scope=scope)
-            # `_capturing` publishes the band's occupancy for the bracket that holds it, so an operator reading a stalled
-            # capture sees the queue depth on the standing level rather than inferring it from a missing reply. The
-            # registration retires with the bracket, and a band no pull holds publishes NO point at all.
-            with Metrics.occupied(_capturing, band="capture", scope=scope):
-                railed = await anyio.to_thread.run_sync(
-                    partial(SupportBundle.capture, subject, selected=tuple(request.collectors), redaction=redaction),
-                    abandon_on_cancel=True,
-                    limiter=_CAPTURE_BAND,
-                )
-            return railed.map(
-                lambda bundle: SupportBundleReply(
-                    content_key=bundle.key.project("hex"), archive=bundle.body, collected=bundle.collected, skipped=bundle.skipped
-                )
-            )
-
-        return captured
 ```
 
 ## [03]-[RESEARCH]

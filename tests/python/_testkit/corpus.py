@@ -1,234 +1,463 @@
-"""Cross-language contracts-corpus reader: manifest decode, disk audit, and round-trip folds."""
+"""Live contracts-corpus proof over the assay registry and generated Python bindings."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable  # msgspec resolves fold annotations at runtime
-from pathlib import Path
-import re
+from collections.abc import Iterator
+from hashlib import sha256
+from importlib import import_module
+from importlib.resources import files
+from pathlib import Path, PurePosixPath
+from tempfile import NamedTemporaryFile
+from types import ModuleType
+from typing import assert_never, Final
 
+from expression import Result
 import msgspec
-lazy import pytest
+from protobuf import DescFile, Message, Registry
+from protobuf.wkt import FileDescriptorSet
+import rasm.contracts.gen as generated
+from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
+import rasm.contracts.vendor as vendored
+from rasm.contracts.vendor.io.cloudevents.v1.cloudevents_pb import CloudEvent
+import xxhash
 
+from tools.assay.rails.contracts import (
+    Actor,
+    ApplicationAuthority,
+    Asset,
+    BackendGenerationFacts,
+    BlockedReadiness,
+    Case,
+    ClientRequestActor,
+    ClientResponseActor,
+    CloudEventDefinition,
+    ContentDigestFacts,
+    CorpusOracleReceipt,
+    DomainAuthority,
+    ExpectedAsset,
+    ExpectedFacts,
+    FieldFacts,
+    GraduationFacts,
+    HlcValueFacts,
+    InfrastructureAuthority,
+    LawDefinition,
+    load_manifest,
+    MatrixMarketFacts,
+    MessageActor,
+    Oracle,
+    ProofVector,
+    ProtoDefinition,
+    prove_case,
+    PublisherAuthority,
+    PublisherDefinition,
+    PythonPackageResource,
+    SchemaDefinition,
+    ServerRequestActor,
+    ServerResponseActor,
+    SparseFacts,
+    SpecimenAsset,
+    TypeScriptJsonModule,
+    VerifiedReadiness,
+    WaveformFacts,
+)
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_MANIFEST_NAME = "MANIFEST.md"
-_SEAM_DEFINITION = "contract.schema.json"
-_CLASS_VOCABULARY: frozenset[str] = frozenset({"infrastructure", "domain"})
-_PAYLOAD_KINDS: frozenset[str] = frozenset({"wire-bytes", "canonical-json", "digest", "descriptor-set"})
-_PIN_VOCABULARY: frozenset[str] = frozenset({"REAL", "DESIGN-PIN"})
-
-# The roots `tests/contracts/README.md` `[02]-[LAYOUT]` names beside the seam directories: the corpus tool catalog,
-# the descriptor-source tree, and the vendored publisher-source tree. None is a seam, so none registers an entry.
-_NON_SEAM_ROOTS: frozenset[str] = frozenset({".api", "io", "rasm"})
-
-# Every branch anchor resolves the same way — `lang:<pkg>/<page>#<CLUSTER>` against `libs/<lang>/<pkg>/.planning/`.
-# A csharp-only reader left two thirds of every infrastructure entry's mint roster passing the audit unverified.
-_ANCHOR = re.compile(r"(csharp|python|typescript):([A-Za-z0-9_.]+)/([A-Za-z0-9_./-]+?)(?:#[A-Z0-9_]+)?`")
-_ENTRY_HEAD = re.compile(r"^### \[[0-9.]+\]-\[([A-Z0-9_]+)\]\s*$")
-_FIELD = re.compile(r"^- (Seam|Class|Minters|Producer|Consumers|Payload|Pin|Blocker|Shape|Expectation|Regenerate when): (.+)$")
-_CODE_SPAN = re.compile(r"`([^`]+)`")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class CorpusEntry(msgspec.Struct, frozen=True):
-    """One manifest fixture record in the README `[03]-[MANIFEST]` field grammar."""
+class OracleProof(msgspec.Struct, frozen=True, gc=False, kw_only=True):
+    """Closed vector census over the manifest V2 oracle family."""
 
-    fixture: str
-    seam: str
-    entry_class: str
-    minters: str
-    producer: str
-    consumers: str
-    payload: frozenset[str]
-    pin: str
-    shape: str
-    blocker: str = ""
-    expectation: str = ""
-    regenerate: str = ""
+    semantic_conformance: int
+    semantic_roundtrip: int
+    value_parity: int
+    external_digest: int
+    publisher_digest: int
+
+    @property
+    def vectors(self) -> int:
+        return self.semantic_conformance + self.semantic_roundtrip + self.value_parity + self.external_digest + self.publisher_digest
 
 
-class CorpusManifest(msgspec.Struct, frozen=True):
-    """Decoded corpus registry bound to its on-disk root, with the audit and asset folds."""
+class CorpusProof(msgspec.Struct, frozen=True, gc=False, kw_only=True):
+    """Assay corpus verdicts beside independently executed Python proofs and binding checks."""
 
-    root: Path
-    entries: tuple[CorpusEntry, ...]
-    ledger: tuple[tuple[str, str, str], ...]
+    assay_corpus_oracles: OracleProof
+    python_oracles: OracleProof
+    python_bindings: int
+    blocked_cases: int
+    registered_specimens: int
+    registered_expected: int
 
-    def entry(self, fixture: str) -> CorpusEntry:
-        """Resolve one fixture record by name.
 
-        Returns:
-            The matching entry.
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-        Raises:
-            KeyError: When no entry carries ``fixture``.
-        """
-        match [e for e in self.entries if e.fixture == fixture]:
-            case [found]:
-                return found
-            case _:
-                raise KeyError(f"no corpus entry named {fixture!r}; known: {[e.fixture for e in self.entries]}")
 
-    def assets(self, seam: str, *, suffix: str = "") -> tuple[Path, ...]:
-        """Enumerate a seam directory's committed asset files.
-
-        Returns:
-            Sorted asset paths under ``root/seam`` matching ``suffix``; empty when un-emitted.
-        """
-        seam_dir = self.root / seam
-        return tuple(sorted(p for p in seam_dir.iterdir() if p.is_file() and p.name.endswith(suffix))) if seam_dir.is_dir() else ()
-
-    def audit(self, libs_root: Path) -> tuple[str, ...]:
-        """Fold the corpus-honesty defects the contracts law names.
-
-        Pin-state honesty, class vocabulary and its exclusive minter/producer maps, payload
-        vocabulary, ledger-entry coherence, seam-directory registration, DESIGN-PIN asset
-        emptiness, and mint-anchor page resolution fold into one defect stream; an empty return
-        is the clean verdict.
-
-        Returns:
-            One human-readable defect string per violation.
-        """
-        seams = {e.seam for e in self.entries}
-        real_seams = {e.seam for e in self.entries if e.pin == "REAL"}
-        by_fixture = {e.fixture: e for e in self.entries}
-        on_disk = tuple(sorted(p for p in self.root.iterdir() if p.is_dir())) if self.root.is_dir() else ()
-
-        entry_defects = (
-            defect
-            for e in self.entries
-            for defect in (
-                f"{e.fixture}: pin {e.pin!r} outside {sorted(_PIN_VOCABULARY)}" if e.pin not in _PIN_VOCABULARY else "",
-                f"{e.fixture}: class {e.entry_class!r} outside {sorted(_CLASS_VOCABULARY)}" if e.entry_class not in _CLASS_VOCABULARY else "",
-                f"{e.fixture}: infrastructure entry names no Minters" if e.entry_class == "infrastructure" and not e.minters else "",
-                f"{e.fixture}: infrastructure entry names a Producer" if e.entry_class == "infrastructure" and e.producer else "",
-                f"{e.fixture}: domain entry names no Producer" if e.entry_class == "domain" and not e.producer else "",
-                f"{e.fixture}: domain entry names Minters" if e.entry_class == "domain" and e.minters else "",
-                f"{e.fixture}: REAL entry missing Expectation" if e.pin == "REAL" and not e.expectation else "",
-                f"{e.fixture}: REAL entry carries Blocker" if e.pin == "REAL" and e.blocker else "",
-                f"{e.fixture}: DESIGN-PIN entry missing Blocker" if e.pin == "DESIGN-PIN" and not e.blocker else "",
-                f"{e.fixture}: DESIGN-PIN entry carries Expectation" if e.pin == "DESIGN-PIN" and e.expectation else "",
-                f"{e.fixture}: payload {sorted(e.payload - _PAYLOAD_KINDS)} outside the closed vocabulary" if e.payload - _PAYLOAD_KINDS else "",
-                f"{e.fixture}: entry declares no payload kind" if not e.payload else "",
-            )
-            if defect
-        )
-        ledger_defects = (
-            defect
-            for fixture, seam, pin in self.ledger
-            for entry in (by_fixture.get(fixture),)
-            for defect in (
-                f"{fixture}: ledger row has no H3 entry" if entry is None else "",
-                f"{fixture}: ledger seam {seam!r} != entry seam {entry.seam!r}" if entry is not None and entry.seam != seam else "",
-                f"{fixture}: ledger pin {pin!r} != entry pin {entry.pin!r}" if entry is not None and entry.pin != pin else "",
-            )
-            if defect
-        )
-        missing_rows = (f"{fixture}: entry has no ledger row" for fixture in sorted(set(by_fixture) - {row[0] for row in self.ledger}))
-        disk_defects = (
-            defect
-            for directory in on_disk
-            for defect in (
-                f"{directory.name}: seam directory has no manifest entry" if directory.name not in seams | _NON_SEAM_ROOTS else "",
-                # A seam's own contract.schema.json is its DEFINITION, never an asset: the pin says the byte-deriving
-                # input is unfrozen, so the whole subtree below the definition is what an unfrozen pin must hold empty.
-                f"{directory.name}: DESIGN-PIN seam carries assets"
-                if directory.name in seams - real_seams and any(p.is_file() and p != directory / _SEAM_DEFINITION for p in directory.rglob("*"))
-                else "",
-            )
-            if defect
-        )
-        anchor_defects = (
-            f"{e.fixture}: {label} anchor {lang}:{pkg}/{page} resolves to no planning page"
-            for e in self.entries
-            for label, cell in (("Minters", e.minters), ("Producer", e.producer))
-            for lang, pkg, page in _ANCHOR.findall(cell)
-            if not (libs_root / lang / pkg / ".planning" / f"{page}.md").is_file()
-        )
-        return (*entry_defects, *ledger_defects, *missing_rows, *disk_defects, *anchor_defects)
+_ROOTS: Final = (generated, vendored)
+_FACTS: Final[msgspec.json.Decoder[ExpectedFacts]] = msgspec.json.Decoder(ExpectedFacts)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def load_manifest(root: Path) -> CorpusManifest:
-    """Decode ``root/MANIFEST.md`` into the typed corpus registry.
+def _closure(file: DescFile, /) -> Iterator[DescFile]:
+    yield file
+    for dependency in file.dependencies:
+        yield from _closure(dependency)
 
-    Returns:
-        Manifest carrying every ledger row and H3 fixture entry.
+
+def _emitted(root: ModuleType, /) -> Iterator[DescFile]:
+    """Import every generated message module beneath one emission root and yield its descriptor closure.
+
+    A hand-kept module roster silently narrows the registry the moment generation lands a package,
+    so the census that proves the Python bindings derives from the emitted tree itself.
+
+    Yields:
+        Each descriptor file the emitted modules and their dependencies declare.
     """
-    lines = (root / _MANIFEST_NAME).read_text(encoding="utf-8").splitlines()
-    ledger = tuple(
-        (cells[1], _CODE_SPAN.sub(r"\1", cells[2]).strip(), cells[-1])
-        for line in lines
-        if line.startswith("|") and "---" not in line and (cells := [c.strip() for c in line.strip("|").split("|")])[0].startswith("[")
-        if cells[0] != "[INDEX]"
-    )
-    entries: list[CorpusEntry] = []
-    fields: dict[str, list[str]] = {}
-    fixture = ""
-
-    # A label repeats freely — `Shape`, `Producer`, and `Blocker` all carry several lines per entry — so every
-    # occurrence joins into one cell; assignment would discard all but the last and hide whole anchors from the audit.
-    def _cell(label: str) -> str:
-        return " ".join(fields.get(label, ()))
-
-    def _seal() -> None:
-        entries.append(
-            CorpusEntry(
-                fixture=fixture,
-                seam=_CODE_SPAN.sub(r"\1", _cell("Seam")).strip(),
-                entry_class=_cell("Class").strip(),
-                minters=_cell("Minters"),
-                producer=_cell("Producer"),
-                consumers=_cell("Consumers"),
-                payload=frozenset(_CODE_SPAN.findall(_cell("Payload"))),
-                pin=_cell("Pin").strip(),
-                shape=_cell("Shape"),
-                blocker=_cell("Blocker"),
-                expectation=_cell("Expectation"),
-                regenerate=_cell("Regenerate when"),
-            )
-        ) if fixture else None
-
-    for line in lines:
-        head = _ENTRY_HEAD.match(line)
-        if head is not None:
-            _seal()
-            fixture, fields = head.group(1), {}
-            continue
-        field = _FIELD.match(line)
-        if field is not None and fixture:
-            fields.setdefault(field.group(1), []).append(field.group(2))
-    _seal()
-    return CorpusManifest(root=root, entries=tuple(entries), ledger=ledger)
+    for base in root.__path__:
+        for module in sorted(Path(base).rglob("*_pb.py")):
+            descriptor: DescFile = import_module(".".join((root.__name__, *module.relative_to(base).with_suffix("").parts))).desc()
+            yield from _closure(descriptor)
 
 
-def assert_corpus_roundtrip[T](
-    manifest: CorpusManifest, fixture: str, decode: Callable[[bytes], T], encode: Callable[[T], bytes], *, suffix: str = ".bin"
-) -> int:
-    """Round-trip every committed asset of a REAL fixture to byte identity.
+_FILES: Final = tuple({file.name: file for root in _ROOTS for file in _emitted(root)}.values())
+_REGISTRY: Final = Registry(*_FILES)
+_IMAGE: Final = FileDescriptorSet(file=[file.proto for file in _FILES]).to_binary()
 
-    A DESIGN-PIN fixture skips by its named blocker — the consumer obligation starts at pin
-    graduation, and a fabricated stand-in is the rejected form.
 
-    Returns:
-        The number of assets proven; zero when the producer has not emitted yet.
-    """
-    entry = manifest.entry(fixture)
-    if entry.pin != "REAL":
-        pytest.skip(f"{fixture} is {entry.pin}: {entry.blocker or 'producer has not pinned the byte-deriving input'}")
+def _actors(case: Case, /) -> tuple[Actor, ...]:
+    match case.authority:
+        case ApplicationAuthority():
+            return case.consumers
+        case DomainAuthority(producer=producer):
+            return (producer, *case.consumers)
+        case InfrastructureAuthority(minters=minters):
+            return (*minters, *case.consumers)
+        case PublisherAuthority():
+            return case.consumers
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _python(actor: Actor, /) -> bool:
+    return actor.anchor.startswith("python:")
+
+
+def _definition_message(case: Case, /) -> str | None:
+    match case.definition:
+        case ProtoDefinition(message=message) | CloudEventDefinition(message=message):
+            return message
+        case LawDefinition() | PublisherDefinition() | SchemaDefinition():
+            return None
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _method_message(actor: Actor, /) -> str:
+    match actor:
+        case MessageActor():
+            raise AssertionError(f"{actor.anchor}: a message actor names no RPC method")
+        case ClientRequestActor() | ServerRequestActor():
+            request = True
+        case ClientResponseActor() | ServerResponseActor():
+            request = False
+        case _ as unreachable:
+            assert_never(unreachable)
+    service_name, _, method_name = actor.method.rpartition(".")
+    service = _REGISTRY.service(service_name)
+    assert service is not None, f"{actor.anchor}: generated Python bindings do not contain service {service_name}"
+    method = next((candidate for candidate in service.methods if candidate.name == method_name), None)
+    assert method is not None, f"{actor.anchor}: generated Python bindings do not contain method {actor.method}"
+    return method.input.type_name if request else method.output.type_name
+
+
+def _actor_bindings(case: Case, /) -> int:
+    message = _definition_message(case)
     proven = 0
-    for path in manifest.assets(entry.seam, suffix=suffix):
-        raw = path.read_bytes()
-        again = encode(decode(raw))
-        assert again == raw, f"{fixture}: {path.name} re-encode is not byte-identical ({len(again)} bytes vs {len(raw)})"
+    for actor in _actors(case):
+        if not (_python(actor) and actor.binding == "generated"):
+            continue
+        match actor:
+            case MessageActor(roots=roots):
+                for root in roots:
+                    assert _REGISTRY.message(root) is not None, f"{case.id}: generated Python bindings do not contain public root {root}"
+                if message is not None:
+                    assert _REGISTRY.message(message) is not None, f"{case.id}: generated Python bindings do not contain {message}"
+                elif isinstance(case.definition, (LawDefinition, SchemaDefinition)):
+                    raise AssertionError(f"{case.id}: {actor.anchor} claims generated custody for a non-generated definition")
+            case ClientRequestActor() | ClientResponseActor() | ServerRequestActor() | ServerResponseActor():
+                assert message is not None, f"{case.id}: {actor.anchor} binds an RPC direction to a non-Protobuf definition"
+                bound = _method_message(actor)
+                assert bound == message, f"{case.id}: {actor.anchor} binds {bound}, expected {message}"
+            case _ as unreachable:
+                assert_never(unreachable)
+        for support in actor.supports:
+            match support.kind:
+                case "message":
+                    found = _REGISTRY.message(support.fqn) is not None
+                case "service":
+                    found = _REGISTRY.service(support.fqn) is not None
+                case "method":
+                    service_name, _, method_name = support.fqn.rpartition(".")
+                    service = _REGISTRY.service(service_name)
+                    found = service is not None and any(method.name == method_name for method in service.methods)
+                case invalid:
+                    assert_never(invalid)
+            assert found, f"{case.id}: generated Python bindings do not contain {support.kind} support {support.fqn}"
         proven += 1
     return proven
 
 
+def _fingerprint(asset: Asset, raw: bytes, /) -> None:
+    match asset.fingerprint.algorithm:
+        case "xxh128":
+            actual = xxhash.xxh128(raw, seed=0).hexdigest()
+        case "sha256":
+            actual = sha256(raw).hexdigest()
+        case invalid:
+            assert_never(invalid)
+    expected = (asset.bytes, asset.fingerprint.value)
+    found = (len(raw), actual)
+    assert found == expected, f"{asset.path} drifted: expected {expected}, got {found}"
+
+
+def _package_bytes(distribution: PythonPackageResource, /) -> bytes:
+    path = PurePosixPath(distribution.path)
+    package_root = PurePosixPath("libs/python/contracts/src").joinpath(*distribution.package.split("."))
+    assert path.is_relative_to(package_root), f"{distribution.path}: path is outside the exact {distribution.package} package root"
+    return files(distribution.package).joinpath(*path.relative_to(package_root).parts).read_bytes()
+
+
+def _asset(root: Path, asset: Asset, /) -> bytes:
+    raw = (root / asset.path).read_bytes()
+    _fingerprint(asset, raw)
+    distributions = asset.distributions if isinstance(asset, SpecimenAsset) else ()
+    for distribution in distributions:
+        match distribution:
+            case PythonPackageResource():
+                assert _package_bytes(distribution) == raw, f"{asset.path}: Python package resource differs from publisher bytes"
+            case TypeScriptJsonModule():
+                continue
+            case _ as unreachable:
+                assert_never(unreachable)
+    return raw
+
+
+def _decode(message: str, definition: ProtoDefinition | CloudEventDefinition, raw: bytes, /) -> Message[str]:
+    descriptor = _REGISTRY.message(message)
+    assert descriptor is not None, f"generated Python bindings do not contain {message}"
+    return (
+        descriptor.type.from_json(raw, ignore_unknown_fields=False, registry=_REGISTRY)
+        if isinstance(definition, ProtoDefinition) and definition.framing == "proto-json"
+        else descriptor.type.from_binary(raw, ignore_unknown_fields=False)
+    )
+
+
+def _roundtrip(case: Case, specimen: SpecimenAsset, raw: bytes, /) -> None:
+    definition = case.definition
+    assert isinstance(definition, (ProtoDefinition, CloudEventDefinition)), f"{case.id}: semantic roundtrip requires Protobuf"
+    assert not (isinstance(definition, ProtoDefinition) and definition.framing == "canonical-frame"), (
+        f"{case.id}: canonical-frame requires its law decoder, not a protobuf semantic roundtrip"
+    )
+    decoded = _decode(definition.message, definition, raw)
+    canonical_json = decoded.to_json(registry=_REGISTRY, use_proto_field_name=True)
+    json_cycle = type(decoded).from_json(canonical_json, ignore_unknown_fields=False, registry=_REGISTRY)
+    assert json_cycle == decoded, f"{case.id}: {specimen.path} loses decoded facts through canonical ProtoJSON"
+    if isinstance(definition, CloudEventDefinition):
+        assert isinstance(decoded, CloudEvent), f"{case.id}: generated CloudEvent definition resolved to {type(decoded).__name__}"
+        assert decoded.type == definition.type, f"{case.id}: {specimen.path} carries CloudEvent type {decoded.type!r}, expected {definition.type!r}"
+    if not (isinstance(definition, ProtoDefinition) and definition.framing == "proto-json"):
+        normalized = decoded.to_binary(write_unknown_fields=False)
+        binary_cycle = type(decoded).from_binary(normalized, ignore_unknown_fields=False)
+        assert binary_cycle == decoded, f"{case.id}: {specimen.path} changes across normalized Protobuf re-encoding"
+        assert decoded.to_binary(write_unknown_fields=True) == normalized, f"{case.id}: {specimen.path} retains unknown Protobuf fields"
+
+
+def _facts(case: Case, specimen: SpecimenAsset, expected: ExpectedFacts, root: Path, /) -> ExpectedFacts | None:
+    path = root / specimen.path
+    match expected:
+        case ContentDigestFacts():
+            return ContentDigestFacts(algorithm="xxh128", seed=0, value=xxhash.xxh128(path.read_bytes(), seed=0).hexdigest())
+        case HlcValueFacts():
+            definition = case.definition
+            assert isinstance(definition, ProtoDefinition), f"{case.id}: HLC facts require a Protobuf definition"
+            decoded = _decode(definition.message, definition, path.read_bytes())
+            assert isinstance(decoded, Hlc), f"{case.id}: HLC facts resolved to {type(decoded).__name__}"
+            return HlcValueFacts(physical=str(decoded.physical), logical=str(decoded.logical))
+        case BackendGenerationFacts() | FieldFacts() | GraduationFacts() | SparseFacts() | WaveformFacts() | MatrixMarketFacts():
+            return None
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _expected(root: Path, asset: ExpectedAsset, /) -> ExpectedFacts:
+    decoded = _FACTS.decode(_asset(root, asset))
+    matches = (
+        (asset.facts_format == "backend-generation-v1" and isinstance(decoded, BackendGenerationFacts))
+        or (asset.facts_format == "content-digest-v1" and isinstance(decoded, ContentDigestFacts))
+        or (asset.facts_format == "hlc-value-v1" and isinstance(decoded, HlcValueFacts))
+        or (asset.facts_format == "hdf5-facts-v1" and isinstance(decoded, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts)))
+        or (asset.facts_format == "matrix-market-facts-v1" and isinstance(decoded, MatrixMarketFacts))
+    )
+    assert matches, f"{asset.path}: {asset.facts_format} does not match {type(decoded).__name__}"
+    return decoded
+
+
+def _publisher(case: Case, vector: ProofVector, root: Path, /) -> None:
+    assert isinstance(case.authority, PublisherAuthority), f"{case.id}: publisher digest requires publisher authority"
+    definition = case.definition
+    assert isinstance(definition, PublisherDefinition), f"{case.id}: publisher digest requires a publisher definition"
+    license_row = definition.origin.license
+    license_raw = (root / license_row.path).read_bytes()
+    assert sha256(license_raw).hexdigest() == license_row.sha256, f"{case.id}: publisher license {license_row.path} drifted"
+    source = PurePosixPath(definition.source)
+    for specimen in vector.specimens:
+        assert specimen.fingerprint.algorithm == "sha256", f"{case.id}: publisher custody requires SHA-256"
+        path = PurePosixPath(specimen.path)
+        assert path == source or path.is_relative_to(source), f"{case.id}: {specimen.path} is outside publisher source {source}"
+        _asset(root, specimen)
+    generated = tuple(
+        root_name
+        for actor in _actors(case)
+        if _python(actor) and actor.binding == "generated" and isinstance(actor, MessageActor)
+        for root_name in actor.roots
+    )
+    for root_name in generated:
+        descriptor = _REGISTRY.message(root_name)
+        assert descriptor is not None, f"{case.id}: generated Python bindings do not contain {root_name}"
+        assert definition.source.endswith(descriptor.file.name), (
+            f"{case.id}: publisher source {definition.source} does not own generated root {root_name} from {descriptor.file.name}"
+        )
+
+
+def _vector(case: Case, vector: ProofVector, root: Path, /) -> bool:
+    readiness = case.readiness
+    assert isinstance(readiness, VerifiedReadiness)
+    match readiness.oracle:
+        case "semantic-roundtrip":
+            assert vector.expected is None, f"{case.id}: semantic roundtrip carries unrelated expected facts"
+            for specimen in vector.specimens:
+                _roundtrip(case, specimen, _asset(root, specimen))
+            return True
+        case "semantic-conformance":
+            assert vector.expected is not None and vector.expected.facts_format == "hdf5-facts-v1", (
+                f"{case.id}: Python has no local semantic-conformance route outside the Assay corpus oracle"
+            )
+            return False
+        case "value-parity":
+            assert vector.expected is not None, f"{case.id}: value parity requires typed expected facts"
+            if vector.expected.facts_format in {"backend-generation-v1", "hdf5-facts-v1", "matrix-market-facts-v1"}:
+                return False
+            expected = _expected(root, vector.expected)
+            for specimen in vector.specimens:
+                _asset(root, specimen)
+                found = _facts(case, specimen, expected, root)
+                assert found is not None and found == expected, f"{case.id}: {specimen.path} differs from {vector.expected.path}"
+            return True
+        case "external-digest":
+            assert vector.expected is None, f"{case.id}: external digest carries unrelated expected facts"
+            for specimen in vector.specimens:
+                _asset(root, specimen)
+            return True
+        case "publisher-digest":
+            assert vector.expected is None, f"{case.id}: publisher digest carries unrelated expected facts"
+            _publisher(case, vector, root)
+            return True
+        case invalid:
+            assert_never(invalid)
+
+
+def _count(proof: OracleProof, oracle: Oracle, vectors: int, /) -> OracleProof:
+    match oracle:
+        case "semantic-conformance":
+            return msgspec.structs.replace(proof, semantic_conformance=proof.semantic_conformance + vectors)
+        case "semantic-roundtrip":
+            return msgspec.structs.replace(proof, semantic_roundtrip=proof.semantic_roundtrip + vectors)
+        case "value-parity":
+            return msgspec.structs.replace(proof, value_parity=proof.value_parity + vectors)
+        case "external-digest":
+            return msgspec.structs.replace(proof, external_digest=proof.external_digest + vectors)
+        case "publisher-digest":
+            return msgspec.structs.replace(proof, publisher_digest=proof.publisher_digest + vectors)
+        case invalid:
+            assert_never(invalid)
+
+
+def _empty_oracles() -> OracleProof:
+    return OracleProof(semantic_conformance=0, semantic_roundtrip=0, value_parity=0, external_digest=0, publisher_digest=0)
+
+
+def _assay(root: Path, image: Path, subject: str, case: Case, /) -> CorpusOracleReceipt:
+    match prove_case(root, subject, case, image=image):
+        case Result(tag="ok", ok=receipt):
+            pass
+        case Result(error=reason):
+            raise AssertionError(reason)
+    readiness = case.readiness
+    assert isinstance(readiness, VerifiedReadiness)
+    assert receipt.subject == subject and receipt.oracle == readiness.oracle, f"{subject}: Assay returned a receipt for another case or oracle"
+    assert receipt.vectors == len(readiness.vectors), f"{subject}: Assay vector census differs from the manifest"
+    assert receipt.specimens == sum(len(vector.specimens) for vector in readiness.vectors), (
+        f"{subject}: Assay specimen census differs from the manifest"
+    )
+    assert not receipt.findings, "; ".join(f"{subject} {finding.rule}: {finding.detail}" for finding in receipt.findings)
+    return receipt
+
+
+def _verified(proof: CorpusProof, root: Path, image: Path, subject: str, case: Case, /) -> CorpusProof:
+    readiness = case.readiness
+    assert isinstance(readiness, VerifiedReadiness)
+    python_bindings = _actor_bindings(case)
+    receipt = _assay(root, image, subject, case)
+    python_vectors = sum(_vector(case, vector, root) for vector in readiness.vectors)
+    return msgspec.structs.replace(
+        proof,
+        assay_corpus_oracles=_count(proof.assay_corpus_oracles, receipt.oracle, receipt.vectors),
+        python_oracles=_count(proof.python_oracles, readiness.oracle, python_vectors),
+        python_bindings=proof.python_bindings + python_bindings,
+        registered_specimens=proof.registered_specimens + receipt.specimens,
+        registered_expected=proof.registered_expected + sum(vector.expected is not None for vector in readiness.vectors),
+    )
+
+
+def assert_corpus(root: Path) -> CorpusProof:
+    """Prove every V2 case through tagged authority, readiness, generated bindings, and its elected oracle.
+
+    Returns:
+        The closed census of blocked cases, verified vectors, and their evidence assets.
+
+    Raises:
+        AssertionError: A manifest case, generated binding, asset, distribution, or elected oracle is false.
+    """
+    match load_manifest(root):
+        case Result(tag="ok", ok=manifest):
+            pass
+        case Result(error=fault):
+            raise AssertionError(fault.message)
+    proof = CorpusProof(
+        assay_corpus_oracles=_empty_oracles(),
+        python_oracles=_empty_oracles(),
+        python_bindings=0,
+        blocked_cases=0,
+        registered_specimens=0,
+        registered_expected=0,
+    )
+    with NamedTemporaryFile(prefix="rasm-contracts-", suffix=".binpb") as image:
+        image.write(_IMAGE)
+        image.flush()
+        image_path = Path(image.name)
+        for subject, case in ((f"{entry.id}/{case.id}", case) for entry in manifest.entries for case in entry.cases):
+            match case.readiness:
+                case BlockedReadiness():
+                    proof = msgspec.structs.replace(proof, blocked_cases=proof.blocked_cases + 1)
+                case VerifiedReadiness():
+                    proof = _verified(proof, root, image_path, subject, case)
+                case _ as unreachable:
+                    assert_never(unreachable)
+    return proof
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CorpusEntry", "CorpusManifest", "assert_corpus_roundtrip", "load_manifest"]
+__all__ = ["CorpusProof", "OracleProof", "assert_corpus", "load_manifest"]

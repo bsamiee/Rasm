@@ -1,0 +1,15 @@
+{
+  "kind": "graduation",
+  "path": "/bands",
+  "evidenceKey": "00000000000000000000000000000001",
+  "climate": {
+    "kind": "categorical",
+    "categories": ["A", "B"],
+    "mass": [0.6, 0.4]
+  },
+  "temperature": {
+    "kind": "numeric",
+    "edges": [0.0, 10.0],
+    "mass": [0.25, 0.5, 0.25]
+  }
+}

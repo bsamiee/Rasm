@@ -6,7 +6,9 @@ from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
 import tomllib
 
 from tests.python._testkit.runtime import REPO_ROOT
+from tests.python._testkit.spec import validity_matrix
 from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI
+from tools.assay.core.model import Language
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -33,3 +35,17 @@ def test_benchmark_storage_addopts_pins_catalog_uri() -> None:
     assert len(flags) == 1, f"expected exactly one --benchmark-storage in addopts, found {len(flags)}: {flags!r}"
     _, _, uri = flags[0].partition("=")
     assert uri == BENCHMARK_STORAGE_URI, f"addopts URI {uri!r} != catalog.BENCHMARK_STORAGE_URI {BENCHMARK_STORAGE_URI!r}"
+
+
+# --- [GOVERNOR_ROSTER_POLICY]
+
+
+def test_every_declared_governor_names_a_real_root_file() -> None:
+    """Each lane governor resolves on disk, so no roster entry is an escalation that can never fire.
+
+    A misspelled governor never escalates and never raises; the lane simply stops re-checking itself
+    when the config that decides every one of its verdicts moves.
+    """
+    validity_matrix(
+        [(f"{lang.value}:{name}", name, True) for lang in Language for name in sorted(lang.governors)], lambda n: (REPO_ROOT / n).is_file()
+    )

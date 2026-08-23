@@ -14,7 +14,7 @@
 
 - Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `ElementReceipt` owns the admitted carrier, ordered relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
 - Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `FactValue` closes numeric, symbolic, and typed-property readings and preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
-- Law: the `Body` · `Axis` · `Box` · `FootPrint` identifier vocabulary is `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot`, COMPOSED here — the graph lookup is `representations.At(slot)` off that owner's own keyed map, so no arm re-spells an identifier string and a second declaration of the roster is the deleted form; Fabrication seats only the `ElementPart.Admitted` carrier column Element cannot hold, dispatched through the roster's generated total `Switch` so a new Element row breaks this page rather than admitting every carrier.
+- Law: the complete identifier vocabulary is `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot`, COMPOSED here — the graph lookup is `representations.At(slot)` off that owner's own keyed map, so no arm re-spells an identifier string and a second declaration of the roster is the deleted form; Fabrication seats only the `ElementPart.Admitted` carrier column Element cannot hold, admitting its mesh, axis, box, and footprint carriers and explicitly refusing every opaque slot through the roster's generated total `Switch`, so a new Element row breaks this page rather than inheriting support.
 - Law: a fact PATH is a `PropertyName` minted under the seam's own `PropertyCategory.Fabrication` prefix — the key space `AdmittedComponent` reads — so a bare string key never reaches the component and a `PropertyName.Create` at a write site is the deleted form.
 - Auto: generated `Switch` members keep every closed family total, so equivalence and rendering dispatch through the union rather than a tuple pattern that goes silently non-total on a new case; the derived quantity and property maps are HELD, so a fold reading both pays one build.
 - Receipt: `ElementReceipt` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.
@@ -60,14 +60,22 @@ public abstract partial record ElementGeometry {
 // over one key space, composed rather than re-declared, so the graph lookup is `representations.At(part.Slot)` and no
 // arm re-spells an identifier string. `Admitted` is the ONE column Element cannot hold (it decides fabrication
 // carriers Element never sees), seated on the pair that carries both operands and dispatched through the roster's
-// generated total `Switch` — an Element row mint breaks HERE at compile time instead of admitting every carrier.
+// generated total `Switch` — the four realized carrier arms admit by shape, every opaque arm refuses, and an Element
+// row mint breaks HERE at compile time instead of inheriting support.
 public sealed record ElementPart(RepresentationSlot Slot, ElementGeometry Value) {
     public bool Admitted => Slot.Switch(
         state: Value,
         body: static carrier => carrier is ElementGeometry.Mesh,
         axis: static carrier => carrier is ElementGeometry.Centreline,
+        footPrint: static carrier => carrier is ElementGeometry.Profiles,
         box: static carrier => carrier is ElementGeometry.Mesh,
-        footPrint: static carrier => carrier is ElementGeometry.Profiles);
+        annotation: static _ => false,
+        surface: static _ => false,
+        profile: static _ => false,
+        clearance: static _ => false,
+        cog: static _ => false,
+        lighting: static _ => false,
+        reference: static _ => false);
 }
 
 [ComplexValueObject]
@@ -776,7 +784,7 @@ public static class ElementImport {
             + baked.Classifications.Map((row, index) =>
                 ElementColumns.Classification.Emit(FactScope.Root.Then("Element.Classification", index), row)).Bind(identity)
             + baked.Representations.ByIdentifier.Pairs.Map(pair => new ElementFact(
-                FactScope.Root.Then("Element.Representation").Row(pair.Key), new FactValue.Text(pair.Value.ToString())))
+                FactScope.Root.Then("Element.Representation").Row(pair.Key.Token), new FactValue.Text(pair.Value.ToString())))
             + ElementColumns.Census.Emit(FactScope.Root, new ComponentCensus(baked, topology, connections))
             + baked.Materials.Bind(MaterialRows)
             + baked.Quantities.Bind(QuantityRows)

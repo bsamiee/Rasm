@@ -322,9 +322,8 @@ public abstract partial record GraphMutation {
 // ImmutableList keeps the edge half ORDERED: membership (the Link duplicate gate, the Unlink presence gate) and the
 // Erase splice each cost O(edges) — a batch-shaped cost, never a read-path one, because every degree-keyed and
 // reachability read is a FROZEN-snapshot read off the built-once incidence index and keyed View cache. A membership
-// set answers in O(log edges) and does not land here: list ORDER is what Graph/wire#WIRE_CODEC emits — the canonical
-// fingerprint sorts its own sections and never reads it — and a hash-ordered set forfeits that deterministic
-// emission under per-process string-hash randomization. Erase computes its cascade and its surviving list in ONE
+// set answers in O(log edges) and does not land here: list order is native mutation history, while canonical
+// fingerprints sort their own sections and never read it. Erase computes its cascade and surviving list in one
 // sweep and hands the cascaded run back, so DropNode never re-filters the edge run to author its delta.
 public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Relationship> Edges) {
  public static WorkingGraph Thaw(ElementGraph graph) =>

@@ -15,7 +15,7 @@ Rasm.Persistence/            # One system of record; every sub-domain a closed-c
 │   ├── Ledger.cs            # OpLogEntry feed projection; ColumnFamily merge stances, ReplayWindow bounds, the SyncMerge fold
 │   ├── Commits.cs           # CommitGraph refs and anti-entropy ranges; Crdt field algebra, CrdtWire encoding, the shared Hlc cell
 │   ├── TimeTravel.cs        # TimeCut unifying causal, instant, and stream-version bounds; RangeDiff, Blame, Scrub, Bisect evidence
-│   ├── Merge.cs             # StructuralMerge base-relative classification; EntityEdit tombstones over exact NodeWire ProtoJSON
+│   ├── Merge.cs             # StructuralMerge base-relative classification; EntityEdit tombstones and FieldMask member patches onto EntityEditWire
 │   ├── Provenance.cs        # CausalDag PROV-O derivation; ProvNode/ProvClass/ProvRelation/ProvRole in one BidirectionalGraph
 │   ├── Retention.cs         # ArtifactKind deriving RetentionClass; RetentionCatalog admission, the conserved RetentionSweep verdict
 │   ├── Recovery.cs          # RecoveryRoutes timeline and LSN capture; PointInTimeRestore fence-verify-materialize choreography
@@ -68,6 +68,9 @@ S0–S3 order the sub-domains, and every consumption edge points down; the one r
 - S3→S2 — federated reads pin at the Version `TimeCut`, so a cached artifact replays the as-of coordinate its plan named.
 - S3→S0 — `H3Cell` crosses as the identity tier's region vocabulary, value-read, never a query-side remint.
 - S2→S0 — `ContentAddress` crosses as the codec's minted identity, so storage re-derives no digest.
+- S2 wire — `Version/merge` binds `EntityEditWire`; `Version/egress` projects host dead-letter and replay messages.
+- S3 wire — `Query/federation` raises through AppHost `FaultWire`; egress fault observations arrive through an injected generated-message delegate.
+- S2 wire law — generated `crdt.v1.CrdtOpWire` owns the payload while the MessagePack entry's outer dot stays paired through CRDT replay.
 
 ```mermaid
 ---
@@ -133,7 +136,7 @@ flowchart LR
     RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
     RasmElement e2@-->|"[SHAPE]: GraphDelta"| Element
     RasmElement e3@-->|"[CONTENT_KEY]: ContentAddress"| Element
-    RasmElement e4@-->|"[EVENT]: GraphCrossing"| Version
+    RasmElement e4@-->|"[SHAPE]: native GraphDelta"| Version
     Ingest e5@-->|"[WIRE]: ElementGraph"| RasmElement
     Rasm e6@-->|"[CONTENT_KEY]: ContentHash"| Element
     Rasm e7@-->|"[CONTENT_KEY]: GeometryHash"| Version
@@ -186,7 +189,6 @@ flowchart LR
     Runtime{{python:runtime}}
     Data{{python:data}}
     Artifacts([python:artifacts])
-    Element e1@-->|"[WIRE]: SnapshotHeader"| Core
     Version e2@-->|"[WIRE]: CrdtOpWire"| Core
     Version e3@<-->|"[WIRE]: OpLogEntry"| Runtime
     Artifacts e4@-->|"[CONTENT_KEY]: SignedArtifact"| Version
@@ -196,6 +198,8 @@ flowchart LR
     Data e8@<-->|"[CONTENT_KEY]: ContentKey"| Query
     Element e9@<-->|"[PORT]: ProjectionContext"| AppHost
     Version e10@<-->|"[PORT]: Hlc"| AppHost
+    Version e25@-->|"[WIRE]: EntityEditWire"| Core
+    Query e26@-->|"[WIRE]: FaultDetail"| Data
     Query e11@-->|"[WIRE]: DocumentQuery + DocumentHit"| AppUi
     Query e12@-->|"[PROJECTION]: SeriesBucket"| AppUi
     Version e13@-->|"[SHAPE]: RecoveryObjective"| AppHost
@@ -233,6 +237,8 @@ flowchart LR
     Changefeed e6@--> Async[[analytical daemon]]
     Changefeed e7@--> Pump[[EgressPump]]
     Cursor[(outbox cursor)] e8@--> Pump
+    Pump e13@-->|"quarantine + exact advance"| Letter[(DeadLetterRow)]
+    Letter e14@-->|"same IDocumentSession"| Cursor
     Op e9@-.write-blob-first.-> Blob[(artifact blob)]
     Blob e10@-.reference hash.-> Session
     Engine e11@--> Retention[[retention GC]]
@@ -241,9 +247,11 @@ flowchart LR
 
 One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Artifact blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction.
 
+Each sink cursor carries one optional deferred head, and the first terminal row enters `QuarantineAndAdvance`, which stores its stable `DeadLetterRow` and clears the exact advanced cursor in the same session commit. Cursor sequence is a local drain position; causal order remains the operation dot and HLC remains time evidence.
+
 ## [05]-[BOUNDARIES]
 
-- Persistence depends upward on the `Rasm.Element` seam and the `Rasm` kernel alone.
+- Persistence depends upward on `Rasm.Element`, the `Rasm` kernel, the `Rasm.AppHost` spine (`RecoveryObjective`, `FaultWire`), and `Rasm.Contracts`.
 - Seam and content-keyed wire carry every sibling-domain and host alignment; no AEC peer or host-SDK type is referenced.
 - Public capability extends its sub-domain owner region as a row, case, or policy value; a public type outside an owner region draws on no budget.
 - `Store/Schema` owns contract composition, generated artifacts, generation identity, and admission verdicts.
@@ -264,4 +272,5 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 - Every receipt, RLS predicate, and blame header reads one tenancy off the `ProjectionContext` frame.
 - Each spine concept keeps one owner across content hash, identity, CRDT, selection shape, and geometry representation.
 - AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
+- AppHost maps its terminal outbox delegate directly to Persistence `Coordinate.QuarantineAndAdvance`.
 - Database retry stays outside the AppHost hop law; the relational rows own it.

@@ -13,17 +13,18 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 
 ## [02]-[CAPSULE]
 
-- Owner: `KernelDomain` rows derive both `SourceName` and the prefix `KernelPoint` seats its ids on off one row key — span source and hook-point prefix are ONE derivation, never two spellings — and the scope projects through an `Items`-derived frozen index so a hot bracket pays a lookup rather than a re-parse; `TraceCarrier` is the one causal-edge owner, capturing the W3C pair where a producing span is live and projecting it back as the parent an ingress adopts or the link a batch fans in on; `SpanEdge` is the one bracket carriage binding span kind, that parent, and that edge set; `SpanBand` owns every admitted scope's `ActivitySource` and conforms to the hook rail's bracket floor.
+- Owner: `KernelDomain` rows derive both `SourceName` and the prefix `KernelPoint` seats its ids on off one row key — span source and hook-point prefix are ONE derivation, never two spellings — and the scope projects through an `Items`-derived frozen index so a hot bracket pays a lookup rather than a re-parse; `TraceBaggage` is the admitted W3C baggage value and `TraceCarrier` is the one causal-edge owner, capturing the W3C `traceparent`/`tracestate`/`baggage` triplet where a producing span is live and projecting its parsed parent back as an ingress parent or batch link; `SpanEdge` is the one bracket carriage binding span kind, that parent, and that edge set; `SpanBand` owns every admitted scope's `ActivitySource` and conforms to the hook rail's bracket floor.
 - Cases: three span shapes off one carriage — a descendant bracket taking the carriage default, an ingress bracket adopting one inbound parent under a consumer or server kind, and a fan-in bracket carrying one link per upstream operation. Two rail shapes: a synchronous `Fin` arm brackets with `using`, an effectful `IO` arm brackets through `IO`, and both resolve the same admitted-scope table and the same carriage.
-- Entry: `TraceCarrier.Of(Activity?)` captures an edge, `Parent` reconstructs it and owns the ONE parse on this fabric, `Link(facts)` projects a fan-in edge over that same parse; `SpanEdge.Under(carrier, kind)` and `SpanEdge.FanIn(links, kind)` fold either into the trailing carriage both `Traced` rail shapes take; `SpanBand.Of(version, plane, external)` mints the band and `Names` projects the scope names a tracer provider registers.
+- Entry: `TraceCarrier.Of(Activity?)` delegates capture of all three W3C fields to the in-box propagator, `Admit(traceParent, traceState, baggage)` delegates foreign-field parsing to that same codec, `Parent` reconstructs the admitted context, and `Link(facts)` projects a fan-in edge over that parse; `SpanEdge.Under(carrier, kind)` and `SpanEdge.FanIn(links, kind)` fold either into the trailing carriage both `Traced` rail shapes take; `SpanBand.Of(version, plane, external)` mints the band and `Names` projects the scope names a tracer provider registers.
 - Law: `KernelDomain` is a hand-kept MIRROR of the kernel's own sub-domain folder set — the roster and `ARCHITECTURE` `[01]` move as one edit, and a new sub-domain lands in both places or the span source it needs does not exist. `KernelDomain` states that mirror rather than deriving it, because a folder set is a repository fact no type can read.
 - Law: `SpanBand` conforms to `IHookSpan` by taking the PLANE as an argument, so one band serves every roster plane a composition mounts and the rail hands the point's own `Plane` at the fire site; a hook rail therefore composes tracing through the bracket floor `Domain/hooks` declares and never through this type — the dependency points downward and the plane binds at band composition, because the floor's `Traced` carries a key and a body and no scope.
 - Law: every capture funnels through `Op.Catch` on both rail shapes, so a throwing body inside a bracket parks as a typed refusal with its cancellation identity intact rather than escaping past the `using` that owns the span.
+- Law: `DistributedContextPropagator.CreateW3CPropagator()` is the ONE grammar and budget owner for the carrier. `TraceBaggage` is constructed only from its extracted members, the carrier exposes no arbitrary header dictionary, and event producers project its admitted wire value rather than re-parsing or re-formatting baggage locally.
 - Exemption: `Dispose` sweeps the frozen source set with a statement loop — the table is disposed once at composition teardown and every source is disposed even though the sweep carries no rail.
 - Receipt: a failing rail lands `SetStatus(ActivityStatusCode.Error, message)` — the typed verdict, never a boolean error tag — and stamps the generated `FaultId` as the `rasm.fault.code`/`rasm.fault.case` pair a trace query groups on, behind `IsAllDataRequested` so an unsampled span pays the status alone; `HasListeners` gates every bracket, so an unlistened span costs one null test, and an expected `Fault` never fabricates an exception event to carry a tag.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Diagnostics`, `System.Threading`).
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Diagnostics` including `DistributedContextPropagator`, `System.Threading`).
 - Growth: a new sub-domain is one `KernelDomain` row, span source and point prefix deriving; a package trace plane is one `TraceScope` row admitted when the composition mints its band; a new bracket coordinate is one `SpanEdge` column every bracket already threads.
-- Boundary: edge shape follows producer arity, and `SpanEdge` is where that choice lands — a batch relaying N durable rows descends from no single producer, so a parent edge to any one of them fabricates a causal chain the batch never had while the link set states exactly what caused it; a single-producer hop is the inverse, an ingress adopting one carrier through `Under` continuing the producing trace id where a link roots an orphan trace no query joins to its cause. Kind rides that same carriage because a remote-parented bracket declaring the internal default misreports the topology every backend derives its service graph from. Edges ride the START call because the sampler votes once at creation, and a producer whose span was unlistened carries the absent carrier.
+- Boundary: edge shape follows producer arity, and `SpanEdge` is where that choice lands — a batch relaying N durable rows descends from no single producer, so a parent edge to any one of them fabricates a causal chain the batch never had while the link set states exactly what caused it; a single-producer hop is the inverse, an ingress adopting one carrier through `Under` continuing the producing trace id where a link roots an orphan trace no query joins to its cause. Kind rides that same carriage because a remote-parented bracket declaring the internal default misreports the topology every backend derives from the kind column. Edges ride the START call because the sampler votes once at creation, and a producer whose span was unlistened carries the absent carrier; absence never fabricates trace context or baggage.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -64,8 +65,44 @@ public sealed partial class KernelDomain {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct TraceCarrier(string? TraceParent, string? TraceState) {
-    public static TraceCarrier Of(Activity? span) => new(span?.Id, span?.TraceStateString);
+// The parsed members make baggage a typed admitted value while `Value` retains the exact W3C field the official
+// codec produced or accepted. No consumer receives a raw header dictionary or owns a second parser.
+public sealed record TraceBaggage {
+    internal TraceBaggage(string value, Seq<KeyValuePair<string, string?>> entries) =>
+        (Value, Entries) = (value, entries);
+
+    public string Value { get; }
+    public Seq<KeyValuePair<string, string?>> Entries { get; }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TraceCarrier {
+    static readonly DistributedContextPropagator W3C = DistributedContextPropagator.CreateW3CPropagator();
+
+    TraceCarrier(string? traceParent, string? traceState, Option<TraceBaggage> baggage) =>
+        (TraceParent, TraceState, Baggage) = (traceParent, traceState, baggage);
+
+    public string? TraceParent { get; }
+    public string? TraceState { get; }
+    public Option<TraceBaggage> Baggage { get; }
+
+    public static TraceCarrier Of(Activity? span) {
+        TraceFields fields = new();
+        W3C.Inject(span, fields, TraceFields.Set);
+        return Admit(fields.TraceParent, fields.TraceState, fields.Baggage);
+    }
+
+    public static TraceCarrier Admit(string? traceParent, string? traceState, string? baggage) {
+        TraceFields fields = new(traceParent, traceState, baggage);
+        W3C.ExtractTraceIdAndState(fields, TraceFields.Get, out string? admittedParent, out string? admittedState);
+        admittedState = admittedParent is null ? null : admittedState;
+        IEnumerable<KeyValuePair<string, string?>> parsed = W3C.ExtractBaggage(fields, TraceFields.Get) ?? [];
+        Seq<KeyValuePair<string, string?>> entries = toSeq(parsed);
+        Option<TraceBaggage> admittedBaggage = !string.IsNullOrWhiteSpace(fields.Baggage) && !entries.IsEmpty
+            ? Some(new TraceBaggage(fields.Baggage, entries))
+            : None;
+        return new TraceCarrier(admittedParent, admittedState, admittedBaggage);
+    }
 
     // `isRemote` is TRUE by construction: a carrier reaches a consumer only across a process or a durable
     // boundary, so the context is foreign evidence and never an in-process parent whose recording flags a sampler
@@ -81,6 +118,38 @@ public readonly record struct TraceCarrier(string? TraceParent, string? TraceSta
             ? null
             : new ActivityTagsCollection(InstrumentSet.Tags(TenantContext.Current, facts));
         return Parent.Map(context => new ActivityLink(context, tags));
+    }
+}
+
+// Mutable only behind `DistributedContextPropagator`'s object carrier callbacks. The closed three-slot shape is
+// the adapter the official codec requires; no transport-facing raw header bag escapes it.
+file sealed class TraceFields(string? traceParent = null, string? traceState = null, string? baggage = null) {
+    public string? TraceParent { get; private set; } = traceParent;
+    public string? TraceState { get; private set; } = traceState;
+    public string? Baggage { get; private set; } = baggage;
+
+    public static void Set(object? carrier, string field, string value) {
+        TraceFields fields = (TraceFields)carrier!;
+        switch (field) {
+            case "traceparent": fields.TraceParent = value; break;
+            case "tracestate": fields.TraceState = value; break;
+            case "baggage": fields.Baggage = value; break;
+        }
+    }
+
+    public static void Get(
+        object? carrier,
+        string field,
+        out string? value,
+        out IEnumerable<string>? values) {
+        TraceFields fields = (TraceFields)carrier!;
+        value = field switch {
+            "traceparent" => fields.TraceParent,
+            "tracestate" => fields.TraceState,
+            "baggage" => fields.Baggage,
+            _ => null,
+        };
+        values = null;
     }
 }
 

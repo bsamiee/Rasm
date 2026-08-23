@@ -2,27 +2,28 @@
 
 Fanout and replay are one port with engines as rows. `Fanout` broadcasts evidence mirrors, presence, cross-process invalidation, and large-binary handoff through an in-process `PubSub` row, a browser `BroadcastChannel` row, or a NATS `jetstream` row. Every replay row is a `Fanout.Replayed` pair carrying the announcement and its engine-minted resume coordinate.
 
-Guarantee rows declare at-least-once handler consumption with ack-after-success, poison termination, and heartbeats; deduplicated publish under a content-derived `msgID`; optional double-ack confirmation; and sequence- or instant-anchored replay without an ack surface. JetStream upholds the full ledger, lighter engines expose their degradation, and root Layer selection chooses the engine.
+Guarantee rows declare at-least-once handler consumption with ack-after-success, poison termination, and heartbeats; deduplicated publish under an address-derived `msgID`; optional double-ack confirmation; and sequence- or instant-anchored replay without an ack surface.
 
 Retention makes replay a warm-up and recovery window, never the system of record; consumers needing full history read the data journal. Every broker connection authenticates as the security plane's machine principal projected at its own dial coordinate — `ConnectionOptions.authenticator` on NATS, the SASL/OAUTHBEARER provider on Kafka — so a fleet worker carries no static token and the `present` column states what a rotation costs each row. Deployment owns NATS fsync and replica quorum. JetStream ships on `./server`, local stays runtime-neutral, and tab stays browser-bound. Module: `runtime/src/net/pubsub.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[TOPIC_ROWS]: `Fanout.Topic` — subject, retention, replay, ack posture, redelivery; the announcement admission.
+- [02]-[TOPIC_ROWS]: `Fanout.Topic` — subject, retention, replay, ack posture, redelivery, both in-flight bounds; the announcement admission.
 - [03]-[PORT_SHAPE]: `Fanout` — publish, atomic, subscribe, consume, consumers, replay, stash, alias, haul, pulse; `FanoutFault`.
 - [04]-[LOCAL_ROW]: `Fanout.local` — the in-process engine over `PubSub` replay and the in-process blob shelf.
 - [05]-[TAB_ROW]: `Fanout.tab` — a `BroadcastChannel` bridge decorating the local cells for cross-tab delivery.
-- [06]-[JETSTREAM_ROW]: `Fanout.jetstream` and `Broker` — ordered vs durable lanes, dedup, double-ack, heartbeat, blob store.
+- [06]-[JETSTREAM_ROW]: `Fanout.jetstream` and `Broker` — ordered vs durable lanes, dedup, atomic stage, two status surfaces, blob store.
 - [07]-[KAFKA_ROW]: `Fanout.kafka` — librdkafka client, manual-commit lane, explicit degradation, reconcile.
 
 ## [02]-[TOPIC_ROWS]
 
 [TOPIC_ROWS]:
-- Owner: `Fanout.Topic` — the `Schema.Class` policy authority carrying `subject` (the wire address), `retention` (the stream age bound — the never-system-of-record ceiling, reaching only a row whose `_ENGINES` lifetime owner is `package`), `replay` (the non-negative warm-up window a late subscriber receives), `ack` (`"fire" | "double"` — whether consumption confirms the acknowledgement itself), `wait` (the ack deadline the durable lane declares as `ack_wait` and halves into the long-handler heartbeat cadence), positive `attempts` (the redelivery ceiling declared as `max_deliver` — beyond it the server parks the message), positive `pending` (the unacked in-flight ceiling declared as `max_ack_pending`, the descriptor `bound` coordinate a server-redelivering engine answers), and `budget` (the `core/value/fault#RETRY_BUDGET` ledger row an engine with no server-side redelivery compiles its in-process pulse from, defaulting `lease`); the dedup window reads `Setting.fanout.dedup` and the blob chunk size `Setting.fanout.chunk`, so topic policy decodes once as root data and the engine reads admitted rows, never knobs.
+- Owner: `Fanout.Topic` — the `Schema.Class` policy authority carrying `subject` (the wire address), `retention` (the stream age bound — the never-system-of-record ceiling, reaching only a row whose `_ENGINES` lifetime owner is `package`), `replay` (the non-negative warm-up window a late subscriber receives), `ack` (`"fire" | "double"` — whether consumption confirms the acknowledgement itself), `wait` (the ack deadline the durable lane declares as `ack_wait` and halves into the long-handler heartbeat cadence), positive `attempts` (the redelivery ceiling declared as `max_deliver` — beyond it the server parks the message), positive `pending` (the unacked in-flight ceiling declared as `max_ack_pending`, the descriptor `bound` coordinate a server-redelivering engine answers), positive `prefetch` (the CLIENT-side pull buffer declared as `max_messages`, the second half of that same `bound` coordinate), and `budget` (the `core/value/fault#RETRY_BUDGET` ledger row an engine with no server-side redelivery compiles its in-process pulse from, defaulting `lease`); the dedup window reads `Setting.fanout.dedup` and the blob chunk size `Setting.fanout.chunk`, so topic policy decodes once as root data and the engine reads admitted rows, never knobs.
 - Law: Broker redelivery uses row `wait` and `attempts`; process redelivery uses `Fault.Budget.schedule(row.budget)`.
-- Law: publish identity DERIVES from the announcement and the engine invents none — `partitionkey` selects the ordering domain a partitioning transport keys on, and `(source, id)` is the specification's own uniqueness composite a dedup window recognizes a replay by; a content digest cannot serve that role, since two peers writing identical payloads are two facts rather than one replayed one.
-- Law: this port carries ONE envelope and mints none — the announced fact IS `interchange/carrier`'s message envelope, so the transport key, the header band, and the payload framing all DERIVE from it: the binding owns the headers, the registry serde owns the body bytes, and `dataschema` is what joins the two. Any second envelope class beside it — an identity field, an opaque body, and a header record re-stating what the attributes already carry — is the drift defect this collapse deletes, and the optimistic expectation moves onto `Fanout.Post` where publish-time policy belongs.
-- Law: two traces ship and neither folds onto the other — the CREATION-time context rides the roster extensions the mint sealed, so it survives every rebinding, while the HOP context rides the transport frame each publish seam injects through its exact core dialect and each consume lane extracts before `Propagation.ingress`. Kafka prefixes `ce_` and the branch NATS binding `ce-`, so neither binding's attribute names collide with the bare carrier keys beside them; `fanout` names the cross-tab post's own hop row, and no dialect masquerades as another.
+- Law: the in-flight window is TWO bounds and the row states both — `pending` caps what the server holds unacknowledged, `prefetch` caps what the client already pulled into this process. Naming only the server half leaves the pull buffer at the client's own default, and every message sitting in it burns `ack_wait` behind the one the handler heartbeats, so redelivery arrives for work already in hand and reads as broker instability.
+- Law: publish identity DERIVES from the announcement and the engine invents none. JetStream consumes core `Event.address`, the one length-framed digest of the typed `(source,id)` pair, as its bounded `msgID`; payload-content identity never substitutes, because two peers writing identical data are two facts rather than one replay.
+- Law: this port carries ONE envelope and mints none — the announced fact IS `interchange/carrier`'s message envelope, so the binding derives transport key and header band while the selected serde frames payload bytes under `Fanout.Contract`; `dataschema` remains the event's payload-schema URI and never aliases registry identity. Any second envelope class beside it is the drift defect this collapse deletes, and optimistic expectation rides `Fanout.Post` where publish policy belongs.
+- Law: two traces ship and neither folds onto the other — the CREATION-time context rides the roster extensions the mint sealed, while the HOP context rides each transport frame through its exact core dialect. Kafka's `ce_` attribute band and NATS's structured JSON body stay disjoint from the bare carrier keys beside them; `fanout` names the cross-tab hop row, and no dialect masquerades as another.
 - Growth: a new fanout concern is one topic row; a new guarantee axis is one row column every engine answers.
 - Packages: `effect`, `@rasm/ts/core` (`Fault.Budget`), and `../proc/config.ts`.
 
@@ -43,7 +44,7 @@ import {
     Match,
     Option,
     type ParseResult,
-    type Predicate,
+    Predicate,
     PubSub,
     Queue,
     Record,
@@ -66,13 +67,14 @@ import {
     wsconnect,
 } from '@nats-io/nats-core';
 import { KafkaJS } from '@confluentinc/kafka-javascript';
-import { CloudEvent, type CloudEventV1, CONSTANTS, HTTP, Kafka, V1 } from 'cloudevents';
+import { type CloudEvent, CONSTANTS, Kafka, V1 } from 'cloudevents';
 import { Buffer } from 'node:buffer';
 import { Propagation } from '../otel/emit.ts';
 import {
     AckPolicy,
     type Consumer,
     type ConsumerMessages,
+    type ConsumerNotification,
     DeliverPolicy,
     type JsMsg,
     JetStreamApiCodes,
@@ -100,7 +102,7 @@ import {
     type Serializer,
     type SerializerConfig,
 } from '@confluentinc/schemaregistry';
-import { Carrier, Event, Fault } from '@rasm/ts/core';
+import { Carrier, Event, Fault, Format } from '@rasm/ts/core';
 import type { Backend } from '@rasm/ts/data';
 import type { MachinePrincipal } from '@rasm/ts/security';
 import { Setting } from '../proc/config.ts';
@@ -110,20 +112,25 @@ import { Breaker, Machine } from './client.ts';
 // pattern is what makes an invented literal fail the very admission the generator exists to exercise.
 const _SAMPLE_TYPE = 'rasm.fanout.probe.sampled.v1';
 
-// Announced facts cross this port AS the message envelope `interchange/carrier` owns, so admission here is by
-// IDENTITY and nothing re-models a grammar, a roster, or a mint that already has one owner. The guard form rather
-// than `Schema.instanceOf`, whose `InstanceType` erases the payload parameter to `any` no branch signature admits.
-const _Announced: Schema.Schema<CloudEventV1<unknown>> = Schema.declare(
-    (input: unknown): input is CloudEventV1<unknown> => input instanceof CloudEvent,
-    {
-        identifier: 'Fanout/Announced',
-        arbitrary: () => (fc) =>
-            fc
-                .record({ id: fc.uuid(), source: fc.webUrl() })
-                .map((addressed) => new CloudEvent<unknown>({ ...addressed, specversion: V1, type: _SAMPLE_TYPE, data: null })),
-        pretty: () => (event) => event.toString(),
-    },
-);
+// The public port adds generation and rendering metadata to the core semantic schema; it owns no second predicate or
+// transform over the CloudEvents envelope.
+const _Announced = Event.schema.annotations({
+    identifier: 'Fanout/CloudEvent',
+    arbitrary: () => (fc) =>
+        fc
+            .record({
+                id: fc.uuid(),
+                source: fc.webUrl(),
+                time: fc.date({ noInvalidDate: true }).map((at) => at.toISOString()),
+            })
+            .map((addressed) => Effect.runSync(Event.mint({
+                ...addressed,
+                specversion: V1,
+                type: _SAMPLE_TYPE,
+                data: null,
+            }))),
+    pretty: () => (event) => event.toString(),
+});
 
 // Publish-time expectations are POLICY on the CALL, never a field of the announced fact: one fact republished
 // under a different expectation stays one fact, so this row rides beside the envelope exactly as `Mqtt.Post` rides
@@ -145,10 +152,8 @@ class _Post extends Schema.Class<_Post>('Fanout/Post')({
 // declared by the roster as what a transport partitions on, falling back to the operation identity where none was
 // none, and `(source, id)` is the specification's OWN uniqueness composite — which is why a dedup window keys on the
 // pair rather than on a content digest, where two peers writing identical payloads are two facts, not a replay.
-const _key = (event: CloudEventV1<unknown>): string =>
-    Option.getOrElse(Event.at(event, 'partitionkey'), () => event.id);
-
-const _unique = (event: CloudEventV1<unknown>): string => `${event.source}#${event.id}`;
+const _key = (event: CloudEvent<unknown>): Effect.Effect<string, Event.Refusal> =>
+    Effect.map(Event.rasm.at(event, 'partitionkey'), (partition) => Option.getOrElse(partition, () => event.id));
 
 class _Topic extends Schema.Class<_Topic>('Fanout/Topic')({
     subject: Schema.NonEmptyString,
@@ -159,6 +164,11 @@ class _Topic extends Schema.Class<_Topic>('Fanout/Topic')({
     attempts: Schema.Int.pipe(Schema.positive()),
     // unacked ceiling: without it the server default decides the in-flight window and the row's `bound` cell names a number nobody set
     pending: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 1_000 }),
+    // CLIENT-side pull buffer, the second in-flight bound beside `pending`: a puller asks the server for this many
+    // messages at a time, every one of them starts its `ack_wait` clock at DELIVERY, and a sequential handler
+    // heartbeats the head alone — so `prefetch * handler-span` must stay under `wait` or the tail redelivers work
+    // already in hand. Unset, the client picks 100 and the row's `bound` cell names a number nobody set.
+    prefetch: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 8 }),
     // ledger row an engine re-driving in process compiles its pulse from; server-redelivering engines read `wait`/`attempts` instead
     budget: Schema.optionalWith(Schema.Literal(...Fault.Budget.kinds), { default: () => 'lease' as const }),
 }) {}
@@ -205,7 +215,7 @@ declare namespace Fanout {
     type Ack = 'fire' | 'double';
     type Topic = _Topic;
     type Topics = Readonly<Record<string, Topic>>;
-    type Announced = CloudEventV1<unknown>;
+    type Announced = CloudEvent<unknown>;
     type Post = _Post;
     type Anchor = Data.TaggedEnum<{
         Window: {};
@@ -268,11 +278,6 @@ type _KafkaCodec = {
     readonly close: () => void;
 };
 
-// Every announced `dataschema` names the registry SUBJECT and its version, which is exactly the coordinate a
-// contract row already pins — so equality here IS the join between the binding owning the headers and the serde
-// owning the body bytes, and a drifted announcement refuses at the producer, never as a far-side id drift.
-const _kafkaCoordinate = (contract: _KafkaContract): string => `${contract.subject}/${contract.version}`;
-
 // Compat clients publish NO emitter — `connect`, `disconnect`, `logger`, `setSaslCredentialProvider`, and
 // `dependentAdmin` are the whole surface — while the wrapper binds `error` and `event.error` internally and routes both
 // into its Logger. That Logger is therefore the ONLY seam an async transport fault can reach, so this rail supplies one
@@ -309,9 +314,10 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 
 [PORT_SHAPE]:
 - Owner: the `Fanout` Tag — ten members over the topic key. This envelope lane: `publish(topic, envelope)` yields the evidence receipt whose position is either a stream sequence or a partition-offset coordinate; `atomic(topic, consumer, envelopes)` publishes a batch and the naming consume lane's held position as one indivisible unit — the read-process-write member; `subscribe(topic)` is the live fanout stream with the topic's replay window warming a late attach; `consume(topic, consumer, anchor, handler)` is the at-least-once lane whose explicit consumer identity derives a distinct durable name, preventing independent logical subscribers from accidentally load-balancing one durable consumer; `consumers(topic, retire?)` is the durable-consumer doctor read, the optional predicate turning the census into a reap that answers the survivors; `replay(topic, anchor)` re-reads within retention as `Fanout.Replayed`, pairing each envelope with its engine-minted coordinate. This blob lane streams transient large-binary handoff through `stash` / `alias` / `haul`, never a second content-addressing vocabulary or durable store.
-- Law: `atomic` is the one exactly-once spelling and it is a topic-row capability, never a call-site protocol — the read-process-write unit a crash may neither duplicate nor drop names its consume lane and the engine binds the handoff; an engine whose `serves.atomic` cell reads false answers `horizon` through `_absent` rather than pretending the sequence held.
+- Law: `atomic` is the one indivisible-publish spelling and it is a topic-row capability, never a call-site protocol — an engine whose `serves.atomic` cell reads false answers `horizon` through `_absent` rather than pretending the sequence held. Kafka reads the consumer argument as its OFFSET SOURCE, because there the unit a crash may neither duplicate nor drop spans the read and the write, so that engine binds the handoff off a live consume lane; the JetStream stage binds no read half and names the argument without reading it.
 - Law: `_ENGINES` is the one capability authority and `_absent` mints every refusal from it — a binding site never hand-spells a marker, and `Fanout.engine` publishes the same rows a caller reads before it calls.
 - Law: `serves` is a map over the PORT MEMBERS and never a second vocabulary beside them, and `anchors` is the admitted anchor set every positional gate reads through `_admits`, so an engine widening either edits one cell and every binding follows it.
+- Law: `expects` grades the publish ARGUMENT the member roster cannot — `Fanout.Post` carries an optimistic expectation only a stream engine evaluates, so `_expects` refuses it at the three engines that hold no last-sequence to compare against. Dropping the expectation instead leaves a caller believing a conditional write landed conditionally when it landed unconditionally, which is the one outcome an unguarded write never produces on its own.
 - Law: `pulse` is the out-of-band rail — five of these transports learn a delivery or connection failure on a surface no member's await reaches, so each engine projects that surface onto the same `FanoutFault` family and an engine standing behind none answers `Stream.empty`; a row folding only what its call returned reports success for a loss the transport already told someone else about.
 - Law: every row answers the four selection columns before a selector binds it, and `lifetime` names its OWNER beside its `until` — `Fanout.Topic.retention` reaches only a row whose lifetime owner is `package`, so a broker-owned or host-owned retention is read from the row rather than presumed from the field.
 - Law: the guarantee columns are what the engine alone decides and the recovery columns are what a re-drive stands on, so `degrade` carries only the residual none of them expresses and a coordinate an engine forfeits is stated where a selector sees it.
@@ -323,7 +329,7 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 - Law: `reason` bands the fault and `detail` proves it — every mint carries the evidence its own site holds: a caught cause stringified, or an angle-bracketed marker naming the structural refusal and the operand that decided it (the missed window bound, the shelf ceiling, the drifted contract axes, the unbound axis). Each re-minted reason therefore keeps one band while its site stays diagnosable, so a `dial` names its transport failure instead of reporting that dialing failed and nothing more.
 - Law: delivery semantics are the row's, not the call site's — a consumer never re-states ack posture, replay depth, retention, or redelivery ceiling; it names the topic and the engine answers the row; an unknown topic answers `horizon` identically on every engine and every member.
 - Law: the port is engine-blind — no member names NATS, and swapping any row for another edits the root merge and nothing else; the engine roster law is the services doctrine's, instantiated here.
-- Boundary: the `@effect/experimental` EventLog overlay is a PROJECTION of the journal onto a local-first client, never a second carriage lane beside this port — its entries persist onto the journal's own `SqlClient` at `data:journal/append#RELAY_ROWS` and reach a peer through the sync protocol, so an announcement crosses here and a replicated edit re-enters through `Journal.causal`; carrying one fact down both lanes forks the record of truth this port was built never to become.
+- Boundary: the `@effect/experimental` EventLog overlay is a PROJECTION of the journal onto a local-first client, never a second carriage lane beside this port. This package claims no native op-log consumer: no real application binding currently maps that envelope into a journal intent, and inventing one here would fork the record of truth this port was built never to become.
 - Entry: engines land through one `Fanout` layer; Kafka receives its generated contract projection.
 - Packages: `effect` (`Context`, `Data`, `Predicate`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Class`).
 
@@ -372,6 +378,21 @@ class FanoutFault extends Schema.TaggedError<FanoutFault>()('FanoutFault', {
     }
 }
 
+const _announced = (topic: string, event: unknown): Effect.Effect<Fanout.Announced, FanoutFault> =>
+    Schema.decodeUnknown(_Announced)(event).pipe(
+        Effect.mapError((issue) => new FanoutFault({ case: { reason: 'publish', topic, detail: issue.message } })),
+    );
+
+const _partitionKey = (
+    topic: string,
+    event: Fanout.Announced,
+    reason: 'publish' | 'poison' = 'publish',
+): Effect.Effect<string, FanoutFault> =>
+    Effect.mapError(
+        _key(event),
+        (refusal) => new FanoutFault({ case: { reason, topic, detail: refusal.message } }),
+    );
+
 // Port members ARE the capability roster, so `serves` maps over THEM and a caller reads a refusal off the member it
 // was about to call; a capability vocabulary standing beside the members it shadows names one fact twice.
 const _MEMBERS = ['publish', 'atomic', 'subscribe', 'consume', 'consumers', 'replay', 'stash', 'alias', 'haul', 'pulse'] as const;
@@ -385,6 +406,8 @@ const _MEMBERS = ['publish', 'atomic', 'subscribe', 'consume', 'consumers', 'rep
 // which is the rail trap `pulse` closes; `degrade` carries only the residual no column above already expresses.
 // `lifetime.until` is retention and the `bound` column is the in-flight window: two coordinates one name once merged.
 // No row carries a retry SCHEDULE — each `deliver` cell names its retry owner, since one owner holds every curve.
+// `expects` sits beside `serves` because it grades an ARGUMENT rather than a member: `publish` lands on every engine
+// while the optimistic expectation riding beside it lands on one, and a cell is what keeps the other three refusing.
 const _ENGINES = {
     local: {
         fits: '<one-process:proof-or-single-node-deployment>',
@@ -394,6 +417,7 @@ const _ENGINES = {
         lifetime: { until: '<bounded-cell-then-scope-close>', owner: 'package' },
         serves: { publish: true, atomic: false, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: false },
         anchors: ['Window'],
+        expects: false,
         deliver: '<at-most-once:an-unattached-subscriber-misses-and-a-handler-fault-ends-the-fold;retry-owner:the-caller>',
         order: '<one-cell-per-topic-in-offer-order;NO-key-member>',
         settle: '<the-PubSub-offer-boolean:a-refused-offer-IS-the-publish-fault>',
@@ -410,6 +434,7 @@ const _ENGINES = {
         lifetime: { until: '<tab-close>', owner: 'host' },
         serves: { publish: true, atomic: false, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: false },
         anchors: ['Window'],
+        expects: false,
         deliver: '<at-most-once,and-a-post-reaches-only-tabs-live-at-post-time;retry-owner:the-caller>',
         order: '<per-subject-channel-FIFO;NO-key-member-and-no-order-across-subjects>',
         settle: '<the-local-cell-offer-boolean-alone:postMessage-answers-nothing,so-a-cross-tab-drop-settles-nowhere>',
@@ -425,15 +450,16 @@ const _ENGINES = {
         present: '<at-handshake:ConnectionOptions.authenticator rebuilds the CONNECT frame on every dial,so a rotation REPLACES the connection and every in-flight request with it>',
         // Construction reconciles `max_age` from the topic row, so this package owns the bound it declares.
         lifetime: { until: '<stream-max-age-from-row-retention>', owner: 'package' },
-        serves: { publish: true, atomic: false, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: true },
+        serves: { publish: true, atomic: true, subscribe: true, consume: true, consumers: true, replay: true, stash: true, alias: true, haul: true, pulse: true },
         anchors: ['Window', 'Sequence', 'Instant'],
-        deliver: '<at-least-once-plus-the-duplicate_window-on-the-content-derived-msgID;retry-owner:the-server,row-wait-and-attempts>',
+        expects: true,
+        deliver: '<at-least-once-plus-the-duplicate_window-on-the-address-derived-msgID;retry-owner:the-server,row-wait-and-attempts>',
         order: '<per-subject-stream-order;the-SUBJECT-is-the-key-member,so-per-entity-order-costs-one-subject-per-entity>',
-        settle: '<PubAck-carrying-seq-and-duplicate;ackAck-confirms-the-acknowledgement-itself-on-double-rows>',
+        settle: '<PubAck-carrying-seq-and-duplicate;ackAck-confirms-the-acknowledgement-itself-on-double-rows;BatchAck-settles-a-whole-atomic-stage>',
         replay: '<DeliverPolicy-StartSequence-or-StartTime-bounded-by-StreamInfo-first_seq-and-first_ts>',
-        bound: '<max_ack_pending-from-row-pending-caps-the-unacked-window;the-ordered-lane-fetch-max_messages-caps-a-replay>',
-        refuse: '<value+throw+event:the-client-throws,and-nc.status-carries-what-no-await-reaches>',
-        degrade: '<batch-atomicity-is-the-dedup-window-replayed,never-a-cross-object-transaction>',
+        bound: '<TWO-windows:max_ack_pending-from-row-pending-caps-what-the-server-holds-unacked,row-prefetch-caps-max_messages-the-client-pulls-into-this-process;the-replay-fetch-reads-the-same-prefetch>',
+        refuse: '<value+throw+TWO-event-surfaces:nc.status-carries-the-CONNECTION-losses-and-ConsumerMessages.status-the-CONSUMER-notifications,disjoint-families-neither-of-which-any-await-reaches>',
+        degrade: '<atomic-stages-at-most-1000-messages-under-50-live-batches-and-abandon-after-10s-idle;a-staged-member-carries-no-msgID,so-the-dedup-grain-is-the-batch-not-the-message>',
     },
     kafka: {
         fits: '<cluster-partitioned:transactional-read-process-write-over-a-registry-contract>',
@@ -444,13 +470,14 @@ const _ENGINES = {
         lifetime: { until: '<broker-topic-retention>', owner: 'deploy' },
         serves: { publish: true, atomic: true, subscribe: false, consume: true, consumers: false, replay: false, stash: false, alias: false, haul: false, pulse: true },
         anchors: ['Window'],
+        expects: false,
         deliver: '<at-least-once-on-the-manual-commit-lane,exactly-once-on-atomic-alone;keys-partition-and-never-dedup;retry-owner:the-in-process-budget-ledger-intersected-with-row-attempts>',
         order: '<partition-by-record-key;the-envelope-KEY-is-that-member>',
         settle: '<ONE-RecordMetadata-per-topic-partition-carrying-baseOffset,never-one-per-message-and-never-an-offset-field>',
         replay: '<none:Fanout.Anchor-carries-no-partition-coordinate,so-the-data-journal-is-the-positioned-re-read>',
         bound: '<eachBatch-under-partitionsConsumedConcurrently-1-with-auto-resolve-off-holds-one-record-in-flight;the-produce-queue-is-librdkafka-own>',
         refuse: '<value+logger:the-compat-clients-expose-no-emitter,so-every-async-transport-error-lands-on-the-supplied-Logger-alone>',
-        degrade: '<the-substrate-DOES-hold-consumer-groups-this-client-cannot-read,so-consumers-refuses-rather-than-forging-an-empty-roster>',
+        degrade: '<consumer-groups-READ-fine-here;the-census-SHAPE-does-not:a-group-carries-committed-offsets-and-members,never-an-ack-pending-window,so-consumers-refuses-rather-than-forging-the-four-columns-it-cannot-measure>',
     },
 } as const satisfies Record<string, Fanout.Row>;
 
@@ -464,6 +491,14 @@ const _absent = (engine: Fanout.Engine, member: Fanout.Member, topic: string, op
 const _admits = (engine: Fanout.Engine, anchor: Fanout.Anchor): boolean =>
     (_ENGINES[engine].anchors as ReadonlyArray<Fanout.Anchor['_tag']>).includes(anchor._tag);
 
+// Publish-time expectations are OPTIMISTIC CONCURRENCY, so an engine that cannot evaluate one refuses instead of
+// dropping it: a caller whose guard silently vanished believes the write was conditional and it was unconditional,
+// which is the one refusal shape worse than no expectation at all. `expects` is the cell, this is its only reader.
+const _expects = (engine: Fanout.Engine, topic: string, post: Fanout.Post): Effect.Effect<void, FanoutFault> =>
+    _ENGINES[engine].expects || Option.isNone(post.expect)
+        ? Effect.void
+        : Effect.fail(_absent(engine, 'publish', topic, ':expect'));
+
 declare namespace Fanout {
     type Member = (typeof _MEMBERS)[number];
     type Engine = keyof typeof _ENGINES;
@@ -475,6 +510,7 @@ declare namespace Fanout {
         readonly lifetime: { readonly until: string; readonly owner: 'package' | 'host' | 'deploy' };
         readonly serves: { readonly [M in Member]: boolean };
         readonly anchors: ReadonlyArray<Anchor['_tag']>;
+        readonly expects: boolean;
         readonly deliver: string;
         readonly order: string;
         readonly settle: string;
@@ -549,6 +585,7 @@ class Fanout extends Context.Tag('runtime/Fanout')<
 
 [LOCAL_ROW]:
 - Owner: `Fanout.local(topics, policy)` — one scoped `PubSub.bounded<Fanout.Replayed>({ capacity: policy.capacity, replay: row.replay })` per topic row and one `Ref`-held aggregate blob shelf; `publish` mints the topic sequence before offering the envelope/coordinate pair and returns `publish` fault when `PubSub.publish` rejects it (a local publish is never a duplicate — the dedup window is a server guarantee the local row honestly lacks), `subscribe` projects envelopes from the scoped replay rows, `consume` folds the same envelope projection through the handler with the ack posture vacuous (in-process delivery has no redelivery to confirm or terminate), `replay` snapshots the current sequence count and returns exactly the retained warm-up pairs for the `Window` anchor, while a `Sequence` or `Instant` anchor folds to `horizon`; the blob lane folds into the shelf under `policy.shelf`, replaces a held key without double-counting its prior body, aliases a second key onto a held body at zero charge, and streams out keyed `topic/name` through the same alias resolution, digest honestly absent.
+- Law: `_ENGINES.kafka` refuses `consumers` on a SHAPE mismatch, never a client limitation — `KafkaJS.Admin` publishes `listGroups`, `describeGroups`, `deleteGroups`, and `fetchOffsets`, so a group census reads perfectly well; what a group cannot answer is `Fanout.Consumer` itself, whose `created`, `delivered`, `unacked`, and `redelivered` columns measure a server-held ack-pending window that the broker's committed-offset model never keeps. Filling those four with zeros publishes a measurement no producer took, so the row refuses whole and a caller needing group state dials the admin surface it names. Recording the refusal as a client incapacity instead is the inverted form, since it reads as a gap a package upgrade closes rather than the durable modelling difference it is.
 - Law: `_ENGINES.local` carries this row's forfeits and `_absent` speaks them — a single fiber's publish sequence is not a broker's atomic unit, `serves.consumers` reads true because an empty roster IS the honest census where none is ever minted, and the shelf is process memory under the admitted `Fanout.LocalPolicy.shelf` aggregate byte ceiling where a crossing stash refuses with the `publish` fault instead of exhausting memory, so the general large-binary contract is the jetstream row's; a proof or a single-process deployment selects this row deliberately, and promoting a workload that needs the missing cells is a root Layer swap, never a local re-implementation.
 - Law: this row stands behind no out-of-band surface, so `pulse` is `Stream.empty` and `serves.pulse` states it rather than leaving an empty stream indistinguishable from an unwritten one.
 - Law: capacity backpressures — the bounded construction suspends a producer ahead of the slowest subscriber's window; a sliding local topic is a row decision, never a default.
@@ -558,7 +595,14 @@ class Fanout extends Context.Tag('runtime/Fanout')<
 type _Port = Context.Tag.Service<Fanout>;
 type _LocalPort = _Port & { readonly offer: _Port['publish'] };
 
-const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effect<_LocalPort, never, Scope.Scope> =>
+// Two rows share this kernel, so the engine NAME rides in as a parameter: a tab-row refusal minting
+// `<local-no-atomic>` names an engine the caller never bound, and `_absent` exists precisely so a marker cannot
+// drift from its row.
+const _minted = (
+    topics: Fanout.Topics,
+    policy: Fanout.LocalPolicy,
+    engine: 'local' | 'tab',
+): Effect.Effect<_LocalPort, never, Scope.Scope> =>
     Effect.gen(function* () {
         const cells = yield* Effect.all(
             Record.map(topics, (row) => PubSub.bounded<Fanout.Replayed>({ capacity: policy.capacity, replay: row.replay })),
@@ -575,8 +619,10 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                 onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'horizon', topic, detail: '<undeclared-topic>' } })),
                 onSome: Effect.succeed,
             });
-        const offer: _Port['publish'] = (topic, event) =>
-            Effect.flatMap(held(topic), (cell) =>
+        const offer: _Port['publish'] = (topic, event, post = new _Post({})) =>
+            // Cells hold no last sequence, so an optimistic expectation is unevaluable here and refuses rather than
+            // dropping: silently ignoring it hands a caller a write it believes was conditional and was not.
+            Effect.zipRight(_expects(engine, topic, post), Effect.flatMap(_announced(topic, event), (admitted) => Effect.flatMap(held(topic), (cell) =>
                 Effect.flatMap(
                     Ref.modify(seqs, (counts) => {
                         const next = Option.getOrElse(HashMap.get(counts, topic), () => 0) + 1;
@@ -586,15 +632,16 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                         Effect.flatMap(
                             PubSub.publish(
                                 cell,
-                                new _Replayed({ event, coordinate: { _tag: 'Sequence', seq } }),
+                                new _Replayed({ event: admitted, coordinate: { _tag: 'Sequence', seq } }),
                             ),
                             (delivered) =>
                                 delivered
-                                    ? Effect.succeed(
-                                          new _Receipt({
+                                    ? Effect.map(
+                                          _partitionKey(topic, admitted),
+                                          (key) => new _Receipt({
                                               topic,
                                               subject: topics[topic]?.subject ?? topic,
-                                              key: _key(event),
+                                              key,
                                               position: { _tag: 'Sequence', seq },
                                               duplicate: false,
                                           }),
@@ -602,26 +649,26 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                                     : Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<pubsub-offer-rejected>' } })),
                         ),
                 ),
-            );
+            )));
         return {
             offer,
             // In-process delivery crosses no hop, so the announcement carries whole and the creation-time context its
             // own extensions already seal is the only causal identity there is to continue.
             publish: offer,
-            atomic: (topic) => Effect.fail(_absent('local', 'atomic', topic)),
+            atomic: (topic) => Effect.fail(_absent(engine, 'atomic', topic)),
             consumers: (topic) => Effect.as(held(topic), [] as ReadonlyArray<Fanout.Consumer>), // in-process delivery mints no durable consumer: an empty roster is the honest census, and an undeclared topic still answers horizon
             subscribe: (topic) =>
                 Stream.unwrap(Effect.map(held(topic), (cell) => Stream.map(Stream.fromPubSub(cell), (row) => row.event))),
             pulse: Stream.empty,
             consume: (topic, _consumer, anchor, handler) =>
-                _admits('local', anchor)
+                _admits(engine, anchor)
                     ? Stream.runForEach(
                           Stream.unwrap(Effect.map(held(topic), (cell) => Stream.map(Stream.fromPubSub(cell), (row) => row.event))),
                           (event) => Propagation.ingress(handler(event), Carrier.extract('cloudevents', event)),
                       )
-                    : Effect.fail(_absent('local', 'consume', topic, `:${anchor._tag}`)),
+                    : Effect.fail(_absent(engine, 'consume', topic, `:${anchor._tag}`)),
             replay: (topic, anchor) =>
-                _admits('local', anchor)
+                _admits(engine, anchor)
                     ? Stream.unwrap(
                           Effect.all({ cell: held(topic), counts: Ref.get(seqs) }).pipe(
                               Effect.map(({ cell, counts }) =>
@@ -635,7 +682,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
                               ),
                           ),
                       )
-                    : Stream.fail(_absent('local', 'replay', topic, `:${anchor._tag}`)),
+                    : Stream.fail(_absent(engine, 'replay', topic, `:${anchor._tag}`)),
             stash: (topic, name, body) =>
                 Effect.zipRight(
                     held(topic),
@@ -710,7 +757,7 @@ const _minted = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Effect.Effe
         };
     });
 
-const _local = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fanout> => Layer.scoped(Fanout, _minted(topics, policy));
+const _local = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fanout> => Layer.scoped(Fanout, _minted(topics, policy, 'local'));
 ```
 
 ## [05]-[TAB_ROW]
@@ -722,56 +769,39 @@ const _local = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<
 - Law: `_ENGINES.tab` shares the local row's `serves` and `anchors` and diverges on the four cells the channel moves — `fits`, `tenancy`, `lifetime`, and the `settle`/`replay` pair, because `postMessage` answers nothing and carries no warm window, so a cross-tab drop settles nowhere and a tab opened after a post never sees it; the shelf stays per-tab since only envelopes cross, so a `haul` or `alias` naming another tab's stash answers the local row's absent-blob evidence, and a browser workload needing the durable cells dials the jetstream row over websockets instead.
 - Law: both host FFI calls fold onto the typed rail — the `BroadcastChannel` mint refuses in a context without the constructor, and the post frames through the package's own structured serializer inside `Effect.try` beside a `postMessage` that raises on an unclonable body, so neither reaches the fiber as an untyped defect.
 - Law: a cross-tab post is a real HOP, so it alone carries the `fanout` carrier row beside the announcement — the sealed creation trace rides the envelope's own extensions and the posting tab's current context rides the frame, so a receiving tab continues the hop it observed.
+- Tests: structured JSON round-trips one strictly admitted event through `Event.format.json.single`; a batch-shaped or malformed post drops before the local cell offer.
 - Boundary: the session plane's own `BroadcastChannel` (`browser/route` `Vault`) is a distinct, single-purpose channel — session continuity is not fanout, and neither surface composes the other.
-- Packages: `effect` (`Stream`, `Schema`, `Record`), the host `BroadcastChannel` Web API at the sanctioned FFI seam.
+- Packages: `effect` (`Stream`, `Schema`, `Record`), `@rasm/ts/core` (`Carrier`, `Event`, `Format`), the host `BroadcastChannel` Web API at the sanctioned FFI seam.
 
 ```typescript signature
-// Cross-tab posts carry the announcement in its ONE structured JSON spelling beside the posting tab's hop band:
-// this package's own structured serializer frames it and its own deserializer recovers it, so the bridge spells no
-// attribute name and a browser post carries exactly what an HTTP structured leg carries.
+// Cross-tab posts carry exact JSON-format octets beside the posting tab's hop band. `Event.format` owns both codec
+// directions and strict admission, so the local cell cannot observe an unadmitted event.
 const _TAB_POST = Schema.Struct({
-    structured: Schema.NonEmptyString,
+    structured: Schema.Uint8ArrayFromSelf,
     band: Schema.Record({ key: Schema.String, value: Schema.String }),
 });
 
-const _tabLower = (topic: string, event: Fanout.Announced): Effect.Effect<string, FanoutFault> =>
-    Effect.flatMap(
-        Effect.try({
-            try: () => HTTP.structured(event),
-            catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
-        }),
-        (message) =>
-            typeof message.body === 'string'
-                ? Effect.succeed(message.body)
-                : Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<structured-body-not-text>' } })),
-    );
+const _tabLower = (topic: string, event: Fanout.Announced): Effect.Effect<Uint8Array, FanoutFault> =>
+    Effect.flatMap(_announced(topic, event), (admitted) =>
+        Schema.encode(Event.format.json.single)(admitted).pipe(
+            Effect.mapError((issue) => new FanoutFault({ case: { reason: 'publish', topic, detail: issue.message } })),
+        ));
 
 const _tabRaise = (
     topic: string,
     post: unknown,
 ): Effect.Effect<{ readonly event: Fanout.Announced; readonly carrier: Carrier.Extraction }, FanoutFault | ParseResult.ParseError> =>
     Effect.flatMap(Schema.decodeUnknown(_TAB_POST)(post), (framed) =>
-        Effect.flatMap(
-            Effect.try({
-                try: () =>
-                    HTTP.toEvent<unknown>({
-                        headers: { [CONSTANTS.HEADER_CONTENT_TYPE]: CONSTANTS.MIME_CE_JSON },
-                        body: framed.structured,
-                    }),
-                catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
-            }),
-            (decoded) =>
-                Option.match(globalThis.Array.isArray(decoded) ? Array.head(decoded) : Option.some(decoded), {
-                    onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<empty-tab-post>' } })),
-                    onSome: (event) => Effect.succeed({ event, carrier: Carrier.extract('fanout', framed.band) }),
-                }),
+        Schema.decodeUnknown(Event.format.json.single)(framed.structured).pipe(
+            Effect.mapError((issue) => new FanoutFault({ case: { reason: 'publish', topic, detail: issue.message } })),
+            Effect.map((event) => ({ event, carrier: Carrier.extract('fanout', framed.band) })),
         ));
 
 const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fanout, FanoutFault> =>
     Layer.scoped(
         Fanout,
         Effect.gen(function* () {
-            const inner = yield* _minted(topics, policy);
+            const inner = yield* _minted(topics, policy, 'tab');
             const posts = yield* Effect.all(
                 Record.map(topics, (row) =>
                     Effect.acquireRelease(
@@ -819,8 +849,10 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
             );
             return {
                 ...inner,
-                publish: (topic, event) =>
-                    Effect.tap(inner.offer(topic, event), () =>
+                publish: (topic, event, post) =>
+                    // Decoration never shadows its decorated row: the local cell's own `_expects` gate decides
+                    // this expectation, so the bridge forwards it whole instead of minting a second refusal
+                    Effect.tap(inner.offer(topic, event, post), () =>
                         Effect.flatMap(
                             Effect.all({ context: Propagation.current, framed: _tabLower(topic, event) }),
                             ({ context, framed }) =>
@@ -851,20 +883,25 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 - Law: a sender-constrained principal never reaches this dial — the shared `Machine.at` gate refuses a `dpop`-scheme principal for every wire, because RFC 9449 binds the token to a proof over an HTTP method and URL that no CONNECT frame has; the refusal re-spells as a `dial` fault carrying the audience, so a misbound source is a boot refusal rather than a broker rejecting an unbound token.
 - Growth: `credsAuthenticator` is the same thunk shape over operator-issued NATS creds and lands as a second row the day a `Setting.fanout` creds row exists; this row projects the machine principal alone, because a creds file is a deploy-plane credential with no principal behind it and `proc/config` owns that row.
 - Law: the consumer lanes are split by ack capability — the ordered lane (`subscribe`, `replay`) mints a nameless ordered consumer fixed to `AckPolicy.None`; the durable lane (`consume`) derives `durable_name` from topic and the caller's logical consumer identity, declares explicit ack posture, binds `max_ack_pending` from the row's `pending` ceiling so the descriptor `bound` cell names a number this package set, and binds that same name. Independent consumers therefore receive independent durable streams, while replicas sharing one identity intentionally load-balance.
-- Law: `pulse` is this connection's `status()` iterator projected through `_NATS_PULSE` — a server error, a slow consumer, a stale connection, a disconnect, and a close each carry evidence no publish or consume await ever sees, while a reconnect or a cluster update carries none and emits nothing; the read's own failure folds into one emitted fault, so the stream itself never fails and a supervisor reads exactly one family.
+- Law: `pulse` merges TWO disjoint out-of-band surfaces and neither substitutes for the other. `nc.status()` through `_NATS_PULSE` reports what the SOCKET did — a server error, a slow consumer, a stale connection, a disconnect, a close — while a reconnect or a cluster update carries no loss and emits nothing. `ConsumerMessages.status()` through `_JS_PULSE` reports what a PULL LOOP did, and its nine loss arms name a consumer this connection never lost: missed heartbeats, an absent consumer or stream, a deleted or reset consumer, a recreated ordered consumer, a pull limit, absent responders, and a server-truncated request stating the messages it left unsatisfied. Six further arms — a received heartbeat, a flow-control frame, a pull request, an ignored server status, and the two pin transitions — are the loop working and stay silent. Each leg folds its own read failure into one emitted fault, so the stream never fails and a supervisor reads one family.
+- Law: a consume loop reading only the connection stalls SILENTLY, which is why the consumer surface is not optional — the client's own rule is to keep re-requesting from a consumer it once reached, so a deleted durable or a purged stream delivers nothing, fails nothing, and reads exactly like an idle topic while the stream lag grows. Forking that status read publishes the evidence, `abort_on_missing_resource` on the durable lane ends the iterator, and the pair turns an invisible stall into a typed failure a supervisor can re-ensure against.
+- Law: the in-flight window is TWO numbers this package sets and neither is the client's default — `max_ack_pending` from the row's `pending` caps what the server holds unacknowledged, and `max_messages` from the row's `prefetch` caps what this process already pulled. Bare `consume()` takes a hundred-message buffer, every one of those messages starts its `ack_wait` clock at DELIVERY, and the heartbeat covers the one message the handler holds — so the tail of an undeclared buffer redelivers work already in hand and reads as broker instability. `threshold_messages` refills at half the buffer, while `expires` and `idle_heartbeat` stay UNSET on the long-lived tail because the client documents both as its own to pick and a low value stresses the server; the bounded replay fetch is the one place `expires` earns a value, and its `max_messages` is the computed retained count rather than the prefetch, since clamping a replay to the ack-pressure bound truncates the window silently.
 - Law: the ack algebra folds onto the rail, never past it — `working`, `ack`, `nak`, and `term` each publish on a connection a drain may already have closed, so the confirming calls mint `dial` evidence and the redelivery-bound calls log, and no arm reaches the fiber as a defect.
-- Law: this package ships no NATS binding, so the branch owns it — and the specification's NATS binding is exactly the `ce-` prefixed header set over a data body the HTTP BINARY binding already produces, so `_natsLower`/`_natsRaise` compose that binding and re-head its band into `MsgHdrs`; the prefix, the attribute names, and the base64 rule for binary data all stay the package's and this row spells none of them.
-- Law: exactly-once publish is the dedup window under the circuit — `js.publish` carries the `(source, id)` `msgID` and the envelope's optional expectation projected through `_expected`; the server recognizes a replay inside `duplicate_window`, enforces every `StreamExpectations` arm, and returns a `PubAck` whose sequence and `duplicate` flag ride a receipt bound to the addressed topic, subject, and key; the whole publish rides `Breaker.guard` so a dead broker sheds fast instead of hammering.
+- Law: NATS carries singular structured JSON through `Event.format.json`, whose codec admits both directions; every batch or non-JSON CloudEvents format refuses before delivery.
+- Law: exactly-once publish is the dedup window under the circuit — `js.publish` carries the digest of a tagged, length-framed `(source,id)` address and the envelope's optional expectation projected through `_expected`.
 - Law: at-least-once is the full ack algebra — the handler runs under a heartbeat race that stamps `msg.working()` every half `ack_wait` so a long handler never triggers spurious redelivery; success acks — `ack()` on `"fire"` rows, `ackAck()` awaited on `"double"` rows so the acknowledgement itself is confirmed; a `poison` handler fault terminates through `msg.term(reason)`, every other handler fault `nak()`s, and only that ruled handler-failure branch returns `Effect.void`; an `ackAck()` rejection remains a `dial` fault on the consume rail and cannot be mistaken for handled work.
 - Law: replay is bounded honesty — `replay(topic, anchor)` snapshots `StreamInfo.state`, rejects a `Sequence` before `first_seq` or an `Instant` before `first_ts`, computes a bounded retained-message count instead of using the absolute head sequence as `max_messages`, opens the ordered lane at the admitted anchor (`Window` → the row's replay-depth sequence, `Sequence(seq)` → `opt_start_seq` under `DeliverPolicy.StartSequence`, `Instant(at)` → `opt_start_time` under `DeliverPolicy.StartTime`), and returns each envelope with its `JsMsg.seq` coordinate before `Consumer.fetch` and `Stream.takeUntil` terminate exactly at that head; `subscribe(topic)` projects envelopes from the same ordered rows, warms from the replay-depth sequence, and then tails through `Consumer.consume`. This durable `consume` anchor is creation policy: an existing named consumer resumes its server-held position and never silently re-anchors.
 - Law: Blob aliases retain `Digest.Key` as the sole content address.
 - Law: `stash` records object-store digest evidence; `alias` links without copying bytes.
 - Law: `haul` joins deferred object-store errors into the stream failure channel.
-- Law: `atomic` is the dedup window applied to a batch — each envelope publishes sequentially under its content-derived `msgID`, so a crash mid-batch republishes the whole run and the server answers `duplicate: true` for every record it already holds; there is no cross-object transaction here and none is claimed, because the consume half stays at-least-once under its own ack and the duplicate flag is the caller's evidence that the replay cost nothing.
+- Law: `atomic` is the server's own STAGE, never a republish loop — `js.startBatch` opens it, `add` stages the middle, and `commit` publishes the closing message and settles the whole run, so nothing lands until the commit and a crash mid-stage leaves the stream untouched instead of half-written. `allow_atomic` arms the stream at ensure, since the capability is stream shape rather than a publish flag, and the three server ceilings are named rows this row refuses against: a stage carries at most a thousand messages counting the opening and closing ones, at most fifty stages stay live per stream, and a stage untouched past its idle window is abandoned server-side.
+- Law: the stage states what it LOSES — `BatchMessageOptions` omits `msgID`, so the opening message alone carries a dedup key and the stage's dedup grain is the batch rather than the message. Sequential republishing bought per-message dedup by never being atomic at all, which is the trade named rather than hidden. `Batch` publishes no abort member, so an interrupted stage is reclaimed by that idle window and nothing here pretends to roll it back.
+- Law: `atomic` answers the receipts the engine's own settlement produced and never one per envelope — a stage settles ONCE, so N envelopes answer one receipt carrying the `BatchAck` sequence beside the opening address, while Kafka's transactional lane settles per record and answers N. Indexing either answer by envelope reads a correspondence neither protocol publishes, which is why `settle` states the grain per row. One envelope routes to `publish`, because a single message is already atomic and that form keeps its own `msgID`.
+- Tests: NATS structured JSON single round-trips with semantic event equality; JSON batch, Protobuf, and Avro media refuse before handler delivery.
 - Law: the durable-consumer census is the reconciliation's missing half — `jsm.consumers.list(topic)` is a `Lister`, so it lifts through the same `Stream.fromAsyncIterable` seam the message lanes ride and pages one turn at a time rather than materializing a roster, each `ConsumerInfo` projecting into the `Fanout.Consumer` fact (created instant, delivered sequence, pending, unacked, redelivered depth); the retire predicate turns the same read into a reap over `jsm.consumers.delete`, answering the survivors so a doctor verb reads the post-reap truth in one call.
 - Law: the iterator seam is the platform-forced boundary — `consume()` yields an async iterable the engine lifts through `Stream.fromAsyncIterable` under a scoped acquisition whose release closes the consumer, so teardown rides the `Scope` and a leaked pull loop is unspellable.
 - Boundary: NATS server deployment — the websocket listener, fsync `sync_interval` hardening, replica quorum — is the deploy plane's; the data journal remains the system of record, and a projection rebuilt from fanout evidence is the named defect.
-- Packages: `@nats-io/nats-core` (`wsconnect`, `tokenAuthenticator`, `Authenticator`, `ConnectionOptions`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`), `@nats-io/obj` (`Objm`, `ObjectStore`), `cloudevents` (`HTTP` — the `ce-` binding the NATS binding shares), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `MutableRef`, `Predicate`, `Redacted`, `Schedule`, `Stream`), `@rasm/ts/security` (`MachinePrincipal`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`, `Machine`).
+- Packages: `@nats-io/nats-core` (`wsconnect`, `tokenAuthenticator`, `Authenticator`, `ConnectionOptions`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`, `ConsumerNotification`, `startBatch`), `@nats-io/obj` (`Objm`, `ObjectStore`), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `MutableRef`, `Predicate`, `PubSub`, `Redacted`, `Schedule`, `Stream`), `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/security` (`MachinePrincipal`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`, `Machine`).
 
 ```typescript signature
 const _nanos = (span: Duration.Duration): number => Duration.toMillis(span) * 1_000_000;
@@ -907,6 +944,35 @@ const _NATS_PULSE = Match.type<Status>().pipe(
     Match.orElse(() => Option.none<string>()),
 );
 
+// Consumer notifications are the SECOND out-of-band surface and share nothing with the first: `nc.status()` reports
+// what the SOCKET did, `ConsumerMessages.status()` what the PULL LOOP did, and the two unions are disjoint. A loop
+// reading only the socket hangs silently on every consumer-scoped failure, because the client's own rule is to keep
+// re-requesting from a consumer it once reached — a deleted durable, a purged stream, or a heartbeat gap therefore
+// delivers nothing, fails nothing, and reads exactly like an idle topic until someone asks why the lag grows.
+// Nine arms carry a loss and six carry progress: a received heartbeat, a flow-control frame, a pull request, an
+// ignored server status, and the two pin transitions are the loop working, so this rail stays silent on them.
+const _JS_PULSE = Match.type<ConsumerNotification>().pipe(
+    Match.discriminators('type')({
+        heartbeats_missed: ({ count }) => Option.some(`<heartbeats-missed:${count}>`),
+        consumer_not_found: ({ stream, name, count }) => Option.some(`<consumer-absent:${stream}/${name}:${count}>`),
+        stream_not_found: ({ name }) => Option.some(`<stream-absent:${name}>`),
+        consumer_deleted: ({ code, description }) => Option.some(`<consumer-deleted:${code}:${description}>`),
+        ordered_consumer_recreated: ({ name }) => Option.some(`<ordered-consumer-recreated:${name}>`),
+        exceeded_limits: ({ code, description }) => Option.some(`<pull-limit:${code}:${description}>`),
+        no_responders: ({ code }) => Option.some(`<no-responders:${code}>`),
+        // server-truncated pull request: exactly the messages this loop asked for and did NOT receive
+        discard: ({ messagesLeft, bytesLeft }) => Option.some(`<request-discarded:${messagesLeft}msg:${bytesLeft}b>`),
+        reset: ({ name }) => Option.some(`<consumer-reset:${name}>`),
+    }),
+    Match.orElse(() => Option.none<string>()),
+);
+
+// Server-owned atomic-stage ceilings this row refuses against rather than discovering by rejection: one stage
+// carries at most this many messages counting the opening and committing ones, at most this many stages stay
+// live per stream, and one untouched past this window is abandoned server-side. `Batch` publishes no abort
+// member, so that idle window IS the abort an interrupted stage falls back on.
+const _BATCH = { members: 1_000, live: 50, idle: Duration.seconds(10) } as const;
+
 const _expected = (expect: Fanout.Post['expect']) =>
     Option.match(expect, {
         onNone: () => ({}),
@@ -939,48 +1005,44 @@ const _unband = (hdrs: MsgHdrs | undefined): Readonly<Record<string, string>> =>
     return band;
 };
 
-// This package ships no NATS binding, so the branch owns it — and the specification's NATS binding is exactly the
-// `ce-` prefixed header set over a data body the HTTP BINARY binding already produces. Lowering therefore composes
-// that binding and re-heads its band into `MsgHdrs`, so the attribute names, their prefix, and the base64 rule for
-// binary data all stay the PACKAGE's and this row spells none of them.
+// No official SDK binding exists for NATS. The transport therefore carries the exact structured JSON single codec;
+// it does not fabricate HTTP binary headers or restate CloudEvents attributes.
 const _natsLower = (
     topic: string,
     event: Fanout.Announced,
-): Effect.Effect<{ readonly band: Readonly<Record<string, string>>; readonly body: Uint8Array }, FanoutFault> =>
-    Effect.flatMap(
-        Effect.try({
-            try: () => HTTP.binary(event),
-            catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: `<binary-binding-rejected:${String(cause)}>` } }),
-        }),
-        (message) =>
-            Effect.map(_natsBody(topic, message.body), (body) => ({
-                band: Record.filterMap(message.headers, (value) => (typeof value === 'string' ? Option.some(value) : Option.none())),
+): Effect.Effect<{
+    readonly event: Fanout.Announced;
+    readonly band: Readonly<Record<string, string>>;
+    readonly body: Uint8Array;
+}, FanoutFault> =>
+    Effect.flatMap(_announced(topic, event), (admitted) =>
+        Schema.encode(Event.format.json.single)(admitted).pipe(
+            Effect.mapError((issue) => new FanoutFault({ case: { reason: 'publish', topic, detail: issue.message } })),
+            Effect.map((body) => ({
+                event: admitted,
+                band: { [CONSTANTS.HEADER_CONTENT_TYPE]: Event.format.json.media },
                 body,
             })),
-    );
-
-const _natsUtf8 = { read: new TextDecoder(), write: new TextEncoder() } as const;
-
-const _natsBody = (topic: string, body: unknown): Effect.Effect<Uint8Array, FanoutFault> =>
-    body === undefined
-        ? Effect.succeed(new Uint8Array())
-        : typeof body === 'string'
-          ? Effect.succeed(_natsUtf8.write.encode(body))
-          : body instanceof Uint8Array
-            ? Effect.succeed(new Uint8Array(body))
-            : Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<binding-body-not-bytes>' } }));
+        ));
 
 const _natsRaise = (topic: string, msg: JsMsg): Effect.Effect<Fanout.Announced, FanoutFault> =>
-    Effect.flatMap(
-        Effect.try({
-            try: () => HTTP.toEvent<unknown>({ headers: _unband(msg.headers), body: Buffer.from(msg.data) }),
-            catch: (cause) => new FanoutFault({ case: { reason: 'poison', topic, detail: `<toevent-rejected:${String(cause)}>` } }),
-        }),
-        (decoded) =>
-            Option.match(globalThis.Array.isArray(decoded) ? Array.head(decoded) : Option.some(decoded), {
-                onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'poison', topic, detail: '<empty-message-frame>' } })),
-                onSome: Effect.succeed,
-            }),
+    Option.match(
+        Option.flatMap(
+            Option.fromNullable(_unband(msg.headers)[CONSTANTS.HEADER_CONTENT_TYPE]),
+            Format.event.framed,
+        ),
+        {
+            onNone: () => Effect.fail(new FanoutFault({ case: { reason: 'poison', topic, detail: '<event-format-absent>' } })),
+            onSome: ({ format, batch }) =>
+                batch
+                    ? Effect.fail(new FanoutFault({ case: { reason: 'poison', topic, detail: '<batch-unsupported:nats>' } }))
+                    : format !== 'json'
+                      ? Effect.fail(new FanoutFault({ case: { reason: 'poison', topic, detail: `<format-unsupported:nats:${format}>` } }))
+                      : Schema.decodeUnknown(Event.format.json.single)(msg.data).pipe(
+                            Effect.mapError((issue) =>
+                                new FanoutFault({ case: { reason: 'poison', topic, detail: issue.message } })),
+                        ),
+        },
     );
 
 const _start = (
@@ -1100,6 +1162,9 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             subjects: [row.subject],
                             max_age: _nanos(row.retention),
                             duplicate_window: _nanos(setting.fanout.dedup),
+                            // Stream shape arms the atomic stage, never a publish flag: unset, `startBatch`
+                            // refuses at the server and the row's `serves.atomic` cell claims what it cannot do
+                            allow_atomic: true,
                         };
                         const current = yield* Effect.tryPromise({
                             try: () => jsm.streams.info(name),
@@ -1132,13 +1197,20 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                 try: () => new Objm(nc).create(_BLOB.store),
                 catch: (cause) => new FanoutFault({ case: { reason: 'dial', topic: _BLOB.store, detail: String(cause) } }),
             });
+            // One cell every consumer's own status iterator writes into, merged with the connection projection at
+            // `pulse`: the two surfaces answer different questions and a supervisor reads one family for both.
+            const beat = yield* Effect.acquireRelease(PubSub.unbounded<FanoutFault>(), (live) => PubSub.shutdown(live));
 
             const named = (topic: string): Effect.Effect<Fanout.Topic, FanoutFault> => _named(topics, topic);
 
+            // `pull` carries NO default: the client picks `max_messages: 100` for a bare `consume()`, and every one of
+            // those hundred starts its `ack_wait` clock at delivery while the sequential handler heartbeats the head
+            // alone — so the tail redelivers work already in this process and the row's `bound` cell names a number
+            // nobody set. Both call sites therefore spell the buffer off the topic row.
             const pulled = (
                 topic: string,
                 minted: Effect.Effect<Consumer, FanoutFault>,
-                pull: (consumer: Consumer) => Promise<ConsumerMessages> = (consumer) => consumer.consume(),
+                pull: (consumer: Consumer) => Promise<ConsumerMessages>,
             ): Stream.Stream<readonly [Fanout.Announced, JsMsg], FanoutFault> =>
                 Stream.unwrapScoped(
                     Effect.gen(function* () {
@@ -1150,6 +1222,22 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             }),
                             (live) => Effect.orDie(Effect.tryPromise(() => live.close())),
                         );
+                        // Status rides THIS loop's scope, so the iterator dies with the pull it describes and a
+                        // stalled consumer's evidence reaches `pulse` while the message iterator yields nothing.
+                        yield* Effect.forkScoped(
+                            Effect.ignoreLogged(Stream.runForEach(
+                                Stream.fromAsyncIterable(
+                                    messages.status(),
+                                    (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } }),
+                                ),
+                                (notice) =>
+                                    Option.match(_JS_PULSE(notice), {
+                                        onNone: () => Effect.void,
+                                        onSome: (detail) =>
+                                            Effect.asVoid(PubSub.publish(beat, new FanoutFault({ case: { reason: 'dial', topic, detail } }))),
+                                    }),
+                            )),
+                        );
                         return Stream.fromAsyncIterable(messages, (cause) => new FanoutFault({ case: { reason: 'dial', topic, detail: String(cause) } })).pipe(
                             Stream.mapEffect((msg: JsMsg) =>
                                 Effect.map(_natsRaise(topic, msg), (event) => [event, msg] as const)),
@@ -1160,6 +1248,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
             const ordered = (
                 topic: string,
                 anchor: Fanout.Anchor,
+                prefetch: number,
                 bound: Option.Option<{ readonly head: number; readonly limit: number; readonly wait: Duration.Duration }> = Option.none(),
             ): Stream.Stream<Fanout.Replayed, FanoutFault> => {
                 const source = pulled(
@@ -1172,7 +1261,16 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                         }),
                     ),
                     Option.match(bound, {
-                        onNone: () => (consumer: Consumer) => consumer.consume(),
+                        // Ordered delivery acks nothing, so this buffer costs no redelivery — it is still the row's,
+                        // because an undeclared client default is a bound the descriptor cannot name. `expires` and
+                        // `idle_heartbeat` stay UNSET on this long-lived tail: the client documents both as its own to
+                        // pick, and a low value stresses the server while the status rail already reports the gaps.
+                        onNone: () => (consumer: Consumer) =>
+                            consumer.consume({ max_messages: prefetch, threshold_messages: Math.max(1, Math.floor(prefetch / 2)) }),
+                        // Bounded replay is the one place `expires` earns a value: the fetch must end when the
+                        // retained window runs out rather than park for the client's thirty-second default. Its
+                        // `max_messages` is the computed retained COUNT and never the row's prefetch — clamping a
+                        // replay to the ack-pressure bound ends the fetch early and truncates the window silently.
                         onSome:
                             ({ limit, wait }) =>
                             (consumer: Consumer) =>
@@ -1202,7 +1300,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             }),
                             (info) =>
                                 Stream.map(
-                                    ordered(topic, _Anchor.Sequence({ seq: Math.max(1, info.state.last_seq - row.replay + 1) })),
+                                    ordered(topic, _Anchor.Sequence({ seq: Math.max(1, info.state.last_seq - row.replay + 1) }), row.prefetch),
                                     (replayed) => replayed.event,
                                 ),
                         ),
@@ -1319,6 +1417,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                         _Anchor.$is('Window')(anchor)
                                             ? _Anchor.Sequence({ seq: Math.max(info.state.first_seq, info.state.last_seq - row.replay + 1) })
                                             : anchor,
+                                        row.prefetch,
                                         Option.some({ head: info.state.last_seq, limit: _remaining(anchor, info, row.replay), wait: row.wait }),
                                     ),
                                 ),
@@ -1334,16 +1433,16 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                 Effect.flatMap(
                     Effect.all({ context: Propagation.current, lowered: _natsLower(topic, event), row: named(topic) }),
                     ({ context, lowered, row }) =>
-                        Breaker.guard(
+                        Effect.flatMap(Event.address(lowered.event), (msgID) => Breaker.guard(
                             'fanout:publish',
                             _CIRCUIT,
                         )(
                             Effect.tryPromise({
                                 try: () =>
                                     js.publish(row.subject, lowered.body, {
-                                        // Dedup keys on the specification's OWN uniqueness composite, so a replayed
-                                        // publish is recognized by the pair every branch already dedups on.
-                                        msgID: _unique(event),
+                                        // The typed length frame makes the `(source,id)` address injective before its
+                                        // digest becomes the broker-sized replay coordinate.
+                                        msgID,
                                         // Binding names prefix `ce-` and the hop carrier writes bare W3C keys, so the two
                                         // sets are disjoint and the sealed creation trace survives this injection intact.
                                         headers: _hdrs({ ...Carrier.inject('nats', context, {}), ...lowered.band }),
@@ -1351,38 +1450,111 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                     }),
                                 catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                             }),
-                        ).pipe(
+                        )).pipe(
                             Effect.mapError((fault) =>
                                 fault._tag === 'Lapse' ? new FanoutFault({ case: { reason: 'publish', topic, detail: '<breaker-open>' } }) : fault,
                             ),
-                            Effect.map(
-                                (ack) =>
+                            Effect.flatMap((ack) =>
+                                Effect.map(_partitionKey(topic, lowered.event), (key) =>
                                     new _Receipt({
                                         topic,
                                         subject: row.subject,
-                                        key: _key(event),
+                                        key,
                                         position: { _tag: 'Sequence', seq: ack.seq },
                                         duplicate: ack.duplicate,
-                                    }),
-                            ),
+                                    }))),
                         ),
                 );
 
+            // Server-staged atomicity, never a republish loop: `startBatch` opens the stage, `add` fills the
+            // middle, and `commit` publishes the closing message and settles the whole run — nothing lands until
+            // that commit, so a crash mid-stage leaves the stream untouched instead of half-written.
+            //
+            // What the collapse LOSES, stated where a caller reads it: `BatchMessageOptions` omits `msgID`, so the
+            // OPENING message alone carries a dedup key. Dedup grain becomes the stage rather than the message — a
+            // replayed stage answers duplicate on the whole run — and sequential republishing bought per-message
+            // dedup at the price of never being atomic at all.
+            //
+            // Arity changes with it: one stage settles ONCE, so N envelopes answer ONE receipt carrying the
+            // `BatchAck` sequence beside the opening address. Kafka's transactional lane settles per record and
+            // answers N; indexing either answer by envelope reads a correspondence neither protocol publishes,
+            // which is why `settle` states the grain per row.
+            const staged = (
+                topic: string,
+                _consumer: string,
+                events: ReadonlyArray<Fanout.Announced>,
+            ): Effect.Effect<ReadonlyArray<Fanout.Receipt>, FanoutFault> =>
+                events.length <= 1
+                    ? // one message is already atomic, and `publish` is the form that keeps its own `msgID`
+                      Effect.forEach(events, (event) => published(topic, event))
+                    : events.length > _BATCH.members
+                      ? Effect.fail(new FanoutFault({
+                            case: { reason: 'publish', topic, detail: `<stage-over-ceiling:${events.length}/${_BATCH.members}>` },
+                        }))
+                      : Effect.gen(function* () {
+                            const context = yield* Propagation.current;
+                            const row = yield* named(topic);
+                            const lowered = yield* Effect.forEach(events, (event) => _natsLower(topic, event));
+                            const opening = lowered[0]!;
+                            const closing = lowered[lowered.length - 1]!;
+                            const band = (framed: (typeof lowered)[number]) =>
+                                _hdrs({ ...Carrier.inject('nats', context, {}), ...framed.band });
+                            const key = yield* Event.address(opening.event);
+                            const ack = yield* Effect.tryPromise({
+                                try: async () => {
+                                    // `Batch` publishes no abort member: an interrupted stage is reclaimed by the
+                                    // server's own idle-abandon window, which is why that window is a named ceiling
+                                    // rather than a comment, and why nothing here pretends to roll the stage back.
+                                    const batch = await js.startBatch(row.subject, opening.body, {
+                                        msgID: key,
+                                        headers: band(opening),
+                                    });
+                                    for (const framed of lowered.slice(1, -1)) {
+                                        batch.add(row.subject, framed.body, { headers: band(framed) });
+                                    }
+                                    return await batch.commit(row.subject, closing.body, { headers: band(closing) });
+                                },
+                                catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
+                            });
+                            return [
+                                new _Receipt({
+                                    topic,
+                                    subject: row.subject,
+                                    key,
+                                    position: { _tag: 'Sequence', seq: ack.seq },
+                                    duplicate: ack.duplicate,
+                                }),
+                            ];
+                        });
+
             return {
                 publish: published,
-                pulse: Stream.filterMap(
-                    Stream.fromAsyncIterable(nc.status(), (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } })),
-                    (status) => Option.map(_NATS_PULSE(status), (detail) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail } })),
-                ).pipe(Stream.catchAll(Stream.succeed)), // the iterator's own failure IS a transport fact, so it rides the stream rather than ending it
-                atomic: (topic, _consumer, events) =>
-                    // Atomicity IS the dedup window: each announcement's `(source, id)` msgID makes a replayed batch a run of duplicate acks,
-                    // so a crash mid-batch republishes without doubling and the consume lane's own ack keeps the read half at-least-once
-                    Effect.forEach(events, (event) => published(topic, event), { concurrency: 1 }),
+                pulse: Stream.merge(
+                    Stream.filterMap(
+                        Stream.fromAsyncIterable(nc.status(), (cause) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail: String(cause) } })),
+                        (status) => Option.map(_NATS_PULSE(status), (detail) => new FanoutFault({ case: { reason: 'dial', topic: '*', detail } })),
+                    ).pipe(Stream.catchAll(Stream.succeed)), // the iterator's own failure IS a transport fact, so it rides the stream rather than ending it
+                    // Consumer half: every live pull loop's own status iterator writes here, so a stalled consume
+                    // and a dropped socket reach one supervisor as one family instead of one arriving and one not
+                    Stream.fromPubSub(beat),
+                ),
+                atomic: staged,
                 consumers: censused,
                 subscribe: subscribed,
                 consume: (topic, consumer, anchor, handler) =>
                     Effect.flatMap(named(topic), (row) =>
-                        Stream.runForEach(pulled(topic, durable(topic, consumer, row, anchor)), ([event, msg]) =>
+                        Stream.runForEach(
+                            pulled(topic, durable(topic, consumer, row, anchor), (bound) =>
+                                bound.consume({
+                                    max_messages: row.prefetch,
+                                    threshold_messages: Math.max(1, Math.floor(row.prefetch / 2)),
+                                    // Durables this Layer ensured and the server then dropped are TERMINAL, so the
+                                    // iterator ends and the fault escapes to a supervisor that can re-ensure it.
+                                    // Otherwise the client keeps re-requesting from a consumer it once reached, which
+                                    // is exactly the shape that reads as an idle topic while the stream lag grows.
+                                    abort_on_missing_resource: true,
+                                })),
+                            ([event, msg]) =>
                             Effect.matchEffect(
                                 Effect.raceFirst(
                                     // first COMPLETION wins: the heartbeat never settles, so the handler's success or failure always decides and the beat dies with it
@@ -1518,12 +1690,13 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 - Law: a credential refusal reaches the same rail every other async fault does — a rejected provider promise makes the wrapper call `setOAuthBearerTokenFailure` and emit on `error`, which the supplied Logger routes onto the `pulse` cell, so a source that empties mid-life surfaces as one transport fault on the stream a supervisor already reads rather than as a silent authentication stall.
 - Law: the audience is the SORTED bootstrap roster, because that roster is the cluster's identity and its declaration order is not — keying on the raw array would mint a second audience for the same brokers listed differently and strand the principal a source holds for the first spelling.
 - Law: `atomic` is the transactional lane and it binds to a live `consume` identity — the consume acquisition mints a second producer whose `transactionalId` IS the group name, registers the consumer handle beside it, and stamps the next-offset position before every handler call, so `atomic` opens `producer.transaction()`, sends the batch, hands that exact position to `sendOffsets({ consumer, topics })`, and `commit()`s both as one unit; a failed or interrupted unit aborts, so no half-published batch survives. Naming an identity with no live lane, or a lane that has not yet processed a record, answers `horizon` by that name — the offset half has no source, and inventing one forges the guarantee.
-- Law: three owners meet at one record and none re-implements another — the package's `ce_` binding owns the header band and the record key it projects off `partitionkey`, the registry serde owns the DATA bytes alone, and the announced `dataschema` joins them by naming the same subject and version the contract row pins; a wrapper struct re-carrying the key and a base64 body beside those owners is the second envelope this collapse deletes.
+- Law: two independent coordinates stay with their owners — the package's `ce_` binding owns the header band and record key projected from `partitionkey`, while `Fanout.Contract` alone pins registry subject, version, id, compatibility, and schema; `dataschema` describes the event payload schema URI and is never repurposed as a registry coordinate.
 - Law: `autoRegisterSchemas: false` keeps registration out of the producer path; exact identity admits before `Fanout` exists.
 - Law: the consumer identity derives exactly as the durable lane's — `groupId` is `${topic}:${consumer}`, so independent logical subscribers hold independent groups and replicas sharing one identity load-balance; `subscribe({ topic: row.subject })` precedes `run`, and the handler continues any caller-supplied parent through `Carrier.extract('kafka', ...)` and `Propagation.ingress`.
 - Law: `Carrier.record.read` normalizes Kafka headers into the canonical immutable byte frame.
 - Law: `Carrier.inject("kafka", ...)` writes causal context before `Carrier.record.write` projects producer headers.
 - Law: the registry frame is the sole PAYLOAD framing and `datacontenttype` states it as row data off that arrow, so a consumer reads opaque octets under a declared media rather than a literal asserting a shape the serde chose.
+- Tests: each registry family round-trips a strictly admitted single event; `Kafka.toEvent` arrays refuse as unsupported batch, clone results re-admit, and registry subject/version remain independent of absent or unrelated `dataschema`.
 - Law: replay stays engine-neutral, so this row refuses it — `Fanout.Anchor` gains no partition coordinate because a partition-and-offset pair is broker-local and leaks this engine's shape onto every row, and a fan of per-partition reads merged into one stream answers an ORDER no partition holds; `Fanout.Replayed`'s coordinate is a per-record fact and stays honest where the merged stream's sequence does not. Callers needing a positioned re-read read the data journal, which is the system of record the retention window was never allowed to replace.
 - Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, `KafkaJS.Logger`, `KafkaJS.RecordMetadata`, `KafkaJS.SASLOptions`, `KafkaJS.OauthbearerProviderResponse`), `@confluentinc/schemaregistry`, `cloudevents` (`Kafka`, `CloudEvent`, `CONSTANTS`), `effect` (`DateTime`, `PubSub`, `Queue`, `Redacted`, `Stream`), `@rasm/ts/core` (`Carrier`, `Event`), `@rasm/ts/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `../proc/config.ts`.
 - Boundary: broker deployment — partitions, replication, retention, TLS posture — is the deploy plane's; the bootstrap roster is a `Setting` row and no broker literal exists in the engine. The SASL identity is not a deploy row here: it is the machine principal this engine projects, so a static `sasl.username`/`password` pair beside the provider would be the hand-carried credential the projection deletes. `ssl` stays unset until a `Setting.fanout` row carries the transport posture `proc/config` owns.
@@ -1726,58 +1899,31 @@ const _kafka = (
                                     const serializer = new Encoder(registry, SerdeType.VALUE, writing, rules);
                                     const deserializer = new Decoder(registry, SerdeType.VALUE, reading, rules);
                                     return {
-                                        // Three owners meet here and none re-implements another: the announced coordinate proves
-                                        // against the contract row, the registry serde frames the DATA alone, and the package's own
-                                        // binding lowers every attribute into its `ce_` header namespace and the record key.
+                                        // Registry coordinates belong to the contract row, payload bytes to the serde, and the
+                                        // CloudEvents header band plus record key to the official Kafka binding.
                                         lower: (logical, event) =>
                                             Effect.gen(function* () {
-                                                yield* Option.match(Option.fromNullable(event.dataschema), {
-                                                    onNone: () =>
-                                                        Effect.fail(
-                                                            new FanoutFault({
-                                                                case: {
-                                                                    reason: 'publish',
-                                                                    topic: logical,
-                                                                    detail: '<announcement-carries-no-dataschema>',
-                                                                },
-                                                            }),
-                                                        ),
-                                                    onSome: (declared) =>
-                                                        declared === _kafkaCoordinate(contract)
-                                                            ? Effect.void
-                                                            : Effect.fail(
-                                                                  new FanoutFault({
-                                                                      case: {
-                                                                          reason: 'publish',
-                                                                          topic: logical,
-                                                                          detail: `<dataschema-drift:${declared}!=${_kafkaCoordinate(contract)}>`,
-                                                                      },
-                                                                  }),
-                                                              ),
-                                                });
+                                                const admitted = yield* _announced(logical, event);
                                                 const framed = yield* Effect.tryPromise({
-                                                    try: () => serializer.serialize(wireTopic, event.data),
+                                                    try: () => serializer.serialize(wireTopic, admitted.data),
                                                     catch: (cause) =>
                                                         new FanoutFault({ case: { reason: 'publish', topic: logical, detail: String(cause) } }),
                                                 });
-                                                // `cloneWith` is the envelope owner's OWN re-attribution and re-runs the whole
-                                                // admission, so the framed body and its opaque media enter through the same gate the
-                                                // mint passed rather than a hand-assembled attribute record beside it.
-                                                const sealed = yield* Effect.try({
-                                                    try: () =>
-                                                        event instanceof CloudEvent
-                                                            ? event.cloneWith({ data: framed, datacontenttype: CONSTANTS.MIME_OCTET_STREAM })
-                                                            : event,
-                                                    catch: (cause) =>
-                                                        new FanoutFault({ case: { reason: 'publish', topic: logical, detail: String(cause) } }),
-                                                });
+                                                const sealed = yield* Event.clone(admitted, {
+                                                    data: framed,
+                                                    datacontenttype: CONSTANTS.MIME_OCTET_STREAM,
+                                                }).pipe(
+                                                    Effect.mapError((refusal) =>
+                                                        new FanoutFault({ case: { reason: 'publish', topic: logical, detail: refusal.message } })),
+                                                );
                                                 const message = yield* Effect.try({
                                                     try: () => Kafka.binary<unknown>(sealed),
                                                     catch: (cause) =>
                                                         new FanoutFault({ case: { reason: 'publish', topic: logical, detail: String(cause) } }),
                                                 });
+                                                const partition = yield* _partitionKey(logical, admitted);
                                                 return {
-                                                    key: typeof message.key === 'string' ? message.key : _key(event),
+                                                    key: typeof message.key === 'string' ? message.key : partition,
                                                     value: Buffer.from(framed),
                                                     band: Carrier.record.write(Carrier.record.read(message.headers)),
                                                 };
@@ -1814,19 +1960,20 @@ const _kafka = (
                                                     catch: (cause) =>
                                                         new FanoutFault({ case: { reason: 'poison', topic: logical, detail: String(cause) } }),
                                                 });
-                                                const one = yield* Option.match(
-                                                    globalThis.Array.isArray(envelope) ? Array.head(envelope) : Option.some(envelope),
-                                                    {
-                                                        onNone: () =>
-                                                            Effect.fail(
-                                                                new FanoutFault({ case: { reason: 'poison', topic: logical, detail: '<empty-record-frame>' } }),
-                                                            ),
-                                                        onSome: Effect.succeed,
-                                                    },
-                                                );
-                                                // Bindings write the record key off `partitionkey`, so a key disagreeing with the
-                                                // announcement means a producer partitioned on a member this envelope never carried.
-                                                yield* key === null || key.toString('utf8') === _key(one)
+                                                const one = yield* (globalThis.Array.isArray(envelope)
+                                                    ? Effect.fail(
+                                                          new FanoutFault({
+                                                              case: { reason: 'poison', topic: logical, detail: '<batch-unsupported:kafka>' },
+                                                          }),
+                                                      )
+                                                    : Event.admit(envelope).pipe(
+                                                          Effect.mapError((refusal) =>
+                                                              new FanoutFault({
+                                                                  case: { reason: 'poison', topic: logical, detail: refusal.message },
+                                                              })),
+                                                      ));
+                                                const expectedKey = yield* _partitionKey(logical, one, 'poison');
+                                                yield* key === null || key.toString('utf8') === expectedKey
                                                     ? Effect.void
                                                     : Effect.fail(
                                                           new FanoutFault({
@@ -1837,11 +1984,10 @@ const _kafka = (
                                                               },
                                                           }),
                                                       );
-                                                return yield* Effect.try({
-                                                    try: () => (one instanceof CloudEvent ? one.cloneWith({ data }) : one),
-                                                    catch: (cause) =>
-                                                        new FanoutFault({ case: { reason: 'poison', topic: logical, detail: String(cause) } }),
-                                                });
+                                                return yield* Event.clone(one, { data }).pipe(
+                                                    Effect.mapError((refusal) =>
+                                                        new FanoutFault({ case: { reason: 'poison', topic: logical, detail: refusal.message } })),
+                                                );
                                             }),
                                         close: () => {
                                             serializer.close();
@@ -2016,9 +2162,13 @@ const _kafka = (
                 );
 
             return {
-                publish: (topic, event) =>
+                publish: (topic, event, post = new _Post({})) =>
                     Effect.flatMap(
                         Effect.all({
+                            // Kafka keys partition and never dedup, so there is no last-sequence to compare an
+                            // optimistic expectation against; `_expects` refuses it off the row rather than letting
+                            // a caller's guard vanish into a send that was never conditional.
+                            _guard: _expects('kafka', topic, post),
                             codec: _kafkaNamed(codecs, topic),
                             context: Propagation.current,
                             row: named(topic),
@@ -2042,7 +2192,11 @@ const _kafka = (
                                         }),
                                         catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                                     }),
-                            ).pipe(Effect.flatMap((metadata) => receipted(topic, row.subject, _key(event), metadata[0]))),
+                            ).pipe(
+                                Effect.flatMap((metadata) =>
+                                    Effect.flatMap(_partitionKey(topic, event), (key) =>
+                                        receipted(topic, row.subject, key, metadata[0]))),
+                            ),
                     ),
                 atomic: (topic, consumer, events) =>
                     Effect.flatMap(
@@ -2110,7 +2264,8 @@ const _kafka = (
                                                     ).pipe(
                                                         Effect.flatMap((landed) =>
                                                             Effect.forEach(events, (event, index) =>
-                                                                receipted(topic, row.subject, _key(event), landed[index]),
+                                                                Effect.flatMap(_partitionKey(topic, event), (key) =>
+                                                                    receipted(topic, row.subject, key, landed[index])),
                                                             ),
                                                         ),
                                                     ),

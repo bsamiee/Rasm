@@ -28,12 +28,13 @@
 
 ## [04]-[STRUCTURE]
 
-- `GraduationEnvelope` layout is single-writer law at C# `GraduationEnvelope.Admit` — `experiments/model#ENVELOPE` hand-copies it, never imports.
+- `experiments/model#ENVELOPE` mints `GraduationEnvelope`; C# `GraduationEnvelope.Admit` consumes it, re-running band admission without minting.
 - jax-family imports bind function-local on `Engine.gated()`/`worker()` slots, minted after `jax_enable_x64` arms — early binds yield float32.
 - Single-door jax pages bind module-scope `lazy`, arming on the door's first line — `_capture_jax` is the case, a second door demanding the carrier.
 - Gated import fences bracket the ENGINE MINT alone — a whole-fold `try` re-routes an interior `ImportError` onto a floor receipt reading converged.
 - `ComputeLeg` and its `RAISES` table seat at the graduation hub — a producer-side roster inverts the strata every page imports down.
 - Long folds close their OWN stage `StrEnum`, erased at the conduit — a cross-fold phase ladder names milestones a sibling never reaches.
+- SciPy native teams enter through `lane.whole` and bind `LaneGrant.width` — reading allocator totals multiplies outer and inner parallelism.
 
 ## [05]-[PROCESS]
 

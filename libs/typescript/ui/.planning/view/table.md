@@ -383,7 +383,7 @@ declare namespace Grid {
 [GRID_SEMANTICS]:
 - Owner: `Grid.seat` and `Grid.perch` — one record per rendered cell and per rendered header carrying every aria attribute, the roving tab index, the span pair, and the logical selection edges, so the markup spreads ONE value and assembles no attribute at a call site.
 - Owner: `Grid.counts`, `Grid.marked`, and `Grid.anchor` — the grid's logical size and the branded identity of one row.
-- Packages: `@tanstack/react-table` (the `cellSelectionFeature` and `cellSpanningFeature` cell members, `header.getResizeHandler`); `@rasm/ts/core` (`Wire.BcfViewpoint.GlobalId`); `effect`.
+- Packages: `@tanstack/react-table` (the `cellSelectionFeature` and `cellSpanningFeature` cell members, `header.getResizeHandler`); `viewer/mark` (`Selection.Id` — the one `GlobalId` brand); `effect`.
 - Law: this folder owns the grid markup — `role="grid"` on the scroll host, `role="row"`, `role="columnheader"`, and `role="gridcell"` on its own elements, with react-aria supplying press, focus, and keyboard behavior only. RAC `Table` is refused at this scale because its collection re-derives the faceting, grouping, and windowing `[04]` already owns, and a second derivation of the same rows is a second answer.
 - Law: aria counts and indexes are LOGICAL — `aria-rowcount`/`aria-colcount` from `Grid.counts` and `aria-rowindex`/`aria-colindex` from the seat, so a window mounting thirty rows of a hundred thousand still announces each row's true position; a count read off the mounted span is the defect. Spanning changes no count: a merged run is one cell across its rows and the covered positions keep their indexes.
 - Law: roving focus is `getTabIndex()`'s `0`/`-1` and nothing else — exactly one cell in the grid is tabbable, arrows move it through `table.moveCellSelection(direction)` and shift-arrows extend through `table.extendCellSelection(direction)`. A focus index kept beside the feature is a second focus authority, and its drift is what the reader hears.
@@ -395,10 +395,10 @@ declare namespace Grid {
 - Boundary: press, hover, focus-ring, and keyboard primitives are `system/act`'s and `system/primitive`'s; the class dispatch a seat drives is the folder's token plane; the selection SET and its op vocabulary are `viewer/mark#SELECTION_FOLD`'s.
 
 ```typescript signature
-import { Wire } from "@rasm/ts/core"
 import type { Cell, CellSelectionEdges, Header, Row, Table } from "@tanstack/react-table"
+import { Selection } from "../viewer/mark.ts"
 
-type GlobalId = typeof Wire.BcfViewpoint.GlobalId.Type
+type GlobalId = Selection.Id
 
 declare namespace Grid {
   type Edge = "blockStart" | "blockEnd" | "inlineStart" | "inlineEnd"
@@ -477,7 +477,7 @@ const _perch = <TData>(header: Header<Grid.Features, TData, unknown>, column: nu
   resizing: header.column.getIsResizing(),
 })
 
-const _decode: (raw: unknown) => Option.Option<GlobalId> = Schema.decodeUnknownOption(Wire.BcfViewpoint.GlobalId)
+const _decode: (raw: unknown) => Option.Option<GlobalId> = Selection.decode
 
 const _marked = <TData>(table: Table<Grid.Features, TData>): Option.Option<string> =>
   Option.map(

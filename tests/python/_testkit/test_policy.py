@@ -28,6 +28,7 @@ from tests.python._testkit.laws import (
     assert_law_coverage,
     auto_exempt,
     consume_covers,
+    generated_roots,
     LawRecord,
     MANIFEST,
     register_tree,
@@ -169,26 +170,43 @@ def test_law_census_detects_partial_collection_and_gate_self_skips(
         test_law_coverage_gate()
 
 
-def test_register_tree_registers_only_source_bearing_folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Disk shape drives registration: source-bearing folders register with derived suites; sourceless folders and loose files never do.
+def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disk shape drives registration: authored folders register with derived suites; sourceless folders, loose files, and emissions never do.
 
-    The live lane proves the repo derivation: every ``libs/python`` registration carries the
-    repo-relative dotted prefix and a suite under ``tests/python/libs``.
+    The generation template is the one authority on generated out roots, so a folder whose source
+    sits beneath a ``plugins[].out`` row owes no suite. The live lane proves the repo derivation:
+    every ``libs/python`` registration carries the repo-relative dotted prefix and a suite under
+    ``tests/python/libs``, and the contracts package registers exactly when authored source
+    survives the out-root carve — the emission neither earns a registration nor suppresses one.
     """
     source = tmp_path / "src"
     (source / "alpha").mkdir(parents=True)
     (source / "alpha" / "__init__.py").write_text("", encoding="utf-8")
     (source / "planning_only").mkdir()
     (source / "stray.py").write_text("", encoding="utf-8")
+    # A child whose every source file lies under a template out root is the generator's emission, never a stratum the census owes a suite.
+    (source / "emitted" / "gen" / "pkg").mkdir(parents=True)
+    (source / "emitted" / "gen" / "pkg" / "gen.py").write_text("", encoding="utf-8")
+    (tmp_path / "buf.gen.yaml").write_text("version: v2\nplugins:\n  - local: gen\n    out: src/emitted/gen\n", encoding="utf-8")
     suites = tmp_path / "suites"
     monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {})
+    monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "buf.gen.yaml")
 
+    assert generated_roots(source) == frozenset({source / "emitted" / "gen"}), "out-root derivation drifted from the template"
     assert register_tree(source, suites) == ("alpha",), "registration drifted from disk shape"
     assert laws_mod.SUT_PACKAGES["alpha"].suite == suites / "alpha", "suite derivation broke"
     assert register_tree(tmp_path / "absent", suites) == (), "a missing source root must register nothing"
+    monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "absent.yaml")
+    assert register_tree(source, suites) == ("alpha", "emitted"), "an absent template must derive zero generated roots"
 
+    monkeypatch.setattr(laws_mod, "_TEMPLATE", REPO_ROOT / "buf.gen.yaml")
     live = register_tree(REPO_ROOT / "libs" / "python", REPO_ROOT / "tests" / "python" / "libs")
     assert all(name.startswith("libs.python.") for name in live), f"repo-relative dotted derivation drifted: {live}"
+    contracts = REPO_ROOT / "libs" / "python" / "contracts"
+    emitted = generated_roots(REPO_ROOT / "libs" / "python")
+    assert any(root.is_relative_to(contracts) for root in emitted), "template lost its Python out root"
+    authored = any(not any(py.is_relative_to(root) for root in emitted) for py in contracts.rglob("*.py"))
+    assert ("libs.python.contracts" in live) is authored, f"contracts registration diverged from its authored source: {live}"
 
 
 def test_registered_suts_carry_their_suite_roots() -> None:
@@ -559,4 +577,4 @@ def test_package_manager_and_type_checker_caches_route_under_owned_roots() -> No
     assert mypy.get("cache_dir") == ".cache/mypy", "native mypy must never write .mypy_cache at repo root"
     assert "\nstoreDir: .cache/pnpm/store\n" in workspace, "native pnpm must never write .pnpm-store at repo root"
     assert "\ncacheDir: .cache/pnpm/cache\n" in workspace, "pnpm metadata cache must stay under .cache"
-    assert "\nstateDir: .cache/pnpm/state\n" in workspace, "pnpm state must stay under .cache"
+    assert "\nstateDir:" not in workspace, "pnpm stateDir is retired; pnpm owns no supported state-directory setting"

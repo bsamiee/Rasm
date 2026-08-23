@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is a publication and print-production engine carrying the AEC documentation plane on top. It folds data, compute, geometry, and any structured payload into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`.
+`artifacts` is a publication and print-production engine carrying the AEC documentation plane on top. It folds data, compute, geometry, and any structured payload into layer-clean files, each returning one kind-discriminated `ArtifactReceipt`.
 
 ## [01]-[ROUTER]
 
@@ -40,7 +40,7 @@
 - [25]-[REGISTER](.planning/delivery/register.md): `Register` ISO 19650 container-register, sheet-index, and container-metadata owner.
 - [26]-[GATE](.planning/delivery/gate.md): `QualityGate` per-kind threshold fold grading every producer verdict a transmittal ships on.
 - [27]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` ISO 19650 issue-for-construction close folding one `TransmittalEvidence`.
-- [28]-[NOTICE](.planning/delivery/notice.md): `TransmittalNotice` projection turning the issued transmittal fact into a message envelope.
+- [28]-[NOTICE](.planning/delivery/notice.md): `TransmittalNotice` projection preserving operation, content, source, and confidentiality semantics.
 
 [GRAPHIC]:
 - [29]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over pillow and pyvips.
@@ -49,7 +49,7 @@
 - [32]-[TEXTURE_PLANE](.planning/graphic/texture/plane.md): `Plane` deep-pixel substrate and the codec rows lifting the estate 8-bit ceiling.
 - [33]-[TEXTURE_DERIVE](.planning/graphic/texture/derive.md): `DeriveOp` channel-derivation kernels over one separable resampler.
 - [34]-[TEXTURE_INGEST](.planning/graphic/texture/ingest.md): `TextureRole`/`IblProduct` slot vocabulary and its total loose-file classifier.
-- [35]-[TEXTURE_SET](.planning/graphic/texture/set.md): `TextureSet` producer minting `AssetSetManifest` behind a merkle set key.
+- [35]-[TEXTURE_SET](.planning/graphic/texture/set.md): `TextureSet` producer minting the generated `appearance.v1.Set` behind a merkle set key.
 - [36]-[TEXTURE_IBL](.planning/graphic/texture/ibl.md): `Ibl` environment-radiance prefilter minting the products an `hdri` manifest names.
 - [37]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — point-at-distance, decimation, one tolerance policy.
 - [38]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` boolean, offset, and stroke-to-outline owner with metric text-on-path.
@@ -262,8 +262,9 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [IDENTITY]:
 - `xxhash` — XXH3 digests behind the bundle, archive, and transmittal content preimages.
 
-[EVENT_FABRIC]:
-- `cloudevents`
-
 [COMPRESSION]:
 - `lz4` — `lz4.frame` codec row behind the compression producer and delta patch store.
+
+[WIRE_CODEGEN]:
+- `rasm.contracts` — `appearance_pb` plane-set classes `graphic/texture/set` emits; `fabrication_pb.FeatureControl` `drawing/dimension` decodes.
+- `protovalidate` — Descriptor-owned standard and CEL admission over completed generated appearance documents, retaining structured violations whole.

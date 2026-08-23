@@ -75,10 +75,7 @@
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "MessagePack": {
         "type": "CentralTransitive",

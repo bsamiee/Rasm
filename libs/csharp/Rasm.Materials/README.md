@@ -2,7 +2,7 @@
 
 `Rasm.Materials` owns architectural substance, appearance, and buildable component type: what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end, from BSDF lobes and OpenPBR lowering through spectral color science to Kubelka-Munk finishes, held at render grade.
 
-Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate alone. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
+Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate and the branch's neutral generated-message admission. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
 
 ## [01]-[ROUTER]
 
@@ -122,6 +122,8 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
 
 [WIRE_CODEGEN]:
-- `MessagePack` — Binary appearance-interchange wire with source-generated resolver and untrusted-data hardening.
+- `Rasm.Contracts` — Generated appearance and declaration messages consumed by raster-set and assessment boundaries, referenced by project.
+- `Google.Protobuf` — Bounded protobuf-binary appearance and declaration decoding over generated messages.
+- `NodaTime.Serialization.Protobuf` — Generated `google.type.Date` projection onto the assessment domain's `LocalDate` values.
+- `MessagePack` — Branch-interior inference-stage crossing with source-generated resolver and untrusted-data hardening.
 - `MessagePackAnalyzer` — Build-only proof of `[Key]` coverage on every wire record.
-- `System.Text.Json` — Options identity behind the MaterialX and appearance interchange payloads.

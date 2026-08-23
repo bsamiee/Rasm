@@ -170,7 +170,11 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.
 - `obstore` — Object-store substrate reached through the runtime store lane; this branch names its credential providers alone (`spatial/catalog`).
-- `protobuf` — Wire codec beneath the Substrait plan model; `tabular/query#QUERY` reads its decode fault as the inbound-plan refusal.
 
 [MESH_INTERCHANGE]:
 - `meshio`
+
+[WIRE_CODEGEN]:
+- `protobuf` — Google message runtime beneath the Substrait plan IR; `tabular/query#QUERY` reads its decode fault as the inbound-plan refusal.
+- `protovalidate` — Evaluates generated organization rules after the bounded recursive census and before graph allocation.
+- `rasm.contracts` — `organization_pb` wire `graph/graph` folds into the graph plane; `declaration_pb.DeclarationRecord` `impact/declaration` mints.

@@ -13,8 +13,7 @@
 - Interchange budgets are kernel `Tolerance` values on ELECTED lanes — a bare epsilon names no band, dimension, or overridable lane.
 - `Rasm.Element` owns the codec mechanism name `WireCodec`; this folder's message-roster mapper is `EventCodec`, so one noun names one owner.
 - Ingested `IfcClass`/`PredefinedType` tokens admit BARE and prove at the `Emit` gate — ingress validation aborts an import on one unknown entity.
-- `PredicateWire` holds a contract-frozen face over an interior composing the seam algebra — a second algebra beside `BimLeaf` is the deleted form.
-- `Seal` REFUSES by name any term the frozen face cannot carry — widening that face is a manifest and mirror change, never a codec edit.
+- Bim composes the native seam predicate algebra directly; a generated predicate face, codec, or second algebra beside `BimLeaf` is the deleted form.
 - `ElementQuery` binds one `Selection<NodeId>` to its graph — that binding is what keeps `Bake` railed on a cyclic `Compose`.
 - Selection evidence rides `MatchVerdict` onto `ElementQuery.Faults`, never a rail — one malformed sub-term refuses no query.
 - Seam `UnitScheme.Coerce`/`Declare` is the ONE native-to-SI entry — a local axis record or a bare multiplier re-opens the call-site fan.
@@ -27,6 +26,7 @@
 - Native-lane abort claims state their GRAIN — where the bound native publishes no interrupt, the token gates managed boundaries and nothing deeper.
 - Captured boundary cases own recovery posture; projector interfaces expose none, and unknown throws remain exact terminal errors.
 - Ports thread only transported governance — `TessellationCompanion.Cross` takes the rpc token, never an `IProgress<double>` the rpc cannot publish.
+- `TessellationRequest.Plan` is the ONE format door — past its constructor the value IS a proven IFC request, so no interior fence re-checks format.
 - `IfcRelKind` rows carry every `IfcRel*` name, direction, and inverse onto the neutral edge — a typed seam case leaks GeometryGym downward.
 - `Relationship.Generic` wire names MINT from a roster row — an undeclared name is unconstructible at the producer, so the roster IS the vocabulary.
 - Forms this producer refuses are DECLARED rows carrying their diagnostic — an absent row reads as unknown encoding, so peers diverge in silence.
@@ -59,6 +59,7 @@
 - Takeoff folds read the kernel `MeasureBundle` — one `Qto_*` set declares three dimensions, so a one-kind bundle derives one and re-pays the rest.
 - `QuantityDerivation.Demand` is the ONE ceiling a bundle mint runs under — `CapabilitySet<MassKind>.All` refuses a solid whole on the length solve.
 - Cross-runtime geo edges carry `[PROJECTION]: GeoWire` — `GeoFeatureWire` types nothing at either end, so `[WIRE]` claims a roster none holds.
+- Bim event subjects key normalized generated-context JSON bodies — entity, topic, model, and artifact ids remain typed body fields.
 
 ## [03]-[COLLAPSE]
 

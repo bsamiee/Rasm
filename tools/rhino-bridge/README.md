@@ -33,11 +33,11 @@ uv run python -m tools.assay bridge verify --evidence author blocks
 
 Selection rules:
 - Empty, `all`, or `*` selects every typed scenario corpus.
-- A theme token selects every scenario in that theme; theme tokens admit `*`/`?` globs.
-- A full scenario name, bare scenario method name, or `*`/`?` glob selects matching scenario names, ordinal case-sensitive.
-- A scenario owner path, project path, or theme-local `Scenarios/` path selects that corpus.
+- Theme tokens select every scenario in their theme and admit `*`/`?` globs.
+- Full scenario names, bare method names, and `*`/`?` globs match scenario names ordinal case-sensitive.
+- Scenario owner, project, and theme-local `Scenarios/` paths each select that corpus.
 - Script-file scenario discovery is absent. Test-owned typed `[RhinoScenario]` sources own scenario discovery and emit `bridge-closure.json`.
-- Default evidence mode is `verify`: a valid `EvidenceCertificate` and reviewed `ReferenceEvidence` are required. `--evidence author` emits candidate evidence for review and is not proof. A verify run over a reference root with no reviewed corpus reports `unpromoted` reference rows and degrades (exit 2) instead of failing.
+- `verify` is the default mode, demanding a valid `EvidenceCertificate` and reviewed evidence; `--evidence author` emits candidates, never proof.
 
 ## [04]-[COMMAND_SURFACE]
 
@@ -50,7 +50,7 @@ Public Assay bridge verbs map to these effects.
 |  [03]   | `bridge status`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
 |  [04]   | `bridge quit`             | Prepare Rhino/GH2 documents, then run the quit ladder.                           |
 
-A direct supervisor call accepts `status`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest> [verify|author]`. `redeploy` reports itself unsupported; Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
+Direct supervisor calls accept `status`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest> [verify|author]`; `redeploy` reports itself unsupported, and Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
 
 ## [05]-[MACHINE_CONTRACT]
 
@@ -128,10 +128,10 @@ Text equivalent: Assay calls the supervisor; the supervisor reconciles host stat
 - `Gate`: fault-injection executable for supervisor kernels and optional live-host rows.
 
 [PACKAGES]:
-- `Contract`: `StreamJsonRpc` carries the RPC interfaces; `Thinktecture.Runtime.Extensions` and `Thinktecture.Runtime.Extensions.Json` generate the wire vocabulary and its JSON converters.
+- `Contract`: `StreamJsonRpc` carries the RPC interfaces, and Thinktecture generates the wire vocabulary beside its JSON converters.
 - `Shell`: `StreamJsonRpc` serves the named pipe; `Thinktecture.Runtime.Extensions` generates the shell-local vocabulary.
-- `Supervisor`: `StreamJsonRpc` drives the pipe client; `System.IO.Hashing` `XxHash3` keys the staged closure into the `refs/<contentHash>` reference stage. Unload-leak forensics shells out to the `dotnet-gcdump` local tool.
-- `Cargo`, `Gate`, and `Stub` reference no packages directly: Cargo composes `Rasm.ScenarioKit` and the Contract closure, Gate rides the Supervisor closure, and Stub stays dependency-zero.
+- `Supervisor`: `StreamJsonRpc` drives the pipe client, `XxHash3` keys the staged closure into the reference stage, `dotnet-gcdump` reads leaks.
+- `Cargo`, `Gate`, and `Stub` reference no package: Cargo composes `Rasm.ScenarioKit` and the Contract closure, Gate rides the Supervisor closure.
 
 ## [07]-[FAILURE_READING]
 
@@ -178,7 +178,7 @@ Verify over a root with no reviewed corpus reports `unpromoted` and degrades; a 
 - Bundle discovery uses `RHINO_WIP_APP_PATH` when set; otherwise it admits the newest `/Applications/Rhino*.app` by `CFBundleVersion`.
 - Launch sets `RHINO_MCP_AUTOSTART_PORT=0`.
 - Reconcile clears only recovery markers that match supervised quit-journal windows; foreign Rhino state is reported and left intact.
-- Launch-edge recovery clearing runs only when the supervisor launches (never on host reuse) and force-clears the recovery-dialog blockers — the `.rhl` recovery file and `Rhinoceros-*.ips` startup crash sentinels — independent of journal windows, so an unclean prior exit cannot wedge a headless launch behind a recovery prompt; foreign documents stay untouched.
+- Launch-edge clearing runs on supervisor launch alone, force-clearing the `.rhl` file and `Rhinoceros-*.ips` sentinels so no headless launch wedges.
 
 [STREAM_JSON_RPC]:
 - Shell exposes `IBridgeShell` over a named pipe with `SystemTextJsonFormatter`.
@@ -198,27 +198,27 @@ Bridge starts no MCP listener of its own. MCP tooling runs through McNeel's Rhin
 
 [REGISTER]:
 - Declare `rhino-mcp-router` to Claude Code at USER scope in `~/.claude.json` as a `type: stdio` server.
-- Never commit a project-scope `.mcp.json` for it. That platform is a per-operator host capability, not a checked-in workspace dependency, so a repo-scoped registration is rejected.
+- `rhino-mcp-router` is a per-operator host capability, so a project-scope `.mcp.json` registration rejects.
 
 [HEALTH]:
 - `bridge status` surfaces `mcp.platform.version` and `mcp.listener` as capability facts read from the loaded host state.
-- A present `mcp.platform.version` with an active `mcp.listener` confirms the McNeel platform loaded into the same host the bridge supervises.
+- `mcp.platform.version` beside an active `mcp.listener` confirms the McNeel platform loaded into the host the bridge supervises.
 
 [CROSS_SESSION_DRIFT]:
 - Rail `delta` folds `mcp.platform.version`, `mcp.listener`, `rhinoVersion`, and `rpc.streamjsonrpc` into per-session fact rows.
-- Any cross-session change to one of those facts surfaces as a `RunDelta.drift` row, so host and platform drift is auto-tracked across sessions without manual diffing.
+- Cross-session change on one of those facts surfaces as a `RunDelta.drift` row, so host and platform drift tracks itself.
 
 [RUN_CSHARP_CONSTRAINT]:
-- McNeel platform's `run_csharp` tool evaluates a statement body, not an expression: a trailing `return <expr>;` is rejected at the top level. Emit results through `Console.WriteLine(...)` or assign to the ambient `__rhino_doc__`/document handle, then read stdout. Treat the snippet as a script body, never an expression-returning lambda.
+- `run_csharp` evaluates a statement body and rejects a top-level `return <expr>;`, so results emit through `Console.WriteLine` and read off stdout.
 
 [BRIDGE_IDLE_RULE]:
-- Keep MCP idle during any bridge-held lifecycle: build, status, verify, quit, deploy, and publish. Its `run_csharp`, `run_python`, and command tools drive `RhinoApp` command history; an interactive probe interleaved with a bridge-held cycle injects foreign lines into the same `command.history.tail`/`command.capture.tail` evidence the cargo runner spools, contaminating host evidence. Run interactive MCP exploration before or after a bridge cycle, never concurrently inside one live session.
+- MCP stays idle through every bridge-held lifecycle: its tools drive `RhinoApp` command history, injecting foreign lines into what cargo spools.
 - Promotion path: MCP observation -> typed `[RhinoScenario]` -> authoring certificate -> reviewed `ReferenceEvidence` -> `bridge verify`.
-- That same contamination rule binds any `Rasm.AppHost` MCP tool that drives a live Rhino host: a host-neutral capability projection stays outside this hazard, but the moment an AppHost tool's `ComputeIntent` reaches `RhinoApp` command history it inherits the idle-during-lease discipline and must not run concurrently with a bridge session.
+- `Rasm.AppHost` tools reaching `RhinoApp` command history inherit that idle discipline; a host-neutral capability projection stands outside it.
 
 [VERDICT]:
 - Their relationship is `additive_external`. McNeel's platform is interactive and conversational; the bridge is deterministic typed verification.
-- Neither replaces the other: the platform drives exploratory host interaction, the bridge drives reproducible `[RhinoScenario]` closure, and `bridge status` is the single seam that reports both as capability facts.
+- `bridge status` is the one seam reporting both as capability facts.
 
 ## [10]-[BOUNDARIES]
 

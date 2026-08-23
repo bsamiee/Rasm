@@ -5,7 +5,7 @@ The BCF 2.1/3.0 issue-exchange owner: one closed `BcfFile`/`BcfTopic`/`BcfCommen
 ## [01]-[INDEX]
 
 - [02]-[BCF_ARCHIVE]: the `BcfFile` archive root (`BcfTopic`/`BcfComment`/`BcfViewpoint` family, `BcfCamera` and `BcfVisibility` unions, `BcfViewHint` capability vocabulary, `BcfProject`/`BcfVocabulary`/`BcfDocument` members), `BcfEdge` the one foreign-schema correspondence, and the `.bcfzip` codec over `BcfExtensions`/`Worker`/`BcfBuilder`.
-- [03]-[TS_PROJECTION]: the `BcfWire` host-free JSON producer the TS UI BCF anchor decodes — the Mapperly-generated wire projection over the self-owned `BcfWireContext`, the `BcfLifecycle` status election, and the `BcfApi` BCF-API 3.0 resource union with its spec-dialect snake_case bodies (`BcfApiContext`) and the per-verb re-drive budget.
+- [03]-[TS_PROJECTION]: the generated `Bcf.V1` contract projection the TS UI decodes, the `BcfLifecycle` status election, and the `BcfApi` resource union with its spec-dialect snake_case bodies and per-verb re-drive budget.
 
 ## [02]-[BCF_ARCHIVE]
 
@@ -13,9 +13,9 @@ The BCF 2.1/3.0 issue-exchange owner: one closed `BcfFile`/`BcfTopic`/`BcfCommen
 - Entry: `BcfArchive.Read(ReadOnlyMemory<byte> bcfzip, Op key)` lands thrown container failures and already-typed admissions on one `Fin` through `Op.Catch`, preserving each original `Error` — it sniffs the generation through `BcfExtensions.GetVersionFromStreamArchive`, streams a native 3.0 archive per-part (`ParseMarkups`/`ParseExtensions`/`ParseProject`/`ParseDocuments`, no second full-graph materialization), up-converts a 2.1 source through `Worker.BcfFromStream`, folds both onto one `BcfFile`, and lifts each held `{topicGuid}/{Reference}` bitmap part into `BcfFile.Blobs`; `BcfArchive.Write(BcfFile file, Op key)` seeds the builder from the file's own vocabulary/project/documents (`WithDefaults()` only when the file carries no vocabulary), folds each topic through `BcfBuilder.AddMarkup`, emits through `Worker.ToBcf(bcf, BcfVersionEnum.Bcf30)`, and completes the container with each topic's bitmap parts — a reference the store cannot answer refuses BEFORE the container is touched, so a refusal never leaves a half-written archive. `BcfFile.Of(topics)` is the authoring factory a clash or IDS fold seeds a default-vocabulary file from.
 - Auto: `Read` projects every `Bcf30.Topic` column onto `BcfTopic` — `Index`/`ModifiedDate`/`ModifiedAuthor`/`ServerAssignedId`/`ReferenceLinks`/`RelatedTopics`/`DocumentReferences`/`BimSnippet` and the `Markup.Header` `Files` rows — the verbatim `TopicStatus` token landing on `StatusLabel` beside the elected `BcfStatus` lifecycle, and the topic order re-derived deterministically off the schema `Index`-then-`Guid` (a `ConcurrentBag` parse is bag-racy); reads each `Bcf30.ViewPoint` whole, each declared camera transcribed onto its typed case and handed to the ONE `BcfCamera.Admit` gate; `Write` re-authors ALL of it through the nested builders so the write round-trips exactly what the read captured.
 - Receipt: the `BcfFile` is the coordination evidence — topics, vocabulary, project, documents, and the source generation — so a CDE or viewer round-trips one typed root through the `Worker` `.bcfzip` codec, and the `BcfApi` REST projection rides the same topic family, never a second vocabulary.
-- Packages: Smino.Bcf.Toolkit, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Domain` (`Op`, `ICapability`/`CapabilitySet`)
+- Packages: Smino.Bcf.Toolkit, Rasm.Contracts (`Bcf.V1.BcfStatus`), Google.Protobuf, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Domain` (`Op`, `ICapability`/`CapabilitySet`)
 - Growth: a new BCF entity is one record on the family projected from the `Smino.Bcf.Toolkit` graph, its members verified at `.api/api-smino-bcf-toolkit` before the fence spells them; a new topic or viewpoint column is one trailing-defaulted field the read/write folds each gain one line for; a new render hint is one `BcfViewHint` row; a new BCF version is one `BcfVersionEnum` the `Worker` converter already discriminates; the REST projection is one `BcfResource` case; never a row on the geometry-format axis and never a second issue store.
-- Boundary: FOREIGN-SCHEMA WIRE COLUMNS CROSS VERBATIM — `BcfHeaderFile.IsExternal`, `BcfBimSnippet.IsExternal`, and their `BcfHeaderFileWire`/`BcfApiSnippetBody` mirrors are BCF 3.0 schema choices the builder round-trips through `SetIsExternal`, and collapsing them into a house `IssueOrigin` vocabulary forks the standard this codec custodies and drop a declared choice (`RULINGS.md [04]`). The DOMAIN carriers are typed where the schema's own columns carry a corner law: `Components/Visibility` is `BcfVisibility`, a closed pair whose case NAMES what the exception set means (the prior `bool DefaultVisibility` beside a `Seq` made every consumer re-derive the inversion, and the earlier `VisibleGlobalIds` spelling lied outright under `DefaultVisibility=true`), while the three independent `ViewSetupHints` attributes ride ONE `CapabilitySet<BcfViewHint>` — all eight corners legal, so no `CapabilityLaw` constrains it and a fourth hint is one row rather than a fourth bool. Both project back attribute-by-attribute at the builder, the wire register, and the REST bodies, so the schema surface is unchanged in every direction. A board mutation fires the `Model/observability#HOOK_RAIL` `rasm.bim.review.issue` point with `BimFact.IssueMutated` at the mutation edge itself; the CloudEvents announcement is `Exchange/events#EVENT_PROJECTION`'s observe subscription over that point, and an envelope minted here is the deleted form. The container read/write is the `Smino.Bcf.Toolkit` surface — the hand-rolled `ZipArchive`/`XDocument` codec is retired — and the ONE carve is the bitmap part, because the toolkit model carries no bitmap payload member and its writer emits none (`Bcf30.Bitmap` is Format/Reference/geometry only, decompile-proven): the codec lifts held parts into `BcfFile.Blobs` on read and appends them on write, refusing a `BcfBitmap.Reference` the store cannot answer. A `BcfTopic`/`BcfViewpoint` that drops a `Bcf30` schema column is the SLICED form this owner deletes — the family carries the whole surface, trailing-defaulted so a minimal author still constructs the core nine. `BcfStatus` is the lifecycle projection and `StatusLabel` carries the project-vocabulary token verbatim; a write that re-emits the parsed enum over an extension status ("Under Review" rewritten "Open") is the deleted lossy form, `StatusToken` the one write-side election. The camera is the closed `BcfCamera` union carried `Option`-valued under the ONE `BcfCamera.Admit` gate both ingress arms compose: an fov-0 sentinel, a silent perspective preference when both are declared, and a zero-filled default mint when neither is are all deleted forms, because a selection-only viewpoint is legal BCF whose absence stays typed rather than becoming a degenerate origin view every receiving tool renders. `BcfComment.ReplyToGuid` is the REST-lane conversation join on the ONE comment family — BCF 3.0 removed the reply join from the markup schema, so the archive read lands typed absence and the archive write emits nothing. A document reference is `DocumentGuid` XOR `Url` per the schema and the read ACCUMULATES that refusal beside every malformed viewpoint camera, so one container read reports every defect at once instead of refusing at the first. The async `Worker`/`BcfExtensions` surface runs to completion at this boundary (the one language-owned `GetAwaiter().GetResult()` bridge), every throw lowers onto `Fin<T>` through the funnel, and both codec bodies name their statement exemption — the decode's sequential stream-owning parse and the encode's mutation-shaped fluent builder are the foreign surfaces' own shapes. Viewpoints anchor on the seam `Node.Object.ExternalId` [H6], never a geometry handle. The BCF-API REST shape rides the `Rasm.Compute/Runtime/channels#TRANSPORT_AXIS` transport and a transport minted here is the named seam violation. The durable lineage + CDE store is the app-platform Persistence owner's, joined by the IFC GlobalId the `Rasm.Persistence/Element/identity#ELEMENT_IDENTITY` `ElementIdentity.GlobalIds` map maintains and surfaced through the `Rasm.Persistence/Version/provenance#CAUSAL_DAG` W3C-PROV-JSON egress; this codec is the branch's ONE `.bcfzip` custodian under the branch custody ruling — `Rasm.Persistence/Ingest/issue` holds no container surface and joins by typed rows across the seam under the `BcfTopic`⇄`IssueTopic` correspondence law (`Status`⇄`StatusToken` verbatim, stamps as this codec's `Instant`, camera absence typed).
+- Boundary: FOREIGN-SCHEMA WIRE COLUMNS CROSS VERBATIM — `BcfHeaderFile.IsExternal`, `BcfBimSnippet.IsExternal`, the generated `BcfFileWire`/`BcfSnippetWire`, and `BcfApiSnippetBody` carry the same BCF 3.0 choices the builder round-trips through `SetIsExternal`; a house origin vocabulary would fork the standard (`RULINGS.md [04]`). The DOMAIN carriers are typed where the schema's own columns carry a corner law: `Components/Visibility` is `BcfVisibility`, a closed pair whose case names what the exception set means, while the three independent `ViewSetupHints` attributes ride one `CapabilitySet<BcfViewHint>`. Both project attribute-by-attribute at the builder, generated contract, and REST body. A board mutation fires the `Model/observability#HOOK_RAIL` `rasm.bim.review.issue` point with `BimFact.IssueMutated`; the CloudEvents announcement remains `Exchange/events#EVENT_PROJECTION`'s observe subscription. `Smino.Bcf.Toolkit` owns container read/write, with bitmap parts the single carve because its model carries references but no payload member; the codec lifts held parts into `BcfFile.Blobs` on read and appends them on write. `BcfStatus` is the generated lifecycle discriminant and `StatusLabel` carries the project-vocabulary token verbatim; `StatusToken` elects the write spelling without losing an extension status. `BcfCamera.Admit` owns the camera XOR and typed absence, and `BcfComment.ReplyToGuid` remains the REST-lane join BCF 3.0 markup omits. Document references accumulate the `DocumentGuid` XOR `Url` refusal beside malformed cameras. `Worker` and `BcfExtensions` complete at this boundary, every throw lowers through the `Fin<T>` funnel, and the foreign fluent builders retain the platform-forced statement seam. Viewpoints anchor on `Node.Object.ExternalId` [H6]. `BcfApi` publishes transport-neutral requests the Compute transport executes. Persistence joins typed rows by IFC GlobalId and owns durable lineage; `BcfArchive` remains the branch's one `.bcfzip` custodian.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -32,6 +32,7 @@ using BcfToolkit.Utils;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
+using Rasm.Contracts.Bcf.V1;
 using Rasm.Bim.Model;
 using Rasm.Domain;
 using Thinktecture;
@@ -46,7 +47,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Bim.Coordination;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The boundary's own 2-case mirror of BcfVersionEnum, so the interior record family never carries a toolkit type.
+// The boundary's own generation axis keeps the toolkit enum outside the interior record family.
 public enum BcfGeneration : byte { Bcf21 = 0, Bcf30 = 1 }
 
 // The Visibility element's render hints as ONE combinable column. The schema declares three independent
@@ -198,7 +199,7 @@ public sealed record BcfFile(
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // The ONE foreign-schema correspondence at the BCF edge, forward and inverse on one owner: the .bcfzip toolkit
 // graph and the BCF-API bodies both land their optional-by-schema columns here, so the coalesce is spelled ONCE
-// for the whole boundary and the interior never sees a nullable BCF column. BcfWireMapper pulls these as
+// for the whole boundary and the interior never sees a nullable BCF column. BcfProjection pulls these as
 // generated carriers through [UseStaticMapper], so the REST lane composes the same admission the archive does.
 public static class BcfEdge {
     // BCF declares nearly every scalar optional while the domain records carry non-nullable strings, so an
@@ -541,13 +542,13 @@ public static class BcfArchive {
 
 ## [03]-[TS_PROJECTION]
 
-- Owner: `BcfWire` the host-free JSON wire producer of the `[02]-[BCF_ARCHIVE]` topic family and the ONE pair of register doors (`Emit`/`Admit`) both dialects take — `BcfWire.Topics` the projected `ImmutableArray<BcfTopicWire>` payload the `ts:ui/bcf-anchor` panel decodes; the wire mirrors exist ONLY where a carrier forces them (the domain records carry LanguageExt `Seq`/`Option`, the `BcfCamera`/`BcfVisibility` unions and the `BcfViewHint` set have no STJ round-trip, so `BcfTopicWire`/`BcfCommentWire`/`BcfViewpointWire`/`BcfDocumentReferenceWire`/`BcfHeaderFileWire`/`BcfColoringWire`/`BcfCameraWire`/`BcfViewHintsWire` narrow to `ImmutableArray`/nullable/kind-discriminated flat and DROP the heavy `Snapshot` bytes — the `BcfApi` `ReadSnapshot` resource serves the preview), while the BCL-pure domain records (`BcfLine`/`BcfClippingPlane`/`BcfBitmap`/`BcfBimSnippet`/`BcfProject`) serialize DIRECTLY; `BcfLifecycle` the ONE status election both lanes read, a `FrozenDictionary` roster over the `BcfStatus` rows; `BcfWireMapper` the `[Mapper]` static partial class GENERATING the domain-to-wire transcription, its `[UserMapping]` carriers owning the egress crossings and `[UseStaticMapper(typeof(BcfEdge))]` binding the boundary's admission carriers so the REST read lane composes the same correspondence the archive does; `BcfWireContext` the SELF-OWNED source-generated `JsonSerializerContext` and `BcfApiContext` its snake_case spec-dialect sibling; `BcfApiVerb` the verb vocabulary carrying its own re-drive budget; `BcfApi` the BCF-API 3.0 resource projection whose write verbs carry the spec-dialect `BcfApi*Body` register — `Project` the request half, `Open` the response half landing status + raw bytes on the typed `BcfOutcome` family, `BcfQuery` the OData collection axis whose `Skip` cursor is the lane's paging state.
-- Entry: `BcfWire.Encode(Seq<BcfTopic> topics, Op key)` projects the topic set onto the wire payload and `BcfWire.Decode(ReadOnlyMemory<byte> json, Op key)` admits it back; both ride the two register-parameterized doors — `Emit` the serialize funnel and `Admit` the deserialize funnel with its terminal null-root refusal — so `Op.Catch` preserves serializer errors once for both dialects. `BcfWire.Json<T>(T body, Op key)` is the spec-dialect body serializer every `BcfApi.Project` write arm feeds (server-assigned columns dropped by law) — the retired per-entity `TopicJson`/`CommentJson`/`ViewpointJson`/`FilesJson`/`RelatedTopicsJson`/`DocumentReferenceJson` family differed only by payload type, and the retired `Anchor` hop merely renamed `BcfViewpoint.SelectedGlobalIds`, so a TS pick round-trips the exact seam `Node.Object.ExternalId` selection the C# viewpoint carries.
-- Auto: `Encode` serializes through `BcfWireContext.Json` — the `BcfStatus` enum by its `[JsonStringEnumMemberName]` lower-kebab name under `UseStringEnumConverter`, the NodaTime `Instant` columns through `ConfigureForNodaTime` as ISO-8601 text, the BCL `System.Numerics.Vector3` triplets as camel-case `{x,y,z}` objects (the struct's `X`/`Y`/`Z` are FIELDS, so `IncludeFields` admits them), and the `BcfCameraWire.Kind` string as the TS camera discriminant; the mapper transcribes every topic column — references, provenance, snippet, header files, coloring, redlines, clipping planes, bitmaps, visibility, view hints — so the wire carries the full archive surface minus the binary payloads, the `BcfVisibility` case flattening back onto the schema's `defaultVisibility`/`visibilityExceptions` pair through two `[MapProperty]` paths and the hint set onto the schema's three attributes.
-- Receipt: the `BcfWire.Topics` payload is the one BCF cross-runtime contract — `tests/contracts/MANIFEST.md` registers `BcfTopicWire`/`BcfViewpointWire` with this section as producer of record, and `ts:core/interchange/codec` decodes both — a viewpoint anchoring on the seam `Node.Object.ExternalId` IFC GlobalId so the TS selection highlight and the C# component selection carry one element identity; the file, REST, and web forms project ONE domain vocabulary, never three topic models.
-- Packages: Riok.Mapperly, Thinktecture.Runtime.Extensions, NodaTime, NodaTime.Serialization.SystemTextJson, LanguageExt.Core, `Rasm.Domain` (`Op`, `RedrivePolicy`), BCL `System.Text.Json` + `System.Collections.Immutable` + `System.Collections.Frozen`
-- Growth: a new BCF entity on the wire is one `[JsonSerializable]` row and one mapper method; a new topic column is one wire-record column the generated mapper transcribes with zero hand code; a new BCF-API resource operation is one `BcfResource` case the generated total `Switch` breaks at BOTH dispatch halves at compile time — the `Project` request arm and the `Open` response arm land together, never a verb knob; a new OData axis is one `BcfQuery` column; never a serializer beside the two dialect registers, never a per-entity `*Json` sibling beside the one funnel, and never a hand-written transcription beside the mapper.
-- Boundary: `BcfWire` is HOST-FREE — no RhinoCommon type, no `ZipArchive`/`XDocument` surface, only the host-free record graph and the BCL `System.Numerics.Vector3` (the kernel 3-vector owner publishes the host-bound `Vector3d` alone, so composing it here drags the host into the wire); it rides the SELF-OWNED `BcfWireContext` (the retired generic `BimWireContext` was a model STJ serializer inside an AEC package — a strata leak; the seam-graph STJ wire is `Rasm.Persistence/Element/codec#CODEC_AXIS` `SnapshotCodec`'s). The domain-to-wire transcription is GENERATED and a hand-written per-field projector is the retired form; a wire mirror exists only where a carrier forces it. FOREIGN-SCHEMA COLUMNS CROSS VERBATIM in both registers: `BcfHeaderFileWire.IsExternal` and `BcfApiSnippetBody.IsExternal` map straight through, `defaultVisibility`/`visibilityExceptions`/`viewSetupHints` keep their schema spellings, and the TS peer's `BcfTopic`/`BcfViewpoint` classes decode those exact fields. The `BcfStatus` discriminant is the `[JsonStringEnumMemberName]` string and an ordinal-keyed enum crossing the wire is the named seam violation. `BcfLifecycle` is the ONE election for both lanes — the archive's `TopicStatus` attribute and the REST body's `topic_status` field are the same free project-vocabulary string, so a second `Enum.TryParse` body beside it is the twin this roster deletes, and the roster read is why `Enum.IsDefined` no longer has to be re-spelled (bare `TryParse` admits ANY integer-parseable token, so a malformed "7" once minted an undefined case that crossed the wire as a numeric the TS string-switch cannot read). RE-DRIVE IS A ROW ON THE VERB, not a loop: `BcfApiVerb` carries a `RedrivePolicy` column, so the transport spends exactly what the descriptor declares and no attempt counter or delay literal exists on either side — GET/PUT/DELETE are idempotent under the spec and re-drive on the declared exponential curve, while a POST create declares `RedrivePolicy.None` because a re-driven create mints a duplicate topic or comment the CDE cannot merge. The REST write bodies are the `BcfApiContext` snake_case spec dialect (`topic_status`/`camera_view_point`/`related_topic_guid`, null slots omitted so the camera XOR discriminates by absence) — a camelCase workspace body POSTed at a conformant CDE is the deleted illusory form; the `.bcfzip` archive, the `BcfApi` REST bodies, and this wire payload project onto one topic vocabulary minted once in C#, and a TS-side parallel topic shape or a third dialect register is the named drift defect.
+- Owner: `BcfProjection` projects the archive topic family directly onto generated `Bcf.V1` messages; `BcfLifecycle` elects the generated status enum from the open BCF vocabulary; `BcfApi` owns the BCF-API resource union and its snake_case body register.
+- Entry: `BcfProjection.Project(Seq<BcfTopic>)` returns one generated `BcfTopicWire` per topic. Transport selects binary framing or ProtoJSON rendering for each message; the producer introduces no collection envelope or serializer dialect. `BcfApi.Project` and `BcfApi.Open` remain the request and response halves over the API body register.
+- Auto: Mapperly fills generated message members and their `RepeatedField<T>` collections. Custom mappings cover only carrier laws the generator cannot infer: protobuf oneofs, proto3 optional scalars and strings, `Vector3` to `Point3` or `UnitDirection3`, `Instant` to `Timestamp`, and the bitmap enum.
+- Receipt: the generated `BcfTopicWire` and nested `BcfViewpointWire` values are the BCF cross-runtime contract; viewpoints preserve IFC GlobalIds so TS selection and C# coordination share one identity.
+- Packages: Rasm.Contracts (`Bcf.V1` messages), Google.Protobuf (`RepeatedField<T>`, `Timestamp`, binary framing and ProtoJSON), Riok.Mapperly, Thinktecture.Runtime.Extensions, NodaTime, NodaTime.Serialization.SystemTextJson, LanguageExt.Core, `Rasm.Domain` (`Op`, `RedrivePolicy`), BCL `System.Text.Json` + `System.Collections.Immutable` + `System.Collections.Frozen`
+- Growth: a contract column lands in protobuf and regeneration breaks the mapper until the domain projection answers it; a BCF-API operation lands as one `BcfResource` case answered by both dispatch halves; an OData axis lands on `BcfQuery`.
+- Boundary: generated messages own the cross-runtime shape and serialization. `BcfProjection` owns domain conversion only, and transport owns framing or ProtoJSON rendering per message. `BcfApiContext` remains the sole snake_case JSON dialect because BCF-API resources are publisher-defined JSON rather than the estate protobuf wire. `BcfLifecycle` maps the open archive/API token onto the generated status enum while `StatusLabel` preserves the original token. `BcfApiVerb` carries re-drive policy as row data, and Compute executes the transport.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -558,10 +559,12 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using Rasm.Bim.Model;
+using Rasm.Contracts.Bcf.V1;
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
@@ -572,17 +575,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Bim.Coordination;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The five-state BCF lifecycle wire discriminant: a plain enum (the `Review/coordination#SIGN_OFF` SmartEnum owns
-// the transition machine OVER it) whose lower-kebab names cross the wire so a TS decode switches on a stable
-// string, never the ordinal.
-public enum BcfStatus : byte {
-    [JsonStringEnumMemberName("open")]        Open = 0,
-    [JsonStringEnumMemberName("in-progress")] InProgress = 1,
-    [JsonStringEnumMemberName("resolved")]    Resolved = 2,
-    [JsonStringEnumMemberName("closed")]      Closed = 3,
-    [JsonStringEnumMemberName("reopened")]    Reopened = 4,
-}
-
 // The verb vocabulary carrying its OWN re-drive budget: idempotency is a property of the VERB the spec defines,
 // so the budget is a roster cell no dispatch arm re-decides, and the key IS the HTTP method the transport issues.
 // Idempotent is declared FIRST because the rows read it at static init.
@@ -601,68 +593,6 @@ public sealed partial class BcfApiVerb {
 
     public RedrivePolicy Redrive { get; }
 }
-
-// --- [MODELS] -----------------------------------------------------------------------------
-// Wire mirrors exist ONLY where a carrier forces them: Seq -> ImmutableArray, Option -> nullable, the BcfCamera
-// union -> the Kind-discriminated flat record (unused scalar 0), BcfVisibility -> the schema's own bool + array
-// pair, the BcfViewHint set -> the schema's three attributes.
-public sealed record BcfCameraWire(
-    string Kind, Vector3 Position, Vector3 Direction, Vector3 Up,
-    double FieldOfView, double ViewToWorldScale, double AspectRatio);
-
-public sealed record BcfColoringWire(string Color, ImmutableArray<string> GlobalIds);
-public sealed record BcfDocumentReferenceWire(string Guid, string? DocumentGuid, string? Url, string Description);
-public sealed record BcfHeaderFileWire(string Filename, Instant? Date, string Reference, string IfcProject, string IfcSpatialStructureElement, bool IsExternal);
-public sealed record BcfViewHintsWire(bool SpacesVisible, bool SpaceBoundariesVisible, bool OpeningsVisible);
-
-public sealed record BcfViewpointWire(
-    string Guid,
-    BcfCameraWire? Camera,
-    ImmutableArray<string> SelectedGlobalIds,
-    ImmutableArray<string> VisibilityExceptions,
-    bool DefaultVisibility,
-    ImmutableArray<BcfColoringWire> Coloring,
-    ImmutableArray<BcfLine> Lines,
-    ImmutableArray<BcfClippingPlane> ClippingPlanes,
-    ImmutableArray<BcfBitmap> Bitmaps,
-    int? Index,
-    BcfViewHintsWire? ViewSetupHints);
-
-public sealed record BcfCommentWire(
-    string Guid,
-    string Author,
-    string Text,
-    string? ViewpointGuid,
-    Instant Date,
-    Instant? ModifiedDate,
-    string ModifiedAuthor,
-    string? ReplyToGuid);
-
-public sealed record BcfTopicWire(
-    string Guid,
-    string Title,
-    BcfStatus Status,
-    string TopicType,
-    string Priority,
-    string Author,
-    Instant CreationDate,
-    ImmutableArray<BcfCommentWire> Comments,
-    ImmutableArray<BcfViewpointWire> Viewpoints,
-    string Description,
-    string AssignedTo,
-    string Stage,
-    Instant? DueDate,
-    ImmutableArray<string> Labels,
-    int? Index,
-    Instant? ModifiedDate,
-    string ModifiedAuthor,
-    string ServerAssignedId,
-    ImmutableArray<string> ReferenceLinks,
-    ImmutableArray<string> RelatedTopics,
-    ImmutableArray<BcfDocumentReferenceWire> DocumentReferences,
-    BcfBimSnippet? BimSnippet,
-    ImmutableArray<BcfHeaderFileWire> Files,
-    string StatusLabel);
 
 // --- [BODIES]
 // The BCF-API 3.0 resource-body register — ONE snake_case dialect serving BOTH directions: the WRITE bodies and
@@ -717,7 +647,9 @@ public sealed record BcfApiExtensionsBody(
 // when a token carries one. An unrecognized token elects Open and its verbatim form rides StatusLabel.
 public static class BcfLifecycle {
     static readonly FrozenDictionary<string, BcfStatus> Rows =
-        Enum.GetValues<BcfStatus>().ToFrozenDictionary(static row => row.ToString(), static row => row, StringComparer.OrdinalIgnoreCase);
+        Enum.GetValues<BcfStatus>()
+            .Where(static row => row is not BcfStatus.Unspecified)
+            .ToFrozenDictionary(static row => row.ToString(), static row => row, StringComparer.OrdinalIgnoreCase);
 
     public static BcfStatus Elect(string? token) =>
         Rows.TryGetValue(Squeezed(BcfEdge.Word(token)), out BcfStatus status) ? status : BcfStatus.Open;
@@ -726,45 +658,137 @@ public static class BcfLifecycle {
         token.AsSpan().ContainsAny(' ', '-') ? new string(token.Where(static c => c is not (' ' or '-')).ToArray()) : token;
 }
 
-// The GENERATED domain-to-wire transcription: Mapperly emits every per-field assignment from the partial
-// signatures; the [UserMapping] carriers own the EGRESS crossings (Option -> nullable, the camera union, the
-// hint set) while [UseStaticMapper] binds BcfEdge's ADMISSION carriers, so the REST read lane and the archive
-// read compose one correspondence. [MapperIgnoreSource] pins the deliberate Snapshot drop so the unmapped-member
-// diagnostic stays loud for every OTHER column.
+// Generated protobuf messages own the wire. Mapperly fills their ordinary members and get-only repeated fields;
+// the named user mappings below cover only oneofs, proto3 optional scalars/strings, and domain carrier crossings.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 [UseStaticMapper(typeof(BcfEdge))]
-public static partial class BcfWireMapper {
-    // The visibility case flattens back onto the schema's own pair, and the hint set onto its three attributes:
-    // the wire register is where the foreign columns cross verbatim, so the typed domain carriers stop here.
+public static partial class BcfProjection {
     [MapperIgnoreSource(nameof(BcfViewpoint.Snapshot))]
-    [MapProperty([nameof(BcfViewpoint.Visibility), nameof(BcfVisibility.Default)], [nameof(BcfViewpointWire.DefaultVisibility)])]
-    [MapProperty([nameof(BcfViewpoint.Visibility), nameof(BcfVisibility.Exceptions)], [nameof(BcfViewpointWire.VisibilityExceptions)])]
+    [MapperIgnoreSource(nameof(BcfViewpoint.Index))]
+    [MapperIgnoreTarget(nameof(BcfViewpointWire.Index))]
     [MapProperty(nameof(BcfViewpoint.Hints), nameof(BcfViewpointWire.ViewSetupHints))]
-    public static partial BcfViewpointWire ToWire(BcfViewpoint viewpoint);
+    static partial BcfViewpointWire Viewpoint(BcfViewpoint source);
 
     [MapperIgnoreSource(nameof(BcfTopic.StatusToken))]
-    public static partial BcfTopicWire ToWire(BcfTopic topic);
-    public static partial BcfCommentWire ToWire(BcfComment comment);
-    public static partial BcfHeaderFileWire ToWire(BcfHeaderFile file);
-    public static partial BcfDocumentReferenceWire ToWire(BcfDocumentReference reference);
+    [MapperIgnoreSource(nameof(BcfTopic.Index))]
+    [MapperIgnoreTarget(nameof(BcfTopicWire.Index))]
+    static partial BcfTopicWire Topic(BcfTopic source);
+
+    [MapperIgnoreSource(nameof(BcfComment.ViewpointGuid))]
+    [MapperIgnoreSource(nameof(BcfComment.ReplyToGuid))]
+    [MapperIgnoreTarget(nameof(BcfCommentWire.ViewpointGuid))]
+    [MapperIgnoreTarget(nameof(BcfCommentWire.ReplyToGuid))]
+    static partial BcfCommentWire Comment(BcfComment source);
+
+    [MapperIgnoreSource(nameof(BcfDocumentReference.DocumentGuid))]
+    [MapperIgnoreSource(nameof(BcfDocumentReference.Url))]
+    [MapperIgnoreTarget(nameof(BcfDocumentWire.DocumentGuid))]
+    [MapperIgnoreTarget(nameof(BcfDocumentWire.Url))]
+    static partial BcfDocumentWire Document(BcfDocumentReference source);
+
+    static partial BcfFileWire File(BcfHeaderFile source);
+    static partial BcfColoringWire Coloring(BcfColoring source);
+    static partial BcfLineWire Line(BcfLine source);
+    static partial BcfClippingWire Clipping(BcfClippingPlane source);
+    static partial BcfBitmapWire Bitmap(BcfBitmap source);
+    static partial BcfSnippetWire Snippet(BcfBimSnippet source);
+
+    public static Seq<BcfTopicWire> Project(Seq<BcfTopic> topics) =>
+        topics.Map(static topic => Project(topic));
+
+    [UserMapping(Default = true)]
+    public static BcfTopicWire Project(BcfTopic source) {
+        BcfTopicWire wire = Topic(source);
+        source.Index.IfSome(value => wire.Index = checked((uint)value));
+        return wire;
+    }
+
+    [UserMapping(Default = true)]
+    public static BcfViewpointWire Project(BcfViewpoint source) {
+        BcfViewpointWire wire = Viewpoint(source);
+        source.Index.IfSome(value => wire.Index = checked((uint)value));
+        return wire;
+    }
+
+    [UserMapping(Default = true)]
+    public static BcfCommentWire Project(BcfComment source) {
+        BcfCommentWire wire = Comment(source);
+        source.ViewpointGuid.IfSome(value => wire.ViewpointGuid = value);
+        source.ReplyToGuid.IfSome(value => wire.ReplyToGuid = value);
+        return wire;
+    }
+
+    [UserMapping(Default = true)]
+    public static BcfDocumentWire Project(BcfDocumentReference source) {
+        BcfDocumentWire wire = Document(source);
+        source.DocumentGuid.IfSome(value => wire.DocumentGuid = value);
+        source.Url.IfSome(value => wire.Url = value);
+        return wire;
+    }
+
+    [UserMapping] static BcfFileWire Project(BcfHeaderFile source) => File(source);
+    [UserMapping] static BcfColoringWire Project(BcfColoring source) => Coloring(source);
+    [UserMapping] static BcfLineWire Project(BcfLine source) => Line(source);
+    [UserMapping] static BcfClippingWire Project(BcfClippingPlane source) => Clipping(source);
+    [UserMapping] static BcfBitmapWire Project(BcfBitmap source) => Bitmap(source);
+    [UserMapping] static BcfSnippetWire Project(BcfBimSnippet source) => Snippet(source);
 
     [UserMapping]
-    static BcfCameraWire? Lens(Option<BcfCamera> camera) => camera.Match<BcfCameraWire?>(Lens, static () => null);
+    static BcfCameraWire? Lens(Option<BcfCamera> camera) =>
+        camera.Match<BcfCameraWire?>(static value => Project(value), static () => null);
 
-    static BcfCameraWire Lens(BcfCamera camera) => camera.Switch(
-        perspective: static p => new BcfCameraWire("perspective", p.Position, p.Direction, p.Up, p.FieldOfViewDeg, 0d, p.AspectRatio),
-        orthogonal:  static o => new BcfCameraWire("orthogonal", o.Position, o.Direction, o.Up, 0d, o.ViewToWorldScale, o.AspectRatio));
+    static BcfCameraWire Project(BcfCamera camera) => camera.Switch(
+        perspective: static value => new BcfCameraWire {
+            Position = Point(value.Position), Direction = Direction(value.Direction), Up = Direction(value.Up),
+            AspectRatio = value.AspectRatio, FieldOfViewDeg = value.FieldOfViewDeg,
+        },
+        orthogonal: static value => new BcfCameraWire {
+            Position = Point(value.Position), Direction = Direction(value.Direction), Up = Direction(value.Up),
+            AspectRatio = value.AspectRatio, ViewToWorldScale = value.ViewToWorldScale,
+        });
 
     [UserMapping]
-    static BcfViewHintsWire? Hints(Option<CapabilitySet<BcfViewHint>> held) =>
-        held.Match<BcfViewHintsWire?>(
-            static set => new(set.Admits(BcfViewHint.Spaces), set.Admits(BcfViewHint.SpaceBoundaries), set.Admits(BcfViewHint.Openings)),
+    static BcfVisibilityWire Project(BcfVisibility visibility) => visibility.Switch(
+        showing: static value => Showing(value.Hidden),
+        hiding: static value => Hiding(value.Visible));
+
+    static BcfVisibilityWire Showing(Seq<string> hidden) {
+        BcfShowingWire value = new();
+        value.Hidden.Add(hidden);
+        return new BcfVisibilityWire { Showing = value };
+    }
+
+    static BcfVisibilityWire Hiding(Seq<string> visible) {
+        BcfHidingWire value = new();
+        value.Visible.Add(visible);
+        return new BcfVisibilityWire { Hiding = value };
+    }
+
+    [UserMapping]
+    static BcfHintsWire? Hints(Option<CapabilitySet<BcfViewHint>> held) =>
+        held.Match<BcfHintsWire?>(
+            static set => new() {
+                SpacesVisible = set.Admits(BcfViewHint.Spaces),
+                SpaceBoundariesVisible = set.Admits(BcfViewHint.SpaceBoundaries),
+                OpeningsVisible = set.Admits(BcfViewHint.Openings),
+            },
             static () => null);
 
-    [UserMapping] static string? Text(Option<string> value) => value.Match<string?>(static v => v, static () => null);
-    [UserMapping] static Instant? Moment(Option<Instant> value) => value.Match<Instant?>(static i => i, static () => null);
-    [UserMapping] static int? Ordinal(Option<int> value) => value.Match<int?>(static i => i, static () => null);
-    [UserMapping] static BcfBimSnippet? Snippet(Option<BcfBimSnippet> value) => value.Match<BcfBimSnippet?>(static s => s, static () => null);
+    [UserMapping] static Rasm.Contracts.Spatial.V1.Point3 Point(Vector3 value) => new() { XM = value.X, YM = value.Y, ZM = value.Z };
+    [UserMapping] static Rasm.Contracts.Spatial.V1.UnitDirection3 Direction(Vector3 value) => new() { X = value.X, Y = value.Y, Z = value.Z };
+    [UserMapping] static Timestamp Stamp(Instant value) => Timestamp.FromDateTime(value.ToDateTimeUtc());
+    [UserMapping] static Timestamp? Stamp(Option<Instant> value) => value.Match<Timestamp?>(Stamp, static () => null);
+    [UserMapping] static BcfSnippetWire? Snippet(Option<BcfBimSnippet> value) =>
+        value.Match<BcfSnippetWire?>(static snippet => Project(snippet), static () => null);
+    [UserMapping] static BcfBitmapFormat Format(string value) => value.ToUpperInvariant() switch {
+        "PNG" => BcfBitmapFormat.Png,
+        "JPG" or "JPEG" => BcfBitmapFormat.Jpg,
+        _ => BcfBitmapFormat.Unspecified,
+    };
+
+    static string? Text(Option<string> value) => value.Match<string?>(static v => v, static () => null);
+    static Instant? Moment(Option<Instant> value) => value.Match<Instant?>(static i => i, static () => null);
+    static int? Ordinal(Option<int> value) => value.Match<int?>(static i => i, static () => null);
 
     // The BCF-API write-body direction: Target-required only, because the spec bodies DROP the server-assigned
     // provenance and sub-resource collections BY LAW — a new body column still diagnoses loudly while the
@@ -786,7 +810,7 @@ public static partial class BcfWireMapper {
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     public static partial BcfApiDocumentReferenceBody ToBody(BcfDocumentReference reference);
 
-    [UserMapping] static BcfApiSnippetBody? SnippetBody(Option<BcfBimSnippet> value) =>
+    [UserMapping] static BcfApiSnippetBody? ApiSnippet(Option<BcfBimSnippet> value) =>
         value.Match<BcfApiSnippetBody?>(static s => ToBody(s), static () => null);
 
     // The viewpoint POST body: the camera union splits onto the spec's orthogonal XOR perspective slots, the
@@ -877,31 +901,6 @@ public static partial class BcfWireMapper {
     public static BcfVocabulary ToDomain(BcfApiExtensionsBody body) =>
         new(toSeq(body.TopicType), toSeq(body.TopicStatus), toSeq(body.Priority), toSeq(body.TopicLabel),
             toSeq(body.UserIdType), toSeq(body.SnippetType), toSeq(body.Stage));
-}
-
-public sealed record BcfWire(ImmutableArray<BcfTopicWire> Topics) {
-    public static Fin<byte[]> Encode(Seq<BcfTopic> topics, Op key) =>
-        Emit(new BcfWire([.. topics.Map(BcfWireMapper.ToWire)]), BcfWireContext.Json, key);
-
-    public static Fin<BcfWire> Decode(ReadOnlyMemory<byte> json, Op key) =>
-        Admit<BcfWire>(json, BcfWireContext.Json, key,
-            () => new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, "bcf-wire:decode:null-payload"));
-
-    // ONE spec-body serializer: every BCF-API write body — single-entity or collection — rides this funnel through
-    // the snake_case register; the dispatch arm already owns the resource route. The
-    // retired Topic/Comment/Viewpoint/Files/RelatedTopics/DocumentReference *Json family differed only by payload
-    // type; the domain-to-body mapping rides the dispatch arm that owns the case.
-    public static Fin<byte[]> Json<T>(T body, Op key) =>
-        Emit(body, BcfApiContext.Json, key);
-
-    // The two register doors share capture and null-root admission across camelCase payloads and snake_case bodies.
-    // A JSON `null` deserializes to a null root, so a Succ(null!) escaping the admission is unspellable.
-    internal static Fin<byte[]> Emit<T>(T body, JsonSerializerOptions register, Op key) =>
-        key.Catch(() => JsonSerializer.SerializeToUtf8Bytes(body, register));
-
-    internal static Fin<T> Admit<T>(ReadOnlyMemory<byte> json, JsonSerializerOptions register, Op key, Func<BimFault> nullFault) =>
-        key.Catch(() => JsonSerializer.Deserialize<T>(json.Span, register))
-            .Bind(value => value is { } admitted ? Fin.Succ(admitted) : Fin.Fail<T>(nullFault()));
 }
 
 // The BCF-API 3.0 topic-resource request the polymorphic `Project` discriminates on: each case is one resource
@@ -997,40 +996,49 @@ public static class BcfApi {
     public static Fin<BcfApiRequest> Project(string projectId, BcfResource resource, Op key) =>
         resource.Switch(
             state:                   (key, project: $"bcf/3.0/projects/{projectId}", topics: $"bcf/3.0/projects/{projectId}/topics"),
-            createTopic:             static (s, r) => Write(BcfApiVerb.Post, s.topics, BcfWireMapper.ToBody(r.Topic), s.key),
-            reviseTopic:             static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.Topic.Guid}", BcfWireMapper.ToBody(r.Topic), s.key),
+            createTopic:             static (s, r) => Write(BcfApiVerb.Post, s.topics, BcfProjection.ToBody(r.Topic), s.key),
+            reviseTopic:             static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.Topic.Guid}", BcfProjection.ToBody(r.Topic), s.key),
             readTopic:               static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, r.Guid.Match(Some: g => $"{s.topics}/{g}", None: () => r.Query.IfNone(BcfQuery.All).Render(s.topics)), default)),
             retireTopic:             static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Delete, $"{s.topics}/{r.Guid}", default)),
-            addComment:              static (s, r) => Write(BcfApiVerb.Post, $"{s.topics}/{r.TopicGuid}/comments", BcfWireMapper.ToBody(r.Comment), s.key),
-            reviseComment:           static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/comments/{r.Comment.Guid}", BcfWireMapper.ToBody(r.Comment), s.key),
+            addComment:              static (s, r) => Write(BcfApiVerb.Post, $"{s.topics}/{r.TopicGuid}/comments", BcfProjection.ToBody(r.Comment), s.key),
+            reviseComment:           static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/comments/{r.Comment.Guid}", BcfProjection.ToBody(r.Comment), s.key),
             readComments:            static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, r.Comment.Match(Some: c => $"{s.topics}/{r.TopicGuid}/comments/{c}", None: () => r.Query.IfNone(BcfQuery.All).Render($"{s.topics}/{r.TopicGuid}/comments")), default)),
             retireComment:           static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Delete, $"{s.topics}/{r.TopicGuid}/comments/{r.Guid}", default)),
-            addViewpoint:            static (s, r) => Write(BcfApiVerb.Post, $"{s.topics}/{r.TopicGuid}/viewpoints", BcfWireMapper.ToBody(r.Viewpoint), s.key),
+            addViewpoint:            static (s, r) => Write(BcfApiVerb.Post, $"{s.topics}/{r.TopicGuid}/viewpoints", BcfProjection.ToBody(r.Viewpoint), s.key),
             readViewpoints:          static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, r.Viewpoint.Match(Some: v => $"{s.topics}/{r.TopicGuid}/viewpoints/{v}", None: () => r.Query.IfNone(BcfQuery.All).Render($"{s.topics}/{r.TopicGuid}/viewpoints")), default)),
             retireViewpoint:         static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Delete, $"{s.topics}/{r.TopicGuid}/viewpoints/{r.Guid}", default)),
             readSnapshot:            static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.topics}/{r.TopicGuid}/viewpoints/{r.Viewpoint}/snapshot", default)),
             readRelatedTopics:       static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.topics}/{r.TopicGuid}/related_topics", default)),
             setRelatedTopics:        static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/related_topics", r.RelatedTopics.Map(static g => new BcfApiRelatedTopicBody(g)).ToImmutableArray(), s.key),
             readDocumentReferences:  static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.topics}/{r.TopicGuid}/document_references", default)),
-            addDocumentReference:    static (s, r) => Write(BcfApiVerb.Post, $"{s.topics}/{r.TopicGuid}/document_references", BcfWireMapper.ToBody(r.Reference), s.key),
-            reviseDocumentReference: static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/document_references/{r.Reference.Guid}", BcfWireMapper.ToBody(r.Reference), s.key),
+            addDocumentReference:    static (s, r) => Write(BcfApiVerb.Post, $"{s.topics}/{r.TopicGuid}/document_references", BcfProjection.ToBody(r.Reference), s.key),
+            reviseDocumentReference: static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/document_references/{r.Reference.Guid}", BcfProjection.ToBody(r.Reference), s.key),
             readFiles:               static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.topics}/{r.TopicGuid}/files", default)),
-            setFiles:                static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/files", r.Files.Map(BcfWireMapper.ToBody).ToImmutableArray(), s.key),
+            setFiles:                static (s, r) => Write(BcfApiVerb.Put, $"{s.topics}/{r.TopicGuid}/files", r.Files.Map(BcfProjection.ToBody).ToImmutableArray(), s.key),
             readDocuments:           static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, r.Document.Match(Some: d => $"{s.project}/documents/{d}", None: () => $"{s.project}/documents"), default)),
             addDocument:             static (s, r) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Post, $"{s.project}/documents?filename={Uri.EscapeDataString(r.Document.Filename)}", r.Document.Data)),
             readProject:             static (s, _) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, s.project, default)),
             readExtensions:          static (s, _) => Fin.Succ(new BcfApiRequest(BcfApiVerb.Get, $"{s.project}/extensions", default)));
 
     static Fin<BcfApiRequest> Write<T>(BcfApiVerb verb, string resource, T body, Op key) =>
-        BcfWire.Json(body, key).Map(bytes => new BcfApiRequest(verb, resource, bytes));
+        Encode(body, key).Map(bytes => new BcfApiRequest(verb, resource, bytes));
 
     // The READ half of the lane — the response-admission seam DECIDED Bim-side: a GET response decodes through the
     // SAME snake_case register the write bodies ride (the read shape IS the resource body plus its nullable
     // server-assigned columns), and the Compute transport hands raw bytes and decodes NOTHING, so a
     // transport-side dialect adapter is the rejected second seam.
     public static Fin<T> Admit<T>(ReadOnlyMemory<byte> body, string resource, Op key) =>
-        BcfWire.Admit<T>(body, BcfApiContext.Json, key,
-            () => new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, $"bcf-api:read:{resource}:null-payload"));
+        Decode<T>(body, resource, key);
+
+    static Fin<byte[]> Encode<T>(T body, Op key) =>
+        key.Catch(() => JsonSerializer.SerializeToUtf8Bytes(body, BcfApiContext.Json));
+
+    static Fin<T> Decode<T>(ReadOnlyMemory<byte> body, string resource, Op key) =>
+        key.Catch(() => JsonSerializer.Deserialize<T>(body.Span, BcfApiContext.Json))
+            .Bind(value => value is { } admitted
+                ? Fin.Succ(admitted)
+                : Fin.Fail<T>(new BimFault.Refused(
+                    key, BimScope.Review, BimReason.Rejected, $"bcf-api:read:{resource}:null-payload")));
 
     // The RESPONSE half completing the round trip: one total Switch over the SAME closed union lands status + raw
     // bytes on the typed BcfOutcome family, so response decode never grows a per-endpoint reader. A non-2xx status
@@ -1043,37 +1051,37 @@ public static class BcfApi {
         status is >= 200 and < 300
             ? resource.Switch(
                 state:                   (body, key),
-                createTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfWireMapper.ToDomain(b)))),
-                reviseTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfWireMapper.ToDomain(b)))),
+                createTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b)))),
+                reviseTopic:             static (s, _) => Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b)))),
                 readTopic:               static (s, r) => r.Guid.IsSome
-                                             ? Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfWireMapper.ToDomain(b))))
-                                             : Rows<BcfApiTopicBody>(s.body, "topics", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Topics(rows.Map(BcfWireMapper.ToDomain))),
+                                             ? Admit<BcfApiTopicBody>(s.body, "topics", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Topics(Seq(BcfProjection.ToDomain(b))))
+                                             : Rows<BcfApiTopicBody>(s.body, "topics", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Topics(rows.Map(BcfProjection.ToDomain))),
                 retireTopic:             static (s, _) => Fin.Succ((BcfOutcome)new BcfOutcome.Done()),
-                addComment:              static (s, _) => Admit<BcfApiCommentBody>(s.body, "comments", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Comments(Seq(BcfWireMapper.ToDomain(b)))),
-                reviseComment:           static (s, _) => Admit<BcfApiCommentBody>(s.body, "comments", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Comments(Seq(BcfWireMapper.ToDomain(b)))),
+                addComment:              static (s, _) => Admit<BcfApiCommentBody>(s.body, "comments", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Comments(Seq(BcfProjection.ToDomain(b)))),
+                reviseComment:           static (s, _) => Admit<BcfApiCommentBody>(s.body, "comments", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Comments(Seq(BcfProjection.ToDomain(b)))),
                 readComments:            static (s, r) => r.Comment.IsSome
-                                             ? Admit<BcfApiCommentBody>(s.body, "comments", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Comments(Seq(BcfWireMapper.ToDomain(b))))
-                                             : Rows<BcfApiCommentBody>(s.body, "comments", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Comments(rows.Map(BcfWireMapper.ToDomain))),
+                                             ? Admit<BcfApiCommentBody>(s.body, "comments", s.key).Map(static b => (BcfOutcome)new BcfOutcome.Comments(Seq(BcfProjection.ToDomain(b))))
+                                             : Rows<BcfApiCommentBody>(s.body, "comments", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Comments(rows.Map(BcfProjection.ToDomain))),
                 retireComment:           static (s, _) => Fin.Succ((BcfOutcome)new BcfOutcome.Done()),
-                addViewpoint:            static (s, _) => Admit<BcfApiViewpointBody>(s.body, "viewpoints", s.key).Bind(b => BcfWireMapper.ToDomain(b, s.key)).Map(static v => (BcfOutcome)new BcfOutcome.Viewpoints(Seq(v))),
+                addViewpoint:            static (s, _) => Admit<BcfApiViewpointBody>(s.body, "viewpoints", s.key).Bind(b => BcfProjection.ToDomain(b, s.key)).Map(static v => (BcfOutcome)new BcfOutcome.Viewpoints(Seq(v))),
                 readViewpoints:          static (s, r) => r.Viewpoint.IsSome
-                                             ? Admit<BcfApiViewpointBody>(s.body, "viewpoints", s.key).Bind(b => BcfWireMapper.ToDomain(b, s.key)).Map(static v => (BcfOutcome)new BcfOutcome.Viewpoints(Seq(v)))
-                                             : Rows<BcfApiViewpointBody>(s.body, "viewpoints", s.key).Bind(rows => rows.TraverseM(b => BcfWireMapper.ToDomain(b, s.key)).As()).Map(static rows => (BcfOutcome)new BcfOutcome.Viewpoints(rows)),
+                                             ? Admit<BcfApiViewpointBody>(s.body, "viewpoints", s.key).Bind(b => BcfProjection.ToDomain(b, s.key)).Map(static v => (BcfOutcome)new BcfOutcome.Viewpoints(Seq(v)))
+                                             : Rows<BcfApiViewpointBody>(s.body, "viewpoints", s.key).Bind(rows => rows.TraverseM(b => BcfProjection.ToDomain(b, s.key)).As()).Map(static rows => (BcfOutcome)new BcfOutcome.Viewpoints(rows)),
                 retireViewpoint:         static (s, _) => Fin.Succ((BcfOutcome)new BcfOutcome.Done()),
                 readSnapshot:            static (s, _) => Fin.Succ((BcfOutcome)new BcfOutcome.Payload(s.body)),
                 readRelatedTopics:       static (s, _) => Rows<BcfApiRelatedTopicBody>(s.body, "related_topics", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Related(rows.Map(static r => r.RelatedTopicGuid))),
                 setRelatedTopics:        static (s, _) => Fin.Succ((BcfOutcome)new BcfOutcome.Done()),
-                readDocumentReferences:  static (s, _) => Rows<BcfApiDocumentReferenceBody>(s.body, "document_references", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.References(rows.Map(BcfWireMapper.ToDomain))),
-                addDocumentReference:    static (s, _) => Admit<BcfApiDocumentReferenceBody>(s.body, "document_references", s.key).Map(static b => (BcfOutcome)new BcfOutcome.References(Seq(BcfWireMapper.ToDomain(b)))),
-                reviseDocumentReference: static (s, _) => Admit<BcfApiDocumentReferenceBody>(s.body, "document_references", s.key).Map(static b => (BcfOutcome)new BcfOutcome.References(Seq(BcfWireMapper.ToDomain(b)))),
-                readFiles:               static (s, _) => Rows<BcfApiFileBody>(s.body, "files", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Files(rows.Map(BcfWireMapper.ToDomain))),
+                readDocumentReferences:  static (s, _) => Rows<BcfApiDocumentReferenceBody>(s.body, "document_references", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.References(rows.Map(BcfProjection.ToDomain))),
+                addDocumentReference:    static (s, _) => Admit<BcfApiDocumentReferenceBody>(s.body, "document_references", s.key).Map(static b => (BcfOutcome)new BcfOutcome.References(Seq(BcfProjection.ToDomain(b)))),
+                reviseDocumentReference: static (s, _) => Admit<BcfApiDocumentReferenceBody>(s.body, "document_references", s.key).Map(static b => (BcfOutcome)new BcfOutcome.References(Seq(BcfProjection.ToDomain(b)))),
+                readFiles:               static (s, _) => Rows<BcfApiFileBody>(s.body, "files", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Files(rows.Map(BcfProjection.ToDomain))),
                 setFiles:                static (s, _) => Fin.Succ((BcfOutcome)new BcfOutcome.Done()),
                 readDocuments:           static (s, r) => r.Document.IsSome
                                              ? Fin.Succ((BcfOutcome)new BcfOutcome.Payload(s.body))
                                              : Rows<BcfApiDocumentBody>(s.body, "documents", s.key).Map(static rows => (BcfOutcome)new BcfOutcome.Documents(rows.Map(static d => new BcfDocument(d.Guid, d.Filename, BcfEdge.Word(d.Description), default)))),
                 addDocument:             static (s, _) => Admit<BcfApiDocumentBody>(s.body, "documents", s.key).Map(static d => (BcfOutcome)new BcfOutcome.Documents(Seq(new BcfDocument(d.Guid, d.Filename, BcfEdge.Word(d.Description), default)))),
                 readProject:             static (s, _) => Admit<BcfApiProjectBody>(s.body, "project", s.key).Map(static p => (BcfOutcome)new BcfOutcome.Project(new BcfProject(p.ProjectId, p.Name))),
-                readExtensions:          static (s, _) => Admit<BcfApiExtensionsBody>(s.body, "extensions", s.key).Map(static e => (BcfOutcome)new BcfOutcome.Extensions(BcfWireMapper.ToDomain(e))))
+                readExtensions:          static (s, _) => Admit<BcfApiExtensionsBody>(s.body, "extensions", s.key).Map(static e => (BcfOutcome)new BcfOutcome.Extensions(BcfProjection.ToDomain(e))))
             : Fin.Fail<BcfOutcome>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-api-status", status.ToString(CultureInfo.InvariantCulture), resource.GetType().Name })));
 
     // The collection arity carries its OWN absence gate. The single-body admission's non-null test is a reference
@@ -1089,18 +1097,7 @@ public static class BcfApi {
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
-// The SELF-OWNED BCF wire serializer: camel-case names, string enums, IncludeFields so the BCL Vector3 serializes
-// as {x,y,z}, and the NodaTime Instant ISO-8601 converters. ONE registered root — the payload; the source
-// generator walks the nested wire graph from it. No Thinktecture converter: the wire family carries no
-// [ValueObject]/[SmartEnum] (BcfApiVerb is a request-side row, never serialized).
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true, IncludeFields = true)]
-[JsonSerializable(typeof(BcfWire))]
-public sealed partial class BcfWireContext : JsonSerializerContext {
-    public static readonly JsonSerializerOptions Json =
-        new JsonSerializerOptions(Default.Options).ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-}
-
-// The BCF-API dialect register — the SAME source-generated posture under the spec's snake_case field law, null
+// The BCF-API dialect register — the source-generated posture under the spec's snake_case field law, null
 // slots OMITTED so the camera XOR and the optional document_guid/url discriminate by ABSENCE per the spec. Two
 // naming registers over one issue vocabulary; the write-body roots AND the response roots register here, so
 // BcfApi.Open decodes every arm off this one register and no transport-side dialect adapter exists.

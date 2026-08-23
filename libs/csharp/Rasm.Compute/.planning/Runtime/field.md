@@ -2,7 +2,7 @@
 
 Rasm.Compute owns the result-specific chunked layout a simulation field lands as bytes: its own 64-byte-header residence-bearing container, the HDF5 interop container the `Runtime/archive#HDF_ARCHIVE` capsule carries, and the scientific-ingest surface dispatching a foreign corpus onto whichever reader owns it. Every invariant this page admits rides a generated admission-bearing owner — the header, the codec policy, the waveform window, and the admitted field are `[ComplexValueObject]`s whose factories ACCUMULATE, so a corpus with three malformed fields reports three.
 
-`FieldCodec` owns the encode/decode surface, `InterchangeIo` the ingest dispatch, and the `FieldResidence`/`Compression`/`FieldElement` row vocabulary the wire codes and container element gates read. The lane composes `Runtime/archive#HDF_ARCHIVE` for every container mechanic, `Runtime/codecs#GEOMETRY_DELTA`'s `Quantization` for the shared bit-budget law, `Runtime/codecs#CONTENT_ADDRESSING` for the emitted artifact's identity, the `Solver/field#DISCRETE_FIELD` `FieldSpace` shape, the model-lane `Model/run#RUN_MODES` ONNX session, and the Persistence `Ingest/pointcloud#SCAN_SOURCE` reader.
+`FieldPack` owns the encode/decode surface, `InterchangeIo` the ingest dispatch, and the `FieldResidence`/`Compression`/`FieldElement` row vocabulary the wire codes and container element gates read. The lane composes `Runtime/archive#HDF_ARCHIVE` for every container mechanic, `Runtime/codecs#GEOMETRY_DELTA`'s `Quantization` for the shared bit-budget law, `Runtime/codecs#CONTENT_ADDRESSING` for the emitted artifact's identity, the `Solver/field#DISCRETE_FIELD` `FieldSpace` shape, the model-lane `Model/run#RUN_MODES` ONNX session, and the Persistence `Ingest/pointcloud#SCAN_SOURCE` reader.
 
 ## [01]-[INDEX]
 
@@ -11,9 +11,9 @@ Rasm.Compute owns the result-specific chunked layout a simulation field lands as
 
 ## [02]-[FIELD_RESULT_CODEC]
 
-- Owner: `FieldResidence` the closed exact/quantized/predicted residence `[Union]` whose per-case bits and bound ARE the arm's law — a lossless case selecting a lossy transform is unrepresentable — carrying the wire `Code` and its inverse `Of` on ONE owner so the forward projection and the header reconstruction cannot fork; `Compression` the `[SmartEnum<byte>]` byte-transform vocabulary whose rows carry their own pack and unpack arms, so the header's compression byte is a total row read rather than a bool the encode re-derives; `FieldCodecPolicy` the `[ComplexValueObject]` chunked-layout policy carrying the residence case, the compression row, and the pinned-or-inherited chunk shape as an `Option`; `FieldHeader` the `[ComplexValueObject]` self-describing 64-byte-prefix admission owner whose accumulating factory replaces the abort ladder a truncated payload used to walk one field at a time; `ResidualPredictor` the content-keyed model-lane chunk predictor; `FieldArtifact` the chunked simulation-field carrier over CGNS/EnSight/VTK/Zarr; `AdmittedField` the encode-side admission evidence, minted only by its own accumulating factory so the interior can never be handed an unadmitted pair; `FieldWindow` the Compute-owned station-slab declaration a partial read carries, lowered to a `HyperslabSelection` at the container edge so no host selection type reaches a Compute signature; `FieldCodec` the static encode/decode surface projecting a `FieldSpace`-shaped result into a Zarr/VTK-class chunked layout with a zero-copy solver↔store↔viz handoff. Two containers carry a chunked field and both are this codec's: its OWN 64-byte-header layout is the residence-bearing encode target, and HDF5 over the `Runtime/archive#HDF_ARCHIVE` capsule is both the ingest target every h5py and netCDF-4 corpus already writes and the interop egress those toolchains read back.
+- Owner: `FieldResidence` the closed exact/quantized/predicted residence `[Union]` whose per-case bits and bound ARE the arm's law — a lossless case selecting a lossy transform is unrepresentable — carrying the wire `Code` and its inverse `Of` on ONE owner so the forward projection and the header reconstruction cannot fork; `Compression` the `[SmartEnum<byte>]` byte-transform vocabulary whose rows carry their own pack and unpack arms, so the header's compression byte is a total row read rather than a bool the encode re-derives; `FieldCodecPolicy` the `[ComplexValueObject]` chunked-layout policy carrying the residence case, the compression row, and the pinned-or-inherited chunk shape as an `Option`; `FieldHeader` the `[ComplexValueObject]` self-describing 64-byte-prefix admission owner whose accumulating factory replaces the abort ladder a truncated payload used to walk one field at a time; `ResidualPredictor` the content-keyed model-lane chunk predictor; `FieldArtifact` the chunked simulation-field carrier over CGNS/EnSight/VTK/Zarr; `AdmittedField` the encode-side admission evidence, minted only by its own accumulating factory so the interior can never be handed an unadmitted pair; `FieldWindow` the Compute-owned station-slab declaration a partial read carries, lowered to a `HyperslabSelection` at the container edge so no host selection type reaches a Compute signature; `FieldPack` the static encode/decode surface projecting a `FieldSpace`-shaped result into a Zarr/VTK-class chunked layout with a zero-copy solver↔store↔viz handoff. Two containers carry a chunked field and both are this codec's: its OWN 64-byte-header layout is the residence-bearing encode target, and HDF5 over the `Runtime/archive#HDF_ARCHIVE` capsule is both the ingest target every h5py and netCDF-4 corpus already writes and the interop egress those toolchains read back.
 - Entry: `public static Fin<FieldArtifact> FieldDecode(string formatKey, ReadOnlyMemory<byte> bytes, Instant at, Option<ResidualPredictor> predictor = default)` admits the header WHOLE, decodes exact and quantized bodies directly, and reconstructs predicted bodies through their required model; `public static Fin<ComputeArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at, Option<ResidualPredictor> predictor = default)` admits the (field, policy) pair into an `AdmittedField` and emits the chunked layout under the residence case's own law; `public static Fin<FieldArtifact> Hdf5Decode(string formatKey, HdfHandle handle, string dataset, Instant at, Option<FieldWindow> window = default)` reads the same station×component chunk model out of an HDF5 container, the optional `window` the station slab a frustum or station read declares; `public static Fin<ComputeArtifact> Hdf5Encode(FieldArtifact field, FieldCodecPolicy policy, HdfArchivePolicy archive, Stream sink, Instant at)` emits it as an HDF5 1.10 container over the archive's cursor-guarded writer, `Predicted` refusing typed; `public static ReadOnlySequence<byte> ChunkSequence(FieldArtifact field)` the multi-segment zero-flatten view the `Runtime/channels#ARTIFACT_FRAMES` frame law drains; the chunk-grid derivation is `Runtime/archive#CHUNK_CURSOR` `ChunkGrid.Derive`, composed and never re-spelled here.
-- Auto: the chunk blob exposes two views — `ChunkSequence`, a multi-segment `ReadOnlySequence<byte>` (one segment per chunk) streamed with no flatten, and `FieldArtifact.Chunk(ordinal)`, the per-ordinal random-access slice a frustum cull reads through the artifact's own `ChunkGrid.Slice` — both addressing chunks by grid position, not byte offset; the quantized residence codes each chunk to its case's bit budget through the shared `Runtime/codecs#GEOMETRY_DELTA` `Quantization` kernel (`TensorPrimitives.MaxMagnitude` scale and the bulk `Divide`/`Round`/`Multiply` fold, never a per-element `Select` over a whole field) and gates its own bound; the predicted residence walks chunks CAUSALLY — the stencil gathers axis-aligned face neighbours by grid coordinate from the RECONSTRUCTED buffer (`GatherNeighbours`, the true spatial stencil, never a 1-D window crossing grid faces and never source values the decoder cannot hold), predicts through the `ResidualPredictor` ONNX field model, quantizes only the prediction residual, and re-codes an over-bound chunk's residual exactly (step 0) so the case bound holds by construction and `Reconstruct` inverts the walk from stored residuals alone; lossless compression rides the `Compression.Brotli` row's own pack arm over the `System.IO.Compression` span codec sized by `GetMaxCompressedLength`, no intermediate stream; the `ByteString` wrap fanning one chunk buffer to store blob and viz upload is the `Runtime/channels#ARTIFACT_FRAMES` frame law, composed.
+- Auto: the chunk blob exposes two views — `ChunkSequence`, a multi-segment `ReadOnlySequence<byte>` (one segment per chunk) streamed with no flatten, and `FieldArtifact.Chunk(ordinal)`, the per-ordinal slice a frustum cull reads through the artifact's own `ChunkGrid.LogicalSlice` — both address the logical payload by grid position and neither claims an HDF5 file byte offset; the quantized residence codes each chunk to its case's bit budget through the shared `Runtime/codecs#GEOMETRY_DELTA` `Quantization` kernel (`TensorPrimitives.MaxMagnitude` scale and the bulk `Divide`/`Round`/`Multiply` fold, never a per-element `Select` over a whole field) and gates its own bound; the predicted residence walks chunks CAUSALLY — the stencil gathers axis-aligned face neighbours by grid coordinate from the RECONSTRUCTED buffer (`GatherNeighbours`, the true spatial stencil, never a 1-D window crossing grid faces and never source values the decoder cannot hold), predicts through the `ResidualPredictor` ONNX field model, quantizes only the prediction residual, and re-codes an over-bound chunk's residual exactly (step 0) so the case bound holds by construction and `Reconstruct` inverts the walk from stored residuals alone; lossless compression rides the `Compression.Brotli` row's own pack arm over the `System.IO.Compression` span codec sized by `GetMaxCompressedLength`, no intermediate stream; the `ByteString` wrap fanning one chunk buffer to store blob and viz upload is the `Runtime/channels#ARTIFACT_FRAMES` frame law, composed.
 - Receipt: the `StreamSegment` receipt carries the field artifact id, the chunk count, and the emitted bytes; a lossy or residual-predicted encode stamps the achieved max-residual against the bound on the `Cache` receipt so an error-bounded compression is auditable — `FieldArtifact.MaxResidual` is the value that stamp reads, carried on the artifact and written as the container's own `max-residual` attribute at the interop egress.
 - Packages: PureHDF (`NativeDataset.Read<T>` chunk-slab reads under `PureHDF.Selections.HyperslabSelection` file selections, `IH5DataType`/`H5DataTypeClass` element gating, `IH5DataLayout.Chunks` grid seating, `H5Dataset<T>` deferred chunked writes — every open, cache, filter, and writer mechanic the `Runtime/archive#HDF_ARCHIVE` capsule owns), System.IO.Hashing, System.Numerics.Tensors (`TensorPrimitives.MaxMagnitude`/`ConvertToSingle`/`Divide`/`Round`/`Multiply`), Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox (`System.IO.Compression` Brotli span codec, `System.Buffers` sequence segments)
 - Growth: a new residence law is one `FieldResidence` case whose arm the `FieldEncode` `Switch` demands at compile time and whose wire code the one `Code`/`Of` pair carries; a new byte transform is one `Compression` row carrying its pack and unpack arms, and the header byte reads it with zero codec edits; a new layout gate is one clause on the `FieldHeader` factory, accumulated beside every sibling; a learned predictor is one `ResidualPredictor` content-keyed ONNX session reused across chunks; zero new surface — a `ResidualCoder`/`NeuralFieldCompressor` sibling is collapsed onto the `FieldResidence.Predicted` case and the one `ResidualEncode`/`Reconstruct` pair.
@@ -165,7 +165,7 @@ public sealed partial class FieldHeader {
     // Rank rides the landed `Solver/field#DISCRETE_FIELD` `FieldRank` row, and `Components` is the row's OWN
     // derivation over the spatial dimension the grid declares — so a vector field carrying five components is
     // refused at admission rather than written into a container a reader then trusts. The WIRE keeps its two
-    // int32 slots verbatim (`tests/contracts` `[02.27]` freezes that layout): the rank slot carries the row's
+    // int32 slots verbatim (`tests/contracts` `hdf5-exchange/field` freezes that layout): the rank slot carries the row's
     // `Order` and the component slot carries the derived count, which is evidence a foreign reader may check.
     public FieldRank Rank { get; }
     public int Components { get; }
@@ -303,7 +303,7 @@ public sealed record FieldArtifact(
 
     // Random-access read of one chunk's float bytes by its grid ordinal — the frustum-cull seam: a viewport
     // maps its frustum onto grid coordinates, those onto ordinals, and reads only the intersected slices.
-    public ReadOnlyMemory<byte> Chunk(int ordinal) => Chunks[Grid.Slice(ordinal, sizeof(float), Chunks.Length)];
+    public ReadOnlyMemory<byte> Chunk(int ordinal) => Chunks[Grid.LogicalSlice(ordinal, sizeof(float), Chunks.Length)];
 }
 
 // Encode-side admission EVIDENCE, and the only way to hold an admitted pair: the factory accumulates every
@@ -331,7 +331,7 @@ public sealed partial class AdmittedField {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-public static class FieldCodec {
+public static class FieldPack {
     // Default chunk budget for derived grids; a slab above it splits its largest interior axis until it fits.
     public const int ChunkElementTarget = 1 << 18;
 
@@ -364,10 +364,7 @@ public static class FieldCodec {
             : admitted!.Policy.Residence.Switch(
                 state: (admitted.Field, Predictor: predictor),
                 exact: static (s, _) => Fin.Succ(s.Field with { MaxResidual = 0.0 }),
-                quantized: static (s, q) => Fin.Succ(Quantize(s.Field, q.Bits)).Bind(coded =>
-                    coded.MaxResidual <= q.Bound
-                        ? Fin.Succ(coded)
-                        : Fin.Fail<FieldArtifact>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(coded.MaxResidual, 0d, q.Bound)))),
+                quantized: static (s, q) => BoundedQuantize(s.Field, q),
                 predicted: static (s, p) => s.Predictor
                     .ToFin(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Resource)))
                     .Bind(net => ResidualEncode(s.Field, p, net)))
@@ -403,43 +400,48 @@ public static class FieldCodec {
                         : Fail<Error, ulong[]>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Extent([.. extent.Select(static axis => checked((long)axis))])))),
                     FieldElement.Of(source.Type))
                 .Apply(static (dims, element) => (Dims: dims, Element: element))
-                .Bind(shaped => (source.Layout.Chunks is { Length: > 0 } chunked
-                        ? ChunkGrid.Seat(shaped.Dims, chunked)
-                        : ChunkGrid.Derive([.. shaped.Dims[..^1].Select(static axis => (int)axis)], (int)shaped.Dims[^1], ChunkElementTarget))
+                .Bind(shaped => WindowExtent(shaped.Dims, window).Bind(selected =>
+                    (source.Layout.Chunks is { Length: > 0 } chunked
+                        ? ChunkGrid.Seat(selected, chunked)
+                        : ChunkGrid.Derive([.. selected[..^1].Select(static axis => (int)axis)], (int)selected[^1], ChunkElementTarget))
                     .Bind(grid => {
                         int components = (int)shaped.Dims[^1];
-                        return (Ranked(shaped.Dims.Length - 1, components), Read(source, handle.Access, window, shaped.Dims, shaped.Element))
+                        return (Ranked(shaped.Dims.Length - 1, components), Read(source, handle.Access, window, grid, shaped.Element))
                             .Apply((rank, values) => new FieldArtifact(
                                 formatKey, dataset, rank, components,
                                 values.LongLength / components, grid,
-                                MemoryMarshal.AsBytes(values.AsSpan()).ToArray(), 0.0, at))
+                                MemoryMarshal.Cast<float, byte>(values.AsSpan()).ToArray(), 0.0, at))
                             .As();
-                    }));
+                    })));
         }).ToFin();
+
+    static Validation<Error, ulong[]> WindowExtent(ulong[] extent, Option<FieldWindow> window) =>
+        window.Match(
+            None: () => Success<Error, ulong[]>(extent),
+            Some: declared => (ulong)declared.Station + (ulong)declared.Stations <= extent[0]
+                ? Success<Error, ulong[]>([(ulong)declared.Stations, .. extent[1..]])
+                : Fail<Error, ulong[]>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(declared.Station + declared.Stations, 0d, extent[0])))));
 
     // One chunk-aligned slab read per station in index order under the handle's bounded per-read cache — never
     // one unqualified whole-dataset call; a declared window reads exactly its lowered selection. Size 8 reads
     // double and narrows ONCE through the vectorized converter, since the library never width-converts.
-    static Validation<Error, float[]> Read(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ulong[] extent, FieldElement element) =>
+    static Validation<Error, float[]> Read(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ChunkGrid grid, FieldElement element) =>
         Op.Of(name: "hdf5.field-read").Catch(() => Fin.Succ(element == FieldElement.Double
-                ? Narrowed(Slabbed<double>(source, access, window, extent))
-                : Slabbed<float>(source, access, window, extent)))
+                ? Narrowed(Slabbed<double>(source, access, window, grid))
+                : Slabbed<float>(source, access, window, grid)))
             .ToValidation<Error>();
 
-    static T[] Slabbed<T>(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ulong[] extent) where T : unmanaged {
-        if (window.Case is FieldWindow declared) {
-            HyperslabSelection selection = declared.Lower(extent);
-            T[] narrow = new T[checked((int)selection.TotalElementCount)];
-            source.Read<T>(access, narrow.AsSpan(), fileSelection: selection);
-            return narrow;
-        }
-        long total = extent.Aggregate(1L, static (acc, axis) => acc * (long)axis);
-        T[] whole = new T[checked((int)total)];
-        int stations = (int)extent[0];
-        long slab = total / stations;
-        for (int station = 0; station < stations; station++) {          // Exemption: a per-station slab walk over a caller-owned destination span; no rail combinator carries a `Span` destination
-            source.Read<T>(access, whole.AsSpan(checked((int)(station * slab)), checked((int)slab)),
-                fileSelection: FieldWindow.Create(station, 1).Lower(extent));
+    static T[] Slabbed<T>(NativeDataset source, H5DatasetAccess access, Option<FieldWindow> window, ChunkGrid grid) where T : unmanaged {
+        int total = checked((int)grid.FileDims.Span.ToArray().Aggregate(1UL, static (acc, axis) => acc * axis));
+        T[] whole = new T[total];
+        ulong[] origin = new ulong[grid.Rank];
+        window.Iter(declared => origin[0] = (ulong)declared.Station);
+        int offset = 0;
+        for (int chunk = 0; chunk < grid.Count; chunk++) {              // Exemption: a chunk-order read over one caller-owned destination span; no rail combinator carries a `Span` destination
+            HyperslabSelection selection = grid.Selection(chunk, origin);
+            int length = checked((int)selection.TotalElementCount);
+            source.Read<T>(access, whole.AsSpan(offset, length), fileSelection: selection);
+            offset += length;
         }
         return whole;
     }
@@ -462,22 +464,31 @@ public static class FieldCodec {
     // HDF5 egress arm: the interop counterpart of `Hdf5Decode`, emitting the SAME station×component chunk model
     // as an HDF5 1.10 container h5py, ParaView, and HDFView open with no bridge (Shuffle rank 0 ahead of Deflate
     // rank 1 reads back as compression='gzip', shuffle=True). The native layout stays the residence-bearing
-    // format: `Predicted` refuses typed because no container slot carries a residence law, and a Quantized
-    // encode lands its ALREADY-CODED values with bits and bound as attributes — evidence, never a law a foreign
-    // reader must enforce. Chunk writes walk the cursor, so out-of-order is unrepresentable rather than refused.
+    // format: `Predicted` refuses typed because no container slot carries a residence law, while `Quantized`
+    // runs the same bounded transform as the native carrier before its bits, bound, and achieved residual land.
+    // Chunk writes walk the cursor, so out-of-order is unrepresentable rather than refused.
     public static Fin<ComputeArtifact> Hdf5Encode(FieldArtifact field, FieldCodecPolicy policy, HdfArchivePolicy archive, Stream sink, Instant at) =>
-        policy.Residence.Switch(
-            state: (field, policy, archive, sink, at),
-            exact: static (s, _) => Emit(s.field, s.policy, s.archive, s.sink, s.at),
-            quantized: static (s, _) => Emit(s.field, s.policy, s.archive, s.sink, s.at),
-            predicted: static (s, _) => Fin.Fail<ComputeArtifact>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None()))));
+        AdmittedField.Validate(field, policy, out AdmittedField? admitted) is { } error
+            ? Fin.Fail<ComputeArtifact>((ComputeFault)error)
+            : admitted!.Policy.Residence.Switch(
+                state: (admitted, archive, sink, at),
+                exact: static (s, _) => Emit(s.admitted.Field with { MaxResidual = 0.0 }, s.admitted.Policy, s.archive, s.sink, s.at),
+                quantized: static (s, q) => BoundedQuantize(s.admitted.Field, q).Bind(coded => Emit(coded, s.admitted.Policy, s.archive, s.sink, s.at)),
+                predicted: static (s, _) => Fin.Fail<ComputeArtifact>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None()))));
+
+    static Fin<FieldArtifact> BoundedQuantize(FieldArtifact field, FieldResidence.Quantized residence) {
+        FieldArtifact coded = Quantize(field, residence.Bits);
+        return coded.MaxResidual <= residence.Bound
+            ? Fin.Succ(coded)
+            : Fin.Fail<FieldArtifact>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(coded.MaxResidual, 0d, residence.Bound))));
+    }
 
     // Declaration is a VALUE handed to the one `Runtime/archive#CHUNK_CURSOR` capsule: the slot, its attributes,
     // the writer open, and the release are that owner's, so this producer states only what its container carries.
-    // The five attributes are the roster `tests/contracts` `[02.27]` freezes and the python `FieldContainer`
+    // The five ROOT attributes are the roster `tests/contracts` `hdf5-exchange/field` freezes and the python `FieldContainer`
     // reader consumes, each crossing through the closed `ArchiveAttribute` vocabulary rather than an `object` bag.
     static Fin<ComputeArtifact> Emit(FieldArtifact field, FieldCodecPolicy policy, HdfArchivePolicy archive, Stream sink, Instant at) {
-        ArchiveSlot<float> slot = new(field.Station.Length > 0 ? field.Station : "field", field.Grid);
+        ArchiveSlot<float> slot = new("field", field.Grid);
         return ArchiveSession.Write(sink, archive, Seq<IArchiveSlot>(slot), Seq(
                 ("format-key", (ArchiveAttribute)new ArchiveAttribute.Text(field.FormatKey)),
                 ("residence", new ArchiveAttribute.Text(policy.Residence.Code == 0 ? "exact" : "quantized")),
@@ -508,7 +519,7 @@ public static class FieldCodec {
         Fin<(float[] Residual, float[] Reconstructed, double Worst)> initial = Fin.Succ((new float[source.Length], new float[source.Length], 0d));
         return Range(0, field.ChunkCount)
             .Fold(initial, (rail, chunk) => rail.Bind(state => EncodeChunk(source, state, grid, chunk, chunkElements, net, residence, scale, step)))
-            .Map(state => field with { Chunks = MemoryMarshal.AsBytes(state.Residual.AsSpan()).ToArray(), MaxResidual = state.Worst });
+            .Map(state => field with { Chunks = MemoryMarshal.Cast<float, byte>(state.Residual.AsSpan()).ToArray(), MaxResidual = state.Worst });
     }
 
     static Fin<(float[] Residual, float[] Reconstructed, double Worst)> EncodeChunk(
@@ -545,7 +556,7 @@ public static class FieldCodec {
         int[] grid = residualField.Grid.Grid.Span.ToArray();
         return Range(0, residualField.ChunkCount)
             .Fold(Fin.Succ(new float[stored.Length]), (rail, chunk) => rail.Bind(values => ReconstructChunk(stored, values, grid, chunk, chunkElements, net)))
-            .Map(values => residualField with { Chunks = MemoryMarshal.AsBytes(values.AsSpan()).ToArray() });
+            .Map(values => residualField with { Chunks = MemoryMarshal.Cast<float, byte>(values.AsSpan()).ToArray() });
     }
 
     static Fin<float[]> ReconstructChunk(float[] stored, float[] reconstructed, int[] grid, int chunk, int chunkElements, ResidualPredictor net) {
@@ -600,7 +611,7 @@ public static class FieldCodec {
         float[] quantized = new float[source.Length];
         Quantization.Code<float>(source, quantized, step);
         double worst = Quantization.Worst<float>(source, quantized, scale);
-        return field with { Chunks = MemoryMarshal.AsBytes(quantized.AsSpan()).ToArray(), MaxResidual = worst };
+        return field with { Chunks = MemoryMarshal.Cast<float, byte>(quantized.AsSpan()).ToArray(), MaxResidual = worst };
     }
 
     // --- [ZERO_COPY_VIEW]
@@ -720,17 +731,17 @@ public static class InterchangeIo {
     internal static Fin<FieldArtifact> ReadNative(
         string formatKey, ReadOnlyMemory<byte> bytes, Instant at,
         Option<ResidualPredictor> predictor, string dataset, Option<FieldWindow> window) =>
-        FieldCodec.FieldDecode(formatKey, bytes, at, predictor);
+        FieldPack.FieldDecode(formatKey, bytes, at, predictor);
 
     // The payload arm keeps the bytes-in seam a companion or store lane hands over; a parallel or store-resident
     // corpus opens its own `HdfSource.Path`/`Mapped` handle through the archive capsule and calls
-    // `FieldCodec.Hdf5Decode` directly. Acquisition, read, and release ride the capsule's own bracket, so the
+    // `FieldPack.Hdf5Decode` directly. Acquisition, read, and release ride the capsule's own bracket, so the
     // container closes on the fault arm exactly as on the success arm.
     internal static Fin<FieldArtifact> ReadHdf5(
         string formatKey, ReadOnlyMemory<byte> bytes, Instant at,
         Option<ResidualPredictor> predictor, string dataset, Option<FieldWindow> window) =>
         HdfArchive.Session(new HdfSource.Payload(bytes), HdfArchivePolicy.Interchange,
-            handle => IO.pure(FieldCodec.Hdf5Decode(formatKey, handle, dataset, at, window))).Run();
+            handle => IO.pure(FieldPack.Hdf5Decode(formatKey, handle, dataset, at, window))).Run();
 
     // Point-scan decode COMPOSES the admitted reader rather than re-deriving one: `Rasm.Persistence`
     // `Ingest/pointcloud#SCAN_SOURCE` owns the E57/LAS/LAZ decode and the durable residence, so capture bytes
@@ -770,7 +781,7 @@ public static class InterchangeIo {
                     int channels = (int)extent[1];
                     int frames = window.Frames(admitted.Samples);
                     return Op.Of(name: "hdf5.waveform-read").Catch(() => Fin.Succ(admitted.Element == FieldElement.Double
-                            ? FieldCodec.Narrowed(Windowed<double>(source, handle.Access, window, frames, channels))
+                            ? FieldPack.Narrowed(Windowed<double>(source, handle.Access, window, frames, channels))
                             : Windowed<float>(source, handle.Access, window, frames, channels)))
                         .ToValidation<Error>()
                         .Map(values => new WaveformCorpus(formatKey, dataset, channels, admitted.Samples, admitted.Rate, window, frames, values, at));

@@ -9,7 +9,7 @@ Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer
 - [02]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` axis — one CF open/read/write entrypoint.
 - [03]-[SELECT]: the `FieldSelection` selection/reduction/scan axis threaded by one `ReductionPolicy` through one lowering per kernel.
 - [04]-[EGRESS]: the `FieldReceipt` content-keyed `pyarrow`/Zarr egress fold.
-- [05]-[CONTAINER]: the `FieldContainer` read leg over the `tests/contracts/MANIFEST.md` `[02.27]` raw field-container layout.
+- [05]-[CONTAINER]: the `FieldContainer` read leg over the `tests/contracts/manifest.json` `hdf5-exchange/field` raw-container case.
 - [06]-[ENSEMBLE]: the `EnsembleCorpus` replicate-chunked design-beside-responses container with regenerating-state attributes.
 
 ## [02]-[FIELD]
@@ -94,8 +94,11 @@ CONTAINER_LIFT: Final[FaultRow[DataLeg]] = FaultRow(
 CONTAINER_TRUNCATED: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.FIELD, point="container.mint", arm="boundary", defect="mint-truncated", retriability=TERMINAL, slots=("absent",)
 )
-CONTAINER_ENDIAN: Final[FaultRow[DataLeg]] = FaultRow(
-    leg=DataLeg.FIELD, point="container.element", arm="boundary", defect="element-big-endian", retriability=TERMINAL, slots=("dtype",)
+CONTAINER_ELEMENT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.element", arm="boundary", defect="element-mismatch", retriability=TERMINAL, slots=("dtype",)
+)
+CONTAINER_LAYOUT: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.layout", arm="boundary", defect="layout-mismatch", retriability=TERMINAL, slots=("layout",)
 )
 CONTAINER_RESIDENCE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.FIELD, point="container.residence", arm="boundary", defect="residence-unknown", retriability=TERMINAL, slots=("residence",)
@@ -119,7 +122,8 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
     CONTAINER_SLAB,
     CONTAINER_LIFT,
     CONTAINER_TRUNCATED,
-    CONTAINER_ENDIAN,
+    CONTAINER_ELEMENT,
+    CONTAINER_LAYOUT,
     CONTAINER_RESIDENCE,
     CORPUS_CREATE,
     CORPUS_OPEN,
@@ -558,12 +562,12 @@ def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, pay
 
 ## [05]-[CONTAINER]
 
-- Owner: `FieldContainer` — the native read leg for the C#-emitted raw field container under the `tests/contracts/MANIFEST.md` `[02.27]-[HDF5_FIELD_CONTAINER]` mint: one dataset at the `/field` path, field extent leading with the trailing COMPONENT axis, station-outermost chunks from the one `ChunkGrid.Derive` derivation, Shuffle (id 2) then Deflate (id 1), little-endian float elements, create-only. The producer anchor is `csharp:Rasm.Compute/Runtime/field#FIELD_RESULT_CODEC` `Hdf5Encode`; this owner decodes the container and re-derives no layout, so a layout question resolves at the corpus entry, never here.
-- Cases: `ContainerMeta` is the typed projection of the producer's attribute roster — `format-key`/`residence`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields — beside the container-bytes `ContentKey`, the digest half of the corpus `wire-bytes + digest` payload; `residence` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
-- Entry: `FieldContainer.open` probes the `/field` dataset before any resolve and refuses typed on an absent roster, refuses a big-endian element dtype at open — the corpus re-encodes upstream and never crosses — and refuses an attribute the roster names but the container omits; `window` reads one station slab, `read` the whole cube, `labelled` the phony-dims lift.
+- Owner: `FieldContainer` — the native read leg for the C#-emitted raw field container under the `tests/contracts/manifest.json` `hdf5-exchange/field` case: one dataset at the `/field` path, field extent leading with the trailing COMPONENT axis, station-outermost chunks from the one `ChunkGrid.Derive` derivation, Shuffle (id 2) then Deflate (id 1), little-endian float32 elements, create-only. Its producer actor is `csharp:Rasm.Compute/Runtime/field#FIELD_RESULT_CODEC`; `Hdf5Encode` mints the bytes. This owner decodes the container and re-derives no layout, so a layout question resolves at the case's law definition, never here.
+- Cases: `ContainerMeta` is the typed projection of the producer's ROOT attribute roster — `format-key`/`residence`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields; `residence` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
+- Entry: `FieldContainer.open` probes the `/field` dataset before any resolve and refuses typed on an absent roster, requires a little-endian float32 element, a chunked station-leading grid, and the Shuffle→Deflate-compatible h5py filter view, and refuses a ROOT attribute the roster names but the container omits; `window` reads one station slab, `read` the whole cube, `labelled` the phony-dims lift.
 - Auto: station slabs are chunk-aligned by construction — the `Grid` derivation chunks the station axis at 1, so ANY station range lands on chunk boundaries and the h5py slice IS the producer's `HyperslabSelection` window; readers accept any deflate level a foreign producer wrote while the C# writer holds its own four-value grade set.
-- Receipt: reads emit no receipt — the receipt family folds at egress, and this owner has no write half; the container's `ContentKey` pairs the read against the producer's minted artifact identity instead.
-- Growth: a new producer attribute is one `ContainerMeta` field with its wire spelling in `_META`; a second dataset path is corpus-entry growth re-valued at `[02.27]`, never a reader knob; zero new surface.
+- Receipt: reads emit no receipt or duplicate whole-file content key — the receipt family folds at egress, this owner has no write half, and the manifest proof owns the frozen specimen digest. Opening a screening-scale field therefore never stages the entire HDF5 file merely to name bytes no consumer reads.
+- Growth: a new producer attribute is one `ContainerMeta` field with its wire spelling in `_META`; a second dataset path is `tests/contracts/manifest.json` `hdf5-exchange/field` case growth, never a reader knob; zero new surface.
 - Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
 
 ```python signature
@@ -572,12 +576,11 @@ from typing import Final, Literal
 import h5py
 import numpy as np
 from beartype import beartype
-from expression import Error
+from expression import Error, Ok
 from msgspec import Struct
 
 lazy import xarray as xr
 
-from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, Catch, RuntimeRail, boundary
 from rasm.runtime.roots import ResourceRef
 
@@ -609,7 +612,6 @@ class ContainerMeta(Struct, frozen=True):
     bits: int
     bound: float
     max_residual: float
-    content_key: ContentKey
 
 
 class FieldContainer(Struct, frozen=True):
@@ -646,7 +648,7 @@ class FieldContainer(Struct, frozen=True):
     def labelled(self) -> "RuntimeRail[xr.Dataset]":
         # phony-dims lift for labelled consumers: the container carries NO dimension scales by the corpus pick,
         # so h5netcdf names axes `phony_dim_N` under `phony_dims="sort"` — a coordinate roster is corpus-entry
-        # growth re-valued at `[02.27]`, never a consumer workaround minted here.
+        # growth on the manifest `hdf5-exchange/field` case, never a consumer workaround minted here.
         def lift() -> "xr.Dataset":
             return xr.open_dataset(str(self.ref.path), engine="h5netcdf", phony_dims="sort")
 
@@ -658,36 +660,85 @@ def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
     # than round-tripping a typed fault out through a `RuntimeError` the classifier then re-reads as a message, and
     # every producer-contract refusal answers a roster row whose closed defect token replaces the free-form prose
     # the raises carried. The h5py raises inside the `with` stay raises — they are the provider's, not this owner's.
-    source = ref.path.read_bytes()
     with h5py.File(str(ref.path), "r") as file:
         if _FIELD_PATH not in file:
             return Error(CONTAINER_TRUNCATED.raised(f"/{_FIELD_PATH}"))
         dataset = file[_FIELD_PATH]
-        if dataset.dtype.byteorder == ">":
-            return Error(CONTAINER_ENDIAN.raised(dataset.dtype.str))
-        absent = tuple(wire for wire, _ in _META if wire not in dataset.attrs)
+        dtype = dataset.dtype
+        if (
+            dtype.kind != "f"
+            or dtype.itemsize != 4
+            or dtype.byteorder not in ("<", "=")
+            or (dtype.byteorder == "=" and not np.little_endian)
+        ):
+            return Error(CONTAINER_ELEMENT.raised(dtype.str))
+        if (
+            dataset.chunks is None
+            or len(dataset.chunks) != len(dataset.shape)
+            or len(dataset.shape) < 2
+            or dataset.chunks[0] != 1
+            or dataset.chunks[-1] != dataset.shape[-1]
+            or dataset.compression != "gzip"
+            or not dataset.shuffle
+        ):
+            layout = f"chunks={dataset.chunks};compression={dataset.compression};shuffle={dataset.shuffle}"
+            return Error(CONTAINER_LAYOUT.raised(layout))
+        absent = tuple(wire for wire, _ in _META if wire not in file.attrs)
         if absent:
             return Error(CONTAINER_TRUNCATED.raised(",".join(absent)))
-        raw = {field: dataset.attrs[wire] for wire, field in _META}
+        raw = {field: file.attrs[wire] for wire, field in _META}
         shape, chunks = tuple(dataset.shape), tuple(dataset.chunks or dataset.shape)
+    if not isinstance(raw["format_key"], str) or not isinstance(raw["residence"], str):
+        return Error(CONTAINER_ELEMENT.raised("root:text"))
+    bits = _container_scalar(raw["bits"], "i", 8)
+    bound = _container_scalar(raw["bound"], "f", 8)
+    max_residual = _container_scalar(raw["max_residual"], "f", 8)
+    if not bits[0] or not bound[0] or not max_residual[0]:
+        return Error(CONTAINER_ELEMENT.raised("root:bits,bound,max-residual"))
     residence = str(raw["residence"])
     if residence not in ("exact", "quantized"):  # closed pair by producer law — `predicted` refuses HDF5 egress at its own fence
         return Error(CONTAINER_RESIDENCE.raised(residence))
-    return ContentIdentity.of("field.container", source).map(
-        lambda key: FieldContainer(
+    bit_count, error_bound, achieved = int(bits[1]), float(bound[1]), float(max_residual[1])
+    residence_held = (
+        (residence == "exact" and bit_count == 0 and error_bound == 0.0 and achieved == 0.0)
+        or (
+            residence == "quantized"
+            and 1 <= bit_count <= 24
+            and np.isfinite(error_bound)
+            and error_bound > 0.0
+            and np.isfinite(achieved)
+            and 0.0 <= achieved <= error_bound
+        )
+    )
+    if not residence_held:
+        return Error(CONTAINER_RESIDENCE.raised(f"{residence}:{bit_count}:{error_bound}:{achieved}"))
+    return Ok(
+        FieldContainer(
             ref=ref,
             meta=ContainerMeta(
-                format_key=str(raw["format_key"]),
+                format_key=raw["format_key"],
                 residence=residence,
-                bits=int(raw["bits"]),
-                bound=float(raw["bound"]),
-                max_residual=float(raw["max_residual"]),
-                content_key=key,
+                bits=bit_count,
+                bound=error_bound,
+                max_residual=achieved,
             ),
             shape=shape,
             chunks=chunks,
         )
     )
+
+
+def _container_scalar(source: object, kind: str, size: int) -> tuple[bool, object]:
+    value = np.asarray(source)
+    if (
+        value.ndim != 0
+        or value.dtype.kind != kind
+        or value.dtype.itemsize != size
+        or value.dtype.byteorder not in ("<", "=")
+        or (value.dtype.byteorder == "=" and not np.little_endian)
+    ):
+        return False, value
+    return True, value.item()
 
 
 def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:

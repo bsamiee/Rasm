@@ -249,14 +249,14 @@ public sealed record AnalysisContext(
     public string Cell(CalendarAxis axis) => axis.Group(Calendar.Civil(Moment));
 
     // The coordinate as evidence, under the intent that seated it. `Count` is whole civil DAYS off the date
-    // pair rather than a duration narrowed to an hour count, so the column stays the bounded per-event number
-    // the wire posture declares with no cast to justify.
+    // pair rather than a duration narrowed to an hour count, so the checked narrowing states the wire's bounded
+    // per-event posture exactly once at this projection.
     public EvidenceReceipt ToEvidence(string intent) =>
         Dates() switch {
             var span => new EvidenceReceipt.Effect(
                 Plane: ContextChannel.Plane, Key: Grain.Key, Outcome: $"{Scenario.Key}/{intent}",
-                Flag: Grain.Span.Sweeps, Count: Period.DaysBetween(span.From, span.To) + 1,
-                Magnitude: InstantPattern.ExtendedIso.Format(Moment)),
+                Flag: Grain.Span.Sweeps, Count: checked((uint)(Period.DaysBetween(span.From, span.To) + 1)),
+                Measure: new EffectMeasure.Moment(Moment)),
         };
 
     static Validation<Error, Unit> Gate(bool holds, ContextFault fault) =>

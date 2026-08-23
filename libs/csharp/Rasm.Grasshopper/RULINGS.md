@@ -26,7 +26,6 @@
 - Pin identity is `PinKey` under the kernel default validation bridge; package faults begin only at semantic GH contracts.
 - `ChromeTag` and `IconTag` mint chrome, editor, and icon identity as `[ValueObject<string>]` owners, so no raw string key stands beside them.
 - Boolean flag families ride `ICapability` vocabularies, the law stated on the owner: `Open` unless a corner is illegal.
-- Kernel hooks cross as `HookRail` over the `GrasshopperPoint` roster; the bare `HookPoint` seat has no site here.
 - `Mark` crosses beside `PaintProgram` — `GhMark.Kernel` carries the kernel vocabulary whole and the host cases carry only what GH2 draws.
 
 ## [03]-[COLLAPSE]

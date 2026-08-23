@@ -173,8 +173,6 @@ def _routed_tool(tool: Tool, routed: Routed) -> Tool:
     # Route-driven placement policy the row cannot carry: one catalog row serves scoped and full-workspace routes,
     # so the resolved route (not the tool) re-pins the Input axis; the command template is never edited.
     match (routed.language, routed.scope, tool.input, bool(routed.projects)):
-        case (Language.TYPESCRIPT, Scope.FULL, Input.PROJECT, _):
-            return msgspec.structs.replace(tool, input=Input.OWNED)
         case (Language.CSHARP, Scope.FULL, Input.INCLUDE | Input.PROJECT, _):
             return msgspec.structs.replace(tool, input=Input.SOLUTION)
         case (Language.CSHARP, Scope.CHANGED, Input.INCLUDE, True) if not routed.groups:
@@ -187,8 +185,6 @@ def _tool_skip(tool: Tool, routed: Routed) -> str:
     match (tool.input, routed.language.strategy):
         case (Input.SOLUTION, _) if not _workspace_route(routed):
             return "solution input unsupported by scoped static"
-        case (Input.PROJECT, "glob") if routed.scope is not Scope.FULL:
-            return "project-wide tool unsupported by scoped static"
         case _:
             return ""
 
@@ -380,13 +376,16 @@ def _build_route(routed: Routed) -> Routed:
         msgspec.structs.replace(routed, scope=Scope.FULL)
         if routed.scope is Scope.CHANGED
         and routed.language.strategy == "glob"
-        and any(tool.mode is Mode.BUILD and tool.input is Input.PROJECT for tool in select(Claim.STATIC, routed.language))
+        and any(tool.mode is Mode.BUILD and tool.input is Input.OWNED for tool in select(Claim.STATIC, routed.language))
         else routed
     )
 
 
 def _empty_route(routed: Routed) -> bool:
-    return (routed.language.strategy == "glob" and not routed.files) or (
+    # A governor-escalated glob route carries no source file and still owes every whole-lane check its run. The
+    # trigger decides, never the scope: `_build_route` escalates on the catalog alone, so a scope test would admit
+    # every sourceless route and sweep the estate for an edit the lane never owned.
+    return (routed.language.strategy == "glob" and not routed.files and not routed.full_triggers) or (
         routed.language.strategy == "closure" and not routed.files and not routed.projects and not _workspace_route(routed)
     )
 

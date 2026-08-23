@@ -11,7 +11,7 @@ Several cases declare elsewhere — `Assessment` on the `Analysis/assessment` sp
 - [02]-[RECEIPT_UNION]: Fact union (inline cases beside the `Analysis/assessment` and `Tensor/quadrature` partials), its closed payload vocabularies, its Strict-resolver round-trip context, the instrument roster, and sink-port emission.
 - [03]-[TELEMETRY_PROJECTION]: The ONE receipt fold answering instrument writes and priced cost together, and the dispatch span spine over the kernel trace band.
 - [04]-[FOLD_PROJECTIONS]: Operational views derive as folds over the fact stream; content-keyed verdicts re-derive and diff under the determinism stamp.
-- [05]-[TS_PROJECTION]: Receipt payload union and envelope wire shapes.
+- [05]-[TS_PROJECTION]: the one-ended receipt union, the generated `Receipt.V1.ReceiptEnvelopeWire`, and the receipt family the corpus still owes.
 
 ## [02]-[RECEIPT_UNION]
 
@@ -119,7 +119,7 @@ public sealed partial class CacheOutcome {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConflictSubject {
     public static readonly ConflictSubject RetryOwner = new("retry-owner");
-    public static readonly ConflictSubject ContractChecksum = new("contract-checksum");
+    public static readonly ConflictSubject ContractGeneration = new("contract-generation");
 }
 
 // The queue gate's verdict is a CASE, not a nullable reason beside a boolean: an admitted verdict has no reason to
@@ -1207,119 +1207,7 @@ public static class ReceiptReplay {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire` — the receipt payload union and its envelope as the dashboard and the composing app root consume them. The claim, ledger, and descriptor wires live with their owners at `Runtime/claims#TS_PROJECTION`, `Runtime/ledger#TS_PROJECTION`, and `Runtime/board#TS_PROJECTION`.
-- Packages: BCL inbox
-- Growth: a new receipt case lands as one payload row on `ComputeReceiptWire`; zero new surface.
-- Boundary: `ComputeReceiptKind` derives from `ReceiptSurface.Kinds` under the suite schema hash, and `ReceiptEnvelopeWire.kind` mirrors the payload discriminator.
-- Boundary: a decode-only mirror carries the producer's column set ARM FOR ARM. Five payload rows drifted from live C# producers here — `sweep.unranked`/`failed`, `solve.participation`, `generate.stagedTokens`, `optimization.referenceDerived`, `clash.truncated` — and survived because no consumer census re-proved them; the payload union owes a `tests/contracts` registration so the census exists.
-- Boundary: smart-enum fields cross as keys, and a closed C# vocabulary crosses as the literal union of its row keys — `cache.outcome`, `conflict.subject`, and `clash.indexKind` mirror `CacheOutcome`, `ConflictSubject`, and the `Solver/clash#CLASH_AND_TWIN` `AccelerationKind` roster exactly, so a row landed at either owner breaks the other side.
-- Boundary: long values cross as decimal strings; instants and durations use their invariant textual forms.
-- Boundary: optional evidence crosses as explicit null.
-- Boundary: this payload union is ONE-ENDED BY DECLARATION — its producers and its dashboard/app-root consumers are all C#, `typescript:core` decodes `ReceiptEnvelopeWire` with the payload as `Schema.Unknown` (`libs/typescript/core/.planning/interchange/codec.md`) and `BenchmarkClaimWire` under `tests/contracts` `[02.13]`/`[02.14]` alone, so NO `tests/contracts` family row is owed for `ComputeReceiptWire` — a registration would assert a peer decoder no branch declares, the exact stranded state the `MachineObservationWire` withdrawal at MANIFEST `[02.13]` names; the census that holds these mirrors is the C# `[JsonDerivedType]` roster plus this section's arm-for-arm law, and a future ts payload decoder enters WITH its MANIFEST family row.
-
-```ts signature
-type ReceiptScopeWire =
-  | { kind: "execution"; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string }
-  | { kind: "process"; correlation: string; allocationClass: string };
-
-// Spine PINS its own discriminator: each payload passes the literal its `[JsonDerivedType]` row declares, so that
-// roster lives exactly once — in the payload set — and `ComputeReceiptKind` derives off the union below.
-interface ComputeReceiptSpineWire<K extends string> { kind: K; scope: ReceiptScopeWire; }
-
-type SelectionDecisionWire = { outcome: "chosen"; row: string } | { outcome: "rejected"; row: string; reason: string };
-type SelectionModeWire = { mode: "ranked" } | { mode: "forced"; row: string };
-type ShardRoleWire = { role: "whole" } | { role: "shard"; of: number; node: string } | { role: "merge"; of: number };
-type BackpressureVerdictWire = { outcome: "admitted" } | { outcome: "shed"; reason: string };
-interface ModalParticipationWire { x: number; y: number; z: number; }
-interface DeterminismStampWire { class: "bit" | "envelope" | "device-wgpu"; provider: string; }
-interface DeltaStampWire { baseBytes: string; deltaBytes: string; }
-interface TilesetCensusWire { nodes: number; leaves: number; maxDepth: number; geometricErrorRoot: number; metadataColumns: number; }
-interface ConstitutiveEvidenceWire { model: string; returnMapIterations: number; returnMapResidual: number; }
-interface ContactEvidenceWire { activeSet: number; penetrationResidual: number; multipliers: number; }
-
-interface SelectionWire extends ComputeReceiptSpineWire<"selection"> { decisions: SelectionDecisionWire[]; mode: SelectionModeWire; warmAffinity: boolean; }
-
-interface TensorRunWire extends ComputeReceiptSpineWire<"tensor-run"> { family: string; dtype: string; elements: string; simdWidth: string; partitions: number; }
-
-interface ModelLoadWire extends ComputeReceiptSpineWire<"model-load"> { modelChecksum: string; source: string; ep: string; version: string; }
-
-interface WarmupWire extends ComputeReceiptSpineWire<"warmup"> { modelChecksum: string; ep: string; shape: string; partitions: number | null; elapsed: string | null; warmedAt: string | null; }
-
-interface ModelRunWire extends ComputeReceiptSpineWire<"model-run"> { modelChecksum: string; ep: string; mode: string; batchSize: number; peakBytes: string; arenaAllocator: string | null; profile: ProfileArtifactWire | null; }
-
-interface RemoteCallWire extends ComputeReceiptSpineWire<"remote-call"> { transport: string; method: string; status: string; requestBytes: string; responseBytes: string; outcome: string; }
-
-interface StreamSegmentWire extends ComputeReceiptSpineWire<"stream-segment"> { artifactId: string; segments: number; bytes: string; census: TilesetCensusWire | null; }
-
-interface AllocationWire extends ComputeReceiptSpineWire<"allocation"> { event: string; requestedBytes: string; grantedBytes: string; lifetime: string | null; detail: string | null; nativeAllocator: string | null; nativeReservedBytes: string | null; smallPoolFreeBytes: string | null; largePoolFreeBytes: string | null; }
-
-interface CopyWire extends ComputeReceiptSpineWire<"copy"> { gate: string; bytes: string; device: string; }
-
-interface CacheWire extends ComputeReceiptSpineWire<"cache"> { outcome: "hit" | "miss" | "store" | "evict"; key: string; bytes: string; residual: number | null; delta: DeltaStampWire | null; }
-
-interface UnitProjectionWire extends ComputeReceiptSpineWire<"unit-projection"> { family: string; originalUnit: string; originalValue: number; canonicalValue: number; }
-
-interface BackpressureWire extends ComputeReceiptSpineWire<"backpressure"> { queueDepth: number; waited: string; verdict: BackpressureVerdictWire; }
-
-interface DrainWire extends ComputeReceiptSpineWire<"drain"> { drained: number; faulted: number; refused: number; }
-
-interface ConflictWire extends ComputeReceiptSpineWire<"conflict"> { subject: "retry-owner" | "contract-checksum"; evidence: string; }
-
-interface RefusalWire extends ComputeReceiptSpineWire<"refusal"> { reason: string; subject: string; code: number; }
-
-interface FactorizationWire extends ComputeReceiptSpineWire<"factorization"> { provider: string; decomposition: string; rows: number; cols: number; nnz: string; format: string; routeVariant: string | null; determinism: DeterminismStampWire | null; symbolicFill: number | null; residualCap: number | null; trueResidual: number | null; shards: ShardRoleWire; }
-
-interface GenerateWire extends ComputeReceiptSpineWire<"generate"> { modelChecksum: string; ep: string; modelType: string; mode: string; adapter: string | null; tokens: number; tokensPerSecond: number; guidanceKind: string; constrainedTokens: number; toolCalls: number; seed: number | null; stagedTokens: number | null; }
-
-interface EmbeddingWire extends ComputeReceiptSpineWire<"embedding"> { modelChecksum: string; encoding: string; dimension: number; byteLength: string; }
-
-interface DiscretizationWire extends ComputeReceiptSpineWire<"discretization"> { algorithm: string; element: string; nodes: string; elements: string; boundaryLayers: number; refineLevel: number; worstQuality: number; metric: string; }
-
-interface SolveWire extends ComputeReceiptSpineWire<"solve"> { physics: string; method: string; dofs: string; iterations: number; residual: number; converged: boolean; shards: ShardRoleWire; participation: ModalParticipationWire | null; constitutive: ConstitutiveEvidenceWire | null; contact: ContactEvidenceWire | null; }
-
-interface CouplingWire extends ComputeReceiptSpineWire<"coupling"> { scheme: string; fields: number; transfers: number; rounds: number; couplingResidual: number; converged: boolean; }
-
-interface OptimizationWire extends ComputeReceiptSpineWire<"optimization"> { optimizer: string; generations: number; evaluations: number; surrogateHits: number; frontSize: number; hypervolume: number; referenceDerived: boolean; }
-
-interface SweepWire extends ComputeReceiptSpineWire<"sweep"> { gridPoints: string; completed: number; onFront: number; dominated: number; unranked: number; failed: number; }
-
-interface ClashWire extends ComputeReceiptSpineWire<"clash"> { indexKind: "bvh" | "octree"; candidates: number; hardClashes: number; clearanceViolations: number; totalPairs: number; truncated: boolean; }
-
-interface TwinWire extends ComputeReceiptSpineWire<"twin"> { signalId: string; predicted: number; measured: number; residual: number; anomaly: boolean; controlDelta: number; }
-
-interface UncertaintyWire extends ComputeReceiptSpineWire<"uncertainty"> { method: string; samples: number; mean: number | null; variance: number | null; skewness: number | null; kurtosis: number | null; quantiles: number[]; sobolFirst: number[]; sobolTotal: number[]; interaction: number[]; mostProbablePoint: number[]; fitQuality: number | null; residualStandardError: number | null; failureProbability: number; reliabilityIndex: number; }
-
-interface FitWire extends ComputeReceiptSpineWire<"fit"> { family: string; method: string; parameters: string; iterations: number; residual: number; converged: boolean; quality: number; qualityMetric: string; retainedRank: number | null; }
-
-interface GovernorWire extends ComputeReceiptSpineWire<"governor"> { cpuPercent: number; memoryPercent: number; workers: number; readerCeiling: number; partitionCap: number; memoryScale: number; spillPressure: boolean; }
-
-interface DriftWire extends ComputeReceiptSpineWire<"drift"> { monitorId: string; statistic: string; level: number; limit: number | null; breach: boolean; window: number; }
-
-interface AssessmentWire extends ComputeReceiptSpineWire<"assessment"> { discipline: string; route: string; key: string; verdict: string; governingRatio: number | null; admitted: boolean; phase: string | null; failureKind: string | null; transient: boolean; attempt: number; participation: number | null; combination: string | null; }
-
-// Batch-worst error and cancellation channels cross as explicit null on a batch of fixed-order rows, where no
-// route reported either — a zero would read as a measurement.
-interface QuadratureWire extends ComputeReceiptSpineWire<"quadrature"> { domains: number; skipped: number; errorBound: number | null; conditioning: number | null; }
-
-interface TrajectoryWire extends ComputeReceiptSpineWire<"trajectory"> { methodOrder: number; embeddedOrder: number | null; terminal: string; resolved: boolean; retryable: boolean; achieved: number; steps: number; rejects: number; rejectBudget: number; samples: number; lastError: number | null; }
-
-// One case carries both sampling legs — an RQMC campaign and a fitted scattered field — so a column the serving
-// leg never measured crosses as explicit null; a zero replicate count or a zero discrepancy reads as a measured
-// net-quality figure and grades a fit against a bound nothing computed.
-interface SamplingWire extends ComputeReceiptSpineWire<"sampling"> { family: string; dimensions: number; points: string; replicates: number | null; starDiscrepancy: number | null; worstProjection: number | null; }
-
-type ComputeReceiptWire =
-  | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire
-  | AllocationWire | CopyWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | RefusalWire | FactorizationWire | GenerateWire | EmbeddingWire
-  | DiscretizationWire | SolveWire | CouplingWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire | FitWire | GovernorWire | DriftWire | AssessmentWire
-  | QuadratureWire | TrajectoryWire | SamplingWire;
-
-// Derived off the payload union the descriptor build emits, never re-typed: a landed case widens the kind with no
-// second list to edit, so the mirror that can silently go stale has nowhere to live.
-type ComputeReceiptKind = ComputeReceiptWire["kind"];
-
-type ComputeReceiptEnvelopeWire = ReceiptEnvelopeWire<ComputeReceiptWire>;
-```
+- Law: the receipt payload union is ONE-ENDED BY DECLARATION — its producers and its dashboard/app-root consumers are all C#, so `ComputeReceipt` crosses the process edge through the kernel in-process `ReceiptEnvelope` (`ComputeWireContext`, the Strict resolver, `UnmappedMemberHandling.Disallow`) and no hand TS interface, payload row, or `AssessmentWire` mirror lives on this page. The HOST envelope is the generated `Receipt.V1.ReceiptEnvelopeWire` — `correlation bytes(16)`, `tenant TenantContextWire`, `package`, `kind`, `payload google.protobuf.Any`, `stamp Hlc`, `skew_bound` — whose `payload` admits a generated message alone through `Any.Pack`, formatted at the spine through AppHost `WireJson`; the corpus carries no `rasm.contracts.compute.v1` receipt family, so a Compute receipt reaches that envelope the day one mints (IDEAS `COMPUTE_RECEIPT_FAMILY`) and until then stays the in-process fact stream three C# projections fold. NAMED LOSS: the decode-only TS mirror with its five drifted rows (`sweep.unranked`/`failed`, `solve.participation`, `generate.stagedTokens`, `optimization.referenceDerived`, `clash.truncated`) is retired. Witness: `typescript:core` decoded the envelope with the payload as `Schema.Unknown` and read none of those rows, so the mirror certified nothing a consumer checked; `Runtime/claims#HOST_WIRE` is the one Compute family a peer decodes, and it rides the generated `Benchmark.V1` messages.
 
 ## [06]-[RESEARCH]
 

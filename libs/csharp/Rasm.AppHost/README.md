@@ -11,7 +11,7 @@
 - [04]-[RESOURCES](.planning/Runtime/resources.md): Bounded resource lanes — hybrid cache, object pools, and drainable queues.
 - [05]-[MODULES](.planning/Runtime/modules.md): One composition root folding and freezing the service graph.
 - [06]-[CONFIG](.planning/Runtime/config.md): Ranked config-source chain with fail-closed source-gen binding.
-- [07]-[SECRETS](.planning/Runtime/secrets.md): Credential-material lifecycle — lease acquire/renew/zeroize, PEM wire, and KMS-unwrap port.
+- [07]-[SECRETS](.planning/Runtime/secrets.md): Credential-material lifecycle — lease acquire/renew/zeroize, public DER wire, and KMS-unwrap port.
 - [08]-[PORTS](.planning/Runtime/ports.md): Inward port records — the cross-package seam every peer crosses.
 - [09]-[DETERMINISM](.planning/Runtime/determinism.md): Reproducibility kernel — pinned RNG/float-mode and the hash-chained command log.
 - [10]-[ORCHESTRATION](.planning/Runtime/orchestration.md): Crash-durable workflow and persistent-job owner over the command/event/schedule ports.
@@ -22,14 +22,14 @@
 - [13]-[MCP](.planning/Agent/mcp.md): MCP-server projection of descriptors to tools, resources, and prompts.
 - [14]-[REASONING](.planning/Agent/reasoning.md): In-process agent loop with model-selection and content-filter governance.
 - [15]-[FEDERATION](.planning/Agent/federation.md): MCP-client federation — external servers folded into one registry as brokered descriptors.
-- [16]-[CAPABILITY](.planning/Agent/capability.md): Self-describing op catalog, command algebra, and the scoped grant broker metering admission.
+- [16]-[CAPABILITY](.planning/Agent/capability.md): Typed op catalog, pin-bound peer discovery, command algebra, and scoped grant metering.
 - [17]-[IDENTITY](.planning/Agent/identity.md): Authentication boundary — OIDC issuer-trust, rotating token validation, claims-policy gate.
 - [18]-[RUNTIME](.planning/Agent/runtime.md): One command-dispatch front door over the command algebra, tool adoption, and receipt.
 
 [WIRE]:
 - [19]-[OUTBOUND](.planning/Wire/outbound.md): Outbound boundary — every external dispatch admitted on one `Fin` rail and exiting as a receipt.
 - [20]-[LIVEWIRE](.planning/Wire/livewire.md): Reactive bidirectional external-binding studio over the industrial-transport axis.
-- [21]-[COMPANION](.planning/Wire/companion.md): Multi-process modality axis and gRPC-over-UDS control-service host.
+- [21]-[COMPANION](.planning/Wire/companion.md): Multi-process modality, gRPC-over-UDS control, and authenticated CloudEvents webhook ingress.
 - [22]-[TOPICS](.planning/Wire/topics.md): In-process event bus — every domain event fanned once and every declined offer accounted.
 - [23]-[OUTBOX](.planning/Wire/outbox.md): Transactional outbox and dead-letter relay over the watermark dispatch sweep.
 - [24]-[COORDINATION](.planning/Wire/coordination.md): Cluster membership, election, and distributed-lock over the fenced lease.
@@ -117,7 +117,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Serilog.Sinks.File` — Composition-root sink projection.
 
 [OUTBOUND_TRANSPORT]:
-- `CloudNative.CloudEvents.AspNetCore` — Request and response extensions alone; `Wire/companion#EVENT_INGRESS` owns the abuse-protection handshake.
+- `CloudNative.CloudEvents.AspNetCore` — HTTP codec extensions; `Wire/companion#EVENT_INGRESS` owns consent and authenticated delivery.
 - `Microsoft.Extensions.Http.Resilience`
 - `Polly.Core`
 - `Polly.Extensions`
@@ -184,11 +184,12 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Compliance.Redaction`
 
 [WIRE_CODEGEN]:
-- `Google.Protobuf` — Runtime for the control-verb request and reply messages the codegen emits.
-- `Grpc.AspNetCore`
+- `Rasm.Contracts` — Generated control and capability-discovery RPCs, parity documents, and event extensions; referenced by project.
+- `Celly.Protovalidate` — Compiles generated constraints at bootstrap and admits every parsed or gRPC message once.
+- `Google.Protobuf` — Runtime under the generated contract and event-extension messages.
+- `Grpc.AspNetCore.Server`
 - `Grpc.Core.Api` — Control-rail binding seat.
 - `Grpc.Net.Client`
-- `Grpc.Tools` — Build-only codegen over the Compute-owned control proto; its `<Protobuf>` item carries the mode.
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `NodaTime.Serialization.Protobuf` — Carries `Duration` and `Instant` across the control-verb wire.
 
@@ -201,4 +202,4 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — Handler chain behind every outbound hop, resilience pipeline, and durable OTLP transport.
-- `System.Text.Json` — Suite wire: merged source-generated contexts freeze into one options identity, with schema export off it.
+- `System.Text.Json` — Host-local receipts and discovery manifest freeze into one merged source-generated options identity.

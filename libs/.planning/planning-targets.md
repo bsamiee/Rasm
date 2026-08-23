@@ -25,11 +25,11 @@
 - Branch API catalogues: `libs/python/.api`
 - Routing: `libs/python/.planning/README.md`
 - Language-wide docs: `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md` under the core dir
-- Planning Folders: `libs/python/artifacts`, `libs/python/compute`, `libs/python/data`, `libs/python/geometry`, `libs/python/runtime`
+- Planning Folders: every package folder under `libs/python/`, per the branch `[02]-[STRATA]` roster — the plane-distinct `contracts` and `cad` seats included
 
 [CROSS_CUTTING_SURFACES]:
 - Central manifests: the root `Directory.*` build files, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config/`
-- Cross-language contracts: `tests/contracts/` defines and proves every seam schema; a minting or producing branch page binds its `MANIFEST.md` entry.
+- Cross-language contracts: `tests/contracts/` defines and proves each atomic case; every executor and consumer binds its `manifest.json` case.
 - Event fabric: `libs/.planning/ARCHITECTURE.md` `[14]-[EVENT_FABRIC]` legislates the message envelope and seats its branch owners.
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
 - Toolchain evidence: assay provision reports and `.api` catalogues verify Forge server services, native capabilities, and extension availability.

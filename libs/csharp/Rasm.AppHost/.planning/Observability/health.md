@@ -396,16 +396,21 @@ public static class HealthSurface {
 
 ## [03]-[DEGRADATION_RAIL]
 
-- Owner: `Faculty` `[SmartEnum<string>]` realizing kernel `ICapability<Faculty>` — the retained-capability vocabulary; `CommandAccess` `[SmartEnum<string>]` — the per-level command posture carrying its default verdict as a delegate column; `CommandVerdict` `[Union]` — the three-case per-command answer the palette reads; `DegradationLevel` `[SmartEnum<string>]` — the five-rung ladder carrying rank, posture, and retained set; `DegradationPolicy` with nested `Rule` — the derivation table; `DegradationState` — the fold receipt; `DegradationReading` — the coherent `(snapshot, state)` pair; `DegradationCell` — the boundary capsule owning the one atom cell, the publisher seam, and the hook rail every committed reading fans through; `CommandAvailabilityWire` — the level-plus-deviation carrier the palette decodes, projected off the capability registry's own `Permitting` fold and registered on the `Runtime/ports#WIRE_LAW` roster.
+- Owner: `Faculty` `[SmartEnum<string>]` realizes kernel `ICapability<Faculty>`; `CommandAccess` `[SmartEnum<string>]` carries the per-level default verdict; `CommandVerdict` `[Union]` is the three-case domain answer; `DegradationLevel` `[SmartEnum<string>]` carries rank, posture, retained set, and generated enum value; `DegradationPolicy` is the derivation table; `DegradationCell` owns the coherent reading atom; `CommandAvailability` projects deviations directly onto generated `Availability.V1.CommandAvailability` and its verdict oneof.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Faculty` rows form the retained sets; three `CommandAccess` postures — `All`, `Reads`, `None`; three `CommandVerdict` cases — `Available`, `Gated(reason)`, `Withheld(level, reason)`.
-- Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor; `Read()` returns the one `DegradationReading` carrying the snapshot that produced the level and the derived `DegradationState` in one coherent value; `CommandAvailabilityWire.Of(CapabilityRegistry, DegradationState, Instant)` projects the palette's carrier.
+- Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor; `Read()` returns the coherent reading; `CommandAvailability.Of(CapabilityRegistry, DegradationState, Instant)` returns the generated protobuf carrier.
 - Auto: `DegradationCell` registers as the `IHealthCheckPublisher` and owns one `Atom<DegradationReading>` — `PublishAsync` snapshots the `HealthReport` and folds `Derive` in the SAME swap, so the published snapshot and the level it produced are one atomic transition and a reader can never observe a fresh level against a stale snapshot or the reverse; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives; `Force` and `Cascade` swap the `State` slot of the reading while preserving the last snapshot so the override is coherent with the evidence it overrides; every committed reading — derived, forced, cascaded alike — fires the `Observability/hooks#HOOK_ROSTER` `Degradation` replay row through the fact's own projected seat, so the held window carries the trajectory an attaching panel reads, the `Observability/instruments#RECEIPT_PROJECTION` tap writes the level gauge off that same fire, and the alert sweep folds the same value.
 - Receipt: `DegradationReading` carries the latest `HealthSnapshot` and the `DegradationState` (derived level, forced input, cascade floor, recovery streak, dwell anchor); a `Level` change rides the lifecycle transition receipt as the degraded trigger.
-- Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Rasm.Contracts, Google.Protobuf, NodaTime.Serialization.Protobuf, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `Rule` row or one `Faculty` case absorbs a new degradation driver; a new rung is one `DegradationLevel` row naming the ONE faculty it forfeits and the posture it publishes; a new pressure-read consumer reads the one `DegradationReading` value, never a second cell — zero new surface.
 - Boundary: this ladder runs as a monotone forfeiture chain — each rung derives its retained set from the rung above by dropping exactly one `Faculty`, so a rung that both drops and re-admits a capability is unspellable and no membership list is restated; degradation is process-local, peer-health-informed, and parent-cascade-floored — a peer level never propagates as this process's level, but a parent process's forced level enters `Derive` as a floor through `Cascade`, never as shared state; the snapshot and the derived level are one `DegradationReading` atom so the `Runtime/laneguard#LANE_GUARD` governor reads a coherent `(snapshot, level)` pressure value for its adaptive-concurrency and load-shed decisions, and a governor reading a stale snapshot against a fresh level is the race the single atom forecloses; `LocalOnly` is the host-absent fold — `Faculty.HostDocument` leaves the retained set and document sources yield absence; the container-limit pressure signal enters the rank algebra as data, not a new rule — a `PressurePolicy.Container` row grades against `ResourceQuota` so the `Pressure`-tagged row escalates on the cgroup limit and the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules carry that limit-relative status into `Derive` with the same retained-set hysteresis; the fan's own refusal rides the `Fin` rail out of `Force`, `Cascade`, and `PublishAsync`, so a rail whose point never seated fails the publish rather than dropping every transition an attaching panel exists to replay; cross-process cascade splits at a seam the snapshot fold preserves — the READ stays the owner here and the WRITE lands at `Wire/companion#DEGRADATION_CASCADE`, which calls `Cascade` with the observed parent level mutating only the `State` slot, release passing `None` so the cell re-derives off its own snapshots and the cascade floor never escalates below local pressure. NAMED LOSS on the availability carrier: the per-descriptor `false` row. Peer decoders answer an absent command off the level's OWN posture (`typescript core state/evidence#AVAILABILITY_LATTICE` `Availability.admits`), so the whole-catalog transcription was the level restated once per descriptor; what crosses now is exactly the complement of that posture — an admitting level sends its refusals, a withholding one its exceptions — and the answer gains a reason where a boolean carried none, `CommandAccess` being the C# owner of the posture the peer's own row table had been mirroring with no producer to read it.
 
 ```csharp signature
+using Google.Protobuf.WellKnownTypes;
+using NodaTime.Serialization.Protobuf;
+using Control = Rasm.Contracts.Compute.V1;
+using Host = Rasm.Contracts.Availability.V1;
+
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -440,13 +445,7 @@ public sealed partial class CommandAccess {
     public bool Admitting { get; }
 }
 
-// Thinktecture generates no converter for a non-keyed union, so these polymorphic attributes govern and the
-// suite's generated-owner factory never claims this type.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "_tag")]
-[JsonDerivedType(typeof(Available), "Available")]
-[JsonDerivedType(typeof(Gated), "Gated")]
-[JsonDerivedType(typeof(Withheld), "Withheld")]
 public abstract partial record CommandVerdict {
     private CommandVerdict() { }
     public sealed record Available : CommandVerdict;
@@ -459,19 +458,25 @@ public abstract partial record CommandVerdict {
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class DegradationLevel {
     public static readonly DegradationLevel Full = new(
-        "full", rank: 0, access: CommandAccess.All, retains: CapabilitySet<Faculty>.All);
+        "full", rank: 0, access: CommandAccess.All, retains: CapabilitySet<Faculty>.All,
+        wire: Control.DegradationLevel.Full);
     public static readonly DegradationLevel ReducedRemote = new(
-        "reduced-remote", rank: 1, access: CommandAccess.All, retains: Full.Retains.Without(Faculty.RemoteCompute));
+        "reduced-remote", rank: 1, access: CommandAccess.All, retains: Full.Retains.Without(Faculty.RemoteCompute),
+        wire: Control.DegradationLevel.ReducedRemote);
     public static readonly DegradationLevel LocalOnly = new(
-        "local-only", rank: 2, access: CommandAccess.All, retains: ReducedRemote.Retains.Without(Faculty.HostDocument));
+        "local-only", rank: 2, access: CommandAccess.All, retains: ReducedRemote.Retains.Without(Faculty.HostDocument),
+        wire: Control.DegradationLevel.LocalOnly);
     public static readonly DegradationLevel ReadOnly = new(
-        "read-only", rank: 3, access: CommandAccess.Reads, retains: LocalOnly.Retains.Without(Faculty.StoreWrite));
+        "read-only", rank: 3, access: CommandAccess.Reads, retains: LocalOnly.Retains.Without(Faculty.StoreWrite),
+        wire: Control.DegradationLevel.ReadOnly);
     public static readonly DegradationLevel Suspended = new(
-        "suspended", rank: 4, access: CommandAccess.None, retains: ReadOnly.Retains.Without(Faculty.LocalCompute));
+        "suspended", rank: 4, access: CommandAccess.None, retains: ReadOnly.Retains.Without(Faculty.LocalCompute),
+        wire: Control.DegradationLevel.Suspended);
 
     public int Rank { get; }
     public CommandAccess Access { get; }
     public CapabilitySet<Faculty> Retains { get; }
+    public Control.DegradationLevel Wire { get; }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -536,20 +541,37 @@ public readonly record struct DegradationReading(HealthSnapshot Snapshot, Degrad
     public DegradationLevel Level => State.Level;
 }
 
-public sealed record CommandAvailabilityWire(DegradationLevel Level, HashMap<string, CommandVerdict> Commands, Instant Since) {
-    public static CommandAvailabilityWire Of(CapabilityRegistry registry, DegradationState state, Instant since) =>
+public static class CommandAvailability {
+    public static Host.CommandAvailability Of(CapabilityRegistry registry, DegradationState state, Instant since) =>
         Deviating(state.Level, since,
             permitted: toSet(registry.Discover(new DiscoveryQuery.Permitting(state.Level)).Map(static row => row.Descriptor)),
             catalog: toSet(registry.Discover(new DiscoveryQuery.All()).Map(static row => row.Descriptor)));
 
     // Both queries fold once against each other, so the projection never probes the registry per descriptor.
-    static CommandAvailabilityWire Deviating(DegradationLevel level, Instant since, Set<string> permitted, Set<string> catalog) =>
+    static Host.CommandAvailability Deviating(
+        DegradationLevel level, Instant since, Set<string> permitted, Set<string> catalog) =>
         level.Access.Admitting
             ? Crossing(level, since, catalog - permitted, new CommandVerdict.Withheld(level, level.Key))
             : Crossing(level, since, permitted, new CommandVerdict.Available());
 
-    static CommandAvailabilityWire Crossing(DegradationLevel level, Instant since, Set<string> rows, CommandVerdict verdict) =>
-        new(level, rows.Fold(HashMap<string, CommandVerdict>(), (map, descriptor) => map.Add(descriptor, verdict)), since);
+    static Host.CommandAvailability Crossing(
+        DegradationLevel level, Instant since, Set<string> rows, CommandVerdict verdict) {
+        Host.CommandAvailability wire = new() { Level = level.Wire, Since = since.ToTimestamp() };
+        rows.Iter(descriptor => wire.Commands.Add(descriptor, Verdict(verdict)));
+        return wire;
+    }
+
+    static Host.CommandVerdictWire Verdict(CommandVerdict verdict) => verdict.Switch(
+        available: static _ => new Host.CommandVerdictWire { Available = new Empty() },
+        gated: static row => new Host.CommandVerdictWire {
+            Gated = new Host.CommandVerdictWire.Types.Gated { Reason = row.Reason },
+        },
+        withheld: static row => new Host.CommandVerdictWire {
+            Withheld = new Host.CommandVerdictWire.Types.Withheld {
+                Level = row.Level.Wire,
+                Reason = row.Reason,
+            },
+        });
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
@@ -871,12 +893,22 @@ public static class AlertEngine {
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: `HealthSnapshotWire`, `DegradationWire`, and `AlertReceiptWire` transcribe the snapshot, level, and alert records the dashboard ingests; `CommandAvailabilityWire` is the ONE frozen name for the health availability wire — the level, the per-command deviations from that level's own posture, and the dwell anchor the TS `state/evidence#AVAILABILITY_LATTICE` `Availability` lattice decodes, its level roster and its verdict union mirroring the C# rows one-to-one at the decode seam.
-- Packages: BCL inbox
-- Growth: one faculty key row, one alert field, one verdict case, or one field on an owning wire record; zero new surface.
-- Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level, cascade, faculty, tag, transition, and severity keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals; `AlertSeverityKey` is the kernel routing pair the deploy plane's contact rows already key on, so the decode seam admits exactly the two rows the C# vocabulary carries and a four-tier ladder crossing this wire is the drift the collapse deleted; `DegradationWire` transcribes `DegradationState`'s own emission — the stored slots beside the `Floor` and `Level` projections the record already computes — registered at Runtime/ports#WIRE_LAW, so `rank` and `retains` never cross: both derive from the frozen `DegradationLevelKey` roster the decode seam already mirrors, and a wire field no C# record emits is the phantom this shape deletes; `cascade` is the parent-floored level a child reports, distinct from `forced` operator override; the verdict union carries the peer's own `_tag` discriminator so one shape crosses under one spelling, `gated.until` is the deviation window this producer never emits and the peer's optional slot absorbs, and a command absent from the map takes the level's own posture at the decoder — which is the whole reason a boolean map deleted; every `Option<T>` slot crosses ABSENT under the `Runtime/ports#WIRE_LAW` omission posture, so the TS face spells it `field?: T` and a `| null` union there declares a token the merge posture guarantees never appears.
+- Owner: `HealthSnapshotWire`, `DegradationWire`, and `AlertReceiptWire` transcribe host-local dashboard records; generated `CommandAvailability` and `CommandVerdictWire` carry the health availability contract, including level, deviations from the level posture, and dwell anchor.
+- Packages: generated `@rasm/ts-contracts` host-v1 and compute-v1 modules, BCL inbox
+- Growth: one faculty key row or alert field extends its local record; availability fields, verdict cases, and degradation enum values extend the protobuf schema once.
+- Boundary: host-local snapshot and alert JSON keep extended-ISO instants, ISO-8601 durations, and smart-enum keys. Generated availability uses protobuf `Timestamp`, the compute degradation enum, and the command-verdict oneof; a command absent from the map takes the level's own posture at the decoder, so only deviations cross. `DegradationWire` remains the host-local state emission, with `cascade` distinct from operator `forced`; rank and retained faculties derive locally and never cross.
 
 ```ts signature
+export {
+  CommandAvailabilitySchema,
+  CommandVerdictWireSchema,
+} from "@rasm\/contracts/rasm/contracts/availability/v1/availability_pb";
+export type { CommandAvailability, CommandVerdictWire } from "@rasm\/contracts/rasm/contracts/availability/v1/availability_pb";
+export {
+  DegradationLevel,
+  DegradationLevelSchema,
+} from "@rasm\/contracts/rasm/contracts/compute/v1/control_pb";
+
 type HealthStatusWire = "healthy" | "degraded" | "unhealthy";
 
 type FacultyKey =
@@ -911,17 +943,6 @@ interface DegradationWire {
   readonly since?: string;
   readonly floor: DegradationLevelKey;
   readonly level: DegradationLevelKey;
-}
-
-type CommandVerdictWire =
-  | { readonly _tag: "Available" }
-  | { readonly _tag: "Gated"; readonly reason: string; readonly until?: string }
-  | { readonly _tag: "Withheld"; readonly level: DegradationLevelKey; readonly reason: string };
-
-interface CommandAvailabilityWire {
-  readonly level: DegradationLevelKey;
-  readonly commands: Readonly<Record<string, CommandVerdictWire>>;
-  readonly since: string;
 }
 
 type AlertSeverityKey = "page" | "ticket";

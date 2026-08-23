@@ -33,7 +33,7 @@ ui/
         ├── scene.ts      # Content-keyed GLB residency and environment dome behind the GlbViewport port
         ├── geo.ts        # Camera authority and the Clock seat; layer values stay pure per backend adapter
         ├── mark.ts       # Selection atom seat — BCF pin and board projections, one bounded echo channel
-        ├── panel.ts      # Livewire triple, CommandGate, ControlIntent, and LayoutProgram materializer seats
+        ├── panel.ts      # Livewire fold and AppUiSurfaceProgram admission, projection, and layout solve
         ├── probe.ts      # Render evidence: benchmarks paired with wire-decoded receipts, never gating
         └── review.ts     # Join fold over the decoded diff and issue wires; board-row and echo projections
 ```
@@ -133,8 +133,8 @@ flowchart LR
     Runtime e10@-->|"[PORT]: Vital.Report"| System
     Runtime e11@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
     Runtime e12@-->|"[PORT]: Egress"| View
-    Materials e13@-->|"[WIRE]: OpenPbrGroupsWire"| Viewer
-    AppUi e14@-->|"[WIRE]: ControlIntentWire + CommandGateWire + LayoutConstraintWire"| Viewer
+    Materials e13@-->|"[WIRE]: appearance.v1 Material · Set · PlaneRef"| Viewer
+    AppUi e14@-->|"[WIRE]: AppUiSurfaceProgram + CommandGateWire"| Viewer
     Bim e15@-->|"[WIRE]: BcfTopicWire"| Viewer
     Bim e16@-->|"[WIRE]: BcfViewpointWire"| Viewer
     Bim e17@-->|"[WIRE]: ModelDiff"| Viewer

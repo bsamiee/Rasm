@@ -329,8 +329,11 @@ def test_mutation_rows_confine_every_path_to_artifacts() -> None:
     assert stryker.stage.root == ".artifacts/csharp/stryker/work", "Stryker cwd (and its .stryker-tmp sandbox) is the staged work root"
     assert mutmut.stage.root == ".artifacts/python/mutmut/work", "mutmut cwd (and its mutants/ cache) is the staged work root"
     assert all(part in stryker.command for part in (*_STRYKER_POLICY, "--config-file")), "policy is pinned; the rail fills {config} absolutely"
-    # Every path in both commands is a typed hole the rail fills; the root stryker-config.json additionally bounds bare runs by auto-discovery.
-    literal_paths = [t for row in (mutmut, stryker) for t in row.command if "/" in t and "{" not in t]
+    # The roster derives from the catalog: a hand-named pair leaves every later mutation row unproven. Every path is a
+    # typed hole the rail fills, and a root-resident config bounds the rows whose containment rides auto-discovery.
+    rows = tuple(t for t in TOOLS if t.claim is Claim.TEST and t.mode is Mode.MUTATION)
+    assert {mutmut, stryker} <= set(rows)
+    literal_paths = [t for row in rows for t in row.command if "/" in t and "{" not in t]
     assert literal_paths == []
 
 
@@ -557,18 +560,31 @@ def test_verbs_route_claim_verb_and_forced_params(assay_root: AssayHarness, monk
 
 
 def test_list_report_projection_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """List projects roster artifacts, grep filtering, limit notes, discovery failures, and empty discovery."""
+    """List projects roster artifacts, grep filtering, limit rows, discovery failures, and empty discovery.
+
+    The report census counts governed discovery leaves, never roster rows: the pre-limit and post-limit
+    roster sizes are typed evidence on ``discovery_counts``, so one field never spells two populations.
+    """
     roster = _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\n")
     three = _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\ntests/a.py::test_three\n")
     greppable = _ok(("pytest", "--collect-only"), b"tests/a.py::test_alpha\ntests/a.py::test_beta\n")
     rows: tuple[tuple[str, TestParams, Completed, Callable[..., bool]], ...] = (
-        ("ok-report+roster-artifact", TestParams(), roster, lambda r: r.counts.total == 2 and "test-roster" in {a.id for a in r.artifacts}),
+        (
+            "ok-report+roster-artifact",
+            TestParams(),
+            roster,
+            lambda r: r.counts.total == 1 and dict(r.detail.discovery_counts)["returned"] == 2 and "test-roster" in {a.id for a in r.artifacts},
+        ),
         ("grep-case-insensitive", TestParams(grep="ALPHA"), greppable, lambda r: [m.id for m in r.results] == ["tests/a.py::test_alpha"]),
         (
             "limit-trims+detail-keeps-pre-limit-total",
             TestParams(limit=1),
             three,
-            lambda r: r.counts.total == 1 and any("total=3" in n and "returned=1" in n for n in r.notes) and r.detail.selected == 3,
+            lambda r: (
+                dict(r.detail.discovery_counts) == {"listed": 3, "returned": 1}
+                and any("total=3" in n and "returned=1" in n for n in r.notes)
+                and r.detail.selected == 3
+            ),
         ),
         (
             "discovery-failure-changes-status",
@@ -609,12 +625,15 @@ def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_r
 
 
 def test_run_gap_note_and_coverage_detail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Run notes the TS mutation gap (no TS mutation row by design) and decodes coverage.json into the TestRun detail."""
+    """Every TEST language carries a mutation runner, so a requested lane routes one and notes no gap; coverage.json decodes."""
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
-    _wire(monkeypatch, _ok(("pytest",)), routed=Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED), seam="_dispatch_all")
+    _wire(monkeypatch, _ok(("stryker", "run")), routed=Routed(language=Language.TYPESCRIPT, scope=Scope.CHANGED), seam="_dispatch_all")
     params = TestParams(mutation=MutationLane.FULL, language=Language.TYPESCRIPT)
-    gap_report = assert_ok(test_rail.run(assay_root.settings, scope, params, SeamExecutor()))
-    assert any("mutation" in n for n in gap_report.notes)
+    routed_report = assert_ok(test_rail.run(assay_root.settings, scope, params, SeamExecutor()))
+    assert not any("mutation requested" in n for n in routed_report.notes)
+    # The guard stays live for a row set a params filter empties, so it is proved directly rather than by a language.
+    assert test_rail._mutation_gap(params, ())
+    assert not test_rail._mutation_gap(TestParams(language=Language.TYPESCRIPT), ())
 
     _seed_coverage_json(assay_root.root, b'{"totals": {"percent_covered": 82.5}}')
     _wire(monkeypatch, _ok(("uv", "run", "pytest")), seam="_dispatch_all")

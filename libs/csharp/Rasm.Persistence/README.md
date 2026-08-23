@@ -2,7 +2,7 @@
 
 `Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`: the version-control engine over it, the consistency-split read lanes, the content-keyed artifact object plane, and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
-It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph` and the `Rasm` kernel alone for the content hash and the signal capsule's causal frame, instrument mechanism, and hook vocabulary, each a settled contract. Its instrument roster and its lifecycle points contribute as `TelemetryContributorPort` and `HookPoint` values the app-platform root binds, so no app-platform package is referenced.
+It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph`, the `Rasm` kernel for the content hash and the signal capsule's causal frame, instrument mechanism, and hook vocabulary, the `Rasm.AppHost` spine for the settled `RecoveryObjective` and the one `FaultWire` producer fold, and the `Rasm.Contracts` emission for generated parity, host, fault, CRDT, and event messages — each a settled contract. Its instrument roster and its lifecycle points contribute as `TelemetryContributorPort` and `HookPoint` values the app-platform root binds.
 
 ## [01]-[ROUTER]
 
@@ -16,11 +16,11 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [05]-[LEDGER](.planning/Version/ledger.md): Op-log changefeed, HLC clock, and CRDT merge dispatch over the sync transports.
 - [06]-[COMMITS](.planning/Version/commits.md): Content-addressed commit-DAG and convergent CRDT algebra.
 - [07]-[TIMETRAVEL](.planning/Version/timetravel.md): AS-OF reconstruct, diff, blame, and bisect fold over the changefeed prefix.
-- [08]-[MERGE](.planning/Version/merge.md): Three-way structural merge and base-addressed RFC 6902 edit egress.
+- [08]-[MERGE](.planning/Version/merge.md): Three-way structural merge and base-addressed `FieldMask` edit egress onto `Element.V1.EntityEditWire`.
 - [09]-[PROVENANCE](.planning/Version/provenance.md): W3C-PROV causal DAG and attested tamper-evidence ledger.
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.
-- [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump, its subscription-over-binding roster, and the CESQL dialect-family filter.
+- [12]-[EGRESS](.planning/Version/egress.md): CDC pump, atomic quarantine-and-advance, binding roster, and CESQL filter.
 - [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, rostered decode, `(source, id)` dedup.
 
 [QUERY]:
@@ -50,7 +50,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [33]-[BLOBGC](.planning/Store/blobgc.md): Write-blob-first protocol, lifecycle arming, and the full-history reachability sweep.
 - [34]-[SCHEMA](.planning/Store/schema.md): One immutable `SchemaContract` — generation identity minted canonically, the two-proof verdict.
 - [35]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
-- [36]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [36]-[COORDINATION](.planning/Store/coordination.md): Fenced budget, CAS, lease, membership, and typed per-sink outbox cursor.
 - [37]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
 
 ## [02]-[DOMAIN_PACKAGES]
@@ -105,7 +105,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Parquet.Net` — Pure-managed Parquet codec under the BimOpenSchema Parquet-zip leg, version-governed as a central transitive pin.
 
 [WIRE_SNAPSHOT_CODECS]: Row, snapshot, and schema codecs with their compression belt.
-- `Chr.Avro` — Avro schema model, resolution, evolution, and POCO mapping; mints the `dataschema` registry subject.
+- `Chr.Avro` — Avro schema derivation, resolution, evolution, and POCO mapping for the registry codec profile.
 - `Chr.Avro.Binary`
 - `System.Formats.Cbor` — BCL CBOR / RFC 8949 self-describing snapshot codec.
 - `JsonSchema.Net` — JSON Schema 2020-12 evaluator; the in-process `pg_jsonschema` fallback.
@@ -125,7 +125,6 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `OpenTelemetry.Instrumentation.ConfluentKafka` — Instrumented producer/consumer builders carrying messaging spans and meters.
 - `Confluent.SchemaRegistry` — Schema Registry REST client, subject compatibility and evolution.
 - `Confluent.SchemaRegistry.Serdes.Avro`
-- `Confluent.SchemaRegistry.Serdes.Protobuf` — Registry-governed Protobuf serde over `Google.Protobuf`.
 - `Confluent.SchemaRegistry.Serdes.Json`
 - `AMQPNetLite.Core` — `AMQP 1.0` protocol transport beneath the CloudEvents binding: connection, session, links, framing.
 - `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg.
@@ -164,7 +163,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `NodaTime.Serialization.SystemTextJson`
 - `System.IO.Hashing`
 - `QuikGraph` — Models the in-process topology the synchronous `Query/topology` lane composes.
-- `Riok.Mapperly` — Generated boundary transcription; `Store/schema` `ContractMap` owns the schema seam whole.
+- `Riok.Mapperly` — Generated boundary transcription for the package's structural seams; `Store/schema` composes generated parity messages directly.
 - `Generator.Equals` — Generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
 - `CommunityToolkit.HighPerformance` — Spans, memory pools, and bit primitives on the cache and object-store path.
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
@@ -191,9 +190,11 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `MQTTnet` — QoS-1 `PublishAsync` PUBACK evidence and the v5 User Property carrier the branch-owned MQTT binding writes unprefixed attributes onto.
 
 [WIRE_CODEGEN]:
-- `MessagePack` — Snapshot-axis codec profile: framed ingest, content-identity encoding, LZ4 posture.
+- `Celly.Protovalidate` — Validates completed generated event extensions and CRDT operation payloads at authoring and ingress boundaries.
+- `Google.Protobuf` — Field masks, bounded parsing, foreign Substrait descriptors, and generated CRDT payload runtime.
+- `MessagePack` — Snapshot codec and the uncompressed thirteen-slot op-log envelope; generated protobuf fills `[Key(6)] Payload` alone.
 - `MessagePackAnalyzer` — Build-only generator and `MsgPack###` gate behind the AOT resolver chain.
-- `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
+- `Rasm.Contracts` — Generated host edits and outbox messages, fault observations/HLC, CRDT operations, and event extensions.
 
 [HOST_SERVICES]:
 - `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.

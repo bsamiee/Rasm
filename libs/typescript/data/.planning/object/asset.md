@@ -2,7 +2,7 @@
 
 Delivered assets admit, optimize, and land here through ONE category-general plane. An asset CATEGORY is a row — its declaration shape, its admission arm, its transform vocabulary, its `Derive.Plane` — and the spine, the entry pair, the receipts, the store, and the instrument rows are category-blind. The GPU family — glTF containers and KTX2 texture planes — is the FIRST row family, never the plane's identity: `Asset.gate` dispatches on the `category` tag the declaration already carries, each category's optimization is its own closed row vocabulary (the gltf-transform property graph, the `ktx` subcommand family), the provisioned `ktx` validator settles Khronos conformance on every KTX2 byte this plane mints, and every category plane is a `Derive.Plane` row on `object/file.md`'s one derivative spine, so container surgery and texture encodes land exactly like raster renditions. The proof of the shape is the next category's diff — a font atlas, a video container, a point cloud, a document family is one gate arm, one category plane, one `Asset.Row` kind, zero pipeline change; no second fanout, second libvips encoder, or second address scheme exists.
 
-Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error rather than a runtime refusal: every row table closes against the exported `Wire.Texture` anchor at its own declaration — `_PAYLOADS` on `Payload`, `_TRANSFERS` on `Transfer`, `_STORES` on `PlaneFormat`, `_LAYERS` on `LayerLaw`, `_MIPS` on `MipPolicy` — so a misspelled tag fails the mapped key, a dropped row fails completeness, and an invented row fails excess, all at the anchor and none at a call site. Wire legality is that anchor's `WirePayload` rather than a local re-derivation, and `_PRIMARIES` is the one leaf roster with no frozen twin — its keys are the vocabulary, and `_TRANSFERS` types its `primaries` column against them so the pair closes on itself. Payload class discriminates on the DFD `colorModel`, never `vkFormat`. The ktx declaration has TWO sources over that one anchor — a caller's own, and the decoded set document `core/interchange/codec#LANDING_WIRE` lands as `Wire.TextureSet`, whose channel rows this plane projects per row and re-proves per container. `ktx` is every branch's KTX2-encode floor: block compression admits only 8-bit stores — unrepresentable otherwise — and a deep plane ships uncompressed with its Vulkan format set. Rosters are stated closed, never `ALL_EXTENSIONS`; raster re-encoding rides the one sharp owner and `ktx-parse` never writes (both refused at `RULINGS.md`); `assets/<digest>/<file>` is the iac `_addressedAll` ↔ ui `Glb.assetDir` pair — this plane emits blobs and receipts, never addresses.
+Frozen law keys the KTX category tables against the generated `Wire.Texture` enums. `_PAYLOADS`, `_TRANSFERS`, `_STORES`, `_LAYERS`, `_MIPS`, and `_PRIMARIES` are exhaustive mapped tables, so a missing or invented row fails at the anchor. Payload class discriminates on the DFD color model, never `vkFormat`; the decoded generated `Set` supplies a second declaration source whose containers are re-proved per product. Raster re-encoding remains at the sharp owner, while `ktx-parse` reads and proves KTX2.
 
 ## [01]-[INDEX]
 
@@ -13,9 +13,9 @@ Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error
 ## [02]-[ASSET_GATE]
 
 - Owner: category rows dispatch `Asset.gate`; `AssetFault` is the `Fault.Class.family(…).census` carrier every refusal rides, singular or accumulated.
-- Packages: Khronos, glTF Transform, meshoptimizer, `effect`, and core `Digest`, `Fault`, `Wire.Texture`, and `Wire.TextureSet` supply the plane.
-- Entry: `Asset.gate` before any delivered asset reaches the store or a viewer manifest — `(bytes, declared, key)` where a caller states the declaration, `(set)` where a decoded `Wire.TextureSet` carries it — and the ktx read re-runs inside the `ktx` engine's emit, so the encoder's own product proves itself before admission.
-- Receipt: per category — the `ktx` arm answers the classification `{ payload, primaries, width, height, levels, layers, layerLaw, transcodes, vram }`, where `transcodes` derives from the payload CLASS (`uastc` and `etc1s` transcode, `none` uploads direct) never from `vkFormat`, and `vram` is the uncompressed GPU footprint the transfer byte count cannot state; the `container` arm answers the census `{ extensions, report, textures }` off the proven document; the set arm answers `{ planes, unprojected }`, each plane carrying its role, its blob address, the projected declaration, the wire's semantic component count, the producer's fold policy, and the classification the roster proved.
+- Packages: Khronos, glTF Transform, meshoptimizer, `effect`, and core `Digest`, `Fault`, `Wire.Texture`, and `Wire.Set` supply the plane.
+- Entry: `Asset.gate` before any delivered asset reaches the store or a viewer manifest — `(bytes, declared, key)` where a caller states the declaration, `(bytes)` where the Set bytes decode through `Wire.decode("Set", bytes)` at first sight — and the ktx read re-runs inside the `ktx` engine's emit, so the encoder's own product proves itself before admission.
+- Receipt: the KTX arm returns its classification and GPU footprint; the container arm returns its proven document census; the Set arm returns admitted surface planes, admitted environment products, and explicit declined surface slots. Every returned product retains its generated `PlaneRef` and proof.
 - Law: ADMISSION ACCUMULATES on every INDEPENDENT column this plane proves, and each table states its own split. A clause whose value a later clause consumes stays sequenced and refuses singly — the ktx gate's three dependent reads are the KTX 2.0 magic, the basic data format descriptor four colour columns read, and the sample-layout probe whose product the channel floor compares. Every column that decides nothing about its neighbours censuses into ONE verdict through `Fault.Class.family(…).census`: the ktx gate's `_CLAUSES` table, the raster arm's probe-field fold, the points arm's three structural columns, the extension roster, the validator's finding list, and the set projection's plane sweep each answer one refusal naming every offender, so a producer repairing a container reads its whole damage in one round trip. The asymmetry this forecloses was live INSIDE this page — the raster arm censused every diverged probe field while the ktx gate one section over reported the first of ten clauses — so one structural claim settled on two evidence bars and a producer re-encoded, re-uploaded, and re-gated once per clause. The engine emit fans stay abort-on-first by design and are the stated other side of the split: a row there is a PRODUCTION rather than an admission and every product is a store write, so the spine's all-or-nothing contract is what keeps a half-run fan from minting derivatives no receipt names.
 - Law: every reason carries its OWN subject schema and its own renderer at the family row, so no raise spells a free-string detail and a caller routes on structure rather than on a parsed sentence; the admission reasons are the ktx gate's columns one for one and the framing pair is the create leg's read-back, which is why a torn header, a mis-declared extent, and a wrong alpha association no longer share one blame word.
 - Law: the raster declaration IS the probe shape and the gate folds the census itself, so every fact `object/file.md`'s composer computes is a fact this gate proves and a column added there needs no edit here; naming a subset left channel count and band depth measured on every admission and compared by none, so an eight-bit grayscale plane admitted against an `rgba8` consumer's declaration.
@@ -25,33 +25,40 @@ Frozen law KEYS the ktx category's tables, so a drifted spelling is a type error
 - Law: [SPIKE] perceptual fidelity is UNAVAILABLE-BY-TOOL and the classification carries none. `ktx create --compare-ssim`/`--compare-psnr` print per-channel SSIM averages and a peak PSNR as free text on stdout, and the create verb publishes no report format — its own `--format` is the vkFormat enum, while the `text|json|mini-json` report option belongs to `validate` and `compare`, neither of which measures similarity; `compare` refuses mismatched texel-block dimensions outright, so an encoded plane never diffs against its uncompressed source. DETERMINISTIC FLOOR: `vram` beside the landed byte count states the transfer-versus-VRAM tradeoff in full and `ktx validate` settles conformance, so the receipt is complete on every axis a tool measures; a create-verb report format retires the marker and the metric lands as one classification column.
 - Law: the classification carries the GPU footprint beside the landed byte count — a Basis payload's transfer cost and its uploaded cost diverge by an order of magnitude, which is the whole reason this branch encodes Basis, and `ImageUtils.getVRAMByteLength` is the ONE correct read: summing `levels[].uncompressedByteLength` is documented ZERO under BASISLZ and may read zero under UASTC, so that sum is a forged measure and never written.
 - Growth: within the ktx family a payload class is one `_PAYLOADS` row, a transfer tag one `_TRANSFERS` row, a working space one `_PRIMARIES` row, a storage format one `_STORES` row, a layer law one `_LAYERS` row — every declaration type, wire-legal subset, and encoder argument derives from those tables, so a row is the only edit; a new CATEGORY's admission is one `[04]` gate arm beside one `Declared` member, and a new declaration SOURCE is one arity on the same entrypoint, never a second entry.
-- Law: modality folds off the input's own ARITY — a caller triple states one declaration over bytes in hand, a lone decoded set states N over addresses this package already holds, and both ride ONE entrypoint because a set document is a second SOURCE of the ktx declaration rather than a fifth category: no `_ENGINES` row, `_GATES` arm, or `Asset.Row` kind moves, and `ObjectStore` widens the set arm's requirement channel alone.
+- Law: modality folds off the input's own ARITY — a caller triple states one declaration over bytes in hand, while a Set pair carries its bytes and one ArtifactRef resolver; both ride ONE entrypoint because a set document is a second SOURCE of the ktx declaration rather than a fifth category. The resolver supplies transport only: `_redeemed` proves exact extent and raw-octet SHA-256, and neither `_ENGINES`, `_GATES`, nor `Asset.Row` learns an artifact service or storage key.
 - Law: a wire column is the PRODUCER's claim where a declaration column is this loader's capability fact, so the projection trusts nothing it hands the gate — it supplies the declaration and nothing more, every clause of the roster re-runs against the fetched container, and a plane whose bytes contradict the document that addressed them refuses exactly as a caller's mis-declaration does.
-- Law: no mapping table stands between the wire's columns and this category's, because both close against the ONE frozen `Wire.Texture` anchor — payload, storage format, layer law, and alpha mode are the same key sets, so a projected value keys `_PAYLOADS`, `_STORES`, `_LAYERS`, and `[03]`'s `_MIPS` verbatim and a drifted roster fails at the anchor rather than at a projected column. Channel rows carry the scene-referred transfer SUBSET, so `pq` and `hlg` reach a declaration from a caller alone, and `blockFormat` reads as vacancy on every wire-legal payload.
-- Law: `mips` projects RAW because the wire cannot spell zero — the channel row's own positive refinement makes a `levelCount` of 0 unrepresentable, so a peer-produced container always ships the pyramid it declares and the loader-generated chain stays caller-stated; clamping or defaulting here admits a base-level-only container against a declaration promising a chain, on the one clause whose two zero-adjacent readings the gate already separates.
+- Law: no mapping table stands between the wire's columns and this category's, because both close against the ONE generated `Wire.Texture` anchor — payload, storage format, layer law, and alpha mode are the same key sets, so a projected value keys `_PAYLOADS`, `_STORES`, `_LAYERS`, and `[03]`'s `_MIPS` verbatim and a drifted roster fails at the anchor rather than at a projected column. Channel rows carry the scene-referred transfer SUBSET, so `pq` and `hlg` reach a declaration from a caller alone, and `blockFormat` reads as vacancy on every wire-legal payload.
+- Law: `mips` projects RAW because the wire cannot spell zero — the plane row's own corpus rule makes a `levelCount` of 0 unrepresentable, so a peer-produced container always ships the pyramid it declares and the loader-generated chain stays caller-stated; clamping or defaulting here admits a base-level-only container against a declaration promising a chain, on the one clause whose two zero-adjacent readings the gate already separates.
 - Law: SEMANTIC component count is not a declaration column — the channel floor reads STORAGE width off `_STORES[store].channels`, and the two diverge by construction where a direction triple stores two components and reconstructs the third — so the wire's count rides the projection product as the egress fact it is; the frozen definition's own width floor proved the pair at decode, and re-reading it against a storage column here refuses every lawful two-component normal plane.
 - Law: the wire's per-channel `mipPolicy` widens NO declaration column, because no container byte proves a resampling kernel and an asserted column reads as a measurement nothing took; it routes on the projection product to `[03]`'s `_MIPS`, whose keys are that same frozen policy vocabulary, so a re-encode of a projected plane folds under the producer's declared kernel instead of a caller default and the two policies `_MIPS` marks unfoldable supply their levels exactly as a caller's create row does.
 - Law: `colorSpace` and `store` project as ONE correlated column, because the wire authors `srgb` at every INTEGER depth where this declaration's union seats it on the block rows alone — a sixteen-bit colour plane is a lawful wire row no Vulkan format spells, so it refuses on the `transfer` reason rather than re-tagging to `linear`, which forks the shading value from the stored value on a plane nothing downstream re-reads.
 - Law: `layers` is a FOLD, never a copy — the set counts six faces under `cubeFaces` where this declaration counts stacked planes and reads one, so the projection reads the same `arrayed` and `volumetric` columns the layer clause proves against; the copy passes today only because that clause ignores the count on a non-stacking law, which is the silent agreement a later reader inherits as truth.
-- Law: the `container` column selects the arm and the declined half is CARRIED — only a `ktx2` row projects, and every other container names a file no ktx reader opens while a pack row carries no transfer, association, or payload column at all, so both ride the answer by slot and disposition rather than vanishing; a self-pyramiding container fixes its address list at ONE entry whatever `mips` declares, so the fan is one declaration per channel row and never one per level.
+- Law: the `container` column selects the arm and the declined half is CARRIED — only a `ktx2` row projects, and every other container names a file no ktx reader opens while a pack row carries no transfer, association, or payload column at all, so both ride the answer by slot and disposition rather than vanishing; a self-pyramiding container fixes its reference list at ONE entry whatever `mips` declares, so the fan is one declaration per channel row and never one per level.
 - Law: the two proofs split by what each can know — the header read settles DECLARATION AGREEMENT (payload, store, transfer, primaries, alpha, layer shape, mips, extent are facts the declaration states and the container must match), and the provisioned `ktx validate` settles KHRONOS CONFORMANCE (level arithmetic, `typeSize`, DFD sample layout, BasisLZ global data, `KHR_texture_basisu` compatibility). Re-deriving the validator's arithmetic here forks the specification against the tool the whole estate encodes with.
 - Law: the payload discriminant is `dataFormatDescriptor[0].colorModel` with `supercompressionScheme` — `uastc` rides `NONE`/`ZSTD`/`ZLIB`, `etc1s` rides `BASISLZ`, `none` is `RGBSDA` uncompressed-or-deflated, `astc` is the branch-local LDR acceleration — and every colorModel the roster names no row for lands on the `rawBcn` RESIDUE row, so a BC block file, an ETC2 file, and a corrupt descriptor all classify honestly and carry their raw model number in the refusal detail. Readers branching on `vkFormat` class every wire-legal payload as malformed.
-- Law: wire legality and declaration agreement are ONE comparison — `Wire.Texture.WirePayload` is read from the frozen anchor, so a `rawBcn` or `astc` file cannot equal any declared payload and refuses on the same equality the drift check runs; the branch's own basis-transcoder path cannot consume either.
+- Law: wire legality and declaration agreement are ONE comparison — `Wire.Texture.WirePayload` is read from the generated anchor, so a `rawBcn` or `astc` file cannot equal any declared payload and refuses on the same equality the drift check runs; the branch's own basis-transcoder path cannot consume either.
 - Law: `vkFormat` is PROVEN, never read as the class — a transcoding payload MUST report `VK_FORMAT_UNDEFINED` (a supercompressed file carries no Vulkan format until transcode) and a `none` payload MUST report the enum its declared `_STORES` row names, so the deep store and the stored bytes cannot disagree.
-- Law: the DFD carries the color science the plane declaration must agree with — `transferFunction` against the declared transfer tag, `colorPrimaries` against the working space that tag names, the `flags` alpha association against the declared alpha mode — and disagreement refuses; the gate never re-tags silently, because a silently re-tagged plane forks the shading value from the stored value. `linear` names the ONE scene-linear working space and lands on the AP1 primaries row, `srgb` on BT.709, `raw` on UNSPECIFIED because a parameter plane carries no chromaticity at all.
+- Law: the DFD carries independent transfer and primaries coordinates, both checked against the generated declaration; alpha association is checked separately. Producer defaults may derive primaries from transfer, but an environment product's explicit primaries always wins.
 - Law: an SRGB target exists only on an 8-bit store row, so a float or half plane declaring `srgb` is UNREPRESENTABLE — `Asset.Ktx` unions the transfer against the store set each admits, and a color channel at integer depth encodes `srgb` where the same channel at float depth encodes `linear`.
 - Law: layer shape is proven against the declared law — `faceCount` is 6 on a cubemap and 1 everywhere else, `layerCount` and `pixelDepth` are ZERO on a plain 2D file and carry the count on an array or volume — so `_LAYERS` reads all three and a cubemap can never admit as a 2D plane; level arithmetic reads `Math.max(count, 1)` and never a bare `layerCount` multiplier.
 - Law: `levelCount` is mip truth with two zero-adjacent readings — `0` declares a base level whose pyramid the loader generates, `1` declares that no other level is meant to exist — so `mips` is compared RAW and the reported `levels` clamps; a block-compressed payload at `levelCount` 0 is disallowed by the container specification and refuses here, which is why the runtime-pyramid posture reaches the deep store alone.
 - Law: the glTF roster is CLOSED and proven — `registerExtensions` states exactly what this branch honors, `Root.listExtensionsUsed()` must fall inside it on the document read AND on the document each pipeline emits, and a foreign name refuses with the `extension` reason; the proof exists because an IO whose roster omits an extension the source used DROPS that extension's properties on the round trip, and `ALL_EXTENSIONS` is the refused roster because honoring vocabulary no consumer renders is the same silent loss deferred to the viewer.
 - Law: layer construction proves every seam the roster demands — every `_CODECS` module `ready` awaited and `supported` read as one capability gate (a kernel added to the roster is proven by construction, never by a second boot leg), `watlas.Initialize()` awaited on its own because the atlas module publishes readiness without a `supported` flag, `KHRTextureBasisu.register()` called so `ImageUtils` answers KTX2 extent, channels, and VRAM (the roster alone installs no impl), the meshopt encode METHOD pinned at construction so it is never a side effect of a level knob, and `setAllowNetwork(false)` pinned because the object plane supplies every resource by key — so no fold fails halfway through a document mutation and no sidecar ever fetches.
-- Boundary: bytes in hand or a content key that fetches them — `readBinary`/`writeBinary` are the admitted IO pair; `read(uri)`/`NodeIO.write(uri, doc)` never enter a plane whose addresses are content keys.
+- Boundary: bytes in hand or a generated `ArtifactRef` redeemed through the caller's artifact transport — `readBinary`/`writeBinary` are the admitted IO pair; `read(uri)`/`NodeIO.write(uri, doc)` never enter this plane, and an XXH3 object-store key is never forged from the ref's SHA-256 identity.
 
 ```typescript signature
-import { Array, Effect, Option, Predicate, Record, Schema } from "effect"
+import { Array, Effect, Match, Option, type ParseResult, Predicate, Record, Schema } from "effect"
 import { Digest, Fault, Wire } from "@rasm/ts/core"
+import { enumToJson } from "@bufbuild/protobuf"
+import {
+  AlphaMode, AlphaModeSchema, Container, ContainerSchema, KtxPayload, KtxPayloadSchema, LayerLaw, LayerLawSchema,
+  MipPolicy, MipPolicySchema, Pack, PackSchema, PlaneFormat, PlaneFormatSchema, Primaries, Role, RoleSchema, Transfer, TransferSchema,
+} from "@rasm\/contracts/rasm/contracts/appearance/v1/appearance_pb"
 import {
   KHR_DF_FLAG_ALPHA_PREMULTIPLIED, KHR_DF_MODEL_ASTC, KHR_DF_MODEL_ETC1S, KHR_DF_MODEL_RGBSDA, KHR_DF_MODEL_UASTC,
-  KHR_DF_PRIMARIES_ACESCC, KHR_DF_PRIMARIES_BT2020, KHR_DF_PRIMARIES_BT709, KHR_DF_PRIMARIES_UNSPECIFIED,
+  KHR_DF_PRIMARIES_ACES, KHR_DF_PRIMARIES_ACESCC, KHR_DF_PRIMARIES_ADOBERGB, KHR_DF_PRIMARIES_BT2020,
+  KHR_DF_PRIMARIES_BT601_EBU, KHR_DF_PRIMARIES_BT601_SMPTE, KHR_DF_PRIMARIES_BT709, KHR_DF_PRIMARIES_CIEXYZ,
+  KHR_DF_PRIMARIES_DISPLAYP3, KHR_DF_PRIMARIES_NTSC1953, KHR_DF_PRIMARIES_PAL525, KHR_DF_PRIMARIES_UNSPECIFIED,
   KHR_DF_TRANSFER_HLG_EOTF, KHR_DF_TRANSFER_LINEAR, KHR_DF_TRANSFER_PQ_EOTF, KHR_DF_TRANSFER_SRGB,
   KHR_SUPERCOMPRESSION_BASISLZ, KHR_SUPERCOMPRESSION_NONE, KHR_SUPERCOMPRESSION_ZLIB, KHR_SUPERCOMPRESSION_ZSTD,
   VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16A16_UNORM, VK_FORMAT_R16G16_SFLOAT, VK_FORMAT_R16G16_UNORM,
@@ -68,15 +75,24 @@ import { MeshoptDecoder } from "meshoptimizer/decoder"
 import { MeshoptEncoder } from "meshoptimizer/encoder"
 import { MeshoptSimplifier } from "meshoptimizer/simplifier"
 
-// the frozen anchor's own rosters ARE the subject alphabets, so an issue column naming a payload, a transfer, a
-// store, or a layer law spells the same closed set the tables below key on and a drifted spelling fails at the
-// schema rather than rendering into a refusal sentence nothing can match
+// the corpus's own enum rosters ARE the subject alphabets — `Wire.Texture` derives each from the generated
+// descriptor, `UNSPECIFIED` excluded — so an issue column naming a payload, a transfer, a store, or a layer law
+// spells the same closed member set the tables below key on, and a generated column arriving WIDE (the `UnknownEnum`
+// brand the type carries past protovalidate's `defined_only`) narrows at exactly one read
 const _Payload = Schema.Literal(...Wire.Texture.payloads)
 const _WirePayload = Schema.Literal(...Wire.Texture.wirePayloads)
 const _Transfer = Schema.Literal(...Wire.Texture.transfers)
 const _PlaneFormat = Schema.Literal(...Wire.Texture.planeFormats)
 const _LayerLaw = Schema.Literal(...Wire.Texture.layerLaws)
 const _AlphaMode = Schema.Literal(...Wire.Texture.alphaModes)
+const _MipPolicy = Schema.Literal(...Wire.Texture.mipPolicies)
+const _Container = Schema.Literal(...Wire.Texture.containers)
+const _Role = Schema.Literal(...Wire.Texture.roles)
+const _Pack = Schema.Literal(...Wire.Texture.packs)
+
+// refusals render the member's PROTO name off the generated enum descriptor, never its ordinal — the one spelling a
+// producer reads back against its own `.proto`
+const _spelled = enumToJson
 
 // ONE reason roster over the whole plane, each row carrying its own subject schema and its own renderer, so no
 // refusal spells a free-string detail and every offender renders from the row that refused it. The first eleven are
@@ -86,7 +102,7 @@ const _AlphaMode = Schema.Literal(...Wire.Texture.alphaModes)
 const _family = Fault.Class.family(
   [
     "payload", "format", "transfer", "primaries", "alpha", "layers", "mips", "extent", "channels", "orientation",
-    "swizzle", "header", "descriptor", "probe", "store", "fetch", "staging", "conform", "drift", "topology",
+    "swizzle", "header", "descriptor", "probe", "store", "declaration", "fetch", "staging", "conform", "drift", "topology",
     "attribute", "tally", "extension", "codec", "tool", "transform", "emit",
   ] as const,
   {
@@ -96,7 +112,8 @@ const _family = Fault.Class.family(
       detail: Schema.Struct({
         key: Schema.String, held: _Payload, declared: _WirePayload, model: Schema.Number, scheme: Schema.Number,
       }),
-      render: ({ declared, held, key, model, scheme }) => `${key} classes ${held}<>${declared} on model ${model} scheme ${scheme}`,
+      render: ({ declared, held, key, model, scheme }) =>
+        `${key} classes ${_spelled(KtxPayloadSchema, held)}<>${_spelled(KtxPayloadSchema, declared)} on model ${model} scheme ${scheme}`,
     }),
     format: Fault.Class.row({
       class: "invalid",
@@ -108,7 +125,7 @@ const _family = Fault.Class.family(
       class: "invalid",
       leg: "admission",
       detail: Schema.Struct({ key: Schema.String, declared: _Transfer, held: Schema.Number }),
-      render: ({ declared, held, key }) => `${key} declares ${declared} over transferFunction ${held}`,
+      render: ({ declared, held, key }) => `${key} declares ${_spelled(TransferSchema, declared)} over transferFunction ${held}`,
     }),
     primaries: Fault.Class.row({
       class: "invalid",
@@ -121,7 +138,7 @@ const _family = Fault.Class.family(
       leg: "admission",
       detail: Schema.Struct({ key: Schema.String, declared: _AlphaMode, premultiplied: Schema.Boolean }),
       render: ({ declared, key, premultiplied }) =>
-        `${key} declares ${declared} over a ${premultiplied ? "premultiplied" : "straight"} descriptor`,
+        `${key} declares ${_spelled(AlphaModeSchema, declared)} over a ${premultiplied ? "premultiplied" : "straight"} descriptor`,
     }),
     layers: Fault.Class.row({
       class: "invalid",
@@ -129,13 +146,15 @@ const _family = Fault.Class.family(
       detail: Schema.Struct({
         key: Schema.String, layerLaw: _LayerLaw, faces: Schema.Number, held: Schema.Number, depth: Schema.Number,
       }),
-      render: ({ depth, faces, held, key, layerLaw }) => `${key} declares ${layerLaw} over faces ${faces} layers ${held} depth ${depth}`,
+      render: ({ depth, faces, held, key, layerLaw }) =>
+        `${key} declares ${_spelled(LayerLawSchema, layerLaw)} over faces ${faces} layers ${held} depth ${depth}`,
     }),
     mips: Fault.Class.row({
       class: "invalid",
       leg: "admission",
       detail: Schema.Struct({ key: Schema.String, held: Schema.Number, declared: Schema.Number, payload: _Payload }),
-      render: ({ declared, held, key, payload }) => `${key} carries levelCount ${held}<>${declared} on ${payload}`,
+      render: ({ declared, held, key, payload }) =>
+        `${key} carries levelCount ${held}<>${declared} on ${_spelled(KtxPayloadSchema, payload)}`,
     }),
     extent: Fault.Class.row({
       class: "invalid",
@@ -184,7 +203,17 @@ const _family = Fault.Class.family(
       class: "invalid",
       leg: "declaration",
       detail: Schema.Struct({ key: Schema.String, transfer: _Transfer, store: _PlaneFormat }),
-      render: ({ key, store, transfer }) => `${key} declares ${transfer} over ${store}, a pair no Vulkan format spells`,
+      render: ({ key, store, transfer }) =>
+        `${key} declares ${_spelled(TransferSchema, transfer)} over ${_spelled(PlaneFormatSchema, store)}, a pair no Vulkan format spells`,
+    }),
+    // the generated plane types three declaration columns optional and every enum column wide; a wire row that
+    // omits a column this category's declaration requires, or carries a member outside the defined roster, is a
+    // producer declaration gap and never a container fault
+    declaration: Fault.Class.row({
+      class: "invalid",
+      leg: "declaration",
+      detail: Schema.Struct({ key: Schema.String, issue: Schema.String }),
+      render: ({ issue, key }) => `${key} wire plane declares no admissible column: ${issue}`,
     }),
     fetch: Fault.Class.row({
       class: "unavailable",
@@ -282,65 +311,72 @@ type _LayerRow = {
 
 // [03.7] transcription: colorModel classifies and `Wire.Texture.WirePayload` refuses; rawBcn is the RESIDUE row every
 // unrostered model lands on, so BC block data, ETC2, and a corrupt descriptor all classify without a hand union.
-// The wire subset is READ from the frozen anchor rather than re-derived from a local column — the interchange
+// The wire subset is READ from the generated anchor rather than re-derived from a local column — the interchange
 // owner already closed that subset both ways, and a second derivation here is the fork the anchor exists to stop.
 const _PAYLOADS = {
-  uastc: {
+  [KtxPayload.UASTC]: {
     models: [KHR_DF_MODEL_UASTC],
     schemes: [KHR_SUPERCOMPRESSION_NONE, KHR_SUPERCOMPRESSION_ZSTD, KHR_SUPERCOMPRESSION_ZLIB],
     transcodes: true,
   },
-  etc1s: { models: [KHR_DF_MODEL_ETC1S], schemes: [KHR_SUPERCOMPRESSION_BASISLZ], transcodes: true },
-  none: {
+  [KtxPayload.ETC1S]: { models: [KHR_DF_MODEL_ETC1S], schemes: [KHR_SUPERCOMPRESSION_BASISLZ], transcodes: true },
+  [KtxPayload.NONE]: {
     models: [KHR_DF_MODEL_RGBSDA],
     schemes: [KHR_SUPERCOMPRESSION_NONE, KHR_SUPERCOMPRESSION_ZSTD, KHR_SUPERCOMPRESSION_ZLIB],
     transcodes: false,
   },
-  astc: {
+  [KtxPayload.ASTC]: {
     models: [KHR_DF_MODEL_ASTC],
     schemes: [KHR_SUPERCOMPRESSION_NONE, KHR_SUPERCOMPRESSION_ZSTD, KHR_SUPERCOMPRESSION_ZLIB],
     transcodes: false,
   },
-  rawBcn: { models: [], schemes: [], transcodes: false }, // ktx-parse names no BC colorModel constant: the empty row IS the residue
+  [KtxPayload.RAW_BCN]: { models: [], schemes: [], transcodes: false }, // ktx-parse names no BC colorModel constant: the empty row IS the residue
 } as const satisfies { readonly [K in Wire.Texture.Payload]: _PayloadRow }
 
-// The ONE leaf roster with no frozen twin: chromaticity is a CLI-and-DFD column the shared fragment never froze,
-// so these keys ARE the vocabulary and `_TRANSFERS` types its own column against them — the pair closes on itself
-// and a drifted primaries spelling fails at the transfer row rather than at a spawn.
+// The generated primaries enum is the vocabulary; each row binds its KTX CLI spelling and DFD value exactly once.
 const _PRIMARIES = {
-  none: { cli: "none", dfd: KHR_DF_PRIMARIES_UNSPECIFIED },
-  bt709: { cli: "bt709", dfd: KHR_DF_PRIMARIES_BT709 },
-  bt2020: { cli: "bt2020", dfd: KHR_DF_PRIMARIES_BT2020 },
-  acescc: { cli: "acescc", dfd: KHR_DF_PRIMARIES_ACESCC }, // AP1: the ONE scene-linear working space, spelled by its ACES family name
-} as const
+  [Primaries.NONE]: { cli: "none", dfd: KHR_DF_PRIMARIES_UNSPECIFIED },
+  [Primaries.BT709]: { cli: "bt709", dfd: KHR_DF_PRIMARIES_BT709 },
+  [Primaries.SRGB]: { cli: "srgb", dfd: KHR_DF_PRIMARIES_BT709 },
+  [Primaries.BT601_EBU]: { cli: "bt601_ebu", dfd: KHR_DF_PRIMARIES_BT601_EBU },
+  [Primaries.BT601_SMPTE]: { cli: "bt601_smpte", dfd: KHR_DF_PRIMARIES_BT601_SMPTE },
+  [Primaries.BT2020]: { cli: "bt2020", dfd: KHR_DF_PRIMARIES_BT2020 },
+  [Primaries.CIEXYZ]: { cli: "ciexyz", dfd: KHR_DF_PRIMARIES_CIEXYZ },
+  [Primaries.ACES]: { cli: "aces", dfd: KHR_DF_PRIMARIES_ACES },
+  [Primaries.ACESCG]: { cli: "acescc", dfd: KHR_DF_PRIMARIES_ACESCC },
+  [Primaries.NTSC1953]: { cli: "ntsc1953", dfd: KHR_DF_PRIMARIES_NTSC1953 },
+  [Primaries.PAL525]: { cli: "pal525", dfd: KHR_DF_PRIMARIES_PAL525 },
+  [Primaries.DISPLAYP3]: { cli: "displayp3", dfd: KHR_DF_PRIMARIES_DISPLAYP3 },
+  [Primaries.ADOBERGB]: { cli: "adobergb", dfd: KHR_DF_PRIMARIES_ADOBERGB },
+} as const satisfies { readonly [K in Wire.Texture.Primaries]: { readonly cli: string; readonly dfd: number } }
 
-// [03.1] transcription: each frozen tag with the DFD value it must read, the `--assign-tf` spelling it assigns,
-// and the working space it names — so a plane never carries a second, caller-stated primaries declaration
+// [03.1] producer defaults: transfer supplies a default primaries row only where the source plane omitted one;
+// generated environment declarations carry the independent primaries field through unchanged.
 const _TRANSFERS = {
-  linear: { dfd: KHR_DF_TRANSFER_LINEAR, tf: "linear", primaries: "acescc" },
-  srgb: { dfd: KHR_DF_TRANSFER_SRGB, tf: "srgb", primaries: "bt709" },
-  raw: { dfd: KHR_DF_TRANSFER_LINEAR, tf: "linear", primaries: "none" }, // no transfer, no color management — KTX2 spells non-color data LINEAR with no chromaticity
-  pq: { dfd: KHR_DF_TRANSFER_PQ_EOTF, tf: "pq_eotf", primaries: "bt2020" },
-  hlg: { dfd: KHR_DF_TRANSFER_HLG_EOTF, tf: "hlg_eotf", primaries: "bt2020" },
+  [Transfer.LINEAR]: { dfd: KHR_DF_TRANSFER_LINEAR, tf: "linear", primaries: Primaries.ACESCG },
+  [Transfer.SRGB]: { dfd: KHR_DF_TRANSFER_SRGB, tf: "srgb", primaries: Primaries.BT709 },
+  [Transfer.RAW]: { dfd: KHR_DF_TRANSFER_LINEAR, tf: "linear", primaries: Primaries.NONE },
+  [Transfer.PQ]: { dfd: KHR_DF_TRANSFER_PQ_EOTF, tf: "pq_eotf", primaries: Primaries.BT2020 },
+  [Transfer.HLG]: { dfd: KHR_DF_TRANSFER_HLG_EOTF, tf: "hlg_eotf", primaries: Primaries.BT2020 },
 } as const satisfies {
-  readonly [K in Wire.Texture.Transfer]: { readonly dfd: number; readonly tf: string; readonly primaries: keyof typeof _PRIMARIES }
+  readonly [K in Wire.Texture.Transfer]: { readonly dfd: number; readonly tf: string; readonly primaries: Wire.Texture.Primaries }
 }
 
 // [03.6] transcription: `block` carries the MEASURED encode bound — `ktx create --encode` admits R8* targets alone,
 // so the eight-bit rows are the only ones a block leg can name and the deep rows carry no srgb target at all
 const _STORES = {
-  r8: { channels: 1, block: true, linear: { vk: VK_FORMAT_R8_UNORM, cli: "R8_UNORM" }, srgb: { vk: VK_FORMAT_R8_SRGB, cli: "R8_SRGB" } },
-  rg8: { channels: 2, block: true, linear: { vk: VK_FORMAT_R8G8_UNORM, cli: "R8G8_UNORM" }, srgb: { vk: VK_FORMAT_R8G8_SRGB, cli: "R8G8_SRGB" } },
-  rgba8: { channels: 4, block: true, linear: { vk: VK_FORMAT_R8G8B8A8_UNORM, cli: "R8G8B8A8_UNORM" }, srgb: { vk: VK_FORMAT_R8G8B8A8_SRGB, cli: "R8G8B8A8_SRGB" } },
-  r16: { channels: 1, block: false, linear: { vk: VK_FORMAT_R16_UNORM, cli: "R16_UNORM" } },
-  r16f: { channels: 1, block: false, linear: { vk: VK_FORMAT_R16_SFLOAT, cli: "R16_SFLOAT" } },
-  r32f: { channels: 1, block: false, linear: { vk: VK_FORMAT_R32_SFLOAT, cli: "R32_SFLOAT" } },
-  rg16: { channels: 2, block: false, linear: { vk: VK_FORMAT_R16G16_UNORM, cli: "R16G16_UNORM" } },
-  rg16f: { channels: 2, block: false, linear: { vk: VK_FORMAT_R16G16_SFLOAT, cli: "R16G16_SFLOAT" } },
-  rg32f: { channels: 2, block: false, linear: { vk: VK_FORMAT_R32G32_SFLOAT, cli: "R32G32_SFLOAT" } },
-  rgba16: { channels: 4, block: false, linear: { vk: VK_FORMAT_R16G16B16A16_UNORM, cli: "R16G16B16A16_UNORM" } },
-  rgba16f: { channels: 4, block: false, linear: { vk: VK_FORMAT_R16G16B16A16_SFLOAT, cli: "R16G16B16A16_SFLOAT" } },
-  rgba32f: { channels: 4, block: false, linear: { vk: VK_FORMAT_R32G32B32A32_SFLOAT, cli: "R32G32B32A32_SFLOAT" } },
+  [PlaneFormat.R8]: { channels: 1, block: true, linear: { vk: VK_FORMAT_R8_UNORM, cli: "R8_UNORM" }, srgb: { vk: VK_FORMAT_R8_SRGB, cli: "R8_SRGB" } },
+  [PlaneFormat.RG8]: { channels: 2, block: true, linear: { vk: VK_FORMAT_R8G8_UNORM, cli: "R8G8_UNORM" }, srgb: { vk: VK_FORMAT_R8G8_SRGB, cli: "R8G8_SRGB" } },
+  [PlaneFormat.RGBA8]: { channels: 4, block: true, linear: { vk: VK_FORMAT_R8G8B8A8_UNORM, cli: "R8G8B8A8_UNORM" }, srgb: { vk: VK_FORMAT_R8G8B8A8_SRGB, cli: "R8G8B8A8_SRGB" } },
+  [PlaneFormat.R16]: { channels: 1, block: false, linear: { vk: VK_FORMAT_R16_UNORM, cli: "R16_UNORM" } },
+  [PlaneFormat.R16F]: { channels: 1, block: false, linear: { vk: VK_FORMAT_R16_SFLOAT, cli: "R16_SFLOAT" } },
+  [PlaneFormat.R32F]: { channels: 1, block: false, linear: { vk: VK_FORMAT_R32_SFLOAT, cli: "R32_SFLOAT" } },
+  [PlaneFormat.RG16]: { channels: 2, block: false, linear: { vk: VK_FORMAT_R16G16_UNORM, cli: "R16G16_UNORM" } },
+  [PlaneFormat.RG16F]: { channels: 2, block: false, linear: { vk: VK_FORMAT_R16G16_SFLOAT, cli: "R16G16_SFLOAT" } },
+  [PlaneFormat.RG32F]: { channels: 2, block: false, linear: { vk: VK_FORMAT_R32G32_SFLOAT, cli: "R32G32_SFLOAT" } },
+  [PlaneFormat.RGBA16]: { channels: 4, block: false, linear: { vk: VK_FORMAT_R16G16B16A16_UNORM, cli: "R16G16B16A16_UNORM" } },
+  [PlaneFormat.RGBA16F]: { channels: 4, block: false, linear: { vk: VK_FORMAT_R16G16B16A16_SFLOAT, cli: "R16G16B16A16_SFLOAT" } },
+  [PlaneFormat.RGBA32F]: { channels: 4, block: false, linear: { vk: VK_FORMAT_R32G32B32A32_SFLOAT, cli: "R32G32B32A32_SFLOAT" } },
 } as const satisfies { readonly [K in Wire.Texture.PlaneFormat]: _StoreRow }
 
 // [04.1] transcription: the container shape each law proves, the create flag each law spells, and the texcoord
@@ -348,11 +384,11 @@ const _STORES = {
 // No `1d` row seats here because the anchor seats none: `--1d` moves base-level dimensionality, not stacking, and
 // composes with `--layers`, so the gate below refuses a 1D container on its extent rather than on this table
 const _LAYERS = {
-  none: { faces: 1, arrayed: false, volumetric: false, flag: Option.none<string>(), origin: Option.none<"topLeft">() },
-  cubeFaces: { faces: 6, arrayed: false, volumetric: false, flag: Option.some("--cubemap"), origin: Option.some("topLeft" as const) },
-  array: { faces: 1, arrayed: true, volumetric: false, flag: Option.some("--layers"), origin: Option.none<"topLeft">() },
-  frames: { faces: 1, arrayed: true, volumetric: false, flag: Option.some("--layers"), origin: Option.none<"topLeft">() }, // a flipbook IS an array at the container: the law records intent
-  volume: { faces: 1, arrayed: false, volumetric: true, flag: Option.some("--depth"), origin: Option.none<"topLeft">() },
+  [LayerLaw.NONE]: { faces: 1, arrayed: false, volumetric: false, flag: Option.none<string>(), origin: Option.none<"topLeft">() },
+  [LayerLaw.CUBE_FACES]: { faces: 6, arrayed: false, volumetric: false, flag: Option.some("--cubemap"), origin: Option.some("topLeft" as const) },
+  [LayerLaw.ARRAY]: { faces: 1, arrayed: true, volumetric: false, flag: Option.some("--layers"), origin: Option.none<"topLeft">() },
+  [LayerLaw.FRAMES]: { faces: 1, arrayed: true, volumetric: false, flag: Option.some("--layers"), origin: Option.none<"topLeft">() }, // a flipbook IS an array at the container: the law records intent
+  [LayerLaw.VOLUME]: { faces: 1, arrayed: false, volumetric: true, flag: Option.some("--depth"), origin: Option.none<"topLeft">() },
 } as const satisfies { readonly [K in Wire.Texture.LayerLaw]: _LayerRow }
 
 declare namespace Asset {
@@ -364,21 +400,22 @@ declare namespace Asset {
   type Fault = InstanceType<typeof AssetFault>
   // the data plane's ONE derived subset — `block` is THIS table's measured encode legality, never a frozen fact,
   // so it derives here while payload, store, transfer, layer, and alpha vocabularies read the anchor directly and
-  // the local aliases that used to restate them are gone: one hop from every site to the frozen roster
+  // the local aliases that used to restate them are gone: one hop from every site to the generated roster
   type Block = { readonly [K in Wire.Texture.PlaneFormat]: (typeof _STORES)[K]["block"] extends true ? K : never }[Wire.Texture.PlaneFormat]
-  type Primaries = keyof typeof _PRIMARIES
+  type Primaries = Wire.Texture.Primaries
   // an SRGB Vulkan target exists on the eight-bit rows alone, so a deep plane declaring srgb never spells. The
   // correlated pair is NAMED because the wire projection answers exactly this half: a `Pick` off the intersection
   // hands back two independent columns and the store proof the union carries stops travelling with the value
   type Colored =
-    | { readonly colorSpace: "srgb"; readonly store: Block }
-    | { readonly colorSpace: Exclude<Wire.Texture.Transfer, "srgb">; readonly store: Wire.Texture.PlaneFormat }
+    | { readonly colorSpace: typeof Transfer.SRGB; readonly store: Block }
+    | { readonly colorSpace: Exclude<Wire.Texture.Transfer, typeof Transfer.SRGB>; readonly store: Wire.Texture.PlaneFormat }
   // the ktx category's declaration: the category tag IS the gate's dispatch evidence, so admission
   // discriminates on a fact the value carries, never a mode knob beside it
   type Ktx =
     & {
       readonly category: "ktx"
       readonly alphaMode: Wire.Texture.AlphaMode
+      readonly primaries: Primaries
       readonly ktxPayload: Wire.Texture.WirePayload
       readonly mips: number // RAW level truth: 0 is the loader-generated pyramid, never a clamped 1
       readonly width: number
@@ -433,16 +470,19 @@ declare namespace Asset {
     readonly channels: Option.Option<number>
     readonly vram: Option.Option<number> // the uploaded footprint; none where the impl reads no payload it knows
   }
-  // `Wire.TextureSet` types every column of its own channel row off the frozen anchor, so this category reads them
-  // and re-spells none — a local mirror of the row is the second truth the anchor exists to stop
-  type Channel = Wire.TextureSet["channels"][number]
-  // one projected plane: the declaration the roster proved, the blob it proved against, and the two wire columns
-  // no declaration column can hold — the semantic count the gate's storage floor is not, and the producer's fold
+  // ONE narrowing read per wire plane — `_Plane` below — settles the generated face's wide enum columns and its
+  // three optional declaration columns at once, so every law in this category reads a proven row and re-spells none
+  type Channel = typeof _Plane.Type
+  type Set = typeof _Set.Type
+  type Environment = Extract<Wire.Set["product"], { readonly case: "environment" }>["value"]
+  type EnvironmentPlane = Extract<Environment["product"], { readonly case: "ibl" }>["value"]["brdfLut"]
+  // one projected plane: the declaration the roster proved, the generated reference it proved against, and the two
+  // wire columns no declaration column can hold — the semantic count the gate's storage floor is not, and the producer's fold
   type Projected = {
     readonly role: Wire.Texture.Role
-    readonly address: Digest.Key<"content">
+    readonly reference: Wire.Texture.Reference
     readonly declared: Ktx
-    readonly components: 1 | 3
+    readonly components: number
     readonly mipPolicy: Wire.Texture.MipPolicy
     readonly classified: Classified
   }
@@ -450,6 +490,11 @@ declare namespace Asset {
   // category admitted and which it declined WITHOUT re-walking the document the projection already partitioned
   type Projection = {
     readonly planes: ReadonlyArray<Projected>
+    readonly environment: ReadonlyArray<{
+      readonly product: string
+      readonly reference: Wire.Texture.Reference
+      readonly proof: Classified | Derive.Probe
+    }>
     readonly unprojected: ReadonlyArray<{
       readonly slot: Wire.Texture.Role | Wire.Texture.Pack
       // `declined` and never `reason`: the fault family owns that word plane-wide, and a slot this category chose
@@ -466,9 +511,9 @@ const _KTX2_MIME = "image/ktx2" as const // the impl key KHRTextureBasisu.regist
 const _KEY_VALUE = { orientation: "KTXorientation", swizzle: "KTXswizzle" } as const
 
 const _target = (declared: Asset.Ktx) =>
-  declared.colorSpace === "srgb" ? _STORES[declared.store].srgb : _STORES[declared.store].linear
+  declared.colorSpace === Transfer.SRGB ? _STORES[declared.store].srgb : _STORES[declared.store].linear
 
-const _space = (declared: Asset.Ktx) => _PRIMARIES[_TRANSFERS[declared.colorSpace].primaries]
+const _space = (declared: Asset.Ktx) => _PRIMARIES[declared.primaries]
 
 const _classified = (held: KTX2Container): Wire.Texture.Payload =>
   Option.match(
@@ -478,7 +523,7 @@ const _classified = (held: KTX2Container): Wire.Texture.Payload =>
         Array.some(row.models, (model) => model === held.dataFormatDescriptor[0]?.colorModel)
         && Array.some(row.schemes, (scheme) => scheme === held.supercompressionScheme),
     ),
-    { onNone: () => "rawBcn" as const, onSome: ([payload]) => payload },
+    { onNone: () => KtxPayload.RAW_BCN, onSome: ([payload]) => payload },
   )
 
 // ONE mint for both arities: `_fault` carries the censused set an independent-column fold produced and `_refuse`
@@ -546,7 +591,7 @@ const _CLAUSES = {
       ? []
       : [{ reason: "primaries", key, held: descriptor.colorPrimaries, space: _space(declared).cli } as const],
   alpha: ({ declared, descriptor, key }: _Read) =>
-    ((descriptor.flags & KHR_DF_FLAG_ALPHA_PREMULTIPLIED) !== 0) === (declared.alphaMode === "associated")
+    ((descriptor.flags & KHR_DF_FLAG_ALPHA_PREMULTIPLIED) !== 0) === (declared.alphaMode === AlphaMode.ASSOCIATED)
       ? []
       : [{
         reason: "alpha", key, declared: declared.alphaMode,
@@ -645,7 +690,7 @@ const _ktx2 = (bytes: Uint8Array, declared: Asset.Ktx, key: string, stated: Opti
     yield* _agreed({ channels, declared, descriptor, held, key, layers, payload, stated })
     return {
       payload,
-      primaries: _TRANSFERS[declared.colorSpace].primaries,
+      primaries: declared.primaries,
       width: held.pixelWidth,
       height: held.pixelHeight,
       levels: Math.max(held.levelCount, 1), // the reported depth clamps; the mips column read the raw value
@@ -664,27 +709,75 @@ const _ktx2 = (bytes: Uint8Array, declared: Asset.Ktx, key: string, stated: Opti
 // declaration's block subset and travels there proven; a seam cast hands it on with nothing carrying the proof
 const _blocked = (store: Wire.Texture.PlaneFormat): store is Asset.Block => _STORES[store].block
 
+// ONE narrowing seam for the wire plane and the set head it rides in. The generated `Plane` types every enum column
+// wide — the `UnknownEnum` brand outlives protovalidate's `defined_only` in the TYPE — and leaves `transfer`,
+// `alphaMode`, and `mipPolicy` optional, so this decode proves the members and the presence this category declares
+// against, lands each generated PlaneRef through the core codec owner, and drops the columns no law below reads.
+// Absence and an out-of-roster member both refuse as `declaration`, keyed by the plane's role.
+const _Plane = Schema.Struct({
+  role: _Role,
+  format: _PlaneFormat,
+  container: _Container,
+  channels: Schema.Number,
+  mips: Schema.Number,
+  ktxPayload: _Payload,
+  transfer: _Transfer,
+  alphaMode: _AlphaMode,
+  mipPolicy: _MipPolicy,
+  levels: Schema.NonEmptyArray(Wire.Texture.reference),
+})
+const _Set = Schema.Struct({ width: Schema.Number, height: Schema.Number, layers: Schema.Number, layerLaw: _LayerLaw })
+const _PackRow = Schema.Struct({ pack: _Pack })
+
+const _narrowed = <A, I>(schema: Schema.Schema<A, I>, key: string) => (wire: I): Effect.Effect<A, Asset.Fault> =>
+  Effect.mapError(Schema.decode(schema)(wire), (error) => _fault([{ reason: "declaration", key, issue: error.message }]))
+
+// One application-independent redemption boundary for every generated PlaneRef: the caller supplies its ArtifactService
+// transport, while this owner proves both the declared extent and SHA-256 over the exact raw octets before a parser sees them.
+const _redeemed = <E, R>(
+  reference: Wire.Texture.Reference,
+  subject: string,
+  redeem: Asset.Redeem<E, R>,
+): Effect.Effect<Uint8Array, Asset.Fault | E, R> =>
+  Effect.gen(function* () {
+    const bytes = yield* redeem(reference.artifact)
+    if (BigInt(bytes.byteLength) !== reference.artifact.artifactBytes) {
+      return yield* Effect.fail(_fault([{
+        reason: "drift", key: subject, field: "byte-length",
+        held: String(bytes.byteLength), declared: String(reference.artifact.artifactBytes),
+      }]))
+    }
+    const sha256 = yield* Wire.Artifact.mint(bytes)
+    if (sha256 !== reference.artifact.sha256) {
+      return yield* Effect.fail(_fault([{
+        reason: "drift", key: subject, field: "sha256",
+        held: sha256, declared: reference.artifact.sha256,
+      }]))
+    }
+    return bytes
+  })
+
 // Refusal reads `store` rather than a container reason because the store is legal and the PAIR is not, so a caller
 // reading that reason routes the plane to a re-encode instead of hunting a malformed container
 const _colored = (row: Asset.Channel): Effect.Effect<Asset.Colored, Asset.Fault> =>
-  row.transfer === "srgb"
+  row.transfer === Transfer.SRGB
     ? Effect.map(
         Effect.filterOrFail(
           Effect.succeed(row.format),
           _blocked,
-          (store) => _fault([{ reason: "store", key: row.role, transfer: "srgb" as const, store }]),
+          (store) => _fault([{ reason: "store", key: _spelled(RoleSchema, row.role), transfer: Transfer.SRGB, store }]),
         ),
-        (store) => ({ colorSpace: "srgb" as const, store }),
+        (store) => ({ colorSpace: Transfer.SRGB, store }),
       )
     : Effect.succeed({ colorSpace: row.transfer, store: row.format })
 
-// ONE declaration per channel row, every column carrying the law that narrows it: both sides close against the
-// same frozen anchor, so a column agreeing in NAME still states where its domain diverges from the wire's
-const _declared = (row: Asset.Channel, set: Wire.TextureSet) =>
+// ONE declaration per plane row, every column carrying the law that narrows it: both sides close against the
+// same generated anchor, so a column agreeing in NAME still states where its domain diverges from the wire's
+const _declared = (row: Asset.Channel, set: Asset.Set) =>
   Effect.map(_colored(row), (colored) =>
     ({
       category: "ktx" as const,
-      // extent and stacking are SET facts: every plane of one set shares them and a channel row declares neither
+      // extent and stacking are SET facts: every plane of one set shares them and a plane row declares neither
       width: set.width,
       height: set.height,
       layerLaw: set.layerLaw,
@@ -693,6 +786,7 @@ const _declared = (row: Asset.Channel, set: Wire.TextureSet) =>
       layers: _LAYERS[set.layerLaw].arrayed || _LAYERS[set.layerLaw].volumetric ? set.layers : 1,
       // association is a per-FILE descriptor flag, so the row's own narrowing to `none` wins over the set declaration
       alphaMode: row.alphaMode,
+      primaries: _TRANSFERS[row.transfer].primaries,
       ktxPayload: row.ktxPayload,
       // RAW and never clamped: the wire column's own positive refinement leaves levelCount 0 unspellable, so a
       // peer-produced container ships the pyramid it declares and the loader-folded chain stays caller-stated
@@ -700,15 +794,95 @@ const _declared = (row: Asset.Channel, set: Wire.TextureSet) =>
       ...colored,
     }) satisfies Asset.Ktx)
 
-// Decoded sets enter as an admission SOURCE: the `container` column selects the arm, this projection supplies the
-// declaration and nothing else, and the whole clause roster above re-runs against the producer's own bytes — a wire
-// column is the producer's CLAIM where a declaration column is this loader's capability fact
-const _projection = (set: Wire.TextureSet) =>
+const _environmentProducts = (set: Wire.Set): ReadonlyArray<readonly [string, Asset.EnvironmentPlane]> =>
+  Match.value(set.product).pipe(Match.discriminatorsExhaustive("case")({
+    pbr: () => [],
+    baked: () => [],
+    environment: ({ value: environment }) => Match.value(environment.product).pipe(Match.discriminatorsExhaustive("case")({
+      hdri: ({ value }) => [
+        ["equirect", value.source.equirect],
+        ...(value.source.cubemap === undefined ? [] : [["cubemap", value.source.cubemap] as const]),
+        ...(value.source.preview === undefined ? [] : [["preview", value.source.preview] as const]),
+      ],
+      ibl: ({ value }) => [
+        ["equirect", value.source.equirect],
+        ...(value.source.cubemap === undefined ? [] : [["cubemap", value.source.cubemap] as const]),
+        ...(value.source.preview === undefined ? [] : [["preview", value.source.preview] as const]),
+        ...Array.map(value.specular, (plane, at) => [`specular.${at}`, plane] as const),
+        ["brdfLut", value.brdfLut],
+        ...(value.luminanceCdf === undefined ? [] : [["luminanceCdf", value.luminanceCdf] as const]),
+      ],
+    })),
+  }))
+
+const _surface = (set: Wire.Set) => Match.value(set.product).pipe(Match.discriminatorsExhaustive("case")({
+  pbr: ({ value }) => Option.some(value),
+  baked: ({ value }) => Option.some(value.surface),
+  environment: () => Option.none(),
+}))
+
+// The public gate decodes Set bytes before this interior projection: the `container` column selects the arm, this
+// projection supplies the declaration and nothing else, and the whole clause roster above re-runs against the
+// producer's own bytes — a wire column is the producer's CLAIM where a declaration column is this loader's capability fact
+const _projection = <E, R>(wire: Wire.Set, redeem: Asset.Redeem<E, R>) =>
   Effect.gen(function* () {
-    const store = yield* ObjectStore
-    const [outside, admitted] = Array.partition(set.channels, (row) => row.container === "ktx2")
+    const products = _environmentProducts(wire)
+    if (Array.isNonEmptyReadonlyArray(products)) {
+      const environment = yield* Effect.mapError(
+        Effect.validateAll(products, ([product, plane]) =>
+          Effect.gen(function* () {
+            const reference = yield* Schema.decode(Wire.Texture.reference)(plane.plane).pipe(
+              Effect.mapError((error) => _fault([{ reason: "declaration", key: product, issue: error.message }])),
+            )
+            const bytes = yield* _redeemed(reference, product, redeem)
+            const proof = plane.container === Container.KTX2
+              ? yield* _ktx2(bytes, {
+                  category: "ktx",
+                  alphaMode: plane.alphaMode,
+                  primaries: plane.primaries,
+                  ktxPayload: plane.ktxPayload,
+                  mips: plane.mips,
+                  width: plane.width,
+                  height: plane.height,
+                  layers: plane.layers,
+                  layerLaw: plane.layerLaw,
+                  colorSpace: plane.transfer,
+                  store: plane.format,
+                }, product, Option.none())
+              : yield* Effect.flatMap(
+                  Effect.mapError(Derive.probe(bytes, product),
+                    (fault) => _fault([{ reason: "probe", key: product, defect: fault.message }])),
+                  (probe) => probe.width === plane.width && probe.height === plane.height && probe.channels === plane.channels
+                    ? Effect.succeed(probe)
+                    : Effect.fail(_fault([{
+                        reason: "drift", key: product, field: "environment-plane",
+                        held: JSON.stringify(probe), declared: `${plane.width}x${plane.height}x${plane.channels}`,
+                      }])),
+                )
+            return { product, reference, proof }
+          })),
+        (faults) => _fault(Array.flatMap(faults, (fault) => fault.issues)),
+      )
+      return { planes: [], environment, unprojected: [] } satisfies Asset.Projection
+    }
+    const surface = yield* Option.match(_surface(wire), {
+      onNone: () => Effect.fail(_fault([{ reason: "declaration", key: "<set>", issue: "environment arm carries no products" }])),
+      onSome: Effect.succeed,
+    })
+    const set = yield* _narrowed(_Set, "<set>")(surface)
+    // every plane and pack row narrows before any law reads it, censused whole so a producer reads every
+    // declaration gap in one round trip beside every container refusal
+    const rows = yield* Effect.mapError(
+      Effect.validateAll(surface.planes, (plane) => _narrowed(_Plane, _spelled(RoleSchema, plane.role))(plane)),
+      (faults) => _fault(Array.flatMap(faults, (fault) => fault.issues)),
+    )
+    const packs = yield* Effect.mapError(
+      Effect.validateAll(surface.packs, (pack) => _narrowed(_PackRow, _spelled(PackSchema, pack.pack))(pack)),
+      (faults) => _fault(Array.flatMap(faults, (fault) => fault.issues)),
+    )
+    const [outside, admitted] = Array.partition(rows, (row) => row.container === Container.KTX2)
     return {
-      // Planes are INDEPENDENT — one channel row's container decides nothing about another's — so the sweep censuses
+      // Planes are INDEPENDENT — one plane row's container decides nothing about another's — so the sweep censuses
       // EVERY refusing plane into one verdict and a producer reads its whole set's damage in one round trip instead
       // of one plane per attempt. `validateAll` is the all-or-nothing admission form: a texture set is admitted whole
       // or refused whole, exactly as the caller-side arm refuses a mis-declared file, so no half-projected set
@@ -719,30 +893,28 @@ const _projection = (set: Wire.TextureSet) =>
         Effect.validateAll(admitted, (row) =>
           Effect.gen(function* () {
             const declared = yield* _declared(row, set)
-            // ONE address whatever `mips` declares — a self-pyramiding container holds its own levels — so the fan is
+            // ONE reference whatever `mips` declares — a self-pyramiding container holds its own levels — so the fan is
             // one declaration per CHANNEL ROW and a per-level fan would re-address the same blob at every rank
-            const [{ address }] = row.levels
-            // refusals key on the ROSTER ROLE, the coordinate a set holds exactly one of: an address names the
-            // blob and never the slot a consumer was left unable to fill
-            const bytes = yield* Effect.mapError(
-              store.get(address),
-              (fault) => _fault([{ reason: "fetch", key: row.role, detail: fault.detail }]),
-            )
+            const [reference] = row.levels
+            // refusals key on the ROSTER ROLE, the coordinate a set holds exactly one of: an artifact identity names
+            // the blob and never the slot a consumer was left unable to fill
+            const bytes = yield* _redeemed(reference, _spelled(RoleSchema, row.role), redeem)
             return {
               role: row.role,
-              address,
+              reference,
               declared,
               components: row.channels, // the SEMANTIC count; the floor inside the proof read STORAGE width off `_STORES`
               mipPolicy: row.mipPolicy, // the producer's declared fold, keying `[03]`'s `_MIPS` verbatim
-              classified: yield* _ktx2(bytes, declared, row.role, Option.none()),
+              classified: yield* _ktx2(bytes, declared, _spelled(RoleSchema, row.role), Option.none()),
             }
           })),
         (faults) => _fault(Array.flatMap(faults, (fault) => fault.issues)),
       ),
+      environment: [],
       // a pack row carries no transfer, association, or payload column at all, so projecting one INVENTS three
       // declaration facts; it rides here by slot beside every non-ktx2 row rather than vanishing from the answer
       unprojected: [
-        ...Array.map(set.packs, (row) => ({ slot: row.pack, declined: "packed" as const })),
+        ...Array.map(packs, (row) => ({ slot: row.pack, declined: "packed" as const })),
         ...Array.map(outside, (row) => ({ slot: row.role, declined: "container" as const })),
       ],
     } satisfies Asset.Projection
@@ -894,11 +1066,11 @@ const _INPUTS = [
 // [03.8] transcription: the resampling filter each mip policy spells, and whether the encoder may fold the
 // chain at all — a policy the tool cannot express supplies its levels instead of silently taking a box fold
 const _MIPS = {
-  box: { filter: "box", normalize: false, folds: true },
-  kaiser: { filter: "kaiser", normalize: false, folds: true },
-  normalRenormalize: { filter: "box", normalize: true, folds: true },
-  roughnessVariance: { filter: "box", normalize: false, folds: false },
-  none: { filter: "box", normalize: false, folds: false },
+  [MipPolicy.BOX]: { filter: "box", normalize: false, folds: true },
+  [MipPolicy.KAISER]: { filter: "kaiser", normalize: false, folds: true },
+  [MipPolicy.NORMAL_RENORMALIZE]: { filter: "box", normalize: true, folds: true },
+  [MipPolicy.ROUGHNESS_VARIANCE]: { filter: "box", normalize: false, folds: false },
+  [MipPolicy.NONE]: { filter: "box", normalize: false, folds: false },
 } as const satisfies { readonly [K in Wire.Texture.MipPolicy]: { readonly filter: string; readonly normalize: boolean; readonly folds: boolean } }
 
 // ONE origin table, two columns: the flag the create leg spells and the KTXorientation character pair the tool then
@@ -948,8 +1120,8 @@ declare namespace Asset {
   type Component = "r" | "g" | "b" | "a" | "0" | "1"
   type Swizzle = `${Component}${Component}${Component}${Component}` // the CLI's [rgba01]{4} alphabet as 1296 literals: an illegal swizzle never spells
   type Deflate = { readonly codec: keyof typeof _DEFLATE; readonly level: number }
-  type Blocked = Asset.Ktx & { readonly store: Asset.Block; readonly ktxPayload: Exclude<Wire.Texture.WirePayload, "none"> }
-  type Deep = Asset.Ktx & { readonly ktxPayload: "none" }
+  type Blocked = Asset.Ktx & { readonly store: Asset.Block; readonly ktxPayload: Exclude<Wire.Texture.WirePayload, typeof KtxPayload.NONE> }
+  type Deep = Asset.Ktx & { readonly ktxPayload: typeof KtxPayload.NONE }
   type Framing = {
     readonly levels: ReadonlyArray<Digest.Key<"content">> // inputs beyond the base plane, level-major then face-major
     readonly mipPolicy: keyof typeof _MIPS
@@ -1728,11 +1900,12 @@ declare namespace Asset {
   }
   type Cloud = { readonly points: number; readonly primitives: number } // the point census the gate proves and the fold re-tallies on its own product
   type Proved = { readonly container: Asset.Census; readonly ktx: Asset.Classified; readonly raster: Derive.Probe; readonly points: Asset.Cloud } // per-category proof shapes, keyed by the one category vocabulary
+  type Redeem<E, R> = (reference: Wire.Artifact.Reference) => Effect.Effect<Uint8Array, E, R>
   // admission modality IS the call's own arity — a triple states ONE caller declaration over bytes in hand and a
-  // singleton states N wire-projected declarations over addresses this store already holds, so the discriminant
-  // is the value the caller passes; a `source` knob beside one shape is the mode this tuple forecloses
-  type Admission<K extends Kind = Kind> =
-    | readonly [set: Wire.TextureSet]
+  // pair decodes one Set whose N generated refs cross the caller's artifact transport, so the tuple itself carries
+  // the source and no service locator, storage-key conversion, or mode knob stands beside it
+  type Admission<K extends Kind = Kind, E = never, R = never> =
+    | readonly [octets: Uint8Array, redeem: Redeem<E, R>]
     | readonly [bytes: Uint8Array, declared: Extract<Declared, { readonly category: K }>, key: string]
   type Receipt = Effect.Effect.Success<ReturnType<(typeof _ENGINES)[Kind]>>[number] // the shipped extractor over the engine table: no hand-listed evidence union
   type Fan = Effect.Effect<
@@ -1754,19 +1927,22 @@ class Asset extends Effect.Service<Asset>()("data/Asset", {
     const io = yield* _refused("container", _io)
     const held: Asset.Held = { io, budget }
     // one category-polymorphic admission spans two arities: a declaration's own tag selects the category arm, its
-    // mapped contract types the proof, and a lone decoded set is the SAME concern reached from the wire — a second
-    // entrypoint beside this one forks admission by the declaration's provenance
+    // mapped contract types the proof, and Set bytes plus the application's artifact resolver reach the SAME concern
+    // through the registry's exact family decode — a second entrypoint would fork admission by declaration provenance
     function gate<K extends Asset.Kind>(
       bytes: Uint8Array,
       declared: Extract<Asset.Declared, { readonly category: K }>,
       key: string,
     ): Effect.Effect<Asset.Proved[K], Asset.Fault>
-    function gate(set: Wire.TextureSet): Effect.Effect<Asset.Projection, Asset.Fault, ObjectStore>
-    function gate<K extends Asset.Kind>(...admission: Asset.Admission<K>) {
-      // set admission carries no category tag because a set is a second declaration SOURCE, never a fifth category:
-      // no engine row, gate arm, or row kind moves, and the requirement channel widens on this arm alone
-      return admission.length === 1
-        ? _projection(admission[0])
+    function gate<E, R>(
+      octets: Uint8Array,
+      redeem: Asset.Redeem<E, R>,
+    ): Effect.Effect<Asset.Projection, Asset.Fault | Wire.Fault | ParseResult.ParseError | E, R>
+    function gate<K extends Asset.Kind, E, R>(...admission: Asset.Admission<K, E, R>) {
+      // Set admission carries no category tag because it is a second declaration SOURCE, never a fifth category:
+      // one exact registry decode precedes the interior projection; no engine row, gate arm, or row kind moves
+      return admission.length === 2
+        ? Effect.flatMap(Wire.decode("Set", admission[0]), (wire) => _projection(wire, admission[1]))
         : _GATES[admission[1].category](held, admission[0], admission[1], admission[2])
     }
     return {

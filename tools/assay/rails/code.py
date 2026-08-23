@@ -467,12 +467,11 @@ def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeP
     # Direct report construction preserves ripgrep diagnostics that synthetic fold rows would discard.
     rows, listing, cap_notes = _project_rows((done,), params.max_results, params.pattern, spec=_RG_SPEC)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
-    failed = status is RailStatus.FAILED
     return Report(
         Claim.CODE,
         "search",
         status,
-        Counts(0, 1, 1) if failed else Counts(1, 0, 1),
+        Counts.of(status),
         artifacts=(_artifact(scope, "search", listing, settings),) if listing else (),
         results=rows,
         notes=(*notes, *cap_notes),

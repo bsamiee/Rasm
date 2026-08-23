@@ -1,17 +1,20 @@
 # [CORE_CONTENTKEY]
 
-`Digest` is the sole content-digest owner and the branch's only `hash-wasm` import site. Algorithm rows derive branded keys and both wire codecs; one polymorphic mint and one sealed incremental-session algebra consume isolated machines. Module: `core/src/value/contentKey.ts`.
+`Digest` is the sole semantic-digest owner and the branch's only `hash-wasm` import site. `ArtifactId` owns the protocol-fixed SHA-256 identity of raw artifact octets without admitting SHA-256 to the semantic algorithm vocabulary. `CanonicalWriter` is the branch's one framed semantic-field stream; algorithm rows derive branded keys and both wire codecs, while one polymorphic mint and one sealed incremental-session algebra consume isolated machines. Module: `core/src/value/contentKey.ts`.
 
 ## [01]-[DIGEST_OWNER]
 
 - The ordered algorithm vocabulary carries factory, width, brand, and wire case; `Digest.Key<K>` and `Digest.codecs[K]` derive from those rows.
 - `content` is seed-zero XXH128, `trace` seed-zero XXH64, `check` CRC32, and `proof` BLAKE3-256; text crosses only after explicit encoding.
+- `ArtifactId` is a separate, closed SHA-256 owner: its preimage is the ordered raw artifact octets, its protobuf form is exactly 32 bytes, and its landed key is branded lower-hex. It never enters `Digest.Kind` or its row table.
 - `Digest.Session` seals every detached checkpoint behind `Redacted`; each operation loads one snapshot atomically into a fresh machine.
 - Keyed authentication and KDFs belong to the security owner; no keyed key material or unbranded raw digest leaves this module.
+- `CanonicalWriter` emits fixed-width integers little-endian, UTF-8 strings and arbitrary octets behind an int32 byte-length frame, and repeated semantic rows behind an int32 count; callers state field order and never frame.
+- `raw` is reserved for fixed-width or already-delimited bytes. A variable-width generated `bytes` field uses `bytes`, and a collection uses `rows`, so neither can shift an adjacent field boundary.
 
 ```typescript signature
 import { Effect, Either, Encoding, ParseResult, Predicate, Record, Redacted, Schema } from "effect"
-import { createBLAKE3, createCRC32, createXXHash64, createXXHash128, type IHasher } from "hash-wasm"
+import { createBLAKE3, createCRC32, createSHA256, createXXHash64, createXXHash128, type IHasher } from "hash-wasm"
 import { Shape } from "./schema.ts"
 
 const _hex = (width: number, alphabet: "lower" | "upper" = "lower"): RegExp =>
@@ -64,6 +67,79 @@ const _codecs = Record.map(
   (row) => _codec(row.key, row.bytes, row.wire),
 ) as unknown as _Codecs
 
+// Artifact identity is protocol-fixed rather than caller-selected. Keeping it outside `_kinds` makes it impossible
+// to spend SHA-256 where a semantic content/cache key is required while still reusing the one digest engine owner.
+const _artifactKey = _key("ArtifactSha256", 64)
+const _artifactCodec = _codec(_artifactKey, 32, "lower")
+
+const _text = new TextEncoder()
+
+// One mutable builder is the platform-forced incremental-hasher seam; only detached chunks leave it. The writer
+// owns widths and byte order, while a producer owns semantic field order through a fluent call chain.
+class CanonicalWriter {
+  readonly #chunks: Array<Uint8Array> = []
+
+  private static i32(value: number): number {
+    if (!Number.isSafeInteger(value) || value < -0x8000_0000 || value > 0x7fff_ffff) {
+      throw new RangeError(`canonical int32 out of range: ${value}`)
+    }
+    return value
+  }
+
+  private static signed64(value: bigint): bigint {
+    if (value < -(1n << 63n) || value >= 1n << 63n) throw new RangeError(`canonical int64 out of range: ${value}`)
+    return value
+  }
+
+  private emit(value: Uint8Array): this {
+    this.#chunks.push(value.slice())
+    return this
+  }
+
+  bool(value: boolean): this {
+    return this.emit(Uint8Array.of(value ? 1 : 0))
+  }
+
+  ordinal(value: number): this {
+    const word = new Uint8Array(4)
+    new DataView(word.buffer).setInt32(0, CanonicalWriter.i32(value), true)
+    return this.emit(word)
+  }
+
+  i64(value: bigint): this {
+    const word = new Uint8Array(8)
+    new DataView(word.buffer).setBigInt64(0, CanonicalWriter.signed64(value), true)
+    return this.emit(word)
+  }
+
+  u128(value: bigint): this {
+    if (value < 0n || value >= 1n << 128n) throw new RangeError(`canonical uint128 out of range: ${value}`)
+    return this.i64(BigInt.asIntN(64, value)).i64(BigInt.asIntN(64, value >> 64n))
+  }
+
+  string(value: string): this {
+    return this.bytes(_text.encode(value))
+  }
+
+  bytes(value: Uint8Array): this {
+    return this.ordinal(value.byteLength).raw(value)
+  }
+
+  raw(value: Uint8Array): this {
+    return this.emit(value)
+  }
+
+  rows<A>(values: ReadonlyArray<A>, field: (value: A, writer: CanonicalWriter) => void): this {
+    this.ordinal(values.length)
+    for (const value of values) field(value, this)
+    return this
+  }
+
+  close(): Iterable<Uint8Array> {
+    return this.#chunks.map((chunk) => chunk.slice())
+  }
+}
+
 const _minted = <Kind extends Digest.Kind>(kind: Kind, hex: string): Effect.Effect<Digest.Key<Kind>> =>
   Effect.orDie(Schema.decode(_algorithms.at(kind).key)(hex))
 
@@ -76,6 +152,20 @@ const _walk = (hasher: IHasher, payload: Digest.Payload): string => {
   if (Predicate.isUint8Array(payload)) armed.update(payload)
   else for (const chunk of payload) armed.update(chunk)
   return armed.digest()
+}
+
+const ArtifactId = {
+  Key: _artifactKey,
+  codec: _artifactCodec,
+  mint: (payload: Digest.Payload): Effect.Effect<ArtifactId.Identity> =>
+    Effect.flatMap(
+      Effect.promise(() => createSHA256()),
+      (hasher) => Effect.orDie(Schema.decode(_artifactKey)(_walk(hasher, payload))),
+    ),
+} as const
+
+declare namespace ArtifactId {
+  type Identity = Schema.Schema.Type<typeof _artifactKey>
 }
 
 class _Session<Kind extends Digest.Kind = Digest.Kind> {
@@ -134,7 +224,7 @@ declare namespace Digest {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Digest }
+export { ArtifactId, CanonicalWriter, Digest }
 ```
 
 ## [02]-[RESEARCH]

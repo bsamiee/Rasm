@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package rasm.contracts.feature.v1;
+
+import "buf/validate/validate.proto";
+
+enum FlagReason {
+  FLAG_REASON_UNSPECIFIED = 0;
+  FLAG_REASON_STATIC = 1;
+  FLAG_REASON_DEFAULT = 2;
+  FLAG_REASON_TARGETING = 3;
+  FLAG_REASON_SPLIT = 4;
+  FLAG_REASON_CACHED = 5;
+  FLAG_REASON_DISABLED = 6;
+  FLAG_REASON_ERROR = 7;
+  FLAG_REASON_UNKNOWN = 8;
+}
+
+message FlagVerdictWire {
+  // A variant names the configured value the resolver selected, so it rides STATIC, TARGETING, SPLIT, and CACHED
+  // alone. DEFAULT, DISABLED, ERROR, and UNKNOWN return the caller's own fallback and select no variant.
+  option (buf.validate.message).cel = {
+    id: "flag_verdict_wire.variant_presence"
+    message: "variant is present exactly for a reason that selects a configured variant"
+    expression: "has(this.variant) == (this.reason in [1, 3, 4, 5])"
+  };
+
+  string flag = 1 [(buf.validate.field).string.min_len = 1];
+  bool value = 2;
+  optional string variant = 3 [(buf.validate.field).string.min_len = 1];
+  FlagReason reason = 4 [
+    (buf.validate.field).enum.defined_only = true,
+    (buf.validate.field).enum.not_in = 0
+  ];
+}

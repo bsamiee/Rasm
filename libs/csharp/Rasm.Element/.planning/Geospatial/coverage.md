@@ -112,7 +112,7 @@ public readonly partial record struct ColorBin(int Index, PerceptualColor Colour
 // one admitted value) and Of proves the run is the head's Coarsen chain, so a level's ordinal IS its position and
 // its affine can never drift from the base. Block is the GDAL tile size; ABSENCE is untiled (no zero sentinel).
 [Equatable]
-public readonly partial record struct OverviewLevel(CellLattice Grid, BlobKey RasterKey, Option<(int X, int Y)> Block = default) {
+public readonly partial record struct OverviewLevel(CellLattice Grid, ArtifactContent Raster, Option<(int X, int Y)> Block = default) {
  // TileOf resolves the GDAL GetBlockSize tile window a windowed fetch ALIGNS to: the containing tile column/row and
  // its bounds-clipped cell-extent (an edge tile is partial). An untiled level is one full-width row band. None for
  // an out-of-bounds cell.
@@ -126,7 +126,8 @@ public readonly partial record struct OverviewLevel(CellLattice Grid, BlobKey Ra
 
  public void CanonicalBytes(CanonicalWriter w) {
   Grid.CanonicalBytes(w);
-  w.U128(RasterKey.Value).Optional(Block, static (block, wr) => wr.Ordinal(block.X).Ordinal(block.Y));
+  w.String(Raster.Sha256).I64(checked((long)Raster.Bytes))
+   .Optional(Block, static (block, wr) => wr.Ordinal(block.X).Ordinal(block.Y));
  }
 }
 
@@ -235,7 +236,7 @@ public sealed partial record CoverageGrid {
  // One-hop base reads: the run's head IS the full-resolution base (non-empty by admission, so the index is total).
  public OverviewLevel Base => Levels[0];
  public CellLattice Grid => Base.Grid;
- public BlobKey RasterKey => Base.RasterKey;
+ public ArtifactContent Raster => Base.Raster;
 
  // PRIVATE ctor + GET-ONLY members: Of is the ONLY public admission, so an off-chain pyramid or a malformed band
  // set is UNREPRESENTABLE; a wire or persistence decoder re-admits through the SAME railed Of (the

@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package rasm.contracts.fault.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/rpc/error_details.proto";
+import "rasm/contracts/clock/v1/hlc.proto";
+
+// --- [RECOVERY] ---------------------------------------------------------------------------
+
+// The producer's own re-drive verdict: `terminal` answers identically forever, `transient` recovers on a later
+// attempt, and `retry_after` carries the window the server itself states. That arm IS the standard
+// `google.rpc.RetryInfo`, so the value a peer reads off this detail and the value generic middleware reads off
+// `google.rpc.Status.details` are one message, never two projections that can disagree. A consumer never derives a
+// verdict from a code or a message, and an unset arm refuses at admission.
+message FaultRecovery {
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    google.protobuf.Empty terminal = 1;
+    google.protobuf.Empty transient = 2;
+    google.rpc.RetryInfo retry_after = 3 [(buf.validate.field).cel = {
+      id: "fault_recovery.retry_after"
+      message: "retry_delay is present and non-negative"
+      expression: "has(this.retry_delay) && this.retry_delay >= duration('0s')"
+    }];
+  }
+}
+
+// The compact in-process observation a host receipt carries beside its outcome: the recovery verdict, the bounded
+// cause chain (outermost first), whether that chain was cut, and the producing family's identity where one exists.
+// A foreign error crosses with neither `domain` nor `case`.
+message FaultObservation {
+  option (buf.validate.message).cel = {
+    id: "fault_observation.identity"
+    message: "domain and case are present together"
+    expression: "has(this.domain) == has(this.case)"
+  };
+
+  FaultRecovery recovery = 1 [(buf.validate.field).required = true];
+  repeated string causes = 2 [(buf.validate.field).repeated.max_items = 8];
+  bool truncated = 3;
+  optional uint32 case = 4;
+  optional string domain = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 63
+    pattern: "^[a-z][a-z0-9.-]*$"
+  }];
+}
+
+// --- [DETAIL] -----------------------------------------------------------------------------
+
+// The one typed error detail, packed as a single `Any` inside the `google.rpc.Status` the transport carries in its
+// error details. `domain` names the producing family and `case` is that family's closed ordinal — never a transport
+// status code — so a peer keeps the pair opaque and never rehydrates a remote taxonomy. Exactly one recognized
+// detail is admitted; a malformed recognized detail refuses typed, an unrecognized detail coexists.
+message FaultDetail {
+  string domain = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 63
+    pattern: "^[a-z][a-z0-9.-]*$"
+  }];
+  uint32 case = 2;
+  bytes correlation = 3 [(buf.validate.field).bytes.len = 16];
+  rasm.contracts.clock.v1.Hlc stamp = 4 [(buf.validate.field).required = true];
+  // A boot-time, unauthenticated, or adoption-refused fault carries NO tenant, so absence rides the presence bit
+  // and never an empty string a consumer re-reads as one. The bound is the widest any producing branch's own
+  // tenant owner admits; no pattern seats here, because the character class those owners compile diverges and a
+  // grammar drawn from one of them refuses the others.
+  optional string tenant = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  FaultRecovery recovery = 6 [(buf.validate.field).required = true];
+  // The refused message's own field coordinates. An accumulated protovalidate verdict rides a standard
+  // `google.rpc.BadRequest` detail beside this one rather than inflating this list, so the cap bounds a
+  // per-fault coordinate roster and a hostile peer's `Status` alike.
+  repeated google.rpc.BadRequest.FieldViolation violations = 7 [(buf.validate.field).repeated.max_items = 64];
+}

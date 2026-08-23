@@ -13,7 +13,7 @@ Rasm.AppHost/
 │   ├── Resources.cs     # CacheLane axis, PoolPolicy rows, DrainSpec/DrainQueue family, and the DedupeWindow primitive
 │   ├── Modules.cs       # ModuleContribution rows, DescriptorSlot algebra, and the receipted one-pass composition fold
 │   ├── Config.cs        # ConfigSource rank axis, ConfigError vocabulary, ReloadOutcome transitions, OperatorOverride family
-│   ├── Secrets.cs       # SecretLease rows, CredentialPem/CredentialPemWire vocabulary, and the KMS-unwrap custody
+│   ├── Secrets.cs       # SecretLease rows, CredentialMaterial DER admission vocabulary, and the KMS-unwrap custody
 │   ├── Ports.cs         # Port-record family under the cardinality invariant, the boot tenancy mint, the suite JSON wire law
 │   ├── Determinism.cs   # DeterminismContext, ChainHash log entries, replay-verify rail, macro engine, recompute graph, chaos gate
 │   ├── Orchestration.cs # Workflow and job state machines persisted through the store ports; replay survives restart
@@ -39,7 +39,7 @@ Rasm.AppHost/
 │   ├── Solver.cs        # SolverKind category rows with representation and effect-ceiling columns; manifest, negotiation, hosted load
 │   └── Provisioning.cs  # UpdateRail phase machine over the UpdateOutcome union; FleetRoll walks MembershipView.Serving under one RollStrategy
 └── Observability/       # Telemetry composition, health grading, and redacted support capture
-    ├── Telemetry.cs     # ForeignSource admission, TelemetryDomain roster, TelemetrySignal governance rows, ConformanceRow projection
+    ├── Telemetry.cs     # ForeignSource admission, TelemetryDomain roster, signal governance, native conformance receipt
     ├── Health.cs        # Pressure grades folded in one atomic cell; store probes ride the production pool
     ├── Bundles.cs       # SupportTrigger union, contributed artifact ports, dump custody, manifest keys, capped zip receipts
     ├── Instruments.cs   # AppHostMeasure/AppHostSlot rosters, ReceiptKind instrument writes, the ProviderProgram both providers bind
@@ -129,7 +129,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost cross-runtime wire seams
-    accDescr: Which kinded wires, content keys, and transport cross between AppHost and the TypeScript and Python peers.
+    accDescr: Which kinded wires, content keys, and transport cross between AppHost and the TypeScript core, security, runtime, and Python peers.
     subgraph apphost[RASM.APPHOST]
         Agent[Agent surface]
         Runtime[Runtime spine]
@@ -137,6 +137,7 @@ flowchart LR
         Observability[Observability signals]
     end
     Core([typescript:core])
+    TsSecurity([typescript:security])
     TsRuntime([typescript:runtime])
     PyRuntime{{python:runtime}}
     Agent e1@-->|"[WIRE]: DescriptorPinWire"| Core
@@ -145,9 +146,10 @@ flowchart LR
     Wire e4@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Core
     Runtime e5@-->|"[WIRE]: HostFingerprintWire"| Core
     Observability e6@-->|"[TRANSPORT]: OtelExport"| TsRuntime
-    Agent e7@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
+    Agent e7@-->|"[WIRE]: capability.v1.DiscoverResponse"| PyRuntime
     Observability e8@<-->|"[TRANSPORT]: TraceContext"| PyRuntime
     Runtime e9@<-->|"[WIRE]: HlcStampWire"| PyRuntime
+    Runtime e10@-->|"[WIRE]: CredentialPublicWire"| TsSecurity
 ```
 
 ```mermaid
@@ -187,6 +189,7 @@ flowchart LR
     Bim e9@-->|"[RECEIPT]: BimBenchReceipt"| Observability
     Bim e10@-->|"[EVENT]: CloudEvents announcement"| Wire
     Bim e11@-->|"[WIRE]: BrickGraph"| Wire
+    Bim e42@-->|"[PORT]: ITessellationCompanion"| Compute
     Runtime e12@-->|"[PORT]: ProjectionContext"| Element
     Observability e13@-->|"[PORT]: InstrumentSet + SpanBand"| Element
     Materials e14@-->|"[PORT]: TelemetryContributorPort"| Observability
@@ -222,6 +225,8 @@ flowchart LR
 Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.
 
 `Rasm.Bim` `Model/systems` mints the `[WIRE]: BrickGraph` building-systems operations topology election-agnostically; this package's composition supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport rows, so Bim names no live transport and the livewire axis names no ontology. That same seam carries Bim's national design regime, elected once at this package's `Runtime/modules#MODULE_LEDGER` seat because no Bim type is nameable here.
+
+`[PORT]: ITessellationCompanion` binds only at a product composition assembly that references both Bim and Compute. AppHost references neither peer: `Runtime/modules#MODULE_LEDGER` supplies the typed `ModuleContribution` grammar, while the product's `BimComputeCompanion` projects the Bim request to the generated contract, binds one generated client bundle to the outer call's explicit correlation, and drives Compute's unary-plus-server-stream edge without a service locator, blocking bridge, or duplicate transport shape.
 
 ## [04]-[INTERNAL]
 

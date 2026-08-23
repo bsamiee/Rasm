@@ -344,11 +344,10 @@ public static class Finish {
 
     internal static bool Unit(double v) => double.IsFinite(v) && v is >= 0.0 and <= 1.0;
 
-    // A Kubelka-Munk mix is a MEASURED-pigment finish, so it stamps CaptureMethod.PigmentMix — structurally !=
-    // Authored, so interchange#MATERIAL_WIRE reads Measured true. The pigment count rides AngularSamples; no band
-    // count and no fit residual exist for a mix, so both are 0 rather than the prior misuse of those columns.
+    // A Kubelka-Munk mix is a measured-pigment finish, but it produces neither angular sampling nor a numerical fit.
+    // The receipt therefore names its method and device while both evidence slots remain absent.
     static CaptureProvenance MixProvenance(FinishMix mix) =>
-        CaptureProvenance.Of(CaptureMethod.PigmentMix, $"kubelka-munk:{mix.Pigments.Count}-pigment", wavelengthCount: 0, angularSamples: mix.Pigments.Count, fitResidual: 0.0);
+        new($"kubelka-munk:{mix.Pigments.Count}-pigment", CaptureMethod.PigmentMix);
 }
 ```
 

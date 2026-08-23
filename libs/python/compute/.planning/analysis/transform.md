@@ -2,7 +2,7 @@
 
 One frequency-domain transform owner rules: `TransformOp` discriminates the pocketfft Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal, folded through the single `apply` entry, so a spectrum, an energy-compacted basis, a log-radial coefficient set, and an instantaneous envelope are transform evidence on one owner rather than a per-transform method family. Pocketfft's eight entrypoints collapse to one forward body and one inverse body indexing a `FOURIER_ROUTES` row per `FourierBasis`, and one `SpectralReadout` axis folds every dominant-band read, so output is parameterized as tightly as input. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners.
 
-Operands admit through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_parts` fold handed to `IdentitySource(parts=...)`, so the count-and-length framing runs at the identity owner and two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped behind the `SCIPY_ARRAY_API` gate. Every body crosses the runtime thread band under the `RELEASING` trait through `lane.offload`, and the pocketfft worker team binds to `LanePolicy.capacity`, never the unbounded `-1` team that oversubscribes an already-offloaded kernel.
+Operands admit through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_parts` fold handed to `IdentitySource(parts=...)`, so the count-and-length framing runs at the identity owner and two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped behind the `SCIPY_ARRAY_API` gate. Every body enters the runtime thread band under the `RELEASING` trait through `lane.whole` and `lane.offload`; the resulting `LaneGrant.width` binds the pocketfft worker team, never an allocator-total read or the unbounded `-1` team that multiplies inner and outer parallelism.
 
 ## [01]-[INDEX]
 
@@ -267,7 +267,7 @@ def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
 
 def _transform_kernel(samples: object, fs: float, op: TransformOp, workers: int) -> "RuntimeRail[TransformReceipt]":
     # module-level so REFERENCE shipping resolves it by import — a closure pays an eager cloudpickle round-trip
-    # no thread arm needs; `workers` arrives as the lane capacity the pocketfft team binds to.
+    # no thread arm needs; `workers` arrives as the whole-lane grant width the pocketfft team binds to.
     # `catch` names the scipy.fft / array-api raise surface this body reaches, probed against the installed band: a
     # refused transform type, axes tuple, or worker team raises `ValueError`, an out-of-range axis and a 0-d
     # `hilbert` operand raise `IndexError`, a non-numeric length or an unresolvable namespace raises `TypeError`, and
@@ -287,7 +287,13 @@ async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy, *
     # weave owns span, fence, and the fenced contributor harvest.
     async def dispatch() -> RuntimeRail[TransformReceipt]:
         # One flatten from `RuntimeRail[RuntimeRail[TransformReceipt]]` to `RuntimeRail[TransformReceipt]`.
-        return (await lane.offload(Kernel.of(_transform_kernel, KernelTrait.RELEASING), samples, fs, op, lane.capacity)).bind(lambda rail: rail)
+        return (
+            await lane.whole(
+                lambda grant: lane.offload(
+                    Kernel.of(_transform_kernel, KernelTrait.RELEASING), samples, fs, op, grant.width
+                )
+            )
+        ).bind(lambda rail: rail)
 
     return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs}, composition=composition)
 
@@ -330,7 +336,7 @@ def _fourier(
     n = fast(lead, basis is FourierBasis.REAL)
     # n-D path is the complex `fftn`/`ifftn` mirror (scipy catalogs no `rfftn`/`hfftn`): a non-empty `axes` runs the complex
     # transform on the `fftfreq` grid regardless of `basis`, padding each transformed axis to its OWN fast length. `set_workers`
-    # binds the pocketfft team to the lane capacity — `-1` spawns an unbounded page-local team under an already-offloaded kernel.
+    # binds the pocketfft team to the whole-lane grant width — `-1` creates an unbounded nested team.
     with fft.set_workers(workers):
         spectrum = fft.fftn(x, s=tuple(fast(a, False) for a in axes), axes=axes) if axes else forward(x, n=n, axis=lead)
     freqs = xp.asarray(fft.fftfreq(spectrum.shape[lead], spacing) if axes else grid(n, spacing))

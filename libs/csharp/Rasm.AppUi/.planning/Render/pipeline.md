@@ -1129,355 +1129,294 @@ public abstract partial record SimVisual(string Key) {
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `ViewMeasurementPointWire`, `ViewMeasurementWire`, `ViewpointWire`, `MeshoptStreamWire`, `MeshletWire`, `ResidencyTileWire` — the viewpoint and content-keyed geometry-residency wire contract a WebGPU web viewer and a cross-process coordination tool consume; `ResidencyManifest` the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` portable scene-graph and kind-discriminated residency-tile manifest, each tile a 1:1 projection of one Compute `csharp:Rasm.Compute/Runtime/payload#RESIDENCY` `ResidencyPayload`; `ResidencyMap` the ONE generated `[Mapper]` seam owning every projection at this edge, including the content-key rendering both the measure plane and the reality capture read. The GPU pass internals and the suite `XxHash128` content key (minted by Compute, never re-computed here) never cross the wire.
-- Entry: `ResidencyManifest.Mint(viewpoint, plan, payloads, vramBudget)` — joins the AppUi residency decision with the Compute payload codec; `ResidencyManifest.Encode()` — the one serialization through `EvidenceOps.Wire`; `ResidencyMap.KeyHex(UInt128)` and `ResidencyMap.BlobKeyOf(UInt128)` — the two named readers every other Render page composes.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Riok.Mapperly, NodaTime, Rasm.Compute (project), BCL inbox
-- Growth: one wire member row per new viewpoint or residency-tile field; a new residency kind or stream is one already-discriminated `ResidencyTileWire.kind` value or one `MeshoptStreamWire` row, never a new tile type; one `[MapProperty]` row per new divergence; zero new surface.
-- Boundary: the wire emits strict camel-case JSON under the package's ONE serializer context — `Diagnostics/evidence#RECEIPT_UNION` `AppUiWireContext`, reached through `EvidenceOps.Wire` — so an absent `Option` slot OMITS under the estate wire posture and the TS face spells it `field?: T`; a package-local `JsonSerializerContext` beside that one is the deleted form and it is what let this seam declare its own naming, unmapped-member, and nullability posture. Tile bounds cross as `[x, y, z, radius]`, content keys as `:x32` text under the mapper's own default format provider, and instants through `InstantPattern.ExtendedIso`. Every projection at this edge is GENERATED: nine hand `*Wire` mints with inline array packing, an inline discriminant literal, and an inline `CultureInfo` are the rung-1 form this seam replaces, and `[MapValue]`, `[MapProperty]` segment paths, `[MapPropertyFromSource]`, and one default `[FormatProvider]` carry each divergence as a declared row. `MeshletWire` carries the frozen producer descriptor WHOLE — `Parent` and `ParentError` `Option`-shaped exactly as `Rasm.Compute` declares them and the realized `Cut` boundary-vertex count beside them — because a bare `int` where the producer spells `Option` fabricates a root's parent and a dropped column is a producer fact the web leg must re-derive off decoded positions; the schema pins the CLUSTER ROSTER as much as the envelope, so those three columns land with a schema bump. There is NO `FrameReceiptWire`: `tests/contracts/MANIFEST.md [02.22]` settles render evidence as the `EvidenceTimelineWire` render arm, never a standalone render-receipt family, so the frame receipt stays in-process.
-
-```ts signature
-type ViewCameraWire = {
-  readonly projection: "perspective" | "orthographic";
-  readonly eye: readonly [number, number, number];
-  readonly target: readonly [number, number, number];
-  readonly up: readonly [number, number, number];
-  readonly scale: number;
-};
-
-interface SectionBoxWire {
-  readonly min: readonly [number, number, number];
-  readonly max: readonly [number, number, number];
-}
-
-interface VisibilityOverrideWire {
-  readonly elementId: string;
-  readonly visible: boolean;
-  readonly colorArgb?: number;
-  readonly transparency: number;
-}
-
-interface ViewMeasurementWire {
-  readonly key: string;
-  readonly vertices: readonly {
-    readonly sourceKey: string;
-    readonly sampleIndex: number;
-    readonly position: readonly [number, number, number];
-  }[];
-  readonly totalMeters: number;
-  readonly anglesDegrees: readonly number[];
-}
-
-interface ViewpointWire {
-  readonly key: string;
-  readonly version: number;
-  readonly camera: ViewCameraWire;
-  readonly section?: SectionBoxWire;
-  readonly overrides: readonly VisibilityOverrideWire[];
-  readonly selection: readonly string[];
-  readonly measurements: readonly ViewMeasurementWire[];
-  readonly at: string;
-}
-
-interface MeshoptStreamWire {
-  readonly stream: string;
-  readonly mode: "ATTRIBUTES" | "TRIANGLES" | "INDICES" | "RAW";
-  readonly filter: "NONE" | "OCTAHEDRAL" | "QUATERNION" | "EXPONENTIAL";
-  readonly byteOffset: number;
-  readonly byteLength: number;
-  readonly count: number;
-  readonly byteStride: number;
-  readonly codecVersion: number;
-}
-
-interface MeshletWire {
-  readonly vertexOffset: number;
-  readonly triangleOffset: number;
-  readonly vertexCount: number;
-  readonly triangleCount: number;
-  readonly center: readonly [number, number, number];
-  readonly radius: number;
-  readonly coneApex: readonly [number, number, number];
-  readonly coneAxis: readonly [number, number, number];
-  readonly coneCutoff: number;
-  readonly level: number;
-  readonly parent?: number; // absent IS the LOD subtree root, never a sentinel index
-  readonly shell: number;
-  readonly error: number;
-  readonly parentError?: number; // absent IS the subtree terminus the LOD cut reads
-  readonly curvature: number; // radians per object-space unit, measured per cluster at encode
-  readonly cut: number; // realized shared-boundary-vertex count, the producer's own build-strategy figure
-}
-
-interface ResidencyTileWire {
-  readonly kind: "meshlet-cluster" | "quantized-vertex" | "point-splat" | "gaussian-splat";
-  readonly contentKey: string;
-  readonly blobKey: string;
-  readonly bytes: number;
-  readonly residentCount: number;
-  readonly harmonicDegree: number;
-  readonly bounds: readonly [number, number, number, number];
-  readonly streams: readonly MeshoptStreamWire[];
-  readonly meshlets: readonly MeshletWire[];
-}
-
-interface GeometryResidencyWire {
-  readonly version: number;
-  readonly viewpoint: ViewpointWire;
-  readonly tiles: readonly ResidencyTileWire[];
-  readonly vramBudget: number;
-}
-```
-
-`ResidencyManifest` is the single C# mint of `WEB_GEOMETRY_RESIDENCY_WIRE`; the TypeScript worker consumes it by content key and never re-mints identity.
+- Owner: generated `Rasm.Contracts.Render.V1` `Spatial.V1.Point3`/`UnitDirection3`, `SphereWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `ViewMeasurementPointWire`, `ViewMeasurementWire`, `ViewpointWire`, `MeshoptStream`, `Meshlet`, `ResidencyTileWire`, and `GeometryResidency` are the sole viewpoint and content-keyed residency wire family; `ResidencyMap` projects the interior viewpoint, residency decision, and Compute payload directly into those messages. GPU pass internals and the suite content key never gain an AppUi wire twin.
+- Entry: `ResidencyMap.Mint(viewpoint, plan, payloads, vramBudget)` returns `Fin<GeometryResidency>` after admitting the AppUi resident set against Compute's payload census; `ResidencyMap.Json` renders that same admitted projection through the shared AppHost `WireJson.Formatter`.
+- Packages: Rasm.Contracts (project — generated `Render.V1` residency family), Google.Protobuf (`ByteString`, generated repeated fields), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp`), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `ArtifactContent`), Rasm.AppHost (project — `WireJson`), Rasm.Compute (project)
+- Growth: a wire member or enum case lands once in `tests/contracts/proto/rasm/contracts/render/v1/residency.proto`, generation breaks the projection at its actual read, and every TypeScript consumer imports `@rasm\/contracts/rasm/contracts/render/v1/residency_pb`; zero hand C# records, TS interfaces, enum strings, or serializer contexts grow beside it.
+- Boundary: protobuf presence is the only absence spelling: optional scalar setters run only on `Some`, optional messages stay unset on `None`, and repeated fields fill on the generated collection surface. The payload's semantic XXH3 key selects it in the residency census while its independent `ArtifactContent` SHA-256 identity and encoded extent cross together as `ArtifactRef`; storage paths remain behind the app resolver and never leak into the semantic contract. Instants cross as protobuf `Timestamp`, and every closed Compute row maps totally onto its generated enum. The schema carries the producer descriptor whole — `Parent`, `ParentError`, `Curvature`, and `Cut` remain producer facts — while `GeometryResidency` replaces as one message per emission. Every resident key must resolve in the payload census; missing keys accumulate as `ViewportFault.ContextUnavailable`, so no successful contract can omit part of its admitted resident set. ProtoJSON leaves only through `WireJson.Formatter`; no package-local formatter, STJ context, or manifest wrapper participates. Render evidence remains the generated `EvidenceTimelineWire` render arm rather than a standalone frame family.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-public readonly record struct ViewCameraWire(
-    string Projection,
-    System.Collections.Immutable.ImmutableArray<double> Eye,
-    System.Collections.Immutable.ImmutableArray<double> Target,
-    System.Collections.Immutable.ImmutableArray<double> Up,
-    double Scale);
-
-public readonly record struct SectionBoxWire(
-    System.Collections.Immutable.ImmutableArray<double> Min,
-    System.Collections.Immutable.ImmutableArray<double> Max);
-
-public readonly record struct VisibilityOverrideWire(string ElementId, bool Visible, Option<uint> ColorArgb, double Transparency);
-
-public sealed record ViewMeasurementPointWire(
-    string SourceKey,
-    int SampleIndex,
-    System.Collections.Immutable.ImmutableArray<double> Position);
-
-public sealed record ViewMeasurementWire(
-    string Key,
-    Seq<ViewMeasurementPointWire> Vertices,
-    double TotalMeters,
-    Seq<double> AnglesDegrees);
-
-public sealed record ViewpointWire(
-    string Key,
-    int Version,
-    ViewCameraWire Camera,
-    Option<SectionBoxWire> Section,
-    Seq<VisibilityOverrideWire> Overrides,
-    Seq<string> Selection,
-    Seq<ViewMeasurementWire> Measurements,
-    string At);
-
-public readonly record struct MeshoptStreamWire(string Stream, string Mode, string Filter, int ByteOffset, int ByteLength, int Count, int ByteStride, int CodecVersion);
-
-// Column-for-column off the frozen producer descriptor: `Parent` and `ParentError` stay `Option`-shaped
-// because a root simply LACKS both and a bare int fabricates one, and `Cut` crosses so a build-strategy
-// comparison reads the producer's own realized boundary count rather than a figure the web leg re-derives.
-// `Curvature` sits on the tail exactly where the producer appends it — the web leg's own footprint derivation
-// reads the SAME measured bound the CPU integrator's ray cone does, so the two runtimes cannot disagree on a
-// texture level.
-public sealed record MeshletWire(
-    int VertexOffset, int TriangleOffset, int VertexCount, int TriangleCount,
-    System.Collections.Immutable.ImmutableArray<double> Center,
-    double Radius,
-    System.Collections.Immutable.ImmutableArray<double> ConeApex,
-    System.Collections.Immutable.ImmutableArray<double> ConeAxis,
-    double ConeCutoff,
-    int Level, Option<int> Parent, int Shell, double Error, Option<double> ParentError, double Curvature, int Cut);
-
-public sealed record ResidencyTileWire(
-    string Kind, string ContentKey, string BlobKey, long Bytes, int ResidentCount,
-    int HarmonicDegree,
-    System.Collections.Immutable.ImmutableArray<double> Bounds,
-    Seq<MeshoptStreamWire> Streams,
-    Seq<MeshletWire> Meshlets);
+using NodaTime.Serialization.Protobuf;
+using Rasm.AppHost.Runtime;
+using Host = Rasm.Contracts.Render.V1;
 
 // --- [BOUNDARIES] ---------------------------------------------------------------------------
-// The ONE seam over the whole residency edge. Nine hand projections — each a positional wire constructor with
-// inline `[x,y,z]` packing, an inline `"perspective"` discriminant, and an inline `CultureInfo` — become
-// generated methods whose every divergence is a declared row: `[MapValue]` for the discriminant literals,
-// `[MapProperty]` segment paths for the nested frame members, `[MapPropertyFromSource]` for the two whole-source
-// reads, and ONE default `[FormatProvider]` so the invariant culture leaves every call site. `ExplicitCast` is
-// cleared as a LOAD-BEARING guard, not hygiene: LanguageExt `Option<T>` carriers cross this seam in both
-// directions and the default conversion set binds their THROWING explicit cast ahead of any registered
-// converter. Every `Seq<T>` and `ImmutableArray<double>` TARGET takes a per-pair non-generic `[UserMapping]`,
-// because native construction of those targets is unproven on this generator and a generic
-// `T? Map<T>(Option<T>)` is refused outright (RMG001).
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
-        EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
-public static partial class ResidencyMap {
-    [FormatProvider(Default = true)]
-    private static readonly System.Globalization.CultureInfo Invariant = System.Globalization.CultureInfo.InvariantCulture;
+// The descriptor owns every target shape and vocabulary. This seam only performs irreducible domain
+// conversions: generated enum selection, protobuf presence, the kernel's content-key bytes, and repeated-field
+// population. Every message is returned as its generated type, so neither a transport DTO nor a manifest shell
+// can become a second wire authority.
+public static class ResidencyMap {
+    public const uint Schema = 4;
 
-    private const string PerspectiveKind = "perspective";
-    private const string OrthographicKind = "orthographic";
-    private const string BlobPrefix = "geo/";
-    private const string KeyFormat = "x32";
-
-    // The producer-owned `UInt128` rendered to the shared `:x32` wire value, and the blob address derived from
-    // it. Both read the mapper's own default provider, so `Render/measure` and `Render/reality` compose one
-    // spelling and no call site names a culture. TWO user mappings answer the same `UInt128 -> string` pair, so
-    // the content key declares itself the default and the blob address is reached by name — the RMG060
-    // ambiguity resolution, stated rather than dodged by hiding one of them from the generator.
-    [UserMapping(Default = true)]
-    public static string KeyHex(UInt128 content) => content.ToString(KeyFormat, Invariant);
-
-    [UserMapping]
-    public static string BlobKeyOf(UInt128 content) => $"{BlobPrefix}{KeyHex(content)}";
-
-    [MapValue(nameof(ViewCameraWire.Projection), PerspectiveKind)]
-    [MapProperty([nameof(ViewCamera.Perspective.Frame), nameof(CameraFrame.Eye)], [nameof(ViewCameraWire.Eye)])]
-    [MapProperty([nameof(ViewCamera.Perspective.Frame), nameof(CameraFrame.Target)], [nameof(ViewCameraWire.Target)])]
-    [MapProperty([nameof(ViewCamera.Perspective.Frame), nameof(CameraFrame.Up)], [nameof(ViewCameraWire.Up)])]
-    [MapProperty(nameof(ViewCamera.Perspective.FieldOfViewDeg), nameof(ViewCameraWire.Scale))]
-    public static partial ViewCameraWire ToWire(ViewCamera.Perspective camera);
-
-    [MapValue(nameof(ViewCameraWire.Projection), OrthographicKind)]
-    [MapProperty([nameof(ViewCamera.Orthographic.Frame), nameof(CameraFrame.Eye)], [nameof(ViewCameraWire.Eye)])]
-    [MapProperty([nameof(ViewCamera.Orthographic.Frame), nameof(CameraFrame.Target)], [nameof(ViewCameraWire.Target)])]
-    [MapProperty([nameof(ViewCamera.Orthographic.Frame), nameof(CameraFrame.Up)], [nameof(ViewCameraWire.Up)])]
-    [MapProperty(nameof(ViewCamera.Orthographic.ViewHeight), nameof(ViewCameraWire.Scale))]
-    public static partial ViewCameraWire ToWire(ViewCamera.Orthographic camera);
-
-    // The wire's one lens scalar carries the symmetric vertical envelope in degrees; the browser leg renders a
-    // review view, never a stereo eye, so the asymmetry stays a live-session fact and the collapse spells the
-    // camera union's own `VerticalFieldDeg` rather than re-deriving the angle difference here.
-    [MapValue(nameof(ViewCameraWire.Projection), PerspectiveKind)]
-    [MapProperty([nameof(ViewCamera.Asymmetric.Frame), nameof(CameraFrame.Eye)], [nameof(ViewCameraWire.Eye)])]
-    [MapProperty([nameof(ViewCamera.Asymmetric.Frame), nameof(CameraFrame.Target)], [nameof(ViewCameraWire.Target)])]
-    [MapProperty([nameof(ViewCamera.Asymmetric.Frame), nameof(CameraFrame.Up)], [nameof(ViewCameraWire.Up)])]
-    [MapProperty(nameof(ViewCamera.Asymmetric.VerticalFieldDeg), nameof(ViewCameraWire.Scale))]
-    public static partial ViewCameraWire ToWire(ViewCamera.Asymmetric camera);
-
-    [MapPropertyFromSource(nameof(ViewpointWire.Camera), Use = nameof(Lens))]
-    [MapProperty(nameof(Viewpoint.At), nameof(ViewpointWire.At), Use = nameof(Iso))]
-    public static partial ViewpointWire ToWire(Viewpoint view);
-
-    // The camera crosses through the union's OWN generated total `Switch`, each arm composing the generated
-    // per-case mapper above — so a fourth camera case breaks this fan at compile time and no hand-built wire
-    // record survives anywhere on the seam.
-    [UserMapping]
-    private static ViewCameraWire Lens(Viewpoint view) => view.Camera.Switch(
-        perspective: static camera => ToWire(camera),
-        orthographic: static camera => ToWire(camera),
-        asymmetric: static camera => ToWire(camera));
-
-    [UserMapping]
-    private static string Iso(Instant at) => InstantPattern.ExtendedIso.Format(at);
-
-    [MapPropertyFromSource(nameof(VisibilityOverrideWire.Visible), Use = nameof(Shown))]
-    [MapPropertyFromSource(nameof(VisibilityOverrideWire.ColorArgb), Use = nameof(Tint))]
-    [MapPropertyFromSource(nameof(VisibilityOverrideWire.Transparency), Use = nameof(Ghost))]
-    public static partial VisibilityOverrideWire ToWire(VisibilityOverride row);
-
-    // The three wire columns are DERIVATIONS of the one override state, so the crossing shape is unchanged
-    // while the illegal corners it used to admit stay unspellable on the domain side.
-    private static bool Shown(VisibilityOverride row) => row.State.Visible;
-    private static Option<uint> Tint(VisibilityOverride row) => row.State.ColorArgb;
-    private static double Ghost(VisibilityOverride row) => row.State.Transparency;
-
-    [MapProperty(nameof(ViewMeasurement.Total), nameof(ViewMeasurementWire.TotalMeters), Use = nameof(Metres))]
-    [MapProperty(nameof(ViewMeasurement.Angles), nameof(ViewMeasurementWire.AnglesDegrees), Use = nameof(Degrees))]
-    public static partial ViewMeasurementWire ToWire(ViewMeasurement measurement);
-
-    [MapProperty(nameof(ViewMeasurementPoint.SourceKey), nameof(ViewMeasurementPointWire.SourceKey), Use = nameof(KeyHex))]
-    public static partial ViewMeasurementPointWire ToWire(ViewMeasurementPoint point);
-
-    // `Stream` is the ONE ignored target: it is the layout table's KEY, which no span member carries, so the
-    // layout reader seats it beside the generated columns — the stated exception, not an inventory row.
-    [MapperIgnoreTarget(nameof(MeshoptStreamWire.Stream))]
-    [MapProperty([nameof(StreamSpan.Mode), nameof(StreamMode.Key)], [nameof(MeshoptStreamWire.Mode)])]
-    [MapProperty([nameof(StreamSpan.Filter), nameof(StreamFilter.Key)], [nameof(MeshoptStreamWire.Filter)])]
-    [MapProperty(nameof(StreamSpan.Offset), nameof(MeshoptStreamWire.ByteOffset))]
-    [MapProperty(nameof(StreamSpan.Length), nameof(MeshoptStreamWire.ByteLength))]
-    public static partial MeshoptStreamWire ToWire(StreamSpan span);
-
-    // Member-wise off the frozen descriptor, so a column the producer appends lands here as one row and a
-    // silent positional transposition of the four same-typed offset/count slots is unspellable.
-    public static partial MeshletWire ToWire(ResidencyMeshlet cluster);
-
-    // One residency tile wire row = one Compute `ResidencyPayload` projected 1:1 — the content and blob keys are
-    // the payload's own `XxHash128` (never re-hashed off raw positions), the EXT_meshopt_compression bufferViews
-    // are its `StreamSpan` layout, the cone-cull clusters its meshopt-built set, and the bounds its
-    // self-described sphere. The tile carries ONE identity rendered to hex at this edge; a second placement key
-    // beside it would be the same value under two names.
-    [MapProperty(nameof(ResidencyPayload.Kind), nameof(ResidencyTileWire.Kind), Use = nameof(KindKey))]
-    [MapProperty(nameof(ResidencyPayload.ContentKey), nameof(ResidencyTileWire.ContentKey), Use = nameof(KeyHex))]
-    [MapProperty(nameof(ResidencyPayload.ContentKey), nameof(ResidencyTileWire.BlobKey), Use = nameof(BlobKeyOf))]
-    [MapProperty(nameof(ResidencyPayload.EncodedBytes), nameof(ResidencyTileWire.Bytes))]
-    [MapPropertyFromSource(nameof(ResidencyTileWire.Bounds), Use = nameof(Sphere))]
-    [MapPropertyFromSource(nameof(ResidencyTileWire.Streams), Use = nameof(Layout))]
-    [MapProperty(nameof(ResidencyPayload.Clusters), nameof(ResidencyTileWire.Meshlets))]
-    public static partial ResidencyTileWire ToWire(ResidencyPayload payload);
-
-    [UserMapping] private static string KindKey(ResidencyKind kind) => kind.Key;
-
-    [UserMapping] private static double Metres(UnitsNet.Length length) => length.Meters;
-
-    // The producer measures its LOD chain in single precision and the wire carries double, so the optional
-    // half needs its own widening arrow: a generic `Option<T>` converter is refused outright (RMG001) and the
-    // default conversion set would otherwise reach LanguageExt's throwing explicit cast.
-    [UserMapping] private static Option<double> Widen(Option<float> value) => value.Map(static held => (double)held);
-
-    // Per-pair non-generic converters: a `Seq<T>` target has no proven native construction on this generator,
-    // so each collection pair states its own arrow rather than a refused generic one.
-    [UserMapping] private static Seq<double> Degrees(Seq<UnitsNet.Angle> angles) => angles.Map(static angle => angle.Degrees);
-    [UserMapping] private static Seq<VisibilityOverrideWire> Wire(Seq<VisibilityOverride> rows) => rows.Map(ToWire);
-    [UserMapping] private static Seq<ViewMeasurementWire> Wire(Seq<ViewMeasurement> rows) => rows.Map(ToWire);
-    [UserMapping] private static Seq<ViewMeasurementPointWire> Wire(Seq<ViewMeasurementPoint> rows) => rows.Map(ToWire);
-    [UserMapping] private static Seq<MeshletWire> Wire(Seq<ResidencyMeshlet> rows) => rows.Map(ToWire);
-    [UserMapping] private static Option<SectionBoxWire> Wire(Option<SectionBox> section) => section.Map(ToWire);
-
-    [MapPropertyFromSource(nameof(SectionBoxWire.Min), Use = nameof(Low))]
-    [MapPropertyFromSource(nameof(SectionBoxWire.Max), Use = nameof(High))]
-    public static partial SectionBoxWire ToWire(SectionBox box);
-
-    private static System.Collections.Immutable.ImmutableArray<double> Low(SectionBox box) => [box.MinX, box.MinY, box.MinZ];
-    private static System.Collections.Immutable.ImmutableArray<double> High(SectionBox box) => [box.MaxX, box.MaxY, box.MaxZ];
-
-    // Bounds cross as `[x, y, z, radius]` — the sphere's four scalars in the order the web decoder reads them.
-    private static System.Collections.Immutable.ImmutableArray<double> Sphere(ResidencyPayload payload) =>
-        [payload.Center.X, payload.Center.Y, payload.Center.Z, payload.Radius];
-
-    // Compute owns every decode parameter, including the per-stream codec version, and the wire order is the
-    // payload's own byte order so a consumer reads spans in the sequence they occupy. The layout KEY seats
-    // here because it is the table's, not the span's — the one ignored target above.
-    private static Seq<MeshoptStreamWire> Layout(ResidencyPayload payload) =>
-        toSeq(payload.Layout.OrderBy(static slot => slot.Value.Offset))
-            .Map(static slot => ToWire(slot.Value) with { Stream = slot.Key.Key });
-
-    [UserMapping]
-    private static System.Collections.Immutable.ImmutableArray<double> Triple(System.Numerics.Vector3 v) => [v.X, v.Y, v.Z];
-}
-
-// --- [COMPOSITION] --------------------------------------------------------------------------
-public sealed record ResidencyManifest(
-    int Version,
-    ViewpointWire Viewpoint,
-    Seq<ResidencyTileWire> Tiles,
-    long VramBudget) {
-    // The schema pins the CLUSTER ROSTER as much as the envelope: a decoder reading a column set one row short
-    // of the producer's stops at the wrong offset on every cluster past the first, so a descriptor row lands
-    // with its schema bump and a widened wire under a held schema is the silent-transposition form. Four is the
-    // roster carrying the producer's `Parent`, `ParentError`, and `Cut` columns.
-    public const int Schema = 4;
-
-    // Mint joins the AppUi residency decision (which content-addressed payloads are resident) with the Compute
-    // payload codec (the EXT_meshopt_compression streams, clusters, bounds, content key) — a pure projection,
-    // never re-deriving geometry, content keys, or streams from AppUi-internal owners; a resident scene tile
-    // with no matching payload is dropped, never re-hashed.
-    public static ResidencyManifest Mint(
+    public static Fin<string> Json(
         Viewpoint viewpoint,
         ResidencyPlan plan,
         HashMap<UInt128, ResidencyPayload> payloads,
         long vramBudget) =>
-        new(Schema, ResidencyMap.ToWire(viewpoint),
-            plan.Resident.Choose(tile => payloads.Find(tile.ContentKey).Map(ResidencyMap.ToWire)),
-            vramBudget);
+        Mint(viewpoint, plan, payloads, vramBudget)
+            .Map(static wire => WireJson.Formatter.Format(wire));
 
-    // The package's ONE serializer posture: `EvidenceOps.Wire` is the merged suite options whose app-root mint
-    // folds `AppUiWireContext.Default` in, so camel-case naming, unmapped-member refusal, nullable respect, and
-    // the `Option`-omission modifier all reach this crossing from the same authority every other AppUi payload
-    // takes. A residency-local `JsonSerializerContext` was a second posture declaration over one estate law.
-    public string Encode() => JsonSerializer.Serialize(this, EvidenceOps.Wire);
+    public static Fin<Host.GeometryResidency> Mint(
+        Viewpoint viewpoint,
+        ResidencyPlan plan,
+        HashMap<UInt128, ResidencyPayload> payloads,
+        long vramBudget) {
+        Validation<Error, Seq<Host.ResidencyTileWire>> tiles = plan.Resident
+            .Traverse(tile => payloads.Find(tile.ContentKey)
+                .ToValidation<Error>(new ViewportFault.ContextUnavailable(
+                    $"residency/payload: resident {ContentHash.Hex(tile.ContentKey)} is absent from the payload census"))
+                .Map(Tile))
+            .As();
+        Validation<Error, ulong> budget = vramBudget >= 0L
+            ? Success<Error, ulong>(checked((ulong)vramBudget))
+            : Fail<Error, ulong>(new ViewportFault.BudgetExceeded(
+                $"residency/budget: wire budget {vramBudget}b is negative"));
+        return (tiles, budget).Apply((resident, admittedBudget) => {
+            Host.GeometryResidency wire = new() {
+                Version = Schema,
+                Viewpoint = View(viewpoint),
+                VramBudget = admittedBudget,
+            };
+            wire.Tiles.Add(resident);
+            return wire;
+        }).As().ToFin();
+    }
+
+    public static Host.ViewpointWire View(Viewpoint view) {
+        Host.ViewpointWire wire = new() {
+            Key = view.Key,
+            Version = checked((uint)view.Version),
+            Camera = Camera(view.Camera),
+            At = view.At.ToTimestamp(),
+        };
+        view.Section.Iter(section => wire.Section = Section(section));
+        wire.Overrides.Add(view.Overrides.Map(Visibility));
+        wire.Selection.Add(view.Selection);
+        wire.Measurements.Add(view.Measurements.Map(Measurement));
+        return wire;
+    }
+
+    public static Fin<Viewpoint> ParseView(string json) {
+        Op key = Op.Of(name: "appui.viewpoint.decode");
+        return key.Catch(() => View(WireJson.Parser.Parse<Host.ViewpointWire>(json), key));
+    }
+
+    private static Fin<Viewpoint> View(Host.ViewpointWire wire, Op key) {
+        if (wire.Version != Viewpoint.Schema) {
+            return Fin.Fail<Viewpoint>(new ViewportFault.ContextUnavailable(
+                $"viewpoint/decode: schema {wire.Version} is not {Viewpoint.Schema}"));
+        }
+        return
+            from camera in Camera(wire.Camera)
+            from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row, key)).As()
+            from at in Optional(wire.At)
+                .ToFin(new ViewportFault.ContextUnavailable("viewpoint/decode: timestamp is absent"))
+                .Bind(value => key.Catch(() => Fin.Succ(value.ToInstant())))
+            from view in Viewpoint.Capture(
+                wire.Key,
+                camera,
+                Optional(wire.Section).Map(Section),
+                toSeq(wire.Overrides).Map(Visibility),
+                toSeq(wire.Selection),
+                measurements,
+                at)
+            select view;
+    }
+
+    private static Host.ViewCameraWire Camera(ViewCamera camera) => camera.Switch(
+        perspective: static value => new Host.ViewCameraWire {
+            Frame = Frame(value.Frame),
+            Perspective = new Host.ViewCameraWire.Types.Perspective {
+                FieldOfViewDegrees = value.FieldOfViewDeg,
+            },
+        },
+        orthographic: static value => new Host.ViewCameraWire {
+            Frame = Frame(value.Frame),
+            Orthographic = new Host.ViewCameraWire.Types.Orthographic {
+                ViewHeight = value.ViewHeight,
+                RetainedFieldDegrees = value.RetainedFieldDeg,
+            },
+        },
+        asymmetric: static value => new Host.ViewCameraWire {
+            Frame = Frame(value.Frame),
+            Asymmetric = new Host.ViewCameraWire.Types.Asymmetric {
+                AngleLeftRadians = value.AngleLeft,
+                AngleRightRadians = value.AngleRight,
+                AngleUpRadians = value.AngleUp,
+                AngleDownRadians = value.AngleDown,
+            },
+        });
+
+    private static Fin<ViewCamera> Camera(Host.ViewCameraWire camera) =>
+        camera.LensCase switch {
+            Host.ViewCameraWire.LensOneofCase.Perspective => Fin.Succ<ViewCamera>(
+                new ViewCamera.Perspective(Frame(camera.Frame), camera.Perspective.FieldOfViewDegrees)),
+            Host.ViewCameraWire.LensOneofCase.Orthographic => Fin.Succ<ViewCamera>(
+                new ViewCamera.Orthographic(
+                    Frame(camera.Frame),
+                    camera.Orthographic.ViewHeight,
+                    camera.Orthographic.RetainedFieldDegrees)),
+            Host.ViewCameraWire.LensOneofCase.Asymmetric => Fin.Succ<ViewCamera>(
+                new ViewCamera.Asymmetric(
+                    Frame(camera.Frame),
+                    camera.Asymmetric.AngleLeftRadians,
+                    camera.Asymmetric.AngleRightRadians,
+                    camera.Asymmetric.AngleUpRadians,
+                    camera.Asymmetric.AngleDownRadians)),
+            _ => Fin.Fail<ViewCamera>(new ViewportFault.ContextUnavailable(
+                $"viewpoint/decode: camera lens {camera.LensCase} is not admitted")),
+        };
+
+    private static Host.SectionBoxWire Section(SectionBox box) =>
+        new() {
+            Min = Point(box.MinX, box.MinY, box.MinZ),
+            Max = Point(box.MaxX, box.MaxY, box.MaxZ),
+        };
+
+    private static SectionBox Section(Host.SectionBoxWire box) =>
+        new(box.Min.X, box.Min.Y, box.Min.Z, box.Max.X, box.Max.Y, box.Max.Z);
+
+    private static Host.VisibilityOverrideWire Visibility(VisibilityOverride row) {
+        Host.VisibilityOverrideWire wire = new() {
+            ElementId = row.ElementId,
+            Visible = row.Visible,
+            Transparency = row.Transparency,
+        };
+        row.ColorArgb.Iter(value => wire.ColorArgb = value);
+        return wire;
+    }
+
+    private static VisibilityOverride Visibility(Host.VisibilityOverrideWire row) =>
+        new(row.ElementId, OverrideState.Of(
+            row.Visible,
+            row.HasColorArgb ? Some(row.ColorArgb) : Option<uint>.None,
+            row.Transparency));
+
+    private static Host.ViewMeasurementWire Measurement(ViewMeasurement measurement) {
+        Host.ViewMeasurementWire wire = new() {
+            Key = measurement.Key,
+            TotalMeters = measurement.Total.Meters,
+        };
+        wire.Vertices.Add(measurement.Vertices.Map(Point));
+        wire.AnglesDegrees.Add(measurement.Angles.Map(static angle => angle.Degrees));
+        return wire;
+    }
+
+    private static Fin<ViewMeasurement> Measurement(Host.ViewMeasurementWire wire, Op key) =>
+        toSeq(wire.Vertices).TraverseM(point => Point(point, key)).As().Map(vertices => new ViewMeasurement(
+            wire.Key,
+            vertices,
+            UnitsNet.Length.FromMeters(wire.TotalMeters),
+            toSeq(wire.AnglesDegrees).Map(static angle => UnitsNet.Angle.FromDegrees(angle))));
+
+    private static Host.ViewMeasurementPointWire Point(ViewMeasurementPoint point) =>
+        new() {
+            SourceKey = ContentHash.Wire(point.SourceKey),
+            SampleIndex = checked((uint)point.SampleIndex),
+            Position = Point(point.Position),
+        };
+
+    private static Fin<ViewMeasurementPoint> Point(Host.ViewMeasurementPointWire point, Op key) =>
+        ContentHash.Admit(point.SourceKey.Span, key).Map(source => new ViewMeasurementPoint(
+            source,
+            checked((int)point.SampleIndex),
+            Point(point.Position)));
+
+    private static Host.ResidencyTileWire Tile(ResidencyPayload payload) {
+        Host.ResidencyTileWire wire = new() {
+            Kind = Kind(payload.Kind),
+            Artifact = new Rasm.Contracts.Artifact.V1.ArtifactRef {
+                Sha256 = ByteString.CopyFrom(Convert.FromHexString(payload.Artifact.Sha256)),
+                ArtifactBytes = payload.Artifact.Bytes,
+            },
+            ResidentCount = checked((uint)payload.ResidentCount),
+            HarmonicDegree = checked((uint)payload.HarmonicDegree),
+            Bounds = new Host.SphereWire {
+                Center = Point(payload.Center),
+                Radius = payload.Radius,
+            },
+        };
+        wire.Streams.Add(payload.Layout.OrderBy(static slot => slot.Value.Offset)
+            .Select(static slot => Stream(slot.Key, slot.Value)));
+        wire.Meshlets.Add(payload.Clusters.Map(Meshlet));
+        return wire;
+    }
+
+    private static Host.MeshoptStream Stream(ResidencyStream stream, StreamSpan span) =>
+        new() {
+            Stream = stream.Key,
+            Mode = Mode(span.Mode),
+            Filter = Filter(span.Filter),
+            ByteOffset = checked((ulong)span.Offset),
+            ByteLength = checked((ulong)span.Length),
+            Count = checked((ulong)span.Count),
+            ByteStride = checked((uint)span.ByteStride),
+            CodecVersion = checked((uint)span.CodecVersion),
+        };
+
+    private static Host.Meshlet Meshlet(ResidencyMeshlet cluster) {
+        Host.Meshlet wire = new() {
+            VertexOffset = checked((uint)cluster.VertexOffset),
+            TriangleOffset = checked((uint)cluster.TriangleOffset),
+            VertexCount = checked((uint)cluster.VertexCount),
+            TriangleCount = checked((uint)cluster.TriangleCount),
+            Center = Point(cluster.Center),
+            Radius = cluster.Radius,
+            ConeApex = Point(cluster.ConeApex),
+            ConeAxis = Direction(cluster.ConeAxis),
+            ConeCutoff = cluster.ConeCutoff,
+            Level = checked((uint)cluster.Level),
+            Shell = checked((uint)cluster.Shell),
+            Error = cluster.Error,
+            Curvature = cluster.Curvature,
+            Cut = checked((uint)cluster.Cut),
+        };
+        cluster.Parent.Iter(value => wire.Parent = checked((uint)value));
+        cluster.ParentError.Iter(value => wire.ParentError = value);
+        return wire;
+    }
+
+    private static Host.ResidencyKind Kind(ResidencyKind value) => value.Switch(
+        state: unit,
+        meshletCluster: static _ => Host.ResidencyKind.MeshletCluster,
+        quantizedVertex: static _ => Host.ResidencyKind.QuantizedVertex,
+        pointSplat: static _ => Host.ResidencyKind.PointSplat,
+        gaussianSplat: static _ => Host.ResidencyKind.GaussianSplat);
+
+    private static Host.StreamMode Mode(StreamMode value) => value.Switch(
+        state: unit,
+        attributes: static _ => Host.StreamMode.Attributes,
+        triangles: static _ => Host.StreamMode.Triangles,
+        indices: static _ => Host.StreamMode.Indices,
+        raw: static _ => Host.StreamMode.Raw);
+
+    private static Host.StreamFilter Filter(StreamFilter value) => value.Switch(
+        state: unit,
+        none: static _ => Host.StreamFilter.None,
+        octahedral: static _ => Host.StreamFilter.Octahedral,
+        quaternion: static _ => Host.StreamFilter.Quaternion,
+        exponential: static _ => Host.StreamFilter.Exponential);
+
+    private static Rasm.Contracts.Spatial.V1.Point3 Point(System.Numerics.Vector3 value) =>
+        Point(value.X, value.Y, value.Z);
+
+    private static Rasm.Contracts.Spatial.V1.UnitDirection3 Direction(System.Numerics.Vector3 value) =>
+        new() { X = value.X, Y = value.Y, Z = value.Z };
+
+    private static Host.ViewCameraWire.Types.Frame Frame(CameraFrame frame) =>
+        new() { Eye = Point(frame.Eye), Target = Point(frame.Target), Up = Direction(frame.Up) };
+
+    private static CameraFrame Frame(Host.ViewCameraWire.Types.Frame frame) =>
+        new(Point(frame.Eye), Point(frame.Target), Direction(frame.Up));
+
+    private static System.Numerics.Vector3 Point(Rasm.Contracts.Spatial.V1.Point3 value) =>
+        new((float)value.XM, (float)value.YM, (float)value.ZM);
+
+    private static System.Numerics.Vector3 Direction(Rasm.Contracts.Spatial.V1.UnitDirection3 value) =>
+        new((float)value.X, (float)value.Y, (float)value.Z);
+
+    private static Rasm.Contracts.Spatial.V1.Point3 Point(double x, double y, double z) =>
+        new() { XM = x, YM = y, ZM = z };
 }
 ```
 
@@ -1485,7 +1424,7 @@ public sealed record ResidencyManifest(
 
 - [VIEWPORT_GPU]: `GpuBackend.Target` absorbs Ganesh, raster, Wgpu, and browser target construction over the closed `GpuBinding` union, every arm reading the one `RenderTargetRequest` the resolve row derived and answering the sample count its allocation GRANTED, while `GpuBackend.Traits` states what each substrate can run so a pass roster narrows on set algebra rather than a case list. `RenderGraph` proves its pass order once at composition, advances `ResolveState` through the kernel commit, brackets one leased target at the requested extent, threads one `FrameView` into the cull and geometry arms, executes the proved order over one fold-carried cut, and seals measured `WgpuFrameEvidence`; meshlet, path-trace, resolve, and simulation acceleration remain pass delegates under that lease and create no parallel device or target owner.
 - [WGPU_BACKEND]: `WgpuPresentation` discriminates exclusive swapchain presentation from compositor import; its composited arm elects its `SyncArm` row ONCE from `GetSynchronizationCapabilities`, awaits `ImportCompleted`, answers a transient refusal on every `IsLost` state, and submits through the row's own `UpdateWith*Async` member. Timestamp resolve, buffer map, queue submission, and device polling retire through the one `WgpuFrameEvidence` lane, and `WgpuErrorScope` brackets every accelerated pass encoding inside the frame fold.
-- [WEB_RESIDENCY]: `ResidencyManifest` is the single C# mint of the browser residency wire. `ResidencyMap` projects Compute `ResidencyPayload` stream spans, meshlet hierarchy, bounds, content keys, and admitted splat tiles into one content-addressed manifest through one generated seam; the browser consumes that wire and never re-mints payload identity, hierarchy, or blob keys.
+- [WEB_RESIDENCY]: `ResidencyMap.Mint` projects Compute `ResidencyPayload` stream spans, meshlet hierarchy, bounds, content keys, and admitted splat tiles directly into generated `Render.V1.GeometryResidency`; the browser imports the same generated schema, and ProtoJSON crosses through AppHost `WireJson.Formatter` with no hand manifest, interface, or codec posture beside it.
 
 ## [06]-[RESEARCH]
 

@@ -1,0 +1,289 @@
+syntax = "proto3";
+
+package rasm.contracts.ui.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "rasm/contracts/fault/v1/fault.proto";
+import "rasm/contracts/receipt/v1/envelope.proto";
+import "rasm/contracts/ui/v1/commands.proto";
+
+// --- [VOCABULARIES] ---------------------------------------------------------------------
+
+// The version names the canonical raster preimage law, so a new framing is a new value, never a re-read of
+// the old one.
+enum PixelLayout {
+  PIXEL_LAYOUT_UNSPECIFIED = 0;
+  PIXEL_LAYOUT_RGBA8_SRGB_STRAIGHT_TOP_LEFT_V2 = 1;
+}
+enum MediaOutcome {
+  MEDIA_OUTCOME_UNSPECIFIED = 0;
+  MEDIA_OUTCOME_READY = 1;
+  MEDIA_OUTCOME_FAILED = 2;
+}
+
+// --- [EVIDENCE] -------------------------------------------------------------------------
+
+message PixelIdentityWire {
+  PixelLayout layout = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint32 width = 2 [(buf.validate.field).uint32.gt = 0];
+  uint32 height = 3 [(buf.validate.field).uint32.gt = 0];
+  bytes hash = 4 [(buf.validate.field).bytes.len = 16];
+}
+
+message NativeAssetFactWire {
+  string library = 1 [(buf.validate.field).string.min_len = 1];
+  optional string version = 2 [(buf.validate.field).string.min_len = 1];
+  string path = 3 [(buf.validate.field).string.min_len = 1];
+  string rid = 4 [(buf.validate.field).string.min_len = 1];
+}
+
+// One arm per process-local evidence family; the sealed envelope carries correlation, tenant, and the HLC
+// stamp, so no arm repeats them beyond its own producer columns.
+message EvidenceReceiptWire {
+  // Ordinal 2 is MEDIA_OUTCOME_FAILED. A CEL naming an enum value by its qualified path compiles under buf and
+  // raises `No value with name "rasm" found in Activation` under protovalidate, leaving the message unvalidatable
+  // on every input.
+  option (buf.validate.message).cel = {
+    id: "evidence.media.fault"
+    message: "a failed media outcome carries its fault and a ready one carries none"
+    expression: "!has(this.media) || ((this.media.outcome == 2) == has(this.media.fault))"
+  };
+
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    Surface surface = 1;
+    Focus focus = 2;
+    Render render = 3;
+    Disposal disposal = 4;
+    Edit edit = 5;
+    DeckReceiptWire command = 6;
+    NativeAssetFactWire native_asset = 7;
+    Theme theme = 8;
+    Motion motion = 9;
+    Effect effect = 10;
+    Asset asset = 11;
+    LiveData live_data = 12;
+    CollabSync collab_sync = 13;
+    CollabRevert collab_revert = 14;
+    Media media = 15;
+    Quality quality = 16;
+    GpuFrame gpu_frame = 17;
+    Layout layout = 18;
+    DispatcherLag dispatcher_lag = 19;
+    PreCommit pre_commit = 20;
+  }
+
+  message Surface {
+    string host = 1 [(buf.validate.field).string.min_len = 1];
+    string descriptor = 2 [(buf.validate.field).string.min_len = 1];
+    double scale = 3 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+    optional string handle = 4 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Focus {
+    string target = 1 [(buf.validate.field).string.min_len = 1];
+    bool focused = 2;
+  }
+
+  message Render {
+    string slot = 1 [(buf.validate.field).string.min_len = 1];
+    string format = 2 [(buf.validate.field).string.min_len = 1];
+    bytes frame_hash = 3 [(buf.validate.field).bytes.len = 16];
+    uint64 bytes = 4;
+    google.protobuf.Duration elapsed = 5 [
+      (buf.validate.field).required = true,
+      (buf.validate.field).duration.gte = {}
+    ];
+    string color_space = 6 [(buf.validate.field).string.min_len = 1];
+    optional bytes draw_hash = 7 [(buf.validate.field).bytes.len = 16];
+    PixelIdentityWire pixels = 8;
+    optional string destination = 9 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Disposal {
+    string screen_id = 1 [(buf.validate.field).string.min_len = 1];
+    google.protobuf.Duration active = 2 [
+      (buf.validate.field).required = true,
+      (buf.validate.field).duration.gte = {}
+    ];
+    uint32 disposables = 3;
+  }
+
+  message Edit {
+    string slot = 1 [(buf.validate.field).string.min_len = 1];
+    string surface = 2 [(buf.validate.field).string.min_len = 1];
+    string target = 3 [(buf.validate.field).string.min_len = 1];
+    string editor = 4 [(buf.validate.field).string.min_len = 1];
+    string outcome = 5 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Theme {
+    string variant = 1 [(buf.validate.field).string.min_len = 1];
+    string density = 2 [(buf.validate.field).string.min_len = 1];
+    string trigger = 3 [(buf.validate.field).string.min_len = 1];
+    uint32 changed_keys = 4;
+  }
+
+  message Motion {
+    string token = 1 [(buf.validate.field).string.min_len = 1];
+    string resolved = 2 [(buf.validate.field).string.min_len = 1];
+    bool reduced = 3;
+  }
+
+  message Effect {
+    string plane = 1 [(buf.validate.field).string.min_len = 1];
+    string key = 2 [(buf.validate.field).string.min_len = 1];
+    string outcome = 3 [(buf.validate.field).string.min_len = 1];
+    bool flag = 4;
+    uint32 count = 5;
+    oneof measure {
+      option (buf.validate.oneof).required = true;
+
+      int64 whole = 6 [(buf.validate.field).int64.gte = 0];
+      bytes digest = 7 [(buf.validate.field).bytes.len = 16];
+      Extent extent = 8;
+      google.protobuf.Timestamp moment = 9;
+      string coordinate = 10 [(buf.validate.field).string.min_len = 1];
+    }
+
+    message Extent {
+      uint32 rows = 1 [(buf.validate.field).uint32.gt = 0];
+      uint32 columns = 2 [(buf.validate.field).uint32.gt = 0];
+    }
+  }
+
+  message Asset {
+    string key = 1 [(buf.validate.field).string.min_len = 1];
+    string asset_kind = 2 [(buf.validate.field).string.min_len = 1];
+    string origin = 3 [(buf.validate.field).string.min_len = 1];
+    double scale = 4 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+    bytes content_hash = 5 [(buf.validate.field).bytes.len = 16];
+  }
+
+  message LiveData {
+    string slot = 1 [(buf.validate.field).string.min_len = 1];
+    uint32 adds = 2;
+    uint32 updates = 3;
+    uint32 removes = 4;
+    uint32 refreshes = 5;
+  }
+
+  message CollabSync {
+    string doc_key = 1 [(buf.validate.field).string.min_len = 1];
+    uint32 deltas = 2;
+    uint64 bytes = 3;
+    uint32 pending = 4;
+    bool applied = 5;
+  }
+
+  message CollabRevert {
+    string doc_key = 1 [(buf.validate.field).string.min_len = 1];
+    bytes frontier_digest = 2 [(buf.validate.field).bytes.len = 16];
+    uint32 inverse_ops = 3;
+  }
+
+  message Media {
+    string key = 1 [(buf.validate.field).string.min_len = 1];
+    string codec = 2 [(buf.validate.field).string.min_len = 1];
+    string source = 3 [(buf.validate.field).string.min_len = 1];
+    MediaOutcome outcome = 4 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    rasm.contracts.fault.v1.FaultObservation fault = 5;
+  }
+
+  message Quality {
+    string tier = 1 [(buf.validate.field).string.min_len = 1];
+    uint32 path_trace_samples = 2;
+    double watermark_factor = 3 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+    string motion = 4 [(buf.validate.field).string.min_len = 1];
+    uint32 foveation_level = 5;
+    double refresh_hz = 6 [(buf.validate.field).double = {
+      finite: true
+      gt: 0
+    }];
+  }
+
+  message GpuFrame {
+    uint64 frame_ordinal = 1;
+    uint32 passes = 2;
+    uint32 unmeasured = 3;
+    uint64 measured_nanoseconds = 4;
+  }
+
+  message Layout {
+    string panel = 1 [(buf.validate.field).string.min_len = 1];
+    uint32 constraints = 2;
+    google.protobuf.Duration elapsed = 3 [
+      (buf.validate.field).required = true,
+      (buf.validate.field).duration.gte = {}
+    ];
+    rasm.contracts.fault.v1.FaultObservation fault = 4;
+  }
+
+  message DispatcherLag {
+    string boundary = 1 [(buf.validate.field).string.min_len = 1];
+    google.protobuf.Duration elapsed = 2 [
+      (buf.validate.field).required = true,
+      (buf.validate.field).duration.gte = {}
+    ];
+  }
+
+  message PreCommit {
+    string doc_key = 1 [(buf.validate.field).string.min_len = 1];
+    uint64 lamport = 2;
+    uint64 ops = 3;
+    string origin = 4 [(buf.validate.field).string.min_len = 1];
+    optional string message = 5 [(buf.validate.field).string.min_len = 1];
+  }
+}
+
+// The server-owned overlap component of the HLC fold, so a dashboard renders uncertainty without
+// recomputing it.
+message SkewBandWire {
+  option (buf.validate.message).cel = {
+    id: "evidence.skew_order"
+    message: "the skew band must be ordered"
+    expression: "this.earliest <= this.latest"
+  };
+
+  google.protobuf.Timestamp earliest = 1 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp latest = 2 [(buf.validate.field).required = true];
+}
+
+// The composition site: the cross-package receipt spine beside THIS package's closed receipt family, so the
+// payload is exhaustive at every arm and the producing package derives from the arm rather than from a key.
+message EvidenceRowWire {
+  uint32 ordinal = 1;
+  uint32 uncertainty_group = 2;
+  rasm.contracts.receipt.v1.ReceiptHeaderWire header = 3 [(buf.validate.field).required = true];
+  SkewBandWire band = 4 [(buf.validate.field).required = true];
+  EvidenceReceiptWire receipt = 5 [(buf.validate.field).required = true];
+}
+
+message EvidenceTimelineWire {
+  option (buf.validate.message).cel = {
+    id: "evidence.timeline_ordinals_unique"
+    message: "evidence timeline ordinals must be unique"
+    expression: "this.rows.map(r, r.ordinal).unique()"
+  };
+
+  bytes correlation = 1 [(buf.validate.field).bytes.len = 16];
+  repeated EvidenceRowWire rows = 2 [(buf.validate.field).repeated.max_items = 4096];
+}

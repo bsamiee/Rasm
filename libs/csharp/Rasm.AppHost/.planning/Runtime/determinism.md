@@ -1,6 +1,6 @@
 # [APPHOST_DETERMINISM_AND_REPLAY]
 
-The reproducibility kernel for the runtime spine: one determinism context pins the RNG seed, the floating-point column set, and the environment fingerprint so a recorded run reproduces bit-for-bit, a hash-chained log appends every command as a content-addressed entry linking to its predecessor and publishing durably in one motion, a replay-verify rail re-executes a recorded log and proves each step's content hash matches, a macro engine records a command sequence and replays it as a reusable unit, a partial-recompute graph re-runs only the downstream of a changed input by walking the content-address dependency edges and prunes at the first unchanged output, and an adversarial probe DECIDES every chaos injection at a seeded gate, chains each decision as an entry a replay re-derives and re-injects, folds decided against observed injections so a swallowed campaign names itself, and bisects a divergence over the hash chain in log-time. The page owns every owner that sentence names, the addressed draw and its declared lane roster, `HostFingerprint` and its `HostFingerprintWire` for the whole estate, and the four-plane chaos gate every arming site composes; it consumes `CommandReceipt`/`CommandArguments`/`CommandAlgebra`, `ReceiptEnvelope`/`ReceiptSinkPort` (HLC stamp), the Persistence `Version/ledger#CHANGEFEED` durable changefeed through one BIDIRECTIONAL decode-only PORT adapter (a NEUTRAL projected row crosses down and the windowed read decodes back RE-VERIFYING the chain, so replay and bisect survive process restarts), the kernel `Rasm.Domain.CanonicalWriter`/`ContentHash` identity capsule for every content digest (`ChainHash` is the typed chain-link carrier over the kernel `UInt128`) beside `Rasm.Domain.Deterministic` and its `IDrawLane<TSelf>` roster law for the addressed draw, the `Runtime/laneguard` and `Wire/outbound` pipelines as the arming sites this page hands chaos options, `CorrelationId`, and `TenantContext` as settled vocabulary and mints no eighth port.
+The reproducibility kernel for the runtime spine: one determinism context pins the RNG seed, the floating-point column set, and the environment fingerprint so a recorded run reproduces bit-for-bit, a hash-chained log appends every command as a content-addressed entry linking to its predecessor and publishing durably in one motion, a replay-verify rail re-executes a recorded log and proves each step's content hash matches, a macro engine records a command sequence and replays it as a reusable unit, a partial-recompute graph re-runs only the downstream of a changed input by walking the content-address dependency edges and prunes at the first unchanged output, and an adversarial probe DECIDES every chaos injection at a seeded gate, chains each decision as an entry a replay re-derives and re-injects, folds decided against observed injections so a swallowed campaign names itself, and bisects a divergence over the hash chain in log-time. The page owns every owner that sentence names, the addressed draw and its declared lane roster, `HostFingerprint` and its projection onto generated `Benchmark.V1.HostFingerprintWire`, and the four-plane chaos gate every arming site composes; it consumes `CommandReceipt`/`CommandArguments`/`CommandAlgebra`, `ReceiptEnvelope`/`ReceiptSinkPort` (HLC stamp), the Persistence `Version/ledger#CHANGEFEED` durable changefeed through one BIDIRECTIONAL decode-only PORT adapter (a NEUTRAL projected row crosses down and the windowed read decodes back RE-VERIFYING the chain, so replay and bisect survive process restarts), the kernel `Rasm.Domain.CanonicalWriter`/`ContentHash` identity capsule for every content digest (`ChainHash` is the typed chain-link carrier over the kernel `UInt128`) beside `Rasm.Domain.Deterministic` and its `IDrawLane<TSelf>` roster law for the addressed draw, the `Runtime/laneguard` and `Wire/outbound` pipelines as the arming sites this page hands chaos options, `CorrelationId`, and `TenantContext` as settled vocabulary and mints no eighth port.
 
 ## [01]-[INDEX]
 
@@ -14,27 +14,26 @@ The reproducibility kernel for the runtime spine: one determinism context pins t
 
 ## [02]-[DETERMINISM_KERNEL]
 
-- Owner: `HostFingerprint` the environment-identity record and `HostFingerprintWire` its frozen `[02.15]` projection minted through `HostFingerprintMap`; `LibmProvider` `[SmartEnum<string>]` the transcendental floor a mode admits; `FloatMode` `[SmartEnum<string>]` the floating-point column set as a fingerprint FACT; `EnvFingerprint` the run-identity record; `DeterminismContext` the pinned-run context record carrying the addressed draw; `DeterminismKernel` the static context-establishment surface.
+- Owner: `HostFingerprint` owns environment identity and `HostFingerprintMap` projects it onto generated `Benchmark.V1.HostFingerprintWire`; `LibmProvider` `[SmartEnum<string>]` owns the transcendental floor a mode admits; `FloatMode` `[SmartEnum<string>]` owns the floating-point column set as a fingerprint FACT; `EnvFingerprint` owns run identity; `DeterminismContext` owns the pinned run and its addressed draw; `DeterminismKernel` establishes the context.
 - Cases: 3 float modes — strict, fast, cross-platform — each a triple of `Libm`, `VectorWidthBits`, and `EstimateApis`; strict pins the 128-bit width and refuses the estimate family over the host libm, fast releases the width and admits estimates, cross-platform pins the width, refuses estimates, and EXCLUDES the transcendental floor no RID reproduces. 2 libm rows — host, excluded.
-- Entry: `Establish(ulong seed, FloatMode mode, HostFingerprint host, string rid)` returns `DeterminismContext` — pins the RNG seed and captures the environment fingerprint over the host record, the mode's resolved columns, and the RID so a run under the context is reproducible; `HostFingerprint.Current(FrozenDictionary<string, string> stamps)` is the ambient process-side mint and `ToString()` its canonical invariant render — the one host column every downstream ROW holds; `HostFingerprintMap.Wire(EnvFingerprint)` is the one wire projection and `HostFingerprintWire.Canonical()` its byte-deriving preimage; `DeterminismContext.Address(string stream)` returns the kernel `Deterministic.Draw` bound to the run seed and the stream key's two digest lanes, and `Draw<TLane>(string stream, long ordinal, TLane lane)` is the one-shot unit draw over it, so a per-execution decision taken under concurrency reproduces exactly where a shared stateful stream cannot; `DeterminismKernel.Reproduces(recorded, live)` returns `Fin<Unit>` carrying both fingerprint texts on its refusal.
+- Entry: `Establish(ulong seed, FloatMode mode, HostFingerprint host, string rid)` returns `DeterminismContext` — pins the RNG seed and captures the environment fingerprint over the host record, the mode's resolved columns, and the RID so a run under the context is reproducible; `HostFingerprint.Current(FrozenDictionary<string, string> stamps)` is the ambient process-side mint and `ToString()` its canonical invariant render — the one host column every downstream ROW holds; `HostFingerprintMap.Wire(EnvFingerprint)` directly constructs the generated message whose ProtoJSON leaves through `WireJson`; `DeterminismContext.Address(string stream)` returns the kernel `Deterministic.Draw` bound to the run seed and the stream key's two digest lanes, and `Draw<TLane>(string stream, long ordinal, TLane lane)` is the one-shot unit draw over it, so a per-execution decision taken under concurrency reproduces exactly where a shared stateful stream cannot; `DeterminismKernel.Reproduces(recorded, live)` returns `Fin<Unit>` carrying both fingerprint texts on its refusal.
 - Auto: the ADDRESSED draw binds the kernel `Deterministic.Draw` prefix ONCE per stream — the stream key's full `ContentHash.Of` digest enters as its two `ContentHash.Half` lanes and the root seed rides the seed channel, so no part of either is discarded — and a caller threads `.At(ordinal)` then `.At(lane)` down the loop it already owns, so draw `(stream, ordinal, lane)` answers one number under any interleaving and a recorded address re-derives its own draw with no stream state to rewind; every lane ordinal is a DECLARED `IDrawLane<TSelf>` roster row rather than a positional const, which is the kernel's own law and what scar `SEEDED_FROM_STRING_HASH` costs when it is broken; the environment fingerprint composes the `HostFingerprint` columns with the mode's RESOLVED column values and the RID so a replay on a divergent environment is detected before it produces a wrong result; every digest folds one ordered field stream through the kernel `CanonicalWriter` — int32-LE length-framed UTF-8 text, fixed-width little-endian scalars, count-framed rows — so a record's synthesized `ToString()`, a culture-sensitive number render, and a `FrozenDictionary` enumeration order never reach a preimage.
 - Receipt: `DeterminismContext` carries the seed, the mode, and the environment fingerprint; a determinism mismatch at replay surfaces as `ReplayFault.EnvIncompatible` carrying both texts, never a silent wrong result and never a bare predicate the caller re-derives behind.
-- Packages: Rasm (kernel `CanonicalWriter`/`ContentHash` identity capsule, `Deterministic` with `IDrawLane<TSelf>`), Riok.Mapperly, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one float mode is one `FloatMode` row and one libm floor is one `LibmProvider` row; one environment dimension is one column on `HostFingerprint` beside its digest field, its render lane, and its wire member; a consumer-decided host value is one `extension(HostFingerprint)` member at that consumer's tier, never a column here; a new draw lane is one `IDrawLane` roster row, never a const; zero new surface.
+- Packages: Rasm.Contracts (project — generated `Benchmark.V1.HostFingerprintWire` and `LabelPair`), Google.Protobuf, Rasm (kernel `CanonicalWriter`/`ContentHash` identity capsule, `Deterministic` with `IDrawLane<TSelf>`), Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: one float mode is one `FloatMode` row and one libm floor is one `LibmProvider` row; one environment dimension is one column on `HostFingerprint` beside its digest field, its render lane, and the generated message assignment; a consumer-decided host value is one `extension(HostFingerprint)` member at that consumer's tier, never a column here; a new draw lane is one `IDrawLane` roster row, never a const; zero new surface.
 - Boundary: the determinism kernel is the only reproducibility owner — an ambient `Random.Shared`, a `DateTime.Now`-seeded RNG, and a per-call float-mode flip are the deleted forms; every draw under a context is the kernel `Deterministic` splitmix reached through ONE face, the addressed one, because a stateful stream leased across concurrent executions answers a value that depends on how many draws happened to precede it and no recorded address recovers it — a BCL `new Random(...)` construction, a `System.Random` handed to a sampler, and a second hasher beside the kernel capsule are all deleted here; this kernel DECLARES `HostFingerprint` and `Rasm.Compute/Runtime/claims#CLAIM_ROW` composes it downward as the claim `host` column through Compute's own legal reference, while `Rasm.Persistence` and the Rhino host decode `HostFingerprintWire` alone and import no type — a Compute-side declaration closes the S1-to-S3 cycle the branch acyclicity law forbids, so the spine mints and every consumer composes; the two members only a consumer's own domain decides land as extensions at that consumer and never as columns here, because `CpuBudget` and `ModelResultIndex` never cross downward; equality is GENERATED on both the record and its wire — `Stamps` is a `FrozenDictionary` and the wire's is an `ImmutableArray`, each of which the synthesized record form compares by reference, so `Observability/benchmarks#BENCHMARK_GATE` reads two same-host fingerprints as unequal without `[Equatable]` and its container attribute; the canonical render is the record's own `ToString()` override rather than the synthesized one, so a persisted host column cannot key two ways across a culture or a `FrozenDictionary` build order; `HostFingerprint.Ordered` is the ONE published order for the stamp map because the digest, the render, AND the wire all read it — a `CanonicalWriter.Sorted` fold inside the digest alone would leave the other two sorting beside it, which is exactly the desync `DIGEST_OVER_UNORDERED_CONTAINER` names; the fingerprint digest hashes the mode's resolved COLUMN VALUES and never its key, because a `cross-platform` run at a 256-bit vector width and one at 128 keyed identically under the mode key and `Reproduces` admitted a real numerical divergence; `FloatMode` is a fingerprint FACT and not a policy — no managed knob turns FMA contraction, vector width, or the platform libm off at runtime, so `Establish` binds no runtime configuration and the tolerance-CLASS vocabulary stays `Rasm.Compute/Tensor/vocabulary#ToleranceClass`'s, which composes `EnvFingerprint` where it needs the fact rather than mirroring the columns; the cross-RID guarantee is exactly what the columns pin — `CrossPlatform` reproduces bit-identically on osx-arm64, linux-x64, and win-x64 for kernels inside its floor, and transcendental-dependent kernels sit OUTSIDE it by construction because no managed surface pins the platform libm; `double.MultiplyAddEstimate` is the estimate spelling wherever a fence names one and `Math.MultiplyAddEstimate` does not exist; the seed is the run's single entropy source so a reproducible run draws all randomness from the seed; the recorded instants ride the log entries themselves, so a replay reads them off the chain and needs no second clock beside the command runtime's own `ClockPolicy`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Unicode;
 using Generator.Equals;
 using LanguageExt;
 using Rasm.Domain;
-using Riok.Mapperly.Abstractions;
 using Thinktecture;
+using Host = Rasm.Contracts.Benchmark.V1;
 using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Runtime;
@@ -141,33 +140,6 @@ public sealed record EnvFingerprint(HostFingerprint Host, FloatMode Mode, string
     public string Hex => ContentHash.Hex(Digest);
 }
 
-// The frozen `tests/contracts/MANIFEST.md` `[02.15]-[HOST_FINGERPRINT]` wire on the `host-fingerprint` seam.
-// `Print` is the identity a decoding role is HANDED rather than derives, so a browser mirror reaching no
-// operating-system name spells `Unreachable` — a reader tells a role that cannot reach a fact from a branch that
-// dropped one. `Stamps` crosses as ORDERED PAIRS and never a keyed object, because `Canonical()` reads its
-// iteration order and a JSON object publishes none (`DIGEST_OVER_UNORDERED_CONTAINER`).
-[Equatable]
-public sealed partial record HostFingerprintWire(
-    string Print,
-    string Machine,
-    string Os,
-    string Arch,
-    int Processors,
-    string Runtime,
-    [property: OrderedEquality] ImmutableArray<KeyValuePair<string, string>> Stamps) {
-    public const string Unreachable = "unreachable";
-
-    public ImmutableArray<KeyValuePair<string, string>> Canonical() => [
-        new("print", Print),
-        new("machine", Machine),
-        new("os", Os),
-        new("arch", Arch),
-        new("processors", Processors.ToString(CultureInfo.InvariantCulture)),
-        new("runtime", Runtime),
-        new("stamps", string.Join(',', Stamps.Select(static row => $"{row.Key}={row.Value}"))),
-    ];
-}
-
 public sealed record DeterminismContext(
     ulong Seed,
     FloatMode Mode,
@@ -209,21 +181,18 @@ public static class DeterminismKernel {
 }
 
 // --- [BOUNDARIES] ---------------------------------------------------------------------------
-// The one `host-fingerprint` seam mapper. `[MapNestedProperties]` flattens the nested host root, so the seven
-// columns are member-matched and target completeness is a COMPILE proof — a column added to the wire breaks here
-// (RMG012/RMG013) rather than transcribing a default. `Stamps` binds the owner's published order explicitly, and
-// the mode is ignored at source because the wire carries it through `print` alone.
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
-        EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
-internal static partial class HostFingerprintMap {
-    [MapNestedProperties(nameof(EnvFingerprint.Host))]
-    [MapProperty(nameof(EnvFingerprint.Hex), nameof(HostFingerprintWire.Print))]
-    [MapProperty([nameof(EnvFingerprint.Host), nameof(HostFingerprint.Ordered)], nameof(HostFingerprintWire.Stamps))]
-    [MapperIgnoreSource(nameof(HostFingerprint.Stamps))]
-    [MapperIgnoreSource(nameof(EnvFingerprint.Mode))]
-    [MapperIgnoreSource(nameof(EnvFingerprint.Rid))]
-    [MapperIgnoreSource(nameof(EnvFingerprint.Digest))]
-    public static partial HostFingerprintWire Wire(EnvFingerprint env);
+// The generated message is the seam. Repeated stamp rows preserve the owner's published order, while `Print`
+// carries the identity peers compare without re-deriving the mode or the host digest.
+internal static class HostFingerprintMap {
+    public static Host.HostFingerprintWire Wire(EnvFingerprint env) => new() {
+        Print = env.Hex,
+        Machine = env.Host.Machine,
+        Os = env.Host.Os,
+        Arch = env.Host.Arch,
+        Processors = checked((uint)env.Host.Processors),
+        Runtime = env.Host.Runtime,
+        Stamps = { env.Host.Ordered.Map(static row => new Host.LabelPair { Key = row.Key, Value = row.Value }) },
+    };
 }
 ```
 
@@ -489,10 +458,10 @@ public sealed record ChangefeedPort(
 - Cases: replay dispositions Matched | Injected | Diverged | EnvironmentMismatch | Skipped | Faulted; `ReplayFault` = ChainBroken | HashDiverged | EnvIncompatible | ChaosUndeclared.
 - Entry: `Replay(ReplayRuntime runtime, Seq<LogEntry> log, DeterminismContext live)` returns `IO<Seq<ReplayOutcome>>` — re-executes a recorded log under a live determinism context, re-deriving each step's content hash through the one `EventLog.Mint` derivation and proving it matches the recorded hash, so a replay either reproduces the recorded run exactly or names the first divergent step; a cross-restart replay ingests its `Seq<LogEntry>` through `ChangefeedPort.Load` — the recorded chain rehydrates from the durable store and re-verifies BEFORE it replays, never surviving only the recording process's memory.
 - Auto: the replay first proves the live environment reproduces the recorded one through `DeterminismKernel.Reproduces` so a divergent environment fails the whole replay before re-executing a single step, and that refusal CARRIES both fingerprint texts, so the `EnvironmentMismatch` outcome reads them off the fault rather than re-deriving them; each step dispatches on its body — a command re-runs through the command algebra under the recorded determinism context and re-derives its content hash from the RE-EXECUTED receipt's descriptor and the arguments the replay actually fed it, while a chaos entry re-DERIVES its decision from the recorded address under the recorded seed and its band, because an injection has nothing to re-execute and everything to recompute — so a divergence is detected at the exact step it occurred; the runtime's `ChaosArming` is the `ChaosArming.Driven` seat over this same log, so the commands the replay re-runs meet the recorded injections at the recorded ordinals instead of rolling fresh dice; a matched step confirms bit-identity, a diverged step names the recorded and re-derived hashes so the divergence is diagnosable; the replay chains the verification so the first divergence halts the replay because every downstream hash depends on the diverged step; the whole outcome sequence fans once through the command runtime's own `ReceiptSinkPort`, so a replay is evidence on the one receipt stream.
-- Receipt: each step yields one `ReplayOutcome` and the sequence fans under receipt-only `ReceiptKind.Replay`; an unclassified refusal becomes `Faulted` with `FaultObservationWire`, never a `Skipped` reason minted from `Error.Message`.
-- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Receipt: each step yields one `ReplayOutcome` and the sequence fans under receipt-only `ReceiptKind.Replay`; an unclassified refusal becomes `Faulted` carrying a canonical ProtoJSON generated `FaultObservation`, never a `Skipped` reason minted from `Error.Message`.
+- Packages: Rasm.Contracts, Google.Protobuf, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one disposition is one `ReplayOutcome` case; one fault is one `ReplayFault` case inside the `FaultBand.Replay` span; a new entry species is one arm on the body dispatch; zero new surface.
-- Boundary: the replay-verify is the only reproducibility-proof owner — a re-run without hash comparison, a best-effort replay, an environment-blind replay, and a replay that dispatches a chaos entry through the command algebra are the deleted forms; every known refusal on this rail is TYPED and carries the fields its reader would otherwise re-derive — `ChainBroken` holds the breaking sequence beside its reason and `EnvIncompatible` holds both fingerprint texts — while any remaining `Error` lowers through the app's one structured observation mapper; a `$"chain-break:{n}"` string a caller re-parses and a catch-all `error.Message` reason are deleted forms; the replay reuses the command algebra so a replayed command runs through the same dispatch, broker, and substrate selection a live command runs through, proving the real execution path reproduces rather than a stubbed one; the environment-reproduces check is the precondition so a replay never claims a match on a divergent environment; the re-derivation reads the re-execution and never the recorded entry's own fields — the deleted form re-minted from `entry.ArgumentsDigest` and `entry.DeterminismDigest`, every input of which `VerifyChain` had already proved one line earlier, so `Diverged` was unreachable for any log that reached the fold and the declared bit-identity guarantee had no member; `ReplayRuntime` carries no second clock and no second sink, because `CommandRuntime` already owns both and a parallel pair would let a replay stamp its evidence off a clock the command it replays never read; a chaos step's proof is the RE-DERIVATION, never a copy of the recorded field, so an injection whose band moved between recording and replay answers `Diverged` rather than a match minted from its own record.
+- Boundary: replay verification is the only reproducibility-proof owner; known refusals remain typed, while an unclassified `Error` passes through `FaultWire.Observe` and `WireJson.Element` exactly once, leaving the STJ replay union with a detached canonical ProtoJSON element rather than reflecting a generated message or invoking a second mapper. Replayed commands run through the live command algebra; environment compatibility is a precondition; re-derivation reads re-execution rather than recorded fields; `ReplayRuntime` reuses the command clock and sink; chaos proof re-derives the recorded decision and reports divergence when its band moved.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -520,7 +489,7 @@ public abstract partial record ReplayOutcome {
     public sealed record Diverged(long Sequence, ChainHash Recorded, ChainHash Rederived) : ReplayOutcome;
     public sealed record EnvironmentMismatch(string Recorded, string Live) : ReplayOutcome;
     public sealed record Skipped(long Sequence, string Reason) : ReplayOutcome;
-    public sealed record Faulted(long Sequence, FaultObservationWire Fault) : ReplayOutcome;
+    public sealed record Faulted(long Sequence, JsonElement Fault) : ReplayOutcome;
 }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
@@ -594,7 +563,7 @@ public static class ReplayVerify {
     static ReplayOutcome Refused(Error error) => error switch {
         ReplayFault.EnvIncompatible env => new ReplayOutcome.EnvironmentMismatch(env.Recorded, env.Live),
         ReplayFault.ChainBroken broken => new ReplayOutcome.Skipped(broken.Sequence, broken.Reason),
-        var other => new ReplayOutcome.Faulted(0L, AppHostFaultMap.Wire(other)),
+        var other => new ReplayOutcome.Faulted(0L, WireJson.Element(FaultWire.Observe(other))),
     };
 
     static IO<Seq<ReplayOutcome>> Fold(ReplayRuntime runtime, Seq<LogEntry> log) =>
@@ -1281,22 +1250,15 @@ public static class AdversarialProbe {
 
 ## [08]-[TS_PROJECTION]
 
-- Owner: `HostFingerprintWire` — the environment-identity face of the `host-fingerprint` seam, minted at `[02]` through `HostFingerprintMap` and transcribed here as the shape `typescript:core/interchange/codec#LANDING_WIRE` decodes and `typescript:ui/viewer/probe#HOST_MIRROR` mints from its own role.
+- Owner: generated `HostFingerprintWire` is the environment-identity face of the `host-fingerprint` seam; `HostFingerprintMap` mints it and TypeScript imports the generated schema.
 - Entry: the host fingerprint crosses on its own seam edge so a viewer mirrors the field set with no benchmark claim in hand, and `Rasm.Compute`'s benchmark claim carries the same shape by import.
 - Packages: BCL inbox
-- Growth: one wire-member row per new fingerprint column, landed at both minters in the same pass; zero new surface.
-- Boundary: this section declares the ONE wire this page produces — the event-log entry, chaos decision, drift row, replay outcome, and determinism context shapes it once declared had no C# producer, no manifest row, and no peer decoder in the estate, so they crossed nothing and are withdrawn rather than left as a wire face a reader could believe in (`LAW_WITHOUT_PRODUCER`); `stamps` crosses as ORDERED PAIRS and never a keyed object, because `HostFingerprintWire.Canonical()` reads the container's iteration order to derive the seam's frozen bytes and a JSON object publishes no order (`DIGEST_OVER_UNORDERED_CONTAINER`); a role that cannot reach a fingerprint column spells the `unreachable` sentinel and never an empty string or a fabricated value, so `typescript:ui/viewer/probe#HOST_MIRROR` states its browser-role absence — one sentinel spelling across both minters, since two roles disagreeing on it makes the two-role parity this seam proves unprovable; the digest crosses as `print` alone, so a wire reader compares identities and never re-derives a mode; `tests/contracts/MANIFEST.md` `[02.15]-[HOST_FINGERPRINT]` is the seam registration and `HostFingerprintWire.Canonical()` its frozen preimage.
+- Growth: one generated field and its producer assignment land per new fingerprint column; zero new surface.
+- Boundary: this section declares the ONE wire this page produces — the event-log entry, chaos decision, drift row, replay outcome, and determinism context shapes it once declared had no C# producer, no manifest row, and no peer decoder in the estate, so they crossed nothing and are withdrawn rather than left as a wire face a reader could believe in (`LAW_WITHOUT_PRODUCER`); `stamps` crosses as ordered `LabelPair` messages and the generated descriptor owns the field shape; the digest crosses as `print` alone, so a wire reader compares identities and never re-derives a mode; `WireJson` owns ProtoJSON and its central Celly boundary owns generated-message admission.
 
 ```ts signature
-interface HostFingerprintWire {
-  readonly print: string;
-  readonly machine: string;
-  readonly os: string;
-  readonly arch: string;
-  readonly processors: number;
-  readonly runtime: string;
-  readonly stamps: readonly (readonly [string, string])[];
-}
+export { HostFingerprintWireSchema } from "@rasm\/contracts/rasm/contracts/benchmark/v1/fingerprint_pb";
+export type { HostFingerprintWire } from "@rasm\/contracts/rasm/contracts/benchmark/v1/fingerprint_pb";
 ```
 
 ## [09]-[RESEARCH]

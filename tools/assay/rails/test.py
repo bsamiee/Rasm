@@ -4,6 +4,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from itertools import chain
 from pathlib import Path, PurePosixPath
 from typing import Annotated, override, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # ruff:ignore[suspicious-xml-etree-import]  # trusted local Workspace.slnx XML from the repo root
@@ -35,7 +36,6 @@ from tools.assay.core.model import (
     Check,
     Claim,
     Completed,  # _roster_matches uses Completed as a runtime type in the tuple annotation
-    Counts,
     Fault,  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Input,
     Language,
@@ -76,13 +76,16 @@ class _TestProjectLane(StrEnum):
 
 
 class _DiscoveryLane(StrEnum):
+    """Discovery census lanes: what collection listed, what the limit returned, and what answered nothing."""
+
     LISTED = "listed"
+    RETURNED = "returned"
     EMPTY_OR_FAILED = "empty_or_failed_discovery"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
+_GAP_NOTE: str = "mutation requested but no eligible lane carries a mutation runner"
 # Only these lanes reach dotnet dispatch; SHELL/SUPPORT/BENCHMARK/NON_TEST rows are report evidence, never test targets.
 _RUNNABLE_LANES: frozenset[_TestProjectLane] = frozenset((_TestProjectLane.MANAGED, _TestProjectLane.HOST_BOUND))
 _COVERAGE_JSON: str = PY_COVERAGE_FILES["json"]
@@ -106,6 +109,7 @@ _MARKER_LANES: tuple[tuple[str, str, _TestProjectLane], ...] = (
 # Runners absent here surface UNSUPPORTED on the CHANGED lane.
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
     "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
+    "stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
     "mutmut": lambda files: tuple(f"{f.removesuffix('.py').replace('/', '.')}.*" for f in files),
 }
 # mutmut self-parallelizes below the rail governor; --max-children caps that second tier.
@@ -313,7 +317,9 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
     suite_wide = not params.paths or params.all
 
     def _check(tool: Tool, args: ToolArgs) -> Check:
-        pinned = suite_wide and tool.runner is Runner.UV and tool.input is Input.FILES
+        # A suite-wide run pins an empty tail so the runner reads its own configured scope; passing the changed-file
+        # roster instead turns every path into a name filter, and a generated non-test file then selects nothing.
+        pinned = suite_wide and tool.input in {Input.FILES, Input.NONE}
         return Check(tool=tool, paths=routed.files, tail=() if pinned else None, args=args)
 
     def _trx(check: Check) -> Check:
@@ -479,14 +485,20 @@ def _status_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     )
 
 
-def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, ...]) -> tuple[tuple[str, int], ...]:
+def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, ...], roster: tuple[Match, ...]) -> tuple[tuple[str, int], ...]:
+    # The roster count is typed evidence here, never the report census: `counts` seats governed leaves, and a
+    # discovery row is a test name, so folding the roster length onto it would spell two populations in one field.
     empty_or_failed = sum(
         1
         for c in outcomes
         if c.status.severity > RailStatus.OK.severity or (c.status.severity <= RailStatus.OK.severity and not _roster_matches((c,)))
     )
-    return _lane_counts((m.id, _DiscoveryLane.LISTED) for m in discovered) + _lane_counts(
-        tuple((str(index), _DiscoveryLane.EMPTY_OR_FAILED) for index in range(empty_or_failed))
+    return _lane_counts(
+        chain(
+            ((m.id, _DiscoveryLane.LISTED) for m in discovered),
+            ((m.id, _DiscoveryLane.RETURNED) for m in roster),
+            ((str(index), _DiscoveryLane.EMPTY_OR_FAILED) for index in range(empty_or_failed)),
+        )
     )
 
 
@@ -700,11 +712,10 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, exec
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
         roster = discovered[: params.limit] if params.limit > 0 else discovered
         project_counts = _lane_counts(row for s in selected for row in s.lanes)
-        discovery_counts = _discovery_counts(outcomes, discovered)
+        discovery_counts = _discovery_counts(outcomes, discovered, roster)
         return msgspec.structs.replace(
             base,
             status=RailStatus.OK if roster and base.status.severity <= RailStatus.OK.severity else base.status,
-            counts=Counts(len(roster), base.counts.failed, len(roster) + base.counts.failed),
             results=(*roster, *base.results, *_status_matches(outcomes)),
             artifacts=(*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered)),
             notes=(

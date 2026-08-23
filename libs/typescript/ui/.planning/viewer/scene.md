@@ -16,7 +16,7 @@
 
 ## [02]-[VIEWPORT_PORT]
 
-- Owner: `GlbViewport` carries the admitted residency manifest, verified arrivals, dome data, appearances, and cache ports.
+- Owner: `GlbViewport` carries the admitted residency manifest, verified arrivals, dome data, byte-backed appearances, and cache ports.
 - Law: only verified whole-buffer octets enter the viewer; every geometry arrival carries the manifest epoch it was planned under.
 - Boundary: runtime owns hauling and cache policy; UI owns decoding and GPU residency.
 
@@ -24,10 +24,7 @@
 import { Digest, Frame, Wire } from "@rasm/ts/core"
 import { Context, type Effect, type HashMap, type Option, type Stream, type Subscribable } from "effect"
 
-type AppearanceSummary = InstanceType<typeof Wire.AppearanceSummary>
-type Material = InstanceType<typeof Wire.Material>
-type PbrGroups = typeof Wire.PbrGroups.Type
-type TextureSet = InstanceType<typeof Wire.TextureSet>
+type AppearanceRow = Extract<Wire.Decoded<"NodeWire">["payload"], { readonly case: "appearance" }>["value"]
 
 declare namespace GlbViewport {
   // generic arguments carry the whole-buffer contract: a shared backing store reaches no `three` decode entry.
@@ -35,24 +32,19 @@ declare namespace GlbViewport {
   // `Frame.ResidencyManifest.version` is the producer's schema pin, equal on every lawful emission, so keying skew
   // on it would pin every arrival identical and pass the guard below on a manifest two replacements out of date
   type Arrival = { readonly key: Digest.Key<"content">; readonly epoch: number; readonly octets: Uint8Array<ArrayBuffer> }
-  type Environment = Arrival & {
-    readonly intensity: number
-    readonly rotation: number
-    readonly sh9: ReadonlyArray<number>
-  }
-  // ONE appearance document: the summary roster is the appearance-key preimage census AND the flat pre-bind preview,
-  // `sets` join it on `TextureSet.appearanceKey`, `worn` carries the element-side pairing no appearance wire holds,
-  // and `planes` resolves one addressed leaf — `[setKey, file]`, the pair `Glb.assetPath` already derives from.
-  // `materials` carries each override BESIDE the appearance key it was fetched under, because the wire nests the
-  // whole OpenPBR vector inline (`Material.openPbr`) and carries NO key column — `Material.id` is the seam
-  // `family.name` identity string, never a digest — the payload rides BEHIND the key at transport, so the fetch
-  // coordinate is the pairing fact and only the carrier can state it
+  type Environment = Wire.Set
+  // ONE appearance document: the generated appearance roster is the key preimage census AND flat pre-bind preview,
+  // `sets` carries the appearance coordinate beside each generated `Set` because only the C#-baked kind embeds
+  // `appearanceKey`, and `worn` carries the element pairing no appearance wire holds.
+  // `materials` carries each foreign document BESIDE the appearance key it was fetched under, because the wire nests
+  // the whole OpenPBR vector inline (`Material.openPbr`) and carries NO key column — `Material.id` is the seam
+  // `family.name` identity string, never a digest. `Pbr.index` decodes these bytes once through the exact Material
+  // family; the fetch coordinate is the pairing fact and only the carrier can state it.
   type Appearance = {
-    readonly summaries: ReadonlyArray<AppearanceSummary>
-    readonly materials: ReadonlyArray<readonly [appearance: Digest.Key<"content">, override: Material]>
-    readonly sets: ReadonlyArray<TextureSet>
+    readonly census: ReadonlyArray<AppearanceRow>
+    readonly materials: ReadonlyArray<readonly [appearance: Digest.Key<"content">, octets: Uint8Array]>
+    readonly sets: ReadonlyArray<readonly [appearance: Digest.Key<"content">, set: Wire.Set]>
     readonly worn: ReadonlyArray<readonly [mesh: Digest.Key<"content">, appearance: Digest.Key<"content">]>
-    readonly planes: (address: readonly [Digest.Key<"content">, string]) => Effect.Effect<Uint8Array<ArrayBuffer>, GlbFault>
   }
   // the acceleration band: DERIVED data under the same content key its geometry arrived on, so a snapshot can
   // only ever describe the parse it was built from and a miss costs a rebuild, never correctness. Entries are
@@ -84,6 +76,8 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
   readonly arrivals: Stream.Stream<GlbViewport.Arrival, GlbFault>
   readonly environments: Stream.Stream<GlbViewport.Environment, GlbFault>
   readonly appearances: Stream.Stream<GlbViewport.Appearance, GlbFault>
+  // ONE verified leaf resolver for every generated PlaneRef, shared by dome and material consumers.
+  readonly planes: (artifact: Wire.Artifact.Reference) => Effect.Effect<Uint8Array<ArrayBuffer>, GlbFault>
   readonly snapshots: GlbViewport.Snapshots
   readonly addressed: GlbViewport.Addressed
 }>() {}
@@ -882,11 +876,11 @@ const _dressed = (
   at: number,
   material: Material,
   bound: Pbr.Bound,
-  document: GlbViewport.Appearance,
+  planes: Context.Tag.Service<GlbViewport>["planes"],
   acquired: Glb.Acquired,
 ): Effect.Effect<Option.Option<GlbSeating>> =>
   material instanceof MeshPhysicalMaterial
-    ? Pbr.seat(material, bound, document, acquired)
+    ? Pbr.seat(material, bound, planes, acquired)
     : material instanceof MeshStandardMaterial && Pbr.demands(bound)
       ? Effect.flatMap(
           Effect.sync(() => {
@@ -898,7 +892,7 @@ const _dressed = (
             material.dispose()
             return upgraded
           }),
-          (upgraded) => Pbr.seat(upgraded, bound, document, acquired),
+          (upgraded) => Pbr.seat(upgraded, bound, planes, acquired),
         )
       : Effect.succeed(Option.some(
         new GlbSeating({ issues: [{ reason: "plane-unbound", mesh: `${key}`, cause: "source material is not physical" }] }),
@@ -912,7 +906,7 @@ const _dress = (
   key: Digest.Key<"content">,
   graft: Glb.Graft,
   index: Pbr.Index,
-  document: GlbViewport.Appearance,
+  planes: Context.Tag.Service<GlbViewport>["planes"],
   // the acquisition carries its own codec bundle, so the dress lane reads ONE renderer-bound carrier and can never
   // pair a live renderer with the transcoder its predecessor disposed
   acquired: Glb.Acquired,
@@ -926,7 +920,7 @@ const _dress = (
           Effect.flatMap(
             Effect.forEach(
               graft.drawn.flatMap((drawn) => _slotted(drawn).map(([at, material]) => [drawn, at, material] as const)),
-              ([drawn, at, material]) => _dressed(key, drawn, at, material, bound, document, acquired),
+              ([drawn, at, material]) => _dressed(key, drawn, at, material, bound, planes, acquired),
             ),
             // a seat that bound everything answers no carrier at all, so the offer arm runs only where damage exists
             (refusals) =>
@@ -962,7 +956,7 @@ const _graft = (
     const facts = yield* Queue.bounded<Glb.ResidencyFact>(32)
     // the appearance ledger the graft lane reads at commit and the appearance lane refreshes; both dress through
     // ONE entry, so a mesh arriving before its document and a document arriving before its mesh converge
-    const dressed = yield* Ref.make(Option.none<readonly [Pbr.Index, GlbViewport.Appearance]>())
+    const dressed = yield* Ref.make(Option.none<Pbr.Index>())
     // the pick plane's substrate: one stamped roster the graft mutates and `mark` reads, never a second walk
     const accel = yield* Ref.make(_trees(0, HashMap.empty<string, Glb.Resident>()))
     const insert = Stream.runForEach(port.arrivals, (arrival) =>
@@ -1020,7 +1014,7 @@ const _graft = (
           _trees(live.stamp + 1, residents.reduce((map, row) => HashMap.set(map, row.node.uuid, row), live.held)))
         yield* Option.match(yield* Ref.get(dressed), {
           onNone: () => Effect.void,
-          onSome: ([index, document]) => _dress(arrival.key, graft, index, document, acquired, facts),
+          onSome: (index) => _dress(arrival.key, graft, index, port.planes, acquired, facts),
         })
         yield* Effect.asVoid(Effect.withMetric(Effect.succeed(1), _GRAFTED))
         yield* Queue.offer(facts, { _tag: "Arrived", arrival } as const)
@@ -1077,10 +1071,10 @@ const _graft = (
       Effect.gen(function* () {
         const index = yield* Pbr.index(document)
         const acquired = yield* ScopedRef.get(backplane) // the re-dress stamps against the LIVE backend's sampling cap
-        yield* Ref.set(dressed, Option.some([index, document] as const))
+        yield* Ref.set(dressed, Option.some(index))
         yield* Effect.forEach(
           yield* Ref.get(held),
-          ([key, graft]) => _dress(key, graft, index, document, acquired, facts),
+          ([key, graft]) => _dress(key, graft, index, port.planes, acquired, facts),
           { discard: true },
         )
       }).pipe(
@@ -1088,7 +1082,7 @@ const _graft = (
         Effect.withSpan("rasm.ui.scene.residency"),
         Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
       ))
-    const dome = yield* _dome(root, backplane, port.environments, facts)
+    const dome = yield* _dome(root, backplane, port.environments, port.planes, facts)
     yield* Effect.forkScoped(Effect.all([insert, evict, wear], { concurrency: 3, discard: true }))
     return {
       root,
@@ -1175,8 +1169,8 @@ const _HINTS: { readonly [K in Glb.Warm]: (href: string) => void } = {
 // names the resident set rather than a work queue, and this pass runs with nothing grafted yet, so every tile is a
 // warm candidate. Per-mesh hinting at draw time is the named defect, because a hint landing beside the fetch it
 // warms saves nothing. The payload address comes from the port, never from a key: the hauling side owns the served
-// coordinate — `blobKey` is ITS column — and this module addresses only what `Glb.assetPath` derives, so a viewer
-// minting a GLB URL out of a content key would forge one.
+// coordinate. The manifest carries portable ArtifactRef identity and extent; the application resolver owns the
+// served address, so this module never mints a storage path from artifact identity.
 const _warm = (
   roster: Glb.AssetRoster,
   residency: GlbViewport.Residency,
@@ -1192,7 +1186,7 @@ const _warm = (
       { discard: true },
     ),
     Effect.sync(() =>
-      void residency.view.manifest.tiles.forEach((tile) => Option.map(addressed(tile.contentKey), _HINTS.fetch))),
+      void Array.fromIterable(HashMap.keys(residency.index)).forEach((key) => Option.map(addressed(key), _HINTS.fetch))),
   )
 
 // The renderer-BLIND half, resolved once for the viewport and threaded into every acquisition: the tapped manager
@@ -1294,7 +1288,8 @@ const _loop = (
 // core's frozen vocabulary and three's texture class both spell `Texture`; the wire anchor takes the alias because
 // three's class is the type this whole fold speaks, and the campaign's cross-module spelling for it is `TextureVocab`
 const TextureVocab = Wire.Texture
-import { Effect, Option, Queue, Ref, Scope, ScopedRef, Stream } from "effect"
+import * as appearance from "@rasm\/contracts/rasm/contracts/appearance/v1/appearance_pb"
+import { Effect, Match, Option, Queue, Ref, Scope, ScopedRef, Stream } from "effect"
 import {
   EquirectangularReflectionMapping, Euler, HalfFloatType, LinearFilter, LinearMipmapLinearFilter,
   LinearSRGBColorSpace, NoColorSpace, Quaternion, SphericalHarmonics3, SRGBColorSpace, Texture, Vector3,
@@ -1330,8 +1325,8 @@ declare namespace Glb {
     readonly decode: Option.Option<(payload: Glb.Payload, acquired: Glb.Acquired) => Effect.Effect<Texture, GlbFault>>
   }
   // the two columns a decode reads — the content key its refusal names and the whole-buffer octets. `[8]`'s plane
-  // arrives under a SET key belonging to no residency manifest, so the decode takes this pair rather than the
-  // arrival record; an epoch column here would be a field only one of the two callers could fill.
+  // arrives under its own generated `PlaneRef.artifact`, outside the residency manifest, so the decode takes this
+  // pair rather than the arrival record; an epoch column here would be a field only one caller could fill.
   type Payload = Pick<GlbViewport.Arrival, "key" | "octets">
   type Slot = {
     readonly slot: Ref.Ref<Glb.Dome>
@@ -1350,17 +1345,20 @@ declare namespace Glb {
 // before upload, and this table's `linear` row tags the decoded HDR and float payloads `LinearSRGBColorSpace`
 // because that is what they now are. A custom space is admissible only for `Color`-object math and an output
 // transform, never as a texture tag.
+type _SceneTransfer = (typeof TextureVocab.rows.channel)[TextureVocab.Role]["transfer"]
 const _TRANSFER = {
-  srgb: SRGBColorSpace,
-  linear: LinearSRGBColorSpace,
-  raw: NoColorSpace,
+  [appearance.Transfer.SRGB]: SRGBColorSpace,
+  [appearance.Transfer.LINEAR]: LinearSRGBColorSpace,
+  [appearance.Transfer.RAW]: NoColorSpace,
   // this domain reads the DECODED row's own column, not the five-tag anchor: a channel plane carries a scene transfer
   // by construction, so the two display tags cannot enter and a fourth scene tag breaks this table loudly
-} as const satisfies { readonly [K in TextureSet["channels"][number]["transfer"]]: ColorSpace }
+} as const satisfies { readonly [K in _SceneTransfer]: ColorSpace }
+const _sceneTransfer = (transfer: TextureVocab.Transfer): transfer is keyof typeof _TRANSFER =>
+  Object.hasOwn(_TRANSFER, transfer)
 
 const _ENV = {
   type: HalfFloatType,
-  transfer: "linear",
+  transfer: appearance.Transfer.LINEAR,
   backdrop: true,
   blur: 0,
   floorBlur: 0.04,
@@ -1445,32 +1443,32 @@ const _deep = (payload: Glb.Payload, acquired: Glb.Acquired): Effect.Effect<Text
 // dome sniff structurally cannot land on a preview store; `decode` absent IS the refusal the set-bind raises.
 const _CONTAINERS: { readonly [K in TextureVocab.Container]: Glb.Container } = {
   // OpenEXR spells 20000630 little-endian at byte 0; Radiance opens "#?"; KTX 2.0 its twelve-byte identifier
-  exr: {
+  [appearance.Container.EXR]: {
     probe: Option.some((o: Uint8Array<ArrayBuffer>): boolean =>
       o.byteLength >= 4 && new DataView(o.buffer, o.byteOffset, 4).getUint32(0, true) === 20000630),
     decode: Option.some(_plane(() => new EXRLoader().setDataType(_ENV.type))),
   },
-  hdr: {
+  [appearance.Container.HDR]: {
     probe: Option.some((o: Uint8Array<ArrayBuffer>): boolean => o.byteLength >= 2 && o[0] === 0x23 && o[1] === 0x3f),
     decode: Option.some(_plane(() => new HDRLoader().setDataType(_ENV.type))),
   },
-  ktx2: {
+  [appearance.Container.KTX2]: {
     probe: Option.some((o: Uint8Array<ArrayBuffer>): boolean =>
       o.byteLength >= _KTX2.length && _KTX2.every((byte, at) => o[at] === byte)),
     decode: Option.some(_deep),
   },
   // eight-bit stores the browser decodes and a dome may never sniff: no probe, so radiance never lands here
-  png16: { probe: Option.none(), decode: Option.some(_bitmap("image/png")) },
-  webp: { probe: Option.none(), decode: Option.some(_bitmap("image/webp")) },
-  avif12: { probe: Option.none(), decode: Option.some(_bitmap("image/avif")) },
+  [appearance.Container.PNG16]: { probe: Option.none(), decode: Option.some(_bitmap("image/png")) },
+  [appearance.Container.WEBP]: { probe: Option.none(), decode: Option.some(_bitmap("image/webp")) },
+  [appearance.Container.AVIF12]: { probe: Option.none(), decode: Option.some(_bitmap("image/avif")) },
   // no browser path exists: the two TIFF stores and both JPEG XL stores have no decoder, `EXRLoader` reads
   // scanline and tiled EXR alone, and the eight-bit lossless preview its own producer refuses for any plane
-  tiff16: { probe: Option.none(), decode: Option.none() },
-  tiff_f32: { probe: Option.none(), decode: Option.none() },
-  exr_deep: { probe: Option.none(), decode: Option.none() },
-  jxl: { probe: Option.none(), decode: Option.none() },
-  jxl_f16: { probe: Option.none(), decode: Option.none() },
-  qoi: { probe: Option.none(), decode: Option.none() },
+  [appearance.Container.TIFF16]: { probe: Option.none(), decode: Option.none() },
+  [appearance.Container.TIFF_F32]: { probe: Option.none(), decode: Option.none() },
+  [appearance.Container.EXR_DEEP]: { probe: Option.none(), decode: Option.none() },
+  [appearance.Container.JXL]: { probe: Option.none(), decode: Option.none() },
+  [appearance.Container.JXL_F16]: { probe: Option.none(), decode: Option.none() },
+  [appearance.Container.QOI]: { probe: Option.none(), decode: Option.none() },
 }
 
 const _sniff = (octets: Uint8Array<ArrayBuffer>): Option.Option<Glb.Container> =>
@@ -1567,6 +1565,37 @@ const _rebind = (root: Scene, slot: Ref.Ref<Glb.Dome>) => (acquired: Glb.Acquire
     )
   })
 
+type _EnvironmentSet = Extract<Wire.Set["product"], { readonly case: "environment" }>["value"]
+type _EnvironmentIbl = Extract<_EnvironmentSet["product"], { readonly case: "ibl" }>["value"]
+type _EnvironmentSource = _EnvironmentIbl["source"]
+type _EnvironmentPlane = _EnvironmentSource["equirect"]
+
+const _environment = (set: Wire.Set): Effect.Effect<{
+  readonly source: _EnvironmentSource
+  readonly products: ReadonlyArray<_EnvironmentPlane>
+}, GlbFault> =>
+  Match.value(set.product).pipe(Match.discriminatorsExhaustive("case")({
+    pbr: () => Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: "environment", cause: "pbr set reached the dome stream" } })),
+    baked: () => Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: "environment", cause: "baked set reached the dome stream" } })),
+    environment: ({ value }) => Match.value(value.product).pipe(Match.discriminatorsExhaustive("case")({
+      hdri: ({ value: hdri }) => Effect.succeed({
+        source: hdri.source,
+        products: [hdri.source.equirect, ...(hdri.source.cubemap === undefined ? [] : [hdri.source.cubemap]), ...(hdri.source.preview === undefined ? [] : [hdri.source.preview])],
+      }),
+      ibl: ({ value: ibl }) => Effect.succeed({
+        source: ibl.source,
+        products: [
+          ibl.source.equirect,
+          ...(ibl.source.cubemap === undefined ? [] : [ibl.source.cubemap]),
+          ...(ibl.source.preview === undefined ? [] : [ibl.source.preview]),
+          ...ibl.specular,
+          ibl.brdfLut,
+          ...(ibl.luminanceCdf === undefined ? [] : [ibl.luminanceCdf]),
+        ],
+      }),
+    })),
+  }))
+
 const _dome = (
   root: Scene,
   // the CELL: the boot rows read it once and the arrival lane reads it per arrival, so a dome landing after a
@@ -1574,6 +1603,7 @@ const _dome = (
   // predecessor's renderer already released
   backplane: Glb.Backplane,
   arrivals: Stream.Stream<GlbViewport.Environment, GlbFault>,
+  planes: Context.Tag.Service<GlbViewport>["planes"],
   facts: Queue.Queue<Glb.ResidencyFact>,
   // every refusal is contained inside the forked lane, so the constructor itself carries no error channel
 ): Effect.Effect<Glb.Slot, never, Scope.Scope> =>
@@ -1603,40 +1633,55 @@ const _dome = (
       Effect.gen(function* () {
         const held = yield* Ref.get(slot)
         const acquired = yield* ScopedRef.get(backplane) // per arrival: the prefilter a re-init retired is never reached
-        const sh = yield* Option.match(_harmonics(arrival.sh9), {
+        const document = yield* _environment(arrival)
+        const setKey = yield* _content(arrival.key, "<environment-set>")
+        const references = yield* Effect.forEach(document.products, (product) =>
+          Schema.decode(TextureVocab.reference)(product.plane).pipe(
+            Effect.mapError((issue) => new GlbFault({ case: { reason: "manifest-skew", mesh: product.plane.file, cause: issue.message } })),
+            Effect.flatMap((reference) => Effect.map(planes(reference.artifact), (octets) => ({ product, reference, octets }))),
+          )), { concurrency: 1 })
+        const equirect = yield* Option.match(Array.head(references), {
+          onNone: () => Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${setKey}`, cause: "environment carries no equirect product" } })),
+          onSome: Effect.succeed,
+        })
+        const sh = yield* Option.match(_harmonics(document.source.sh9), {
           onNone: () =>
-            Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${arrival.key}`, cause: "sh9 carries the wrong coefficient count" } })),
+            Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${setKey}`, cause: "sh9 carries the wrong coefficient count" } })),
           onSome: Effect.succeed,
         })
         // ONE branch governs the lane: a held key carries its handles forward, anything else decodes and prefilters
-        const handles = yield* (Option.exists(held.key, (key) => key === arrival.key)
+        const handles = yield* (Option.exists(held.key, (key) => key === setKey)
           ? Effect.succeed({ source: held.source, target: held.target })
           : Effect.gen(function* () {
-              const row = yield* Option.match(_sniff(arrival.octets), {
-                onNone: () =>
-                  Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${arrival.key}`, cause: "no container row claims these magic bytes" } })),
-                onSome: Effect.succeed,
-              })
-              const source = yield* _decoded(row, arrival, acquired, _ENV.transfer, "decode-refused")
+              const transfer = yield* _sceneTransfer(equirect.product.transfer)
+                ? Effect.succeed(equirect.product.transfer)
+                : Effect.fail(new GlbFault({ case: { reason: "decode-refused", mesh: `${setKey}`, cause: "environment transfer reaches no renderer space" } }))
+              const source = yield* _decoded(
+                _CONTAINERS[equirect.product.container],
+                { key: equirect.reference.artifact.artifactId, octets: equirect.octets },
+                acquired,
+                transfer,
+                "decode-refused",
+              )
               return yield* Effect.sync(() => ({
                 source: Option.some(source),
                 target: acquired.prefilter.fromEquirectangular(source),
               }))
             }))
         const dome = yield* _bind(root, acquired, Option.some(held), {
-          key: Option.some(arrival.key),
+          key: Option.some(setKey),
           source: handles.source,
           target: handles.target,
           sh,
-          intensity: arrival.intensity,
-          rotation: arrival.rotation,
+          intensity: document.source.intensity,
+          rotation: document.source.rotation,
         })
         yield* Ref.set(slot, dome)
-        yield* Queue.offer(facts, { _tag: "Environment", key: arrival.key } as const)
+        yield* Queue.offer(facts, { _tag: "Environment", key: setKey } as const)
       }).pipe(
         _refused,
-        Effect.withSpan("rasm.ui.scene.residency", { attributes: { "glb.bytes": arrival.octets.byteLength } }),
-        Effect.annotateLogs({ mesh: `${arrival.key}` }),
+        Effect.withSpan("rasm.ui.scene.residency"),
+        Effect.annotateLogs({ mesh: "environment" }),
         Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
       )))
     return { slot, rebind: _rebind(root, slot) }
@@ -1986,27 +2031,29 @@ const _measure = (tree: MeshBVH, from: Vector3, to: Vector3): Effect.Effect<Opti
 
 ## [08]-[APPEARANCE_BIND]
 
-- Owner: `Pbr` binds decoded OpenPBR values and addressed texture planes to declared Three.js slots.
+- Owner: `Pbr.index` admits Material bytes through `Wire.decode("Material", bytes)`; `Pbr` then binds decoded OpenPBR values and addressed texture planes to declared Three.js slots.
 - Law: one role table owns channel seating, color transfer, packing, refusal evidence, and which slots exist only on the physical class.
 - Law: the widening upgrade is a NARROW copy through the standard prototype — the two idioms three appears to offer both destroy the target.
 - Law: alpha association is a blend fact the material owns; `Texture.premultiplyAlpha` reaches the browser-decoded legs alone — where the decode already demanded straight alpha and the flag stays at its false default — and is inert on every ArrayBufferView upload, so no leg multiplies and association lands on the material.
 
 ```typescript signature
-type MaterialRow = Material
-import { Array, Effect, HashMap, Option } from "effect"
+import { Array, Effect, HashMap, Match, Option, Schema } from "effect"
 import {
   ClampToEdgeWrapping, DoubleSide, FrontSide, LinearSRGBColorSpace, MeshPhysicalMaterial, MeshStandardMaterial,
   RepeatWrapping, type Color, type Texture as Plane,
 } from "three"
 
 declare namespace Pbr {
+  type Surface =
+    | Extract<Wire.Set["product"], { readonly case: "pbr" }>["value"]
+    | Extract<Wire.Set["product"], { readonly case: "baked" }>["value"]["surface"]
   // one seat per mesh: the census row always, the override and its lobe graph where the roster carried them, and
   // plus the plane set where one hangs behind the same appearance key
   type Bound = {
     readonly appearance: Digest.Key<"content">
-    readonly summary: AppearanceSummary
-    readonly override: Option.Option<MaterialRow>
-    readonly set: Option.Option<TextureSet>
+    readonly row: AppearanceRow
+    readonly override: Option.Option<Wire.Material>
+    readonly set: Option.Option<Surface>
   }
   // this resolved appearance ledger holds one map per join the wire actually proves, each under the key it is
   // addressed by, so no lookup re-derives a coordinate and no second roster exists; the lobe graph is not a map
@@ -2014,10 +2061,10 @@ declare namespace Pbr {
   // a second truth a dangling digest could fork
   type Index = {
     readonly seats: HashMap.HashMap<Digest.Key<"content">, Pbr.Seat>
-    readonly overrides: HashMap.HashMap<Digest.Key<"content">, MaterialRow>
+    readonly overrides: HashMap.HashMap<Digest.Key<"content">, Wire.Material>
     readonly worn: HashMap.HashMap<Digest.Key<"content">, Digest.Key<"content">>
   }
-  type Seat = { readonly summary: AppearanceSummary; readonly set: Option.Option<TextureSet> }
+  type Seat = { readonly row: AppearanceRow; readonly set: Option.Option<Surface> }
   // `slot` is null for the roles `MeshPhysicalMaterial` declares nothing for; `component` is the LOWEST
   // stored texel width carrying the swizzle three's own shader chunk samples, so the width proof is arithmetic
   // against `TextureVocab.rows.plane[format].width` rather than a per-role exception; `scalar` is the lobe field a false pack
@@ -2032,10 +2079,10 @@ declare namespace Pbr {
   // ONE seating request whichever row minted it: a channel row seats one role from its own plane and a pack row
   // seats its present slots from a shared one, so decode, stamp, assignment, and refusal have a single owner
   type Seating = {
-    readonly address: readonly [Digest.Key<"content">, string]
+    readonly plane: Surface["planes"][number]["levels"][number]
     readonly container: TextureVocab.Container
     readonly format: TextureVocab.PlaneFormat
-    readonly transfer: TextureSet["channels"][number]["transfer"]
+    readonly transfer: Option.Option<keyof typeof _TRANSFER>
     readonly pack: Option.Option<TextureVocab.Pack>
     readonly present: ReadonlyArray<TextureVocab.Role>
     readonly absent: ReadonlyArray<TextureVocab.Role>
@@ -2060,42 +2107,42 @@ declare namespace Pbr {
 // The `physical` column is the standard class's own declaration boundary: the coat, fuzz, transmission, thin-film,
 // anisotropy, and specular-tint families are physical-only, so a write against a standard target drops silently.
 const _ROLE_SLOT: { readonly [K in TextureVocab.Role]: Pbr.RoleSlot } = {
-  base_weight: { slot: null, component: null, scalar: null, physical: false },
-  base_color: { slot: "map", component: 4, scalar: "color", physical: false },
-  base_metalness: { slot: "metalnessMap", component: 3, scalar: "metalness", physical: false },
-  base_diffuse_roughness: { slot: null, component: null, scalar: null, physical: false },
-  base_specular_tint: { slot: null, component: null, scalar: null, physical: false },
-  specular_weight: { slot: "specularIntensityMap", component: 4, scalar: "specularIntensity", physical: true },
-  specular_color: { slot: "specularColorMap", component: 3, scalar: "specularColor", physical: true },
-  specular_roughness: { slot: "roughnessMap", component: 2, scalar: "roughness", physical: false },
-  specular_roughness_anisotropy: { slot: "anisotropyMap", component: 3, scalar: "anisotropy", physical: true },
+  [appearance.Role.BASE_WEIGHT]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.BASE_COLOR]: { slot: "map", component: 4, scalar: "color", physical: false },
+  [appearance.Role.BASE_METALNESS]: { slot: "metalnessMap", component: 3, scalar: "metalness", physical: false },
+  [appearance.Role.BASE_DIFFUSE_ROUGHNESS]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.BASE_SPECULAR_TINT]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.SPECULAR_WEIGHT]: { slot: "specularIntensityMap", component: 4, scalar: "specularIntensity", physical: true },
+  [appearance.Role.SPECULAR_COLOR]: { slot: "specularColorMap", component: 3, scalar: "specularColor", physical: true },
+  [appearance.Role.SPECULAR_ROUGHNESS]: { slot: "roughnessMap", component: 2, scalar: "roughness", physical: false },
+  [appearance.Role.SPECULAR_ROUGHNESS_ANISOTROPY]: { slot: "anisotropyMap", component: 3, scalar: "anisotropy", physical: true },
   // three exposes no rotation MAP — the direction rides anisotropyMap's RG encode; the plane stays a scalar lobe
-  specular_roughness_anisotropy_rotation: { slot: null, component: null, scalar: "anisotropyRotation", physical: true },
-  specular_ior: { slot: null, component: null, scalar: "ior", physical: true },
-  transmission_weight: { slot: "transmissionMap", component: 1, scalar: "transmission", physical: true },
-  transmission_roughness: { slot: null, component: null, scalar: null, physical: false },
-  subsurface_weight: { slot: null, component: null, scalar: null, physical: false },
-  subsurface_radius: { slot: null, component: null, scalar: null, physical: false },
-  coat_weight: { slot: "clearcoatMap", component: 1, scalar: "clearcoat", physical: true },
-  coat_color: { slot: null, component: null, scalar: null, physical: false },
-  coat_roughness: { slot: "clearcoatRoughnessMap", component: 2, scalar: "clearcoatRoughness", physical: true },
-  coat_ior: { slot: null, component: null, scalar: null, physical: false },
-  fuzz_weight: { slot: null, component: null, scalar: "sheen", physical: true },
-  fuzz_color: { slot: "sheenColorMap", component: 3, scalar: "sheenColor", physical: true },
-  fuzz_roughness: { slot: "sheenRoughnessMap", component: 4, scalar: "sheenRoughness", physical: true },
-  thin_film_weight: { slot: "iridescenceMap", component: 1, scalar: "iridescence", physical: true },
-  thin_film_thickness: { slot: "iridescenceThicknessMap", component: 2, scalar: "iridescenceThicknessRange", physical: true },
-  thin_film_ior: { slot: null, component: null, scalar: "iridescenceIOR", physical: true },
-  emission_color: { slot: "emissiveMap", component: 3, scalar: "emissive", physical: false },
-  emission_luminance: { slot: null, component: null, scalar: "emissiveIntensity", physical: false },
-  geometry_opacity: { slot: "alphaMap", component: 2, scalar: "opacity", physical: false },
-  geometry_normal: { slot: "normalMap", component: 3, scalar: "normalScale", physical: false },
-  geometry_coat_normal: { slot: "clearcoatNormalMap", component: 3, scalar: "clearcoatNormalScale", physical: true },
-  geometry_tangent: { slot: null, component: null, scalar: null, physical: false },
-  geometry_coat_tangent: { slot: null, component: null, scalar: null, physical: false },
-  height: { slot: "displacementMap", component: 1, scalar: "displacementScale", physical: false },
-  occlusion: { slot: "aoMap", component: 1, scalar: "aoMapIntensity", physical: false },
-  curvature: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.SPECULAR_ROUGHNESS_ANISOTROPY_ROTATION]: { slot: null, component: null, scalar: "anisotropyRotation", physical: true },
+  [appearance.Role.SPECULAR_IOR]: { slot: null, component: null, scalar: "ior", physical: true },
+  [appearance.Role.TRANSMISSION_WEIGHT]: { slot: "transmissionMap", component: 1, scalar: "transmission", physical: true },
+  [appearance.Role.TRANSMISSION_ROUGHNESS]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.SUBSURFACE_WEIGHT]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.SUBSURFACE_RADIUS]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.COAT_WEIGHT]: { slot: "clearcoatMap", component: 1, scalar: "clearcoat", physical: true },
+  [appearance.Role.COAT_COLOR]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.COAT_ROUGHNESS]: { slot: "clearcoatRoughnessMap", component: 2, scalar: "clearcoatRoughness", physical: true },
+  [appearance.Role.COAT_IOR]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.FUZZ_WEIGHT]: { slot: null, component: null, scalar: "sheen", physical: true },
+  [appearance.Role.FUZZ_COLOR]: { slot: "sheenColorMap", component: 3, scalar: "sheenColor", physical: true },
+  [appearance.Role.FUZZ_ROUGHNESS]: { slot: "sheenRoughnessMap", component: 4, scalar: "sheenRoughness", physical: true },
+  [appearance.Role.THIN_FILM_WEIGHT]: { slot: "iridescenceMap", component: 1, scalar: "iridescence", physical: true },
+  [appearance.Role.THIN_FILM_THICKNESS]: { slot: "iridescenceThicknessMap", component: 2, scalar: "iridescenceThicknessRange", physical: true },
+  [appearance.Role.THIN_FILM_IOR]: { slot: null, component: null, scalar: "iridescenceIOR", physical: true },
+  [appearance.Role.EMISSION_COLOR]: { slot: "emissiveMap", component: 3, scalar: "emissive", physical: false },
+  [appearance.Role.EMISSION_LUMINANCE]: { slot: null, component: null, scalar: "emissiveIntensity", physical: false },
+  [appearance.Role.GEOMETRY_OPACITY]: { slot: "alphaMap", component: 2, scalar: "opacity", physical: false },
+  [appearance.Role.GEOMETRY_NORMAL]: { slot: "normalMap", component: 3, scalar: "normalScale", physical: false },
+  [appearance.Role.GEOMETRY_COAT_NORMAL]: { slot: "clearcoatNormalMap", component: 3, scalar: "clearcoatNormalScale", physical: true },
+  [appearance.Role.GEOMETRY_TANGENT]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.GEOMETRY_COAT_TANGENT]: { slot: null, component: null, scalar: null, physical: false },
+  [appearance.Role.HEIGHT]: { slot: "displacementMap", component: 1, scalar: "displacementScale", physical: false },
+  [appearance.Role.OCCLUSION]: { slot: "aoMap", component: 1, scalar: "aoMapIntensity", physical: false },
+  [appearance.Role.CURVATURE]: { slot: null, component: null, scalar: null, physical: false },
 }
 
 // glTF declares its scene in metres and the set declares its height span in millimetres: this is the ONE unit
@@ -2112,7 +2159,7 @@ const _write = (material: MeshPhysicalMaterial, slot: keyof MeshPhysicalMaterial
 const _tint = (target: Color, triple: readonly [number, number, number]): Color =>
   target.setRGB(triple[0], triple[1], triple[2], LinearSRGBColorSpace)
 
-const _lobes = (material: MeshPhysicalMaterial, groups: PbrGroups): MeshPhysicalMaterial => {
+const _lobes = (material: MeshPhysicalMaterial, groups: Wire.Material["openPbr"]): MeshPhysicalMaterial => {
   // BOUNDARY ADAPTER — the arm order IS the wire's key order, so a projection change lands as one field wave.
   // Slots the wire carries and three declares no channel for stay render-unbound by law, never forged from a
   // neighbouring band: `base.diffuseRoughness`, `base.specularTint`, `coat.color`, `coat.ior`,
@@ -2153,7 +2200,7 @@ const _lobes = (material: MeshPhysicalMaterial, groups: PbrGroups): MeshPhysical
 // silently inert on every ArrayBufferView leg — and on the legs it does reach, the decode already asked for
 // straight alpha, so the false default is the correct write. The KTX2 leg's own stamp off the DFD alpha flag is
 // inert for the same reason. Association therefore lands on the material's blend at `_seat`.
-const _stamped = (plane: Plane, set: TextureSet, acquired: Glb.Acquired): Plane => {
+const _stamped = (plane: Plane, set: Pbr.Surface, acquired: Glb.Acquired): Plane => {
   // BOUNDARY ADAPTER
   plane.wrapS = set.tiled ? RepeatWrapping : ClampToEdgeWrapping
   plane.wrapT = plane.wrapS
@@ -2163,34 +2210,36 @@ const _stamped = (plane: Plane, set: TextureSet, acquired: Glb.Acquired): Plane 
   return plane
 }
 
-// both row shapes project into ONE request: a channel row carries its single role present, a pack row splits its
-// frozen slot triple on the `present` flags so the shared plane seats the true slots and the false ones fall to
-// their channel neutral. Level entry zero is the base level; a self-pyramiding container holds only that entry.
-const _seatings = (set: TextureSet): ReadonlyArray<Pbr.Seating> => [
-  ...Array.map(set.channels, (row): Pbr.Seating => ({
-    address: [set.setKey, row.levels[0].file] as const,
+// both row shapes project into ONE request: a channel row carries its single role and a pack row carries the
+// generated role roster in pack-slot order; omitted pack slots fall to their channel neutral. Level entry zero is
+// the base level; a self-pyramiding container holds only that entry.
+const _seatings = (set: Pbr.Surface): ReadonlyArray<Pbr.Seating> => [
+  ...Array.filterMap(set.planes, (row) => Option.map(Array.head(row.levels), (plane): Pbr.Seating => ({
+    plane,
     container: row.container,
     format: row.format,
-    transfer: row.transfer,
+    transfer: Option.match(Option.fromNullable(row.transfer), {
+      onNone: () => Option.some(TextureVocab.authored(row.role, TextureVocab.rows.plane[row.format].depth)),
+      onSome: (transfer) => _sceneTransfer(transfer) ? Option.some(transfer) : Option.none(),
+    }),
     pack: Option.none(),
     present: [row.role],
     absent: [],
-  })),
-  ...Array.map(set.packs, (row): Pbr.Seating => {
-    const slots = TextureVocab.rows.pack[row.pack].slots
-    const present = Array.filterMap(slots, (role, at) => (row.present[at] ? Option.some(role) : Option.none()))
-    return {
-      address: [set.setKey, row.levels[0].file] as const,
-      container: row.container,
-      format: row.format,
-      // a pack's slots are linear-authored by roster construction, so the shared plane's transfer reads off the
-      // first slot's own channel column rather than a literal the table would have to keep in step
-      transfer: TextureVocab.rows.channel[slots[0]].transfer,
-      pack: Option.some(row.pack),
-      present,
-      absent: Array.filterMap(slots, (role, at) => (row.present[at] ? Option.none() : Option.some(role))),
-    }
-  }),
+  }))),
+  ...Array.filterMap(set.packs, (row) => Option.map(Array.head(row.levels), (plane): Pbr.Seating => {
+      const slots = TextureVocab.rows.pack[row.pack].slots
+      return {
+        plane,
+        container: row.container,
+        format: row.format,
+        // a pack's slots are linear-authored by roster construction, so the shared plane's transfer reads off the
+        // first slot's own channel column rather than a literal the table would have to keep in step
+        transfer: Option.some(TextureVocab.rows.channel[slots[0]].transfer),
+        pack: Option.some(row.pack),
+        present: row.present,
+        absent: Array.filter(slots, (role) => !Array.contains(row.present, role)),
+      }
+    })),
 ]
 
 // The upgrade GATE. `_lobes` writes the physical-only scalars unconditionally, so ANY resolved override already
@@ -2219,9 +2268,19 @@ const _upgraded = (source: MeshStandardMaterial): MeshPhysicalMaterial => {
   return target
 }
 
+const _packRolesLawful = (seating: Pbr.Seating): boolean =>
+  Option.match(seating.pack, {
+    onNone: () => true,
+    onSome: (pack) => {
+      const ordered = Array.filter(TextureVocab.rows.pack[pack].slots, (role) => Array.contains(seating.present, role))
+      return seating.present.length === ordered.length
+        && Array.every(seating.present, (role, at) => role === ordered[at])
+    },
+  })
+
 // every refusal a seating can carry, read off wire columns alone — no predicate widens as roles or packs grow;
 // the fold answers ISSUES, because the carrier that names them is the seat's own census and not one fault per column
-const _unseatable = (set: TextureSet, seating: Pbr.Seating, mesh: string): ReadonlyArray<GlbFault.Case> => {
+const _unseatable = (set: Pbr.Surface, seating: Pbr.Seating, mesh: string): ReadonlyArray<GlbFault.Case> => {
   const refuse = (reason: Extract<GlbFault.Reason, "manifest-skew" | "plane-unbound">, cause: string): GlbFault.Case => ({
     reason,
     mesh,
@@ -2231,6 +2290,11 @@ const _unseatable = (set: TextureSet, seating: Pbr.Seating, mesh: string): Reado
     ...(TextureVocab.rows.plane[seating.format].web ? [] : [refuse("plane-unbound", "the store format decodes nowhere on the web")]),
     ...(TextureVocab.rows.layer[set.layerLaw].gltf ? [] : [refuse("plane-unbound", "the layer law seats nowhere in gltf")]),
     ...(set.udimTiles.length === 0 ? [] : [refuse("plane-unbound", "udim tiles reach no sampler")]),
+    ...(Option.isNone(seating.transfer) ? [refuse("manifest-skew", "the plane carries no transfer")] : []),
+    ...(Array.contains(seating.present, appearance.Role.HEIGHT) && set.heightScaleMm === undefined
+      ? [refuse("manifest-skew", "the height plane carries no millimetre span")]
+      : []),
+    ...(_packRolesLawful(seating) ? [] : [refuse("manifest-skew", "the packed roles escape or reorder the pack slots")]),
     // inverting the pack order swaps R and B, so a consumer binding it to three's slots reads occlusion as
     // metalness — a refusal only the column can declare, and the column is the wire's own
     ...(Option.exists(seating.pack, (pack) => !TextureVocab.rows.pack[pack].gltf)
@@ -2249,64 +2313,79 @@ const _unseatable = (set: TextureSet, seating: Pbr.Seating, mesh: string): Reado
 // takes the SAME handle so a pack costs one upload and `[5]`'s deduped walk frees it once
 const _seated = (
   material: MeshPhysicalMaterial,
-  set: TextureSet,
+  set: Pbr.Surface,
   seating: Pbr.Seating,
-  port: GlbViewport.Appearance,
+  planes: Context.Tag.Service<GlbViewport>["planes"],
   acquired: Glb.Acquired,
 ): Effect.Effect<ReadonlyArray<GlbFault.Case>> =>
-  Array.match(_unseatable(set, seating, `${set.setKey}/${seating.address[1]}`), {
-    // a refused seating never reaches the network: the wire columns already decided it, so no plane is pulled
-    onNonEmpty: (refused) => Effect.succeed<ReadonlyArray<GlbFault.Case>>(refused),
-    onEmpty: () =>
-      Effect.gen(function* () {
-        const octets = yield* port.planes(seating.address)
-        const plane = yield* _decoded(
-          _CONTAINERS[seating.container],
-          { key: set.setKey, octets },
-          acquired,
-          seating.transfer,
-          "plane-unbound",
-        )
-        return yield* Effect.sync(() => {
-          // BOUNDARY ADAPTER — the shared handle lands in every present slot; a false pack slot takes its channel
-          // neutral on the scalar companion, which is the only reader that column has
-          const stamped = _stamped(plane, set, acquired)
-          seating.present.forEach((role) => {
-            const row = _ROLE_SLOT[role]
-            if (row.slot !== null) _write(material, row.slot, stamped)
-            if (role === "height" && row.scalar !== null) {
-              _write(material, row.scalar, set.heightScale * _WORLD.metrePerMillimetre)
-              _write(
-                material,
-                "displacementBias",
-                -set.heightScale * _WORLD.metrePerMillimetre * TextureVocab.rows.channel.height.neutral[0],
-              )
-            }
+  Effect.gen(function* () {
+    const reference = yield* Schema.decode(TextureVocab.reference)(seating.plane).pipe(
+      Effect.mapError((issue) => new GlbFault({
+        case: { reason: "manifest-skew", mesh: seating.plane.file, cause: issue.message },
+      })),
+    )
+    return yield* Array.match(_unseatable(set, seating, `${reference.artifact.artifactId}`), {
+      // a refused seating never reaches the network: the wire columns already decided it, so no plane is pulled
+      onNonEmpty: (refused) => Effect.succeed<ReadonlyArray<GlbFault.Case>>(refused),
+      onEmpty: () =>
+        Effect.gen(function* () {
+          const key = reference.artifact.artifactId
+          const transfer = yield* Option.match(seating.transfer, {
+            onNone: () => Effect.fail(new GlbFault({
+              case: { reason: "manifest-skew", mesh: `${key}`, cause: "the plane carries no transfer" },
+            })),
+            onSome: Effect.succeed,
           })
-          seating.absent.forEach((role) => {
-            const row = _ROLE_SLOT[role]
-            if (row.scalar !== null) _write(material, row.scalar, TextureVocab.rows.channel[role].neutral[0])
+          const octets = yield* planes(reference.artifact)
+          const plane = yield* _decoded(
+            _CONTAINERS[seating.container],
+            { key, octets },
+            acquired,
+            transfer,
+            "plane-unbound",
+          )
+          return yield* Effect.sync(() => {
+            // BOUNDARY ADAPTER — the shared handle lands in every present slot; a false pack slot takes its channel
+            // neutral on the scalar companion, which is the only reader that column has
+            const stamped = _stamped(plane, set, acquired)
+            seating.present.forEach((role) => {
+              const row = _ROLE_SLOT[role]
+              if (row.slot !== null) _write(material, row.slot, stamped)
+              if (role === appearance.Role.HEIGHT && row.scalar !== null && set.heightScaleMm !== undefined) {
+                _write(material, row.scalar, set.heightScaleMm * _WORLD.metrePerMillimetre)
+                _write(
+                  material,
+                  "displacementBias",
+                  -set.heightScaleMm * _WORLD.metrePerMillimetre
+                    * TextureVocab.rows.channel[appearance.Role.HEIGHT].neutral[0],
+                )
+              }
+            })
+            seating.absent.forEach((role) => {
+              const row = _ROLE_SLOT[role]
+              if (row.scalar !== null) _write(material, row.scalar, TextureVocab.rows.channel[role].neutral[0])
+            })
+            return []
           })
-          return []
-        })
-        // a plane refusal is EVIDENCE on the one queue, never a failed seat: the material keeps the slot the
-        // graft gave it and the remaining seatings still run
-      }).pipe(Effect.catchAll((refusal: GlbFault) => Effect.succeed<ReadonlyArray<GlbFault.Case>>([refusal.case]))),
-  })
+          // a plane refusal is EVIDENCE on the one queue, never a failed seat: the material keeps the slot the
+          // graft gave it and the remaining seatings still run
+        }),
+    })
+  }).pipe(Effect.catchAll((refusal: GlbFault) => Effect.succeed<ReadonlyArray<GlbFault.Case>>([refusal.case])))
 
 // ONE seat: lobes then planes, refusals accumulated and never raised — a partially-bound set renders the
 // authored asset with its seatable planes overlaid, which is exactly what `plane-unbound` declares
 const _seat = (
   material: MeshPhysicalMaterial,
   bound: Pbr.Bound,
-  port: GlbViewport.Appearance,
+  planes: Context.Tag.Service<GlbViewport>["planes"],
   acquired: Glb.Acquired,
 ): Effect.Effect<Option.Option<GlbSeating>> =>
   Effect.map(
     Option.match(bound.set, {
       onNone: () => Effect.succeed<ReadonlyArray<ReadonlyArray<GlbFault.Case>>>([]),
       onSome: (set) =>
-        Effect.forEach(_seatings(set), (seating) => _seated(material, set, seating, port, acquired)),
+        Effect.forEach(_seatings(set), (seating) => _seated(material, set, seating, planes, acquired)),
     }),
     (refusals) => {
       // BOUNDARY ADAPTER — the lobe fold runs first so a seated plane always modulates a carried scalar, and
@@ -2315,7 +2394,8 @@ const _seat = (
       // the set's alpha mode is a BLEND fact, not an upload one: an associated payload arrives already
       // multiplied, so the consumer's whole obligation is the equation, and asking the upload to multiply again
       // would double it even on the DOM-source legs where the texture flag is not inert
-      Option.map(bound.set, (set) => void (material.premultipliedAlpha = set.alphaMode === "associated"))
+      Option.map(bound.set, (set) =>
+        void (material.premultipliedAlpha = set.alphaMode === appearance.AlphaMode.ASSOCIATED))
       material.needsUpdate = true
       // ONE carrier per seat: every offending plane across every seating rides one refusal, so a consumer reads the
       // set's whole damage in one fact instead of folding an array the producer already knew the shape of
@@ -2326,47 +2406,87 @@ const _seat = (
     },
   )
 
-// This census IS the index: the summary roster fixes the appearance key space and every other roster joins onto
-// it. Both sides of every join carry the appearance key in its DECODED spelling, because `Digest.Key<"content">`
-// brands the seed-zero content hash as thirty-two LOWERCASE hex and the two codecs reaching it both land there:
-// `summary.appearanceKey` crosses on the bytes codec, whose hex encode is lowercase, and `set.appearanceKey` on
-// the wire codec, whose UPPERCASE egress form is lowered at decode and re-raised only at encode. They therefore
-// compare like for like and no site re-cases. A key meets a PATH exactly once, at the port's own egress-name
-// construction: `planes` takes the key and derives the address, where `_AssetIdentity`'s lowercase digest
-// admission has nothing left to lower and refuses an uppercased segment outright. Re-casing at a compare, or
-// carrying the wire's uppercase form into a path segment, are both the deleted direction.
+const _manifest = (mesh: string, cause: string): GlbFault =>
+  new GlbFault({ case: { reason: "manifest-skew", mesh, cause } })
+
+const _content = (bytes: Uint8Array, mesh: string): Effect.Effect<Digest.Key<"content">, GlbFault> =>
+  Schema.decode(Digest.codecs.content.bytes)(bytes).pipe(Effect.mapError((issue) => _manifest(mesh, issue.message)))
+
+const _requiredContent = (
+  key: Uint8Array | undefined,
+  mesh: string,
+): Effect.Effect<Digest.Key<"content">, GlbFault> =>
+  Option.match(Option.fromNullable(key), {
+    onNone: () => Effect.fail(_manifest(mesh, "the appearance key is absent")),
+    onSome: (held) => _content(held, mesh),
+  })
+
+const _unique = <V>(
+  rows: ReadonlyArray<readonly [Digest.Key<"content">, V]>,
+  subject: string,
+): Effect.Effect<HashMap.HashMap<Digest.Key<"content">, V>, GlbFault> =>
+  Array.reduce(
+    rows,
+    Effect.succeed(HashMap.empty<Digest.Key<"content">, V>()),
+    (held, [key, value]) => Effect.flatMap(held, (index) =>
+      HashMap.has(index, key)
+        ? Effect.fail(_manifest(`${key}`, `duplicate ${subject}`))
+        : Effect.succeed(HashMap.set(index, key, value))),
+  )
+
+// This census IS the index: every generated byte key crosses the content codec only at the join that consumes it,
+// and every foreign Material crosses `Wire.decode("Material", bytes)` here before an interior shape sees it. The set
+// key remains document identity alone, and every open carrier roster refuses duplicate keys before joining.
 const _index = (document: GlbViewport.Appearance): Effect.Effect<Pbr.Index, GlbFault> =>
   Effect.gen(function* () {
-    const seats = Array.reduce(
-      document.summaries,
-      HashMap.empty<Digest.Key<"content">, Pbr.Seat>(),
-      (held, summary) =>
-        HashMap.set(held, summary.appearanceKey, {
-          summary,
-          set: Array.findFirst(document.sets, (set) => set.appearanceKey === summary.appearanceKey),
-        }),
-    )
-    // these refusals make the dangling-reference clause reachable: an override fetched under an uncensused key, a
-    // set hanging behind an unlisted key, or a worn mesh naming an uncensused appearance each refuse HERE; a
-    // dangling lobe graph is UNCONSTRUCTIBLE — the wire nests the whole vector inline, so no digest exists to fork
-    yield* Effect.forEach(document.materials, ([appearance]) =>
-      HashMap.has(seats, appearance)
+    const censusRows = yield* Effect.forEach(document.census, (row) =>
+      Effect.map(_content(row.appearanceKey, "<appearance>"), (key) => [key, row] as const))
+    const census = yield* _unique(censusRows, "appearance")
+
+    const setDocuments = yield* Effect.forEach(document.sets, ([, set]) =>
+      Effect.map(_content(set.key, "<texture-set>"), (identity) => [identity, set] as const))
+    yield* _unique(setDocuments, "set document")
+    const setRows = yield* Effect.forEach(document.sets, ([appearanceKey, set]) =>
+      Match.value(set.product).pipe(Match.discriminatorsExhaustive("case")({
+        baked: ({ value }) => Effect.flatMap(
+          _requiredContent(value.appearanceKey, "<texture-set-appearance>"),
+          (embedded) => embedded === appearanceKey
+            ? Effect.succeed([appearanceKey, value.surface] as const)
+            : Effect.fail(_manifest(`${appearanceKey}`, "the baked set embeds another appearance key")),
+        ),
+        pbr: ({ value }) => Effect.succeed([appearanceKey, value] as const),
+        environment: () => Effect.fail(_manifest(`${appearanceKey}`, "an environment set cannot occupy an appearance seat")),
+      })))
+    const sets = yield* _unique(setRows, "appearance set")
+    const materialRows = yield* Effect.forEach(document.materials, ([appearance, octets]) =>
+      Effect.map(
+        Wire.decode("Material", octets).pipe(
+          Effect.mapError((fault) => new GlbFault({
+            case: { reason: "decode-refused", mesh: `${appearance}`, cause: fault.message },
+          })),
+        ),
+        (override) => [appearance, override] as const,
+      ))
+    const overrides = yield* _unique(materialRows, "material override")
+    const worn = yield* _unique(document.worn, "mesh appearance")
+
+    yield* Effect.forEach(HashMap.keys(sets), (appearance) =>
+      HashMap.has(census, appearance)
         ? Effect.void
-        : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${appearance}`, cause: "the seat census holds no such override" } })))
-    yield* Effect.forEach(document.sets, (set) =>
-      HashMap.has(seats, set.appearanceKey)
+        : Effect.fail(_manifest(`${appearance}`, "the seat census holds no such set")))
+    yield* Effect.forEach(HashMap.keys(overrides), (appearance) =>
+      HashMap.has(census, appearance)
         ? Effect.void
-        : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${set.appearanceKey}`, cause: "the seat census holds no such set" } })))
-    yield* Effect.forEach(document.worn, ([mesh, appearance]) =>
-      HashMap.has(seats, appearance)
+        : Effect.fail(_manifest(`${appearance}`, "the seat census holds no such override")))
+    yield* Effect.forEach(HashMap.toEntries(worn), ([mesh, appearance]) =>
+      HashMap.has(census, appearance)
         ? Effect.void
-        : Effect.fail(new GlbFault({ case: { reason: "manifest-skew", mesh: `${mesh}`, cause: "the seat census holds no such appearance" } })))
+        : Effect.fail(_manifest(`${mesh}`, "the seat census holds no such appearance")))
+
     return {
-      seats,
-      overrides: Array.reduce(document.materials, HashMap.empty<Digest.Key<"content">, MaterialRow>(), (held, [appearance, override]) =>
-        HashMap.set(held, appearance, override)),
-      worn: Array.reduce(document.worn, HashMap.empty<Digest.Key<"content">, Digest.Key<"content">>(), (held, [mesh, appearance]) =>
-        HashMap.set(held, mesh, appearance)),
+      seats: HashMap.map(census, (row, appearance) => ({ row, set: HashMap.get(sets, appearance) })),
+      overrides,
+      worn,
     }
   })
 
@@ -2376,7 +2496,7 @@ const _resolve = (index: Pbr.Index, mesh: Digest.Key<"content">): Option.Option<
     Option.map(HashMap.get(index.seats, appearance), (seat) => {
       return {
         appearance,
-        summary: seat.summary,
+        row: seat.row,
         override: HashMap.get(index.overrides, appearance),
         set: seat.set,
       }

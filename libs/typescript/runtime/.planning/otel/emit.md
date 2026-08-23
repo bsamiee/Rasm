@@ -11,8 +11,9 @@
 - [04]-[HOOKS] — the contribute-then-collect registry and the app-scoped seat for core's one delivery rail; `Hooks`, `Dispatch`.
 - [05]-[GOVERNANCE] — the producer-side view projection making scope, temporality, and cardinality real on the Effect metric stream; interior.
 - [06]-[LANES] — the native `Otlp` rows, the SDK facade rows, detectors, ambient globals, the roster dispatch; `Export`.
-- [07]-[CONTINUATION] — carrier decode, the ingress transformer, and the egress stamp; `Propagation`.
-- [08]-[DEV] — the `plane:dev`-fenced `./dev` DevTools module; `dev`.
+- [07]-[CONFORMANCE] — the native local telemetry diagnostic receipt; `Conformance`.
+- [08]-[CONTINUATION] — carrier decode, the ingress transformer, and the egress stamp; `Propagation`.
+- [09]-[DEV] — the `plane:dev`-fenced `./dev` DevTools module; `dev`.
 
 ## [02]-[POLICY]
 
@@ -35,8 +36,8 @@
 
 ```typescript signature
 import {
-  Array, Chunk, Context, Duration, Effect, Exit, Function, Layer, Option, pipe, Record, Redacted, Ref, Runtime, Scope,
-  type Tracer,
+  Array, Chunk, Context, Duration, Effect, Exit, Function, Layer, Option, Order, pipe, Record, Redacted,
+  Ref, Runtime, Schema, Scope, type Tracer,
 } from "effect"
 import type { HttpClient } from "@effect/platform"
 import { Logger as OtelLogger, Metrics as OtelMetrics, NodeSdk, Otlp, Resource as OtelIdentity, Tracer as OtelBridge, WebSdk } from "@effect/opentelemetry"
@@ -170,7 +171,7 @@ declare namespace Export {
     never,
     Context
   >
-  type Of<P extends Policy> = ReturnType<(typeof _lanes)[P["lane"]]>
+  type Of<P extends Policy> = ReturnType<(typeof _lanes)[P["lane"]]["bind"]>
 }
 
 const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): string =>
@@ -495,8 +496,8 @@ const _governed = (producer: MetricProducer, policy: Export.Policy, rows: Readon
 
 ## [06]-[LANES]
 
-- Owner: the interior `_lanes` roster — `as const satisfies Record<string, (policy) => Layer>` — with `Export.live(policy)` as the one entrypoint dispatching `_lanes[policy.lane](policy)`; the lane union derives as `keyof typeof _lanes`, so config admission, the policy type, and the dispatch read one anchor, and a new lane is one row.
-- Law: a lane row is the whole binding — SDK module or native serializer, detector roster, wire framing, and exporter sender travel together, so `_native(framing)` and `_facade(sdk, roster, sender)` are the two builders every row instantiates and a fifth row adds no branch. `otlp` is the protobuf native default, `local` its JSON twin for a developer reading collector frames, `node` and `web` the SDK facade rows; every deployed row frames protobuf.
+- Owner: the interior `_lanes` roster, with `Export.live(policy)` as the one entrypoint dispatching `_lanes[policy.lane].bind(policy)`; the lane union derives as `keyof typeof _lanes`, so config admission, the policy type, construction, and conformance evidence read one anchor, and a new lane is one row.
+- Law: a lane row is the whole binding — SDK module or native serializer, detector roster, wire framing, exporter sender, compression, and generated minter role travel together. `_nativeLane` and `_facadeLane` derive the row and its `bind` member from one argument set, so a fifth row adds no branch and cannot report a capability different from the layer it constructs. `otlp` is the protobuf native default, `local` its JSON developer twin, and `node` and `web` the SDK facade rows; every deployed row frames protobuf.
 - Law: the native rows carry Effect's own `Tracer`/`Metric`/`Logger` straight to the collector over the `HttpClient.HttpClient` requirement the root satisfies with `net/client#LANE_ROWS`'s policy client (node/bun) or the browser client, so OTLP egress inherits the branch timeout/retry posture, and the policy's `shutdown` window rides `shutdownTimeout` so the drain budget is one stated value. Their option bag carries no compression field at the pin and `@effect/platform` ships no request-encoding middleware, so a native row cannot gzip — an `[OTEL_PIN_BLOCK]` parity criterion recorded beside the span-scrub hook, and a deployment under the estate compression pin selects an SDK row. Both native rows declare the node sender because the only SDK exporter they construct is the raw meter provider's, so a browser root takes the `web` facade row and a browser-framed native row is one more `_lanes` entry rather than a runtime guess inside the builder.
 - Law: identity is detected once, awaited, then projected — `_identity` is a Layer-seated `Effect` folding `detectResources` over the platform roster (`envDetector`, `hostDetector`, `osDetector`, `processDetector`, `serviceInstanceIdDetector`) and the placement-armed environment rows — `_CLOUD[policy.placement.cloud]` contributes at most one compute arm and `containerDetector` arms on the container fact — crossing `waitForAsyncAttributes()` whenever `asyncAttributesPending` is true and merging the detected roster UNDER the `Convention.identity` override pinned to `Convention.wire.schemaUrl` — `Resource.merge` gives the argument precedence, so the deployment's own identity wins every collision the detectors contest, which is the enrich-then-override order the conformance row fixes. One seat is load-bearing, not tidiness: `serviceInstanceIdDetector` mints a fresh guid per run, so a second detection stamps the facade signals and the raw meter provider with different `service.instance.id` values and splits one process into two resources. Web rosters fold `browserDetector` for the `browser.*` client-hint facts, a raw `@opentelemetry/resources` value never leaves this module, and `OtlpResource.fromConfig` is the rejected second identity path.
 - Law: the SDK rows exist for SDK-only capability — boundary span scrub, baggage promotion, wire compression, structural span and log-record limits, auto-instrumentation, and the hook plane — and both assemble through the facade's public legs (`layerTracerProvider` under the `Tracer`, `Metrics`, and `Logger` bridges over `Resource.layer`) rather than `NodeSdk.layer`/`WebSdk.layer`, because the graph must expose `OtelBridge.OtelTracerProvider` for the condition registration nodes, which the aggregate layer conceals. Span processors run promotion, then `Redaction.processor`, then contributed taps, then the batching exporter — promotion writes before the span freezes, so the boundary scrub still governs a promoted key.
@@ -907,12 +908,39 @@ const _facade = (
   )
 }
 
+const _nativeLane = <const F extends _Framing, const S extends _Sender, const R extends Convention.Minter>(
+  framing: F,
+  sender: S,
+  role: R,
+) => ({
+  bind: _native(framing, sender),
+  compression: "none" as const,
+  framing,
+  protocol: "http" as const,
+  role,
+  sender,
+})
+
+const _facadeLane = <const S extends _Sender, const R extends Convention.Minter>(
+  sdk: typeof NodeSdk | typeof WebSdk,
+  roster: (policy: Export.Policy) => (adds: ReadonlyArray<ResourceDetector>) => ReadonlyArray<ResourceDetector>,
+  sender: S,
+  role: R,
+) => ({
+  bind: _facade(sdk, roster, sender),
+  compression: sender === "node" ? "gzip" as const : "none" as const,
+  framing: "protobuf" as const,
+  protocol: "http" as const,
+  role,
+  sender,
+})
+
 const _lanes = {
-  local: _native("json", "node"), // the developer row: JSON frames a human reads off a local collector; no deployed row selects it
-  node: _facade(NodeSdk, _grounds, "node"),
-  otlp: _native("protobuf", "node"),
-  web: _facade(WebSdk, () => _rum, "browser"),
-} as const satisfies Record<string, (policy: Export.Policy) => Export.Live | Export.Sdk>
+  local: _nativeLane("json", "node", "process"), // the developer row: JSON frames a human reads off a local collector
+  node: _facadeLane(NodeSdk, _grounds, "node", "process"),
+  otlp: _nativeLane("protobuf", "node", "process"),
+  web: _facadeLane(WebSdk, () => _rum, "browser", "browser"),
+} as const
 
 const _managed = <Out>(policy: Export.Policy, lane: Layer.Layer<Out, never, Export.Context>): Layer.Layer<Out, never, Export.Context> =>
   Layer.scopedContext(
@@ -935,11 +963,135 @@ const _managed = <Out>(policy: Export.Policy, lane: Layer.Layer<Out, never, Expo
 const Export: {
   readonly live: <const P extends Export.Policy>(policy: P) => Export.Of<P>
 } = {
-  live: (policy) => Layer.annotateLogs(_managed(policy, _lanes[policy.lane](policy)), { lane: policy.lane }),
+  live: (policy) => Layer.annotateLogs(_managed(policy, _lanes[policy.lane].bind(policy)), { lane: policy.lane }),
 }
 ```
 
-## [07]-[CONTINUATION]
+## [07]-[CONFORMANCE]
+
+- Owner: `Conformance` — the terminal local telemetry diagnostic. It projects the live `Export.Policy`, the selected `_lanes` row, and core convention owners into one native immutable receipt.
+- Law: `_lanes` is the one correspondence for construction and evidence — protocol, framing, sender, compression, and native role travel beside `bind`, with `_nativeLane` and `_facadeLane` deriving each row. The conformance projection never re-decides a lane from its key and cannot report a capability different from the exporter it constructs.
+- Law: every governance value projects from the member deciding it: `Convention.identity`, `Convention.domain`, `Convention.unit`, `Convention.dimensions`, `Convention.scope`, the policy's sampling, temporality, cardinality, caps, and promotion rows, `_aggregation`, `_signal`, and the selected lane. A literal survives only for a code-shape posture with no value member — the global composite registration and the parent-adoption rule.
+- Law: `Convention.conformance.of` and `.row` construct the native receipt directly; no generated graph, ProtoJSON, or manifest actor restates this local report.
+- Entry: `Conformance.of(policy)` returns the local receipt.
+- Growth: a governance obligation is one `_CONFORMANCE` cell reading its owner; a lane is one `_lanes` row; a new local disposition changes `Convention.ConformanceDisposition` first.
+- Boundary: this terminal projection constructs no exporter, reads no ambient SDK global, and crosses no process boundary.
+- Packages: `@rasm/ts/core` (`Convention.conformance`); `effect` (`Array`, `Duration`, `Order`, `Record`).
+
+```typescript signature
+type _ConformanceCell = (policy: Export.Policy, lane: (typeof _lanes)[Export.Lane]) => {
+  readonly disposition: Convention.ConformanceDisposition
+  readonly owner: string
+}
+
+const _joined = (values: ReadonlyArray<string>): string =>
+  Array.sort(Array.dedupe(values), Order.string).join(",")
+
+const _carried = (owner: string, value: string) => ({
+  disposition: { case: "carried", value } as const,
+  owner,
+})
+
+const _withheld = (owner: string, value: string, pin: string) => ({
+  disposition: { case: "withheld", value: { pin, value } } as const,
+  owner,
+})
+
+const _CONFORMANCE: Record<string, _ConformanceCell> = {
+  "resource.identity": (policy) =>
+    _carried("Convention.identity", _joined(Record.keys(Convention.identity(policy.identity)))),
+  "resource.precedence": () =>
+    _carried("_identity", "detectors merged first; deployment identity overrides every collision"),
+  "schema.coordinate": () => _carried("Convention.wire.schemaUrl", Convention.wire.schemaUrl),
+  "scope.coordinate": (policy) =>
+    pipe(Convention.scope("runtime", policy.identity.build.version), (scope) =>
+      _carried("Convention.scope", _joined([scope.name, scope.version, scope.schemaUrl]))),
+  "metric.grammar": () => _carried("Convention.domain", `${Convention.wire.namespace}.<domain>.<measure>`),
+  "metric.subjects": () =>
+    _carried(
+      "Convention.domain",
+      _joined(Array.map(Record.toEntries(Convention.domain), ([segment, row]) => `${segment}=${row.subject}`)),
+    ),
+  "metric.units": () => _carried("Convention.unit", _joined(Record.values(Convention.unit))),
+  "metric.dimensions": () => _carried("Convention.dimensions", _joined(Convention.dimensions)),
+  "metric.temporality": (policy) => _carried("Export.Policy.temporality", policy.temporality),
+  "metric.aggregation": (policy) =>
+    _carried("_aggregation", `histogram=base2-exponential:${policy.histogram.maxSize},other=default`),
+  "metric.exemplar": () =>
+    _withheld("_governed", "gateway span-derived series", "sdk-metrics exports no exemplar seat"),
+  "metric.viewcap": (policy) =>
+    _carried(
+      "Export.Policy.cardinality",
+      _joined(Array.map(Record.toEntries(policy.cardinality), ([kind, limit]) => `${kind}=${limit}`)),
+    ),
+  "metric.dimension.absence": () =>
+    _carried("_governed", "declared-key allowlist; absent entries omit their key"),
+  "propagation.dialect": () =>
+    _carried("_ambient", "w3c-tracecontext,baggage"),
+  "propagation.registration": () =>
+    _carried("_ambient", "one process-global composite for foreign libraries"),
+  "propagation.adoption": () =>
+    _carried("ParentBasedSampler", "admitted parent honoured whole; ratio governs roots alone"),
+  "sample.trace.ratio": (policy) => _carried("Export.Policy.sampling", String(policy.sampling.ratio)),
+  "span.limits": (policy) =>
+    _carried(
+      "Export.Policy.caps.spans",
+      _joined(Array.map(Record.toEntries(policy.caps.spans), ([name, limit]) => `${name}=${limit}`)),
+    ),
+  "tenant.key": () => _carried("Convention.rasm.tenant", Convention.rasm.tenant),
+  "tenant.allowlist": (policy) => _carried("Export.Policy.promote", _joined(policy.promote)),
+  "egress.protocol": (_policy, lane) => _carried("_lanes", `${lane.protocol}/${lane.framing}`),
+  "egress.compression": (_policy, lane) => _carried("_lanes", lane.compression),
+  "egress.endpoint": (policy) => _carried("_signal", _signal(policy, "traces")),
+  "egress.signals": () => _carried("Export.live", "logs,metrics,traces"),
+  "egress.batch.span": (policy) =>
+    _carried(
+      "Export.Policy.caps.batch",
+      [
+        policy.caps.batch.maxQueueSize,
+        policy.caps.batch.maxExportBatchSize,
+        policy.caps.batch.scheduledDelayMillis,
+        policy.caps.batch.exportTimeoutMillis,
+      ].join("/"),
+    ),
+  "egress.batch.log": (policy) =>
+    _carried(
+      "Export.Policy.caps.batch",
+      [
+        policy.caps.batch.maxQueueSize,
+        policy.caps.batch.maxExportBatchSize,
+        policy.caps.batch.scheduledDelayMillis,
+        policy.caps.batch.exportTimeoutMillis,
+      ].join("/"),
+    ),
+  "egress.reader.cadence": (policy) =>
+    _carried(
+      "_reader",
+      `${Duration.toMillis(policy.cadence.metrics)}/${Duration.toMillis(policy.transport.timeout)}`,
+    ),
+  "log.record.caps": (policy) =>
+    _carried(
+      "Export.Policy.caps.logs",
+      _joined(Array.map(Record.toEntries(policy.caps.logs), ([name, limit]) => `${name}=${limit}`)),
+    ),
+  "drain.bound": (policy) => _carried("Export.Policy.shutdown", `${Duration.toMillis(policy.shutdown)}ms`),
+}
+
+const _conformanceRows = (policy: Export.Policy): ReadonlyArray<Convention.ConformanceRow> => {
+  const lane = _lanes[policy.lane]
+  return Array.map(Record.toEntries(_CONFORMANCE), ([key, project]) => {
+    const { disposition, owner } = project(policy, lane)
+    return Convention.conformance.row(key, owner, disposition)
+  })
+}
+
+const Conformance = {
+  of: (policy: Export.Policy): Convention.Conformance =>
+    Convention.conformance.of(_lanes[policy.lane].role, _conformanceRows(policy)),
+}
+```
+
+## [08]-[CONTINUATION]
 
 - Owner: `Propagation` — causal identity crossing every ingress: each admitted transport selects core `Carrier.extract` at its live frame seam, this adapter lifts that extraction's `Carrier.Context` half into an OTel `SpanContext`, and `new TraceState(Carrier.print.tracestate(...))` preserves the parsed state; the assembled owner carries extraction, the ambient carried context, and the one ingress transformer, `Function.dual` so the transformer follows a live pipe subject at every entry seam.
 - Law: the carrier is one shape — `Carrier.Context` — so HTTP, fanout, NATS, Kafka, MQTT, Connect, and CloudEvents frames cross their own dialect rows before continuation; a generic string record never masquerades as a transport inside this adapter.
@@ -1039,10 +1191,10 @@ const Propagation: {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Export, Hooks, Propagation, Redaction }
+export { Conformance, Export, Hooks, Propagation, Redaction }
 ```
 
-## [08]-[DEV]
+## [09]-[DEV]
 
 - Owner: the sibling `otel/dev` module the `./dev` exports-map subpath alone resolves — one `DevTools.layer` row wired to the local DevTools WebSocket, `plane:dev` by tag so the architecture gauge fails any runtime import; the physical module split is what makes the fence structural rather than disciplinary.
 - Law: the dev layer is a registration node like the export layer — merged into a dev composition root beside `Export.live`, never instead of it — and it carries no policy: the DevTools endpoint default is the tool's own.
@@ -1060,6 +1212,6 @@ const dev: Layer.Layer<never> = DevTools.layer()
 export { dev }
 ```
 
-## [09]-[RESEARCH]
+## [10]-[RESEARCH]
 
 (none)

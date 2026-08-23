@@ -1,12 +1,14 @@
 # [CORE_CONVENTION]
 
-Conformance rides as rows: dotted `rasm.<domain>.<measure>` names under UCUM codes closing against `_domain`, `Convention.scope` the scope spelling, `Convention.wire` the estate pins. `Convention.translated` projects a store's series name, so suffixing is a target property; `Convention.mount` materializes a row into its handle, so a site names an instrument. Closed rosters — `keys`, `kinds`, `units`, `durations` — publish as data, `dimensions` generates the metric-plane roster off each row's own fan, and C# parity stays name-level. Its module is `core/src/observe/convention.ts`.
+Conformance rides as rows: dotted `rasm.<domain>.<measure>` names under UCUM codes close against `_domain`, `Convention.scope` spells the scope, and `Convention.wire` holds the estate pins. `Convention.translated` projects store series names, while `Convention.mount` materializes an instrument row.
+
+Closed rosters publish as data, `dimensions` derives each metric-plane fan, and `Convention.conformance` projects native immutable diagnostic rows for the runtime OTel owner. Its module is `core/src/observe/convention.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[SEMCONV_ROWS]: frozen and incubating attribute rosters beside their bounded value families; `Convention`.
 - [03]-[RASM_ROWS]: module, domain, dimension, metric, unit, instrument, event, and profile tables; `Convention`.
-- [04]-[IDENTITY_PROJECTION]: store translation, wire pins, mount memo, outcome fold, and resource stamping; `Convention`.
+- [04]-[IDENTITY_PROJECTION]: store translation, wire pins, conformance projection, mount memo, outcome fold, and resource stamping; `Convention`.
 
 ## [02]-[SEMCONV_ROWS]
 
@@ -103,7 +105,7 @@ import {
   NETWORK_CONNECTION_TYPE_VALUE_WIFI,
   NETWORK_CONNECTION_TYPE_VALUE_WIRED,
 } from "@opentelemetry/semantic-conventions/incubating" // feature_flag.result.* supersedes the deprecated feature_flag.evaluation.* family: the alias row absorbs the next move
-import { Array, Cause, Duration, Effect, Exit, Metric, MetricBoundaries, MutableHashMap, Option, Record, type Types } from "effect"
+import { Array, Cause, Duration, Effect, Exit, Metric, MetricBoundaries, MutableHashMap, Option, Order, Record, type Types } from "effect"
 import { Identity } from "../value/identity.ts"
 import { Shape } from "../value/schema.ts"
 
@@ -301,12 +303,10 @@ const _rasm = {
   exportFormat: "rasm.export.format",
   exportSource: "rasm.export.source",
   factStream: "rasm.fact.stream",
-  // the log-annotation trio a raise stamps: `code` is the routing key a reader dispatches on, `owner` the blamed leg,
-  // and `posture` the producer's own re-drive verdict — one spelling the C# kernel mints under the same three words,
-  // so a cross-language reader joins on the key rather than on a per-branch synonym. Governed rows, so
-  // `Convention.Attributes` admits them and an unrostered `rasm.fault.*` spelling refuses at its annotation site
-  // rather than reaching a log sink unresolvable
-  faultCode: "rasm.fault.code",
+  // Domain and case carry the producer's semantic identity; owner and posture carry local blame and recovery.
+  // Connect Code remains transport classification and never enters this annotation family.
+  faultCase: "rasm.fault.case",
+  faultDomain: "rasm.fault.domain",
   faultOwner: "rasm.fault.owner",
   faultPosture: "rasm.fault.posture",
   flagDetail: "rasm.flag.detail", // the rendered remainder: the member family admits nested objects, arrays, and instants no attribute value type accepts
@@ -733,7 +733,7 @@ const _profile = {
 
 ## [04]-[IDENTITY_PROJECTION]
 
-- Owner: `_translation`, `_wire`, `_translated`, `_mount`, `_outcome`, `_tracked`, `_dimensions`, and `_identity` own store-side naming, the estate pins, instrument materialization, the two census aspects, and resource stamping.
+- Owner: `_translation`, `_wire`, `_translated`, `_conformance`, `_mount`, `_outcome`, `_tracked`, `_dimensions`, and `_identity` own store-side naming, estate pins, local diagnostics, instrument materialization, census aspects, and resource stamping.
 - Law: suffixing is a TARGET property — `translated` projects a store's own series name off the receiver's declared strategy, so a producer mints one dotted name and a store that escapes or suffixes reads its own row rather than a second spelling on the mint.
 - Law: `mount` memoizes each row-and-vocabulary pair, so one site names an instrument and a second site naming the same row shares its carrier instead of minting a twin the exporter reports separately.
 - Law: UCUM tagging lands at the mount, because the OTLP bridge computes an exported descriptor's unit before any view runs and the constructors take no unit option; the export lane drops that key by name.
@@ -743,11 +743,12 @@ const _profile = {
 - Law: a census word shadowing an exit row refuses at the aspect's own parameter, because a reason spelled `resolved` fuses a settled success with the fault it hid.
 - Law: the outcome fold holds one tagged carrier per admitted word from construction, so the exit path mints nothing and a word outside the census cannot be reached.
 - Law: `tracked` is the fault-census frequency aspect — the row's mount and the error-rail fold ride one declaration, so no page spells the tracking operator beside its own mount.
+- Law: `conformance.of` and `conformance.row` return native immutable diagnostic values with rows sorted by key; no generated message or peer wire restates this branch-owned governance report.
 - Law: the resource projection stamps identity ONCE and every optional coordinate rides a fold, so an absent region, zone, cluster, or tenant OMITS its key rather than exporting an empty string a query reads as a value.
 - Law: the estate service group is the floor a fleet's own namespace overrides, so one pin serves every unconfigured app without freezing a deployment that names its own.
 - Growth: a receiver posture is one `_translation` row; a promoted identity coordinate is one `_ESTATE` entry with its resource fold.
-- Boundary: exporter wiring and the reader seat are `runtime/otel`'s; this cluster owns names, shapes, and the projections a store reads.
-- Packages: `effect` (`Array`, `Cause`, `Duration`, `Effect`, `Exit`, `Metric`, `MetricBoundaries`, `MutableHashMap`, `Option`, `Record`, `Types`); `../value/identity.ts` (`Identity`); `../value/schema.ts` (`Shape`).
+- Boundary: this S1 owner exposes local diagnostic data only. Exporter wiring and the reader seat are `runtime/otel`'s.
+- Packages: `effect` (`Array`, `Cause`, `Duration`, `Effect`, `Exit`, `Metric`, `MetricBoundaries`, `MutableHashMap`, `Option`, `Order`, `Record`, `Types`); `../value/identity.ts` (`Identity`); `../value/schema.ts` (`Shape`).
 
 ```typescript signature
 const _translation = {
@@ -907,6 +908,19 @@ const _tracked = <N extends Convention.CensusMetric<"fault", "frequency">, E, co
   return (self) => Metric.trackErrorWith(self, mounted, reason)
 }
 
+const _conformance = {
+  of: (role: Convention.Minter, rows: ReadonlyArray<Convention.ConformanceRow>): Convention.Conformance => ({
+    role,
+    rows: Array.sort(rows, Order.mapInput(Order.string, (row) => row.key)),
+    schemaUrl: _wire.schemaUrl,
+  }),
+  row: (key: string, owner: string, disposition: Convention.ConformanceDisposition): Convention.ConformanceRow => ({
+    disposition,
+    key,
+    owner,
+  }),
+} as const
+
 const _keys: ReadonlyArray<Convention.Key> = [
   ...Record.values(_attr),
   ...Record.values(_incubating),
@@ -948,6 +962,20 @@ const _identity = (identity: Identity.App): Convention.Resource => ({
 
 declare namespace Convention {
   type Attr = keyof typeof _attr
+  type Conformance = {
+    readonly role: Minter
+    readonly rows: ReadonlyArray<ConformanceRow>
+    readonly schemaUrl: string
+  }
+  type ConformanceDisposition =
+    | { readonly case: "absent"; readonly value: true }
+    | { readonly case: "carried"; readonly value: string }
+    | { readonly case: "withheld"; readonly value: { readonly pin: string; readonly value: string } }
+  type ConformanceRow = {
+    readonly disposition: ConformanceDisposition
+    readonly key: string
+    readonly owner: string
+  }
   type Domain = keyof typeof _domain
   type Module = keyof typeof _module
   type Emitter = { readonly [M in Module]: (typeof _module)[M]["emits"] extends true ? M : never }[Module] // the roster's own column carves the emitting half; a second hand-listed union drifts on the first module that starts or stops mounting
@@ -998,6 +1026,7 @@ declare namespace Convention {
     : Metric.Metric.Counter<R extends { readonly bigint: true } ? bigint : number>
   type Input<N extends MetricName> = Mounted<N> extends Metric.Metric<infer _Type, infer In, infer _Out> ? In : never // the admitted update a named row's own carrier takes, so a subscriber's projection types off the name alone
   type Instrument = Mounted<MetricName> // every carrier the census admits, which is exactly what one mount arm returns
+  type Minter = "browser" | "deploy" | "process"
   type Words<N extends MetricName, W extends Roster> = Named[N] extends { readonly kind: "frequency" } ? [census: Census<W>] : [] // the census is required where the family counts words and unspellable everywhere else
   type GrafanaUnit = typeof _grafanaUnit
   type Display = keyof GrafanaUnit[Unit] // the fold's own read: a quantity or that quantity per second
@@ -1031,6 +1060,7 @@ declare namespace Convention {
     readonly Unit: typeof _Unit
     readonly attr: typeof _attr
     readonly bounds: (metric: MetricName<"histogram">) => ReadonlyArray<number>
+    readonly conformance: typeof _conformance
     readonly dimensions: ReadonlyArray<Dimension>
     readonly domain: typeof _domain
     readonly duration: (metric: DurationMetric, span: Duration.Duration) => number
@@ -1120,6 +1150,7 @@ const Convention: Convention.Shape = {
   Unit: _Unit,
   attr: _attr,
   bounds: _edges,
+  conformance: _conformance,
   dimensions: _dimensions,
   domain: _domain,
   duration: _duration,

@@ -4,6 +4,7 @@ All JSON emission routes through the module encoder so envelope order, tagged-de
 Foreign tool-output parsing lives in ``tools.assay.diagnostics``, keyed by the ``Parser`` vocabulary declared here.
 """
 
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -30,6 +31,19 @@ class ArtifactKind(StrEnum):
     SCOPE = "scope"
     CODE = "code"
     HISTORY = "history"
+
+
+class Band(StrEnum):
+    """Census band a rail status folds into: whether the leaf reached a verdict, and which one.
+
+    ``PROVED`` and ``REFUSED`` are the two verdicts a lane can reach; ``UNPROVED`` is every way a lane
+    reaches none — never run, not runnable here, cut short, or broken before it could answer. A census
+    with a non-zero ``UNPROVED`` band certifies nothing about that axis, however clean its exit code.
+    """
+
+    PROVED = "proved"
+    REFUSED = "refused"
+    UNPROVED = "unproved"
 
 
 class Claim(StrEnum):
@@ -70,18 +84,26 @@ class Language(StrEnum):
 
     strategy: Literal["closure", "glob"]  # closed route discriminant; typos cannot silently route as glob
     suffixes: frozenset[str]
-    CSHARP = "csharp", "closure", frozenset((".cs", ".csproj", ".props", ".targets", ".slnx"))
-    PYTHON = "python", "glob", frozenset((".py", ".pyi"))
-    TYPESCRIPT = "typescript", "glob", frozenset((".ts", ".tsx", ".cts", ".mts"))
-    BASH = "bash", "glob", frozenset((".sh", ".bash"))
-    SQL = "sql", "glob", frozenset((".sql",))
-    DOCS = "docs", "glob", frozenset((".md", ".mmd"))
-    PROTO = "proto", "glob", frozenset((".proto",))
+    # Root-relative configs governing the whole lane; a change to one escalates the route because every
+    # verdict in the language derives from them, and no source file need change for the answer to move.
+    governors: frozenset[str]
+    CSHARP = "csharp", "closure", frozenset((".cs", ".csproj", ".props", ".targets", ".slnx")), frozenset[str]()
+    PYTHON = "python", "glob", frozenset((".py", ".pyi")), frozenset(("pyproject.toml", "uv.lock"))
+    TYPESCRIPT = (
+        "typescript",
+        "glob",
+        frozenset((".ts", ".tsx", ".cts", ".mts")),
+        frozenset(("tsconfig.json", "biome.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "package.json")),
+    )
+    BASH = "bash", "glob", frozenset((".sh", ".bash")), frozenset[str]()
+    SQL = "sql", "glob", frozenset((".sql",)), frozenset[str]()
+    DOCS = "docs", "glob", frozenset((".md", ".mmd")), frozenset[str]()
+    PROTO = "proto", "glob", frozenset((".proto",)), frozenset(("buf.yaml", "buf.gen.yaml", "buf.lock"))
 
-    def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str]) -> Self:
+    def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str], governors: frozenset[str]) -> Self:
         """Attach enum payload fields not represented by the StrEnum value."""
         m = str.__new__(cls, value)
-        m._value_, m.strategy, m.suffixes = value, strategy, suffixes
+        m._value_, m.strategy, m.suffixes, m.governors = value, strategy, suffixes, governors
         return m
 
 
@@ -135,28 +157,36 @@ class Parser(StrEnum):
 
 
 class RailStatus(StrEnum):
-    """Rail status with its wire token, exit code, severity rank, and the dominant/fold severity algebra."""
+    """Rail status with its wire token, exit code, severity rank, census band, and the dominant/fold severity algebra.
+
+    The ``band`` column is the sole authority for what a status contributes to a census: no consumer re-partitions
+    the members, so a member minted without a band is a compile-time hole rather than a silent fold onto ``PROVED``.
+    Only a lane that ran and answered bands as a verdict — everything from a governed skip to a broken tool bands
+    ``UNPROVED``, because none of them examined the axis.
+    """
 
     exit_code: int  # bound by __new__; not a real descriptor
     severity: int
+    band: Band
 
-    SKIP = "skip", 0, 0, "skipped"
-    EMPTY = "empty", 0, 1
-    OK = "ok", 0, 2
-    DEGRADED = "degraded", 2, 3
-    CANDIDATE = "candidate", 2, 4
-    UNSUPPORTED = "unsupported", 3, 5
-    BUSY = "busy", 5, 6
-    TIMEOUT = "timeout", 5, 7
-    FAILED = "failed", 1, 8
-    FAULTED = "faulted", 2, 9
+    SKIP = "skip", 0, 0, Band.UNPROVED, "skipped"
+    EMPTY = "empty", 0, 1, Band.PROVED
+    OK = "ok", 0, 2, Band.PROVED
+    DEGRADED = "degraded", 2, 3, Band.UNPROVED
+    CANDIDATE = "candidate", 2, 4, Band.UNPROVED
+    UNSUPPORTED = "unsupported", 3, 5, Band.UNPROVED
+    BUSY = "busy", 5, 6, Band.UNPROVED
+    TIMEOUT = "timeout", 5, 7, Band.UNPROVED
+    FAILED = "failed", 1, 8, Band.REFUSED
+    FAULTED = "faulted", 2, 9, Band.UNPROVED
 
-    def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
-        """Bind the wire token, exit code, severity, and string aliases."""
+    def __new__(cls, value: str, exit_code: int, severity: int, band: Band, *aliases: str) -> Self:
+        """Bind the wire token, exit code, severity, census band, and string aliases."""
         member = str.__new__(cls, value)
         member._value_ = value
         member.exit_code = exit_code
         member.severity = severity
+        member.band = band
         for alias in aliases:
             member._add_value_alias_(alias)  # Python 3.13+ raises on cross-member alias collisions
         return member
@@ -514,11 +544,44 @@ class Completed(Base, frozen=True):
 
 
 class Counts(Base, frozen=True):
-    """Fold-derived report counts."""
+    """Census of the leaves a report folded, keyed by the rail-status algebra.
 
-    ok: int = 0
-    failed: int = 0
-    total: int = 0
+    ``by_status`` is the sole accumulator: every band total and the cardinality project off it at read time through
+    ``RailStatus.band``, so no partition can drift from the vocabulary and two partial censuses still combine. Rows
+    keep the vocabulary's declaration order — which is its severity order — and a zero-count status takes no row, so
+    an unseated census encodes as nothing at all and a member minted later seats itself the first time it occurs.
+    """
+
+    by_status: tuple[tuple[RailStatus, Annotated[int, msgspec.Meta(ge=0)]], ...] = ()
+
+    @classmethod
+    def of(cls, *sources: RailStatus | Counts) -> Self:
+        """Seat rail statuses and prior censuses into one census.
+
+        Returns:
+            The census over every seated leaf, ordered by the vocabulary and carrying no empty row.
+        """
+        census: Counter[RailStatus] = Counter()
+        for source in sources:
+            match source:
+                case RailStatus():
+                    census[source] += 1
+                case Counts(by_status=rows):
+                    census.update(dict(rows))
+        return cls(tuple((status, census[status]) for status in RailStatus if census[status]))
+
+    @property
+    def total(self) -> int:
+        """Leaves seated in the census."""
+        return sum(seated for _, seated in self.by_status)
+
+    def band(self, band: Band) -> int:
+        """Return the census total for one band.
+
+        Returns:
+            Leaves whose status bands there, or zero when no seated status does.
+        """
+        return sum(seated for status, seated in self.by_status if status.band is band)
 
 
 class Fault(Base, frozen=True):
@@ -743,13 +806,16 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
 
 
 class ContractsRun(Detail, frozen=True, tag="contracts"):
-    """Contracts gate evidence: lane verdicts, descriptor census, freshness, plugin resolution, and per-lane fault tails.
+    """Contracts gate evidence: registry coordinates, lane verdicts, descriptor census, freshness, plugin resolution, and fault tails.
 
     ``faults`` carries the captured stderr tail per FAULTED lane, since a ``Parser.BUF`` lane finds nothing on
     stdout for a non-defect exit; ``stale`` rows spell ``(kind, path)`` with kind in changed/missing/orphan.
     """
 
     lanes: tuple[tuple[str, str], ...] = ()
+    module: str = ""
+    baseline: str = ""
+    published: str = ""
     counts: tuple[tuple[str, int], ...] = ()
     packages: tuple[str, ...] = ()
     stale: tuple[tuple[str, str], ...] = ()
@@ -1010,6 +1076,7 @@ __all__ = [
     "ApiSurface",
     "Artifact",
     "ArtifactKind",
+    "Band",
     "Base",
     "BaseParams",
     "Bind",

@@ -1,87 +1,76 @@
 # [CONTRACTS_CORPUS]
 
-`tests/contracts/` carries both corpus roles: each seam schema DEFINES the contract every conforming branch implements, and the frozen wire bytes and canonical JSON PROVE that C#, Python, and TypeScript resolve it to the same facts — a neutral surface no language tree owns and no language-local snapshot store substitutes for. Definitions and assets rebuild ground-up when a contract changes shape; a stale asset regenerates or dies, never hand-patched.
-
-[MANIFEST.md](MANIFEST.md) is the corpus registry: every committed seam holds one manifest entry before its first asset exists, and the entry's pin state separates frozen expectations from unpinned design gaps.
+`tests/contracts/` registers every process or publisher wire boundary once, including same-language process crossings. Each named producer, minter, inbound application reader, and consumer binds the exact boundary entrypoint. `manifest.json` is the registry, the Assay msgspec model is its grammar, and `manifest.schema.json` derives from that model.
 
 ## [01]-[AUTHORITY]
 
-Each entry declares one of two classes, and the class alone decides who mints the shape, what proves conformance, and which drift is the defect.
+Each entry groups cases under one law; every case is the atomic authority and readiness unit:
 
-[INFRASTRUCTURE]:
-- Mint: every `Minters` anchor mints from its own inputs; the entry freezes payload-agnostic law alone — branch payloads take own `domain` entries.
-- Proof: each minter emits into the seam and every other minter reproduces the identical facts on decode, so parity across minters IS the conformance.
-- Drift defect: a second mint of one shape inside one branch — that branch then carries two spellings where the corpus proves one.
-
-[DOMAIN]:
-- Mint: the single `Producer` anchor emits the canonical asset, named by the domain capability it holds and never by language rank.
-- Proof: every branch decodes and re-encodes through its local snapshot rail — wire bytes round-trip byte-identical, canonical JSON to the same facts.
-- Drift defect: a second producer for one contract — two emitters fork the semantic model the contract carries.
+- `infrastructure`: Two or more independent minters construct the value from their own inputs.
+- `domain`: Exactly one semantic producer owns the value.
+- `application`: Deploying applications and external clients supply a public inbound value; the estate names its exact readers alone.
+- `publisher`: Immutable upstream publishers own the definition bytes.
 
 ## [02]-[LAYOUT]
 
-Assets subdivide by seam, then by message: one directory per cross-language seam, one definition asset at its head, one asset pair (wire bytes and canonical JSON) per message shape inside it. Each seam directory opens with its `contract.schema.json` and gains frozen assets the day a minter or producer emits — no reserved directories, no placeholder assets, no speculative message homes. `MANIFEST.md` precedes every directory: the entry commits the seam, the directory lands the day its definition does, and the registry is the census a reader walks. Everything below states that landing schema, never the current tree.
-
 ```text conceptual
 tests/contracts/
-├── MANIFEST.md                    # Seam registry: classes, pin states, minters, frozen expectations
-├── .api/                          # Corpus tool catalog: the gate binary's commands, config schema, rule vocabulary
-├── rasm/<family>/v1/              # Descriptor source per family, seated at the directory its package spells
-│   ├── <family>.proto             # Language-neutral message and service declaration
-│   └── <family>.descriptor.binpb  # Frozen FileDescriptorSet parity digest
-├── io/<publisher-path>/           # Vendored publisher sources, seated at the path the publisher's own package spells
-└── <seam>/
-    ├── contract.schema.json       # Definition every conforming branch implements
-    ├── <message>.bin              # Frozen wire bytes
-    └── <message>.json             # Canonical JSON projection of the same payload
+├── manifest.json · manifest.schema.json            # Authored registry and schema derived from the rail model
+├── .api/                                           # Corpus tool catalog: buf, plugins, and the Assay-owned gate
+├── proto/buf.md                                    # Module front door the BSR renders; absence falls back to the repo README
+├── proto/rasm/contracts/<family>/v1/*.proto        # Estate module; sibling files split by ownership, one package per family
+├── vendor/<publisher>/                             # Immutable publisher sources, licenses, and conformance vectors
+└── <seam>/                                         # Present only when one or more cases carry verified proof assets
+    ├── <vector>.bin                                # Frozen binary, framed identity vector, or publisher evidence
+    ├── <vector>.h5 · <vector>.mtx                  # Native scientific-container specimens decoded by their format libraries
+    ├── <vector>.facts.json                         # Typed normalized facts for semantic conformance or value parity
+    └── <fqn>.jsonschema.strict.bundle.json         # Gate-derived only when a named consumer evaluates the document
 ```
 
-[NON_SEAM_ROOTS]: `.api/`, `rasm/`, and `io/` are the roots this layout names beside the seam directories, and each stands outside the seam census: `.api/` catalogs the gate binary, `rasm/` holds estate-minted descriptor sources, and `io/` holds vendored publisher sources under the publisher's own package path. Vendored CORPORA instead seat as ordinary seam directories carrying the publisher's frozen bytes and no `contract.schema.json`, since the publisher's own format is the definition and an estate-authored schema beside it grades a copy.
+[PROTO_SEATING]: One estate family lands under `proto/rasm/contracts/<family>/v1/`, declares `package rasm.contracts.<family>.v1`, and carries no file option; managed mode derives every language option. Root `buf.yaml` names this one release unit `buf.build/rasm/contracts`; publisher modules remain unnamed and never enter that publication.
 
-Peer assets beside the seam directories — descriptor-set snapshots, exported schemas, or other contract assets — land the day they become real, never in advance, and each registers a manifest entry with its own payload kind. Descriptor sources and their `FileDescriptorSet` snapshot land together as one peer asset: the snapshot is the drift contract's per-source parity digest, never a seam fixture, so it rides a `DESIGN-PIN` entry without breaching the pin law.
+[PUBLISHER_SEATING]: One publisher lands under `vendor/<publisher>/`. Its proto is an independent Buf module under `proto/`; its definition records the local source, immutable repository commit and upstream path, colocated Apache-2.0 license, and license SHA-256.
 
-[PROTO_SEATING]: `buf` `PACKAGE_DIRECTORY_MATCH` binds each source to the directory its package spells, so `rasm.<family>.v1` seats at `rasm/<family>/v1/<family>.proto` and one directory holds one package. Every later family inherits that seat rather than re-deciding it, and the corpus root gains a directory per family instead of a flat file set three packages deep.
+## [03]-[DEFINITION]
 
-[SHARED_DEFINITION]: definitions several seams conform to land ONCE beside the seam directories as `<vocabulary>.schema.json`, and each referencing seam's `contract.schema.json` reaches one by `$ref` rather than restating a row. Such a definition registers no manifest entry of its own — a definition names no minter and emits no asset, so the entry schema's exclusive maps have nothing to bind — and every entry conforming to it names it in `Shape`. Rosters ride it as `const` subschemas so a branch validates its own projection against the frozen vocabulary instead of a reader comparing two tables by eye. Two seams re-spelling one roster is the fork this form forecloses; the shared definition freezes before either seam's own definition lands, because a seam schema that fixes a shared row locally has already forked it.
+Each case owns one machine-resolved `definition`:
+- `proto`: Exact message FQN and framing, resolved from the built image; RPC actors also bind the service method and message direction.
+- `cloudevent`: Exact CloudEvents protobuf envelope with one application event-type discriminant.
+- `law`: One repo cluster `path.md#[NN]-[CLUSTER]` for a framing seam the type system cannot hold.
+- `publisher`: Exact publisher format, local source, and immutable upstream origin; publisher cases alone.
+- `schema`: DERIVED `json-strict-bundle`, `derivedFrom: proto:<fqn>` or `msgspec:<type>`, only for a real evaluator.
 
-## [03]-[MANIFEST]
+`definition` owns decoder routing. Entry `id` derives the corpus directory. Every actor binds one live fence and one literal source symbol through `coordinate`, then declares generated, package, or proof custody. RPC actors also bind one exact method and request or response direction.
 
-[MANIFEST.md](MANIFEST.md) is machine-consumed Markdown: corpus audits verify it against disk, producer pages flip its pin states, and per-language corpus readers resolve assets through it. It keeps this exact shape instead of ordinary page normalization:
+Generated actors alone select public Buf roots, and descriptor support closure stays generated rather than hand-rostered. Generated actors name descriptor-validated `supports` where their boundary uses a generated symbol outside that closure; a support selects codegen, never a case or reader.
 
-[MACHINE_RECORD]:
-- Consumer: audits resolve producer anchors and verify pin-state honesty; producers graduate pins; branch readers resolve assets by seam and fixture.
-- Required shape: one summary lookup table over all entries, then one H3 record per fixture carrying the field grammar below in field order.
-- Closed grammar: `[ENTRY_SCHEMA]` is the label vocabulary, so a minted label carries load no reader resolves and its content folds into `Shape`.
-- Checked fields: `Class`/`Pin`/`Payload` use closed terms; every `Minters` and `Producer` anchor resolves on disk; per-class fields stay exclusive.
-- Owner: this README owns the schema; the manifest owns the instances.
-- Refresh trigger: any seam commitment, pin graduation, producer re-anchor, or payload change lands with its manifest entry in the same change.
+## [04]-[PROOF]
 
-[ENTRY_SCHEMA]:
-- `Seam`: names the corpus directory the fixture's assets land in, lowercase-hyphenated.
-- `Class`: `infrastructure` binds every branch to mint the shape; `domain` binds one producer to emit it.
-- `Minters`: `infrastructure` only — every branch anchor minting the shape, as `lang:<pkg>/<page>#<CLUSTER>`; each mints from its own inputs.
-- `Producer`: `domain` only — names the owning cluster as `lang:<pkg>/<page>#<CLUSTER>`, which pins the byte-deriving input and emits the asset.
-- `Consumers`: lists the committed round-trip readers as `lang:<pkg>/<page>#<CLUSTER>` or folder tokens; consumers never re-derive a fixture.
-- `Payload`: one or more of `wire-bytes`, `canonical-json`, `digest`, `descriptor-set`.
-- `Pin`: `REAL` binds producer-page-frozen byte input and expectations, host-derived or settled-design-determined; `DESIGN-PIN` marks input unpinned.
-- `Blocker`: `DESIGN-PIN` only — the named producer gap that must close before bytes can derive.
-- `Shape`: states the committed payload shape and the law the fixture proves.
-- `Expectation`: `REAL` only — the frozen values the producer emit must reproduce.
-- `Regenerate when`: names the owning contract change that forces re-emission.
+Readiness is tagged:
 
-[EXPECTATION_LAW]:
-- `Expectation` binds byte-exact emitting law, never an asset; consumers round-trip only emitted `<seam>/` assets, never ledger values.
-- `DESIGN-PIN` carries no bytes, digest, or stand-in — every runtime rejects fabricated bytes.
-- `DESIGN-PIN` graduates to `REAL` only after every minter or the producer freezes its byte-deriving input; the entry follows in the same change.
+- `blocked`: Decision-complete authority and actors with exact unmet executable evidence; no vectors.
+- `verified`: One primary oracle with non-empty proof vectors.
 
-## [04]-[REGENERATION]
+Oracle vocabulary is closed:
 
-Contract changes trigger regeneration by class: an `infrastructure` schema change re-proves every minter against the new definition, and a `domain` contract change re-emits from its producer. Either path updates the manifest in the same change, and a regenerated asset lands only with every participating binding reconciled.
+- `semantic-conformance`: One specimen decodes to one typed expected-facts asset.
+- `semantic-roundtrip`: Protobuf decode, normalized encode, and second decode preserve the value and reject unknown fields.
+- `value-parity`: One independently minted specimen per declared minter decodes to one typed expected value.
+- `external-digest`: Exact non-Protobuf external bytes are the contract.
+- `publisher-digest`: Immutable publisher bytes match their recorded upstream custody.
 
-[PROTO_GATE]: the root `buf.yaml` declares this directory as buf's one module, and every verb runs from `node_modules/.bin/buf`. `buf lint` holds each source to `STANDARD` less the two rules the estate's ruled wire vocabulary displaces; `buf breaking --against '.git#branch=main' --against-config buf.yaml` refuses a `FILE`-category change, reading the baseline under the current rules so a rule edit takes effect on the same run; `buf format -d --exit-code` gates layout on the diff, the bare `--exit-code` form printing each formatted file to stdout instead.
+Every asset independently records its byte count and tagged `xxh128` or `sha256` fingerprint. Publisher assets require SHA-256. Protobuf deterministic serialization is never cross-runtime canonical byte identity. Each value-parity specimen carries `actor_key(minter)`, derived from the actor anchor and coordinate; aliases and inferred path provenance are not admitted. Native HDF5 and Matrix Market laws use their official decoders and typed facts. They are estate contracts, never publisher custody or generated SDKs.
 
-Each source regenerates its snapshot through `buf build --path <source> --as-file-descriptor-set --exclude-imports --exclude-source-info`, the one flag set the three minters compare byte-for-byte. That same exclusion keeps the snapshot out of the breaking baseline — it resolves no imports — and `tests/contracts/.api/bufbuild-buf.md` owns the command, config, and rule surface.
+## [05]-[REGISTRATION]
 
-[PROTO_GEN]: root `buf.gen.yaml` beside `buf.yaml` is the estate's one generation template — this module as its `directory` input, one `plugins` row per consumer whose own build drives no protoc. TypeScript's `protoc-gen-es` row is the only one today, emitting one `_pb.ts` per source at the module-relative path into a tree no commit carries; C# (`Grpc.Tools`) and Python (`grpc_tools.protoc`) drive protoc inside their own builds off this root and take no row, and `tests/contracts/io` leaves the module so no row reaches the vendored CloudEvents source.
+Each new grouping lands one entry carrying a non-empty case set and one law sentence under 240 characters. Domain cases name the exact producer, infrastructure cases every independent minter, application cases a public typed input beside every generated or package ingress, and publisher cases the frozen local source and immutable origin.
 
-`nx run workspace-foundation:proto` is the one entry: the root `package.json` target hashes the template, `buf.yaml`, every corpus `.proto`, and both tool packages, caches the `out` tree as its `outputs`, and `typecheck` depends on it, so a cache hit restores the emission and a corpus edit regenerates before the compiler reads.
+Application authority never covers a missing estate producer: a deploying application owns the inbound value or the case is not application. Every non-publisher case names one literal reachable reader, since a producer, descriptor, registry slot, or equivalence helper establishes no crossing. Verification atomically replaces blockers with vectors, and blocked evidence materializes no directory.
+
+## [06]-[GATE]
+
+`assay contracts check` is the one gate: prove the active `buf.build/rasm/contracts` module whose default label is `main`, resolve that label to an immutable commit, then build, STANDARD lint carving named rules on the one vendored module whose publisher spelling breaks them, format diff over the estate module alone, FILE breaking against that coordinate, manifest audit, and scratch freshness.
+
+Lookup and resolver faults skip breaking alone and preserve every sibling verdict; with the module published, that skip reads as an absent compatibility verdict rather than the standing state.
+
+`assay contracts generate` writes clean public roots, locked support closure, emitted `.api` rosters, and derived schemas locally. `assay contracts publish` reruns the complete gate under the same lease, then re-resolves the unchanged default-label commit or re-proves exact module absence immediately before pushing the named estate module publicly, carrying no publisher module and no Git metadata. Missing labels, authentication failures, and network failures never bootstrap.

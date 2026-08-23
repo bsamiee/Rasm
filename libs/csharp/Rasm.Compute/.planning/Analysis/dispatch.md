@@ -14,9 +14,9 @@ The dedup predicate is the seam's DOUBLE-DISPATCH GUARD — the EXISTENCE of a n
 - Owner: `Analysis` the static partial carrying the rail entries and the shared content-key, node-id, supersede, and receipt spine the `Analysis/assessment#COMMISSIONING` partial composes; `RerunPolicy` the `[SmartEnum<string>]` cache-and-redrive axis (`CacheFirst`/`AllowStale`/`Force`, each row its stale-reading column and its published kernel `RedrivePolicy` curve); `AssessmentDisposition` the disposition vocabulary; `Assessed` the one-pass outcome; `AssessmentSink` the THREE-leg egress port (`Store` the heavy artifact bytes, `Series` the typed temporal points, `Rows` the typed result rows); `AssessmentRow` the neutral typed row every discipline's own result estate lowers into once; the three analysis `ComputeFault` cases; the `ComputeReceipt.Assessment` case with its failure/retry/seismic columns.
 - Entry: `Assess(graph, request, geometry, sink, rerun, correlation, clock)` proves the case↔route correspondence and the non-empty target set, content-keys the triple, derives the assessment `NodeId`, and dispatches on the cached row's capability set — the 412-noop, the policy-gated stale read, the typed in-flight verdict, the redrive-gated retry, the served terminal, or a fresh run. A fresh run folds runner success through `WriteBack` (fresh node + `Assign` edges + supersede close-out) and a runner `AnalysisFailed` through `FailedWriteBack` (the typed fault lowered through the seam `Diagnostic.Of` into a `PayloadContent.Failure` under the same id). `Sweep` is `[03]`'s.
 - Auto: the content key STREAMS through the seam's ONE tolerance-bound `ContentAddress.Of<TState>` entry — the route `Key`, the route `SolverVersion`, the target count, then per target in `NodeId` order a present/absent tag plus either the present target's own `CanonicalBytes` contribution and its count-prefixed incident edges or the absent target's id, then the request's discipline policy — hashed over the one kernel seed-zero `XxHash128` rail, with NO writer constructed and NO preimage materialized. The assessment `NodeId` is the seam self-hash `NodeSeed.Content` over the `(Discipline, Route, InputKey)` projection (the form `ContentAddress.Verify` recomputes, NEVER a `NodeSeed.Precomputed` wrap of the `InputKey` whose stored id `Verify` cannot reproduce), so a re-assessment of an unchanged subgraph addresses the same node and dedups; the verdict rides the `Results` bag as an `Enumerated` and the ratio as a dimensionless `Measure`, both derived so the receipt and stored verdicts cannot diverge.
-- Receipt: the `ComputeReceipt.Assessment` case carries the discipline/route/content/verdict keys, the OPTIONAL governing ratio, the admitted flag, and the failure (`Phase`/`FailureKind`/`Transient`), retry (`Attempt`), and seismic (`Participation`/`Combination`) columns — all mirrored 1:1 by the `Runtime/receipts` `AssessmentWire`; the seismic pair PROJECTS off the runner's own fact stream through the two `Analysis`-owned fact names, so the receipt column and the stored `Results` entry read one source and a non-seismic route leaves both `None` rather than a zero; `Participation` is the DIRECTIONAL effective-mass fraction along the excitation axis the request named, the axis itself riding the fact stream so the scalar column carries one honest number rather than a cross-axis total; faults cross the wire through the one `Runtime/wire#FAULT_PROJECTION` `FaultWire` family.
+- Receipt: the `ComputeReceipt.Assessment` case carries the discipline/route/content/verdict keys, the OPTIONAL governing ratio, the admitted flag, and the failure (`Phase`/`FailureKind`/`Transient`), retry (`Attempt`), and seismic (`Participation`/`Combination`) columns — the seismic pair PROJECTS off the runner's own fact stream through the two `Analysis`-owned fact names, so the receipt column and the stored `Results` entry read one source and a non-seismic route leaves both `None` rather than a zero; `Participation` is the DIRECTIONAL effective-mass fraction along the excitation axis the request named, the axis itself riding the fact stream so the scalar column carries one honest number rather than a cross-axis total; faults cross the wire through AppHost `Runtime/ports#WIRE_LAW` `FaultWire.Raise`, the one producer leg.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Option`/`Seq`/`Map`/`Set`/`IO`/`TraverseM`), NodaTime, Rasm (kernel — `RedrivePolicy` the published redrive curve, `Op` the diagnostic key, `CapabilitySet`), Rasm.Element (project — `ElementGraph`, `Node`, `NodeId.Of`/`NodeSeed.Content`/`NodeSeed.Placement`, `GraphDelta`, `Relationship`, `AssignKind`, `AssessmentPayload.Open`/`.Land`/`.Advance`/`.IsStaleFor`, `PayloadContent`, `AssessmentOutcome`/`OutcomeCapability`, `AnalysisRoute.Of`, `BlobKey`, `EvidenceRun`, `SolvePhase`, `FailureKind`, `Diagnostic`/`Diagnostic.Of`, `GeometrySource`, `PropertyName`, `PropertyValue`, `MeasureValue`, `Dimension`, `ContentAddress.Of<TState>`), Rasm.Persistence (project — the `Query/datasets#SERIES_ROSTER` `SeriesPoint` the temporal leg lands), the `Runtime/admission#DISPATCH_SPINE` `ComputeFault`/`[FaultCase]`/`AssessmentInputReason`, BCL inbox — the content hash composes the seam `ContentAddress`, so the page admits no `System.IO.Hashing`.
-- Growth: a new discipline runner is one `Run` arm (the `Switch` breaks until it exists); a new fault is one `ComputeFault` case with its `[FaultCase]` ordinal (the wire crossing automatic — `FaultWire.Pack` uniform over the band); a new under-specification witness is one `AssessmentInputReason` row, never a new interpolated stem; a new cache modality is one `RerunPolicy` row publishing its own curve, a new disposition one `AssessmentDisposition` row, a new receipt column one init member with one `AssessmentWire` field, a new egress modality one `AssessmentSink` leg every artifact-bearing runner inherits; a parallel fault union, a second receipt union, or a parallel re-solve engine beside the `JobGraph` is the rejected form.
+- Growth: a new discipline runner is one `Run` arm (the `Switch` breaks until it exists); a new fault is one `ComputeFault` case with its `[FaultCase]` ordinal (the wire crossing automatic — AppHost `FaultWire.Pack` reads `domain` and `case` off the band); a new under-specification witness is one `AssessmentInputReason` row, never a new interpolated stem; a new cache modality is one `RerunPolicy` row publishing its own curve, a new disposition one `AssessmentDisposition` row, a new receipt column one init member, a new egress modality one `AssessmentSink` leg every artifact-bearing runner inherits; a parallel fault union, a second receipt union, or a parallel re-solve engine beside the `JobGraph` is the rejected form.
 - Boundary: the runner reads the CONCRETE `ElementGraph` directly — Compute is APP-PLATFORM above the AEC-domain seam, so it consumes `Rasm.Element` upward and never goes through `IElementProjection`; the write-back produces a `GraphDelta` the CALLER applies so this owner never mutates a graph in place. Every payload crosses the seam's ONE `Open` admission or the ONE `Land` landing — the retired `Computed`/`Pending`/`Failed` factory family and the separate `Rehydrate` collapsed there, and the seam's IDENTITY PRESERVATION law makes `Land` the landing a solver that OPENED a node takes while `Open` is the fresh mint a producer holding no prior node takes, so a re-spelled triple can never key a different node than the one the sweep watches. The `AssessmentInputMissing` fault carries an `AssessmentInputReason` ROW beside its witness — a caller recovers on the reason and the detail carries only the route, node, or share the reason names, never a free-form stem a consumer parses by prefix; `AnalysisFailed` carries the foreign exit/HTTP `Status` (the generated `Code` is the band derivation and never a payload column). The cache dispatch is LIFECYCLE-AWARE through the seam row's OWN `CapabilitySet<OutcomeCapability>` — `Consumable` gates readability, `Settled` marks the key settled, `Dispatchable` marks re-solvability, `InFlight` marks a worker's claim — so the four capability reads PARTITION the roster and a new outcome row lands in the arm its own capability set names rather than falling silently to a default; every flip runs through the seam `Advance` against the row's `Next()` adjacency, and a Compute-side lifecycle enum is the deleted form. A runner `AnalysisFailed` CACHES as a `PayloadContent.Failure` under the same content-keyed id so the deterministic failure is a first-class cached fact the next `Assess` serves without re-running, while `AssessmentInputMissing`/`ToolchainUnresolved` (admission/infrastructure) stay rail-only and never cache. The retry gate is BOUNDED and PUBLISHED, never executed here: the `RerunPolicy` row carries a kernel `RedrivePolicy` whose `Curve` yields the per-attempt delay and whose `Exhausted` bounds the count, the seam `Diagnostic.Kind.Transient` column supplies the retriability, and the `JobGraph` root is the only executor — a hand `transient && underCap && pastBackoff` conjunction re-derived the verdict at the call site and flattened a growth curve into one constant. The supersede close-out holds the seam one-usable-node law; the persisted payload is a content-keyed artifact in the Persistence `Version/retention#RETENTION_CLASSES` `blob` class; the baked-bag and edge reads are `Analysis/assessment#ANALYSIS_READS` `AnalysisReads`' alone.
 
 ```csharp signature
@@ -66,19 +66,19 @@ public readonly record struct AssessmentRow(UInt128 Key, Discipline Discipline, 
 // THREE egress legs, ONE port, every one an IO because every one is a boundary effect wearing no pure signature:
 // Store lands the heavy artifact bytes content-addressed on the Persistence blob lane through ArtifactIndexRow.Admit
 // under the ArtifactKind.Assessment row (retention-governed, reusable, never an orphan blob no index owns) and
-// returns the typed BlobKey the result threads onto the payload; Series emits the Persistence-owned SeriesPoint the
+// returns the typed ArtifactContent the result threads onto the payload; Series emits the Persistence-owned SeriesPoint the
 // Query/datasets SeriesLane.Ingest arm lands under SeriesKind.Assessment — each point's Series key IS the assessment
 // content key, so the heavy artifact and its queryable temporal projection share one origin; Rows lands the typed
 // result estate a discipline computed but the blob lane cannot answer questions about. A heavy-byte-only sink that
 // strands both the series and the typed rows behind an opaque blob is the deleted form.
 public sealed record AssessmentSink(
-    Func<ReadOnlyMemory<byte>, IO<Fin<BlobKey>>> Store,
+    Func<ReadOnlyMemory<byte>, IO<Fin<ArtifactContent>>> Store,
     Func<Seq<SeriesPoint>, IO<Fin<Unit>>> Series,
     Func<Seq<AssessmentRow>, IO<Fin<Unit>>> Rows) {
     // Unbound REFUSES on every leg: a route reaching it declared an egress the composition never provided, and a
     // silent success there is exactly how a typed result estate disappears with no operator-visible trace.
     public static readonly AssessmentSink None = new(
-        static _ => IO.pure(Fin.Fail<BlobKey>(Unbound)),
+        static _ => IO.pure(Fin.Fail<ArtifactContent>(Unbound)),
         static _ => IO.pure(Fin.Fail<Unit>(Unbound)),
         static _ => IO.pure(Fin.Fail<Unit>(Unbound)));
 
@@ -87,7 +87,7 @@ public sealed record AssessmentSink(
     // discriminant between this row and None is which failure the deployment wants — a missing binding or a
     // deliberate drop — and it is recoverable from the value, never from a comment.
     public static readonly AssessmentSink Discarding = new(
-        static _ => IO.pure(Fin.Fail<BlobKey>(Unbound)),
+        static _ => IO.pure(Fin.Fail<ArtifactContent>(Unbound)),
         static _ => IO.pure(Fin.Succ(unit)),
         static _ => IO.pure(Fin.Succ(unit)));
 
@@ -97,7 +97,7 @@ public sealed record AssessmentSink(
 // Assessment outcome rides the Runtime/receipts-owned ComputeReceipt union — a partial case, never a second receipt
 // union; the inherited init members (Correlation/Lane/Substrate/AllocationClass/Elapsed) stamp at mint. Failure
 // columns populate from the Diagnostic on a failure disposition; the retry Attempt ordinal and the seismic
-// Participation/Combination columns ride init members beside the positional core, and the AssessmentWire mirrors them
+// Participation/Combination columns ride init members beside the positional core
 // 1:1. GoverningRatio is OPTIONAL for the same reason the result column is: a served failure and an in-flight verdict
 // carry no ratio, and the double.NaN those three mints wrote was a number an operator reads as a measurement.
 // Participation is DIRECTIONAL — the achieved Σ Γ_d² / TotalMass_d along the excitation axis the request named,
@@ -270,7 +270,7 @@ public static partial class Analysis {
                 .Fold(Map<PropertyName, PropertyValue>(), static (held, fact) => held.AddOrUpdate(fact.Name, fact.Value))
                 .AddOrUpdate(VerdictKey, Chosen(result.Verdict)),
             result.GoverningRatio)
-        from content in PayloadContent.Results(bag, result.ResultBlob, WriteBackKey)
+        from content in PayloadContent.Results(bag, result.ResultArtifact, WriteBackKey)
         from payload in AssessmentPayload.Open(result.Discipline, route, key.Value, AssessmentOutcome.Computed,
             content, result.Provenance, WriteBackKey, DependsOnOf(graph, request))
         from delta in Supersede(graph, result.Discipline, route, nodeId,
@@ -634,13 +634,11 @@ public static partial class Analysis {
                 });
     }
 
-    // The job node's input preimage. The buffer ESCAPES into the JobGraph run, so it is an OWNED array and never a
-    // pooled rental — a returned rental the run outlives is a use-after-return no pool can observe.
-    static ReadOnlyMemory<byte> ContentBytes(UInt128 key) {
-        byte[] bytes = new byte[16];
-        BinaryPrimitives.WriteUInt128LittleEndian(bytes, key);
-        return bytes;
-    }
+    // The job node's input preimage: the kernel's ONE byte correspondence for a content key (sixteen big-endian
+    // bytes), so the job graph addresses the same bytes every wire and store column carries. `ByteString.CopyFrom`
+    // owns its array, so the memory ESCAPES into the JobGraph run as an owned buffer and never a pooled rental — a
+    // returned rental the run outlives is a use-after-return no pool can observe.
+    static ReadOnlyMemory<byte> ContentBytes(UInt128 key) => ContentHash.Wire(key).Memory;
 }
 ```
 

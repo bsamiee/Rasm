@@ -6,12 +6,12 @@
 
 ```text codemap
 Rasm.Element/              # Neutral thing-model seam over the kernel; geometry crosses by content hash alone
-├── Graph/                 # One authoritative graph, its mutation algebra, and the wire crossing
+├── Graph/                 # One authoritative graph, its mutation algebra, and generated node-edit support
 │   ├── Element.cs         # Header + frozen node store + Relationship array + built-once incidence; Bake(objectNode) derives the element
 │   ├── Delta.cs           # GraphMutation [Union] through the generated total Switch onto a HAMT WorkingGraph; Thaw lowers, Freeze lifts
-│   ├── Wire.cs            # ElementGraphWire/GraphDeltaWire mirrors; decode legs re-admit hostile input on Fin<T>
-│   ├── WirePayload.cs     # NodeWire fold minting each node's content address, RelationshipWire arms, header family, object codecs
-│   ├── WireValue.cs       # Recursive PropertyValue fold under the WireLimits depth budget; decode legs re-mint through the OfSi gate
+│   ├── Wire.cs            # NodeWire support closure for EntityEdit; no public graph, delta, or relationship DTO
+│   ├── WirePayload.cs     # NodeWire fold minting each node's content address beside object codecs
+│   ├── WireValue.cs       # Recursive PropertyValue support closure; decode legs re-mint through the OfSi gate
 │   ├── WireSubstance.cs   # Arms re-enter their accumulating Of* admissions; ProfileRef keys re-derive; SectionColumns one-table codec
 │   ├── WireEvidence.cs    # PayloadContent derives from flat wire columns through the owner's Open gate; EvidenceRun re-enters railed Of
 │   ├── WireRaster.cs      # Base-as-level-0 rebuild from flat columns; palettes cross the one ToRgb quantizer the content key shares
@@ -207,8 +207,7 @@ flowchart LR
     Projection e6@-->|"[CONTENT_KEY]: ContentAddress"| Persistence
     Graph e7@-->|"[SHAPE]: ElementGraph"| Persistence
     Graph e8@-->|"[SHAPE]: GraphDelta"| Persistence
-    Graph e9@-->|"[EVENT]: GraphCrossing"| Persistence
-    Persistence e10@-->|"[WIRE]: ElementGraph"| Graph
+    Persistence e10@-->|"[NATIVE]: ElementGraph persistence"| Graph
     Graph e11@<-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Composition e12@-->|"[SHAPE]: AssemblyAggregator"| Compute
     Composition e13@<-->|"[SHAPE]: MaterialPropertySet"| Compute
@@ -220,7 +219,6 @@ flowchart LR
     Projection e19@-->|"[SHAPE]: ImportedGeometry"| Compute
     Graph e20@<-->|"[WIRE]: GlbContentHash"| Geometry
     Projection e21@<-->|"[CONTENT_KEY]: ContentAddress"| Runtime
-    Graph e22@<-->|"[WIRE]: rasm.element.v1"| Core
 ```
 
 `[PROJECTION]` rows are inversion of control: every provider, GeometryGym and VividOrange and peers alike, stays in the AEC peer that implements `IElementProjection` and lowers its foreign source onto a `GraphDelta`, so no provider edge points down into the seam and no second IFC stack forms.
@@ -230,7 +228,7 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 [CONTENT_KEY_IDIOM]:
 - Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
 - Content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers; a second hasher or non-zero seed is the named drift.
-- `Graph/wire` carries every content key verbatim; `Graph/corpus` supplies deterministic snapshot fingerprints.
+- `Graph/wire` carries node-edit support keys verbatim; native graph fingerprints remain with `Graph/corpus`.
 - `GraphMembers.Advance` steps a stable grid or returns typed `Refold`; either member set re-enters `ContentAddress.OfGraph` byte-identically.
 - `Graph/corpus` terminal research row owns the exact parity-pin route until literal addresses exist.
 - `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
@@ -252,19 +250,19 @@ config:
 ---
 flowchart LR
     accTitle: Rasm.Element graph spine
-    accDescr: How a projected delta becomes the frozen graph every consumer bakes, tables, and wires with no second stored record.
+    accDescr: How a projected delta becomes the frozen graph every consumer bakes, tables, and persists with no second stored record.
     Provider(["IElementProjection arm"]) e1@--> Admit[[GraphDelta admission]]
     Admit e2@--> Working[[WorkingGraph apply]]
     Working e3@--> Freeze[[Freeze into ElementGraph]]
     Freeze e4@--> Bake[[Memoized Bake]]
-    Freeze e5@--> WireEg[/rasm.element.v1 encode/]
-    Freeze e6@--> TableEg[/Tabulate row families/]
+    Freeze e5@--> TableEg[/Tabulate row families/]
+    Freeze e6@--> Persist[/Native persistence/]
     Admit f1@-.->|"admission refusal"| Fault[/Typed Error rail/]
-    WireEg f2@-.->|"transcription fault"| Fault
+    Persist f2@-.->|"persistence fault"| Fault
 ```
 
 ## [05]-[BOUNDARIES]
 
-- `Rasm.Element` owns the neutral thing-model and its wire; `IElementProjection` inverts control, so provider types and host geometry never cross in.
+- `Rasm.Element` owns the neutral thing-model and generated node-edit projection; `IElementProjection` inverts control over provider and host types.
 - Composition roots own live element assembly — the seam owns `Assemble`, the apps the wiring.
 - Each AEC peer owns its provider stack behind `IElementProjection`, and Persistence owns the system of record.

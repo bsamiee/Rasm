@@ -210,11 +210,6 @@
         "resolved": "4.7.0",
         "contentHash": "VybpaOQQhqE6siHppMktjfGBw1GCwvCqiufqmP8F1nj7fTUNtW35LOEt3UZTEsECfo+ELAl/9o9nJx3U91i7vA=="
       },
-      "System.Security.Cryptography.ProtectedData": {
-        "type": "Transitive",
-        "resolved": "4.5.0",
-        "contentHash": "wLBKzFnDCxP12VL9ANydSYhk59fC4cvOr9ypYQLPnAj48NQIhqnjdD2yhP8yEKyBJEjERWS9DisKL7rX5eU25Q=="
-      },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
         "resolved": "10.4.0",
@@ -231,10 +226,7 @@
         "contentHash": "1jNrYo/7Syow8Vu+vY3LygJ7Erc9fagkobAdANxAkyg7G+9abnxZQ+cr4QbWPErGDe1mfCDQiO9crIjdG6DQJw=="
       },
       "csp.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "JetBrains.Annotations": "[2026.2.0, )"
-        }
+        "type": "Project"
       },
       "rasm.testkit": {
         "type": "Project",
@@ -365,6 +357,12 @@
         "dependencies": {
           "System.CodeDom": "10.0.10"
         }
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
       }
     }
   }

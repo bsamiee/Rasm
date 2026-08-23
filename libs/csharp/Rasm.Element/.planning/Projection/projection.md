@@ -8,7 +8,7 @@ Wiring — projector registration, tessellation adapter, `Graph/element#NODE_MOD
 
 ## [01]-[INDEX]
 
-- [02]-[PROJECTION_CONTRACT]: `IElementProjection` the projector floor and its one `Project`, `ProjectionContext` the element-identity/header/primitives carrier with its `Owns` vouch predicate, its `ConstraintWaiver` reviewed-deviation set, and the `RedactionScope` egress posture the wire `Encode` reads, `TypeCandidate` the reverse-type row the Bim export and the Materials admission both compose, `TextureRoster`/`TextureCandidate` the texture hand-off rows, `ProjectionSuite` the graded-registration mint, and `ProjectionAssembly` the composition capability the apps wire, returning the `AssemblyReceipt`.
+- [02]-[PROJECTION_CONTRACT]: `IElementProjection` the projector floor and its one `Project`, `ProjectionContext` the element-identity/header/primitives carrier with its `Owns` vouch predicate and `ConstraintWaiver` reviewed-deviation set, `TypeCandidate` the reverse-type row the Bim export and Materials admission compose, `TextureRoster`/`TextureCandidate` the texture hand-off rows, `ProjectionSuite` the graded-registration mint, and `ProjectionAssembly` the composition capability the apps wire, returning the `AssemblyReceipt`.
 - [03]-[GRAPH_CONSTRAINT]: `IGraphConstraint` the IFC-semantic legality floor Bim implements, composed in `Assemble` after the structural admission, accumulating every violation applicatively — each violation graded by its `ConstraintRegistration` row's `ConstraintSeverity`, waived by content key, and the non-blocking findings landed typed on the receipt.
 - [04]-[INTERCHANGE_CARRIER]: `ImportedGeometry` the one decoded interchange mesh-pool carrier the Bim import rail produces and the Compute tile/residency lane reads — the kernel `EncodedGeometry` lane arena beside the `Indices` column — with its `MeshBlock`/`MeshInstance` instancing-and-shading-partition overlay, the `MeshletBand` cluster row (kernel E2 — one band where Bim/AppUi/Compute held three same-shaped triplets), the railed `Of` admission, and the seam-owned placement-column `Bake` flatten.
 
@@ -130,10 +130,6 @@ public sealed record ProjectionContext {
     public CorrelationId Correlation { get; }
     public TenantContext Tenant { get; }
     public Seq<ConstraintWaiver> Waivers { get; }
-    // Scope is the egress-redaction posture the wire Encode reads (ElementWire.Encode(graph, ctx.Scope)) — the
-    // PRODUCER the redaction table lacked; None is full fidelity, so every existing context is unredacted by law.
-    public RedactionScope Scope { get; init; } = RedactionScope.None;
-
     private ProjectionContext(FrozenSet<NodeId> elementIds, Header header, Op key, Instant at, CorrelationId correlation, TenantContext tenant, Seq<ConstraintWaiver> waivers) =>
         (ElementIds, Header, Key, At, Correlation, Tenant, Waivers) = (elementIds, header, key, at, correlation, tenant, waivers);
 

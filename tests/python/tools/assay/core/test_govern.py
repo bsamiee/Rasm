@@ -55,6 +55,7 @@ from tools.assay.core.govern import (
     measure,
     Measurements,
     proc_dead,
+    proc_identity_dead,
     reap,
     recv_anyio,
     resource_monitor,
@@ -97,7 +98,7 @@ class _ProcKw(TypedDict, total=False):
 COVERS: tuple[object, ...] = (
     Captured, captured_outputs, decode_lease_owner, diagnose, dotnet_slot, drain_pair, drain_stream, ExecPlan,
     exclusive_lease, governed_concurrency, is_lease_stale, leased, line_count, max_resources, measure, Measurements,
-    proc_dead, reap, recv_anyio, resource_monitor, resource_projection, resource_sample, stall_monitor,
+    proc_dead, proc_identity_dead, reap, recv_anyio, resource_monitor, resource_projection, resource_sample, stall_monitor,
     StalledProcess, stream_artifacts, touched, WriteSink,
 )  # fmt: skip
 
@@ -221,6 +222,13 @@ def test_proc_dead_truth_table(label: str, proc_kw: _ProcKw, expected: bool, mon
     _ = label
     monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({4242: _proc(pid=4242, **proc_kw)}))
     assert proc_dead(4242) is expected
+
+
+def test_proc_identity_dead_rejects_pid_reuse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Process identity remains live only while both pid and creation time match within tolerance."""
+    monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({4242: _proc(pid=4242, running=True, create_time=_CT + 2.0)}))
+    assert proc_identity_dead(4242, _CT, tolerance=1.0)
+    assert not proc_identity_dead(4242, _CT, tolerance=3.0)
 
 
 def test_liveness_access_denied_defers_to_pid_exists(monkeypatch: pytest.MonkeyPatch) -> None:

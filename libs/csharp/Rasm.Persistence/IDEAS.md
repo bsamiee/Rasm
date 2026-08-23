@@ -19,7 +19,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[GRAPH_SYNC_RPC]-[QUEUED]: Cross-store graph sync crosses a corpus rpc pair instead of an in-process delegate seam.
+- Capability: the transfer-set diff and the subtree checkout become peer-dialled contracts, so a disconnected editor or a Speckle-class hub syncs against the ledger over one generated service rather than a delegate a root hand-fills.
+- Shape: `tests/contracts/proto/rasm/contracts/compute/v1/compute.proto` — one unary transfer-set rpc and one server-stream checkout rpc on the compute service, with the Persistence handler composing the ledger owners.
+- Unlocks: `libs/csharp/Rasm.Persistence/.planning/Version/ledger.md#SYNC_TRANSPORTS` `HttpDelta`/`SubtreeCheckout` dial generated clients; the designed-only sync wire gains a producer and a decoder.
+- Anchors: `OpLog.TransferSet` (the closure-minus-held manifest), `SyncPump.Checkout` (fetch-apply-account), `SyncSession.Pull`/`Push`/`HasObjects`, the Compute `ComputeService` handler seat, `Rasm.Contracts` regeneration.
+- Ripple: `tests/contracts` corpus (W1a) mints the rpc pair; `libs/csharp/Rasm.Compute` `COMPUTE_SERVICE_GROWTH` carries the handler seat.
 
 ## [02]-[CLOSED]
 
@@ -27,6 +32,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[SNAPSHOT_HEADER_FAMILY]-[DROPPED]: no peer decodes the prologue; protobuf would move its pre-parser trust check behind parsing.
+[CRDT_OP_FAMILY]-[COMPLETE]: `crdt/v1/crdt.proto` owns the generated oneof across all three branches; the seventh position (`Payload`, index 6) carries its bytes only for `crdt`.
 [PROVIDER_SCOPED_MODEL_IDENTITY]-[COMPLETE]: escape (b) landed at `Element/identity` — one compiled model per `StoreProfile`, `Ef` mounting it through `UseModel` so the framework model cache is bypassed whole rather than keyed correctly, `IdentityShapeRow` carrying the three provider-divergent column decisions as row data keyed on the profile's own vocabulary, `IdentityDesignFactory` running `OnModelCreating` at design time alone under a per-profile migrations assembly, and `ModelFingerprint` measuring the mounted model against the migrations-assembly snapshot so a stale compiled model refuses at boot; `Database.IsSqlite()` is gone from model construction and the two rejected escapes stay rejected with their reasons on the card.
 [RELATIONAL_OPERATION_RAIL]-[COMPLETE]: landed as two clusters at `Element/identity` — `#STORE_OPERATION_BRACKET` folding the closed `IdentityOp` family through one `IdentityRail.Run` owning pooled acquisition, the profile's execution strategy, transaction posture, tracking, `TagWith` provenance, and fault conversion, with keyset-only paging whose ordering tuple and covering index are one declaration; and `#SAVE_INTERCEPTOR_SPINE` turning `Placement.Writes` into a suppression gate with a declared tracker disposition and both modality twins on every member. Provenance reaches its consumer: the wire tap and `Store/observability#PLAN_PROFILE` read one `StoreSlot.Owned` grammar, so a digested plan names the op that issued it.
 [POINTCLOUD_CODEC_ADMISSION]-[COMPLETE]: landed as `.planning/Ingest/pointcloud.md` — `ScanSource` over the decompile-verified codec pair (`Aardvark.Data.E57` the E57 leg, `Unofficial.laszip.netstandard` the one LAS/LAZ engine with `.lax` windowed reads), the streaming ingest fold cutting `ChunkPolicy.Artifact` chunks and per-cell `ScanRegion` rows in one pass, `ScanHeader`/`ScanRegistration` residence rows, `FaultBand.Scan` (8520), `ArtifactKind.Scan` → `blob` class, and the Compute `ImportPoints` refusal replaced by `ScanSource` composition with `pts` alone pending.

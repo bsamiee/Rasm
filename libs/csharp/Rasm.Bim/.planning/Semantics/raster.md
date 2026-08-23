@@ -273,7 +273,9 @@ public static class GeoRaster {
     // --- [COVERAGE_PROJECTION]
     // The caller's reference is ADMITTED against the tile's own frame rather than stamped over it. A genuine frame
     // difference is a reprojection the caller performs through Warp BEFORE this projection, never inside it.
-    public static Fin<Node.Coverage> ToCoverage(RasterTile tile, GeoReference reference, UInt128 field, Func<int, UInt128> overviewKey, ProjectionContext ctx) =>
+    public static Fin<Node.Coverage> ToCoverage(
+        RasterTile tile, GeoReference reference, ArtifactContent raster,
+        Func<int, ArtifactContent> overview, ProjectionContext ctx) =>
         tile.SourceCrs.Match(
             None: () => Fin.Succ(unit),
             Some: source => reference.Crs.Match(
@@ -284,7 +286,7 @@ public static class GeoRaster {
         .Bind(_ => Lattice(tile, ctx.Key))
         .Bind(basis =>
             from bands in tile.Bands.Traverse(info => Sampled(info, ctx.Key)).As()
-            from levels in Pyramid(basis, tile, field, overviewKey, ctx.Key)
+            from levels in Pyramid(basis, tile, raster, overview, ctx.Key)
             from grid in CoverageGrid.Of(CoverageKind.Raster, levels, bands, reference, ctx.Key)
             // The content id re-stamps through the seam Node.Relabel: a class-root [Union] Node case has NO
             // compiler-generated `with`, so a `draft with { Id }` here is the form the sibling detail mint already
@@ -320,13 +322,15 @@ public static class GeoRaster {
     // can never drift and its ordinal IS its position. A GDAL pyramid whose factors are not successive halvings has
     // no chain lattice that describes its bytes, so it RAILS naming the level rather than seating a chain affine
     // over pixels at another resolution.
-    static Fin<Seq<OverviewLevel>> Pyramid(CellLattice basis, RasterTile tile, UInt128 field, Func<int, UInt128> overviewKey, Op key) =>
+    static Fin<Seq<OverviewLevel>> Pyramid(
+        CellLattice basis, RasterTile tile, ArtifactContent raster,
+        Func<int, ArtifactContent> overview, Op key) =>
         tile.Overviews.Fold(
-            Fin.Succ((Grid: basis, Levels: Seq(new OverviewLevel(basis, BlobKey.Of(field), Blocked(tile.BaseBlockX, tile.BaseBlockY))))),
+            Fin.Succ((Grid: basis, Levels: Seq(new OverviewLevel(basis, raster, Blocked(tile.BaseBlockX, tile.BaseBlockY))))),
             (state, level) => state.Bind(carried => carried.Grid.Coarsen(key).Bind(next =>
                 next.Columns.Value == level.Width && next.Rows.Value == level.Height
                     ? Fin.Succ((Grid: next, Levels: carried.Levels.Add(
-                        new OverviewLevel(next, BlobKey.Of(overviewKey(level.Level)), Blocked(level.BlockX, level.BlockY)))))
+                        new OverviewLevel(next, overview(level.Level), Blocked(level.BlockX, level.BlockY)))))
                     : Fin.Fail<(CellLattice, Seq<OverviewLevel>)>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-pyramid-offchain", level.Level.ToString(CultureInfo.InvariantCulture), string.Create(provider: CultureInfo.InvariantCulture, $"{level.Width}x{level.Height}") }))))))
             .Map(static carried => carried.Levels);
 

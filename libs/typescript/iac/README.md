@@ -62,6 +62,12 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
+[BRANCH_PEERS]:
+- `@rasm/ts/core` — Board, reliability, convention, and identity projections consumed by the deploy plane.
+- `@rasm/ts/data` — Backend projections, PostgreSQL rows, and analytics residence contracts consumed by deployment tiers.
+- `@rasm/ts/runtime` — Consumption-profile rosters that type deployment topology and recovery objectives.
+- `@rasm/ts/security` — Encoded lease and custody contracts admitted at deploy-owned sinks.
+
 [TYPING_RAILS]:
 - `effect`
 

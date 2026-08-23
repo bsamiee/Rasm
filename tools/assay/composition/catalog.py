@@ -25,6 +25,7 @@ JSONSCHEMA_TEMPLATE: str = (
 )
 _CONTRACTS_TIMEOUT_S: float = 120.0
 _CONTRACTS_GENERATE_TIMEOUT_S: float = 300.0
+_BUF_ENV: tuple[tuple[str, str], ...] = (("BUF_CACHE_DIR", ".cache/buf"),)
 _PROVISION_TIMEOUT_S: float = 120.0
 _PROVISION_WRITE_TIMEOUT_S: float = 300.0
 _SCENARIO_TIMEOUT_S: float = 600.0
@@ -182,7 +183,8 @@ TOOLS: tuple[Tool, ...] = (
         stage=Stage(project=True),
     ),
     # --- [TYPESCRIPT]
-    Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD, parser=Parser.TSC),
+    # `-p` names the root config, which carries no `include` and so sweeps the whole estate; the row owns its input.
+    Tool("tsc", PNPM, ("tsc", "--noEmit", "--pretty", "false", "-p", "tsconfig.json"), OWNED, TS, Claim.STATIC, mode=Mode.BUILD, parser=Parser.TSC),
     Tool(
         "biome",
         PNPM,
@@ -193,7 +195,43 @@ TOOLS: tuple[Tool, ...] = (
         parser=Parser.BIOME,
     ),
     Tool("biome", PNPM, ("biome", "check", "--write", "--files-ignore-unknown=true"), FILES, TS, Claim.STATIC, mode=Mode.WRITE, parser=Parser.BIOME),
-    Tool("vitest", PNPM, ("vitest", "run"), NONE, TS, Claim.TEST, mode=Mode.RUN, empty_signature=(1, b"No test files found")),
+    Tool(
+        "vitest",
+        PNPM,
+        ("vitest", "run"),
+        NONE,
+        TS,
+        Claim.TEST,
+        mode=Mode.RUN,
+        groups=(ToolGroup.RUN_DEFAULT,),
+        empty_signature=(1, b"No test files found"),
+    ),
+    # Coverage and bench each re-run vitest under their own config lane, so the default row yields when either is asked.
+    Tool(
+        "vitest",
+        PNPM,
+        ("vitest", "run", "--coverage"),
+        OWNED,
+        TS,
+        Claim.TEST,
+        mode=Mode.RUN,
+        groups=(ToolGroup.REQUIRES_COVERAGE,),
+        empty_signature=(1, b"No test files found"),
+    ),
+    Tool(
+        "vitest-bench",
+        PNPM,
+        ("vitest", "bench", "--run"),
+        OWNED,
+        TS,
+        Claim.TEST,
+        mode=Mode.RUN,
+        groups=(ToolGroup.REQUIRES_BENCHMARK,),
+        empty_signature=(1, b"No test files found"),
+    ),
+    Tool("vitest", PNPM, ("vitest", "list"), NONE, TS, Claim.TEST, mode=Mode.LIST, empty_signature=(1, b"No test files found")),
+    # Root residency keeps `stryker.config.json` on auto-discovery; `{scope*}` carries the CHANGED lane's --mutate globs.
+    Tool("stryker", PNPM, ("stryker", "run", "{scope*}"), OWNED, TS, Claim.TEST, mode=Mode.MUTATION, timeout=_MUTATION_TIMEOUT_S),
     # --- [CSHARP]
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC, parser=Parser.CS_CONSOLE),
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error"), INCLUDE, CS, Claim.STATIC, mode=Mode.WRITE, parser=Parser.CS_CONSOLE),
@@ -377,9 +415,9 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.CONTENT,
     ),
     # --- [CONTRACTS]
-    # buf is the one driver: lint/format/breaking are the gate lanes (exit 100 = violations, parsed from NDJSON), build
-    # bares the descriptor set the corpus gate resolves against, STAGE generate regenerates into the scratch {output}
-    # the freshness gate diffs, and WRITE generate rewrites the committed out roots under the contracts lease.
+    # buf is the one driver: lint/format are executable gate lanes (exit 100 = violations), build bares the
+    # descriptor set the corpus gate resolves against, and STAGE generate builds the complete scratch image that
+    # the freshness gate diffs or the transactional corpus writer commits.
     Tool(
         "buf-lint",
         PNPM,
@@ -390,6 +428,7 @@ TOOLS: tuple[Tool, ...] = (
         timeout=_CONTRACTS_TIMEOUT_S,
         parser=Parser.BUF,
         defect_exit=BUF_DEFECT_EXIT,
+        env=_BUF_ENV,
     ),
     # The estate module path alone: vendored publisher bytes are never graded, and buf format has shipped
     # non-idempotent releases, so the lane diffs and never writes.
@@ -402,27 +441,52 @@ TOOLS: tuple[Tool, ...] = (
         Claim.CONTRACTS,
         timeout=_CONTRACTS_TIMEOUT_S,
         defect_exit=BUF_DEFECT_EXIT,
+        env=_BUF_ENV,
+    ),
+    Tool(
+        "buf-module",
+        PNPM,
+        ("buf", "registry", "module", "info", "{input}", "--format", "json"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        mode=Mode.QUERY,
+        timeout=_CONTRACTS_TIMEOUT_S,
+        env=_BUF_ENV,
+    ),
+    Tool(
+        "buf-baseline",
+        PNPM,
+        ("buf", "registry", "module", "commit", "resolve", "{input}", "--format", "json"),
+        OWNED,
+        PROTO,
+        Claim.CONTRACTS,
+        mode=Mode.QUERY,
+        timeout=_CONTRACTS_TIMEOUT_S,
+        env=_BUF_ENV,
     ),
     Tool(
         "buf-breaking",
         PNPM,
-        ("buf", "breaking", "--against", ".git#branch=main", "--against-config", "buf.yaml", "--error-format", "json"),
+        ("buf", "breaking", "tests/contracts/proto", "--against", "{input}", "--error-format", "json"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
         timeout=_CONTRACTS_TIMEOUT_S,
         parser=Parser.BUF,
         defect_exit=BUF_DEFECT_EXIT,
+        env=_BUF_ENV,
     ),
     Tool(
         "buf-build",
         PNPM,
-        ("buf", "build", "-o", "{output}", "--as-file-descriptor-set", "--exclude-imports"),
+        ("buf", "build", "-o", "{output}", "--as-file-descriptor-set"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
         mode=Mode.QUERY,
         timeout=_CONTRACTS_TIMEOUT_S,
+        env=_BUF_ENV,
     ),
     Tool(
         "buf-generate",
@@ -433,16 +497,18 @@ TOOLS: tuple[Tool, ...] = (
         Claim.CONTRACTS,
         mode=Mode.STAGE,
         timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
+        env=_BUF_ENV,
     ),
     Tool(
-        "buf-generate",
+        "buf-push",
         PNPM,
-        ("buf", "generate", "--template", "buf.gen.yaml", "--clean"),
+        ("buf", "push", ".", "--exclude-unnamed", "{flags*}", "--label", "{target}"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
-        mode=Mode.WRITE,
+        mode=Mode.PUBLISH,
         timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
+        env=_BUF_ENV,
     ),
     Tool(
         "buf-jsonschema",
@@ -453,13 +519,14 @@ TOOLS: tuple[Tool, ...] = (
         Claim.CONTRACTS,
         mode=Mode.STAGE,
         timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
+        env=_BUF_ENV,
     ),
     # INPROC gates: plugin resolution over the template's binaries, the corpus audit over manifest, schemas, disk,
     # anchors, rosters, and descriptors, and the scratch-vs-committed freshness diff.
     Tool("plugin-probe", INPROC, ("plugin-probe", "resolve"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.VERIFY),
     Tool("corpus-gate", INPROC, ("corpus-gate", "check"), OWNED, PROTO, Claim.CONTRACTS),
     Tool("freshness-gate", INPROC, ("freshness-gate", "diff"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.QUERY),
-    # The writer leg of generate: the derived roster block lands between each generated package's `.api` markers.
+    # The writer leg validates and transactionally commits the complete staged package/schema image.
     Tool("corpus-emit", INPROC, ("corpus-emit", "write"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.WRITE),
     # --- [PROVISION]
     Tool(

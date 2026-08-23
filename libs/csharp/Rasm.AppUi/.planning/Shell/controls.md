@@ -1,6 +1,6 @@
 # [APPUI_CONTROL_MATERIALIZATION]
 
-One typed `ControlIntent` family materializes every interactive control from a declarative shape: a screen body is a control-intent stream, not a per-screen XAML literal. `ControlIntent` is the closed `[Union]` over the whole professional control vocabulary where arity, provider, modality, emphasis, iconography, and pending state live in the intent shape rather than parallel control names, `ControlFactory` is the one polymorphic fold projecting each intent onto its compiled-template control, `BehaviorRail.Intent` is the single binding bridge every materialized command rides, appearance reaches every control through its `ControlTheme` and its style classes alone, and `Shell/accessibility` derives every automation name from the one intent row. The page owns the intent vocabulary, the materialize fold and its boundary capsule, the context-column and package admission law, the recycling pool, and the `ControlIntentWire` producer with its generated `ControlMap` seam; it mints no parallel binding, token, automation, or template path — the `[04]-[BOUNDARIES]` parallel-control-framework clause forecloses it. The spine is Avalonia compiled `ControlTemplate`/`DataTemplate`/`ControlTheme`, the `Irihi.Ursa` extended-control suite, ReactiveUI commands, `Xaml.Behaviors.Avalonia`, the kernel `CapabilitySet`/`FaultBand` owners, Thinktecture.Runtime.Extensions, Riok.Mapperly, and LanguageExt rails.
+One typed `ControlIntent` family materializes every interactive control from a declarative shape: a screen body is a control-intent stream, not a per-screen XAML literal. `ControlIntent` is the closed `[Union]` over the whole professional control vocabulary where arity, provider, modality, emphasis, iconography, and pending state live in the intent shape rather than parallel control names, `ControlFactory` is the one polymorphic fold projecting each intent onto its compiled-template control, `BehaviorRail.Intent` is the single binding bridge every materialized command rides, appearance reaches every control through its `ControlTheme` and its style classes alone, and `Shell/accessibility` derives every automation name from the one intent row. The page owns the intent vocabulary, the materialize fold and its boundary capsule, the context-column and package admission law, the recycling pool, and the sole projection into the generated `Rasm.Contracts.Ui.V1` control messages; it mints no parallel binding, token, automation, template, or wire-shape path — the `[04]-[BOUNDARIES]` parallel-control-framework clause forecloses it. The spine is Avalonia compiled `ControlTemplate`/`DataTemplate`/`ControlTheme`, the `Irihi.Ursa` extended-control suite, ReactiveUI commands, `Xaml.Behaviors.Avalonia`, the kernel `CapabilitySet`/`FaultBand` owners, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 Appearance is the page's ruling shape: the fold writes NO resolved paint, metric, or shadow onto a control. Emphasis resolves to one `ControlTheme` row of the `Theme/tokens#CONTROL_THEMES` table through `StyledElement.Theme`, the semantic `PaintRole` and the `TypographyRole` land as style classes the theme's own selectors match, and every value inside those themes binds `{DynamicResource}` — so a variant swap re-tints a materialized screen through Avalonia's own resource resolution and a `SetValue` of a resolved brush is unspellable in this fold.
 
@@ -9,7 +9,7 @@ Appearance is the page's ruling shape: the fold writes NO resolved paint, metric
 - [02]-[CONTROL_INTENT]: One closed control vocabulary; per-case typed shape with the emphasis, icon, pending, and hint columns; the four-column `ControlShape` answer.
 - [03]-[MATERIALIZE_FOLD]: The `ControlFactory` intent-to-control fold; the context-column and package admission law; one `BehaviorRail.Intent` bridge; total automation derivation.
 - [04]-[CONTROL_RECYCLING]: The recycling-aware materialization boundary the `VirtualWindow` grid/tree/panel kinds consume.
-- [05]-[TS_PROJECTION]: The `ControlIntentWire` family, its generated `ControlMap` producer, and the web-head mirror.
+- [05]-[TS_PROJECTION]: The design-pinned projection into the generated `Ui.V1` control-intent family.
 
 ## [02]-[CONTROL_INTENT]
 
@@ -21,7 +21,7 @@ Appearance is the page's ruling shape: the fold writes NO resolved paint, metric
 - Law: the per-case host-type, value-slot, re-dress, and theme answers live in ONE place — the posture rows' columns and the total `ShapeOf` fold over them — so a second per-case ladder (a re-dress switch, a content-property switch, a host-name method) is the hand-kept-mirror defect this page deleted.
 - Entry: every case is one record whose fields carry the control's typed shape and whose `IntentBinding` carries the semantic `PaintRole`, the `ControlEmphasis` row, the `Option<string>` command key, the value key, the activation trigger, the optional `IconSlot`, and the optional `HintRow` — a quiet icon-leading pending button is `Button` with three columns set, not a `GetQuietPendingIconButton` name.
 - Auto: the `EditorFactory` typed-shape→control precedent already proven in `PropertyGrid` cells (`Editing/inspector#EDITOR_FACTORIES`) is the inspector specialization of this vocabulary — `ControlIntent` generalizes it from property cells to whole screens; `Theme/tokens` control-theme rows resolve every appearance and `Shell/accessibility` derives automation identity from `ControlIntent.Key`, so per-control token and automation literals are deleted.
-- Packages: Irihi.Ursa, Avalonia, Rasm (kernel `FaultBand`/`[FaultCase]`/`Fault`/`CapabilitySet`), Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
+- Packages: Rasm.Contracts (project), Irihi.Ursa, Avalonia, Rasm (kernel `FaultBand`/`[FaultCase]`/`Fault`/`CapabilitySet`), Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new control is one `ControlIntent` case carrying its shape plus `IntentBinding` and one `ShapeOf` arm; a new emphasis is one `ControlEmphasis` row naming its skin; a new numeric type is one `NumericKind` row; a new temporal shape is one `TemporalKind` row with its trait set; a new banner level is one `BannerSeverity` row carrying its own dismissibility; a new modality on an existing case is one posture row; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Boundary: `ControlIntent` is the one control vocabulary in the package — a per-screen control-builder, a second control-generation framework, and a parallel binding, token, or automation path are the `[04]-[BOUNDARIES]` parallel-control-framework rejected forms; the command column is `Option<string>` carrying the `CommandRow` key the materialized control's `ICommand` resolves through `BehaviorRail.Intent`, never a `ReactiveCommand` instance on the intent, so the intent crosses the `ControlIntentWire` seam unchanged; container kinds carry their child-intent sequence so a whole screen is one nested intent tree, while `Menu`, `Breadcrumb`, and the option-bearing kinds carry their own structured ROW shapes, because a menu row's check posture, submenu, and gesture hint are fields no control intent owns; the `Grid`, `Tree`, `Select`, and `MultiSelect` kinds carry the `VirtualWindow` window spec the `Shell/virtualization` fabric owner consumes — the spec crosses the wire so a remote head windows the same viewport contract; the `Tree` kind materializes the `FlatNode` union the flatten emits, so a hierarchy and a GROUPED list ride one item template; the `Overview` kind is the one minimap primitive and names its frame producer by key rather than carrying geometry; value-carrying kinds carry a typed two-way binding path read at materialize, and `Range` carries the second path its upper thumb round-trips; the `Dock` and `Splitter` kinds defer their layout to the `Shell/solver` owner; `IconSlot` is a CONTROL-level shape and its per-row seats (`OptionRow`, `CrumbRow`, `MenuRow`) carry the ASSET and the size alone as a documented narrowing — the item template fixes the leading slot so `Placement` has no reader there, and a per-row `Pending` would need a per-row value key plus a per-row lifetime, a second binding path beside `MaterializeContext.Value`; placement, overflow, picker mode, and toggle vocabulary are the packages' own enums (`Ursa.Common` `Position`, `Ursa.Controls` `OverflowMode` and `UsePickerTypes`, Avalonia `HorizontalAlignment`, `Orientation`, `MenuItemToggleType`, `DataGridLength`), because re-spelling an admitted package's own axis is a rename shell; `OptionRow` and `CrumbRow` share a field-set by shape alone — the discriminant is the CONSUMER's binding triple (an option round-trips its `Value` through `SelectedValueBinding`, a crumb dispatches it through `CommandParameterBinding`), stated at both declarations, so the pair survives on a named payload-timing discriminant rather than folding into a row a crumb could group by accident.
 
@@ -85,13 +85,20 @@ public sealed partial class ControlSkin {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlEmphasis {
-    public static readonly ControlEmphasis Quiet = new("quiet", ControlSkin.QuietButton, iconable: true);
-    public static readonly ControlEmphasis Secondary = new("secondary", ControlSkin.SecondaryButton, iconable: true);
-    public static readonly ControlEmphasis Primary = new("primary", ControlSkin.CommandButton, iconable: true);
-    public static readonly ControlEmphasis Danger = new("danger", ControlSkin.DangerButton, iconable: true);
-    public static readonly ControlEmphasis Inverted = new("inverted", ControlSkin.InvertedButton, iconable: true);
-    public static readonly ControlEmphasis Link = new("link", ControlSkin.LinkButton, iconable: false);
+    public static readonly ControlEmphasis Quiet = new(
+        "quiet", Rasm.Contracts.Ui.V1.ControlEmphasis.Quiet, ControlSkin.QuietButton, iconable: true);
+    public static readonly ControlEmphasis Secondary = new(
+        "secondary", Rasm.Contracts.Ui.V1.ControlEmphasis.Secondary, ControlSkin.SecondaryButton, iconable: true);
+    public static readonly ControlEmphasis Primary = new(
+        "primary", Rasm.Contracts.Ui.V1.ControlEmphasis.Primary, ControlSkin.CommandButton, iconable: true);
+    public static readonly ControlEmphasis Danger = new(
+        "danger", Rasm.Contracts.Ui.V1.ControlEmphasis.Danger, ControlSkin.DangerButton, iconable: true);
+    public static readonly ControlEmphasis Inverted = new(
+        "inverted", Rasm.Contracts.Ui.V1.ControlEmphasis.Inverted, ControlSkin.InvertedButton, iconable: true);
+    public static readonly ControlEmphasis Link = new(
+        "link", Rasm.Contracts.Ui.V1.ControlEmphasis.Link, ControlSkin.LinkButton, iconable: false);
 
+    public Rasm.Contracts.Ui.V1.ControlEmphasis Wire { get; }
     public ControlSkin Skin { get; }
     public bool Iconable { get; }
 }
@@ -99,9 +106,11 @@ public sealed partial class ControlEmphasis {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlTrigger {
-    public static readonly ControlTrigger Activate = new("activate");
-    public static readonly ControlTrigger Change = new("change");
-    public static readonly ControlTrigger Commit = new("commit");
+    public static readonly ControlTrigger Activate = new("activate", Rasm.Contracts.Ui.V1.ControlTrigger.Activate);
+    public static readonly ControlTrigger Change = new("change", Rasm.Contracts.Ui.V1.ControlTrigger.Change);
+    public static readonly ControlTrigger Commit = new("commit", Rasm.Contracts.Ui.V1.ControlTrigger.Commit);
+
+    public Rasm.Contracts.Ui.V1.ControlTrigger Wire { get; }
 }
 
 // Posture rows carry host type AND value slot as columns, so the per-case slot ladder the old content-property
@@ -109,9 +118,12 @@ public sealed partial class ControlTrigger {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SelectPosture {
-    public static readonly SelectPosture Closed = new("closed", nameof(ComboBox), SelectingItemsControl.SelectedValueProperty);
-    public static readonly SelectPosture Editable = new("editable", nameof(AutoCompleteBox), AutoCompleteBox.TextProperty);
+    public static readonly SelectPosture Closed = new(
+        "closed", Rasm.Contracts.Ui.V1.SelectPosture.Closed, nameof(ComboBox), SelectingItemsControl.SelectedValueProperty);
+    public static readonly SelectPosture Editable = new(
+        "editable", Rasm.Contracts.Ui.V1.SelectPosture.Editable, nameof(AutoCompleteBox), AutoCompleteBox.TextProperty);
 
+    public Rasm.Contracts.Ui.V1.SelectPosture Wire { get; }
     public string Control { get; }
     public AvaloniaProperty Slot { get; }
 }
@@ -121,9 +133,12 @@ public sealed partial class SelectPosture {
 public sealed partial class MultiPosture {
     // Bound multi-select picks from a closed option set and reads back as chips; free multi-select accepts
     // arbitrary tokens, which is the one thing a bound picker cannot express.
-    public static readonly MultiPosture Bound = new("bound", nameof(MultiComboBox), MultiComboBox.SelectedItemsProperty);
-    public static readonly MultiPosture Free = new("free", nameof(TagInput), TagInput.TagsProperty);
+    public static readonly MultiPosture Bound = new(
+        "bound", Rasm.Contracts.Ui.V1.MultiPosture.Bound, nameof(MultiComboBox), MultiComboBox.SelectedItemsProperty);
+    public static readonly MultiPosture Free = new(
+        "free", Rasm.Contracts.Ui.V1.MultiPosture.Free, nameof(TagInput), TagInput.TagsProperty);
 
+    public Rasm.Contracts.Ui.V1.MultiPosture Wire { get; }
     public string Control { get; }
     public AvaloniaProperty Slot { get; }
 }
@@ -133,9 +148,10 @@ public sealed partial class MultiPosture {
 public sealed partial class SegmentPosture {
     // Select coerces to single selection and slides one indicator; Command gives every segment its own verb —
     // the postures differ in what a segment MEANS, never in how it is painted.
-    public static readonly SegmentPosture Select = new("select", nameof(SelectionList));
-    public static readonly SegmentPosture Command = new("command", nameof(ButtonGroup));
+    public static readonly SegmentPosture Select = new("select", Rasm.Contracts.Ui.V1.SegmentPosture.Select, nameof(SelectionList));
+    public static readonly SegmentPosture Command = new("command", Rasm.Contracts.Ui.V1.SegmentPosture.Command, nameof(ButtonGroup));
 
+    public Rasm.Contracts.Ui.V1.SegmentPosture Wire { get; }
     public string Control { get; }
 }
 
@@ -144,13 +160,17 @@ public sealed partial class SegmentPosture {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChipPosture {
-    public static readonly ChipPosture Static = new("static", nameof(ContentControl), Some(ControlSkin.StatusChip),
+    public static readonly ChipPosture Static = new(
+        "static", Rasm.Contracts.Ui.V1.ChipPosture.Static, nameof(ContentControl), Some(ControlSkin.StatusChip),
         ContentControl.ContentProperty, static label => new ContentControl { Content = label });
-    public static readonly ChipPosture Toggle = new("toggle", nameof(ToggleButton), Option<ControlSkin>.None,
+    public static readonly ChipPosture Toggle = new(
+        "toggle", Rasm.Contracts.Ui.V1.ChipPosture.Toggle, nameof(ToggleButton), Option<ControlSkin>.None,
         ToggleButton.IsCheckedProperty, static label => new ToggleButton { Content = label });
-    public static readonly ChipPosture Removable = new("removable", nameof(ClosableTag), Option<ControlSkin>.None,
+    public static readonly ChipPosture Removable = new(
+        "removable", Rasm.Contracts.Ui.V1.ChipPosture.Removable, nameof(ClosableTag), Option<ControlSkin>.None,
         ContentControl.ContentProperty, static label => new ClosableTag { Content = label });
 
+    public Rasm.Contracts.Ui.V1.ChipPosture Wire { get; }
     public string Control { get; }
     public Option<ControlSkin> Skin { get; }
     public AvaloniaProperty Slot { get; }
@@ -162,9 +182,10 @@ public sealed partial class ChipPosture {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColorPosture {
-    public static readonly ColorPosture Inline = new("inline", nameof(ColorView));
-    public static readonly ColorPosture Flyout = new("flyout", nameof(ColorPicker));
+    public static readonly ColorPosture Inline = new("inline", Rasm.Contracts.Ui.V1.ColorPosture.Inline, nameof(ColorView));
+    public static readonly ColorPosture Flyout = new("flyout", Rasm.Contracts.Ui.V1.ColorPosture.Flyout, nameof(ColorPicker));
 
+    public Rasm.Contracts.Ui.V1.ColorPosture Wire { get; }
     public string Control { get; }
 }
 
@@ -173,11 +194,16 @@ public sealed partial class ColorPosture {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BannerSeverity {
-    public static readonly BannerSeverity Information = new("information", NotificationType.Information, dismissible: true);
-    public static readonly BannerSeverity Success = new("success", NotificationType.Success, dismissible: true);
-    public static readonly BannerSeverity Warning = new("warning", NotificationType.Warning, dismissible: true);
-    public static readonly BannerSeverity Error = new("error", NotificationType.Error, dismissible: false);
+    public static readonly BannerSeverity Information = new(
+        "information", Rasm.Contracts.Ui.V1.BannerSeverity.Information, NotificationType.Information, dismissible: true);
+    public static readonly BannerSeverity Success = new(
+        "success", Rasm.Contracts.Ui.V1.BannerSeverity.Success, NotificationType.Success, dismissible: true);
+    public static readonly BannerSeverity Warning = new(
+        "warning", Rasm.Contracts.Ui.V1.BannerSeverity.Warning, NotificationType.Warning, dismissible: true);
+    public static readonly BannerSeverity Error = new(
+        "error", Rasm.Contracts.Ui.V1.BannerSeverity.Error, NotificationType.Error, dismissible: false);
 
+    public Rasm.Contracts.Ui.V1.BannerSeverity Wire { get; }
     public NotificationType Type { get; }
     public bool Dismissible { get; }
 }
@@ -187,8 +213,10 @@ public sealed partial class BannerSeverity {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BannerPlacement {
-    public static readonly BannerPlacement Page = new("page");
-    public static readonly BannerPlacement Section = new("section");
+    public static readonly BannerPlacement Page = new("page", Rasm.Contracts.Ui.V1.BannerPlacement.Page);
+    public static readonly BannerPlacement Section = new("section", Rasm.Contracts.Ui.V1.BannerPlacement.Section);
+
+    public Rasm.Contracts.Ui.V1.BannerPlacement Wire { get; }
 }
 
 // Bar and Ring are ONE control under two themes; Skeleton is a different fact — a shimmer standing in for
@@ -196,10 +224,14 @@ public sealed partial class BannerPlacement {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProgressForm {
-    public static readonly ProgressForm Bar = new("bar", nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
-    public static readonly ProgressForm Ring = new("ring", nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
-    public static readonly ProgressForm Skeleton = new("skeleton", nameof(Skeleton), Option<AvaloniaProperty>.None);
+    public static readonly ProgressForm Bar = new(
+        "bar", Rasm.Contracts.Ui.V1.ProgressForm.Bar, nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
+    public static readonly ProgressForm Ring = new(
+        "ring", Rasm.Contracts.Ui.V1.ProgressForm.Ring, nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
+    public static readonly ProgressForm Skeleton = new(
+        "skeleton", Rasm.Contracts.Ui.V1.ProgressForm.Skeleton, nameof(Skeleton), Option<AvaloniaProperty>.None);
 
+    public Rasm.Contracts.Ui.V1.ProgressForm Wire { get; }
     public string Control { get; }
     public Option<AvaloniaProperty> Slot { get; }
 }
@@ -221,19 +253,20 @@ public sealed partial class TemporalTrait : ICapability<TemporalTrait> {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TemporalKind {
-    public static readonly TemporalKind Date = new("date", nameof(DateOnlyPicker),
+    public static readonly TemporalKind Date = new("date", Rasm.Contracts.Ui.V1.TemporalKind.Date, nameof(DateOnlyPicker),
         static () => new DateOnlyPicker(), DatePickerBase<DateOnly>.SelectedDateProperty,
         CapabilitySet<TemporalTrait>.Of(TemporalTrait.Calendar), Option<AvaloniaProperty>.None);
-    public static readonly TemporalKind Time = new("time", nameof(TimeOnlyPicker),
+    public static readonly TemporalKind Time = new("time", Rasm.Contracts.Ui.V1.TemporalKind.Time, nameof(TimeOnlyPicker),
         static () => new TimeOnlyPicker(), TimePickerBase<TimeOnly>.SelectedTimeProperty,
         CapabilitySet<TemporalTrait>.None, Option<AvaloniaProperty>.None);
-    public static readonly TemporalKind Moment = new("datetime", nameof(DateTimePicker),
+    public static readonly TemporalKind Moment = new("datetime", Rasm.Contracts.Ui.V1.TemporalKind.Datetime, nameof(DateTimePicker),
         static () => new DateTimePicker(), DateTimePickerBase<DateTime>.SelectedDateProperty,
         CapabilitySet<TemporalTrait>.Of(TemporalTrait.Calendar), Option<AvaloniaProperty>.None);
-    public static readonly TemporalKind Span = new("range", nameof(DateOnlyRangePicker),
+    public static readonly TemporalKind Span = new("range", Rasm.Contracts.Ui.V1.TemporalKind.Range, nameof(DateOnlyRangePicker),
         static () => new DateOnlyRangePicker(), DateRangePickerBase<DateOnly>.SelectedStartDateProperty,
         CapabilitySet<TemporalTrait>.All, Some((AvaloniaProperty)DateRangePickerBase<DateOnly>.SelectedEndDateProperty));
 
+    public Rasm.Contracts.Ui.V1.TemporalKind Wire { get; }
     public string Control { get; }
     // The spinner and picker bases register their value property PER CLOSED GENERIC, so the slot is a row
     // column rather than one shared field a type probe could recover.
@@ -265,18 +298,41 @@ public abstract partial record NumericRange {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NumericKind {
-    public static readonly NumericKind Byte = new("byte", nameof(NumericByteUpDown), Slot<byte>(), Spin<NumericByteUpDown, byte>, Dress<NumericByteUpDown, byte>);
-    public static readonly NumericKind SByte = new("sbyte", nameof(NumericSByteUpDown), Slot<sbyte>(), Spin<NumericSByteUpDown, sbyte>, Dress<NumericSByteUpDown, sbyte>);
-    public static readonly NumericKind Short = new("short", nameof(NumericShortUpDown), Slot<short>(), Spin<NumericShortUpDown, short>, Dress<NumericShortUpDown, short>);
-    public static readonly NumericKind UShort = new("ushort", nameof(NumericUShortUpDown), Slot<ushort>(), Spin<NumericUShortUpDown, ushort>, Dress<NumericUShortUpDown, ushort>);
-    public static readonly NumericKind Int = new("int", nameof(NumericIntUpDown), Slot<int>(), Spin<NumericIntUpDown, int>, Dress<NumericIntUpDown, int>);
-    public static readonly NumericKind UInt = new("uint", nameof(NumericUIntUpDown), Slot<uint>(), Spin<NumericUIntUpDown, uint>, Dress<NumericUIntUpDown, uint>);
-    public static readonly NumericKind Long = new("long", nameof(NumericLongUpDown), Slot<long>(), Spin<NumericLongUpDown, long>, Dress<NumericLongUpDown, long>);
-    public static readonly NumericKind ULong = new("ulong", nameof(NumericULongUpDown), Slot<ulong>(), Spin<NumericULongUpDown, ulong>, Dress<NumericULongUpDown, ulong>);
-    public static readonly NumericKind Float = new("float", nameof(NumericFloatUpDown), Slot<float>(), Spin<NumericFloatUpDown, float>, Dress<NumericFloatUpDown, float>);
-    public static readonly NumericKind Double = new("double", nameof(NumericDoubleUpDown), Slot<double>(), Spin<NumericDoubleUpDown, double>, Dress<NumericDoubleUpDown, double>);
-    public static readonly NumericKind Decimal = new("decimal", nameof(NumericDecimalUpDown), Slot<decimal>(), Spin<NumericDecimalUpDown, decimal>, Dress<NumericDecimalUpDown, decimal>);
+    public static readonly NumericKind Byte = Row(
+        "byte", Rasm.Contracts.Ui.V1.NumericKind.Byte, nameof(NumericByteUpDown), Slot<byte>(),
+        Spin<NumericByteUpDown, byte>, Dress<NumericByteUpDown, byte>);
+    public static readonly NumericKind SByte = Row(
+        "sbyte", Rasm.Contracts.Ui.V1.NumericKind.Sbyte, nameof(NumericSByteUpDown), Slot<sbyte>(),
+        Spin<NumericSByteUpDown, sbyte>, Dress<NumericSByteUpDown, sbyte>);
+    public static readonly NumericKind Short = Row(
+        "short", Rasm.Contracts.Ui.V1.NumericKind.Short, nameof(NumericShortUpDown), Slot<short>(),
+        Spin<NumericShortUpDown, short>, Dress<NumericShortUpDown, short>);
+    public static readonly NumericKind UShort = Row(
+        "ushort", Rasm.Contracts.Ui.V1.NumericKind.Ushort, nameof(NumericUShortUpDown), Slot<ushort>(),
+        Spin<NumericUShortUpDown, ushort>, Dress<NumericUShortUpDown, ushort>);
+    public static readonly NumericKind Int = Row(
+        "int", Rasm.Contracts.Ui.V1.NumericKind.Int, nameof(NumericIntUpDown), Slot<int>(),
+        Spin<NumericIntUpDown, int>, Dress<NumericIntUpDown, int>);
+    public static readonly NumericKind UInt = Row(
+        "uint", Rasm.Contracts.Ui.V1.NumericKind.Uint, nameof(NumericUIntUpDown), Slot<uint>(),
+        Spin<NumericUIntUpDown, uint>, Dress<NumericUIntUpDown, uint>);
+    public static readonly NumericKind Long = Row(
+        "long", Rasm.Contracts.Ui.V1.NumericKind.Long, nameof(NumericLongUpDown), Slot<long>(),
+        Spin<NumericLongUpDown, long>, Dress<NumericLongUpDown, long>);
+    public static readonly NumericKind ULong = Row(
+        "ulong", Rasm.Contracts.Ui.V1.NumericKind.Ulong, nameof(NumericULongUpDown), Slot<ulong>(),
+        Spin<NumericULongUpDown, ulong>, Dress<NumericULongUpDown, ulong>);
+    public static readonly NumericKind Float = Row(
+        "float", Rasm.Contracts.Ui.V1.NumericKind.Float, nameof(NumericFloatUpDown), Slot<float>(),
+        Spin<NumericFloatUpDown, float>, Dress<NumericFloatUpDown, float>);
+    public static readonly NumericKind Double = Row(
+        "double", Rasm.Contracts.Ui.V1.NumericKind.Double, nameof(NumericDoubleUpDown), Slot<double>(),
+        Spin<NumericDoubleUpDown, double>, Dress<NumericDoubleUpDown, double>);
+    public static readonly NumericKind Decimal = Row(
+        "decimal", Rasm.Contracts.Ui.V1.NumericKind.Decimal, nameof(NumericDecimalUpDown), Slot<decimal>(),
+        Spin<NumericDecimalUpDown, decimal>, Dress<NumericDecimalUpDown, decimal>);
 
+    public Rasm.Contracts.Ui.V1.NumericKind Wire { get; }
     public string Control { get; }
     // Per-closed-generic value property; the float and double rows additionally pass NaN through their own
     // coercion override, so an unset scientific field stays unset instead of snapping to a bound.
@@ -287,6 +343,15 @@ public sealed partial class NumericKind {
 
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Redress(Control control, NumericRange range);
+
+    static NumericKind Row(
+        string key,
+        Rasm.Contracts.Ui.V1.NumericKind wire,
+        string control,
+        AvaloniaProperty slot,
+        Func<NumericRange, Fin<Control>> construct,
+        Func<Control, NumericRange, Fin<Unit>> redress) =>
+        new(key, wire, control, slot, construct, redress);
 
     static AvaloniaProperty Slot<T>() where T : struct, IComparable<T> => NumericUpDownBase<T>.ValueProperty;
 
@@ -323,7 +388,13 @@ public sealed partial class NumericKind {
 // The icon slot carries its own pending key, so in-control progress can only ever REPLACE a leading visual.
 // Size is a `MetricFamily.Icon` STEP, never a pixel count — the asset rail resolves the step against the live
 // density, text scale, and contrast projection.
-public sealed record IconSlot(AssetKey Asset, Position Placement, int Size, Option<string> Pending);
+[ValueObject<uint>]
+public readonly partial struct IconStep {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
+        validationError = value > 0u ? validationError : new ValidationError("icon metric step must be positive");
+}
+
+public sealed record IconSlot(AssetKey Asset, Position Placement, IconStep Size, Option<string> Pending);
 
 // One hint shape serving both uses: the standalone Tooltip case materializes it as a body, and the binding's
 // hint column attaches that same body to any control — exactly one construction site.
@@ -376,11 +447,16 @@ public sealed record ColumnRow(
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MenuPosture {
-    public static readonly MenuPosture Command = new("command", Some(MenuItemToggleType.None));
-    public static readonly MenuPosture Check = new("check", Some(MenuItemToggleType.CheckBox));
-    public static readonly MenuPosture Radio = new("radio", Some(MenuItemToggleType.Radio));
-    public static readonly MenuPosture Divider = new("separator", Option<MenuItemToggleType>.None);
+    public static readonly MenuPosture Command = new(
+        "command", Rasm.Contracts.Ui.V1.MenuPosture.Command, Some(MenuItemToggleType.None));
+    public static readonly MenuPosture Check = new(
+        "check", Rasm.Contracts.Ui.V1.MenuPosture.Check, Some(MenuItemToggleType.CheckBox));
+    public static readonly MenuPosture Radio = new(
+        "radio", Rasm.Contracts.Ui.V1.MenuPosture.Radio, Some(MenuItemToggleType.Radio));
+    public static readonly MenuPosture Divider = new(
+        "separator", Rasm.Contracts.Ui.V1.MenuPosture.Separator, Option<MenuItemToggleType>.None);
 
+    public Rasm.Contracts.Ui.V1.MenuPosture Wire { get; }
     // The separator row carries no toggle because it carries no item at all — the None IS the discriminant the
     // fold reads to construct a rule instead of a menu item.
     public Option<MenuItemToggleType> Toggle { get; }
@@ -405,6 +481,14 @@ public sealed record ToolbarRow(ControlIntent Item, OverflowMode Overflow);
 public sealed record CrumbRow(string Value, string LabelKey, Option<IconSlot> Icon, Option<string> Command);
 
 public sealed record AvatarRow(string LabelKey, Option<AssetKey> Portrait);
+
+[ValueObject<uint>]
+public readonly partial struct AvatarLimit {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
+        validationError = value > 0u && value <= (uint)int.MaxValue
+            ? validationError
+            : new ValidationError("avatar visible limit must fit a positive Int32");
+}
 
 // The picker filter grammar is the package's own bracketed form, so the row is TYPED here and encoded at the
 // edge: a label carrying the grammar's reserved characters refuses at materialize rather than throwing inside
@@ -453,7 +537,8 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
     public sealed record Segmented(string Key, SegmentPosture Posture, Seq<OptionRow> Options, IntentBinding Binding) : ControlIntent(Key, Binding);
     public sealed record Chip(string Key, string TextKey, ChipPosture Posture, IntentBinding Binding) : ControlIntent(Key, Binding);
     public sealed record Progress(string Key, ProgressForm Form, Option<double> Fraction, IntentBinding Binding) : ControlIntent(Key, Binding);
-    public sealed record Avatar(string Key, Seq<AvatarRow> Members, int Visible, IntentBinding Binding) : ControlIntent(Key, Binding);
+    public sealed record Avatar(
+        string Key, Seq<AvatarRow> Members, AvatarLimit VisibleLimit, IntentBinding Binding) : ControlIntent(Key, Binding);
     public sealed record Breadcrumb(string Key, Seq<CrumbRow> Crumbs, IntentBinding Binding) : ControlIntent(Key, Binding);
     public sealed record Tooltip(string Key, HintRow Hint, IntentBinding Binding) : ControlIntent(Key, Binding);
     public sealed record Banner(string Key, string HeadlineKey, string BodyKey, BannerSeverity Severity, BannerPlacement Placement, Seq<ControlIntent> Actions, Option<ControlIntent> Evidence, IntentBinding Binding) : ControlIntent(Key, Binding);
@@ -594,9 +679,12 @@ public sealed record MaterializeContext(
     Func<ControlReceipt, Unit> Evidence,
     IClock Clock);
 
-public sealed record ControlReceipt(string IntentKey, string ControlType, Option<string> Command, string Emphasis, Instant At) {
-    public const string Kind = "control";
-}
+public sealed record ControlReceipt(
+    string IntentKey,
+    string ControlType,
+    Option<string> Command,
+    ControlEmphasis Emphasis,
+    Instant At);
 ```
 
 ```csharp signature
@@ -629,7 +717,7 @@ public static partial class ControlFactory {
 
     private static Control Sealed(ControlIntent intent, Control control, MaterializeContext context) {
         ignore(context.Evidence(new ControlReceipt(
-            intent.Key, control.GetType().Name, intent.Binding.Command, intent.Binding.Emphasis.Key, context.Clock.GetCurrentInstant())));
+            intent.Key, control.GetType().Name, intent.Binding.Command, intent.Binding.Emphasis, context.Clock.GetCurrentInstant())));
         return control;
     }
 
@@ -824,7 +912,7 @@ public static partial class ControlFactory {
     // collapses into one overflow face carrying its own count. The cluster hosts inside a templated content
     // control because a bare panel takes setters and no template.
     private static Fin<Control> Faces(ControlIntent.Avatar intent, MaterializeContext context) =>
-        intent.Members.Take(Math.Max(intent.Visible, 1))
+        intent.Members.Take((int)intent.VisibleLimit.Value)
             .Traverse(member => Face(member, context))
             .As()
             .Map(faces => {
@@ -1556,351 +1644,402 @@ public static partial class ControlFactory {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `ControlIntentWire` the closed 31-arm wire family and its nested row wires (`IntentBindingWire`, `IconSlotWire`, `HintRowWire`, `OptionRowWire`, `OptionSourceWire`, `ColumnRowWire`, `MenuRowWire`, `ToolbarRowWire`, `CrumbRowWire`, `AvatarRowWire`, `FileFilterRowWire`, `NumericRangeWire`, `WindowWire`, `ExtentWire`, `SectionWire`); `ControlReceiptWire` the evidence face; `ControlMap` the generated `[Mapper]` seam projecting the domain family onto the wire.
-- Law: the projection is ONE DIRECTION. The AppUi product-shell vocabulary is producer-owned and peers only decode it (`tests/contracts/MANIFEST.md [02.22]`), so no wire-to-domain inverse exists and the `Seq<T>` target construction the reverse would need is never reached — the source side rides the settled enumerable conversion instead.
-- Law: the union crosses through its OWN generated total `Switch` composing one generated per-case projector, never a derived-type roster: `[MapDerivedType]` is for open class hierarchies, and a closed family that gains a case must break the projection at compile time rather than fall through a runtime type test.
-- Law: the arm discriminant has ONE author — the serializer's derived-type roster writes `kind`, so no wire record carries a `Kind` member a mapper would have to keep in step with the roster.
-- Law: the producer mints the WHOLE family, all thirty-one arms, and the peer decoder now closes over all thirty-one — the wire stays OPEN, so a peer decoding a subset remains lawful while a producer-side omission stays unlawful: an arm the producer refuses is a screen no head can ever render, where an arm the peer skips is a screen one head declines to draw.
-- Law: `Option<T>` crosses through a per-TYPE converter and never a generic one — a generic `T? Map<T>(Option<T>)` is refused outright (RMG001), and the explicit-cast conversion is withdrawn from the mapper because the carrier's own throwing cast otherwise outranks the registered converter.
-- Entry: `public static ControlIntentWire ToWire(ControlIntent intent)` — the whole family in one call, recursing through the nested arms; `public static ControlReceiptWire ToWire(ControlReceipt receipt)` — the evidence face.
-- Auto: sixty-four-bit and decimal bounds cross as ORDINAL DECIMAL STRINGS on the integral, unsigned, and precise numeric arms, because both exceed the peer head's native number and rounding the top decade of an unsigned spinner or the tail digits of a decimal one destroys exactly the bound the checked narrowing exists to keep; the real arm stays a number, keeping `NaN` and full binary64 range; temporal bounds cross as calendar text on every kind, so decoding one as a moment cannot fabricate a zone the wire never states; roster values cross as their own keys, so a peer decodes each closed table as a literal union while the growable paint role stays an open key each head resolves as a style class.
-- Packages: Riok.Mapperly, Rasm (kernel `EvidenceOps.Wire`), NodaTime, LanguageExt.Core, BCL inbox
-- Growth: a new `ControlIntent` case is one wire record, one derived-type row, and one generated projector the total `Switch` demands at compile time; a new column on an existing case is one member at both ends; zero new surface.
-- Boundary: this is the producer half of the `appui-wire` seam's control-intent family (`tests/contracts/MANIFEST.md [02.22]`) — the peer decoder at `libs/typescript/core/interchange/codec.md` is the counterpart mirror quoted below, and the nested row wires never register as standalone manifest entries; the wire carries the intent's COMMAND KEY and never a command instance, so a remote head resolves the verb against its own deck and the seam stays a value; the window spec crosses whole so a remote head windows the same viewport contract the desktop fabric does; the automation name crosses on NEITHER side — both heads derive it from `key` through their own locale resolver, so a name authored on the wire could only ever disagree with the id beside it; the `Shell/commands` payload family, the `Shell/solver` constraint family, the `Render/pipeline` residency family, and the `Diagnostics/evidence` timeline family are the seam's four sibling producers and each owns its own `[Mapper]`, so a census join resolves five producer rosters against five consumer census rows rather than one merged projection nothing owns; the wire is OPEN — a peer that decodes a subset of the arms is lawful and a peer that re-authors the vocabulary is not; absence encodes ONCE for the whole suite at `csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW` and this package writes through that merge, so every unset slot OMITS its key and each peer arm below spells it `_omitted(…)` — a nullable schema there binds a token the merge emits for no slot, and the two absence regimes one package once declared were a fork the emitted bytes never had.
+- Owner: the generated `Rasm.Contracts.Ui.V1` control-intent family — `ControlIntentWire` with its generated row messages and enums — and `ControlMap`, the sole interior-to-message correspondence. The schema and generated bindings own every peer-facing shape; this page owns only the behavioral AppUI model and the projection that seats it.
+- Law: the projection is one direction. The AppUI product-shell vocabulary is producer-owned and peers decode the generated package, so no wire-to-domain inverse, hand-written message record, TypeScript schema twin, or serializer roster exists here.
+- Law: `ControlIntent.Switch` remains the compile-time-complete interior fold, while generated `ControlIntentWire.ArmCase` is the only peer discriminant. `ControlMap.Emit` is the decision-complete support projection seated by `Shell/screens#TS_PROJECTION` inside the one manifest-rooted `AppUiSurfaceProgram`; a detached control tree is not an application payload.
+- Entry: `ControlMap.Emit(ControlIntent)` recursively fills one generated oneof arm. A future ProtoJSON egress calls `WireJson.Formatter.Format` on the generated message, so the shared descriptor registry alone controls field names, enums, well-known types, and omissions.
+- Packages: Rasm.Contracts (project, generated `Ui.V1` family), Rasm.AppHost (project, `WireJson`), Google.Protobuf, Google.Api.CommonProtos, NodaTime.Serialization.Protobuf, Riok.Mapperly, LanguageExt.Core
+- Growth: a new required arm or mapped enum value regenerates every language binding and breaks the producer correspondence or its completeness proof until supplied; a new interior arm breaks the total `Switch`; zero hand-maintained peer shape or JSON options surface.
+- Boundary: Interior `ControlIntent`, `IntentBinding`, row values, package enums, and smart-enum policy rows remain because materialization consumes their behavior. A smart-enum row carries its generated coordinate beside its behavior; package enums cross through Mapperly's source-and-target-complete correspondence. Both project once at the design-pinned boundary without a string ladder; the AppUI contract test owns the generated-enum roster proof for smart-enum rows. `ControlReceipt` stays interior process evidence. If a future peer consumes it, it enters the existing `EvidenceReceiptWire` oneof and `EvidenceTimelineWire` rail rather than minting a standalone receipt transport. `@rasm\/contracts/rasm/contracts/ui/v1/controls_pb` is the reusable leaf binding; the current TypeScript viewer admits it only through `appui_surface_pb`, and future apps do not re-declare either transport shape. Three sibling partials separate arm seating, row projection, and package-enum correspondence without minting another public type.
+
+### [05.1]-[CONTROLMAP_ARMS_CS]
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// Every carrier collapses exactly once, at this edge, and the nullable slot is the CARRIER — never the wire
-// spelling. `csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW` rules one absence encoding for the whole suite and
-// this package serializes through that same merge, so an unset slot below OMITS its key rather than writing a
-// null, and the peer face is `field?: T`. Choosing `T?` here over `Option<T>` is an interior choice with no
-// wire consequence, which is exactly why a null can never be "the transport's own spelling" for this seam.
-public sealed record IconSlotWire(string Asset, string Placement, int Size, string? Pending);
+// --- [COMPOSITION] --------------------------------------------------------------------------
+public static partial class ControlMap {
+    public static ControlIntentWire Emit(ControlIntent intent) => intent.Switch(
+        button: static row => ToWire(row),
+        label: static row => ToWire(row),
+        textInput: static row => ToWire(row),
+        numberInput: static row => ToWire(row),
+        dateInput: static row => ToWire(row),
+        pathInput: static row => ToWire(row),
+        colorInput: static row => ToWire(row),
+        select: static row => ToWire(row),
+        multiSelect: static row => ToWire(row),
+        slider: static row => ToWire(row),
+        range: static row => ToWire(row),
+        toggle: static row => ToWire(row),
+        radio: static row => ToWire(row),
+        segmented: static row => ToWire(row),
+        chip: static row => ToWire(row),
+        progress: static row => ToWire(row),
+        avatar: static row => ToWire(row),
+        breadcrumb: static row => ToWire(row),
+        tooltip: static row => ToWire(row),
+        banner: static row => ToWire(row),
+        emptyState: static row => ToWire(row),
+        grid: static row => ToWire(row),
+        tree: static row => ToWire(row),
+        overview: static row => ToWire(row),
+        menu: static row => ToWire(row),
+        toolbar: static row => ToWire(row),
+        tab: static row => ToWire(row),
+        accordion: static row => ToWire(row),
+        panel: static row => ToWire(row),
+        dock: static row => ToWire(row),
+        splitter: static row => ToWire(row));
 
-public sealed record HintRowWire(string Body, string? Gesture);
+    private static ControlIntentWire ToWire(ControlIntent.Button row) =>
+        Frame(row, new ControlIntentWire.Types.Button { LabelKey = row.LabelKey },
+            static (wire, arm) => wire.Button = arm);
 
-public sealed record IntentBindingWire(
-    string Role, string Emphasis, string? Command, string? ValueKey, string? Trigger,
-    IconSlotWire? Icon, HintRowWire? Hint);
+    private static ControlIntentWire ToWire(ControlIntent.Label row) =>
+        Frame(row, new ControlIntentWire.Types.Label { TextKey = row.TextKey, Role = row.Role.Wire },
+            static (wire, arm) => wire.Label = arm);
 
-public sealed record OptionRowWire(string Value, string LabelKey, string? Group, IconSlotWire? Icon);
+    private static ControlIntentWire ToWire(ControlIntent.TextInput row) =>
+        Frame(row, new ControlIntentWire.Types.TextInput { Watermark = row.Watermark, Multiline = row.Multiline },
+            static (wire, arm) => wire.TextInput = arm);
 
-public sealed record CrumbRowWire(string Value, string LabelKey, IconSlotWire? Icon, string? Command);
+    private static ControlIntentWire ToWire(ControlIntent.NumberInput row) =>
+        Frame(row, new ControlIntentWire.Types.NumberInput { Kind = row.Kind.Wire, Range = ToWire(row.Range) },
+            static (wire, arm) => wire.NumberInput = arm);
 
-public sealed record AvatarRowWire(string LabelKey, string? Portrait);
+    private static ControlIntentWire ToWire(ControlIntent.DateInput row) {
+        var arm = new ControlIntentWire.Types.DateInput { Kind = row.Kind.Wire };
+        row.From.Iter(value => arm.From = value.ToDate());
+        row.Until.Iter(value => arm.Until = value.ToDate());
+        row.UpperKey.Iter(value => arm.UpperKey = value);
+        return Frame(row, arm, static (wire, value) => wire.DateInput = value);
+    }
 
-public sealed record FileFilterRowWire(string Label, string[] Patterns);
+    private static ControlIntentWire ToWire(ControlIntent.PathInput row) =>
+        Frame(row, new ControlIntentWire.Types.PathInput {
+            Mode = Picker(row.Mode),
+            Filters = { row.Filters.Map(ToWire) },
+            Multiple = row.Multiple,
+        }, static (wire, arm) => wire.PathInput = arm);
 
-public sealed record MenuRowWire(
-    string Key, string LabelKey, string Posture, IconSlotWire? Icon, string? Gesture,
-    string? Command, string? CheckedKey, MenuRowWire[] Rows);
+    private static ControlIntentWire ToWire(ControlIntent.ColorInput row) =>
+        Frame(row, new ControlIntentWire.Types.ColorInput { Posture = row.Posture.Wire, Alpha = row.Alpha },
+            static (wire, arm) => wire.ColorInput = arm);
 
-public sealed record ToolbarRowWire(ControlIntentWire Item, string Overflow);
+    private static ControlIntentWire ToWire(ControlIntent.Select row) =>
+        Frame(row, new ControlIntentWire.Types.Select {
+            Posture = row.Posture.Wire,
+            Options = ToWire(row.Options),
+            Window = ToWire(row.Window),
+        }, static (wire, arm) => wire.Select = arm);
 
-public sealed record SectionWire(string HeaderKey, ControlIntentWire Body);
+    private static ControlIntentWire ToWire(ControlIntent.MultiSelect row) =>
+        Frame(row, new ControlIntentWire.Types.MultiSelect {
+            Posture = row.Posture.Wire,
+            Options = ToWire(row.Options),
+            Window = ToWire(row.Window),
+        }, static (wire, arm) => wire.MultiSelect = arm);
 
-public sealed record ExtentWire(double Value, string Unit);
+    private static ControlIntentWire ToWire(ControlIntent.Slider row) =>
+        Frame(row, new ControlIntentWire.Types.Slider { Min = row.Min, Max = row.Max, Step = row.Step },
+            static (wire, arm) => wire.Slider = arm);
 
-public sealed record ColumnRowWire(
-    string HeaderKey, ControlIntentWire Cell, ControlIntentWire? Editor,
-    ExtentWire Extent, string? SortKey, string Align);
+    private static ControlIntentWire ToWire(ControlIntent.Range row) =>
+        Frame(row, new ControlIntentWire.Types.Range {
+            Min = row.Min,
+            Max = row.Max,
+            Step = row.Step,
+            UpperKey = row.UpperKey,
+        }, static (wire, arm) => wire.Range = arm);
 
-public sealed record WindowWire(double Extent, double Overscan, string Mode, double FixedItemExtent);
+    private static ControlIntentWire ToWire(ControlIntent.Toggle row) =>
+        Frame(row, new ControlIntentWire.Types.Toggle { LabelKey = row.LabelKey },
+            static (wire, arm) => wire.Toggle = arm);
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "form")]
-[JsonDerivedType(typeof(Inline), "inline")]
-[JsonDerivedType(typeof(Bound), "bound")]
-public abstract record OptionSourceWire {
-    public sealed record Inline(OptionRowWire[] Rows) : OptionSourceWire;
-    public sealed record Bound(string SourceKey) : OptionSourceWire;
+    private static ControlIntentWire ToWire(ControlIntent.Radio row) =>
+        Frame(row, new ControlIntentWire.Types.Radio { Options = { row.Options.Map(ToWire) } },
+            static (wire, arm) => wire.Radio = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Segmented row) =>
+        Frame(row, new ControlIntentWire.Types.Segmented {
+            Posture = row.Posture.Wire,
+            Options = { row.Options.Map(ToWire) },
+        }, static (wire, arm) => wire.Segmented = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Chip row) =>
+        Frame(row, new ControlIntentWire.Types.Chip { TextKey = row.TextKey, Posture = row.Posture.Wire },
+            static (wire, arm) => wire.Chip = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Progress row) {
+        var arm = new ControlIntentWire.Types.Progress { Form = row.Form.Wire };
+        row.Fraction.Iter(value => arm.Fraction = value);
+        return Frame(row, arm, static (wire, value) => wire.Progress = value);
+    }
+
+    private static ControlIntentWire ToWire(ControlIntent.Avatar row) =>
+        Frame(row, new ControlIntentWire.Types.Avatar {
+            Members = { row.Members.Map(ToWire) },
+            VisibleLimit = row.VisibleLimit.Value,
+        }, static (wire, arm) => wire.Avatar = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Breadcrumb row) =>
+        Frame(row, new ControlIntentWire.Types.Breadcrumb { Crumbs = { row.Crumbs.Map(ToWire) } },
+            static (wire, arm) => wire.Breadcrumb = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Tooltip row) =>
+        Frame(row, new ControlIntentWire.Types.Tooltip { Hint = ToWire(row.Hint) },
+            static (wire, arm) => wire.Tooltip = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Banner row) {
+        var arm = new ControlIntentWire.Types.Banner {
+            HeadlineKey = row.HeadlineKey,
+            BodyKey = row.BodyKey,
+            Severity = row.Severity.Wire,
+            Placement = row.Placement.Wire,
+            Actions = { row.Actions.Map(ToWire) },
+        };
+        row.Evidence.Iter(value => arm.Evidence = ToWire(value));
+        return Frame(row, arm, static (wire, value) => wire.Banner = value);
+    }
+
+    private static ControlIntentWire ToWire(ControlIntent.EmptyState row) {
+        var arm = new ControlIntentWire.Types.EmptyState {
+            HeadlineKey = row.HeadlineKey,
+            BodyKey = row.BodyKey,
+        };
+        row.Action.Iter(value => arm.Action = ToWire(value));
+        return Frame(row, arm, static (wire, value) => wire.EmptyState = value);
+    }
+
+    private static ControlIntentWire ToWire(ControlIntent.Grid row) =>
+        Frame(row, new ControlIntentWire.Types.Grid {
+            Columns = { row.Columns.Map(ToWire) },
+            Window = ToWire(row.Window),
+        }, static (wire, arm) => wire.Grid = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Tree row) =>
+        Frame(row, new ControlIntentWire.Types.Tree {
+            Item = ToWire(row.Item),
+            ExpansionCommand = row.ExpansionCommand,
+            Window = ToWire(row.Window),
+        }, static (wire, arm) => wire.Tree = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Overview row) =>
+        Frame(row, new ControlIntentWire.Types.Overview {
+            Axis = row.Axis.Wire,
+            SourceKey = row.SourceKey,
+            JumpCommand = row.JumpCommand,
+        }, static (wire, arm) => wire.Overview = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Menu row) =>
+        Frame(row, new ControlIntentWire.Types.Menu { Rows = { row.Rows.Map(ToWire) } },
+            static (wire, arm) => wire.Menu = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Toolbar row) =>
+        Frame(row, new ControlIntentWire.Types.Toolbar {
+            Rows = { row.Rows.Map(ToWire) },
+            Orientation = Orientation(row.Orientation),
+        }, static (wire, arm) => wire.Toolbar = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Tab row) =>
+        Frame(row, new ControlIntentWire.Types.Tab { Pages = { row.Pages.Map(Section) } },
+            static (wire, arm) => wire.Tab = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Accordion row) =>
+        Frame(row, new ControlIntentWire.Types.Accordion { Sections = { row.Sections.Map(Section) } },
+            static (wire, arm) => wire.Accordion = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Panel row) =>
+        Frame(row, new ControlIntentWire.Types.Panel {
+            Children = { row.Children.Map(ToWire) },
+            ConstraintProgram = row.ConstraintProgram,
+        }, static (wire, arm) => wire.Panel = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Dock row) =>
+        Frame(row, new ControlIntentWire.Types.Dock {
+            Regions = { row.Regions.Map(ToWire) },
+            ConstraintProgram = row.ConstraintProgram,
+        }, static (wire, arm) => wire.Dock = arm);
+
+    private static ControlIntentWire ToWire(ControlIntent.Splitter row) =>
+        Frame(row, new ControlIntentWire.Types.Splitter {
+            First = ToWire(row.First),
+            Second = ToWire(row.Second),
+            Orientation = Orientation(row.Orientation),
+        }, static (wire, arm) => wire.Splitter = arm);
+
+    private static ControlIntentWire Frame<TArm>(
+        ControlIntent source,
+        TArm arm,
+        Action<ControlIntentWire, TArm> seat) {
+        var wire = new ControlIntentWire {
+            Key = source.Key,
+            Binding = ToWire(source.Binding),
+        };
+        seat(wire, arm);
+        return wire;
+    }
 }
-
-// The string arms are the DECLARED narrowing: a sixty-four-bit bound and a decimal significand both exceed the
-// peer head's native number, so they cross as ordinal decimal text and the real arm alone stays numeric.
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "form")]
-[JsonDerivedType(typeof(Integral), "integral")]
-[JsonDerivedType(typeof(Unsigned), "unsigned")]
-[JsonDerivedType(typeof(Real), "real")]
-[JsonDerivedType(typeof(Precise), "precise")]
-public abstract record NumericRangeWire {
-    public sealed record Integral(string Min, string Max, string Step) : NumericRangeWire;
-    public sealed record Unsigned(string Min, string Max, string Step) : NumericRangeWire;
-    public sealed record Real(double Min, double Max, double Step) : NumericRangeWire;
-    public sealed record Precise(string Min, string Max, string Step) : NumericRangeWire;
-}
-
-// The discriminant has ONE author — this roster — so no arm carries a `kind` member the mapper would keep in
-// step with it. Arm order is the domain family's order and the peer partitions leaf arms from nesting arms,
-// so the two rosters diff one read per partition rather than one read end to end.
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
-[JsonDerivedType(typeof(Button), "button")]
-[JsonDerivedType(typeof(Label), "label")]
-[JsonDerivedType(typeof(TextInput), "textInput")]
-[JsonDerivedType(typeof(NumberInput), "numberInput")]
-[JsonDerivedType(typeof(DateInput), "dateInput")]
-[JsonDerivedType(typeof(PathInput), "pathInput")]
-[JsonDerivedType(typeof(ColorInput), "colorInput")]
-[JsonDerivedType(typeof(Select), "select")]
-[JsonDerivedType(typeof(MultiSelect), "multiSelect")]
-[JsonDerivedType(typeof(Slider), "slider")]
-[JsonDerivedType(typeof(Range), "range")]
-[JsonDerivedType(typeof(Toggle), "toggle")]
-[JsonDerivedType(typeof(Radio), "radio")]
-[JsonDerivedType(typeof(Segmented), "segmented")]
-[JsonDerivedType(typeof(Chip), "chip")]
-[JsonDerivedType(typeof(Progress), "progress")]
-[JsonDerivedType(typeof(Avatar), "avatar")]
-[JsonDerivedType(typeof(Breadcrumb), "breadcrumb")]
-[JsonDerivedType(typeof(Tooltip), "tooltip")]
-[JsonDerivedType(typeof(Banner), "banner")]
-[JsonDerivedType(typeof(EmptyState), "emptyState")]
-[JsonDerivedType(typeof(Grid), "grid")]
-[JsonDerivedType(typeof(Tree), "tree")]
-[JsonDerivedType(typeof(Overview), "overview")]
-[JsonDerivedType(typeof(Menu), "menu")]
-[JsonDerivedType(typeof(Toolbar), "toolbar")]
-[JsonDerivedType(typeof(Tab), "tab")]
-[JsonDerivedType(typeof(Accordion), "accordion")]
-[JsonDerivedType(typeof(Panel), "panel")]
-[JsonDerivedType(typeof(Dock), "dock")]
-[JsonDerivedType(typeof(Splitter), "splitter")]
-public abstract record ControlIntentWire {
-    public sealed record Button(string Key, string LabelKey, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Label(string Key, string TextKey, string Role, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record TextInput(string Key, string Watermark, bool Multiline, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record NumberInput(string Key, string NumericKind, NumericRangeWire Range, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record DateInput(string Key, string TemporalKind, string? From, string? Until, string? UpperKey, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record PathInput(string Key, string Mode, FileFilterRowWire[] Filters, bool Multiple, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record ColorInput(string Key, string Posture, bool Alpha, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Select(string Key, string Posture, OptionSourceWire Options, WindowWire Window, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record MultiSelect(string Key, string Posture, OptionSourceWire Options, WindowWire Window, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Slider(string Key, double Min, double Max, double Step, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Range(string Key, double Min, double Max, double Step, string UpperKey, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Toggle(string Key, string LabelKey, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Radio(string Key, OptionRowWire[] Options, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Segmented(string Key, string Posture, OptionRowWire[] Options, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Chip(string Key, string TextKey, string Posture, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Progress(string Key, string Form, double? Fraction, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Avatar(string Key, AvatarRowWire[] Members, int Visible, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Breadcrumb(string Key, CrumbRowWire[] Crumbs, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Tooltip(string Key, HintRowWire Hint, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Banner(string Key, string HeadlineKey, string BodyKey, string Severity, string Placement, ControlIntentWire[] Actions, ControlIntentWire? Evidence, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record EmptyState(string Key, string HeadlineKey, string BodyKey, ControlIntentWire? Action, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Grid(string Key, ColumnRowWire[] Columns, WindowWire Window, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Tree(string Key, ControlIntentWire Item, string ExpansionCommand, WindowWire Window, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Overview(string Key, string Axis, string SourceKey, string JumpCommand, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Menu(string Key, MenuRowWire[] Rows, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Toolbar(string Key, ToolbarRowWire[] Rows, string Orientation, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Tab(string Key, SectionWire[] Pages, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Accordion(string Key, SectionWire[] Sections, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Panel(string Key, ControlIntentWire[] Children, string ConstraintProgram, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Dock(string Key, ControlIntentWire[] Regions, string ConstraintProgram, IntentBindingWire Binding) : ControlIntentWire;
-    public sealed record Splitter(string Key, ControlIntentWire First, ControlIntentWire Second, string Orientation, IntentBindingWire Binding) : ControlIntentWire;
-}
-
-public sealed record ControlReceiptWire(string Kind, string IntentKey, string ControlType, string? Command, string Emphasis, string At);
 ```
 
+### [05.2]-[CONTROLMAP_ROWS_CS]
+
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// ONE mapper owns the control seam. `Both` keeps the source AND target sides strict, and the class is
-// READER-FREE — no `[MapPropertyFromSource]` member exists, so source-side completeness is the compiler's
-// proof rather than an authored ignore roster. The explicit-cast conversion is withdrawn because the carrier's
-// own throwing `Option<T>` cast otherwise outranks the registered converters below.
-[Mapper(
-    RequiredMappingStrategy = RequiredMappingStrategy.Both,
-    EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
+// --- [COMPOSITION] --------------------------------------------------------------------------
 public static partial class ControlMap {
-    // The family crossing IS the union's own total Switch: each arm names one generated projector, so a
-    // thirty-second case breaks this call before it can ship an intent no peer can read.
-    [UserMapping(Default = true)]
-    public static ControlIntentWire ToWire(ControlIntent intent) => intent.Switch(
-        button: Verb, label: Text, textInput: Entry, numberInput: Number, dateInput: Moment,
-        pathInput: Path, colorInput: Tint, select: Choice, multiSelect: Choices, slider: Scale,
-        range: Span, toggle: Flag, radio: Exclusive, segmented: Rail, chip: Tag, progress: Meter,
-        avatar: Faces, breadcrumb: Trail, tooltip: Hint, banner: Notice, emptyState: Vacant,
-        grid: Table, tree: Branches, overview: Strip, menu: Rows, toolbar: Bar, tab: Pages,
-        accordion: Panels, panel: Region, dock: Regions, splitter: Divided);
+    private static IntentBindingWire ToWire(IntentBinding row) {
+        var wire = new IntentBindingWire {
+            Role = row.Role.Key,
+            Emphasis = row.Emphasis.Wire,
+        };
+        row.Command.Iter(value => wire.Command = value);
+        row.ValueKey.Iter(value => wire.ValueKey = value);
+        row.Trigger.Iter(value => wire.Trigger = value.Wire);
+        row.Icon.Iter(value => wire.Icon = ToWire(value));
+        row.Hint.Iter(value => wire.Hint = ToWire(value));
+        return wire;
+    }
 
-    private static partial ControlIntentWire.Button Verb(ControlIntent.Button intent);
-    private static partial ControlIntentWire.Label Text(ControlIntent.Label intent);
-    private static partial ControlIntentWire.TextInput Entry(ControlIntent.TextInput intent);
+    private static IconSlotWire ToWire(IconSlot row) {
+        var wire = new IconSlotWire {
+            Asset = row.Asset.Value,
+            Placement = Icon(row.Placement),
+            Size = row.Size.Value,
+        };
+        row.Pending.Iter(value => wire.Pending = value);
+        return wire;
+    }
 
-    [MapProperty(nameof(ControlIntent.NumberInput.Kind), nameof(ControlIntentWire.NumberInput.NumericKind))]
-    private static partial ControlIntentWire.NumberInput Number(ControlIntent.NumberInput intent);
+    private static HintRowWire ToWire(HintRow row) {
+        var wire = new HintRowWire { Body = row.Body };
+        row.Gesture.Iter(value => wire.Gesture = value.ToString());
+        return wire;
+    }
 
-    [MapProperty(nameof(ControlIntent.DateInput.Kind), nameof(ControlIntentWire.DateInput.TemporalKind))]
-    private static partial ControlIntentWire.DateInput Moment(ControlIntent.DateInput intent);
+    private static OptionRowWire ToWire(OptionRow row) {
+        var wire = new OptionRowWire { Value = row.Value, LabelKey = row.LabelKey };
+        row.Group.Iter(value => wire.Group = value);
+        row.Icon.Iter(value => wire.Icon = ToWire(value));
+        return wire;
+    }
 
-    private static partial ControlIntentWire.PathInput Path(ControlIntent.PathInput intent);
-    private static partial ControlIntentWire.ColorInput Tint(ControlIntent.ColorInput intent);
-    private static partial ControlIntentWire.Select Choice(ControlIntent.Select intent);
-    private static partial ControlIntentWire.MultiSelect Choices(ControlIntent.MultiSelect intent);
-    private static partial ControlIntentWire.Slider Scale(ControlIntent.Slider intent);
-    private static partial ControlIntentWire.Range Span(ControlIntent.Range intent);
-    private static partial ControlIntentWire.Toggle Flag(ControlIntent.Toggle intent);
-    private static partial ControlIntentWire.Radio Exclusive(ControlIntent.Radio intent);
-    private static partial ControlIntentWire.Segmented Rail(ControlIntent.Segmented intent);
-    private static partial ControlIntentWire.Chip Tag(ControlIntent.Chip intent);
-    private static partial ControlIntentWire.Progress Meter(ControlIntent.Progress intent);
-    private static partial ControlIntentWire.Avatar Faces(ControlIntent.Avatar intent);
-    private static partial ControlIntentWire.Breadcrumb Trail(ControlIntent.Breadcrumb intent);
-    private static partial ControlIntentWire.Tooltip Hint(ControlIntent.Tooltip intent);
-    private static partial ControlIntentWire.Banner Notice(ControlIntent.Banner intent);
-    private static partial ControlIntentWire.EmptyState Vacant(ControlIntent.EmptyState intent);
-    private static partial ControlIntentWire.Grid Table(ControlIntent.Grid intent);
-    private static partial ControlIntentWire.Tree Branches(ControlIntent.Tree intent);
-    private static partial ControlIntentWire.Overview Strip(ControlIntent.Overview intent);
-    private static partial ControlIntentWire.Menu Rows(ControlIntent.Menu intent);
-    private static partial ControlIntentWire.Toolbar Bar(ControlIntent.Toolbar intent);
-    private static partial ControlIntentWire.Tab Pages(ControlIntent.Tab intent);
-    private static partial ControlIntentWire.Accordion Panels(ControlIntent.Accordion intent);
-    private static partial ControlIntentWire.Panel Region(ControlIntent.Panel intent);
-    private static partial ControlIntentWire.Dock Regions(ControlIntent.Dock intent);
-    private static partial ControlIntentWire.Splitter Divided(ControlIntent.Splitter intent);
+    private static CrumbRowWire ToWire(CrumbRow row) {
+        var wire = new CrumbRowWire { Value = row.Value, LabelKey = row.LabelKey };
+        row.Icon.Iter(value => wire.Icon = ToWire(value));
+        row.Command.Iter(value => wire.Command = value);
+        return wire;
+    }
 
-    // The row wires and the nested unions the arms reach.
-    private static partial IntentBindingWire ToWire(IntentBinding binding);
-    private static partial IconSlotWire ToWire(IconSlot slot);
-    private static partial HintRowWire ToWire(HintRow hint);
-    private static partial OptionRowWire ToWire(OptionRow row);
-    private static partial CrumbRowWire ToWire(CrumbRow row);
-    private static partial AvatarRowWire ToWire(AvatarRow row);
-    private static partial FileFilterRowWire ToWire(FileFilterRow row);
-    private static partial MenuRowWire ToWire(MenuRow row);
-    private static partial ToolbarRowWire ToWire(ToolbarRow row);
-    private static partial ColumnRowWire ToWire(ColumnRow row);
-    private static partial WindowWire ToWire(VirtualWindowSpec spec);
+    private static AvatarRowWire ToWire(AvatarRow row) {
+        var wire = new AvatarRowWire { LabelKey = row.LabelKey };
+        row.Portrait.Iter(value => wire.Portrait = value.Value);
+        return wire;
+    }
 
-    [MapValue(nameof(ControlReceiptWire.Kind), ControlReceipt.Kind)]
-    public static partial ControlReceiptWire ToWire(ControlReceipt receipt);
+    private static FileFilterRowWire ToWire(FileFilterRow row) =>
+        new() { Label = row.Label, Patterns = { row.Patterns } };
 
-    [UserMapping]
+    private static MenuRowWire ToWire(MenuRow row) {
+        var wire = new MenuRowWire {
+            Key = row.Key,
+            LabelKey = row.LabelKey,
+            Posture = row.Posture.Wire,
+            Rows = { row.Rows.Map(ToWire) },
+        };
+        row.Icon.Iter(value => wire.Icon = ToWire(value));
+        row.Gesture.Iter(value => wire.Gesture = value.ToString());
+        row.Command.Iter(value => wire.Command = value);
+        row.CheckedKey.Iter(value => wire.CheckedKey = value);
+        return wire;
+    }
+
+    private static ToolbarRowWire ToWire(ToolbarRow row) =>
+        new() { Item = ToWire(row.Item), Overflow = Overflow(row.Overflow) };
+
+    private static SectionWire Section((string HeaderKey, ControlIntent Body) row) =>
+        new() { HeaderKey = row.HeaderKey, Body = ToWire(row.Body) };
+
+    private static ColumnRowWire ToWire(ColumnRow row) {
+        var wire = new ColumnRowWire {
+            HeaderKey = row.HeaderKey,
+            Cell = ToWire(row.Cell),
+            Extent = ToWire(row.Extent),
+            Align = Align(row.Align),
+        };
+        row.Editor.Iter(value => wire.Editor = ToWire(value));
+        row.SortKey.Iter(value => wire.SortKey = value);
+        return wire;
+    }
+
+    private static ExtentWire ToWire(DataGridLength row) =>
+        new() { Value = row.Value, Unit = ExtentUnit(row.UnitType) };
+
+    private static WindowWire ToWire(VirtualWindowSpec row) =>
+        new() {
+            Extent = row.Extent,
+            Overscan = row.Overscan,
+            Mode = row.Mode.Wire,
+            NominalItemExtent = row.NominalExtent.IfNone(VirtualWindowSpec.RowExtent),
+        };
+
     private static OptionSourceWire ToWire(OptionSource source) => source.Switch(
-        inline: static c => (OptionSourceWire)new OptionSourceWire.Inline(c.Rows.Map(ToWire).ToArray()),
-        bound: static c => new OptionSourceWire.Bound(c.SourceKey));
+        inline: static row => new OptionSourceWire {
+            Inline = new OptionSourceWire.Types.Inline { Rows = { row.Rows.Map(ToWire) } },
+        },
+        bound: static row => new OptionSourceWire { Bound = row.SourceKey });
 
-    // The three ordinal arms format INVARIANT and the real arm stays numeric — the whole reason the wire splits
-    // its numeric bounds four ways rather than crossing one decimal column.
-    [UserMapping]
     private static NumericRangeWire ToWire(NumericRange range) => range.Switch(
-        integral: static c => (NumericRangeWire)new NumericRangeWire.Integral(
-            c.Min.ToString(CultureInfo.InvariantCulture), c.Max.ToString(CultureInfo.InvariantCulture), c.Step.ToString(CultureInfo.InvariantCulture)),
-        unsigned: static c => new NumericRangeWire.Unsigned(
-            c.Min.ToString(CultureInfo.InvariantCulture), c.Max.ToString(CultureInfo.InvariantCulture), c.Step.ToString(CultureInfo.InvariantCulture)),
-        real: static c => new NumericRangeWire.Real(c.Min, c.Max, c.Step),
-        precise: static c => new NumericRangeWire.Precise(
-            c.Min.ToString(CultureInfo.InvariantCulture), c.Max.ToString(CultureInfo.InvariantCulture), c.Step.ToString(CultureInfo.InvariantCulture)));
-
-    // The grid's own length algebra is a value plus a unit, and the peer decodes the unit as a literal union.
-    [UserMapping]
-    private static ExtentWire ToWire(DataGridLength extent) =>
-        new(extent.Value, extent.UnitType switch {
-            DataGridLengthUnitType.Auto => "auto",
-            DataGridLengthUnitType.SizeToCells => "sizeToCells",
-            DataGridLengthUnitType.SizeToHeader => "sizeToHeader",
-            DataGridLengthUnitType.Star => "star",
-            _ => "pixel",
+        integral: static row => new NumericRangeWire {
+            Integral = new NumericRangeWire.Types.Integral { Min = row.Min, Max = row.Max, Step = row.Step },
+        },
+        unsigned: static row => new NumericRangeWire {
+            Unsigned = new NumericRangeWire.Types.Unsigned { Min = row.Min, Max = row.Max, Step = row.Step },
+        },
+        real: static row => new NumericRangeWire {
+            Real = new NumericRangeWire.Types.Real { Min = row.Min, Max = row.Max, Step = row.Step },
+        },
+        precise: static row => new NumericRangeWire {
+            Precise = new NumericRangeWire.Types.Precise {
+                Min = row.Min.ToString(CultureInfo.InvariantCulture),
+                Max = row.Max.ToString(CultureInfo.InvariantCulture),
+                Step = row.Step.ToString(CultureInfo.InvariantCulture),
+            },
         });
 
-    // --- [CONVERTERS]
-    // One converter per SOURCE TYPE: a generic carrier converter is refused wholesale (RMG001), so each roster
-    // and each carrier instantiation names itself here and the mapper resolves them by type alone.
-    [UserMapping] private static string Key(ControlEmphasis row) => row.Key;
-    [UserMapping] private static string Key(ControlTrigger row) => row.Key;
-    [UserMapping] private static string Key(NumericKind row) => row.Key;
-    [UserMapping] private static string Key(TemporalKind row) => row.Key;
-    [UserMapping] private static string Key(SelectPosture row) => row.Key;
-    [UserMapping] private static string Key(MultiPosture row) => row.Key;
-    [UserMapping] private static string Key(SegmentPosture row) => row.Key;
-    [UserMapping] private static string Key(ChipPosture row) => row.Key;
-    [UserMapping] private static string Key(ColorPosture row) => row.Key;
-    [UserMapping] private static string Key(ProgressForm row) => row.Key;
-    [UserMapping] private static string Key(MenuPosture row) => row.Key;
-    [UserMapping] private static string Key(BannerSeverity row) => row.Key;
-    [UserMapping] private static string Key(BannerPlacement row) => row.Key;
-    [UserMapping] private static string Key(ExtentMode row) => row.Key;
-    [UserMapping] private static string Key(PaintRole row) => row.Key;
-    [UserMapping] private static string Key(TypographyRole row) => row.Key;
-    [UserMapping] private static string Key(OverviewAxis row) => row.Key;
-    // `AssetKey` is a value object over its own admitted token, so the wire carries the admitted VALUE and the
-    // peer re-admits it through its own grammar rather than trusting a name the producer never re-checked.
-    [UserMapping] private static string Key(AssetKey asset) => asset.Value;
-    [UserMapping] private static string Text(KeyGesture gesture) => gesture.ToString();
-    [UserMapping] private static string Text(LocalDate date) => LocalDatePattern.Iso.Format(date);
-    [UserMapping] private static string Text(Instant at) => InstantPattern.ExtendedIso.Format(at);
-
-    // The bank lands `Option<T>` on the record's nullable slot; the MERGE then drops that slot from the document,
-    // so `null` is the mapper's carrier value and never a token any consumer decodes.
-    [UserMapping] private static string? Absent(Option<string> held) => held.Match(Some: static value => value, None: static () => (string?)null);
-    [UserMapping] private static double? Absent(Option<double> held) => held.Match(Some: static value => (double?)value, None: static () => null);
-    [UserMapping] private static string? Absent(Option<ControlTrigger> held) => held.Match(Some: Key, None: static () => (string?)null);
-    [UserMapping] private static string? Absent(Option<AssetKey> held) => held.Match(Some: Key, None: static () => (string?)null);
-    [UserMapping] private static string? Absent(Option<LocalDate> held) => held.Match(Some: Text, None: static () => (string?)null);
-    [UserMapping] private static string? Absent(Option<KeyGesture> held) => held.Match(Some: Text, None: static () => (string?)null);
-    [UserMapping] private static IconSlotWire? Absent(Option<IconSlot> held) => held.Match(Some: ToWire, None: static () => (IconSlotWire?)null);
-    [UserMapping] private static HintRowWire? Absent(Option<HintRow> held) => held.Match(Some: ToWire, None: static () => (HintRowWire?)null);
-    [UserMapping] private static ControlIntentWire? Absent(Option<ControlIntent> held) => held.Match(Some: ToWire, None: static () => (ControlIntentWire?)null);
 }
 ```
 
-[COUNTERPART]: the peer decoder is `libs/typescript/core/.planning/interchange/codec.md`; this block quotes the family's OWN arms verbatim, not paraphrased — the two rosters are read side by side or they drift. Shared row and value schemas the peer declares once for every family (`_Binding`, `_Window`, `_OptionSource`, `_NumericRange`, `_Column`, `_Section`, the row records, `_Nest<T>`, and `_omitted` — the peer's one absence combinator over the suite omission posture — are NAMED rather than re-quoted, because a second transcription of a shape another family also reads is the drift this pairing exists to foreclose. The nested container arms parameterize over the child type once and instantiate per representation, which is why the peer spells one `_Nest<T>` where the producer spells thirty-one records.
+### [05.3]-[CONTROLMAP_ENUMS_CS]
 
-```ts signature
-// Leaf arms close the family: twenty-one shapes bottom out, so both representations DERIVE from the union
-// rather than being spelled twice — the numeric and temporal columns are what make the two sides differ at all.
-const _leaves = Schema.Union(
-  Schema.Struct({ kind: Schema.Literal("button"), key: Schema.NonEmptyString, labelKey: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("label"), key: Schema.NonEmptyString, textKey: Schema.NonEmptyString, role: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("textInput"), key: Schema.NonEmptyString, watermark: Schema.String, multiline: Schema.Boolean, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("numberInput"), key: Schema.NonEmptyString, numericKind: _NumericKind, range: _NumericRange, binding: _Binding }),
-  Schema.Struct({
-    kind: Schema.Literal("dateInput"),
-    key: Schema.NonEmptyString,
-    temporalKind: Schema.Literal("date", "time", "datetime", "range"),
-    from: _omitted(_PlainDate),
-    until: _omitted(_PlainDate),
-    upperKey: _omitted(Schema.NonEmptyString),
-    binding: _Binding,
-  }),
-  Schema.Struct({ kind: Schema.Literal("pathInput"), key: Schema.NonEmptyString, mode: _PickerMode, filters: Schema.Array(_FileFilterRow), multiple: Schema.Boolean, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("colorInput"), key: Schema.NonEmptyString, posture: Schema.Literal("inline", "flyout"), alpha: Schema.Boolean, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("select"), key: Schema.NonEmptyString, posture: Schema.Literal("closed", "editable"), options: _OptionSource, window: _Window, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("multiSelect"), key: Schema.NonEmptyString, posture: Schema.Literal("bound", "free"), options: _OptionSource, window: _Window, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("slider"), key: Schema.NonEmptyString, min: Schema.Number, max: Schema.Number, step: Schema.Number, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("range"), key: Schema.NonEmptyString, min: Schema.Number, max: Schema.Number, step: Schema.Number, upperKey: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("toggle"), key: Schema.NonEmptyString, labelKey: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("radio"), key: Schema.NonEmptyString, options: Schema.Array(_OptionRow), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("segmented"), key: Schema.NonEmptyString, posture: Schema.Literal("select", "command"), options: Schema.Array(_OptionRow), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("chip"), key: Schema.NonEmptyString, textKey: Schema.NonEmptyString, posture: Schema.Literal("static", "toggle", "removable"), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("progress"), key: Schema.NonEmptyString, form: Schema.Literal("bar", "ring", "skeleton"), fraction: _omitted(Schema.Number), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("avatar"), key: Schema.NonEmptyString, members: Schema.Array(_AvatarRow), visible: Schema.Int.pipe(Schema.nonNegative()), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("breadcrumb"), key: Schema.NonEmptyString, crumbs: Schema.Array(_CrumbRow), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("tooltip"), key: Schema.NonEmptyString, hint: _HintRow, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("overview"), key: Schema.NonEmptyString, axis: Schema.Literal("vertical", "horizontal", "plane"), sourceKey: Schema.NonEmptyString, jumpCommand: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("menu"), key: Schema.NonEmptyString, rows: Schema.Array(_MenuRow), binding: _Binding }),
-)
+```csharp signature
+// --- [COMPOSITION] --------------------------------------------------------------------------
+[Mapper(RequiredEnumMappingStrategy = RequiredMappingStrategy.Both)]
+public static partial class ControlMap {
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.IconPlacement.Unspecified)]
+    [MapEnum(EnumMappingStrategy.ByName)]
+    private static partial Rasm.Contracts.Ui.V1.IconPlacement Icon(Position value);
 
-type ControlIntent = typeof _leaves.Type | _Nest<ControlIntent>
-type ControlIntentWire = typeof _leaves.Encoded | _Nest<ControlIntentWire>
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.PickerMode.Unspecified)]
+    [MapEnum(EnumMappingStrategy.ByName)]
+    private static partial Rasm.Contracts.Ui.V1.PickerMode Picker(UsePickerTypes value);
 
-const _child: Schema.Schema<ControlIntent, ControlIntentWire> = Schema.suspend(() => ControlIntent)
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.OverflowMode.Unspecified)]
+    [MapEnum(EnumMappingStrategy.ByName)]
+    private static partial Rasm.Contracts.Ui.V1.OverflowMode Overflow(OverflowMode value);
 
-const ControlIntent: Schema.Schema<ControlIntent, ControlIntentWire> = Schema.Union(
-  _leaves,
-  Schema.Struct({ kind: Schema.Literal("banner"), key: Schema.NonEmptyString, headlineKey: Schema.NonEmptyString, bodyKey: Schema.NonEmptyString, severity: Schema.Literal("information", "success", "warning", "error"), placement: Schema.Literal("page", "section"), actions: Schema.Array(_child), evidence: _omitted(_child), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("emptyState"), key: Schema.NonEmptyString, headlineKey: Schema.NonEmptyString, bodyKey: Schema.NonEmptyString, action: _omitted(_child), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("grid"), key: Schema.NonEmptyString, columns: Schema.Array(_Column), window: _Window, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("tree"), key: Schema.NonEmptyString, item: _child, expansionCommand: Schema.NonEmptyString, window: _Window, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("toolbar"), key: Schema.NonEmptyString, rows: Schema.Array(Schema.Struct({ item: _child, overflow: Schema.Literal("AsNeeded", "Always", "Never") })), orientation: _Orientation, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("tab"), key: Schema.NonEmptyString, pages: Schema.Array(_Section), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("accordion"), key: Schema.NonEmptyString, sections: Schema.Array(_Section), binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("panel"), key: Schema.NonEmptyString, children: Schema.Array(_child), constraintProgram: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("dock"), key: Schema.NonEmptyString, regions: Schema.Array(_child), constraintProgram: Schema.NonEmptyString, binding: _Binding }),
-  Schema.Struct({ kind: Schema.Literal("splitter"), key: Schema.NonEmptyString, first: _child, second: _child, orientation: _Orientation, binding: _Binding }),
-)
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.Orientation.Unspecified)]
+    [MapEnum(EnumMappingStrategy.ByName)]
+    private static partial Rasm.Contracts.Ui.V1.Orientation Orientation(Avalonia.Layout.Orientation value);
+
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.ExtentUnit.Unspecified)]
+    [MapEnum(EnumMappingStrategy.ByName)]
+    private static partial Rasm.Contracts.Ui.V1.ExtentUnit ExtentUnit(DataGridLengthUnitType value);
+
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.ColumnAlign.Unspecified)]
+    [MapEnum(EnumMappingStrategy.ByName)]
+    private static partial Rasm.Contracts.Ui.V1.ColumnAlign Align(HorizontalAlignment value);
+
+}
 ```
-
 ## [06]-[RESEARCH]
 
 (none)

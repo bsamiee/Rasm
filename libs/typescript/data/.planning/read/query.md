@@ -455,7 +455,7 @@ const _mysqlIngress = MysqlClient.layerConfig({
 
 ## [07]-[ORGANIZATION_ROWS]
 
-- Owner: model organization as read-side relations — `Organization.Entity` the addressed entity row carrying label, sibling ordinal, resolved visibility and locking, and its container address; `organization_member` and `organization_view` the two one-to-many edge relations reached through grouped resolvers; and `Organization.Walk`, the containment adjacency's ONE reach owner, answering the distance its own recursive term computed. `Organization.rows` binds the entity relation through `Query.table` and settles the walk and both edge resolvers beside it.
+- Owner: model organization as read-side relations — `Organization.Entity` carries label, list-derived sibling position, resolved visibility and locking, and its container address; `organization_member` and `organization_view` are the nested one-to-many projections; `Organization.Walk` is the containment adjacency's ONE reach owner.
 - Packages: `@effect/sql` (`Model.Class`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`, `sql.in`, `sql.or`); `effect` (`Array`, `Effect`, `Option`, `Order`, `Schema`, `Struct`, `Duration`); `@rasm/ts/core` (`Shape.Bound` — the walk budget and its exhaustion evidence; `Fault.Class.spent` — the estate's one bound-exhaustion family); `lane/capability.md` (`Capability.Ensure`).
 - Entry: `Organization.rows(window)` inside the owning service build; `binding.reads.reach(walk)` answers a whole bounded subtree in one statement and `binding.resolvers.children` answers one level with the per-fiber window a resolver collapses, both off the same walk statement.
 - Law: `address` is the ENTITY key and `member` a FEDERATION key the producing authority issued, so the two never share a column. Nesting rides `container` on the entity row because an entity has exactly one container, while membership and view overrides are the genuine one-to-many axes and earn their own relations.
@@ -466,16 +466,16 @@ const _mysqlIngress = MysqlClient.layerConfig({
 - Law: the seed set IS the merge — one multi-source walk carries `seed` on every row and collapses `min(hops)` per `(seed, address)` inside the statement, so a nearest-seed answer is a fold over a column the consumer already holds and a per-seed answer re-partitions on `seed`; N single-source walks would pay N statements for the same distances and leave the merge unstated.
 - Law: `roots` is the SEED PRODUCER and not a reach — it answers where a source's tree starts so a whole-source walk has addresses to seed, while `children` is the reach at one hop; the two stopped being parallel membership reads the moment distance became the primary column.
 - Law: content-key columns carry the lowercase hex face this branch already reads, so a join against any peer's address lowers and never uppercases; the producer's 16 big-endian bytes lower exactly once, at the core landing this page consumes.
-- Law: sibling rank is the producer's DENSE `ordinal`, so `ORDER BY ordinal` reproduces the source order without a second comparison, and no client re-breaks a tie the producer already resolved.
+- Law: `position` derives once from each recursive repeated child list at `read/fold#ORGANIZATION_FOLD`; `ORDER BY position` reproduces source order and no ordinal crosses beside it.
 - Law: the edge relations take NO repository — they carry no independent identity and mutate only through the organization lane's whole-source replacement, which is exactly the posture the journal relations hold.
-- Boundary: rows arrive decoded from the wire and this page derives nothing — no address minted, no ordinal recomputed, no container inferred from a label chain, and no host handle anywhere in the schema.
+- Boundary: rows arrive from the organization fold and this page derives no address, parent, sibling position, or host handle.
 - Boundary: the adjacency is RELATIONAL, so the walk stays in the engine — `computation.md`'s `Graph.dfs`/`Graph.dijkstra` family owns an in-memory adjacency value, and reaching for it here would pull a whole edge set across the wire to answer a question one recursive term already answers in place.
-- Growth: one appended wire field is one column here and one row in the lane's projection; a new containment relation is one `kind` value beside one resolver row; a new reach question is a bound and a direction at the call, never a second walk.
+- Growth: one appended nested field is one projected column here; a new reach question is a bound and direction at the call, never a second walk.
 
 ```typescript signature
 import { Array, Duration, Effect, Option, Order, Schema, Struct } from "effect"
 import { Model, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"
-import { Fault, Shape } from "@rasm/ts/core"
+import { Digest, Fault, Shape } from "@rasm/ts/core"
 import type { Capability } from "../lane/capability.ts"
 import { Query } from "./query.ts"
 
@@ -486,17 +486,20 @@ const _ENTITY = _ident("organization_entity")
 const _MEMBER = _ident("organization_member")
 const _VIEW = _ident("organization_view")
 
-const _Address = Schema.NonEmptyString.pipe(Schema.pattern(/^[0-9a-f]{32}$/), Schema.brand("OrgAddress"))
+// The organization wire lowers its 16-byte content address through the core key owner. Reusing that exact schema
+// preserves the domain brand through persistence and keeps this read plane from becoming a second key authority.
+const _Address = Digest.Key.content
 
 class _Entity extends Model.Class<_Entity>("Organization.Entity")({
   address: _Address,
   source: _Address,
   authority: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
-  ordinal: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  position: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   container: Model.FieldOption(_Address),
   visible: Model.BooleanFromNumber,
   locked: Model.BooleanFromNumber,
+  current: Model.BooleanFromNumber,
   folded_at: Model.DateTimeInsert,
 }) {}
 
@@ -567,7 +570,7 @@ const _walked = (sql: SqlClient.SqlClient) => (walk: Organization.Walk) => {
       FROM (SELECT seed, address, min(hops) AS hops FROM reach GROUP BY seed, address) n
       JOIN ${sql(_ENTITY)} e ON e.address = n.address
      WHERE n.hops > 0
-     ORDER BY n.seed, n.hops, e.ordinal`
+     ORDER BY n.seed, n.hops, e.position`
 }
 
 // Exhaustion refuses; it never truncates. `Shape.Bound.spent` is the one gate every bounded walk spends — `none` is the
@@ -618,7 +621,7 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
     Result: _Entity,
     ResultGroupKey: (row) => row.source,
     execute: (sources) =>
-      sql`SELECT * FROM ${sql(_ENTITY)} WHERE ${sql.in("source", sources)} AND container IS NULL ORDER BY ordinal`,
+      sql`SELECT * FROM ${sql(_ENTITY)} WHERE ${sql.in("source", sources)} AND container IS NULL ORDER BY position`,
   }),
   members: SqlResolver.grouped("OrganizationMembers", {
     Request: _Address,
@@ -653,18 +656,18 @@ const _ddl: Capability.Ensure = {
   relation: _ENTITY,
   pg: `CREATE TABLE IF NOT EXISTS organization_entity (
     address TEXT PRIMARY KEY, source TEXT NOT NULL, authority TEXT NOT NULL, name TEXT NOT NULL,
-    ordinal INTEGER NOT NULL, container TEXT, visible BOOLEAN NOT NULL, locked BOOLEAN NOT NULL,
+    position INTEGER NOT NULL, container TEXT, visible BOOLEAN NOT NULL, locked BOOLEAN NOT NULL, current BOOLEAN NOT NULL,
     folded_at TIMESTAMPTZ NOT NULL DEFAULT now());
-  CREATE INDEX IF NOT EXISTS organization_entity_container ON organization_entity (container, ordinal);
+  CREATE INDEX IF NOT EXISTS organization_entity_container ON organization_entity (container, position);
   CREATE TABLE IF NOT EXISTS organization_member (
     address TEXT NOT NULL, member TEXT NOT NULL, PRIMARY KEY (address, member));
   CREATE TABLE IF NOT EXISTS organization_view (
     address TEXT NOT NULL, view TEXT NOT NULL, visible BOOLEAN NOT NULL, PRIMARY KEY (address, view));`,
   sqlite: `CREATE TABLE IF NOT EXISTS organization_entity (
     address TEXT PRIMARY KEY, source TEXT NOT NULL, authority TEXT NOT NULL, name TEXT NOT NULL,
-    ordinal INTEGER NOT NULL, container TEXT, visible INTEGER NOT NULL, locked INTEGER NOT NULL,
+    position INTEGER NOT NULL, container TEXT, visible INTEGER NOT NULL, locked INTEGER NOT NULL, current INTEGER NOT NULL,
     folded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
-  CREATE INDEX IF NOT EXISTS organization_entity_container ON organization_entity (container, ordinal);
+  CREATE INDEX IF NOT EXISTS organization_entity_container ON organization_entity (container, position);
   CREATE TABLE IF NOT EXISTS organization_member (
     address TEXT NOT NULL, member TEXT NOT NULL, PRIMARY KEY (address, member));
   CREATE TABLE IF NOT EXISTS organization_view (

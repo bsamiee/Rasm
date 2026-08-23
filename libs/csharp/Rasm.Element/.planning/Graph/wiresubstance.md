@@ -1,30 +1,33 @@
 # [ELEMENT_WIRE_SUBSTANCE]
 
-`WireCodec`'s material plane: the `Node.Material` payload, the four-arm `MaterialComposition` fold with its layer/profile/constituent rows and `ProfileRef` content-key re-derivation, the three-arm `MaterialUsage` fold, the twelve-case `MaterialPropertySet` family (evidence riding the ENVELOPE, each arm re-entering its accumulating `Of*` admission), the `SectionColumns` one-table section codec whose row position is simultaneously traversal order, frozen field order, and ctor position, `SampledCurve`, and the EN 13501 fire family (the `EuroclassSuffix` re-join over the two frozen token columns).
+`WireCodec`'s material plane projects generated composition, property-set, curve, acoustic, fire, and environmental families. Native `MaterialUsage` remains relationship-local and has no generated projection.
 
 ## [01]-[INDEX]
 
-- [02]-[SUBSTANCE_CODEC]: composition/usage/property-set folds, the section one-table codec, and their accumulating re-admissions.
+- [02]-[SUBSTANCE_CODEC]: composition/property-set folds, the section table codec, and accumulating re-admissions.
 
 ## [02]-[SUBSTANCE_CODEC]
 
-- Cases: `MaterialUsage` 3 arms (fields PERMUTED against canon — ledger), `MaterialComposition` 4 arms, `MaterialPropertySet` 12 arms — census rows [05]/[06]/[07] at `Graph/wire#WIRE_CODEC`.
-- Law: this page is one PARTIAL PART of the `Graph/wire#WIRE_CODEC` `[Mapper]` family — the `[Mapper]` attribute, the `[UNION_PARITY]` census, the `[KEY_CODECS]`, the shared decode gates (`Present`/`Opt`/`Row`/`Named`/`Iso`/`ToInterval`/`ToDate`/`BothOrNeither`/`OptMeasure`/`OptCurve`), the `[PRESENCE_SHELLS]` and carrier-codec laws, `ElementWire`, and the frozen-number ledger all live THERE; a member landing here lands its census/ledger row there in the same edit.
-- Law: every decoded value re-crosses its OWNER's admission gate — the decoder constructs no case directly and trusts no carried invariant (the `ContentAddress.Verify` distrust posture); every optional column crosses by EXPLICIT presence, never a defaulted zero, blank, or sentinel.
-- Packages: Google.Protobuf, Riok.Mapperly, NodaTime.Serialization.Protobuf, LanguageExt.Core, Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch and `TryGet` row gates) — the manifest triad rides `Graph/wire#WIRE_CODEC`.
-- Growth: a new column on a family this page owns is one append-only numbered field at the corpus proto, one ledger row at `Graph/wire#WIRE_CODEC`, and one transcription member here; a new union case also lands its `CrossingFamily` arm count and its oneof mirror in the same edit — the parity census refuses a half-landed pair.
+- Cases: `MaterialComposition` 4 arms and `MaterialPropertySet` 12 arms — census rows [04]/[05] at `Graph/wire#NODE_CODEC`.
+- Law: descriptor validation owns corpus constraints; the inverse then re-crosses domain admissions and preserves explicit absence.
+- Law: the acoustic and environmental runs are semantic-keyed tensors, so wire order is irrelevant and exact closed coverage is required.
+- Law: `Thermal.UValue` is valid product evidence but has no substance-wire field; `Fin` encode refuses `Some` before lowering.
+- Packages: Google.Protobuf, Mapperly, NodaTime.Serialization.Protobuf, LanguageExt, and Thinktecture compose the generated support closure coordinated at `Graph/wire#NODE_CODEC`.
+- Growth: a new column is one append-only corpus field and one transcription member; a new union case also updates the `CrossingFamily` arm count so the parity census rejects a half-landed pair.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Collections.Immutable;
+using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
+using Rasm.Contracts.Element.V1;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Properties;
-using Rasm.Element.Relations;
 using Riok.Mapperly.Abstractions;
 using static LanguageExt.Prelude;
 using static Rasm.Element.Graph.SeamConverters;
@@ -33,15 +36,21 @@ namespace Rasm.Element.Graph;
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 // One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#WIRE_CODEC`; this part owns the material composition, usage, and engineering-property transcriptions.
+// the shared decode gates ride `Graph/wire#NODE_CODEC`; this part owns material composition and property transcriptions.
 internal static partial class WireCodec {
  // --- [CASE_TRANSCRIPTIONS] — Mapperly generates the flat-column width per case; every union-valued member rides
  // an explicit envelope fold below, every MESSAGE-shaped Option crossing rides a nullable-return [UserMapping]
  // carrier codec, every optional SCALAR/STRING column rides a hand IfSome presence write (the [PRESENCE_SHELLS]
  // law below), and [MapProperty] pins every seam→wire name seam so the generator never silently skips a member.
- [MapperIgnoreSource(nameof(Node.Material.Id))]
- [MapProperty(nameof(Node.Material.Properties), nameof(MaterialWire.PropertySets))]
- internal static partial MaterialWire ToWire(Node.Material node);
+ internal static Fin<MaterialWire> ToWire(Node.Material node, Op key) =>
+  toSeq(node.Properties).TraverseM(set => ToWire(set, key)).As().Map(properties => {
+   MaterialWire wire = new() {
+    MaterialKey = node.MaterialKey.Value,
+    Composition = ToWire(node.Composition),
+   };
+   wire.PropertySets.AddRange(properties);
+   return wire;
+  });
 
  // LeastDimension re-derives from the Depth/Width pair and IsDoublySymmetric from the shear-centre offsets and the
  // mono-symmetry factor — stored columns that DO cross — so neither derived member crosses; a wire field for either
@@ -72,6 +81,7 @@ internal static partial class WireCodec {
 
  [MapperIgnoreSource(nameof(MaterialPropertySet.Thermal.Evidence))]
  [MapperIgnoreSource(nameof(MaterialPropertySet.Thermal.Discipline))]
+ [MapperIgnoreSource(nameof(MaterialPropertySet.Thermal.UValue))]
  internal static partial ThermalWire ToWire(MaterialPropertySet.Thermal set);
 
  [MapperIgnoreSource(nameof(MaterialPropertySet.Cost.Evidence))]
@@ -88,15 +98,12 @@ internal static partial class WireCodec {
  [MapperIgnoreSource(nameof(MaterialPropertySet.Optical.SolarAbsorptanceBack))]
  internal static partial OpticalWire ToWire(MaterialPropertySet.Optical set);
 
- [MapperIgnoreSource(nameof(MaterialPropertySet.Fire.Evidence))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Fire.Discipline))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Fire.Reaction))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Fire.Suffix))]
- private static partial FireWire Shell(MaterialPropertySet.Fire set);
- // Suffix is HAND-CROSSED: the one EuroclassSuffix product fans onto the two frozen smoke/droplets token columns.
- [UserMapping(Default = true)] internal static FireWire ToWire(MaterialPropertySet.Fire set) {
-  FireWire w = Shell(set); w.Smoke = set.Suffix.Smoke; w.Droplets = set.Suffix.Droplets;
-  set.Reaction.IfSome(r => w.Reaction = r.Key); return w;
+ [UserMapping] internal static FireWire ToWire(MaterialPropertySet.Fire set) {
+  FireWire w = new() { Resistance = ToWire(set.Resistance) };
+  set.Reaction.IfSome(reaction => w.Reaction = ToWire(reaction));
+  if (set.Suffix.Smoke.Length > 0) { w.Smoke = ToSmokeClass(set.Suffix.Smoke); }
+  if (set.Suffix.Droplets.Length > 0) { w.Droplets = ToDropletClass(set.Suffix.Droplets); }
+  return w;
  }
 
  // All three EN 13501-2 criteria are optional scalars, so the whole row is presence writes — the one nested message
@@ -105,16 +112,17 @@ internal static partial class WireCodec {
   FireResistanceWire w = new(); resistance.LoadBearingMinutes.IfSome(m => w.LoadBearingMinutes = m); resistance.IntegrityMinutes.IfSome(m => w.IntegrityMinutes = m); resistance.InsulationMinutes.IfSome(m => w.InsulationMinutes = m); return w;
  }
 
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.Evidence))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.Discipline))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.Gwp))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.WholeLifeGwp))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.StageGwp))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.RecycledContent))]
- [MapperIgnoreSource(nameof(MaterialPropertySet.Environmental.EndOfLifeRecovery))]
- private static partial EnvironmentalWire Shell(MaterialPropertySet.Environmental set);
- [UserMapping(Default = true)] internal static EnvironmentalWire ToWire(MaterialPropertySet.Environmental set) {
-  EnvironmentalWire w = Shell(set); set.RecycledContent.IfSome(v => w.RecycledContent = v); set.EndOfLifeRecovery.IfSome(v => w.EndOfLifeRecovery = v); return w;
+ [UserMapping] internal static EnvironmentalWire ToWire(MaterialPropertySet.Environmental set) {
+  EnvironmentalWire w = new() { Basis = ToWire(set.Basis) };
+  w.Impacts.AddRange(ImpactCategory.Items.OrderBy(static row => row.Key).SelectMany(category =>
+   LifecycleStage.Items.OrderBy(static row => row.Key).Select(stage => new BandCellWire {
+    Category = (Rasm.Contracts.Declaration.V1.ImpactCategory)(category.Key + 1),
+    Band = (Rasm.Contracts.Element.V1.LifecycleBand)(stage.Key + 1),
+    Value = set.IndicatorAt(category, stage),
+   })));
+  set.RecycledContent.IfSome(v => w.RecycledContent = v);
+  set.EndOfLifeRecovery.IfSome(v => w.EndOfLifeRecovery = v);
+  return w;
  }
 
  [MapperIgnoreSource(nameof(MaterialPropertySet.Hygrothermal.Evidence))]
@@ -133,15 +141,10 @@ internal static partial class WireCodec {
   ElectricalWire w = Shell(set); set.MagneticPermeabilityRelative.IfSome(v => w.MagneticPermeabilityRelative = v); return w;
  }
 
- internal static MaterialUsageWire ToWire(MaterialUsage usage) => usage.Switch<MaterialUsageWire>(
-  none: static _ => new() { None = new Google.Protobuf.WellKnownTypes.Empty() },
-  layerSet: u => { LayerSetUsageWire wire = new() { Direction = u.Direction.Key, Sense = u.Sense.Key }; u.OffsetFromReferenceLine.IfSome(value => wire.OffsetFromReferenceLine = ToWire(value)); u.ReferenceExtent.IfSome(value => wire.ReferenceExtent = ToWire(value)); return new() { LayerSet = wire }; },
-  profileSet: u => { ProfileSetUsageWire wire = new(); u.CardinalPoint.IfSome(value => wire.CardinalPoint = value.Key); u.ReferenceExtent.IfSome(value => wire.ReferenceExtent = ToWire(value)); return new() { ProfileSet = wire }; });
-
  // Every optional row column writes through explicit protobuf presence — an IfSome assignment, never a defaulted zero or
  // false that a decoder cannot distinguish from an author's real value.
  internal static MaterialCompositionWire ToWire(MaterialComposition composition) => composition.Switch<MaterialCompositionWire>(
-  single: c => new() { Single = new SingleWire { MaterialKey = c.Material.Value } },
+  single: c => new() { Single = c.Material.Value },
   layerSet: c => { LayerSetWire w = new(); w.Layers.AddRange(c.Layers.Map(static l => ToWire(l))); return new() { LayerSet = w }; },
   profileSet: c => { ProfileSetWire w = new(); w.Profiles.AddRange(c.Profiles.Map(static p => ToWire(p))); c.Composite.IfSome(r => w.Composite = ToWire(r)); c.Section.IfSome(s => w.Section = ToWire(s)); return new() { ProfileSet = w }; },
   constituentSet: c => { ConstituentSetWire w = new(); w.Constituents.AddRange(c.Constituents.Map(static x => new MaterialConstituentWire { MaterialKey = x.Material.Value, Category = x.Category, Fraction = x.Fraction, PartName = x.PartName })); return new() { ConstituentSet = w }; });
@@ -165,23 +168,30 @@ internal static partial class WireCodec {
  // Option carriers — the sampled-curve carrier included, so the reduction, λ(θ), and hygrothermal curve columns
  // generate; the Acoustic/Damping arms carry repeated spectra and a tuple flatten no carrier bridges, so their
  // bodies are owned here beside the fold.
- internal static MaterialPropertySetWire ToWire(MaterialPropertySet set) => set.Switch<MaterialPropertySetWire>(
-  mechanical: x => new() { Evidence = ToWire(x.Evidence), Mechanical = ToWire(x) },
-  orthotropic: x => new() { Evidence = ToWire(x.Evidence), Orthotropic = ToWire(x) },
-  thermal: x => new() { Evidence = ToWire(x.Evidence), Thermal = ToWire(x) },
-  acoustic: x => new() { Evidence = ToWire(x.Evidence), Acoustic = ToWire(x) },
-  fire: x => new() { Evidence = ToWire(x.Evidence), Fire = ToWire(x) },
-  environmental: x => new() { Evidence = ToWire(x.Evidence), Environmental = ToWire(x) },
-  cost: x => new() { Evidence = ToWire(x.Evidence), Cost = ToWire(x) },
-  damping: x => new() { Evidence = ToWire(x.Evidence), Damping = ToWire(x) },
-  hygrothermal: x => new() { Evidence = ToWire(x.Evidence), Hygrothermal = ToWire(x) },
-  durability: x => new() { Evidence = ToWire(x.Evidence), Durability = ToWire(x) },
-  optical: x => new() { Evidence = ToWire(x.Evidence), Optical = ToWire(x) },
-  electrical: x => new() { Evidence = ToWire(x.Evidence), Electrical = ToWire(x) });
+ internal static Fin<MaterialPropertySetWire> ToWire(MaterialPropertySet set, Op key) => set.Switch<Fin<MaterialPropertySetWire>>(
+  mechanical: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Mechanical = ToWire(x) }),
+  orthotropic: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Orthotropic = ToWire(x) }),
+  thermal: x => x.UValue.IsSome
+   ? Fin.Fail<MaterialPropertySetWire>(new ElementFault.ValueRejected(key, "<substance-wire-product-u-value>"))
+   : Fin.Succ(new() { Evidence = ToWire(x.Evidence), Thermal = ToWire(x) }),
+  acoustic: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Acoustic = ToWire(x) }),
+  fire: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Fire = ToWire(x) }),
+  environmental: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Environmental = ToWire(x) }),
+  cost: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Cost = ToWire(x) }),
+  damping: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Damping = ToWire(x) }),
+  hygrothermal: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Hygrothermal = ToWire(x) }),
+  durability: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Durability = ToWire(x) }),
+  optical: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Optical = ToWire(x) }),
+  electrical: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Electrical = ToWire(x) }));
 
  [UserMapping] internal static AcousticWire ToWire(MaterialPropertySet.Acoustic set) {
   AcousticWire w = new();
-  w.AbsorptionSpectrum.AddRange(set.AbsorptionSpectrum); w.SoundReductionIndexDb.AddRange(set.SoundReductionIndexDb);
+  w.Absorption.AddRange(set.AbsorptionSpectrum.Select(static (value, index) => new BandValueWire {
+   Band = (Rasm.Contracts.Element.V1.AcousticBand)(index + 1), Value = value,
+  }));
+  w.SoundReductionIndexDb.AddRange(set.SoundReductionIndexDb.Select(static (value, index) => new BandValueWire {
+   Band = (Rasm.Contracts.Element.V1.AcousticBand)(index + 1), Value = value,
+  }));
   set.DynamicStiffnessMNPerM3.IfSome(v => w.DynamicStiffnessMnPerM3 = v); set.FlowResistivityPaSPerM2.IfSome(v => w.FlowResistivityPaSPerM2 = v);
   set.LossFactor.IfSome(v => w.LossFactor = v); return w;
  }
@@ -191,25 +201,11 @@ internal static partial class WireCodec {
   set.Rayleigh.IfSome(r => w.Rayleigh = new RayleighWire { AlphaPerS = r.AlphaPerS, BetaS = r.BetaS }); return w;
  }
 
- // Both repeated runs fill natively — the generator emits its own guarded fill from the two ImmutableArray columns.
- internal static partial SampledCurveWire ToWire(SampledCurve curve);
-
- internal static Fin<MaterialUsage> ToUsage(MaterialUsageWire? w, Op key) => w?.UsageCase switch {
-  MaterialUsageWire.UsageOneofCase.None => Fin.Succ((MaterialUsage)new MaterialUsage.Unbound()),
-  MaterialUsageWire.UsageOneofCase.LayerSet =>
-   from direction in key.Row<string, LayerSetDirection>(w.LayerSet.Direction)
-   from sense in key.Row<string, DirectionSense>(w.LayerSet.Sense)
-   from offset in OptMeasure(w.LayerSet.OffsetFromReferenceLine, key)
-   from extent in OptMeasure(w.LayerSet.ReferenceExtent, key)
-   from usage in MaterialUsage.LayerSet.Of(direction, sense, offset, extent, key)
-   select usage,
-  MaterialUsageWire.UsageOneofCase.ProfileSet =>
-   from extent in OptMeasure(w.ProfileSet.ReferenceExtent, key)
-   from usage in MaterialUsage.ProfileSet.Of(Opt(w.ProfileSet.HasCardinalPoint, w.ProfileSet.CardinalPoint), extent, key)
-   select usage,
-  null => new KernelFault.InvalidValue("element-wire.material-usage", "one usage arm is required", Some(key)),
-  _ => new KernelFault.InvalidValue("element-wire.material-usage", "usage arm is unknown", Some(key)),
- };
+ internal static SampledCurveWire ToWire(SampledCurve curve) {
+  SampledCurveWire wire = new();
+  wire.Points.AddRange(curve.Axis.Zip(curve.Values, static (at, value) => new CurvePointWire { At = at, Value = value }));
+  return wire;
+ }
 
  static Fin<Node> ToMaterial(NodeId id, MaterialWire w, Op key) =>
   Present(w.Composition, "material.composition", key).Bind(c => ToComposition(c, key)).Bind(composition =>
@@ -222,7 +218,7 @@ internal static partial class WireCodec {
  // ProfileSet arm admits the rows FIRST and stamps the baked section afterwards through WithSection, so the private-ctor
  // case is never constructed directly and the head-row derivation stays total.
  static Fin<MaterialComposition> ToComposition(MaterialCompositionWire w, Op key) => w.CompositionCase switch {
-  MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Of(w.Single.MaterialKey))),
+  MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Of(w.Single))),
   MaterialCompositionWire.CompositionOneofCase.LayerSet =>
    toSeq(w.LayerSet.Layers).TraverseM(l => ToMeasure(l.Thickness, key).Map(t => new MaterialLayer(
      MaterialId.Of(l.MaterialKey), t, l.LayerName,
@@ -250,7 +246,7 @@ internal static partial class WireCodec {
  // ONE ProfileRef admission serves the row and the set-level composite: Rehydrate re-derives the content key off the
  // normalized (standard, designation) and rails when a persisted key disagrees, so no wire leg trusts a carried digest.
  static Fin<ProfileRef> ToProfileRef(ProfileRefWire w, Op key) =>
-  ProfileRef.Rehydrate(w.Standard, w.Designation, ToKey(w.ContentKey), key);
+  ToKey(w.ContentKey, key).Bind(content => ProfileRef.Rehydrate(w.Standard, w.Designation, content, key));
 
  // ONE column table owns the section's measured run: each row pairs the wire slot's own name with its accessor, and
  // ROW POSITION is simultaneously the traversal order, the frozen SectionPropertiesWire field order, and the ctor
@@ -276,6 +272,99 @@ internal static partial class WireCodec {
    .As().ToFin()
    .Map(m => new SectionProperties(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15], m[16], m[17], m[18], w.MonosymmetryFactor));
 
+ static Fin<double[]> ToSpectrum(IEnumerable<BandValueWire> rows, string column, Op key) =>
+  UniqueMap(toSeq(rows).Map(static row => (Key: (int)row.Band, Value: row.Value)), column, key)
+   .Bind(values => values.Count == 18 && Enumerable.Range(1, 18).All(values.ContainsKey)
+    ? Fin.Succ(Enumerable.Range(1, 18).Select(index => values[index]).ToArray())
+    : Fin.Fail<double[]>(new KernelFault.InvalidValue(
+     $"element-wire.{column}", "carry every acoustic band exactly once", Some(key))));
+
+ static Rasm.Contracts.Element.V1.FireRating ToWire(FireRating value) => value == FireRating.A1
+  ? Rasm.Contracts.Element.V1.FireRating.A1
+  : value == FireRating.A2
+   ? Rasm.Contracts.Element.V1.FireRating.A2
+   : value == FireRating.B
+    ? Rasm.Contracts.Element.V1.FireRating.B
+    : value == FireRating.C
+     ? Rasm.Contracts.Element.V1.FireRating.C
+     : value == FireRating.D
+      ? Rasm.Contracts.Element.V1.FireRating.D
+      : value == FireRating.E
+       ? Rasm.Contracts.Element.V1.FireRating.E
+       : value == FireRating.F
+        ? Rasm.Contracts.Element.V1.FireRating.F
+        : throw new UnreachableException();
+
+ static Fin<FireRating> ToFireRating(Rasm.Contracts.Element.V1.FireRating value, Op key) => value switch {
+  Rasm.Contracts.Element.V1.FireRating.A1 => Fin.Succ(FireRating.A1),
+  Rasm.Contracts.Element.V1.FireRating.A2 => Fin.Succ(FireRating.A2),
+  Rasm.Contracts.Element.V1.FireRating.B => Fin.Succ(FireRating.B),
+  Rasm.Contracts.Element.V1.FireRating.C => Fin.Succ(FireRating.C),
+  Rasm.Contracts.Element.V1.FireRating.D => Fin.Succ(FireRating.D),
+  Rasm.Contracts.Element.V1.FireRating.E => Fin.Succ(FireRating.E),
+  Rasm.Contracts.Element.V1.FireRating.F => Fin.Succ(FireRating.F),
+  _ => Fin.Fail<FireRating>(key.InvalidInput(nameof(FireWire.Reaction))),
+ };
+
+ static Rasm.Contracts.Element.V1.SmokeClass ToSmokeClass(string value) => value switch {
+  "s1" => Rasm.Contracts.Element.V1.SmokeClass.S1,
+  "s2" => Rasm.Contracts.Element.V1.SmokeClass.S2,
+  "s3" => Rasm.Contracts.Element.V1.SmokeClass.S3,
+  _ => throw new UnreachableException(),
+ };
+
+ static Rasm.Contracts.Element.V1.DropletClass ToDropletClass(string value) => value switch {
+  "d0" => Rasm.Contracts.Element.V1.DropletClass.D0,
+  "d1" => Rasm.Contracts.Element.V1.DropletClass.D1,
+  "d2" => Rasm.Contracts.Element.V1.DropletClass.D2,
+  _ => throw new UnreachableException(),
+ };
+
+ static string ToSmokeToken(FireWire wire) => !wire.HasSmoke ? "" : wire.Smoke switch {
+  Rasm.Contracts.Element.V1.SmokeClass.S1 => "s1",
+  Rasm.Contracts.Element.V1.SmokeClass.S2 => "s2",
+  Rasm.Contracts.Element.V1.SmokeClass.S3 => "s3",
+  _ => throw new UnreachableException(),
+ };
+
+ static string ToDropletToken(FireWire wire) => !wire.HasDroplets ? "" : wire.Droplets switch {
+  Rasm.Contracts.Element.V1.DropletClass.D0 => "d0",
+  Rasm.Contracts.Element.V1.DropletClass.D1 => "d1",
+  Rasm.Contracts.Element.V1.DropletClass.D2 => "d2",
+  _ => throw new UnreachableException(),
+ };
+
+ static Rasm.Contracts.Element.V1.MeasurementBasis ToWire(MeasurementBasis value) => value == MeasurementBasis.PerKg
+  ? Rasm.Contracts.Element.V1.MeasurementBasis.PerKg
+  : value == MeasurementBasis.PerM2
+   ? Rasm.Contracts.Element.V1.MeasurementBasis.PerM2
+   : value == MeasurementBasis.PerM3
+    ? Rasm.Contracts.Element.V1.MeasurementBasis.PerM3
+    : value == MeasurementBasis.PerItem
+     ? Rasm.Contracts.Element.V1.MeasurementBasis.PerItem
+     : throw new UnreachableException();
+
+ static Fin<MeasurementBasis> ToMeasurementBasis(Rasm.Contracts.Element.V1.MeasurementBasis value, Op key) => value switch {
+  Rasm.Contracts.Element.V1.MeasurementBasis.PerKg => Fin.Succ(MeasurementBasis.PerKg),
+  Rasm.Contracts.Element.V1.MeasurementBasis.PerM2 => Fin.Succ(MeasurementBasis.PerM2),
+  Rasm.Contracts.Element.V1.MeasurementBasis.PerM3 => Fin.Succ(MeasurementBasis.PerM3),
+  Rasm.Contracts.Element.V1.MeasurementBasis.PerItem => Fin.Succ(MeasurementBasis.PerItem),
+  _ => Fin.Fail<MeasurementBasis>(key.InvalidInput(nameof(EnvironmentalWire.Basis))),
+ };
+
+ static Fin<ImmutableArray<double>> ToImpactMatrix(IEnumerable<BandCellWire> rows, Op key) =>
+  UniqueMap(toSeq(rows).Map(static row => (
+   Key: (Category: (int)row.Category, Band: (int)row.Band),
+   Value: row.Value)), "environmental.impacts", key)
+  .Bind(values => values.Count == MaterialPropertySet.Environmental.MatrixArity
+   && Enumerable.Range(1, ImpactCategory.Count)
+    .All(category => Enumerable.Range(1, LifecycleStage.Count).All(band => values.ContainsKey((category, band))))
+   ? Fin.Succ(Enumerable.Range(1, ImpactCategory.Count)
+     .SelectMany(category => Enumerable.Range(1, LifecycleStage.Count).Select(band => values[(category, band)]))
+     .ToImmutableArray())
+   : Fin.Fail<ImmutableArray<double>>(new KernelFault.InvalidValue(
+    "element-wire.environmental.impacts", "carry the full unique impact-category by lifecycle-band tensor", Some(key))));
+
  // Every arm re-enters the canonical MaterialPropertySet.Of* admission rail — the decoder NEVER constructs a case
  // directly, so the physical bounds, finite gates, matrix arity, and cross-field refinements the owner declares hold
  // for hostile wire bytes exactly as for an in-process author; the raw-double columns pass through verbatim and the
@@ -295,16 +384,21 @@ internal static partial class WireCodec {
       // kernels downstream refuse on it rather than reading a reconstructed ratio.
       .Bind(t => MaterialPropertySet.OfOrthotropic(t.density, t.e1, None, t.e2, t.shear, t.f1, t.f2, w.Orthotropic.ThermalExpansionPerK, key, evidence, t.modulusReduction, t.strengthReduction)),
     MaterialPropertySetWire.PropertySetOneofCase.Thermal =>
-     (ToMeasure(w.Thermal.Conductivity, key), ToMeasure(w.Thermal.SpecificHeat, key), OptMeasure(w.Thermal.UValue, key), OptCurve(w.Thermal.ConductivityCurve, key))
-      .Apply(static (conductivity, specificHeat, uValue, conductivityCurve) => (conductivity, specificHeat, uValue, conductivityCurve)).As()
-      .Bind(t => MaterialPropertySet.OfThermal(t.conductivity, t.specificHeat, t.uValue, w.Thermal.VapourResistanceFactor, key, evidence, t.conductivityCurve)),
-    MaterialPropertySetWire.PropertySetOneofCase.Acoustic => Acoustic.Of(
-     w.Acoustic.AbsorptionSpectrum.ToArray(), w.Acoustic.SoundReductionIndexDb.ToArray(), key,
-     Opt(w.Acoustic.HasDynamicStiffnessMnPerM3, w.Acoustic.DynamicStiffnessMnPerM3), Opt(w.Acoustic.HasFlowResistivityPaSPerM2, w.Acoustic.FlowResistivityPaSPerM2), Opt(w.Acoustic.HasLossFactor, w.Acoustic.LossFactor))
+     (ToMeasure(w.Thermal.Conductivity, key), ToMeasure(w.Thermal.SpecificHeat, key), OptCurve(w.Thermal.ConductivityCurve, key))
+      .Apply(static (conductivity, specificHeat, conductivityCurve) => (conductivity, specificHeat, conductivityCurve)).As()
+      .Bind(t => MaterialPropertySet.OfThermal(
+       t.conductivity, t.specificHeat, None, w.Thermal.VapourResistanceFactor, key, evidence, t.conductivityCurve)),
+    MaterialPropertySetWire.PropertySetOneofCase.Acoustic =>
+     (ToSpectrum(w.Acoustic.Absorption, "acoustic.absorption", key),
+      ToSpectrum(w.Acoustic.SoundReductionIndexDb, "acoustic.sound-reduction", key))
+     .Apply(static (absorption, reduction) => (absorption, reduction)).As()
+     .ToFin()
+     .Bind(rows => Acoustic.Of(
+      rows.absorption, rows.reduction, key,
+      Opt(w.Acoustic.HasDynamicStiffnessMnPerM3, w.Acoustic.DynamicStiffnessMnPerM3),
+      Opt(w.Acoustic.HasFlowResistivityPaSPerM2, w.Acoustic.FlowResistivityPaSPerM2),
+      Opt(w.Acoustic.HasLossFactor, w.Acoustic.LossFactor)))
      .Map(spectrum => MaterialPropertySet.OfAcoustic(spectrum, evidence)),
-    // Absent reactions ride the 2-arg OfFire (NotSpecified sub-classes by construction); a present token admits
-    // its full EN 13501-1 classification, the three INDEPENDENT token gates accumulating applicatively so a
-    // hostile record with a bad rating AND a bad sub-class names both in one failure.
     MaterialPropertySetWire.PropertySetOneofCase.Fire => Present(w.Fire.Resistance, "fire.resistance", key)
      .Bind(r => FireResistance.Of(
       Opt(r.HasLoadBearingMinutes, r.LoadBearingMinutes),
@@ -312,17 +406,15 @@ internal static partial class WireCodec {
       Opt(r.HasInsulationMinutes, r.InsulationMinutes), key))
      .Bind(resistance => !w.Fire.HasReaction
       ? Fin.Succ(MaterialPropertySet.OfFire(None, resistance, evidence))
-      // The two frozen token columns re-join into the ONE EuroclassSuffix [ObjectFactory<string>] grammar (the
-      // former SmokeClass/DropletClass TryGet planes died at the owner; the hand Parse died for the factory
-      // plane, whose hook-authored smoke/droplets detail now surfaces unaltered); the two INDEPENDENT admissions accumulate.
-      : (FireRating.Parse(w.Fire.Reaction, key),
-         key.AcceptValidated<EuroclassSuffix>($"{w.Fire.Smoke},{w.Fire.Droplets}"))
-         .Apply((reaction, suffix) => MaterialPropertySet.OfFire(reaction, suffix, resistance, evidence)).As()),
-    MaterialPropertySetWire.PropertySetOneofCase.Environmental => MeasurementBasis.Parse(w.Environmental.Basis, key).Bind(basis =>
-     MaterialPropertySet.OfEnvironmental(basis, [.. w.Environmental.Impacts],
+      : ToFireRating(w.Fire.Reaction, key).Bind(reaction => !w.Fire.HasSmoke
+       ? Fin.Succ(MaterialPropertySet.OfFire(Some(reaction), resistance, evidence))
+       : key.AcceptValidated<EuroclassSuffix>($"{ToSmokeToken(w.Fire)},{ToDropletToken(w.Fire)}")
+        .Map(suffix => MaterialPropertySet.OfFire(reaction, suffix, resistance, evidence)))),
+    MaterialPropertySetWire.PropertySetOneofCase.Environmental => ToMeasurementBasis(w.Environmental.Basis, key).Bind(basis =>
+     ToImpactMatrix(w.Environmental.Impacts, key).Bind(impacts => MaterialPropertySet.OfEnvironmental(basis, impacts,
       Opt(w.Environmental.HasRecycledContent, w.Environmental.RecycledContent),
-      Opt(w.Environmental.HasEndOfLifeRecovery, w.Environmental.EndOfLifeRecovery), key, evidence)),
-    MaterialPropertySetWire.PropertySetOneofCase.Cost => MeasurementBasis.Parse(w.Cost.Basis, key).Bind(basis =>
+      Opt(w.Environmental.HasEndOfLifeRecovery, w.Environmental.EndOfLifeRecovery), key, evidence))),
+    MaterialPropertySetWire.PropertySetOneofCase.Cost => ToMeasurementBasis(w.Cost.Basis, key).Bind(basis =>
      Currency.Parse(w.Cost.Currency, key).Bind(currency =>
       MaterialPropertySet.OfCost(basis, currency, w.Cost.SupplyPerUnit, w.Cost.InstallPerUnit, w.Cost.LifecyclePerUnit, key, evidence))),
     MaterialPropertySetWire.PropertySetOneofCase.Damping => MaterialPropertySet.OfDamping(

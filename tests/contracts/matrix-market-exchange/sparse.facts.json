@@ -1,0 +1,13 @@
+{
+    "kind": "matrix-market",
+    "shape": [3, 3],
+    "entries": [
+        { "row": 0, "column": 0, "value": 4.0 },
+        { "row": 0, "column": 1, "value": 1.0 },
+        { "row": 1, "column": 0, "value": 1.0 },
+        { "row": 1, "column": 1, "value": 3.0 },
+        { "row": 1, "column": 2, "value": 2.0 },
+        { "row": 2, "column": 1, "value": 2.0 },
+        { "row": 2, "column": 2, "value": 5.0 }
+    ]
+}

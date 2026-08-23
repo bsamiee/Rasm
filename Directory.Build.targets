@@ -27,11 +27,6 @@
     </PropertyGroup>
 
     <!-- AssayTestShell is body-set, so the test verdict settles here and nothing upstream may pre-answer it: spec-free shells stay libraries solution-scope dotnet test never discovers. -->
-    <!-- TargetFrameworks is body-set, so a props-time default silently wins the cross-target election and drops every framework but its own. -->
-    <PropertyGroup Label="Framework Default">
-        <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
-    </PropertyGroup>
-
     <PropertyGroup Label="Test Classification">
         <IsTestProject Condition="'$(IsTestProject)' == '' and '$(AssayTestShell)' == 'true'">false</IsTestProject>
         <IsTestProject Condition="'$(IsTestProject)' == '' and '$(IsTestLaneProject)' == 'true'">true</IsTestProject>

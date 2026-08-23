@@ -7,6 +7,10 @@
 - `Silk.NET.WebGPU` and its `Native.WGPU` train are branch substrate — each consumer composes behind one folder seam, so a swap edits a row per seam.
 - `Generator.Equals` injects once at `Directory.Build.props`, never `PrivateAssets` — comparers cross assemblies; `Riok.Mapperly` inverts both.
 - Duplicate full type names alias the package the product does NOT name via `PackageReference` — aliasing the pinned one rebinds every mention.
+- `Grpc.Tools` refused — a per-csproj `<Protobuf>` item re-emits one contract per consumer at its own `GrpcServices` mode; bindings generate once.
+- `Grpc.AspNetCore.Server` is the server-rail admission — the `Grpc.AspNetCore` metapackage ships no assembly and drags in `Grpc.Tools`.
+- `Rasm.Contracts` is the SOLE in-repo emitter — one committed emission reached by `ProjectReference`; a second emission forks the type.
+- `Rasm.Contracts` consumers keep a direct `Google.Protobuf` row only where their pages name that API — transitive reach is never a manifest row.
 
 ## [02]-[SHAPE]
 
@@ -14,7 +18,7 @@
 - Composition roots home at the `apps/<host>/<Plugin>/` shell — a package blocked on it waits, and pulling composition down is rejected.
 - Hook-point rosters name `<Package>Point`, never `HookPoint` — the kernel capsule is in scope at every fence, and ids mint through `HookId`.
 - Folder hook registries beside the kernel point are earned solely by plugin-identity grant custody — re-keying `(point, scope, token)` is deleted.
-- Benchmark-grading AEC peers compile-reference `Rasm.AppHost` legally — by-name scope, cycle-safe, existing for the gate-stamped receipt alone.
+- Benchmark-grading AEC peers may reference `Rasm.AppHost` by name; Materials also reaches the branch's one `WireJson` edge.
 - `Rasm.Persistence` alone owns columnar lake custody — a producer joins by handing its typed record-batch schema, never folder-local storage.
 - `.bcfzip` has ONE codec custodian in `Rasm.Bim` — Persistence joins by typed `IssueTopic` rows the root transcribes, holding the durable half.
 - Causal-frame primitives home at the kernel signal capsule — an AppHost home forces an S2-to-spine reference or a `Guid` twin per package.
@@ -27,6 +31,7 @@
 - Host beat evidence composes the kernel `MonotonicBeat` — cadence-only columns extend the receipt, and a flat host beat re-mints temporal identity.
 - Kernel measures leave as bare `double` and `Rasm.Element` `MeasureValue` is the dimensioned carrier — unit identity federates at `BaseDimensions`.
 - `FaultBand` row names never shadow a kernel TYPE in consumer scope — `LaneGuard`/`StoreStat` prefix, a row name being free where a wire key is not.
+- No declaration takes the simple name of an ADMITTED PACKAGE type its folder references — `FieldPack`, never `FieldCodec`, beside `Google.Protobuf`.
 - Host-boundary gesture and pick receipts stay PLURAL — a viewport pick and a canvas pick share no consumer, so one owner forces a cross-host edge.
 - `Option<T>` crosses to a host `T?` slot through `Op.ToHostSlot`/`ToHostNullable` ALONE — the one place `null` is a legal spelling on this branch.
 - Value records holding a sequence, array, or map member declare `[Equatable]` with explicit member equality, or hold `Seq`/`Arr` over an array.
@@ -79,7 +84,7 @@
 - Declaring a recovery target and grading one split owners — `RecoveryWindow.Gauged` is the one gauge, a `Meets*` twin blind to the unmeasured half.
 - Kernel vectors cross as `Vector3d` and a float engine narrows at ITS edge — `SunPosition.Direction` on `Vector3` floors its inverse at `1.1e-3°`.
 - Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never rises.
-- Corpus proto descriptors keep ONE spelling — owner pages carry the header-only fence, union mirror, and frozen-number ledger; a full mirror forks.
+- Corpus proto descriptors keep ONE spelling — an owner page carries the header-only fence alone; the roster is gate-emitted and a hand mirror forks.
 - `params` entrypoints mint their own `Op` at the entry — an optional `Op? key = null` ahead of the spread forecloses every positional call.
 - Host-enum reads resolve a `[SmartEnum]` row through `Op.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
 - `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed receipt renames `KeySelection`, both over the seam `Selection<TKey>`.
@@ -121,7 +126,7 @@
 - Kernel `FieldNoise` and Materials `ProceduralNoise` stay two-formed — differentiability-gating versus byte-parity is the whole discriminant.
 - `ImportedGeometry` is the ONE decoded-geometry carrier at the seam — an absent lane is a missing descriptor, never an empty buffer.
 - Colour vocabulary has ONE branch owner — `Configuration` short-circuits on reference equality; space, hue, and view ride THREE axes, not a product.
-- `UInt128` lane extraction composes the kernel `ContentHash.Half` at every consumer — byte ORDER at a write seam stays that seam's own projection.
+- `UInt128` lane extraction composes the kernel `ContentHash.Half` and wire bytes `ContentHash.Wire`/`Admit` — no seam spells a byte order of its own.
 - Folder claim rosters stay plural under one `BenchmarkGate` — folding them into a parameterized row erases each closed-roster guard.
 - Perceptual colour has ONE interaction owner, the kernel `Interaction/paint` band — each boundary quantizes to its host colour type at its own edge.
 - `Rasm` `FaultBand` is the sole band ledger; `Disjoint` forces inside `FaultId` construction, and rows exist only for realized fault families.
@@ -133,6 +138,10 @@
 - Kernel `Ranked` at `Domain/stats` is the ONE bounded top-K selection — cost-scheduled queues and best-first frontiers keep `PriorityQueue`.
 - `TilePlan` stays plural by receiver — Compute's inference mosaic and Materials' texture tiling share no closure, the wire ceding `InferenceTiling`.
 - `WireFault` stays plural by transport — `FaultBand.LiveWire` and `FaultBand.Wire` mint local failures; remote faults remain opaque evidence.
+- ONE producer leg crosses a fault — `Rasm.AppHost` `FaultWire.Raise` over `Grpc.StatusProto`; a folder-local `Error → StatusCode` switch forks it.
+- ONE ProtoJSON edge serves the branch — `Rasm.AppHost` `WireJson` with the registry over every `<File>Reflection`; `.Default` is the deleted form.
+- Every cross-language C# wire is a generated `Rasm.Contracts` message or a publisher type — a record mirroring one under any codec is the twin.
+- MessagePack frames the explicit primitive op-log envelope and branch-interior stage crossing; generated `crdt.v1.CrdtOpWire` owns its raw slot.
 - Fault families carry no category mirror — the union case IS the identity, and a parallel roster publishes a second discriminant per family.
 - Family-local `Semigroup`/`Aggregate`/`Combine` folds collapse to `Error.Many` — two accumulation paradigms disagree on flattening and on posture.
 - Generic text faults collapse into typed cases — a leaf carrying only `Detail` states no identity, and its string is presentation, never routed.

@@ -9,7 +9,7 @@ Rasm/                      # Kernel below the C# app strata: exact-arithmetic fl
 ├── Domain/                # Kernel substrate floor every sibling composes
 │   ├── Rails.cs           # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor
 │   ├── Context.cs         # ToleranceLane rows bind Band and BaseDimensions; Context.For(lane) is the one read every gate threads
-│   ├── Identity.cs        # CanonicalWriter, ContentHash, and the Deterministic splitmix64 owner; neither surface is cryptographic
+│   ├── Identity.cs        # CanonicalWriter, XXH ContentHash, SHA-256 ArtifactContent, and deterministic derivation
 │   ├── Validation.cs      # OpAcceptance.ValidityOf single validity oracle; CapabilitySet<TCapability> the one capability column
 │   ├── Normalization.cs   # Erased-geometry conversion owner: Lease<GeometryBase> admission and the typed coercion lattice
 │   ├── Evaluation.cs      # ClosestHit receipts over Rhino.Geometry values alone; document or view reach is the boundary violation
@@ -319,7 +319,7 @@ flowchart LR
     Interaction e15@-->|"[BOUNDARY]: UiDispatch + IntentTable + AssetOrigin + Mark + PaintProgram"| Grasshopper
 ```
 
-Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry AND the `CanonicalWriter` preimage every partner composes; `Spatial/Reconciliation` writes its frames through that one writer, holding byte parity with the Python and TypeScript peers so one content space addresses across runtimes. Second hashers, second byte emitters, and non-zero seeds are the named cross-folder drift.
+Semantic content-key edges federate kernel `ContentHash` while stored payloads take kernel `ArtifactContent` SHA-256 with extent, and neither identity substitutes for the other.
 
 ## [04]-[INTERNAL]
 

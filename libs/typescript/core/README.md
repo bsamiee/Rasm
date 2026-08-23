@@ -25,26 +25,24 @@
 [INTERCHANGE]:
 - [15]-[FORMAT](.planning/interchange/format.md): Encoding arms lifted onto one typed parse rail under one defect normalization.
 - [16]-[CODEC](.planning/interchange/codec.md): Closed wire-family roster and one bounded walk over every recursive tree it lands.
-- [17]-[FRAME](.planning/interchange/frame.md): Interleaved band assembly with verified rendezvous and IFC container admission.
-- [18]-[CONTRACT](.planning/interchange/contract.md): Pinned-against-shipped comparison — binary, JSON, and source compatibility as one gate.
-- [19]-[CARRIER](.planning/interchange/carrier.md): Trace continuity on every transport — one context value, tenant promotion, the message envelope.
-- [20]-[INVOKE](.planning/interchange/invoke.md): Connect client mint, descriptor-set admission, and command dispatch serving framed sockets.
+- [17]-[FRAME](.planning/interchange/frame.md): Interleaved band assembly, residency admission, and IFC container admission.
+- [18]-[CARRIER](.planning/interchange/carrier.md): Strict event envelopes, one address mint, generic `dataref`, and generated conversion.
+- [19]-[INVOKE](.planning/interchange/invoke.md): Connect client mint, capability-pin admission, and command dispatch serving framed sockets.
 
 [OBSERVE]:
-- [21]-[CONVENTION](.planning/observe/convention.md): Signal-name conformance as rows — dotted names under UCUM codes, store translation, C# parity.
-- [22]-[SLO](.planning/observe/slo.md): Objective grading from data — `Sli` cases schema-gated, burn windows priced, alert rows compiled.
-- [23]-[BOARD](.planning/observe/board.md): Observability read surface from data alone — one expression tree rendered per backend target.
-- [24]-[TAP](.planning/observe/tap.md): Hook-point admission — app-scoped registries, modality-split handlers, per-subscriber breach isolation.
+- [20]-[CONVENTION](.planning/observe/convention.md): Signal-name conformance as rows carrying UCUM codes and store translation.
+- [21]-[SLO](.planning/observe/slo.md): Objective grading from data — `Sli` cases schema-gated, burn windows priced, alert rows compiled.
+- [22]-[BOARD](.planning/observe/board.md): Observability read surface from data alone — one expression tree rendered per backend target.
+- [23]-[TAP](.planning/observe/tap.md): Hook-point admission — app-scoped registries, modality-split handlers, per-subscriber breach isolation.
 
 ## [02]-[DOMAIN_PACKAGES]
 
 Domain-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
 [DECODE_SUBSTRATE]:
-- `@bufbuild/protobuf`
+- `@bufbuild/protovalidate`
 - `@connectrpc/connect`
 - `@connectrpc/connect-web`
-- `cbor-x`
 - `@msgpack/msgpack`
 - `rfc6902`
 - `hash-wasm`
@@ -69,7 +67,11 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 - `@effect/experimental` — `VariantSchema` projections and `Machine` state algebra.
 
 [EVENT_FABRIC]:
-- `cloudevents` — `interchange/carrier` seats the branch's one message-envelope mint over its `CloudEvent` class.
+- `cloudevents` — `interchange/carrier` seats strict generic SDK envelopes and the composed Rasm profile over one `CloudEvent` class.
+
+[CONTRACT_BINDINGS]:
+- `@bufbuild/protobuf` — Message, descriptor, registry, and codec runtime under every generated contract binding.
+- `@rasm\/contracts` — `interchange/format` binds `_suite` off each family's module; the vendored CloudEvents descriptor rides its own module.
 
 [BENCH]:
 - `mitata`

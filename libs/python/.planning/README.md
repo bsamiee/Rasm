@@ -2,7 +2,9 @@
 
 Python is an independently adoptable host-free platform for science, compute, data, geometry, IFC, and artifact production across peer packages held to the cross-language density bar. Python applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, requested and re-imported as data, never imported as code.
 
-One root `pyproject.toml` owns interpreter admission and dependency groups; this branch registry owns the substrate tiers every folder composes. FLOOR-GATED marks a folder registry row whose `python_version` marker no supported interpreter satisfies, so admission stands while reach waits on a floor wheel or a floor move; OVERLAY marks the inverse, where the Forge python-overlay `.pth` supplies the module worker-side at the interpreter floor; rows naming host binaries carry no manifest row and state their provisioning lane.
+Root `pyproject.toml` owns the Python 3.15 platform and every folder under it. Native distributions whose wheels stop below the platform floor ride the Forge python-overlay `.pth`, and their marker row states that mechanism at the root manifest.
+
+This branch registry owns the substrate tiers every folder composes. FLOOR-GATED marks a folder registry row whose `python_version` marker no supported interpreter satisfies, so admission stands while reach waits on a floor wheel or a floor move; OVERLAY marks the inverse, where the Forge python-overlay `.pth` supplies the module worker-side at the interpreter floor; rows naming host binaries carry no manifest row and state their provisioning lane.
 
 ## [01]-[ROUTER]
 
@@ -11,6 +13,8 @@ One root `pyproject.toml` owns interpreter admission and dependency groups; this
 - [03]-[DATA](../data/README.md): Dataset movement and interchange.
 - [04]-[GEOMETRY](../geometry/README.md): Geometry and IFC evidence production.
 - [05]-[ARTIFACTS](../artifacts/README.md): Publication-grade output.
+- [06]-[CONTRACTS](../contracts/README.md): Installable generated corpus SDK and publisher resources.
+- [07]-[CAD](../cad/README.md): Exact solid modeling and neutral CAD exchange behind generated `CadService`.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
@@ -68,9 +72,10 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 - `lz4` — Frame and block compression for wire and cache payloads.
 
 [WIRE_CODEGEN]:
-- `grpcio` — Channel and server runtime beneath the serve rail.
-- `grpcio-tools` — `protoc` invocation surface minting the generated stubs.
-- `protobuf` — Message runtime beneath the stubs; well-known types and `json_format`.
+- `protobuf-py` — Message runtime beneath the generated `_pb.py` bindings; binary and JSON codecs, descriptors, and the `wkt` carriers.
+- `connectrpc` — Connect, gRPC, and gRPC-Web service protocols, ASGI applications, interceptors, and typed clients over the generated stubs.
+- `rasm-contracts` — Typed workspace distribution for generated classes, Connect applications, Protovalidate admission, and publisher resources.
+- `protobuf` — Google message runtime beneath the Substrait plan IR and the ONNX model IR.
 
 [TEST_SUBSTRATE]:
 - `pytest` — Spec runner; its plugin roster rides the root manifest.

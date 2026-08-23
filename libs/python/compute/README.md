@@ -99,7 +99,7 @@ Domain-specific libraries admitted by this folder; versions centralize in the ro
 - `blackjax`
 
 [INTERCHANGE]:
-- `h5py` — HDF5 exchange containers for the C#-peer crossings: the sparse-operator archive pair and the drift-envelope writer.
+- `h5py` — HDF5 exchange containers for C#-peer sparse operators, drift envelopes, and waveform corpora.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -123,3 +123,5 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [MESH_INTERCHANGE]:
 - `meshio`
 
+[WIRE_CODEGEN]:
+- `protobuf` — Google message runtime beneath the ONNX model IR; `experiments/model` reads its `DecodeError` on torn model bytes.

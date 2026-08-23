@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package rasm.contracts.ui.v1;
+
+import "buf/validate/validate.proto";
+import "rasm/contracts/ui/v1/controls.proto";
+import "rasm/contracts/ui/v1/layout.proto";
+
+// One app surface crosses as one program: its stable partition identity, root control tree, and the exact
+// constraint programs that tree names. Leaf messages remain reusable generated support types; none is an
+// independently seated application payload.
+message AppUiSurfaceProgram {
+  option (buf.validate.message).cel = {
+    id: "appui_surface.layouts_unique"
+    message: "layout surface identities must be unique"
+    expression: "this.layouts.map(p, p.surface).unique()"
+  };
+
+  string workspace = 1 [(buf.validate.field).string = {
+    min_len: 1
+    pattern: ".*\\S.*"
+  }];
+  string route = 2 [(buf.validate.field).string = {
+    min_len: 1
+    pattern: ".*\\S.*"
+  }];
+  int32 instance = 3 [(buf.validate.field).int32.gte = 0];
+  ControlIntentWire root = 4 [(buf.validate.field).required = true];
+  repeated LayoutProgram layouts = 5 [(buf.validate.field).repeated.max_items = 4096];
+}

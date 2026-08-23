@@ -23,6 +23,7 @@ from tree_sitter import Language as TSLanguage, Query as TSQuery, QueryError
 from tools.assay.core.model import (
     AnyDetail,  # beartype resolves the fold detail annotation at runtime
     ArtifactKind,
+    Band,
     Claim,
     Completed,  # beartype resolves receipt annotations at runtime
     Counts,
@@ -64,8 +65,10 @@ _MYPY_DIAGNOSTIC = re.compile(
     r"(?P<message>.*?)(?:\s+\[(?P<rule>[a-z0-9_.-]+)])?$",
     re.IGNORECASE,
 )
+# Config diagnostics (TS5042, TS18003, TS6053) carry no file coordinate, so the leading path group is optional and a
+# bare `error TSnnnn:` still mints a row; without the alternation the whole class parses to nothing and reads clean.
 _TSC_DIAGNOSTIC = re.compile(
-    r"^(?P<path>.+?)(?:\((?P<line1>\d+),(?P<column1>\d+)\):?|:(?P<line2>\d+):(?P<column2>\d+)\s+-)\s*"
+    r"^(?:(?P<path>.+?)(?:\((?P<line1>\d+),(?P<column1>\d+)\):?|:(?P<line2>\d+):(?P<column2>\d+)\s+-)\s*)?"
     r"(?P<severity>error|warning)\s+(?P<rule>TS\d+):\s*(?P<message>.+)$",
     re.IGNORECASE,
 )
@@ -665,16 +668,6 @@ def _diagnostic_notes(rows: tuple[Match, ...]) -> tuple[str, ...]:
     )
 
 
-def _count(done: Completed) -> tuple[int, int]:
-    match done.status:
-        case RailStatus.OK | RailStatus.EMPTY | RailStatus.SKIP:
-            return 1, 0
-        case RailStatus.FAILED:
-            return 0, 1
-        case _:
-            return 0, 0
-
-
 def fold(
     claim: Claim,
     verb: str,
@@ -686,16 +679,16 @@ def fold(
 ) -> Report:
     """Fold process outcomes and evidence into a rail report.
 
+    Every outcome seats one leaf in the census under its own status, so a skipped, unsupported, or faulted lane stays
+    countable as unproved instead of folding onto a proof or vanishing from the tally; the process-defect row rides the
+    same ``Band.REFUSED`` predicate, so evidence rows and the refused band can never disagree.
     Static source error rows fail the report; generated diagnostics remain evidence-only, and absent SARIF folds to no rows.
     ``promote_empty`` lets a process-backed rail (eligible claim, ran cleanly, no defects) report OK for a folded-empty
     run; without it a clean no-op stays EMPTY so non-rail folds reusing the claim keep their natural absence.
 
     Returns:
-        Report carrying status, counts, artifacts, evidence rows, notes, and optional detail.
+        Report carrying status, census, artifacts, evidence rows, notes, and optional detail.
     """
-    pairs = tuple(map(_count, outcomes))
-    ok_n = sum(ok for ok, _ in pairs)
-    fail_n = sum(failed for _, failed in pairs)
     defects = tuple(
         Match(
             id=shlex.join(o.argv) if o.argv else claim.value,
@@ -703,8 +696,8 @@ def fold(
             text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(),
             severity="failed",
         )
-        for o, p in zip(outcomes, pairs, strict=True)
-        if p == (0, 1)
+        for o in outcomes
+        if o.status.band is Band.REFUSED
     )
     results = _result_rows(claim, outcomes, defects, sarif_dir)
     diagnostic_rows = tuple(m for m in results if m.severity in _SARIF_SEVERITY.values() and m.id)
@@ -721,7 +714,7 @@ def fold(
         claim,
         verb,
         status,
-        Counts(ok_n, fail_n, ok_n + fail_n),
+        Counts.of(*(o.status for o in outcomes)),
         results=results,
         artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
         notes=(

@@ -1,12 +1,12 @@
 # [RASM_RHINO_OBJECTS_LIGHTS]
 
-Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light family — point, spot, directional, linear, rectangular — as capability rows; `LightSeed` is the one polymorphic construction union, `LightEdit` the one property-edit union whose modalities gate on one capability read, and `LightSelect` the table address vocabulary. `Lights.Ask` reads detached `LightStamp` rows and `Lights.Commit` mints, amends, purges, and revives through `LightTable` on the shared `ObjectSpine`, returning `LightReceipt`. Spot cones compose kernel `VectorCone`, colours compose `PerceptualColor`, and photometric power is one `Radiance` value. `Lights.Capture` is the `rasm.scene.v1` descriptor emitter: it stacks the Render sun band beside its own photometric rows and lowers both through `[Mapper] SceneMap`.
+Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light family — point, spot, directional, linear, rectangular — as capability rows; `LightSeed` is the one polymorphic construction union, `LightEdit` the one property-edit union whose modalities gate on one capability read, and `LightSelect` the table address vocabulary. `Lights.Ask` reads detached `LightStamp` rows and `Lights.Commit` mints, amends, purges, and revives through `LightTable` on the shared `ObjectSpine`, returning `LightReceipt`. Spot cones compose kernel `VectorCone`, colours compose `PerceptualColor`, and photometric power is one `Radiance` value. `Lights.Capture` is the `rasm.contracts.scene.v1` descriptor emitter: it stacks the Render sun band beside its own photometric rows and lowers both through the exhaustive `SceneMap` boundary.
 
 ## [01]-[INDEX]
 
 - [02]-[KIND_AND_STAMP]: `LightModality`, `LightKind`, `SpotShape`, `ConeEvidence`, `AreaShape`, `LightFrame`, `LightFalloff`, `LightAttenuation`, `LightStamp` — the capability rows and the detached read.
 - [03]-[SEED_AND_EDIT]: `LightSeed`, `RadianceUnit`, `Radiance`, `LightShade`, `LightEdit` — construction and the gated property edits.
-- [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, the `LightSlot`/`LightBody` stream vocabularies, the `Lights` entries, and the `rasm.scene.v1` descriptor band with its `[Mapper] SceneMap` emitter.
+- [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, the `LightSlot`/`LightBody` stream vocabularies, the `Lights` entries, and the `rasm.contracts.scene.v1` descriptor band with its exhaustive `SceneMap` emitter.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[KIND_AND_STAMP]
@@ -17,7 +17,7 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 - Law: cone math is kernel-owned — the spot cone crosses as `VectorCone` (apex, unit axis, admitted half-angle), half-angle and solid-angle questions answer through `ConeProjection` rows on the stamped cone, and inline spot trigonometry beside the owner is the deleted form.
 - Law: colour crosses through the kernel boundary members ALONE — `PerceptualColor.OfHost` admits every host read and `ToDrawing` bounds every host write, so no component arithmetic, no byte-into-double alpha, and no hand `FromArgb` survives on this page. Writing is FALLIBLE by construction: a colour outside the display gamut is a paint instruction no consumer can attribute, so a shade edit refuses rather than seating a silently clipped colour.
 - Law: the stamp is host evidence — intensity, watt, lumen, candela, shadow, spot-angle, and hot-spot values cross raw as read, and every WRITE payload admits (`UnitInterval` fractions, positive finite radiance, kernel cone), so reads never refuse a degenerate document and writes never pass one. `AreaShape` remains raw read evidence and admits both extent vectors at every write boundary.
-- Law: cone absence and cone refusal are DIFFERENT answers — `ConeEvidence` carries `Absent` for a kind with no cone, `Shaped` for an admitted one, and `Degenerate` where the kind carries a cone the document's tolerance cannot admit; collapsing the last two onto one `None` erases the only signal a consumer has that the document, not the light, is the problem, while the raw scalars keep the underlying evidence in every case. Each case carries its own `Wire` key, so the descriptor's `cone_state` column is a row read rather than a second three-case vocabulary beside this one.
+- Law: cone absence and cone refusal are DIFFERENT answers — `ConeEvidence` carries `Absent` for a kind with no cone, `Shaped` for an admitted one, and `Degenerate` where the kind carries a cone the document's tolerance cannot admit; collapsing the last two onto one `None` erases the only signal a consumer has that the document, not the light, is the problem, while the raw scalars keep the underlying evidence in every case. `SceneMap` exhaustively seats the generated oneof, so no text vocabulary stands beside the union.
 - Law: the coordinate frame and the attenuation model are bounded reads — `LightFrame` closes the host coordinate roster and `LightFalloff.Of` REFUSES an unrecognized attenuation row rather than reading its coefficient vector; `LightAttenuation.Free` survives as the write payload a caller seats through `SetAttenuation`, and the host's own read classifies that seated light back onto one of its three named rows.
 - Law: `LightFalloff` is the RENAMED host mirror, never the kernel `Falloff` — `Numerics/calculus.md`'s `Falloff` is a radial-decay WEIGHT PROFILE carrying `SlopeBound`, `Weight`, and a metric sampler, while this row is the `Light.Attenuation` coefficient regime the host seats through `SetAttenuation`. Both wear one word over two concepts; composing the kernel union here hands a caller a Gaussian spread to write into a quadratic coefficient slot.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `KeyMemberEqualityComparer`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Choose`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `Light`, `LightObject`, `LightStyle`, `Light.Attenuation`, `LightTable`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`/`ToRgb`, `UnitInterval`, `VectorCone`); kernel `Domain/validation` (`Op.Row`, `ICapability`, `CapabilitySet`); `Document/session.md` (`DraftFault`); `Document/tables.md` (`ResourceIndex`).
@@ -31,6 +31,7 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
+using Wire = Rasm.Contracts.Scene.V1;
 
 namespace Rasm.Rhino.Objects;
 
@@ -59,15 +60,15 @@ public sealed partial class LightKind {
     private static readonly CapabilitySet<LightModality> Panelled = CapabilitySet<LightModality>.Of(
         LightModality.Extent, LightModality.Breadth);
 
-    public static readonly LightKind Directional = new(key: (int)LightStyle.WorldDirectional, wire: "directional", style: LightStyle.WorldDirectional, grants: Aimed);
-    public static readonly LightKind Point = new(key: (int)LightStyle.WorldPoint, wire: "point", style: LightStyle.WorldPoint, grants: Placed);
-    public static readonly LightKind Spot = new(key: (int)LightStyle.WorldSpot, wire: "spot", style: LightStyle.WorldSpot, grants: Coned);
-    public static readonly LightKind Linear = new(key: (int)LightStyle.WorldLinear, wire: "linear", style: LightStyle.WorldLinear, grants: Stretched);
-    public static readonly LightKind Rectangular = new(key: (int)LightStyle.WorldRectangular, wire: "rectangular", style: LightStyle.WorldRectangular, grants: Panelled);
+    public static readonly LightKind Directional = new(key: (int)LightStyle.WorldDirectional, wire: Wire.LightKind.Directional, style: LightStyle.WorldDirectional, grants: Aimed);
+    public static readonly LightKind Point = new(key: (int)LightStyle.WorldPoint, wire: Wire.LightKind.Point, style: LightStyle.WorldPoint, grants: Placed);
+    public static readonly LightKind Spot = new(key: (int)LightStyle.WorldSpot, wire: Wire.LightKind.Spot, style: LightStyle.WorldSpot, grants: Coned);
+    public static readonly LightKind Linear = new(key: (int)LightStyle.WorldLinear, wire: Wire.LightKind.Linear, style: LightStyle.WorldLinear, grants: Stretched);
+    public static readonly LightKind Rectangular = new(key: (int)LightStyle.WorldRectangular, wire: Wire.LightKind.Rectangular, style: LightStyle.WorldRectangular, grants: Panelled);
 
     // The descriptor's `kind` column: a closed vocabulary crosses the wire as its own key text, so an unknown key
     // is a decode refusal at the peer rather than a schema arm nobody declared.
-    internal string Wire { get; }
+    internal Wire.LightKind Wire { get; }
     internal LightStyle Style { get; }
     internal CapabilitySet<LightModality> Grants { get; }
 
@@ -80,13 +81,13 @@ public sealed partial class LightKind {
 [SmartEnum<int>]
 public sealed partial class LightFalloff {
     public static readonly LightFalloff Constant = new(
-        key: (int)Light.Attenuation.Constant, wire: "constant", vector: Light.ConstantAttenuationVector);
+        key: (int)Light.Attenuation.Constant, wire: Wire.Falloff.Constant, vector: Light.ConstantAttenuationVector);
     public static readonly LightFalloff Linear = new(
-        key: (int)Light.Attenuation.Linear, wire: "linear", vector: Light.LinearAttenuationVector);
+        key: (int)Light.Attenuation.Linear, wire: Wire.Falloff.Linear, vector: Light.LinearAttenuationVector);
     public static readonly LightFalloff InverseSquared = new(
-        key: (int)Light.Attenuation.InverseSquared, wire: "inverse-squared", vector: Light.InverseSquaredAttenuationVector);
+        key: (int)Light.Attenuation.InverseSquared, wire: Wire.Falloff.InverseSquared, vector: Light.InverseSquaredAttenuationVector);
 
-    internal string Wire { get; }
+    internal Wire.Falloff Wire { get; }
     internal Vector3d Vector { get; }
 
     internal static Fin<LightFalloff> Of(Light.Attenuation model, Op key) =>
@@ -101,8 +102,6 @@ public abstract partial record LightAttenuation {
     private LightAttenuation() { }
     public sealed record Named(LightFalloff Row) : LightAttenuation;
     public sealed record Free(Vector3d Coefficients) : LightAttenuation;
-
-    internal string Wire => Switch<string>(named: static law => law.Row.Wire, free: static _ => "coefficients");
 
     internal Vector3d Coefficients => Switch<Vector3d>(
         named: static law => law.Row.Vector, free: static law => law.Coefficients);
@@ -152,8 +151,8 @@ public readonly record struct SpotShape(VectorCone Cone, UnitInterval HotSpot) {
 // A spot light's cone answers on three distinguishable states, never one collapsed absence: the kind carries no
 // cone, the kind carries one and the document admits it, or the kind carries one the document degenerates. The
 // raw `SpotAngle`/`HotSpot` scalars survive on the stamp either way, so a consumer separates "no cone" from
-// "cone the model cannot admit" without re-reading the host. `Wire` is the descriptor's `cone_state` column, so
-// the answer and its published key are ONE owner and no wire-side cone vocabulary stands beside this one.
+// "cone the model cannot admit" without re-reading the host. The mapper exhaustively seats the generated oneof;
+// no parallel text vocabulary stands beside the union.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConeEvidence {
     private ConeEvidence() { }
@@ -161,12 +160,6 @@ public abstract partial record ConeEvidence {
     public sealed record Shaped(SpotShape Value) : ConeEvidence;
     public sealed record Degenerate : ConeEvidence;
 
-    internal string Wire => Map(absent: "absent", shaped: "shaped", degenerate: "degenerate");
-
-    internal Option<SpotShape> Shape => Switch<Option<SpotShape>>(
-        absent: static _ => None,
-        shaped: static law => Some(law.Value),
-        degenerate: static _ => None);
 }
 
 public readonly record struct AreaShape(Vector3d Length, Option<Vector3d> Width = default) {
@@ -494,38 +487,37 @@ public sealed record LightShade(
 
 ## [04]-[ASK_AND_COMMIT]
 
-- Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `LightBodyKind`/`LightSlot`/`LightBody` are this rail's contribution to the shared fact stream and `LightReceipt` its closed instantiation; `Lights.Ask`, `Lights.Commit`, and `Lights.Capture` are the three entries; `SceneMap` is the ONE mapper lowering a capture onto `rasm.scene.v1` bytes.
+- Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `LightBodyKind`/`LightSlot`/`LightBody` are this rail's contribution to the shared fact stream and `LightReceipt` its closed instantiation; `Lights.Ask`, `Lights.Commit`, and `Lights.Capture` are the three entries; `SceneMap` is the ONE mapper lowering a capture onto `rasm.contracts.scene.v1` bytes.
 - Law: resolution is index-paired but id-addressed — the complete roster enumerates the table's own `IEnumerable<LightObject>` and resolves each live row's slot from its id, while `Find`, `FindName`, and the revival probe address a single row. Every host index crosses `ResourceIndex.Maybe`, whose `-1` refusal IS the host's miss answer, so no arm re-spells a bounds comparison and no fact ever publishes a negative slot. Slot addressing survives only because `Modify`, `Delete`, and `Undelete` take one, and a deleted row has no live id, so the index address stays the revival ingress alone.
 - Law: the working copy is the mutation site — an amend duplicates through `DuplicateLightGeometry`, applies its admitted edits to the duplicate, and lands once through `Modify(index, working)`, so the live table never observes a half-applied edit and the duplicate disposes on every path.
 - Law: the purge's host-dialogue column is the spine's `HostInteraction`, not `ObjectSignal`. `ObjectSignal` names ENABLED and DISABLED, and the host argument it fed is `quiet` — so `ObjectSignal.Enabled` on a column named `Quiet` read as "enabled" at every call site and meant "suppress the warning", an inversion that is invisible at the call and wrong in exactly the direction that silences a dialogue a caller asked for. `HostInteraction.Quiet`/`Interactive` name the posture directly and `IsQuiet` is the only read.
 - Law: the commit rides `ObjectSpine.Commit` and the receipt is the Document spine's `FactStream` — admission precedes the grant, the spine derives mutate-plus-undo needs with redraw joining by policy, and this page supplies only its slot vocabulary, its body family, and the per-verb fold; every light verb records undo and the serial lands as a `LightBody.Record` fact through the stream's own stamp projection.
 - Law: placement stays the object rail — whole-object transform, delete-by-id, and selection of `LightObject`s ride `TableOp` through `TableTarget.Query` with `IncludeLights`; this rail owns what the object rail cannot spell — light-specific properties, index-addressed table verbs, and kind-gated modality.
-- Owner: `SceneVector`, `SceneSpectrum`, `PhotometricAuthority`, `PhotometricPower`, `PhotometricWebRef`, `ScenePhotometry`, `SceneShading`, and `SceneCapture` are the `rasm.scene.v1` descriptor's host-free rows; `SceneMap` lowers them.
-- Law: this page is the WHOLE-DESCRIPTOR emitter and the strata edge is downward — Objects (S2) composes the Render (S1) `SceneSun` band as an admitted VALUE beside its own photometric rows, so the sun's astronomy stays its owner's and no second solar derivation exists here. Shading rides as call data: the GLB body is `Rasm.Compute`'s `GLB_BY_KEY` product, so this emitter carries the key, the counts, and the declared fidelity and never tessellates.
+- Owner: `SceneSpectrum`, `PhotometricPower`, `PhotometricWebRef`, `ScenePhotometry`, `SceneShading`, and `SceneCapture` are the `rasm.contracts.scene.v1` descriptor's host-free rows; generated `spatial.v1.Point3`, `Displacement3`, and `UnitDirection3` carry coordinates without a local vector twin, and `SceneMap` lowers them.
+- Law: this page is the WHOLE-DESCRIPTOR emitter and the strata edge is downward — Objects (S2) composes the Render (S1) `SceneSun` band as an admitted VALUE beside its own photometric rows, so the sun's astronomy stays its owner's and no second solar derivation exists here. Shading rides as call data: the GLB body is `Rasm.Compute`'s `GLB_BY_KEY` product, so this emitter carries its artifact coordinate, counts, and declared fidelity and never tessellates.
 - Law: the descriptor emits METRES from ONE authority — the capture reads the document's `ModelUnit` inside the grant, scales every pose and extent by `MetersPerUnit`, and publishes that same regime as `source_unit`, so the factor and its provenance cannot disagree and no caller supplies a scale the descriptor then contradicts.
 - Law: spectra cross LINEAR and OPAQUE. `SceneSpectrum.Of` reads `PerceptualColor` through `RgbProfile.Srgb` under `RgbTransfer.Linear`, so the sRGB byte leg never reaches a wire declaring scene light; and because the message carries three components, a non-opaque light colour REFUSES at the producer rather than dropping its coverage silently. Both paths leave the stamp's full colour intact.
 - Law: identity crosses as RFC-4122 byte order. `Guid.ToByteArray(bigEndian: true)` is the mapper's ONE identity column, because the platform's default layout writes the first three fields little-endian and the consuming peer reads `row.id.hex()` — the two orders agree on nothing but the last eight bytes, so a byte-order slip renames every light in the descriptor without failing a decode.
-- Law: byte lengths cross UNSIGNED — `PhotometricWebRef.ByteLength` is `ulong` against the message's `uint64`, so a negative length is unspellable at the producer instead of wrapping at the encoder.
-- Law: closed vocabularies cross as their KEY TEXT and every producer publishes one — `LightKind.Wire`, `ConeEvidence.Wire`, `LightAttenuation.Wire`, and `PhotometricAuthority.Key` are the four columns the descriptor's `kind`, `cone_state`, `attenuation`, and `authority` slots read, so an unknown key is a decode refusal at the peer rather than a schema arm.
+- Law: artifacts cross through kernel `ArtifactContent` — its 32-byte SHA-256 identity and unsigned extent admit at the native owner, and the mapper projects that value once onto generated `ArtifactRef`; the scene content key remains the independent XXH3-128 digest of the descriptor preimage.
+- Law: closed vocabularies cross as generated enums and oneofs. `LightKind`, `ConeEvidence`, `LightAttenuation`, power authority, and web dialect each have one typed producer-to-wire fold; no string alias is parsed by a peer.
 - Law: authority is a producer RULE over four host readings, never a host flag — `Light` stores one power and publishes watts, lumens, and candela as converted views with no field naming which the modeller set, so `radiant-flux-w` claims the row exactly when watts reads finite and positive and `relative-scale` claims it otherwise. `relative-scale` is dimensionless and refuses every engine photometric slot by name.
 - Law: write admissions bind the wire too — `shadow_fraction` crosses as an admitted `UnitInterval` even though the read path takes `ShadowIntensity` raw, so a degenerate document refuses at the producer rather than seating an out-of-range fraction on a consuming engine.
-- Law: the descriptor's `content_key` is the kernel `CanonicalWriter` preimage over every band it carries, so two captures of an unchanged scene dedupe and one edited light re-keys the whole descriptor. Framing is the writer's — count-framed rosters, length-framed text, quantized doubles — and this page owns no frame helper.
-- Boundary: the photometric-web (IES) payload is the render kinds page's `PhotometricFile` — dialect-admitted by `PhotometricDialect`, minted through `PhotometricPress`, and landed on the light's attached render material child slot; this rail's photometric reach ends at `Radiance`, `IPhotometricRegistry` is the ONE address it holds into that stratum, the descriptor carries the web by content key and dialect KEY TEXT alone, and `LightEdit` never grows an IES case.
+- Law: the descriptor `key` is the seed-zero content identity of the generated descriptor with only that key omitted. Protobuf field tags, oneofs, repeated order, and nested artifact coordinates frame every band once, so a new schema field joins the preimage through the same mapper instead of a second hand-maintained field roster.
+- Boundary: the photometric-web payload is the render kinds page's `PhotometricFile` — dialect-admitted by `PhotometricDialect`, minted through `PhotometricPress`, and landed on the light's attached render material child slot; this rail's photometric reach ends at `Radiance`, `IPhotometricRegistry` is the ONE address it holds into that stratum, the descriptor carries one `ArtifactRef` plus a generated dialect, and `LightEdit` never grows an IES case.
 - Law: an unread column is a defect, not thrift — the web column has a producer, so `Lights.Capture` demands the registry rather than defaulting it, and the consuming census that counts web-bearing rows counts documents rather than an absence this emitter manufactured.
 - Boundary: `LightTable.Sun` and `Skylight` stay the render settings page's — `SunState`, `SkylightState`, and `SunEvidence` own that projection; `EventFamily.LightTable` already observes this table onto `EventPayload.Component(TableKind.Lights, …)`, and `SnapshotCategory.Lights` carries snapshot participation.
 - Growth: a new light verb is one `LightOp` case, one `LightSlot` row naming its body kinds, and one `LightBody` case; a new property axis is one `LightEdit` case with its `Requires` column; a new descriptor column is one appended proto field beside one mapper column.
-- Packages: Google.Protobuf (`libs/csharp/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp.FromDateTimeOffset`); Grpc.Tools (`libs/csharp/.api/api-grpc-tools.md` — the `<Protobuf>` MSBuild item over the corpus-homed source, `GrpcServices=None`, `PrivateAssets=all`, build-only); Riok.Mapperly (`libs/csharp/.api/api-mapperly.md` — `[Mapper]`, `[MapProperty]` with its segment overload, `[UserMapping]`, `RequiredMappingStrategy.Target`); NodaTime (`Instant`, `ToDateTimeOffset`); kernel `Domain/identity` (`ContentHash.Of<TState>`, `CanonicalWriter.Rows`/`String`/`Double`/`Bool`/`U128`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`, `ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
+- Packages: Google.Protobuf (`libs/csharp/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp`); Rasm.Contracts (`libs/csharp/Rasm.Contracts/.api/rasm-contracts.md` — generated scene, artifact, geometry, and spatial messages); NodaTime.Serialization.Protobuf (`libs/csharp/.api/api-nodatime-protobuf.md` — `Instant.ToTimestamp`); NodaTime (`Instant`); kernel `Domain/identity` (`ArtifactContent`, `ContentHash.Of`, `ContentHash.Wire`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`, `ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// The generated family spells the SAME message names this page's detached rows carry — `ScenePhotometry`,
-// `PhotometricPower`, `PhotometricWebRef` — because the descriptor names host-free concepts and so do we. The
-// namespace alias is therefore load-bearing: it keeps every wire spelling one qualified hop away from its
-// detached counterpart, which is exactly the boundary the mapper crosses.
 using Google.Protobuf;
 using NodaTime;
-using Riok.Mapperly.Abstractions;
-using Wire = Rasm.Scene;
+using NodaTime.Serialization.Protobuf;
+using Artifact = Rasm.Contracts.Artifact.V1;
+using Geometry = Rasm.Contracts.Geometry.V1;
+using Spatial = Rasm.Contracts.Spatial.V1;
+using Wire = Rasm.Contracts.Scene.V1;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -723,17 +715,6 @@ public abstract partial record LightBody : IFactBody<LightBodyKind> {
 
 public sealed record LightRoster(Seq<LightStamp> Rows) : IDetachedDocumentResult;
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// The descriptor's own vocabulary: host-free rows in metres, carrying the closed-vocabulary key text every peer
-// decodes by, and nothing a Rhino type spells.
-public readonly record struct SceneVector(double X, double Y, double Z) {
-    internal static SceneVector Of(Point3d point, double scale) =>
-        new(X: point.X * scale, Y: point.Y * scale, Z: point.Z * scale);
-
-    internal static SceneVector Of(Vector3d vector, double scale = 1.0) =>
-        new(X: vector.X * scale, Y: vector.Y * scale, Z: vector.Z * scale);
-}
-
 // LINEAR light in `[0, 1]` per component, read through the kernel's profile leg under the perceptual gamut so the
 // triple the wire declares is the triple it receives. Alpha has no slot here, so a non-opaque colour REFUSES —
 // dropping coverage silently is how a translucent authored diffuse ships as an opaque one nobody authored.
@@ -746,52 +727,44 @@ public readonly record struct SceneSpectrum(double R, double G, double B) {
         };
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PhotometricAuthority {
-    public static readonly PhotometricAuthority RadiantFluxWatts = new("radiant-flux-w");
-    public static readonly PhotometricAuthority RelativeScale = new("relative-scale");
-}
-
 // Four readings over ONE stored power beside the column that carries authority. `Light` exposes no field naming
 // which quantity the modeller set, so picking one reading and dropping three loses the host evidence a consumer
 // needs to explain a converted figure, while shipping four unranked floats hands every peer the same guess.
 public readonly record struct PhotometricPower(
-    PhotometricAuthority Authority, double Watts, double Lumens, double Candela, double Scale) {
+    bool RadiantFluxIsAuthority, double Watts, double Lumens, double Candela, double Scale) {
     internal static PhotometricPower Of(LightStamp stamp) =>
-        new(Authority: double.IsFinite(stamp.Watts) && stamp.Watts > 0d
-                ? PhotometricAuthority.RadiantFluxWatts
-                : PhotometricAuthority.RelativeScale,
+        new(RadiantFluxIsAuthority: double.IsFinite(stamp.Watts) && stamp.Watts > 0d,
             Watts: stamp.Watts,
             Lumens: stamp.Lumens,
             Candela: stamp.Candela,
             Scale: stamp.Intensity);
 }
 
-// Dialect crosses as its `PhotometricDialect.Key` text: the render page owns the roster and sits one stratum below
-// this one, so carrying the row itself seats a downward type on a detached value every peer decodes by string.
-// The length is `ulong` because the message declares `uint64` — a signed carrier admits a value the wire cannot.
-public readonly record struct PhotometricWebRef(string ContentKey, string Dialect, ulong ByteLength);
+// The web body is one artifact coordinate; dialect remains a closed generated vocabulary rather than an extension
+// string interpreted again at each reader.
+public readonly record struct PhotometricWebRef(ArtifactContent Artifact, Wire.WebDialect Dialect) {
+    internal Fin<PhotometricWebRef> Admit(Op op) =>
+        from artifact in op.Need(Artifact)
+        from _ in guard(Dialect != Wire.WebDialect.Unspecified, op.InvalidInput()).ToFin()
+        select this with { Artifact = artifact };
+}
 
 // The shading band by REFERENCE: the GLB body is `Rasm.Compute`'s `GLB_BY_KEY` product and the fidelity is the
 // figure it tessellated AT, so a consumer grades rather than guesses and this emitter never meshes.
-public readonly record struct TessellationFidelity(double DeflectionMetres, double AngleToleranceRadians, long TriangleBudget);
-
 public readonly record struct SceneShading(
-    string ContentKey,
-    string ArtifactHash,
-    long ElementCount,
-    long TriangleCount,
-    TessellationFidelity Fidelity) {
+    ArtifactContent Artifact,
+    ulong ElementCount,
+    ulong TriangleCount,
+    Geometry.TessellationPolicy Fidelity) {
     internal Fin<SceneShading> Admit(Op op) =>
-        from key in op.AcceptText(value: ContentKey)
-        from hash in op.AcceptText(value: ArtifactHash)
+        from artifact in op.Need(Artifact)
+        from fidelity in op.Need(Fidelity)
         from _ in guard(
-            ElementCount >= 0L && TriangleCount >= 0L && Fidelity.TriangleBudget > 0L
-            && double.IsFinite(Fidelity.DeflectionMetres) && Fidelity.DeflectionMetres > 0d
-            && double.IsFinite(Fidelity.AngleToleranceRadians) && Fidelity.AngleToleranceRadians > 0d,
+            fidelity.TriangleBudget > 0UL && TriangleCount <= fidelity.TriangleBudget
+            && double.IsFinite(fidelity.DeflectionM) && fidelity.DeflectionM > 0d
+            && double.IsFinite(fidelity.AngleToleranceRad) && fidelity.AngleToleranceRad > 0d,
             op.InvalidInput()).ToFin()
-        select this with { ContentKey = key, ArtifactHash = hash };
+        select this with { Artifact = artifact, Fidelity = fidelity.Clone() };
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -807,21 +780,19 @@ public interface IPhotometricRegistry {
 public sealed record ScenePhotometry(
     Guid Id,
     Option<string> Name,
-    string Kind,
+    Wire.LightKind Kind,
     bool Enabled,
-    SceneVector LocationMetres,
-    SceneVector Direction,
-    SceneVector Perpendicular,
+    Spatial.Point3 LocationMetres,
+    Spatial.UnitDirection3 Direction,
+    Spatial.UnitDirection3 Perpendicular,
     PhotometricPower Power,
     SceneSpectrum Diffuse,
     SceneSpectrum Ambient,
     SceneSpectrum Specular,
     UnitInterval ShadowFraction,
-    string ConeState,
-    Option<SpotShape> Cone,
+    ConeEvidence Cone,
     Option<AreaShape> ExtentMetres,
-    string Attenuation,
-    SceneVector AttenuationCoefficients,
+    LightAttenuation Attenuation,
     Option<PhotometricWebRef> Web) : IDetachedDocumentResult {
     internal static Fin<ScenePhotometry> Of(
         LightStamp stamp, double metresPerUnit, Option<PhotometricWebRef> web, Op key) =>
@@ -831,28 +802,35 @@ public sealed record ScenePhotometry(
         from diffuse in SceneSpectrum.Of(colour: active.Diffuse, key: key)
         from ambient in SceneSpectrum.Of(colour: active.Ambient, key: key)
         from specular in SceneSpectrum.Of(colour: active.Specular, key: key)
+        let power = PhotometricPower.Of(stamp: active)
+        from _ in guard(
+            double.IsFinite(power.Lumens) && power.Lumens >= 0d
+            && double.IsFinite(power.Candela) && power.Candela >= 0d
+            && (power.RadiantFluxIsAuthority
+                ? double.IsFinite(power.Watts) && power.Watts > 0d
+                : double.IsFinite(power.Scale) && power.Scale >= 0d),
+            key.InvalidInput()).ToFin()
+        from direction in SceneMap.Direction(value: active.Direction, key: key)
+        from perpendicular in SceneMap.Direction(value: active.PerpendicularDirection, key: key)
         from extent in active.Area.Traverse(area => area.Scaled(scale: scale, op: key)).As()
+        from reference in web.Traverse(value => value.Admit(op: key)).As()
         select new ScenePhotometry(
             Id: active.Id,
             Name: active.Name,
             Kind: active.Kind.Wire,
             Enabled: active.Enabled,
-            LocationMetres: SceneVector.Of(point: active.Location, scale: scale),
-            Direction: SceneVector.Of(vector: active.Direction),
-            Perpendicular: SceneVector.Of(vector: active.PerpendicularDirection),
-            Power: PhotometricPower.Of(stamp: active),
+            LocationMetres: SceneMap.Point(value: active.Location, scale: scale),
+            Direction: direction,
+            Perpendicular: perpendicular,
+            Power: power,
             Diffuse: diffuse,
             Ambient: ambient,
             Specular: specular,
             ShadowFraction: shadow,
-            ConeState: active.Cone.Wire,
-            // The kernel cone's apex is the stamp's own location in MODEL units, so the wire keeps the
-            // dimensionless half-angle and hot-spot and drops the coordinate `LocationMetres` already carries.
-            Cone: active.Cone.Shape,
+            Cone: active.Cone,
             ExtentMetres: extent,
-            Attenuation: active.Attenuation.Wire,
-            AttenuationCoefficients: SceneVector.Of(vector: active.Attenuation.Coefficients),
-            Web: web);
+            Attenuation: active.Attenuation,
+            Web: reference);
 }
 
 // One capture of one host scene. `SourceUnit` is the regime the metres derive FROM, so the factor and its
@@ -867,29 +845,16 @@ public sealed record SceneCapture(
     internal static Fin<SceneCapture> Of(
         SceneSun sun, Seq<ScenePhotometry> lights, SceneShading shading, ModelUnit unit, Instant moment, Op op) =>
         from band in op.Need(sun)
+        from _ in guard(
+            double.IsFinite(band.IntensityScale) && band.IntensityScale >= 0d,
+            op.InvalidInput()).ToFin()
         from artifact in op.Need(shading).Bind(value => value.Admit(op: op))
         from regime in op.Need(unit)
         let source = regime.Name.IfNone(() => regime.System.ToString())
-        from key in op.Catch(() => Fin.Succ(value: ContentHash.Of(
-            state: (Source: source, Sun: band, Rows: lights, Shading: artifact),
-            chunks: static (state, writer) => _ = writer
-                .String(value: state.Source)
-                .Bool(value: state.Sun.Enabled)
-                .Double(value: state.Sun.IntensityScale)
-                .String(value: state.Shading.ContentKey)
-                .Rows(rows: state.Rows, field: static (row, rows) => _ = rows
-                    .String(value: row.Kind)
-                    .String(value: row.ConeState)
-                    .String(value: row.Attenuation)
-                    .Bool(value: row.Enabled)
-                    .Doubles(values: [
-                        row.LocationMetres.X, row.LocationMetres.Y, row.LocationMetres.Z,
-                        row.Direction.X, row.Direction.Y, row.Direction.Z,
-                        row.Power.Watts, row.Power.Lumens, row.Power.Candela, row.Power.Scale,
-                        row.Diffuse.R, row.Diffuse.G, row.Diffuse.B,
-                    ])))))
-        select new SceneCapture(
-            Key: key, SourceUnit: source, Sun: band, Lights: lights, Shading: artifact, CapturedAt: moment);
+        let unstamped = new SceneCapture(
+            Key: 0, SourceUnit: source, Sun: band, Lights: lights, Shading: artifact, CapturedAt: moment)
+        from key in SceneMap.ContentKey(capture: unstamped, key: op)
+        select unstamped with { Key = key };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -971,115 +936,182 @@ public static class Lights {
 // ONE seam mapper: every member of every wire message transcribes from its own declared row, so a renamed column
 // breaks the build instead of silently reading garbage on a peer decoder. Target-side completeness is the proof —
 // a wire field nothing fills is a build error.
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
-        EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
-public static partial class SceneMap {
+public static class SceneMap {
+    internal static Fin<UInt128> ContentKey(SceneCapture capture, Op key) =>
+        key.Catch(() => Fin.Succ(ContentHash.Of(Descriptor(capture: capture, includeKey: false).ToByteArray())));
+
     public static Fin<ReadOnlyMemory<byte>> Encode(SceneCapture capture, Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in op.Need(capture)
                from bytes in op.Catch(() => Fin.Succ(
-                   value: (ReadOnlyMemory<byte>)Descriptor(capture: admitted).ToByteArray()))
+                   value: (ReadOnlyMemory<byte>)Descriptor(capture: admitted, includeKey: true).ToByteArray()))
                select bytes;
     }
 
-    [MapProperty(nameof(SceneCapture.Key), nameof(Wire.SceneDescriptor.ContentKey))]
-    private static partial Wire.SceneDescriptor Descriptor(SceneCapture capture);
+    private static Wire.SceneDescriptor Descriptor(SceneCapture capture, bool includeKey) {
+        Wire.SceneDescriptor result = new() {
+            SourceUnit = capture.SourceUnit,
+            Sun = Sun(band: capture.Sun),
+            Shading = Shading(value: capture.Shading),
+            CapturedAt = capture.CapturedAt.ToTimestamp(),
+        };
+        if (includeKey) result.Key = ContentHash.Wire(digest: capture.Key);
+        result.Lights.Add(capture.Lights.Map(Photometry));
+        return result;
+    }
 
-    [MapProperty(nameof(ScenePhotometry.LocationMetres), nameof(Wire.ScenePhotometry.LocationM))]
-    [MapProperty(nameof(ScenePhotometry.ExtentMetres), nameof(Wire.ScenePhotometry.Extent))]
-    private static partial Wire.ScenePhotometry Photometry(ScenePhotometry row);
+    private static Wire.Photometry Photometry(ScenePhotometry row) {
+        Wire.Photometry result = new() {
+            Id = Identity(value: row.Id),
+            Kind = row.Kind,
+            Enabled = row.Enabled,
+            Location = row.LocationMetres,
+            Direction = row.Direction,
+            Perpendicular = row.Perpendicular,
+            Power = Power(value: row.Power),
+            Diffuse = Spectrum(value: row.Diffuse),
+            Ambient = Spectrum(value: row.Ambient),
+            Specular = Spectrum(value: row.Specular),
+            ShadowFraction = (double)row.ShadowFraction,
+        };
+        _ = row.Name.Iter(name => result.Name = name);
+        SeatCone(target: result, evidence: row.Cone);
+        _ = row.ExtentMetres.Iter(area => SeatExtent(target: result, area: area));
+        SeatAttenuation(target: result, value: row.Attenuation);
+        _ = row.Web.Iter(value => result.Web = Web(value: value));
+        return result;
+    }
 
-    [MapProperty(nameof(TessellationFidelity.DeflectionMetres), nameof(Wire.TessellationFidelity.DeflectionM))]
-    [MapProperty(nameof(TessellationFidelity.AngleToleranceRadians), nameof(Wire.TessellationFidelity.AngleToleranceRad))]
-    private static partial Wire.TessellationFidelity Fidelity(TessellationFidelity declared);
+    private static Wire.Spectrum Spectrum(SceneSpectrum value) => new() { R = value.R, G = value.G, B = value.B };
 
-    private static partial Wire.ShadingArtifact Artifact(SceneShading shading);
+    private static Wire.Power Power(PhotometricPower value) => value.RadiantFluxIsAuthority
+        ? new Wire.Power {
+            RadiantFluxW = value.Watts,
+            Lumens = value.Lumens,
+            Candela = value.Candela,
+        }
+        : new Wire.Power {
+            RelativeScale = value.Scale,
+            Lumens = value.Lumens,
+            Candela = value.Candela,
+        };
 
-    private static partial Wire.SceneVector Vector(SceneVector value);
+    private static Wire.WebRef Web(PhotometricWebRef value) => new() {
+        Dialect = value.Dialect,
+        Artifact = ArtifactRef(value: value.Artifact),
+    };
 
-    private static partial Wire.SceneSpectrum Spectrum(SceneSpectrum value);
+    private static Wire.Shading Shading(SceneShading value) => new() {
+        ElementCount = value.ElementCount,
+        TriangleCount = value.TriangleCount,
+        Fidelity = value.Fidelity,
+        Artifact = ArtifactRef(value: value.Artifact),
+    };
 
-    private static partial Wire.PhotometricPower Power(PhotometricPower value);
+    private static Artifact.ArtifactRef ArtifactRef(ArtifactContent value) => new() {
+        Sha256 = ByteString.CopyFrom(Convert.FromHexString(value.Sha256)),
+        ArtifactBytes = value.Bytes,
+    };
 
-    private static partial Wire.PhotometricWebRef Web(PhotometricWebRef value);
+    internal static Spatial.Point3 Point(Point3d value, double scale = 1.0) => new() {
+        XM = value.X * scale,
+        YM = value.Y * scale,
+        ZM = value.Z * scale,
+    };
 
-    // An ABSENT sub-message is a null reference on the generated target, which no `Option` carrier expresses —
-    // the generator's own limit, named once here rather than met again per optional band.
-    [UserMapping]
-    private static Wire.SpotCone? Cone(Option<SpotShape> shape) => shape.Match(
-        Some: static value => new Wire.SpotCone {
-            HalfAngleRad = value.Cone.HalfAngle.Value, HotSpot = (double)value.HotSpot,
+    internal static Spatial.Displacement3 Displacement(Vector3d value) => new() {
+        XM = value.X,
+        YM = value.Y,
+        ZM = value.Z,
+    };
+
+    internal static Fin<Spatial.UnitDirection3> Direction(Vector3d value, Op key) {
+        Vector3d admitted = value;
+        return admitted.Unitize()
+            ? Fin.Succ(new Spatial.UnitDirection3 { X = admitted.X, Y = admitted.Y, Z = admitted.Z })
+            : Fin.Fail<Spatial.UnitDirection3>(key.InvalidInput(axis: "scene-direction"));
+    }
+
+    internal static Wire.AttenuationCoefficients Coefficients(Vector3d value) => new() {
+        Constant = value.X,
+        Linear = value.Y,
+        Quadratic = value.Z,
+    };
+
+    private static void SeatCone(Wire.Photometry target, ConeEvidence evidence) => evidence.Switch(
+        state: target,
+        absent: static (_, _) => unit,
+        shaped: static (wire, row) => {
+            wire.Shaped = new Wire.Cone {
+                HalfAngleRad = row.Value.Cone.HalfAngle.Value,
+                HotSpot = (double)row.Value.HotSpot,
+            };
+            return unit;
         },
-        None: static () => null);
+        degenerate: static (wire, _) => {
+            wire.Degenerate = new Google.Protobuf.WellKnownTypes.Empty();
+            return unit;
+        });
 
-    [UserMapping]
-    private static Wire.AreaExtent? Extent(Option<AreaShape> area) => area.Match(
-        Some: static value => new Wire.AreaExtent {
-            LengthM = Vector(value: SceneVector.Of(vector: value.Length)),
-            WidthM = value.Width.Match(
-                Some: static width => Vector(value: SceneVector.Of(vector: width)),
-                None: static () => null),
+    private static Unit SeatExtent(Wire.Photometry target, AreaShape area) => area.Width.Match(
+        Some: width => {
+            target.Rectangular = new Wire.Extent {
+                Length = Displacement(value: area.Length),
+                Width = Displacement(value: width),
+            };
+            return unit;
         },
-        None: static () => null);
+        None: () => {
+            target.Linear = Displacement(value: area.Length);
+            return unit;
+        });
 
-    [UserMapping]
-    private static Wire.PhotometricWebRef? Reference(Option<PhotometricWebRef> web) => web.Match(
-        Some: static value => Web(value: value),
-        None: static () => null);
-
-    // Closed vocabularies cross as their key TEXT through one column, so a roster reordered at either end
-    // re-maps nothing and an unknown key is the peer's decode refusal.
-    [UserMapping]
-    private static string Vocabulary(PhotometricAuthority row) => row.Key;
+    private static void SeatAttenuation(Wire.Photometry target, LightAttenuation value) => value.Switch(
+        context: target,
+        named: static (wire, row) => {
+            wire.Falloff = row.Row.Wire;
+            return unit;
+        },
+        free: static (wire, row) => {
+            wire.Coefficients = Coefficients(value: row.Coefficients);
+            return unit;
+        });
 
     // `SunDerivation` DISPATCHES its oneof arm rather than transcribing members: a union arm selecting a oneof
     // slot is dispatch, and `[MapDerivedType]` refuses a oneof envelope outright (RMG036).
-    [UserMapping]
     private static Wire.SceneSun Sun(SceneSun band) => new() {
         Enabled = band.Enabled,
         IntensityScale = band.IntensityScale,
         Sited = band.Derivation is SunDerivation.Sited sited
             ? new Wire.SitedSun { Frame = Frame(frame: sited.Frame), Angles = Angles(angles: sited.Angles) }
             : null,
-        Authored = band.Derivation is SunDerivation.Authored authored
-            ? new Wire.AuthoredSun { Angles = Angles(angles: authored.Angles) }
-            : null,
+        Authored = band.Derivation is SunDerivation.Authored authored ? Angles(angles: authored.Angles) : null,
     };
 
-    [MapProperty([nameof(SolarFrame.Site), nameof(SolarSite.LatitudeDeg)], [nameof(Wire.SolarFrame.LatitudeDeg)])]
-    [MapProperty([nameof(SolarFrame.Site), nameof(SolarSite.LongitudeDeg)], [nameof(Wire.SolarFrame.LongitudeDeg)])]
-    [MapProperty([nameof(SolarFrame.Site), nameof(SolarSite.TimezoneHours)], [nameof(Wire.SolarFrame.TimeZoneHours)])]
-    [MapProperty([nameof(SolarFrame.Site), nameof(SolarSite.ElevationM)], [nameof(Wire.SolarFrame.ElevationM)])]
-    [MapProperty(nameof(SolarFrame.NorthAxisDegrees), nameof(Wire.SolarFrame.NorthAxisDeg))]
-    private static partial Wire.SolarFrame Frame(SolarFrame frame);
+    private static Wire.SolarFrame Frame(SolarFrame frame) => new() {
+        LatitudeDeg = frame.Site.LatitudeDeg,
+        LongitudeDeg = frame.Site.LongitudeDeg,
+        TimeZoneHours = frame.Site.TimezoneHours,
+        ElevationM = frame.Site.ElevationM,
+        NorthAxisDeg = frame.NorthAxisDegrees,
+        DaylightSavingMinutes = frame.DaylightSavingMinutes,
+        Moment = frame.Moment.ToTimestamp(),
+    };
 
-    [MapProperty(nameof(SunPosition.AltitudeDeg), nameof(Wire.SolarAngles.AltitudeDeg))]
-    [MapProperty(nameof(SunPosition.AzimuthDeg), nameof(Wire.SolarAngles.AzimuthDeg))]
-    private static partial Wire.SolarAngles Angles(SunPosition angles);
+    private static Wire.SolarAngles Angles(SunPosition angles) => new() {
+        AltitudeDeg = angles.AltitudeDeg,
+        AzimuthDeg = angles.AzimuthDeg,
+    };
 
     // RFC-4122 byte order, stated ONCE at the boundary that emits it: the platform's default layout writes the
     // first three fields little-endian, while the consuming peer reads `row.id.hex()` against the canonical text
     // form. The two agree only on the trailing eight bytes, so a default `ToByteArray()` here renames every light
     // in the descriptor and no decoder fails to notice.
-    [UserMapping]
     private static ByteString Identity(Guid value) {
         Span<byte> bytes = stackalloc byte[KeyWidth];
         _ = value.TryWriteBytes(destination: bytes, bigEndian: true, bytesWritten: out _);
         return ByteString.CopyFrom(bytes: bytes);
     }
-
-    // Content keys leave as the estate's lowercase 32-hex spelling, so one string column serves the descriptor and
-    // the artifact reference alike and no peer re-derives a width.
-    [UserMapping]
-    private static string Digest(UInt128 value) => value.ToString(
-        format: "x32", provider: System.Globalization.CultureInfo.InvariantCulture);
-
-    [UserMapping]
-    private static Google.Protobuf.WellKnownTypes.Timestamp Moment(Instant value) =>
-        Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(value.ToDateTimeOffset());
-
-    [UserMapping]
-    private static string Label(Option<string> value) => value.IfNone(string.Empty);
 
     private const int KeyWidth = 16;
 }

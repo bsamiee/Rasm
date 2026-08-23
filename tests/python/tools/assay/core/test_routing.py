@@ -165,8 +165,9 @@ def test_target_files_partitions_unsupported_inputs(assay_root: AssayHarness) ->
         (Language.BASH, ("deploy.sh", "notes.md"), (), Scope.CHANGED, 1, ()),
         (Language.SQL, ("schema.sql", "schema.py"), (), Scope.CHANGED, 1, ()),
         (Language.DOCS, ("CHANGELOG.md", "schema.py"), (), Scope.CHANGED, 1, ()),
+        (Language.PROTO, ("tests/contracts/proto/a/v1/a.proto", "schema.py"), (), Scope.CHANGED, 1, ()),
     ],
-    ids=["py-glob", "ts-glob", "csharp-full-trigger", "csharp-changed", "bash-glob", "sql-glob", "docs-glob"],
+    ids=["py-glob", "ts-glob", "csharp-full-trigger", "csharp-changed", "bash-glob", "sql-glob", "docs-glob", "proto-glob"],
 )
 def test_route_language_table(
     language: Language,
@@ -282,7 +283,7 @@ def test_infer_languages_matrix() -> None:
     )
 
 
-@given(st.lists(st.sampled_from([".py", ".ts", ".cs", ".sh", ".sql", ".md", ""]), max_size=8))
+@given(st.lists(st.sampled_from([".py", ".ts", ".cs", ".sh", ".sql", ".md", ".proto", ""]), max_size=8))
 def test_infer_languages_never_exceeds_available(suffixes: list[str]) -> None:
     """For any path multiset the result is a non-empty, order-preserving subsequence of available."""
     paths = tuple(f"dir/file{i}{suffix}" for i, suffix in enumerate(suffixes))

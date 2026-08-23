@@ -112,6 +112,7 @@ public sealed record InterchangePolicy(
     Tolerance Chord,
     Tolerance Distance,
     Tolerance Angle,
+    int TriangleBudget,
     ReleaseVersion IfcSchema,
     StepProtocol StepProtocol,
     CapabilitySet<ExportTrait> Traits,
@@ -133,6 +134,7 @@ public sealed record InterchangePolicy(
 
     static readonly Lazy<InterchangePolicy> CanonicalRows = new(static () => new(
         Chord: Band(ToleranceLane.Chord, 0.01), Distance: Band(ToleranceLane.Distance, 1e-6), Angle: Band(ToleranceLane.Angle, 1e-4),
+        TriangleBudget: 8_388_608,
         IfcSchema: ReleaseVersion.Ifc4X3Add2, StepProtocol: StepProtocol.Ap242,
         Traits: CapabilitySet<ExportTrait>.Of(ExportTrait.MergeBuffers, ExportTrait.StridedBuffers, ExportTrait.LockBorder),
         Validation: ValidationMode.Strict,
@@ -276,8 +278,8 @@ public sealed partial class GltfChannel {
 // registered as basisu lights the wrong extension and nothing raises — and a transform-bearing row obliges
 // TextureTransform; the union of those rows with the channel's own registers before the write, so no
 // format#FORMAT_AXIS row serializes unregistered. A KTX2 payload arrives already wire-legal: the frozen
-// wire-legality law refuses rawBcn and astc at the PRODUCING wire (TextureSetWire.Of guards every channel's
-// payload class before the document exists), so the bytes this binder receives carry a Basis-transcodable or
+// `TextureSet.Of` domain gate refuses rawBcn and astc before `AppearanceEgress.Set` constructs the generated
+// `appearance.v1.Set`, so the bytes this binder receives carry a Basis-transcodable or
 // uncompressed payload by construction and the sniff here reads container magic alone — for extension
 // registration, never a second legality gate re-deciding what the producer already proved.
 public sealed record ChannelImage {
@@ -315,8 +317,8 @@ public sealed record ChannelImage {
     public TextureInterpolationFilter MagFilter { get; }
     public Option<UvTransform> Transform { get; }
     public Option<KhrExtension> Container { get; }
-    // ThicknessSpanNm carries the nm span the producer normalized the thin_film_thickness plane against — the wire's
-    // own heightScale-class evidence, threaded from the TextureSetWire the composing edge holds. Read by the FilmThick
+    // ThicknessSpanNm carries the nm span the producer normalized the thin_film_thickness plane against — the
+    // generated `Set.pbr`/`Set.baked.surface` height-scale evidence the composing edge holds. Read by the FilmThick
     // binding alone; inert on every other row, because only the iridescence-thickness lerp carries a min/max pair to fill.
     public Option<double> ThicknessSpanNm { get; }
 

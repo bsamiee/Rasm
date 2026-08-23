@@ -149,6 +149,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
 - Composition timing reduces and bounds ONCE — `KeyFrameAnimation.Duration` validates the field it OVERWRITES, so a zero poisons every later write.
 - Wire absence spells the AppHost merge's omission on every family — a package-declared null regime forks a posture the emitted bytes never carried.
+- `AppUiSurfaceProgram` seats one app input: partition, unique-key control tree, and exact structured-variable layout closure; leaves stay support.
 
 ## [03]-[COLLAPSE]
 

@@ -37,8 +37,8 @@ import {
 import { do_not_optimize, measure } from "mitata/src/lib.mjs"
 import type { JWK as CachedJwk } from "openid-client"
 import {
-  Array, Cause, Config, Context, Data, DateTime, Duration, Effect, Exit, HashMap, Layer, Metric, Option, Predicate, PrimaryKey,
-  Redacted, Ref, Runtime, Schedule, Schema, Stream, Struct, pipe,
+  Array, Cause, Config, Context, Data, DateTime, Duration, Effect, Encoding, Exit, HashMap, Layer, Match, Metric, Option,
+  Predicate, PrimaryKey, Record, Redacted, Ref, Runtime, Schedule, Schema, Stream, Struct, pipe,
 } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 
@@ -192,14 +192,14 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
 
 [KEY_MATERIAL]:
 - Owner: `Material` — the assembled key-material owner: `Source` the admission-source family, `admit` the one fold from any source into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing source and a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint` is the one RFC 7638 identity mint — the bare form, which is both the fallback `kid` a kid-less published key takes and the `cnf.jkt` confirmation value a sender-constrained token carries. This owner is every source's terminus: the handle never crosses back to a wire and never reaches a log.
-- Law: PRIVATE KEY MATERIAL NEVER ARRIVES OFF THE WIRE — `Source` carries one case per trust boundary and the boundary decides what a case can hold. `Attested` is the core `Credential` landing whose producer publishes the public chain, the RFC-7468 label set, and the block digests alone, so its admission reaches `importSPKI`/`importX509` and nothing else; a peer mint that leaked private material is refused at the WIRE, since the core `Credential` codec filters every secret-carrying RFC-7468 label at decode and a landed chain carries public blocks alone. `Held` is this folder's own host-side material — `crypt/secret` seals a Doppler-leased bundle into it and `Shredder` keys never leave the layer — and it alone reaches `importPKCS8`. `Published` is a remote JWKS entry. One entrypoint over three cases beats an `admitWire`/`admitHost` pair, because the case IS the trust boundary and a caller cannot pick the wrong one.
-- Law: the importer is a row read over the core RFC-7468 vocabulary, never a header sniff — `_PEM` keys `Credential.Label` to its jose importer, `PKCS7` carries none and refuses `unsupported`, and the prefix ladder that inferred a format from four hardcoded armor strings silently fell through to the JWK arm for every label outside its three.
+- Law: PRIVATE KEY MATERIAL NEVER ARRIVES OFF THE WIRE — `Source` carries one case per trust boundary and the boundary decides what a case can hold. `Attested` carries the opaque `CredentialPublicWire` frame to its first typed consumer, where `Material.admit` calls `Wire.decode` and immediately admits the validated public material; the decoded credential never escapes as a second API. That wire declares a certificate-chain arm and a bare-SPKI arm and NO private arm, so private material is unrepresentable rather than filtered — what the collapse gives up is the self-describing armor label, and what stands in its place is the X.509 and SPKI format parse each importer runs, which refuses a PKCS#8 body by encoding instead of trusting a string the payload wrote about itself. `Held` is this folder's own host-side material — `crypt/secret` seals a Doppler-leased bundle into it and `Shredder` keys never leave the layer — and it alone reaches `importPKCS8`. `Published` is a remote JWKS entry. One entrypoint over three cases beats an `admitWire`/`admitHost` pair, because the case IS the trust boundary and a caller cannot pick the wrong one.
+- Law: DER crosses and text never does — `_admissible` dispatches the generated `material` discriminant and `_armor` wraps the chosen octets at the jose call alone, because jose polices an armor prefix it then strips back to the same DER and exposes no reachable DER entrypoint. Re-armoring keeps ONE algorithm authority: jose's own JWS table already answers algorithm and usages for every `KeyAlg` row. Three alternatives reject — a direct `crypto.subtle.importKey` on the SPKI arm, which seats a second algorithm table the certificate arm never reaches; an admitted X.509 package for an extraction jose already ships; and a hand-walked certificate ASN.1.
 - Law: the handle side is the KEY's own witness — `CryptoKey.type` answers `"private"` or `"public"` after the import, so `Signing` and `Verify` derive from what the platform produced rather than from a re-parsed `d` field or a caller-declared role; a symmetric `importJWK` result is `unsupported`.
-- Law: the validity window rides the source that carries one — `Held` states its lease bounds and an instant outside them is `SignFault.window`; an `Attested` landing carries the producer's mint instant alone, so its retirement is the producer's own lease observed as a fresh landing and `Credential.rotated` compares the bundle digest across the two.
+- Law: the validity window rides the source that carries one — `Held` states its lease bounds and an instant outside them is `SignFault.window`; an `Attested` landing carries no local lease claim, so a replacement arrives as a newly admitted frame.
 - Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.metric.securityJwksQuarantined` counter, a warning log, and an `Admission` fact through `Witness`, so one rotated-in bad key never collapses the verify set and the quarantine is receipt-truth; an empty surviving set is the only `material` failure. The synthetic verify carrier and its horizon parameter are gone with it — `Published` admits a JWKS entry directly, so no fabricated window and no `"verify"` role outside the credential vocabulary is minted to reach the same import.
-- Growth: a new signature scheme is one `KeyAlg` row; a new armor label is one `_PEM` row beside the core vocabulary row that mints it; a new material source (KMS, HSM) is one `Source` case terminating through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
-- Boundary: `crypt/secret` mints `Material.Source.Held` from fetched material and is the only host-side key source this folder owns; the core interchange codec decodes the `csharp:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM`-produced `CredentialPemWire` into the `Credential` landing `Attested` carries under that mint's `json` arm; proving a landing's chain against its `blockDigests` is the producer's non-cryptographic content-identity fold and stays the codec's parity concern; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
-- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`); `@rasm/ts/core` (`Convention`, `Credential`); `access/audit` (`Witness`, `SecurityFact`).
+- Growth: a new signature scheme is one `KeyAlg` row; a new wire material encoding is one generated oneof member landing beside one `_admissible` arm; a new armor form is one `_IMPORT` row; a new material source (KMS, HSM) is one `Source` case terminating through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
+- Boundary: `crypt/secret` mints `Material.Source.Held` from fetched material and is the only host-side key source this folder owns; `Material.admit` is the first-sight byte boundary for the `csharp:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM`-produced `CredentialPublicWire` and decodes its ProtoJSON frame through the direct family before the credential reaches any interior logic; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
+- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`); `effect` (`Encoding`, `Match`); `@rasm/ts/core` (`Convention`, `Wire.decode`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 type KeyHandle = Data.TaggedEnum<{
@@ -215,7 +215,7 @@ type Ring = {
 // One case per trust boundary: the peer-attested landing whose producer publishes public blocks only, this
 // folder's own host-held material under its lease window, and a remote JWKS entry.
 type _Source = Data.TaggedEnum<{
-  Attested: { readonly credential: Wire.Credential }
+  Attested: { readonly bytes: Uint8Array }
   Held: {
     readonly bundle: Redacted.Redacted<string>
     readonly fingerprint: string
@@ -236,35 +236,60 @@ const _Jwk = Schema.parseJson(Schema.Struct({ kty: Schema.String }, { key: Schem
 const _jwkBody = Schema.decodeUnknown(_Jwk)
 const _scheme = Schema.decodeUnknown(Schema.Literal(..._algs))
 
-// The importer keys off the core RFC-7468 label vocabulary, so `importPKCS8` is reachable from a private label
-// alone — a label the AppHost mint never writes — and PKCS7 refuses rather than falling through to a JWK parse.
-const _PEM = {
-  "CERTIFICATE": Option.some(importX509),
-  "PUBLIC KEY": Option.some(importSPKI),
-  "PKCS7": Option.none<(pem: string, alg: string) => Promise<CryptoKey>>(),
-  "PRIVATE KEY": Option.some(importPKCS8),
-  "EC PRIVATE KEY": Option.some(importPKCS8),
-  "RSA PRIVATE KEY": Option.some(importPKCS8),
-} as const satisfies Record<Wire.Credential.Label, Option.Option<(pem: string, alg: string) => Promise<CryptoKey>>>
+// One importer per armor label, serving both admitting arms. `PKCS7` retired because it resolved to a refusal at
+// every call, and `PRIVATE KEY` lands because `Held` is the one source carrying signing material and its importer
+// stayed unreachable while this table held public labels alone — which is why `ring` could seat no armored signer.
+const _IMPORT = {
+  "CERTIFICATE": importX509,
+  "PUBLIC KEY": importSPKI,
+  "PRIVATE KEY": importPKCS8,
+} as const satisfies Record<string, (pem: string, alg: string) => Promise<CryptoKey>>
+type _Label = keyof typeof _IMPORT
 
+// Armor is the real structure of the HOST-HELD bundle — undescribed text `crypt/secret` seals from a leased secret
+// with no descriptor over it — so this scan is not a rule beside a generated shape. Only that arm reads it; the
+// wire arm carries a label its descriptor already settled and never comes back through here.
 const _ARMOR = /-----BEGIN ([A-Z0-9 ]+)-----/
-const _BLOCK = /-----BEGIN ([A-Z0-9 ]+)-----[\s\S]*?-----END \1-----/g
-const _label = Schema.decodeUnknownOption(Wire.Credential.Label)
+const _label = Schema.decodeUnknownOption(Schema.Literal(...Record.keys(_IMPORT)))
 
-const _labelOf = (armored: string): Option.Option<Wire.Credential.Label> =>
+const _labelOf = (armored: string): Option.Option<_Label> =>
   Option.flatMap(Option.fromNullable(_ARMOR.exec(armored)), (found) => _label(found[1]))
+
+// jose polices its own armor prefix and strips every byte back to DER before `crypto.subtle.importKey`, so this
+// wrap is argument marshalling at the call boundary: `Uint8Array` stays the domain value, text dies inside that
+// call, and no line wrap is owed because jose's strip consumes every whitespace byte.
+const _armor = (label: _Label, der: Uint8Array): string =>
+  `-----BEGIN ${label}-----\n${Encoding.encodeBase64(der)}\n-----END ${label}-----`
 
 const _handleOf = (key: CryptoKey, kid: string, alg: KeyAlg.Kind): KeyHandle =>
   key.type === "private"
     ? _KeyHandle.Signing({ kid, alg, key: Redacted.make(key) })
     : _KeyHandle.Verify({ kid, alg, key: Redacted.make(key) })
 
+// Both arms land here with their label ALREADY resolved, so neither re-reads a fact it holds.
+const _imported = (label: _Label, pem: string, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
+  Effect.map(Effect.tryPromise({ try: () => _IMPORT[label](pem, alg), catch: _material }), (key) => _handleOf(key, kid, alg))
+
 const _armored = (block: string, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
-  Option.match(Option.flatMap(_labelOf(block), (label) => _PEM[label]), {
+  Option.match(_labelOf(block), {
     onNone: () => Effect.fail(new SignFault({ case: { reason: "unsupported", cause: "armor label admits no importer" } })),
-    onSome: (admit) =>
-      Effect.map(Effect.tryPromise({ try: () => admit(block, alg), catch: _material }), (key) => _handleOf(key, kid, alg)),
+    onSome: (label) => _imported(label, block, alg, kid),
   })
+
+// Total over the generated `material` oneof: each arm names the DER it carries and the label that DER wears at the
+// jose boundary. Dispatch reads the descriptor's own discriminant, so the scraped label retires — the wire already
+// settled which encoding arrived and re-reading it out of text asked the payload to re-declare a decided fact. Both
+// absences fold: an empty oneof and an empty chain are one state, the protovalidate `required`/`min_items` pair
+// bypassed, and neither names a key a verifier could select.
+const _admissible = (material: Wire.Credential["material"]): Option.Option<readonly [_Label, Uint8Array]> =>
+  Match.value(material).pipe(
+    Match.discriminators("case")({
+      certificateChain: ({ value }) => Option.map(Array.head(value.certificates), (leaf) => ["CERTIFICATE", leaf] as const),
+      spkiDer: ({ value }) => Option.some(["PUBLIC KEY", value] as const),
+    }),
+    Match.option,
+    Option.flatten,
+  )
 
 const _fromJwk = (jwk: JWK, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
   Effect.tryPromise({ try: () => importJWK(jwk, alg), catch: _material }).pipe(
@@ -277,14 +302,14 @@ const _fromJwk = (jwk: JWK, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHan
 
 const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHandle, SignFault> =>
   _Source.$match(source, {
-    // the wire arm reads the LEAF block in the producer's bundle order: the core `Credential` codec filters
-    // every secret-carrying RFC-7468 label at decode, so a landed chain holds public blocks alone and the
-    // broken-mint leak is refused at the wire — no private label ever reaches this arm to re-check
-    Attested: ({ credential }) =>
-      Option.match(Option.flatMap(Option.fromNullable(credential.chain.match(_BLOCK)), Array.head), {
-        onNone: () => Effect.fail(new SignFault({ case: { reason: "material", cause: "attested chain carries no armored block" } })),
-        onSome: (leaf) => _armored(leaf, alg, credential.fingerprint),
-      }),
+    // the first typed consumer decodes the direct family and keeps the validated credential inside this arm
+    Attested: ({ bytes }) =>
+      Effect.flatMap(Wire.decode("CredentialPublicWire", bytes).pipe(Effect.mapError(_material)), (credential) =>
+        Option.match(_admissible(credential.material), {
+          onNone: () => Effect.fail(new SignFault({ case: { reason: "material", cause: "attested credential carries no admissible der" } })),
+          onSome: ([label, der]) => _imported(label, _armor(label, der), alg, credential.keyId),
+        }),
+      ),
     // the lease window gates the host arm alone, because it is the only source that carries one
     Held: ({ bundle, fingerprint, notBefore, notAfter }) =>
       Effect.flatMap(

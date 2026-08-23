@@ -432,13 +432,13 @@ class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers 
 
 ## [03]-[ENVELOPE]
 
-- Owner: `GraduationEnvelope` — the serving-population drift companion this owner fits at graduation and ships beside the ONNX artifact: `ReferenceBand` is the numeric-or-categorical band union, `fit` derives each feature's band from the training columns only this owner holds, and `write` emits the container `csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY` `GraduationEnvelope.Admit(HdfHandle)` ingests — the consuming anchor whose layout this writer hand-copies as a deliberate non-import mirror per estate law, so a layout question resolves at that ingest fence and never re-derives here. The reverse JSON `EvidenceBundle` leg stays whole on `graduation/codegen#STUB_CODEGEN`, untouched.
-- Cases: layout is the ingest fence's law transcribed — one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering the C# parses `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the `edges` float64[k] and `mass` float64[k+1] datasets, categorical bands the vlen-string `categories` and float64 `mass` datasets.
+- Owner: `GraduationEnvelope` — the serving-population drift companion this owner fits at graduation and ships beside the ONNX artifact: `ReferenceBand` is the numeric-or-categorical band union, `fit` derives each feature's band from the training columns only this owner holds, and `write` is the `hdf5-exchange/graduation` domain producer whose container `csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY` `GraduationEnvelope.Admit(HdfHandle)` consumes. The reverse JSON `EvidenceBundle` leg stays whole on `graduation/codegen#STUB_CODEGEN`, untouched.
+- Cases: this producer's law is one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering the C# parses `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the explicit little-endian `edges` float64[k] and `mass` float64[k+1] datasets, categorical bands the vlen UTF-8 `categories` and little-endian float64 `mass` datasets.
 - Law: `write_async` is the ONE durable seat and the crossing's only movement evidence — one `REGULATORY` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes landed. It is an awaitable twin because this owner carries no weave and `write` is synchronous whole while recording suspends; without the line, a reference population leaves for the peer's admission gate and neither branch records that it moved. `REGULATORY` is earned rather than inherited: a drift envelope is the population a served model is graded against for as long as that model serves. The record rail BINDS, so a container the plane refused never reads as written.
 - Entry: `GraduationEnvelope.fit(evidence_key, numeric, categorical)` folds the training columns into admitted bands or a typed refusal; `write(ref)` is create-only h5py, one call landing roster, attributes, and datasets whole and answering the container's byte extent; `write_async(ref)` is its awaitable twin.
 - Auto: `fit` mirrors every `Wellformed` gate BEFORE bytes land, so a container this writer emits never fails the peer's admission — finite strictly-increasing edges, mass length `edges + 1`, every mass strictly positive and summing to one within `1e-9`, non-blank unique features and categories, a non-zero evidence key. Numeric edges are interior training quantiles, so the k+1 mass vector covers BOTH outer bins the peer's half-open bisection addresses; `_edges` drops any edge bounding an empty bin until every bin holds mass, because duplicated quantiles over ties otherwise mint a zero-mass bin the peer's normalization gate refuses.
 - Receipt: the envelope is a crossing artifact, not hub evidence — it graduates nothing itself; the `model_asset` axis crossing on `[02]-[ASSET]` stays the one graduation leg, and the envelope's container `ContentKey` pairs the artifact with that crossing's evidence key.
-- Growth: a new band case is one `ReferenceBand` case with its `kind` literal, landed at the ingest fence FIRST because the reader's `Switch` is the layout law; a new fit policy is one parameter on `fit`; a newly audited container column is one `_evidence` `Change` row; zero new surface.
+- Growth: a new band case is one `ReferenceBand` case with its `kind` literal and the C# peer's matching admission arm in the same contract change; a new fit policy is one parameter on `fit`; a newly audited container column is one `_evidence` `Change` row; zero new surface.
 - Boundary: reference mass is fitted HERE and never at the peer — the C# comment pins that division; the statistic, thresholds, and sampling floors are `DriftPolicy` rows at the consumer, so no policy value crosses in the container; `h5py` composes under the compute-tier `.api/h5py.md` admission.
 
 ```python signature
@@ -534,7 +534,7 @@ class GraduationEnvelope(Struct, frozen=True):
                 labels, tallies = np.unique(np.asarray(column, dtype=str), return_counts=True)
                 rows.append(ReferenceBand(categorical=(name, tuple(map(str, labels)), tuple(tallies / tallies.sum()))))
             features = [row.feature for row in rows]
-            admitted = rows and len(set(features)) == len(features) and all(row.wellformed() for row in rows)
+            admitted = evidence_key.value != 0 and rows and len(set(features)) == len(features) and all(row.wellformed() for row in rows)
             if not admitted:
                 raise ValueError(f"envelope admission: features={features}")
             return cls(evidence_key=evidence_key, bands=tuple(rows))
@@ -542,7 +542,7 @@ class GraduationEnvelope(Struct, frozen=True):
         return boundary(ENVELOPE_FIT, build, catch=_ENVELOPE_FIT_RAISES)
 
     def write(self, ref: ResourceRef) -> "RuntimeRail[int]":
-        # create-only h5py mirror of the ingest fence's read: root `bands` group, `evidence-key` hex attribute,
+        # create-only domain mint: root `bands` group, `evidence-key` hex attribute,
         # per-feature `kind` beside its case datasets — float64 exact, categories vlen-string. The byte extent
         # returns rather than `None`: the storage charge and any caller reconciling the artifact both need what
         # actually landed, and a writer answering nothing forces a second stat at every consumer.

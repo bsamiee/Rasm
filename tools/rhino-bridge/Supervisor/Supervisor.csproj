@@ -1,13 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Workstation session owner for bridge verbs, session state, policy rows, and terminal envelope folding.</Description>
-        <CspScope>Boundary</CspScope>
         <OutputType>Exe</OutputType>
         <AssemblyName>Rasm.Bridge.Supervisor</AssemblyName>
         <RootNamespace>Rasm.Bridge.Supervisor</RootNamespace>
         <!-- Supervisor is the workstation process boundary and never loads host assemblies. -->
-        <!-- StreamJsonRpc0008 targets MessagePack shape rows unused by SystemTextJsonFormatter. -->
-        <NoWarn>$(NoWarn);StreamJsonRpc0008</NoWarn>
         <!-- LibraryImport marshalling for kqueue NOTE_EXIT emits unsafe blocks. -->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>

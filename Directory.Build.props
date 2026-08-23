@@ -74,6 +74,8 @@
     </PropertyGroup>
 
     <PropertyGroup Label="SDK Defaults">
+        <!-- The SDK infers runtime identity from this before Directory.Build.targets imports, so it cannot move later; a cross-targeting project must therefore set TargetFrameworks above this default, through a folder-level Directory.Build.props or a global property, because a body-set value loses the election silently. -->
+        <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
         <LangVersion>14.0</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>

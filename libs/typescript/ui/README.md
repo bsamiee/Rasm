@@ -31,7 +31,7 @@
 - [20]-[SCENE](.planning/viewer/scene.md): Scene custody behind the viewport port — acquisition, lighting, OpenPBR binding, GPU teardown.
 - [21]-[GEO](.planning/viewer/geo.md): One shared WebGL context — maplibre camera and deck.gl layers as one pure value tree.
 - [22]-[MARK](.planning/viewer/mark.md): One `GlobalId` selection set every pick pipeline folds into, published once per applied op.
-- [23]-[PANEL](.planning/viewer/panel.md): Shell control vocabularies materialized — livewire bindings, command gates, control intents.
+- [23]-[PANEL](.planning/viewer/panel.md): AppUi surface programs admit one control tree and its exact layout closure before solve.
 - [24]-[PROBE](.planning/viewer/probe.md): Benchmark and render evidence — canonical pixel identity compared, never gating.
 - [25]-[REVIEW](.planning/viewer/review.md): Diff changes and BCF issues joined per `GlobalId` into board rows, tint, and reveal.
 

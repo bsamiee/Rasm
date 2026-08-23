@@ -37,18 +37,20 @@ public sealed class AssemblyBoundaryLaws {
     ];
 
     // Exact reference topology per project — "only" is implied by exactness, so per-project
-    // sibling facts collapse into this one folded table.
+    // sibling facts collapse into this one folded table. `Rasm.Contracts` is the generated bindings
+    // distribution, not a stratum: it references no sibling and every wire consumer references it.
     private static readonly (string Project, string[] References)[] Strata = [
         ("libs/csharp/Rasm/Rasm.csproj", []),
-        ("libs/csharp/Rasm.Element/Rasm.Element.csproj", ["../Rasm/Rasm.csproj"]),
-        ("libs/csharp/Rasm.Materials/Rasm.Materials.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/csharp/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj", ["../Rasm/Rasm.csproj"]),
-        ("libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/csharp/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
-        ("libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Materials/Rasm.Materials.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
-        ("libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj", ["../Rasm/Rasm.csproj"]),
+        ("libs/csharp/Rasm.Contracts/Rasm.Contracts.csproj", []),
+        ("libs/csharp/Rasm.Element/Rasm.Element.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj"]),
+        ("libs/csharp/Rasm.Materials/Rasm.Materials.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj"]),
+        ("libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/csharp/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
+        ("libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.Fabrication/Rasm.Fabrication.csproj", "../Rasm.Materials/Rasm.Materials.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
+        ("libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Contracts/Rasm.Contracts.csproj"]),
         ("libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj", ["../Rasm/Rasm.csproj"]),
     ];
 
