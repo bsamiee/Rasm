@@ -19,25 +19,27 @@
 - [10]-[RESILIENCE](.planning/reliability/resilience.md): `RetryClass` policy table ruling every branch retry, failure window, and admission rate.
 
 [TRANSPORT]:
-- [11]-[ROOTS](.planning/transport/roots.md): `ObjectStoreLane` one obstore dispatch surface with `RemoteEndpoint`/`HttpEndpoint` custody.
-- [12]-[SERVE](.planning/transport/serve.md): Connect host, body admission, `Health`, pin-bound capability discovery and invoke, daemon entry.
-- [13]-[SHAPES](.planning/transport/shapes.md): Wire-form legality, the recovery correspondence, the descriptor registry, two-way boot census.
-- [14]-[WIRE](.planning/transport/wire.md): `Decode` aspect and CRDT-op codec with the converging state owners under one ruled discriminant.
-- [15]-[EVENT](.planning/transport/event.md): Strict generic CloudEvents, Rasm profile admission, generated extensions, typed data arms.
-- [16]-[BINDING](.planning/transport/binding.md): Protocol rows, verified residence, authenticated delivery scope, and broker-lane custody.
-- [17]-[FILTER](.planning/transport/filter.md): Delivery predicates deciding subscription reach — pure reads whose faults accumulate beside a value.
+- [11]-[BODY](.planning/transport/body.md): `BodyAdmission` over the four Connect shapes — side and phase posture, `AdmissionError` evidence.
+- [12]-[ARTIFACT](.planning/transport/artifact.md): Descriptor-read artifact law, spool custody, envelope streams, and `ArtifactTransfer`.
+- [13]-[ROOTS](.planning/transport/roots.md): `ObjectStoreLane` one obstore dispatch surface with `RemoteEndpoint`/`HttpEndpoint` custody.
+- [14]-[SERVE](.planning/transport/serve.md): Connect host, body admission, `Health`, pin-bound capability discovery and invoke, daemon entry.
+- [15]-[SHAPES](.planning/transport/shapes.md): Wire-form legality, the recovery correspondence, the descriptor registry, two-way boot census.
+- [16]-[WIRE](.planning/transport/wire.md): `Decode` aspect and CRDT-op codec with the converging state owners under one ruled discriminant.
+- [17]-[EVENT](.planning/transport/event.md): Strict generic CloudEvents, Rasm profile admission, generated extensions, typed data arms.
+- [18]-[BINDING](.planning/transport/binding.md): Protocol rows, verified residence, authenticated delivery scope, and broker-lane custody.
+- [19]-[FILTER](.planning/transport/filter.md): Delivery predicates deciding subscription reach — pure reads whose faults accumulate beside a value.
 
 [EXECUTION]:
-- [18]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, settings, principal scope, and trust admission.
-- [19]-[LANES](.planning/execution/lanes.md): Lane-policy task groups, whole-capacity native grants, and the stage-plan DAG.
-- [20]-[WORKERS](.planning/execution/workers.md): Worker crossing — closed kind family, kernel value, warm pools, the fenced work lease, supervision.
-- [21]-[RECIPE](.planning/execution/recipe.md): `RecipeExecution` content-keyed recipe seat on the offload lane under the AGPL charter.
+- [20]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, settings, principal scope, and trust admission.
+- [21]-[LANES](.planning/execution/lanes.md): Lane-policy task groups, whole-capacity native grants, and the stage-plan DAG.
+- [22]-[WORKERS](.planning/execution/workers.md): Worker crossing — closed kind family, kernel value, warm pools, the fenced work lease, supervision.
+- [23]-[RECIPE](.planning/execution/recipe.md): `RecipeExecution` content-keyed recipe seat on the offload lane under the AGPL charter.
 
 [EVIDENCE]:
-- [22]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
-- [23]-[IDENTITY](.planning/evidence/identity.md): Content keys, canonical peer framing, and distinct hash-input/generated-wire projections.
-- [24]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [25]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
+- [24]-[CLOCK](.planning/evidence/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [25]-[IDENTITY](.planning/evidence/identity.md): Content keys, canonical peer framing, and distinct hash-input/generated-wire projections.
+- [26]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
+- [27]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -62,8 +64,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `pyqwest` — HTTP transport beneath every Connect dial, transitive under `connectrpc`; TLS, mTLS, and the one socket release.
 
 [VALIDATION]:
-- `rasm.contracts` — `BodyAdmission` owns every generated Connect request/response shape and its structured refusal mapping.
-- `protovalidate` — Evaluates generated CRDT/event payloads at non-Connect admission seams; no Connect interceptor is mirrored here.
+- `protovalidate` — Evaluates generated descriptor rules at the `transport/body` Connect boundary and at every non-Connect payload seam.
 
 [OBSERVABILITY]:
 - `opentelemetry-exporter-otlp-proto-grpc` — Daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
@@ -151,5 +152,5 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [WIRE_CODEGEN]:
 - `protobuf-py`
 - `connectrpc`
-- `rasm.contracts` — Generated messages and RPCs; `transport/serve` serves health and dials capability discovery before brokered invocation.
+- `rasm.contracts` — Generated messages and RPCs off the `libs/contracts/gen/python` import root; `transport/serve` serves health and dials discovery.
 - `protobuf` — Google message runtime the OTLP exporters compose beneath the wire rail.

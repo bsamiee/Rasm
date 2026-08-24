@@ -2,7 +2,7 @@
 
 Companion server-host and daemon composition root: `ServerHost` owns the inbound Connect lifecycle — every generated `<Svc>ASGIApplication` constructed here over its servicer, mounted under one dispatcher, and served by hypercorn — and the interceptor tuple every rpc crosses: metadata admission once per call and descriptor-driven constraint validation on every request and response body. `ServerHost` is itself the generated `grpc.health.v1` `Health` servicer, so the host's serving state publishes through the same generated seam every dialer reaches. `CapabilityInvoke` is the descriptor-driven outbound dial over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon's unary `ComputeService.Tessellate`, server-streaming `ArtifactService.Fetch`, and client-streaming `ArtifactService.Put` over the corpus Connect contract on the UDS leg and re-mints nothing it composes: hypercorn owns the plaintext UNIX-socket ASGI bind and answers gRPC by prior-knowledge h2c, Connect over h2 and HTTP/1.1, and gRPC-Web with no further config; the socket path stays under the `AF_UNIX` `sun_path` limit or the bind refuses with `AF_UNIX path too long`. Connect's server and client both run asyncio loop primitives, so this host serves under `anyio.run(..., backend="asyncio")` alone.
 
-Wire vocabulary is generated under two roots: estate and support types beneath `rasm.contracts.gen`, publisher types beneath `rasm.contracts.vendor`. Compute and control arrive from `rasm.contracts.gen.rasm.contracts.compute`, faults from `rasm.contracts.gen.rasm.contracts.fault`, `google.rpc` details from `rasm.contracts.gen.google.rpc`, and the vendored health service from `rasm.contracts.vendor.grpc.health.v1`. These are the only import roots for wire symbols on this page; causal time remains `evidence/clock#CLOCK`'s and admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and W3C inbound extraction here — the ASGI middleware is this ingress's trace-context authority.
+Wire vocabulary imports from the one `rasm.contracts` root: compute and control from `rasm.contracts.rasm.contracts.compute`, faults from `rasm.contracts.rasm.contracts.fault`, `google.rpc` details from `rasm.contracts.google.rpc`, and the vendored health service from `rasm.contracts.grpc.health.v1`; body admission is `transport/body`'s `BodyAdmission`. These are the only import paths for wire symbols on this page; causal time remains `evidence/clock#CLOCK`'s and admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and W3C inbound extraction here — the ASGI middleware is this ingress's trace-context authority.
 
 ## [01]-[INDEX]
 
@@ -33,14 +33,14 @@ Entry: the method roster:
 |  [10]   | `CredentialPolicy.server_config(config) -> RuntimeRail[Config]` | loopback → plaintext `bind`; TLS rows assign cert material  |
 |  [11]   | `CredentialPolicy.client_transport() -> RuntimeRail[Dial]`      | four outbound rows; loopback refuses as an inbound seat     |
 
- `serve()` refuses an empty `Served` set with a typed `config` fault — never a silent empty bind — binds and listens its sockets ahead of the `ready` hook so an sd-notify READY never precedes an accepting listener, and awaits the shutdown trigger directly; supervision is the `[04]-[ENTRY]` composition root's. `Admission.on_start` lifts `ctx.timeout_ms` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler — and records every rpc's duration and outcome onto `Metrics.record`. The contracts-owned `BodyAdmission(SERVER)` interceptor evaluates generated descriptor constraints on every unary body and every streamed element: request refusals cross as `INVALID_ARGUMENT`, response refusals as `INTERNAL`, and structured request violations survive on the `ConnectError`. A server-stream fault mid-stream crosses the same typed terminal as a unary fault. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same host a calling host polls and no second health surface exists.
+ `serve()` refuses an empty `Served` set with a typed `config` fault — never a silent empty bind — binds and listens its sockets ahead of the `ready` hook so an sd-notify READY never precedes an accepting listener, and awaits the shutdown trigger directly; supervision is the `[04]-[ENTRY]` composition root's. `Admission.on_start` lifts `ctx.timeout_ms` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler — and records every rpc's duration and outcome onto `Metrics.record`. The `transport/body`-owned `BodyAdmission(SERVER)` interceptor evaluates generated descriptor constraints on every unary body and every streamed element: request refusals cross as `INVALID_ARGUMENT`, response refusals as `INTERNAL`, and structured request violations survive on the `ConnectError`. A server-stream fault mid-stream crosses the same typed terminal as a unary fault. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same host a calling host polls and no second health surface exists.
 
 - Auto: `OpenTelemetryMiddleware` is the ONE trace-context authority — it extracts the inbound W3C parent off `scope["headers"]` and opens the SERVER span natively with `exclude_spans=["receive", "send"]` so a streaming rpc multiplies no child spans, `Admission` re-extracts nothing, no handler body opens a second scope, and a `Signals.attach` around the handler body re-roots spans the middleware already parented. `server_request_hook` stamps `rpc.service`/`rpc.method` off the `/<package>.<Service>/<Method>` path, so the per-call dimension rides the middleware natively. `Admission.on_start` binds the admitted context onto structlog contextvars for the rpc window, so `merge_contextvars` stamps every handler log line with the same admitted identity whichever arity served it.
-- Auto: the generated `<Svc>` protocol declares each rpc's shape (`async def` unary, `AsyncIterator` server stream, `AsyncIterator` in and out for bidi) and the generated application binds the matching `Endpoint` kind. `BodyAdmission` implements those four native interceptor protocols in `rasm.contracts` and no servicer repeats constraint logic; `settle` remains the one rail fold a handler body composes.
+- Auto: the generated `<Svc>` protocol declares each rpc's shape (`async def` unary, `AsyncIterator` server stream, `AsyncIterator` in and out for bidi) and the generated application binds the matching `Endpoint` kind. `BodyAdmission` implements those four native interceptor protocols in `transport/body` and no servicer repeats constraint logic; `settle` remains the one rail fold a handler body composes.
 - Auto: `ServerHost` implements the selected generated `Health.Check` rpc — `serve()` mounts `HealthASGIApplication(self, interceptors=_INTERCEPTORS)` beside every served application, and `check` projects the serving map per service (an empty name answers the host whole, an unknown name `SERVICE_UNKNOWN`) — so a supervisor publishes on the same generated seam every dialer polls, the health application crosses the same admission and validation boundaries as every served rpc, and no hand-written health route exists; `Watch` remains upstream support closure but has no selected actor or runtime implementation. `connectrpc` ships no health surface, which is why the service is the vendored `grpc/health/v1/health.proto` module generated for this branch.
-- Packages: `hypercorn` (the ASGI host, `DispatcherMiddleware`, `worker_serve`, `create_sockets`), `connectrpc` (`ConnectError`, `Code`, `RequestContext`, the metadata and body interceptor protocols), `protobuf-py` (`Message`), `rasm.contracts` — `BodyAdmission`, `fault_pb.FaultDetail`/`Hlc`, `error_details_pb.BadRequest`, and the vendored `rasm.contracts.vendor.grpc.health.v1` `Health`/`HealthASGIApplication`/`HealthCheckRequest`/`HealthCheckResponse` — `connectrpc.compression` (`GzipCompression`, `ZstdCompression`), `opentelemetry-instrumentation-asgi`, `pyqwest` (`HTTPTransport`, `Client`), `anyio`, `structlog`, `msgspec`, `expression`, and the faults/admission/clock/metrics/receipts/shapes owners per the fence imports.
+- Packages: `hypercorn` (the ASGI host, `DispatcherMiddleware`, `worker_serve`, `create_sockets`), `connectrpc` (`ConnectError`, `Code`, `RequestContext`, the metadata and body interceptor protocols), `protobuf-py` (`Message`), `transport/body` (`BodyAdmission`, `AdmissionSide`), `rasm.contracts` — `fault_pb.FaultDetail`/`Hlc`, `error_details_pb.BadRequest`, and the vendored `rasm.contracts.grpc.health.v1` `Health`/`HealthASGIApplication`/`HealthCheckRequest`/`HealthCheckResponse` — `connectrpc.compression` (`GzipCompression`, `ZstdCompression`), `opentelemetry-instrumentation-asgi`, `pyqwest` (`HTTPTransport`, `Client`), `anyio`, `structlog`, `msgspec`, `expression`, and the faults/admission/clock/metrics/receipts/shapes owners per the fence imports.
 - Growth: a new served service is one `Served` row — the generated `<Svc>ASGIApplication` class beside its servicer — the composition root hands `mount`, with its `SERVICE_VOCABULARY` row; a new rpc or constraint is one proto edit and regeneration, with validation inherited at the body boundary; a new `FaultTag` member is one `_FAULT_STATUS` row and nothing else, the table being total by construction and read as a raw index, and that row carries its own re-drive membership with it because `_REDRIVEN` derives from it; a new refusal on this page is one `FaultRow` anchor at the `reliability/faults#FAULT` roster called through `raised`, never a literal construction; a new outbound credential posture is one `CredentialPolicy` case with one `client_transport` arm; a new span dimension is one `enrich` key; a new compression algorithm is one `Compression` value on the `WirePolicy` row both `mount` and `CapabilityInvoke.connect` read; a new health rpc is one upstream proto change the regenerated `health_connect` protocol carries and one override on `ServerHost`.
-- Boundary: the wire contract is the corpus-homed `.proto` and its generated binding — the runtime mints no transport, no channel, and no second wire vocabulary; host lifecycle and product telemetry export stay with the composing application; the health service's proto is the frozen upstream publisher source under `tests/contracts/vendor/grpc-health`, regenerated and never edited here.
+- Boundary: the wire contract is the corpus-homed `.proto` and its generated binding — the runtime mints no transport, no channel, and no second wire vocabulary; host lifecycle and product telemetry export stay with the composing application; the health service's proto is the frozen upstream publisher source under `libs/contracts/vendor/grpc-health`, regenerated and never edited here.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -71,12 +71,11 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 from protobuf import Message
 from pyqwest import Client, HTTPTransport
-from rasm.contracts import AdmissionSide, BodyAdmission
-from rasm.contracts.gen.google.rpc.error_details_pb import BadRequest
-from rasm.contracts.vendor.grpc.health.v1.health_connect import Health, HealthASGIApplication
-from rasm.contracts.vendor.grpc.health.v1.health_pb import HealthCheckRequest, HealthCheckResponse
-from rasm.contracts.gen.rasm.contracts.clock.hlc_pb import Hlc
-from rasm.contracts.gen.rasm.contracts.fault.fault_pb import FaultDetail
+from rasm.contracts.google.rpc.error_details_pb import BadRequest
+from rasm.contracts.grpc.health.v1.health_connect import Health, HealthASGIApplication
+from rasm.contracts.grpc.health.v1.health_pb import HealthCheckRequest, HealthCheckResponse
+from rasm.contracts.rasm.contracts.clock.hlc_pb import Hlc
+from rasm.contracts.rasm.contracts.fault.fault_pb import FaultDetail
 import structlog
 
 from rasm.runtime.admission import Deadline, RuntimeContext, RuntimeProfile
@@ -89,6 +88,7 @@ from rasm.runtime.journal import NANOS_PER_TICK
 from rasm.runtime.metrics import FAULT_OUTCOME, Metrics
 from rasm.runtime.receipts import DrainOutcome
 from rasm.runtime.shapes import RecoveryCell
+from rasm.runtime.transport.body import AdmissionSide, BodyAdmission
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -572,9 +572,9 @@ from opentelemetry import propagate, trace
 from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from protobuf import Message
 from pyqwest import Client
-from rasm.contracts.gen.rasm.contracts.capability.discovery_connect import CapabilityDiscoveryServiceClient
-from rasm.contracts.gen.rasm.contracts.capability.discovery_pb import CostUnit, DiscoverRequest, DiscoverResponse
-from rasm.contracts.gen.rasm.contracts.fault.fault_pb import FaultDetail
+from rasm.contracts.rasm.contracts.capability.discovery_connect import CapabilityDiscoveryServiceClient
+from rasm.contracts.rasm.contracts.capability.discovery_pb import CostUnit, DiscoverRequest, DiscoverResponse
+from rasm.contracts.rasm.contracts.fault.fault_pb import FaultDetail
 
 from rasm.runtime.admission import RuntimeProfile
 from rasm.runtime.clock import Tenant
@@ -587,6 +587,7 @@ from rasm.runtime.metrics import TENANT_BAGGAGE
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.resilience import RetryClass
 from rasm.runtime.shapes import RecoveryCell, WireService, remote_fault, wire_detail
+from rasm.runtime.transport.body import AdmissionSide, BodyAdmission
 
 # `_WIRE_RAISES`, `_ENCODE_RAISES`, `_ZSTD`, and `_WIRE_POLICY` are this module's [02]-[SERVE] planes and `CredentialPolicy` its
 # owner of this dial's two-directional credential axis. `Recovery` is the RUNTIME owner's re-offer family and `RecoveryCell` the correspondence carrying both

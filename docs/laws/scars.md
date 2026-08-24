@@ -34,6 +34,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: Decompile and reflection listings prove spelling alone; access and implementation prove by bind-and-invoke on the owning rail.
 - Boundary: Catalog rows restate a claim, never probe it — a fence and the row blessing it assert one phantom until reflection or a bind answers.
 - Boundary: Absence proves on the rail a consumer dials — a workspace binary or wrapper answers where an interactive-PATH probe reads nothing.
+- Boundary: Lane reds reproduce under the lane's own scope — artifacts path, config, scratch cache — a warm build hits a key the lane never reaches.
 
 [ASSERTED_VALUE]:
 - Law: Readable values fill from their surface's read, and a hand-asserted copy reads as a defect on sight.

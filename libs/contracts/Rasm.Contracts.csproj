@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Generated C# messages, descriptors, service bases, and clients for the Rasm contract corpus.</Description>
+        <!-- Generated-bindings distribution: no workspace library, analyzer suite, or identity substrate reaches it. -->
+        <RasmGenerated>true</RasmGenerated>
+        <IsPackable>true</IsPackable>
+        <Title>Rasm Contracts</Title>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageProjectUrl>https://buf.build/rasm/contracts</PackageProjectUrl>
+        <PackageTags>protobuf;grpc;contracts;generated-sdk;rasm</PackageTags>
+        <PackageReleaseNotes>Generated SDK for the Rasm contract corpus.</PackageReleaseNotes>
+        <EmbedAllSources>true</EmbedAllSources>
+        <!-- Declared posture, never a build fix: Roslyn holds auto-generated files in the disabled nullable context under every setting (0/0 under enable, no NullableAttribute metadata), so enable would advertise a context the bindings never enter; consumers admit at the boundary. -->
+        <Nullable>disable</Nullable>
+        <!-- The estate root also carries gen/typescript, gen/python, conformance, vendor, and node_modules; the SDK default item globs would walk them on every evaluation. -->
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <!-- One nx project at this root: the package.json plugin and @nx/dotnet both mint one, and nx merges by root under the later name. -->
+    <PropertyGroup Label="Nx">
+        <Nx>
+            <Name>@rasm/contracts</Name>
+        </Nx>
+    </PropertyGroup>
+
+    <ItemGroup Label="Emission">
+        <Compile Include="gen/dotnet/**/*.cs" />
+    </ItemGroup>
+
+    <ItemGroup Label="Package">
+        <None Include="README.md" Pack="true" PackagePath="/" />
+    </ItemGroup>
+
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Celly.Protovalidate" />
+        <PackageReference Include="Google.Api.CommonProtos" />  <!-- google.rpc error details and google.type calendar scalars the emission references -->
+        <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.Core.Api" />
+    </ItemGroup>
+</Project>

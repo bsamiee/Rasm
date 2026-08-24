@@ -20,7 +20,7 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [10]   | `RULINGS.md` tier mint or retirement         | template scope sentence + ingest rosters   | registries ground reviewers per tier         |
 |  [11]   | shape-family template or instance fix        | the template + every sibling instance      | one family holds one shape, whole            |
 |  [12]   | `FaultBand` row mint, split, or retire       | every fault union reading that row         | one registry proves disjointness for all     |
-|  [13]   | `tests/contracts/manifest.json` case         | every executor and consumer the case names | class decides who re-proves conformance      |
+|  [13]   | `libs/contracts/manifest.json` case          | every executor and consumer the case names | class decides who re-proves conformance      |
 |  [14]   | `libs/.planning/README.md` seam-kind row     | every seam edge label across the corpus    | a closed vocabulary censuses by grep         |
 |  [15]   | design-page cluster anchor rename or retire  | every `manifest.json` field naming it      | manifest anchors resolve on disk             |
 |  [16]   | glossary term sense mint or divergence       | each surface reusing it as vocabulary      | one sense, many spellings                    |
@@ -54,12 +54,12 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [44]   | `[14]-[EVENT_FABRIC]` grammar or roster row  | each branch message-envelope owner + entry | one fabric, three branch transcriptions      |
 |  [45]   | fault case ordinal mint, retire, or move     | the estate allocation proof + stored codes | an issued code outlives the case minting it  |
 |  [46]   | Bim `Energy/results` vocabulary row          | Compute `Analysis/energy` transcription    | one authority, one byte-identical mirror     |
-|  [47]   | generated-bindings package emission          | manifest path rows + every lane carve      | one emission, committed, proved fresh        |
+|  [47]   | `libs/contracts/gen/<lang>` emission         | manifest path rows + every lane carve      | one emission, committed, proved fresh        |
 |  [48]   | wire options emission posture at its merge   | every peer-decoder block on that seam      | one posture, one spelling on every face      |
 |  [49]   | admitted-package vocabulary a roster mirrors | every branch roster transcribing that enum | an importing peer widens, a mirror does not  |
 |  [50]   | reviewer-config path, scope, or include glob | one dot alternate per tree it intends      | minimatch dot:false crosses no dot segment   |
-|  [51]   | generated contract package public-root set   | each branch consumer census + buf filters  | selective output follows real consumption    |
-|  [52]   | `buf.gen.yaml` `types:` row or actor root    | each contract `.api` roster block          | the block derives; a hand edit is lost       |
+|  [51]   | estate `gen/<lang>` public-root set          | each branch consumer census + buf filters  | selective output follows real consumption    |
+|  [52]   | estate `buf.gen.yaml` `types:` or actor root | each `libs/contracts/.api/` roster block   | the block derives; a hand edit is lost       |
 |  [53]   | `manifest.json` generated-actor anchor       | its cluster body spelling every token      | a fence naming none decodes nothing          |
 
 ## [02]-[CONDITIONED]
@@ -109,8 +109,8 @@ Couplings fanning out or carrying a proof condition land as cards, each stating 
 - Law: Refusals seated at a consumer obligate the producer to publish the column that refusal reads in the same pass.
 
 [APPEARANCE_WIRE_MIRROR]:
-- Surface: Generated `rasm.contracts.appearance.Material` and `Set` families owned by `tests/contracts/proto/rasm/contracts/appearance`.
-- Obligates: both `tests/contracts/` appearance entries and the `python:runtime/transport/shapes` and `typescript:core/interchange/codec` decoders.
+- Surface: Generated `rasm.contracts.appearance.Material` and `Set` families owned by `libs/contracts/proto/rasm/contracts/appearance`.
+- Obligates: the two `manifest.json` appearance cases and the `python:runtime/transport/shapes` and `typescript:core/interchange/codec` decoders.
 - Law: No compiler spans these surfaces, so a column, key-number, or order move lands every one in the same change, quoted verbatim.
 - Law: Schema authority is the producer's positional `[Key(n)]` roster — declaration order tracks it except where an append spells out of order.
 - Law: Peer decoders declare at their own branch pages; a fence beside the producer transcribes one under its owner's name and mints nothing.

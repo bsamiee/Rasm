@@ -133,7 +133,7 @@ Each returns `{ initialResults, unsubscribe, refresh }` and accepts an options o
 
 [STACK CONSTRAINT: no migrator] — `@effect/sql` is admitted substrate, but the `tests/typescript/_architecture` suite asserts ZERO `@effect/sql/Migrator` / `@effect/sql-pg/PgMigrator` imports branch-wide. There is no `@effect/sql-pglite` dialect; the unit lane does NOT bridge PGlite through `@effect/sql-pg` (that binds the real `pg` driver / the container lane). Schema for a PGlite spec is raw `exec(ddl)` or a `dumpDataDir` fixture reload via `loadDataDir`; the container/real-pg lane (`testcontainers.md`) is migrator-free too, seeding server-extension DDL via raw `@effect/sql-pg` `sql` execute — the ban is branch-wide, so no lane runs a migrator, and the container lane owns real-pg, not a migration path.
 
-[STACK: frozen-fixture reload] — a spec that must assert against a known database state reloads a `dumpDataDir` tarball through `PGliteOptions.loadDataDir`, aligning with the `tests/contracts/` byte-frozen fixtures: the tarball is the frozen bytes, PGlite the reproducer.
+[STACK: frozen-fixture reload] — a spec that must assert against a known database state reloads a `dumpDataDir` tarball through `PGliteOptions.loadDataDir`, aligning with the `libs/contracts/conformance/` byte-frozen vectors: the tarball is the frozen bytes, PGlite the reproducer.
 
 ## [05]-[RAIL_LAW]
 

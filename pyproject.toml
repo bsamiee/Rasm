@@ -387,7 +387,7 @@ mutation = ["mutmut"]
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv.workspace]
-members = ["libs/python/*", "tools/assay"]  # libs/python/* is a ruled tree, so a glob admits it whole; app python projects are explicit rows the `assay init` rail appends, because a glob over polyglot apps/ trees hard-fails on non-Python directories.
+members = ["libs/contracts", "libs/python/*", "tools/assay"]  # libs/python/* is a ruled tree, so a glob admits it whole; app python projects are explicit rows the `assay init` rail appends, because a glob over polyglot apps/ trees hard-fails on non-Python directories.
 
 [tool.uv.sources]
 assay = { workspace = true }
@@ -523,7 +523,7 @@ all = "error"
 
 # The generated tree stays typechecked; the two ignores are `protoc-gen-connectrpc` emission shapes (`path` overridden without `@override`, `codecs: Iterable[Codec]` unparameterized), carved path-scoped, never a tree exclude.
 [[tool.ty.overrides]]
-include = ["libs/python/contracts/rasm/contracts/gen/**", "libs/python/contracts/rasm/contracts/vendor/**"]
+include = ["libs/contracts/gen/python/**"]
 
 [tool.ty.overrides.rules]
 missing-override-decorator = "ignore"
@@ -594,7 +594,7 @@ ignore_missing_imports = true
 
 # The mypy twin of the ty override: the same two `protoc-gen-connectrpc` emission shapes, carved module-scoped on the generated tree alone.
 [[tool.mypy.overrides]]
-module = ["rasm.contracts.gen.*", "rasm.contracts.vendor.*"]
+module = ["rasm.contracts.*"]
 disable_error_code = ["explicit-override", "type-arg"]
 
 # --- [PYTEST] ---------------------------------------------------------------------------
@@ -605,7 +605,7 @@ minversion = "9.0"
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
-pythonpath = ["."]  # Repository modules resolve from root; `rasm.contracts` resolves through the installed workspace distribution
+pythonpath = ["."]  # Repository modules resolve from root; every `rasm.*` member resolves through its installed editable distribution
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]
 collect_imported_tests = false
@@ -708,12 +708,11 @@ exclude_type_checking_imports = true  # TYPE_CHECKING-only edges (e.g. store's A
 [[tool.importlinter.contracts]]
 name = "workspace members are standalone islands"
 type = "independence"
-modules = [
+modules = [  # rasm.contracts is the admitted import root every member reaches, never an island peer
     "assay",
     "rasm.artifacts",
     "rasm.cad",
     "rasm.compute",
-    "rasm.contracts",
     "rasm.data",
     "rasm.geometry",
     "rasm.runtime",
@@ -782,8 +781,7 @@ extend-exclude = [
     "**/coverage/**",
     "**/scratch/**",
     "**/test-results/**",
-    "libs/python/contracts/rasm/contracts/gen/**",
-    "libs/python/contracts/rasm/contracts/vendor/**",
+    "libs/contracts/gen/**",
 ]
 
 [tool.ruff.format]

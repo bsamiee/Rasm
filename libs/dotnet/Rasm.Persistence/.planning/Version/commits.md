@@ -873,7 +873,7 @@ public sealed partial class ParitySlot {
 }
 
 // `ParityVector` carries one parity fixture: canonical bytes with the digest ALWAYS derived through the kernel
-// `ContentHash.Of` at mint; tests/contracts/manifest.json alone declares a fixture frozen (HLC_TWO_HALF and CRDT_OP_SET
+// `ContentHash.Of` at mint; libs/contracts/manifest.json alone declares a fixture frozen (HLC_TWO_HALF and CRDT_OP_SET
 // stay DESIGN-PIN until the harness proof) — an unstamped-Option carrier and a corpus-local seed constant are the
 // deleted forms.
 public readonly record struct ParityVector(ParitySlot Slot, ReadOnlyMemory<byte> Canonical, UInt128 Digest) {

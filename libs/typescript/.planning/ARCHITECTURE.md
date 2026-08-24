@@ -11,8 +11,7 @@ libs/typescript/
 ├── data/       # Journal record of truth, byte planes, and read folds; engine names never leak upward
 ├── runtime/    # Serve door, work economy, otel egress, and provider tables across process and browser planes
 ├── ui/         # Two Nx projects — the app surface and the render-only spatial viewer
-├── iac/        # Pulumi programs realizing StackSpec into capability-admitted deployments; plane-distinct
-└── contracts/  # Generated corpus bindings imported by module path; generation is the only author, no rank held
+└── iac/        # Pulumi programs realizing StackSpec into capability-admitted deployments; plane-distinct
 ```
 
 ## [02]-[STRATA]
@@ -25,7 +24,7 @@ libs/typescript/
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the ports it declares and the atom-bridge bindings.
 - S4 `iac` — composes core, data, and runtime as reads and decodes `security`'s `LeaseSpec` as data, plane-distinct outside the runtime graph.
 
-Generated `contracts/` composes as an external package, never a stratum — it imports `@bufbuild/protobuf` alone, no folder, and carries no authored law.
+`@rasm/contracts` is the admitted import root at `libs/contracts/gen/typescript`, never a stratum — it imports `@bufbuild/protobuf` alone, no folder, and carries no authored law.
 
 Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root, with `security` ports filling from `data` and `ui`'s `GlbViewport` filling from runtime's browser depot arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
 

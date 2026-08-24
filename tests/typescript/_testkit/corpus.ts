@@ -277,7 +277,7 @@ class CorpusFault extends Data.TaggedError('CorpusFault')<{
 }> {}
 
 class CorpusRoot extends Context.Reference<CorpusRoot>()('rasm-testkit/CorpusRoot', {
-    defaultValue: (): string => fileURLToPath(new URL('../../contracts', import.meta.url)),
+    defaultValue: (): string => fileURLToPath(new URL('../../../libs/contracts', import.meta.url)),
 }) {}
 
 class Proof extends Schema.Class<Proof>('Proof')({
@@ -308,7 +308,7 @@ const _isDescriptor = (value: unknown): value is DescMessage | DescService =>
 // Module-relative glob (vite-root independent); keys renormalize to estate-root form so registry
 // distribution rows ('/libs/...') resolve under any project root.
 const _modules = Object.fromEntries(
-    Object.entries(import.meta.glob<Module>('../../../libs/typescript/contracts/gen/**/*.ts', { eager: true })).map(
+    Object.entries(import.meta.glob<Module>('../../../libs/contracts/gen/typescript/**/*.ts', { eager: true })).map(
         ([key, module]) => [key.replace(/^(?:\.\.\/)+/, '/'), module] as const,
     ),
 );

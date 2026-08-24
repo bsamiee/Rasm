@@ -129,7 +129,7 @@ class Language(StrEnum):
     BASH = "bash", "glob", frozenset((".sh", ".bash")), frozenset[str]()  # shellcheck/shfmt read no repo config; verdicts derive from source alone
     SQL = "sql", "glob", frozenset((".sql",)), frozenset(("pyproject.toml",))  # sqlfluff policy rides the root [tool.sqlfluff] tables
     DOCS = "docs", "glob", frozenset((".md", ".mmd")), frozenset[str]()  # prose gates are self-contained scripts; no repo config governs the verdict
-    PROTO = "proto", "glob", frozenset((".proto",)), frozenset(("buf.yaml", "buf.gen.yaml", "buf.lock"))
+    PROTO = "proto", "glob", frozenset((".proto",)), frozenset(("libs/contracts/buf.yaml", "libs/contracts/buf.gen.yaml", "libs/contracts/buf.lock"))
 
     def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str], governors: frozenset[str]) -> Self:
         """Attach enum payload fields not represented by the StrEnum value."""

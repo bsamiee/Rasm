@@ -7,7 +7,7 @@
 - package: `inline-snapshot` · license `MIT`
 - namespace: `inline_snapshot`; extra assertion helpers `inline_snapshot.extra`
 - asset: pure-Python wheel; a pytest plugin binding the `--inline-snapshot=` run-flag vocabulary
-- rail: wire-golden equality — the Python round-trip rail for `tests/contracts/` assets
+- rail: wire-golden equality — the Python round-trip rail for `libs/contracts/conformance/` vectors
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -60,7 +60,7 @@ def test_wire_golden(produce: Callable[[], bytes]) -> None:
 
 [STACKING]:
 - `dirty-equals`(`.api/dirty-equals.md`): an `Is*` matcher lives inside a `snapshot(...)` literal to hold a nondeterministic field (`IsNow`, `IsUUID`) partial while the surrounding structure stays exact.
-- `tests/contracts/README.md`(`../../contracts/README.md`): inline-snapshot is the Python leg of the cross-language contract round-trip — a corpus asset decodes, re-encodes, and asserts byte identity against its stored golden.
+- `libs/contracts`(`libs/contracts/README.md`): inline-snapshot is the Python leg of the cross-language contract round-trip — a conformance vector decodes, re-encodes, and asserts byte identity against its stored golden.
 - `hypothesis`(`.api/hypothesis.md`): a snapshot asserts a fixed producer output; a generated-input law proves through the `spec.py` algebraic oracles, never a snapshot.
 
 [LOCAL_ADMISSION]:

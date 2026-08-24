@@ -70,7 +70,7 @@
 
 - Kernel spellings freeze and the Compute end moves — the line-search axis is `LineSearch` because the kernel owns `StepControl` as step-size policy.
 - Upstream services this estate never mints stay unimported — `grpc.health.v1` and `google.rpc.Status` ship pre-generated; a copy forks them.
-- `proto/rasm/contracts/<family>/v1/` seats ONE descriptor source per package directory — two packages in one directory break every path-keyed tool.
+- `libs/contracts/proto/rasm/contracts/<family>/` seats ONE descriptor source per package directory — two packages in one break every path-keyed tool.
 - Service names carry the `Service` suffix — the corpus `buf` gate holds `SERVICE_SUFFIX` unwaived, so no sibling reads by a different rule.
 - Compute's payload messages carry NO `Wire` suffix — nothing co-resident collides, so a suffix binds a name `compute.proto` never mints.
 - Wire messages spell `<Verb>Request`/`<Verb>Receipt` and the domain shape keeps its name — a rename moves a wire name and forks the roster.

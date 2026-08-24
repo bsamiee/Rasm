@@ -45,7 +45,7 @@ config:
 ---
 flowchart TB
     accTitle: cad provider import strata
-    accDescr: Import strata from the served call down to the fault spine, with contracts seated plane-distinct beside every rank.
+    accDescr: Import strata from the served call down to the fault spine, with the rasm.contracts import root seated beside every rank.
     subgraph S5["S5 SERVICE"]
         Service[service]
     end
@@ -67,8 +67,8 @@ flowchart TB
     subgraph S0["S0 FAULT SPINE"]
         Faults[faults]
     end
-    subgraph PLANE["PLANE-DISTINCT"]
-        Contracts[contracts]
+    subgraph ROOTS["IMPORT ROOT"]
+        Contracts[rasm.contracts]
     end
     Service e1@-->|"[IMPORT]: TessellationEvidence"| Tessellation
     Service e2@-->|"[IMPORT]: BrepEvidence"| Brep
@@ -93,7 +93,8 @@ flowchart TB
 - S5 `service` — served boundary, one-slot native lane, and call-spool custody; the only stratum that may spell a raise.
 - S3→S1 `brep/operation` reaches `metrology/properties` for its receipt, so measurement imports no construction owner and the graph stays acyclic.
 - `brep/operation` alone imports downward — admission at `brep/placement` (S1), sourcing at `exchange/step` (S2), so no arm back-imports the apex.
-- `contracts` seats plane-distinct beside every rank as the generated vocabulary each stratum reads, carrying the same upward law.
+- `rasm.contracts` at `libs/contracts/gen/python` is the admitted import root every stratum reads, never a rank, carrying the same upward law.
+- S5 `service` alone composes a branch sibling — runtime's `transport/artifact` for spool custody and the verified transfer; no lower rank reaches it.
 
 ## [03]-[SEAMS]
 
@@ -107,20 +108,22 @@ config:
 ---
 flowchart LR
     accTitle: cad provider seams to its Python branch counterparts
-    accDescr: Provider owners meeting the geometry peer over one Connect wire and reading generated vocabulary from contracts.
+    accDescr: Provider owners meeting the geometry peer over one Connect wire, reading generated vocabulary from the import root and custody from runtime.
     subgraph cad[CAD]
         Service[service]
         Exchange[exchange]
         Brep[brep]
     end
     Geometry{{python:geometry}}
-    Contracts([python:contracts])
+    Contracts([libs/contracts])
+    Runtime{{python:runtime}}
     Root([application root])
     Service e1@<-->|"[WIRE]: CadService"| Geometry
     Contracts e2@-->|"[CONTRACT]: ExecuteRequest"| Service
     Contracts e3@-->|"[CONTRACT]: SealedStep"| Exchange
     Contracts e4@-->|"[CONTRACT]: TessellationPolicy"| Brep
     Root e5@-->|"[PORT]: ArtifactServiceClient"| Service
+    Runtime e6@-->|"[BOUNDARY]: ArtifactTransfer"| Service
 ```
 
 One `CadService` edge collapses every contract between these two packages at that kind: geometry dials `Execute` and `Tessellate`, the provider dials geometry's served `ArtifactService` for every input and every output body, and both directions carry references alone. Geometry draws the identical kind, direction, and label at its own `mesh` sub-domain.
@@ -161,5 +164,6 @@ flowchart LR
 
 - `cad` owns exact solid modeling and neutral CAD exchange behind one generated service, every body crossing by reference.
 - App root binds the provider address, the artifact client, credentials, process memory limits, and the call-spool filesystem quota.
-- `rasm.contracts` owns generated message and service vocabulary, body admission, and the verified artifact lifecycle this package composes.
+- `rasm.contracts` owns the generated message and service vocabulary this package reads; no owner here re-spells a descriptor rule.
+- `runtime` `transport/body` and `transport/artifact` own body admission and the verified artifact lifecycle this package composes.
 - `geometry` owns mesh semantics, IFC projection, and every consumer-side quality verdict reached across the wire.

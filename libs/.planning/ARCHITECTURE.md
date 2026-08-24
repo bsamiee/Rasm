@@ -27,7 +27,7 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 
 ## [03]-[UNIVERSAL_VS_CAPTURE]
 
-"Universal" names a contract `tests/contracts/` defines and freezes. Corpus definition is the whole discriminant: a concept several branches happen to spell carries no cross-language meaning until a manifest entry defines it, and an entry binds every branch it names.
+"Universal" names a contract `libs/contracts/` defines and freezes. Corpus definition is the whole discriminant: a concept several branches happen to spell carries no cross-language meaning until a manifest entry defines it, and an entry binds every branch it names.
 
 - Universal owners exist only for corpus-defined contracts, and `[07]-[CROSS_LANGUAGE_WIRE]` carries the obligation each authority class imposes.
 - Branch-local owners retain host, toolchain, and native capability no contract carries, at full richness.
@@ -73,7 +73,7 @@ Within each language one organization principle holds: real higher-order domain 
 
 ## [07]-[CROSS_LANGUAGE_WIRE]
 
-`tests/contracts/` owns the wire registry: estate Protobuf and publisher sources define it, and `manifest.json` binds each atomic case to one authority class, that vocabulary and its admission predicates living at the `tests/contracts/README.md` `[01]-[AUTHORITY]` law. Each branch carries only the generated bindings its pages consume and owns its adapters; no branch imports another's.
+`libs/contracts/` owns the wire registry: estate Protobuf and publisher sources define it, and `manifest.json` binds each atomic case to one authority class, that vocabulary and its admission predicates living at the `libs/contracts/ARCHITECTURE.md` `[REGISTRY]` law. Each branch imports the generated bindings its pages consume from its own `libs/contracts/gen/<lang>` root and owns its adapters; no branch imports another's.
 
 [INFRASTRUCTURE]: Independent minters each construct the value from their own inputs, and corpus parity across them is the proof.
 - Corpus definition fixes the shape; an unlisted branch owes no artificial mint.
@@ -100,7 +100,7 @@ Every peer-decoded shape carries one `manifest.json` case; a convention-aligned 
 
 Four-signal telemetry (metrics, logs, traces, profiles) correlates across the runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `dotnet:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
 
-Transcription spells the rows per branch and `tests/contracts/` `TELEMETRY_CONVENTION` proves the branch spellings agree, so a drift surfaces at the digest and repairs at its owning branch page.
+Transcription spells the rows per branch and `libs/contracts/` `TELEMETRY_CONVENTION` proves the branch spellings agree, so a drift surfaces at the digest and repairs at its owning branch page.
 
 - Resource triple: `service.namespace` `rasm`, `service.name` the service row, `service.instance.id` a per-process mint.
 - Detector rows enrich the minted triple, never replace it; deployment-time resource overrides win the merge.
@@ -187,7 +187,7 @@ Every `libs/` package is an independently versioned library an unrelated applica
 - Closed axes fix their value vocabulary here; an open axis fixes the descriptor shape alone, and each of its rows is capability one branch supplies.
 - Host integration lands as one descriptor row on the `host` axis, supplied by the branch whose runtime reaches that host.
 - Open-axis instance rosters live at the supplying branch; a Tier-0 enumeration re-anchors the roster to whatever set exists.
-- Each branch spells the roster in its own types, and `tests/contracts/` `CONSUMPTION_PROFILE` proves parity like any other infrastructure contract.
+- Each branch spells the roster in its own types, and `libs/contracts/` `CONSUMPTION_PROFILE` proves parity like any other infrastructure contract.
 - Growth lands one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for a new value.
 - Open axes grow at their supplying branch alone.
 - Axis values stay data — a compile-time assumption, ambient global, build flag, or a branch on the host re-mints the assumed consumer roster.
@@ -258,7 +258,7 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 ## [13]-[APPEARANCE]
 
-Surface appearance crosses as generated `rasm.contracts.appearance.Set` and `Material` messages under the estate Protobuf definition. Their two domain cases name distinct producers, exact messages, and peer consumers in `tests/contracts/manifest.json`; no hand JSON Schema or branch transcription stands beside the generated vocabulary.
+Surface appearance crosses as generated `rasm.contracts.appearance.Set` and `Material` messages under the estate Protobuf definition. Their two domain cases name distinct producers, exact messages, and peer consumers in `libs/contracts/manifest.json`; no hand JSON Schema or branch transcription stands beside the generated vocabulary.
 
 | [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
 | :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |

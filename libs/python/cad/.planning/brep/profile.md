@@ -38,8 +38,8 @@ from expression import Error, Ok, Option
 from expression.collections import Block
 from expression.extra.result import sequence, traverse
 from protobuf import Message, Oneof
-from rasm.contracts.gen.rasm.contracts.cad.operations_pb import PlacedProfile
-from rasm.contracts.gen.rasm.contracts.cad.types_pb import PiecewiseLoop, Point2, ProfileLoop, ProfileRegion
+from rasm.contracts.rasm.contracts.cad.operations_pb import PlacedProfile
+from rasm.contracts.rasm.contracts.cad.types_pb import PiecewiseLoop, Point2, ProfileLoop, ProfileRegion
 
 from rasm.cad.brep.placement import Basis, EdgeKind, Lift, admitted, joined, minted, spanning, wired
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadRail

@@ -108,7 +108,7 @@ from msgspec import Struct
 from protobuf import Oneof
 from protovalidate import CompilationError, EvaluationError, ValidationError, validate
 
-from rasm.contracts.gen.rasm.contracts.crdt import crdt_pb
+from rasm.contracts.rasm.contracts.crdt import crdt_pb
 from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import Catch, RuntimeRail
 from rasm.runtime.identity import ContentIdentity
@@ -338,8 +338,8 @@ from msgspec import Struct
 from msgspec.structs import replace
 from protobuf import Oneof
 
-from rasm.contracts.gen.rasm.contracts.clock import hlc_pb
-from rasm.contracts.gen.rasm.contracts.crdt import crdt_pb
+from rasm.contracts.rasm.contracts.clock import hlc_pb
+from rasm.contracts.rasm.contracts.crdt import crdt_pb
 from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import WIRE_INSERT, WIRE_MAINTAIN, WIRE_ORDERED, Depth, RuntimeRail
 from rasm.runtime.identity import ContentIdentity

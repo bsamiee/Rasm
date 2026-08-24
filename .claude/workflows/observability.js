@@ -212,8 +212,8 @@ const PHASE_ROWS = {
                     'libs/.planning/RULINGS.md',
                     'docs/laws/topology.md',
                     'docs/laws/scars.md',
-                    'tests/contracts/manifest.json',
-                    'tests/contracts/README.md',
+                    'libs/contracts/manifest.json',
+                    'libs/contracts/README.md',
                     'tests/RULINGS.md',
                     'libs/.planning/IDEAS.md',
                     'libs/.planning/TASKLOG.md',
@@ -235,7 +235,7 @@ const PHASE_ROWS = {
                     'strata peers, and a provisioned row whose consumer ignores its keys. ' +
                     'THE PROOF ESTATE IS YOURS ALONE — no lens writes tests/, so the contract corpus closes here or nowhere. Read ' +
                     'tests/README.md and tests/RULINGS.md as binding law first. Every wire this campaign minted, renamed, widened, or ' +
-                    'retired reconciles at its atomic tests/contracts/manifest.json case: locate the owning entry and case, then verify ' +
+                    'retired reconciles at its atomic libs/contracts/manifest.json case: locate the owning entry and case, then verify ' +
                     'its class, pin, proof, exact tagged definition, blockers/assets posture, and producer/minters/consumers against ' +
                     'disk. Every actor must resolve to one live fence, name the exact decoder coordinate in contract, declare its ' +
                     'direction, and carry truthful generated | package | proof custody; an RPC actor additionally binds the exact ' +

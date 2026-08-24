@@ -2,7 +2,7 @@
 
 `ProviderPolicy` is the admitted budget every served call reads, and this owner rules the custody each call's paths obey from admission to retirement. One `msgspec.convert` mints the budgets at the composition root, one derivation turns the caller's stated deadline into the scope the spine opens, one operation directory holds every input and output path a call touches, and one boundary converts the artifact helper's raises and rails into `CadFault`.
 
-`rasm.contracts.artifact` owns identity, extent, framing, and spool custody, and `ArtifactTransfer` reads the live `anyio.current_effective_deadline` for every dial, so no window is ever re-threaded through a signature. `faults#ROWS` supplies `POLICY_SHAPE`, `SOURCE_BUDGET`, `SOURCE_SHAPE`, `ARTIFACT_PROOF`, and `ARTIFACT_ADMISSION`; `lane#LANE` owns the source shapes these rows resolve into, and `provider#PROVIDER` opens the scope and the directory this page rules.
+Runtime `transport/artifact` owns identity, extent, framing, and spool custody, and `ArtifactTransfer` reads the live `anyio.current_effective_deadline` for every dial, so no window is ever re-threaded through a signature. `faults#ROWS` supplies `POLICY_SHAPE`, `SOURCE_BUDGET`, `SOURCE_SHAPE`, `ARTIFACT_PROOF`, and `ARTIFACT_ADMISSION`; `lane#LANE` owns the source shapes these rows resolve into, and `provider#PROVIDER` opens the scope and the directory this page rules.
 
 ## [01]-[INDEX]
 
@@ -36,7 +36,7 @@ from expression import Error, Ok, Result
 from msgspec import Meta, Struct, ValidationError, convert
 from protobuf import Message
 from rasm.contracts import AdmissionError
-from rasm.contracts.artifact import (
+from rasm.runtime.transport.artifact import (
     ArtifactCycle,
     ArtifactEmpty,
     ArtifactError,
@@ -53,7 +53,7 @@ from rasm.contracts.artifact import (
     references,
     rendered,
 )
-from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import (
+from rasm.contracts.rasm.contracts.artifact.artifact_pb import (
     ArtifactRef,
     FetchRequest,
     FetchResponse,

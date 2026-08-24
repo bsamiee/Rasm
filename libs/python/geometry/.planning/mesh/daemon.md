@@ -11,15 +11,15 @@ Every request enters `LanePolicy.drain` under a source key derived from the gene
 ## [02]-[DAEMON]
 
 - Owner: `TessellationDaemon` owns one required `ArtifactRepository` over one injected `ObjectStoreLane`; `GeometryServe` reaches that same repository through `daemon.repository` and cannot bind another store.
-- Law: `rasm.contracts.artifact.stage` owns source materialization and proof, while `output(suffix=".glb")` owns the worker's format-bearing output path and `ArtifactSink.seal` mints the generated output reference. The worker admits the extension-neutral input with IfcOpenShell's explicit `.ifc` format and writes the helper-owned GLB path; no `Path.read_bytes`, raw-body process argument, or GLB process return exists.
+- Law: `rasm.runtime.transport.artifact.stage` owns source materialization and proof, while `output(suffix=".glb")` owns the worker's format-bearing output path and `ArtifactSink.seal` mints the generated output reference. The worker admits the extension-neutral input with IfcOpenShell's explicit `.ifc` format and writes the helper-owned GLB path; no `Path.read_bytes`, raw-body process argument, or GLB process return exists.
 - Law: artifact publication is correctness-mandatory and uses the repository's path-backed atomic overwrite. A publication refusal rails the tessellation, so no unresolved reference can escape. Overwrite is safe because the helper proved the path's SHA-256 identity and the destination is derived from that identity; seed-zero XXH3 remains confined to the source and content cache keys.
 - Law: the source-index header is the cache optimization beneath `LanePolicy`'s session cache. It carries the generated artifact reference, generated semantic binary, and exact census. Header create-or-match refusal becomes `Spill.REFUSED` evidence after artifact publication; replay streams the referenced artifact through the same extent/hash proof as `Fetch` before admitting the cached receipt.
 - Law: source identity writes the generated `TessellateRequest.source_artifact`, `ArtifactRef.sha256`, and `ArtifactRef.artifact_bytes` coordinates. Policy identity then writes every output-affecting generated field and nested coordinate in contract order.
 - Entry: `tessellate` returns admission-ordered `TessellationResult` values and drains facts through `contribute`. The caller budget rides the kernel deadline and never enters content identity.
 - Auto: each IFC unit admits as `Admit.whole`; `LaneGrant.width` becomes IfcOpenShell `num_threads`, so outer admission and native parallelism spend one allocator.
 - Receipt: `TessellationResult` carries a generated `ArtifactRef`, never a local artifact carrier or octets. `TessellateResponse` projection belongs to `mesh/serve`.
-- Packages: `ifcopenshell`, `trimesh`, `rasm.contracts.artifact`, generated compute/geometry/artifact messages, and runtime identity/lane/store/journal rails.
-- Growth: a new output-affecting contract field lands in the canonical coordinate stream and provider projection together. A new artifact transport rule belongs to `rasm.contracts.artifact`; this page composes it and authors no parallel integrity state machine.
+- Packages: `ifcopenshell`, `trimesh`, runtime `transport/artifact`, generated compute/geometry/artifact messages, and runtime identity/lane/store/journal rails.
+- Growth: a new output-affecting contract field lands in the canonical coordinate stream and provider projection together. A new artifact transport rule belongs to runtime `transport/artifact`; this page composes it and authors no parallel integrity state machine.
 - Boundary: IFC only. STEP, IGES, sealed B-rep, and OCCT exchange belong to generated `CadService` and the isolated CAD package.
 
 ```python signature
@@ -40,16 +40,16 @@ from msgspec import Struct
 from msgspec import json as msgjson
 from msgspec.structs import replace
 from protobuf import Message, Oneof
-from rasm.contracts.artifact import ArtifactError, ArtifactSink, OwnedArtifact, output, rendered, stage
-from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactRef
-from rasm.contracts.gen.rasm.contracts.compute.compute_pb import (
+from rasm.runtime.transport.artifact import ArtifactError, ArtifactSink, OwnedArtifact, output, rendered, stage
+from rasm.contracts.rasm.contracts.artifact.artifact_pb import ArtifactRef
+from rasm.contracts.rasm.contracts.compute.compute_pb import (
     GeomSetting,
     Semantic,
     Spill,
     TessellateRequest,
     TessellationScope,
 )
-from rasm.contracts.gen.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
+from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
 
 from rasm.geometry.graduation import EVIDENCE_DOMAIN, GeometryLeg, GeometryPulse
 from rasm.runtime.faults import TERMINAL, BoundaryFault, Catch, FaultRow, RuntimeRail, boundary, rostered

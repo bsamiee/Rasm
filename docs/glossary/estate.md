@@ -61,6 +61,8 @@ Structural vocabulary binds the whole repo: rank, boundary, unit, and corpus-sur
 - `ruling`: Registers one settled decision at its narrowest owning tier, foreclosing re-litigation rather than teaching mechanism.
 - `charter`: Opens a surface on the capability it owns and the boundary it holds.
 - `scar`: Records regression-proven law whose only justification is a failure the estate paid for, beside the trigger re-arming it.
+- `conformance`: Freezes one seam's test vectors under the contracts estate, so every peer decoder grades against one record and never a runner.
+    - [NOT]: Protobuf's cross-implementation runner, and any test suite or proof runner; the frozen vector corpus under a seam alone earns the word.
 - `pick receipt`: Names one host boundary's own hit evidence, and the host spellings stay PLURAL — their frames and providers share zero column.
     - [NOT]: One cross-host pick receipt; Rhino and Grasshopper `PickReceipt` types stand allowlisted DISTINCT owners.
 - `wire pass`: Names the Grasshopper wire-drawing plan producer over the kernel paint program.
@@ -111,6 +113,9 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `wire landing`: Declares a decoded wire family's one branch-side shape at the codec owner, so a consumer imports it and re-derives no field.
 - `landing grain`: States a fact at task resolution, naming the exact file or sub-domain a card's work lands in.
 - `plane landing`: Settles an infrastructure plane's row onto its realized backend, so readers provision off the armed set.
+- `vector`: Refuses bare use.
+- `test vector`: Pairs one specimen with the expected facts beside it under one conformance seam, and every peer decoder grades against that pair.
+    - [NOT]: Geometry direction vectors and the `version vector` causal counter; only the specimen-and-expectation record carries the word.
 - `slot`: Refuses bare use.
 - `identity slot`: Holds the key an evidence record projects for grouping.
 - `evidence run`: Names the solver-run audit — who/tool/version/when/cost — the `Rasm.Element` `EvidenceRun` owns and `PropertyEvidence.Run` links.

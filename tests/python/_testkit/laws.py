@@ -30,8 +30,9 @@ _LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
 # Distinguishes a genuinely-None public value (value-only exempt) from an attribute __all__ promises but the module never defines.
 _ABSENT: object = object()
 
-# The root generation template is the one authority on generated out roots; a tree beneath one is emitted, never authored, so it owes no suite.
-_TEMPLATE: Path = REPO_ROOT / "buf.gen.yaml"
+# The estate generation template is the one authority on generated out roots; a tree beneath one is emitted, never authored, so it owes no suite.
+_TEMPLATE: Path = REPO_ROOT / "libs" / "contracts" / "buf.gen.yaml"
+_OUT_BASE: Path = REPO_ROOT  # template `out` rows are repo-relative, so they resolve here rather than beside the template
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -107,11 +108,11 @@ def generated_roots(source_root: Path) -> frozenset[Path]:
     """Resolve the generation template's ``plugins[].out`` directories lying under ``source_root``.
 
     Returns:
-        Out roots resolved against the template's directory; empty when no template or no out root lies beneath ``source_root``.
+        Out roots resolved against the out base (template ``out`` rows are repo-relative); empty when no template or no root lies beneath it.
     """
     match YAML(typ="safe").load(_TEMPLATE) if _TEMPLATE.is_file() else None:
         case {"plugins": [*rows]}:
-            outs = ((_TEMPLATE.parent / out).resolve() for row in rows if isinstance(row, dict) and isinstance(out := row.get("out"), str))
+            outs = ((_OUT_BASE / out).resolve() for row in rows if isinstance(row, dict) and isinstance(out := row.get("out"), str))
             return frozenset(root for root in outs if root.is_relative_to(source_root))
         case _:
             return frozenset()

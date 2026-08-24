@@ -9,7 +9,7 @@
 - Duplicate full type names alias the package the product does NOT name via `PackageReference` — aliasing the pinned one rebinds every mention.
 - `Grpc.Tools` refused — a per-csproj `<Protobuf>` item re-emits one contract per consumer at its own `GrpcServices` mode; bindings generate once.
 - `Grpc.AspNetCore.Server` is the server-rail admission — the `Grpc.AspNetCore` metapackage ships no assembly and drags in `Grpc.Tools`.
-- `Rasm.Contracts` is the SOLE in-repo emitter — one committed emission reached by `ProjectReference`; a second emission forks the type.
+- `libs/contracts/gen/dotnet` is the SOLE C# emission — the `Rasm.Contracts` assembly reached by `ProjectReference`; a second emission forks the type.
 - `Rasm.Contracts` consumers keep a direct `Google.Protobuf` row only where their pages name that API — transitive reach is never a manifest row.
 - `libs/dotnet` projects design as if PUBLISHED tomorrow — pack metadata rides the root estate behind `IsPackable=false`, one flip from a package.
 

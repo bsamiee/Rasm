@@ -36,4 +36,4 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [INTERCHANGE_DECODE_ONCE]-[COMPLETE]: one keyed codec census encodes or decodes every contract family exactly once.
 [JOURNAL_SPINE]-[COMPLETE]: `data/journal/append` owns the one atomic write with ledger and outbox in-commit, the read side folding through `data/read/fold`; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
 [TENANCY_SCOPE]-[COMPLETE]: `Tenant.within` is the single scoped write path over `Identity.Tenant`; isolation remains a scope value.
-[CROSS_LANGUAGE_INVARIANTS]-[COMPLETE]: wire ownership, content identity, clock, quantity, and receipt-family invariants frozen under `tests/contracts` corpus assertion; law settled at `ARCHITECTURE.md` `[03]-[SEAMS]`/`[04]-[INTERNAL]`.
+[CROSS_LANGUAGE_INVARIANTS]-[COMPLETE]: wire ownership, content identity, clock, quantity, and receipt-family invariants frozen under `libs/contracts/conformance` assertion; law settled at `ARCHITECTURE.md` `[03]-[SEAMS]`/`[04]-[INTERNAL]`.

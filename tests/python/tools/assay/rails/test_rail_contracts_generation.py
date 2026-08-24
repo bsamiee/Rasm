@@ -78,9 +78,9 @@ def test_generator_failure_leaves_every_committed_target_byte_unchanged(assay_ro
 
 
 def test_successful_generation_commits_scratch_output_and_preserves_authored_package_shells(assay_root: AssayHarness) -> None:
+    """The commit lands the staged out roots and leaves every authored package shell beside them byte-identical."""
     root = corpus_kit._corpus(assay_root.root)
-    packages = tuple(dict.fromkeys(Path(row).parent.parent for row in contracts_rail._roster_catalogs(assert_ok(contracts_rail.read_template(root)))))
-    authored = tuple(root / package / "authored.keep" for package in packages)
+    authored = tuple(root / contracts_rail.CORPUS / shell for shell in corpus_kit._SHELLS)
     for path in authored:
         path.write_bytes(b"authored")
 
@@ -99,14 +99,15 @@ def test_successful_generation_commits_scratch_output_and_preserves_authored_pac
 
 
 def test_generation_commits_past_package_manager_and_build_artifacts_beside_its_out_roots(assay_root: AssayHarness) -> None:
-    """A pnpm link farm and a hard-linked build output share a package with an out root and reach the write untouched."""
+    """A pnpm link farm and a hard-linked build output beside the out roots ride the git-ignore carve and reach the write untouched."""
     root = corpus_kit._corpus(assay_root.root)
     store = _file(root / "node_modules/.pnpm/dep@1/node_modules/dep/index.js", b"dep")
-    farm = root / "libs/typescript/contracts/node_modules/@scope"
+    farm = root / contracts_rail.CORPUS / "node_modules/@scope"
     farm.mkdir(parents=True)
-    (farm / "dep").symlink_to("../../../../../node_modules/.pnpm/dep@1/node_modules/dep")
-    built = _file(root / "libs/dotnet/Rasm.Contracts/obj/Debug/built.dll", b"built")
-    os.link(store, root / "libs/dotnet/Rasm.Contracts/obj/Debug/hardlinked.dll")
+    (farm / "dep").symlink_to("../../../../node_modules/.pnpm/dep@1/node_modules/dep")
+    built = _file(root / contracts_rail.CORPUS / "obj/Debug/built.dll", b"built")
+    os.link(store, root / contracts_rail.CORPUS / "obj/Debug/hardlinked.dll")
+    corpus_kit._git_ignored(root, "node_modules/", "obj/")
 
     def regenerate(scratch: Path) -> None:
         for out in corpus_kit._OUTS:
@@ -118,7 +119,7 @@ def test_generation_commits_past_package_manager_and_build_artifacts_beside_its_
 
     assert report.status is RailStatus.OK
     assert (root / corpus_kit._OUTS[0] / "transaction_probe.ts").is_file()
-    assert (farm / "dep").readlink() == Path("../../../../../node_modules/.pnpm/dep@1/node_modules/dep")
+    assert (farm / "dep").readlink() == Path("../../../../node_modules/.pnpm/dep@1/node_modules/dep")
     assert built.read_bytes() == b"built" and not (root / contracts_rail._COMMIT_MARKER).exists()
 
 

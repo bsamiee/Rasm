@@ -32,7 +32,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactRef
+from rasm.contracts.rasm.contracts.artifact.artifact_pb import ArtifactRef
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.journal import Journal, MeterFact, Resource

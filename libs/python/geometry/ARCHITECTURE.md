@@ -164,6 +164,7 @@ flowchart LR
     Runtime e21@-->|"[PORT]: Hooks"| Graduation
     Runtime e22@-->|"[TRANSPORT]: TransportResource"| Ifc
     Mesh e23@<-->|"[WIRE]: CadService"| Cad
+    Runtime e24@-->|"[BOUNDARY]: ArtifactSink"| Mesh
 ```
 
 Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: generated ArtifactService custody, the IFC projection, and the payload shapes fold into the one labeled rail, with per-contract wiring on the owning implementation pages.

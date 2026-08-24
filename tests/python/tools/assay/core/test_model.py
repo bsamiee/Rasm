@@ -767,9 +767,9 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
 @pytest.mark.parametrize(
     "path",
     [
-        "libs/python/contracts/rasm/contracts/gen/rasm/contracts/compute/compute_connect.py",
-        "libs/typescript/contracts/gen/rasm/contracts/compute/compute_pb.ts",
-        "libs/dotnet/Rasm.Contracts/Generated/Compute/ComputeGrpc.cs",
+        "libs/contracts/gen/python/rasm/contracts/rasm/contracts/compute/compute_connect.py",
+        "libs/contracts/gen/typescript/rasm/contracts/compute/compute_pb.ts",
+        "libs/contracts/gen/dotnet/Compute/ComputeGrpc.cs",
     ],
     ids=["python", "typescript", "dotnet"],
 )

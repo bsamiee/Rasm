@@ -885,7 +885,7 @@ public sealed record GrantBroker(
 
 ## [06]-[SDK_CODEGEN]
 
-- Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `DescriptorPin` the canonical descriptor-set document and its content address — the frozen preimage the `capability-descriptor` seam registers at `tests/contracts/manifest.json` `CAPABILITY_DESCRIPTOR`, this section being that seam's named producer; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
+- Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `DescriptorPin` the canonical descriptor-set document and its content address — the frozen preimage the `capability-descriptor` seam registers at `libs/contracts/manifest.json` `CAPABILITY_DESCRIPTOR`, this section being that seam's named producer; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
 - Cases: 3 targets — csharp, typescript, python — each carrying its command-shape renderer and idiomatic call form.
 - Entry: `DescriptorPin.Of(registry)` mints the fixed-field catalog document and its content address.
 - Entry: `SdkCodegen.Emit(registry, pin, target)` renders one target from the same ordinal catalog and stamped pin digest.

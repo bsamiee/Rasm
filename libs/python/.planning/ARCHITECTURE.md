@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-`libs/python` orders the branch packages in acyclic upward-only import strata: the `runtime` floor, `data` above it, the `compute` and `geometry` peers over both, and `artifacts` beneath the app root. `contracts` seats below the floor as the generated SDK every package consumes, and `cad` rides plane-distinct on it alone.
+`libs/python` orders the branch packages in acyclic upward-only import strata: the `runtime` floor, `data` above it, the `compute` and `geometry` peers over both, and `artifacts` beneath the app root. `rasm.contracts` enters from the `libs/contracts/gen/python` import root every package reads, and `cad` rides plane-distinct over runtime's transport floor alone.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -11,7 +11,6 @@ libs/python/
 ├── data/       # Portable data interchange: tabular, spatial, gridded, graph
 ├── geometry/   # Host-free geometry + IFC/BIM production and cross-boundary owner
 ├── artifacts/  # Publication and print-production engine under one ArtifactReceipt
-├── contracts/  # Generated rasm.contracts bindings; the wire vocabulary every folder imports
 └── cad/        # OCCT exact-modeling provider; generated CadService is its only branch boundary
 ```
 
@@ -20,8 +19,8 @@ libs/python/
 Cross-package coupling is a published boundary import or a content-keyed wire; no package imports another's interior.
 
 - S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
-- `contracts` — generated SDK beneath S0: generation authors wire modules, the `rasm-contracts` manifest owns packaging, and siblings consume it.
-- S1 `cad` — plane-distinct exact-modeling provider seating above `contracts` alone; no sibling imports its owners or native handles.
+- `rasm.contracts` — admitted import root at `libs/contracts/gen/python`, never a stratum: generation authors every module, and siblings import it.
+- S1 `cad` — plane-distinct exact-modeling provider over the import root and runtime's `transport/artifact` alone; no sibling imports its owners.
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; geometry evidence enters `compute` as `GeometryHandoff` wire, never an import.
 - S2→S1 `geometry` lands its mesh facts on data's `FactJournal` ledger leg — a wire-grain crossing beside its `arrow_bytes` import.
@@ -132,7 +131,7 @@ flowchart LR
     Compute e21@-->|"[CONTAINER]: GraduationEnvelope"| RasmCompute
 ```
 
-Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Generated `contracts` classes carry the branch proto vocabulary every folder imports, runtime's transport plane holds the generated-bindings edge — the served Connect applications, the one descriptor registry, and the two-way boot census over closure and generated services — and contract compatibility is the corpus emission's, never a runtime descriptor diff.
+Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Generated `rasm.contracts` classes carry the branch proto vocabulary every folder imports, runtime's transport plane holds the generated-bindings edge — the served Connect applications, the one descriptor registry, and the two-way boot census over closure and generated services — and contract compatibility is the corpus emission's, never a runtime descriptor diff.
 
 ## [04]-[INTERNAL]
 
@@ -201,7 +200,7 @@ flowchart LR
 |  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`     | one `HandoffAxis` case                                |
 |  [03]   | a branch metric or signal           | `runtime/observability/metrics.py`  | one `INSTRUMENTS` row                                 |
 |  [04]   | a hook point                        | `runtime/observability/hooks.py`    | one `HookPoint` row under a package-qualified id      |
-|  [05]   | an external proto wire family       | `tests/contracts/proto/…/<f>.proto` | one message on its family source; consumers import it |
+|  [05]   | an external proto wire family       | `libs/contracts/proto/…/<f>.proto`  | one message on its family source; consumers import it |
 |  [06]   | a package dependency                | root `pyproject.toml`               | one admission row in the owning group                 |
 |  [07]   | a durable evidence fact             | `runtime/observability/journal.py`  | one `Fact` case beside its `Retain` class             |
 |  [08]   | a metered resource                  | `runtime/observability/journal.py`  | one `Resource` row in both branch spellings           |

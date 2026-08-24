@@ -21,10 +21,10 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [GRAPH_SYNC_RPC]-[QUEUED]: Cross-store graph sync crosses a corpus rpc pair instead of an in-process delegate seam.
 - Capability: the transfer-set diff and the subtree checkout become peer-dialled contracts, so a disconnected editor or a Speckle-class hub syncs against the ledger over one generated service rather than a delegate a root hand-fills.
-- Shape: `tests/contracts/proto/rasm/contracts/compute/compute.proto` — one unary transfer-set rpc and one server-stream checkout rpc on the compute service, with the Persistence handler composing the ledger owners.
+- Shape: `libs/contracts/proto/rasm/contracts/compute/compute.proto` — one unary transfer-set rpc and one server-stream checkout rpc on the compute service, with the Persistence handler composing the ledger owners.
 - Unlocks: `libs/dotnet/Rasm.Persistence/.planning/Version/ledger.md#SYNC_TRANSPORTS` `HttpDelta`/`SubtreeCheckout` dial generated clients; the designed-only sync wire gains a producer and a decoder.
 - Anchors: `OpLog.TransferSet` (the closure-minus-held manifest), `SyncPump.Checkout` (fetch-apply-account), `SyncSession.Pull`/`Push`/`HasObjects`, the Compute `ComputeService` handler seat, `Rasm.Contracts` regeneration.
-- Ripple: `tests/contracts` corpus (W1a) mints the rpc pair; `libs/dotnet/Rasm.Compute` `COMPUTE_SERVICE_GROWTH` carries the handler seat.
+- Ripple: `libs/contracts/proto` (W1a) mints the rpc pair; `libs/dotnet/Rasm.Compute` `COMPUTE_SERVICE_GROWTH` carries the handler seat.
 
 ## [02]-[CLOSED]
 

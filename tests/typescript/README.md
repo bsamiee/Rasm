@@ -6,7 +6,7 @@ Authoring law for every TypeScript spec, kit member, gauge, and e2e suite. Every
 
 - [01]-[RULINGS](RULINGS.md): Settled TypeScript-tree testing decisions — package admissions, oracle discriminants, structure retirements.
 - [02]-[API](.api/): Dev-tool API catalogs, one per dev-plane package; kit members and specs transcribe at catalog-verified spellings.
-- [03]-[CONTRACTS](../contracts/README.md): Corpus conformance law — TypeScript proves verified vectors through their elected oracle.
+- [03]-[CONTRACTS](../../libs/contracts/README.md): Estate conformance law — TypeScript proves verified vectors through their elected oracle.
 
 ## [02]-[TOPOLOGY]
 

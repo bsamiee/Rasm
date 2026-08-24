@@ -57,10 +57,10 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy, Work
 from rasm.runtime.profiles import KTX_TOOL, resolved
-from rasm.contracts.gen.rasm.contracts.artifact import artifact_pb as artifact_wire
-from rasm.contracts.gen.rasm.contracts.appearance import appearance_pb as wire
-from rasm.contracts.gen.rasm.contracts.appearance import environment_pb as environment_wire
-from rasm.contracts.gen.rasm.contracts.appearance import set_pb as set_wire
+from rasm.contracts.rasm.contracts.artifact import artifact_pb as artifact_wire
+from rasm.contracts.rasm.contracts.appearance import appearance_pb as wire
+from rasm.contracts.rasm.contracts.appearance import environment_pb as environment_wire
+from rasm.contracts.rasm.contracts.appearance import set_pb as set_wire
 from rasm.runtime.workers import Kernel, KernelTrait
 
 from rasm.artifacts.core.hooks import ArtifactsLeg

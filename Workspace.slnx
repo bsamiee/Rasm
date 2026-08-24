@@ -16,8 +16,8 @@
     <Folder Name="/libs/dotnet/Rasm.Compute/">
         <Project Path="libs/dotnet/Rasm.Compute/Rasm.Compute.csproj" />
     </Folder>
-    <Folder Name="/libs/dotnet/Rasm.Contracts/">
-        <Project Path="libs/dotnet/Rasm.Contracts/Rasm.Contracts.csproj" />
+    <Folder Name="/libs/contracts/">
+        <Project Path="libs/contracts/Rasm.Contracts.csproj" />
     </Folder>
     <Folder Name="/libs/dotnet/Rasm.Element/">
         <Project Path="libs/dotnet/Rasm.Element/Rasm.Element.csproj" />

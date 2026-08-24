@@ -39,7 +39,7 @@ from OCP.gp import gp_Pnt
 from expression import Error, Ok
 from expression.collections import Block
 from msgspec import Struct
-from rasm.contracts.gen.rasm.contracts.cad.types_pb import TopologyCensus
+from rasm.contracts.rasm.contracts.cad.types_pb import TopologyCensus
 
 from rasm.cad.faults import MEASURE_DEGENERATE, CadRail
 
@@ -171,8 +171,8 @@ from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 from OCP.TopoDS import TopoDS_Shape
 from expression import Nothing, Option, case, effect, tag, tagged_union
-from rasm.contracts.gen.rasm.contracts.cad.types_pb import BooleanProvenance, BrepKernelReceipt
-from rasm.contracts.gen.rasm.contracts.spatial.vector_pb import Point3
+from rasm.contracts.rasm.contracts.cad.types_pb import BooleanProvenance, BrepKernelReceipt
+from rasm.contracts.rasm.contracts.spatial.vector_pb import Point3
 
 from rasm.cad.faults import MEASURE_DEGENERATE, CadFault
 

@@ -4,16 +4,16 @@ This standard binds every `libs/` planning surface: it fixes the doc-set per tie
 
 ## [01]-[DOC_SET]
 
-This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language estate, and the cross-`libs/` core owns polyglot contracts. Peer languages appear in a branch or folder doc only as seam-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
+This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language estate, and the cross-`libs/` core owns polyglot law. Peer languages appear in a branch or folder doc only as seam-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
 
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
-- Generated-bindings folder (`<pkg>/`): the full folder doc set with ONE `.api/` generator-grammar catalogue; generation authors the emission alone.
+- Cross-language estate (`libs/contracts/`): the full folder doc set with one `.api/` catalogue per emission target and one for the driver tool.
 - Cross-`libs/` core (`libs/.planning/`): the branch doc-set beside `campaign-method.md` and `planning-targets.md`.
 
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
 - Catalogues document external distributions and host SDK assemblies alone; a corpus package declares its members on its own design pages.
-- Generated-bindings packages carry ONE catalogue — generator grammar and roster censused against the descriptor set — and no hand-authored member.
+- `libs/contracts/` carries one catalogue per emission target and one for the driver tool — rosters census against the descriptor set, no hand member.
 - Cross-folder member use verifies at the owning design page under `docs/laws/topology.md` `[FENCE_SEAM]`.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - Folder `.api/`: carries the Domain tier for package-specific distributions and the Substrate tier for language-branch-wide ones.

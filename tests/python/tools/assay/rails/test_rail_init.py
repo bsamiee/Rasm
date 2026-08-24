@@ -20,7 +20,7 @@ COVERS: tuple[object, ...] = (check, InitParams, python_app, python_lib)
 
 _ROOT_MANIFEST = """\
 [tool.uv.workspace]
-members = ["libs/python/*", "tools/assay"]
+members = ["libs/contracts", "libs/python/*", "tools/assay"]
 """
 
 
@@ -28,8 +28,9 @@ members = ["libs/python/*", "tools/assay"]
 
 
 def _seeded(root: Path) -> None:
+    # The contracts estate is a literal row outside the governed libs/python glob; runtime is the glob-admitted existing member.
     (root / "pyproject.toml").write_text(_ROOT_MANIFEST, encoding="utf-8")
-    for member in ("libs/python/contracts", "tools/assay"):
+    for member in ("libs/contracts", "libs/python/runtime", "tools/assay"):
         (root / member).mkdir(parents=True)
         (root / member / "pyproject.toml").write_text("[project]\nname='x'\nversion='0'\n", encoding="utf-8")
 
@@ -61,7 +62,7 @@ def test_python_app_appends_its_explicit_member_row(tmp_path: Path) -> None:
     assert assert_ok(check(settings, ArtifactScope.open(settings, Claim.INIT), InitParams(), SeamExecutor())).status is RailStatus.OK
 
 
-@pytest.mark.parametrize("target", ["libs/python/contracts", "libs/nested/too/deep", "libs/python/Bad_Name"])
+@pytest.mark.parametrize("target", ["libs/python/runtime", "libs/contracts", "libs/nested/too/deep", "libs/python/Bad_Name"])
 def test_python_lib_refuses_unlawful_targets(tmp_path: Path, target: str) -> None:
     """An existing member, a foreign tree, and a non-slug name each refuse before any write."""
     _seeded(tmp_path)
@@ -75,7 +76,7 @@ def test_census_refuses_orphans_and_ghost_rows(tmp_path: Path) -> None:
     (tmp_path / "apps/beta/engine").mkdir(parents=True)
     (tmp_path / "apps/beta/engine/pyproject.toml").write_text("[project]\nname='beta'\nversion='0'\n", encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text(
-        '[tool.uv.workspace]\nmembers = ["libs/python/*", "tools/assay", "apps/gone/engine"]\n', encoding="utf-8"
+        '[tool.uv.workspace]\nmembers = ["libs/contracts", "libs/python/*", "tools/assay", "apps/gone/engine"]\n', encoding="utf-8"
     )
     report = assert_ok(check((s := assay_settings(tmp_path)), ArtifactScope.open(s, Claim.INIT), InitParams(), SeamExecutor()))
     assert report.status is RailStatus.FAILED

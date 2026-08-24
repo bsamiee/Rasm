@@ -6,7 +6,7 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
-        <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" />
+        <ProjectReference Include="../../contracts/Rasm.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Hosting Composition">

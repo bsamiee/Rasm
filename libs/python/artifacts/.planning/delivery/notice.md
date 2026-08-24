@@ -36,7 +36,7 @@ from opentelemetry import propagate
 from protobuf.wkt import Timestamp
 
 from rasm.artifacts.core.hooks import TRANSMITTAL_POINT, ArtifactsLeg, TransmittalIssued
-from rasm.contracts.gen.rasm.contracts.event.event_pb import Extensions
+from rasm.contracts.rasm.contracts.event.event_pb import Extensions
 from rasm.runtime.admission import Classification
 from rasm.runtime.binding import Projection
 from rasm.runtime.event import (

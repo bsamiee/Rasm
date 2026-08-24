@@ -28,6 +28,7 @@ from assay.rails.contracts import (
     ClientResponseActor,
     CloudEventDefinition,
     ContentDigestFacts,
+    CORPUS,
     CorpusOracleReceipt,
     DomainAuthority,
     ExpectedAsset,
@@ -56,10 +57,9 @@ from assay.rails.contracts import (
     VerifiedReadiness,
     WaveformFacts,
 )
-import rasm.contracts.gen as generated
-from rasm.contracts.gen.rasm.contracts.clock.hlc_pb import Hlc
-import rasm.contracts.vendor as vendored
-from rasm.contracts.vendor.io.cloudevents.v1.cloudevents_pb import CloudEvent
+import rasm.contracts as emitted
+from rasm.contracts.io.cloudevents.v1.cloudevents_pb import CloudEvent
+from rasm.contracts.rasm.contracts.clock.hlc_pb import Hlc
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ class CorpusProof(msgspec.Struct, frozen=True, gc=False, kw_only=True):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 
-_ROOTS: Final = (generated, vendored)
+_ROOTS: Final = (emitted,)  # one emission root; estate, support, and publisher trees share the package + proto-path grammar
 _FACTS: Final[msgspec.json.Decoder[ExpectedFacts]] = msgspec.json.Decoder(ExpectedFacts)
 
 
@@ -224,7 +224,7 @@ def _fingerprint(asset: Asset, raw: bytes, /) -> None:
 
 def _package_bytes(distribution: PythonPackageResource, /) -> bytes:
     path = PurePosixPath(distribution.path)
-    package_root = PurePosixPath("libs/python/contracts").joinpath(*distribution.package.split("."))
+    package_root = PurePosixPath(CORPUS, "gen", "python").joinpath(*distribution.package.split("."))
     assert path.is_relative_to(package_root), f"{distribution.path}: path is outside the exact {distribution.package} package root"
     return files(distribution.package).joinpath(*path.relative_to(package_root).parts).read_bytes()
 

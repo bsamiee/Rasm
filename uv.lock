@@ -312,7 +312,7 @@ estate = [
     { name = "rasm-artifacts", editable = "libs/python/artifacts" },
     { name = "rasm-cad", editable = "libs/python/cad" },
     { name = "rasm-compute", editable = "libs/python/compute" },
-    { name = "rasm-contracts", editable = "libs/python/contracts" },
+    { name = "rasm-contracts", editable = "libs/contracts" },
     { name = "rasm-data", editable = "libs/python/data" },
     { name = "rasm-geometry", editable = "libs/python/geometry" },
     { name = "rasm-runtime", editable = "libs/python/runtime" },
@@ -7497,22 +7497,16 @@ source = { editable = "libs/python/compute" }
 [[package]]
 name = "rasm-contracts"
 version = "0.1.0"
-source = { editable = "libs/python/contracts" }
+source = { editable = "libs/contracts" }
 dependencies = [
-    { name = "anyio" },
     { name = "connectrpc" },
-    { name = "expression" },
     { name = "protobuf-py" },
-    { name = "protovalidate" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio" },
     { name = "connectrpc", url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" },
-    { name = "expression" },
     { name = "protobuf-py" },
-    { name = "protovalidate" },
 ]
 
 [[package]]

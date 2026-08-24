@@ -38,7 +38,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.msgpack import Encoder
 
-from rasm.contracts.gen.rasm.contracts.fabrication.fabrication_pb import Characteristic, Datum, Egress, FeatureControl, Material, Modifier, Scope, Segment as WireSegment, ZoneKind
+from rasm.contracts.rasm.contracts.fabrication.fabrication_pb import Characteristic, Datum, Egress, FeatureControl, Material, Modifier, Scope, Segment as WireSegment, ZoneKind
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.journal import Journal

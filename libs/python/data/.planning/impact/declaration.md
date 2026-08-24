@@ -1,6 +1,6 @@
 # [PY_DATA_DECLARATION]
 
-The declaration-registry ingest owner — the product-declaration plane of `data`, sibling to the impact normalization plane and minting what that plane structurally cannot: a DATED, IDENTITY-BEARING record per verified product declaration. `impact.md`'s eight-column frame stays impact-only by design — per-(indicator, stage) amounts with no issuer, no dates, no coverage census — and this owner carries the declaration NOUN whole: material identity, issuer + registration, declared unit, issue and expiry dates, and the per-indicator per-module cell map whose KEY PRESENCE is the coverage census. The record is the corpus `tests/contracts/` `declaration-record` DOMAIN contract; this page is its one producer, `dotnet:Rasm.Materials` assessment its committed decoder, and the schema definition owns every roster — this page transcribes, never re-declares.
+The declaration-registry ingest owner — the product-declaration plane of `data`, sibling to the impact normalization plane and minting what that plane structurally cannot: a DATED, IDENTITY-BEARING record per verified product declaration. `impact.md`'s eight-column frame stays impact-only by design — per-(indicator, stage) amounts with no issuer, no dates, no coverage census — and this owner carries the declaration NOUN whole: material identity, issuer + registration, declared unit, issue and expiry dates, and the per-indicator per-module cell map whose KEY PRESENCE is the coverage census. The record is the `libs/contracts/manifest.json` `declaration-record` DOMAIN contract; this page is its one producer, `dotnet:Rasm.Materials` assessment its committed decoder, and the schema definition owns every roster — this page transcribes, never re-declares.
 
 Registries are POLICY VALUES, never arms. `IngestPolicy` carries one row per contract `Registry` token — the token it stamps, the payload case that registry publishes, and the transport resource its live leg reads — so the two ILCD registries reach the epdx reader whole and differ in data alone.
 
@@ -34,8 +34,8 @@ from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
-from rasm.contracts.gen.google.type.date_pb import Date
-from rasm.contracts.gen.rasm.contracts.declaration.declaration_pb import (
+from rasm.contracts.google.type.date_pb import Date
+from rasm.contracts.rasm.contracts.declaration.declaration_pb import (
     DeclarationRecord, DeclaredUnit, ImpactCategory, ImpactCell, Module, Registry, Source, Standard, Subtype,
 )
 

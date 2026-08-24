@@ -19,6 +19,8 @@ runtime/
 │   ├── faults.py       # BoundaryFault union, RuntimeRail, the folder-wide RAISES census, SCOPES, and the boundary/scoped decorators
 │   └── resilience.py   # RetryClass rows, RateGate, and the guard/guarded/guarded_sync decorators at the free BASE
 ├── transport/          # Resource roots, the companion server, the wire codec, and the message-envelope owner with its bindings and filters
+│   ├── body.py         # AdmissionSide/AdmissionPhase posture, BodyAdmission over the four Connect shapes, AdmissionError evidence
+│   ├── artifact.py     # ArtifactLaw descriptor read, ArtifactSink custody, ArtifactStream envelopes, ArtifactTransfer dial
 │   ├── roots.py        # ResourceRef mint the transport and worker legs resolve bytes through
 │   ├── serve.py        # Connect host with metadata admission, body validation, health, typed details, and the Supervisor drain order
 │   ├── shapes.py       # SPLAT_FORMS rows, the FaultRecovery correspondence, the REGISTRY descriptor seat, and the two-way boot census over services
@@ -40,7 +42,7 @@ runtime/
 
 ## [02]-[STRATA]
 
-Interior composition is one acyclic import rail: `faults` roots the graph, every module returns through it, and `serve` terminates the rail. Edges below are the transitive reduction of the real module imports, so a drawn edge is a direct import no shorter chain explains.
+Interior composition is one acyclic import rail: `faults` roots the graph and every fault-bearing module returns through it, `body` and `artifact` seat beside it as the descriptor-driven transport floor importing no runtime sibling, and `serve` terminates the rail. Edges below are the transitive reduction of the real module imports, so a drawn edge is a direct import no shorter chain explains.
 
 ```mermaid
 ---
@@ -83,8 +85,13 @@ flowchart TB
         Shapes[shapes]
         Identity[identity]
     end
-    subgraph S0["S0 FAULT ROOT"]
+    subgraph S0["S0 FAULT ROOT AND TRANSPORT FLOOR"]
         Faults[faults]
+        Body[body]
+        Artifact[artifact]
+    end
+    subgraph ROOTS["IMPORT ROOT"]
+        Contracts[rasm.contracts]
     end
     Serve e1@-->|"[IMPORT]: RecipeSpec"| Recipe
     Serve e3@-->|"[IMPORT]: RecoveryCell"| Shapes
@@ -125,11 +132,17 @@ flowchart TB
     Identity e39@-->|"[IMPORT]: RuntimeRail"| Faults
     Shapes e40@-->|"[IMPORT]: BoundaryFault"| Faults
     Clock e41@-->|"[IMPORT]: BoundaryFault"| Faults
+    Shapes e42@-->|"[IMPORT]: ArtifactError"| Artifact
+    Artifact e43@-->|"[IMPORT]: AsyncClosable"| Body
+    Contracts e44@-.->|"[COUNTER]: FieldRules"| Artifact
     Faults f1@-->|"forbidden: upward import"| S7
 ```
 
 - S0 `faults` — mints `BoundaryFault` and the `RuntimeRail` exactly once, importing no sibling; every module above returns through it.
-- S1-S3 `clock`, `identity`, `shapes` sit directly on the root, so every stamp, key, and wire row exists before any spine member loads.
+- S0 `body` — descriptor-generic validation importing no runtime sibling and no generated family, so it names no family and widens with none.
+- S0 `artifact` — one edge above `body`, reading `buf.validate` bounds and `artifact_pb` envelopes as VALUES; the root feeds payload alone.
+- `rasm.contracts` at `libs/contracts/gen/python` is an admitted import root, never a rank — descriptor-relative imports resolve inside it alone.
+- S1-S3 `clock`, `identity`, `shapes` sit on the floor — `shapes` reads `artifact`'s refusal carrier — so every stamp, key, and wire row loads first.
 - S1-S3 band stays module-acyclic — every member returns through `receipts` toward `identity`, and no identity member reads a fold back.
 - S4-S6 banded rank is path-dependent — `profiles -> telemetry -> admission` and `event -> admission` order inside the band, no pair looping.
 - S4-S6 `telemetry` carries the `logging`-owned `LogShip` policy unchanged — the gate installs, the chain owns the wire projection.
@@ -197,6 +210,8 @@ flowchart LR
     Data{{python:data}}
     Artifacts{{python:artifacts}}
     Compute{{python:compute}}
+    Cad{{python:cad}}
+    Contracts([libs/contracts])
     Transport e1@<-->|"[WIRE]: TessellateRequest"| Geometry
     Geometry e2@-->|"[CONTENT_KEY]: ContentIdentity"| Evidence
     Geometry e3@-->|"[PORT]: RecipeInterface"| Execution
@@ -231,6 +246,9 @@ flowchart LR
     Geometry e26@-->|"[RECEIPT]: BenchmarkReceipt"| Observability
     Observability e27@-->|"[PORT]: measured"| Geometry
     Observability e28@-->|"[PORT]: Hooks"| Geometry
+    Transport e29@-->|"[BOUNDARY]: ArtifactSink"| Geometry
+    Transport e30@-->|"[BOUNDARY]: ArtifactTransfer"| Cad
+    Contracts e31@-->|"[CONTRACT]: artifact.ArtifactRef"| Transport
 ```
 
 Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the .NET peers.
@@ -238,6 +256,8 @@ Each fence's home roster holds only the sub-domains carrying a seam with that pe
 Frozen registry names spell from the counterpart's endpoint page, so `ServerHost`/`CommandReceipt`, the generated `rasm.contracts` classes, `FaultDetail`, generated `CrdtOpWire`, and `ContentKey` are this package's interior spellings behind their counterpart wires.
 
 Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-status leg over the companion UDS, and upstream `health.proto` is the frozen publisher source both ends generate from.
+
+`libs/contracts/gen/python` is the `rasm.contracts` import root, and its `[CONTRACT]` edge collapses every generated family the transport plane reads — artifact, fault, clock, event, capability, health — while `body` names none of them. `transport/artifact`'s two `[BOUNDARY]` edges carry its custody owners outward: geometry seals native output and receives framed bodies, cad stages sources and publishes through the verified transfer, and neither re-proves an octet.
 
 ## [04]-[INTERNAL]
 
@@ -287,6 +307,7 @@ flowchart LR
 - This stratum opens no connection and executes no retention mechanism.
 - `reliability` owns the one boundary-fault surface, the retry policy, the per-dependency failure window, and the per-destination admission rate.
 - `transport`'s `BrokerLane` is the one connection owner — every protocol lowering is a row, and no consumer opens a socket of its own.
+- `transport`'s `body` and `artifact` own Connect body admission and verified artifact custody; consumers map refusal evidence and hold no proof.
 - `execution` admits host facts caller-owned, reads secrets through the settings-admitted boundary, and mints no stamp beside the inbound frame.
 - Ingress admits event source and grade against a composition-bound trust row, taking tenancy from the authenticated principal scope alone.
 - Concurrency stays bounded under `StagePlan` and the one scheduler owner, every work lane draining to a `DrainReceipt`.

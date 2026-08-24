@@ -2,7 +2,7 @@
     "files": [],
     "references": [
         {
-            "path": "./libs/typescript/contracts/tsconfig.build.json"
+            "path": "./libs/contracts"
         },
         {
             "path": "./libs/typescript/core"

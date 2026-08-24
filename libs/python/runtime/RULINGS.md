@@ -13,13 +13,13 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition the sync client leaves free.
 - `protobuf-py` generated messages and codecs own proto binary and ProtoJSON — a msgspec twin or local JSON codec forks the peer vocabulary.
 - Capability discovery admits static semantics only from the pin document; generated live rows add availability and estimates before invocation.
-- `rasm.contracts.BodyAdmission` evaluates descriptor constraints at the Connect body boundary; runtime `protovalidate` serves non-Connect seams.
+- `transport/body` `BodyAdmission` evaluates descriptor constraints at the Connect body boundary; bare `protovalidate` serves non-Connect seams.
 - `connect-python` and `protoc-gen-connect-python` refuse — `connectrpc`'s renamed predecessors ship no ASGI application; one dist owns the seam.
 - `hypercorn` KEEP by capability — the bidi `Sync` leg needs HTTP/2 on the ASGI host and h2c on plaintext, and `uvicorn` speaks HTTP/1.1 alone.
 - `grpcio` is a transitive alone — the OTLP gRPC exporter and GCP secret client dial it; a direct row re-opens the retired `grpc.aio` serve rail.
 - `pyqwest` is `connectrpc`'s transitive and the one dial transport — `HTTPTransport.aclose` releases the sockets, so the composition owns it.
 - Client telemetry rides the `connectrpc` `MetadataInterceptor` — clients dial through `pyqwest`, so the httpx instrumentor reaches no Connect leg.
-- `grpc.health.v1` serves from the vendored `rasm.contracts.vendor.grpc.health.v1` emission — `connectrpc` ships no health surface.
+- `grpc.health.v1` serves from the vendored `rasm.contracts.grpc.health.v1` emission — `connectrpc` ships no health surface.
 - MessagePack carries the uncompressed positional op-log envelope, `crdt` alone decoding generated `CrdtOpWire`; compression changes no contract.
 
 ## [02]-[SHAPE]
@@ -64,6 +64,9 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `ServerHost` implements generated `Health.Check` alone and keys its serving map on slashless `WireService.path`; `Watch` stays support closure.
 - Connect metadata admission remains per-call; body validation implements all four native rpc shapes and checks every request and response element.
 - Constraint refusals carry structured `buf.validate.Violations` — request failures map to `INVALID_ARGUMENT`, response failures to `INTERNAL`.
+- Frame width, extent bounds, and identity width READ off the generated `buf.validate` descriptors — a Python literal restating one forks the law.
+- Nonterminal frames carry exactly the declared frame width, so a fragmented stream refuses here exactly where every peer receiver refuses it.
+- Extent is read before identity on every reference confirmation — a truncated stream reports the axis a caller acts on, not the digest it implies.
 - `FaultRecovery`'s throttled arm IS `google.rpc.RetryInfo` — `RecoveryCell.of` is its one mint and `advice` seats THAT instance as standard detail.
 - `FaultDetail.case` is the emitting leg's row ordinal off the fault census, 1-based in declaration order — never a Connect code; unseated is zero.
 - `transport/shapes` `REGISTRY` is the ONE descriptor registry — `Any`, ProtoJSON `@type`, and `ErrorDetail.value` resolve there alone.
@@ -147,6 +150,19 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - ONE row-driven `BrokerLane` owns every connection; one state agent serializes immutable custody and event-driven drain.
 - Provider coordinates own frames; `(source, id)` alone owns deduplication and journal verdicts.
 - Expired deliveries remain frame-bound, bypass durable recording, and settle under a distinct `MOOT` receipt.
+- `transport/body` `BodyAdmission` composes Protovalidate with every async Connect interceptor protocol; no handler or client carries a prologue.
+- Client refusals retain phase and violations on `AdmissionError`; server request constraints alone expose details, engine defects staying INTERNAL.
+- Lazy client-stream refusals ride one per-call carrier that restores its own refusal — the body boundary maps iterator exceptions onto status.
+- Artifact transfer stays frame-centric in `transport/artifact`, and `ArtifactTransfer` alone wraps direction-unique RPC envelopes.
+- `output` hands native producers a helper-owned path they seal and publish uncopied; `stage(Path)` copies caller-owned mutable paths before proof.
+- Spool proof is one `hashlib.file_digest` SHA-256 pass over the written spool, minting the canonical `ArtifactRef`; no route keeps a hash loop.
+- `references` walks set fields in descriptor order, repeated values in element order, maps by key, refuses `Any`, and collapses on extent coherence.
+- `references` walks an explicit ancestry frontier because message nesting is caller-scaled depth; native recursion there forfeits at the frame limit.
+- One `ArtifactSink.seal` folds every custody route — native, staged, framed — through one single-use latch, one spool proof, and one stated claim.
+- Custody is a closed two-state family, never a sealed flag; a refused seal leaves it open so a caller corrects its claim and retries.
+- One `ArtifactStream` parameterized by an envelope row serves bare frames, Fetch responses, and Put requests, and one inverse unwraps those rows.
+- Artifact refusals are one closed record family carrying their own evidence; a proof tag beside nullable evidence slots is the deleted mirror.
+- `ArtifactTransfer` reads its call budget off the enclosing cancel scope — a `timeout_ms` parameter forwards a deadline that scope already carries.
 
 ## [04]-[STRUCTURE]
 

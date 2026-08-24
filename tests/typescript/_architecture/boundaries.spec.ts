@@ -607,7 +607,7 @@ layer(NodeContext.layer)('edge ledger', (it) => {
                     );
                     const expected = Array.map(workspace, (dep) =>
                         dep === '@rasm/contracts'
-                            ? path.join(_ROOT, _BRANCH, 'contracts/tsconfig.build.json')
+                            ? path.join(_ROOT, 'libs/contracts')
                             : path.join(
                                   _ROOT,
                                   _BRANCH,

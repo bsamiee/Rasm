@@ -41,7 +41,7 @@ from OCP.TopoDS import TopoDS_Shape
 from builtins import frozendict
 from expression.collections import Block
 from expression.extra.result import traverse
-from rasm.contracts.gen.rasm.contracts.cad.operations_pb import BooleanInputs
+from rasm.contracts.rasm.contracts.cad.operations_pb import BooleanInputs
 
 from rasm.cad.brep.placement import ShapeBuilder, built
 from rasm.cad.brep.provenance import Outcome, ShapeHistory, read

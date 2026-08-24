@@ -1,0 +1,50 @@
+{
+    "name": "@rasm/contracts",
+    "version": "0.1.0",
+    "description": "Generated TypeScript SDK for the Rasm contract corpus",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/contracts"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        "./package.json": "./package.json",
+        "./*": "./gen/typescript/*.ts"
+    },
+    "files": [
+        "dist",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc --build",
+        "prepack": "pnpm run build"
+    },
+    "dependencies": {
+        "@bufbuild/protobuf": "catalog:"
+    },
+    "devDependencies": {
+        "typescript": "catalog:"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            "./package.json": "./package.json",
+            "./*": {
+                "types": "./dist/*.d.ts",
+                "import": "./dist/*.js",
+                "default": "./dist/*.js"
+            }
+        }
+    },
+    "nx": {
+        "name": "@rasm/contracts",
+        "tags": [
+            "scope:contracts",
+            "runtime:neutral",
+            "plane:generated"
+        ]
+    }
+}

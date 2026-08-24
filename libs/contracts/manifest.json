@@ -1,0 +1,3765 @@
+{
+    "entries": [
+        {
+            "id": "content-identity",
+            "law": "Content identity is seed-zero XxHash128 over the contract's canonical preimage, framed under [PREIMAGE_FRAMING], rendered as 16 big-endian bytes at :x32; a peer re-hashes the frozen bytes and never re-derives the preimage.",
+            "cases": [
+                {
+                    "id": "mesh-adjacency",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "docs/laws/patterns.md#[01]-[CONTENT_IDENTITY]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:runtime/evidence/reproduction#SEED_REPRODUCTION",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "grade"
+                        },
+                        {
+                            "anchor": "tests/python/_testkit/test_corpus.py",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "test_live_corpus_proves_every_verified_vector_through_its_oracle"
+                        },
+                        {
+                            "anchor": "tests/typescript/_testkit/corpus.ts",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "_prove"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "python:runtime/evidence/identity#IDENTITY",
+                                "direction": "message",
+                                "binding": "proof",
+                                "coordinate": "of"
+                            },
+                            {
+                                "anchor": "typescript:core/value/contentKey#DIGEST_OWNER",
+                                "direction": "message",
+                                "binding": "proof",
+                                "coordinate": "_mint"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/python/mesh_adjacency.bin",
+                                        "role": "specimen",
+                                        "bytes": 52,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "ed9bbd323952b23535729a62e8875846e13fb289e17675d16b7b1d7e18db9246"
+                                        },
+                                        "minter": "python:runtime/evidence/identity#IDENTITY@of"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/typescript/mesh_adjacency.bin",
+                                        "role": "specimen",
+                                        "bytes": 52,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "ed9bbd323952b23535729a62e8875846e13fb289e17675d16b7b1d7e18db9246"
+                                        },
+                                        "minter": "typescript:core/value/contentKey#DIGEST_OWNER@_mint"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/mesh_adjacency.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "1d43e05df17f81dd8b5378727e0486ac"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "tessellation-source-key",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "docs/laws/patterns.md#[01]-[CONTENT_IDENTITY]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                            "coordinate": "TessellationWire.ContentKey",
+                            "direction": "message",
+                            "binding": "proof"
+                        },
+                        {
+                            "anchor": "python:geometry/mesh/daemon#DAEMON",
+                            "coordinate": "_content_key",
+                            "direction": "message",
+                            "binding": "proof"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                                "coordinate": "Plan",
+                                "direction": "message",
+                                "binding": "proof"
+                            },
+                            {
+                                "anchor": "python:geometry/mesh/daemon#DAEMON",
+                                "coordinate": "_source_key",
+                                "direction": "message",
+                                "binding": "proof"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 58,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "8cb43ec2aa376144bf4abcd22440dd2b5e242bde868ac41cd3d82b6dbf3ab7d8"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 58,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "8cb43ec2aa376144bf4abcd22440dd2b5e242bde868ac41cd3d82b6dbf3ab7d8"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_source_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-source.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "161fd40439b349685fb625ea3b831bde"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/iges-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 22,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "a86f06e7afe18e7d46769be962d71bb20404a385fe67e191c2cd176ef55f747c"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/iges-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 22,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "a86f06e7afe18e7d46769be962d71bb20404a385fe67e191c2cd176ef55f747c"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_source_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/iges-source.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "d9a32e84aa33e6a4d9c4cd8c639d1a65"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/step-ap203-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 39,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "1a99b2b18178f1e95d83ea20b9b5402bb0cbf0c8ee46f3dd339b3591921252b3"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/step-ap203-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 39,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "1a99b2b18178f1e95d83ea20b9b5402bb0cbf0c8ee46f3dd339b3591921252b3"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_source_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/step-ap203-source.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "2f651928abcb4ad4e2bb911a3476f940"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/step-ap214-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 39,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "9889cf4899f8408a0966d8db5b8c1939633ce4fb0d14693813414741b815916f"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/step-ap214-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 39,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "9889cf4899f8408a0966d8db5b8c1939633ce4fb0d14693813414741b815916f"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_source_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/step-ap214-source.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "55d622bec23b69513e02efc71c6acb9c"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/step-ap242-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 39,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "c71d3c702b4a71432c75d2660e0feef0bdd7bf189f64d5eb50ff88b412c1a86e"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/step-ap242-source.bin",
+                                        "role": "specimen",
+                                        "bytes": 39,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "c71d3c702b4a71432c75d2660e0feef0bdd7bf189f64d5eb50ff88b412c1a86e"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_source_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/step-ap242-source.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "d6e007cf17229557016878d339c9ee1f"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "tessellation-content-key",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "docs/laws/patterns.md#[01]-[CONTENT_IDENTITY]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                            "coordinate": "TessellationWire.Admit",
+                            "direction": "message",
+                            "binding": "proof"
+                        },
+                        {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "coordinate": "_receipt",
+                            "direction": "message",
+                            "binding": "proof"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                                "coordinate": "TessellationWire.ContentKey",
+                                "direction": "message",
+                                "binding": "proof"
+                            },
+                            {
+                                "anchor": "python:geometry/mesh/daemon#DAEMON",
+                                "coordinate": "_content_key",
+                                "direction": "message",
+                                "binding": "proof"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-all-elements.bin",
+                                        "role": "specimen",
+                                        "bytes": 132,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "877abb4bb828b7735a5d36a4ac6fdb547c39a5b0fe7965b5f04608b5a896f3b1"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-all-elements.bin",
+                                        "role": "specimen",
+                                        "bytes": 132,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "877abb4bb828b7735a5d36a4ac6fdb547c39a5b0fe7965b5f04608b5a896f3b1"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-all-elements.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "7b4be34ef564951cf37ea490667c24bb"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-all-entities.bin",
+                                        "role": "specimen",
+                                        "bytes": 102,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "1bcf9ee342af80171efabf3c3fa5cf8e8e1b24f92ceea3e477ab12be15dfbaf8"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-all-entities.bin",
+                                        "role": "specimen",
+                                        "bytes": 102,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "1bcf9ee342af80171efabf3c3fa5cf8e8e1b24f92ceea3e477ab12be15dfbaf8"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-all-entities.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "d632e98311bc35cb860e52adb7e4202f"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-all-exclude.bin",
+                                        "role": "specimen",
+                                        "bytes": 113,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "ea0b1afff310a8b1397906496679b4773959d8f4f471d1454a3f3d71474f68ea"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-all-exclude.bin",
+                                        "role": "specimen",
+                                        "bytes": 113,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "ea0b1afff310a8b1397906496679b4773959d8f4f471d1454a3f3d71474f68ea"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-all-exclude.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "b2717f7f04a1e2790088a279cc4061bb"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-all-whole.bin",
+                                        "role": "specimen",
+                                        "bytes": 76,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "50a391fee57bde5957e0b9caefc3bf1655600665dcfc0ee6d9b56cb9393a6a33"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-all-whole.bin",
+                                        "role": "specimen",
+                                        "bytes": 76,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "50a391fee57bde5957e0b9caefc3bf1655600665dcfc0ee6d9b56cb9393a6a33"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-all-whole.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "592d131cb1390143fb70251085e6b617"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-empty-elements.bin",
+                                        "role": "specimen",
+                                        "bytes": 108,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "696c38d437ee8035ee70773fd623b027bfe96f3ef2ad73899aaad4b8659e1c15"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-empty-elements.bin",
+                                        "role": "specimen",
+                                        "bytes": 108,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "696c38d437ee8035ee70773fd623b027bfe96f3ef2ad73899aaad4b8659e1c15"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-empty-elements.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "6b624b640137872aacd4ce95733ee5fc"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-empty-entities.bin",
+                                        "role": "specimen",
+                                        "bytes": 78,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "424c2f04c8e1844fd11444fc96bef208a6513f8abdda016b9378cdb064f0cbd5"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-empty-entities.bin",
+                                        "role": "specimen",
+                                        "bytes": 78,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "424c2f04c8e1844fd11444fc96bef208a6513f8abdda016b9378cdb064f0cbd5"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-empty-entities.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "a126ed7a784c33ecc63f5eb1cff4ba2b"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-empty-exclude.bin",
+                                        "role": "specimen",
+                                        "bytes": 89,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "6404377b850f0fe40923b78cb4d9d3513f2a5a17909415e7055790a1df5a59ce"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-empty-exclude.bin",
+                                        "role": "specimen",
+                                        "bytes": 89,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "6404377b850f0fe40923b78cb4d9d3513f2a5a17909415e7055790a1df5a59ce"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-empty-exclude.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "5e62e05de10bd343f2395b2b04153e1a"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/ifc-empty-whole.bin",
+                                        "role": "specimen",
+                                        "bytes": 52,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "34d0f8aa75899e0db2512f109b27f581f10a7930c75b7a5dd5a0c7e120e016be"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/ifc-empty-whole.bin",
+                                        "role": "specimen",
+                                        "bytes": 52,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "34d0f8aa75899e0db2512f109b27f581f10a7930c75b7a5dd5a0c7e120e016be"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/ifc-empty-whole.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "cffc795494efa816f6cee2c6c7f42196"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/iges-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "eed7810b22cce4a0b7e5a60e155ac9c87a64b282c4c30a4b3fa7d04c8f448265"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/iges-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "eed7810b22cce4a0b7e5a60e155ac9c87a64b282c4c30a4b3fa7d04c8f448265"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/iges-content.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "a1c7fe07f11f65c14b363d93da76f579"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/step-ap203-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "c29fd0306990c6f61f26b95745d106e64350284ffcdabf61b4566f1dbb0b97f4"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/step-ap203-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "c29fd0306990c6f61f26b95745d106e64350284ffcdabf61b4566f1dbb0b97f4"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/step-ap203-content.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "c1665e14801a9f6510e9203b092e33f9"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/step-ap214-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "db209a55f4f9f3bd56f72253e2bc2b98ff0bcf76fd0c6442da1d949baabf04f4"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/step-ap214-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "db209a55f4f9f3bd56f72253e2bc2b98ff0bcf76fd0c6442da1d949baabf04f4"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/step-ap214-content.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "b5a06603f9954540f99816579df1ab82"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/content-identity/tessellation/dotnet/step-ap242-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "980fa54235cb7676bc2ff4a06ed5327fa04fb20e112ef95677abec3930f15acd"
+                                        },
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                    },
+                                    {
+                                        "path": "conformance/content-identity/tessellation/python/step-ap242-content.bin",
+                                        "role": "specimen",
+                                        "bytes": 32,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "980fa54235cb7676bc2ff4a06ed5327fa04fb20e112ef95677abec3930f15acd"
+                                        },
+                                        "minter": "python:geometry/mesh/daemon#DAEMON@_content_key"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/content-identity/tessellation/expected/step-ap242-content.facts.json",
+                                    "bytes": 116,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "cf05c4d3bb3244b503b5b1b9aeea748b"
+                                    },
+                                    "factsFormat": "content-digest"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "hlc-stamp",
+            "law": "An HLC stamp crosses by decoded value as non-negative Unix ticks at 100 ns per tick beside a monotone uint64 logical half reset on physical advance; peers compare physical then logical and never claim protobuf byte canon.",
+            "cases": [
+                {
+                    "id": "message",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.clock.Hlc",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:runtime/transport/serve#SERVE",
+                            "coordinate": "_detail",
+                            "direction": "message",
+                            "binding": "generated"
+                        },
+                        {
+                            "anchor": "tests/python/_testkit/test_corpus.py",
+                            "coordinate": "test_live_corpus_proves_every_verified_vector_through_its_oracle",
+                            "direction": "message",
+                            "binding": "proof"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW",
+                                "coordinate": "HostWire.Stamp",
+                                "direction": "message",
+                                "binding": "generated"
+                            },
+                            {
+                                "anchor": "python:runtime/transport/serve#SERVE",
+                                "coordinate": "_sealed",
+                                "direction": "message",
+                                "binding": "generated"
+                            },
+                            {
+                                "anchor": "typescript:core/interchange/codec#LANDING_WIRE",
+                                "coordinate": "_Stamp",
+                                "direction": "message",
+                                "binding": "generated"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/hlc-stamp/dotnet/hlc_forward.bin",
+                                        "role": "specimen",
+                                        "bytes": 11,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "58d730ba4f11f5f1ceddfb9424634ac3170ac06f05a2caf095ee9727397f662d"
+                                        },
+                                        "minter": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW@HostWire.Stamp"
+                                    },
+                                    {
+                                        "path": "conformance/hlc-stamp/python/hlc_forward.bin",
+                                        "role": "specimen",
+                                        "bytes": 11,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "58d730ba4f11f5f1ceddfb9424634ac3170ac06f05a2caf095ee9727397f662d"
+                                        },
+                                        "minter": "python:runtime/transport/serve#SERVE@_sealed"
+                                    },
+                                    {
+                                        "path": "conformance/hlc-stamp/typescript/hlc_forward.bin",
+                                        "role": "specimen",
+                                        "bytes": 11,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "58d730ba4f11f5f1ceddfb9424634ac3170ac06f05a2caf095ee9727397f662d"
+                                        },
+                                        "minter": "typescript:core/interchange/codec#LANDING_WIRE@_Stamp"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/hlc-stamp/hlc_forward.facts.json",
+                                    "bytes": 79,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "dbe0bbcbd7f27f1a63596ec5f5c73b71"
+                                    },
+                                    "factsFormat": "hlc-value"
+                                }
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/hlc-stamp/dotnet/hlc_swapped.bin",
+                                        "role": "specimen",
+                                        "bytes": 18,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "8cf7ecbd3366825434591491e18d89cc519f7070a2c2252114b7ae93587f9368"
+                                        },
+                                        "minter": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW@HostWire.Stamp"
+                                    },
+                                    {
+                                        "path": "conformance/hlc-stamp/python/hlc_swapped.bin",
+                                        "role": "specimen",
+                                        "bytes": 18,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "8cf7ecbd3366825434591491e18d89cc519f7070a2c2252114b7ae93587f9368"
+                                        },
+                                        "minter": "python:runtime/transport/serve#SERVE@_sealed"
+                                    },
+                                    {
+                                        "path": "conformance/hlc-stamp/typescript/hlc_swapped.bin",
+                                        "role": "specimen",
+                                        "bytes": 18,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "8cf7ecbd3366825434591491e18d89cc519f7070a2c2252114b7ae93587f9368"
+                                        },
+                                        "minter": "typescript:core/interchange/codec#LANDING_WIRE@_Stamp"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/hlc-stamp/hlc_swapped.facts.json",
+                                    "bytes": 79,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "0684ff7022e02dbe5afff70a67bbd83c"
+                                    },
+                                    "factsFormat": "hlc-value"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "fault-wire",
+            "law": "FaultDetail rides google.rpc.Status.details as one Any; domain names the producing family and case its ordinal, never a transport code; recovery is the producer's terminal|transient|retry_after verdict, never rehydrated by a peer.",
+            "cases": [
+                {
+                    "id": "detail",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.fault.FaultDetail",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/invoke#TRANSPORT_FAULT",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "fault"
+                        },
+                        {
+                            "anchor": "python:runtime/transport/serve#SERVE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "_detail"
+                        },
+                        {
+                            "anchor": "tests/python/_testkit/test_corpus.py",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "test_live_corpus_proves_every_verified_vector_through_its_oracle"
+                        },
+                        {
+                            "anchor": "tests/typescript/_testkit/corpus.ts",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "_prove"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Pack"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "semantic-roundtrip",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/fault-wire/fault_detail_terminal.bin",
+                                        "role": "specimen",
+                                        "bytes": 69,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "89a4d3c6fddeff3f46c74d0f7064b127"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/fault-wire/fault_detail_transient.bin",
+                                        "role": "specimen",
+                                        "bytes": 69,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "7629331611d42f3e04ede4fe79c2abf4"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/fault-wire/fault_detail_retry_after.bin",
+                                        "role": "specimen",
+                                        "bytes": 126,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "f278544dcc8e7ab9a200a7d11a0008c6"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "compute-rpc",
+            "law": "Each surviving RPC direction binds one exact message to every executable client and server boundary; declaration-only services do not register.",
+            "cases": [
+                {
+                    "id": "tessellate-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.TessellateRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "GeometryServe.tessellate"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "CompanionEdge.Tessellate"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "tessellate-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.TessellateResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "CompanionEdge.Tessellate"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "GeometryServe.tessellate"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "artifact-fetch-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.artifact.FetchRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
+                            "binding": "generated",
+                            "coordinate": "GeometryServe.fetch"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
+                            "binding": "generated",
+                            "coordinate": "Fetch"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "artifact-fetch-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.artifact.FetchResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
+                            "binding": "generated",
+                            "coordinate": "Fetch"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
+                            "binding": "generated",
+                            "coordinate": "GeometryServe.fetch"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "artifact-put-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.artifact.PutRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
+                            "binding": "generated",
+                            "coordinate": "GeometryServe.put"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                                "direction": "client-request",
+                                "method": "rasm.contracts.artifact.ArtifactService.Put",
+                                "binding": "generated",
+                                "coordinate": "Put"
+                            },
+                            {
+                                "anchor": "python:cad/service/spool#SPOOL",
+                                "direction": "client-request",
+                                "method": "rasm.contracts.artifact.ArtifactService.Put",
+                                "binding": "generated",
+                                "coordinate": "ArtifactTransfer.publish"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "Both executable clients and the server implement Put, but no independently emitted request stream is frozen through cross-frame admission and repository persistence."
+                        ]
+                    }
+                },
+                {
+                    "id": "artifact-put-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.artifact.PutResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
+                            "binding": "generated",
+                            "coordinate": "Put"
+                        },
+                        {
+                            "anchor": "python:cad/service/spool#SPOOL",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
+                            "binding": "generated",
+                            "coordinate": "ArtifactTransfer.publish"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/mesh/serve#SERVE",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
+                            "binding": "generated",
+                            "coordinate": "GeometryServe.put"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The server returns a verified ArtifactRef to both executable clients, but no persisted body and matching reply are frozen through all three boundaries."
+                        ]
+                    }
+                },
+                {
+                    "id": "set-degradation-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.SetDegradationRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
+                            "binding": "generated",
+                            "coordinate": "SetDegradation"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
+                            "binding": "generated",
+                            "coordinate": "Forward"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "set-degradation-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.SetDegradationResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
+                            "binding": "generated",
+                            "coordinate": "Forward"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
+                            "binding": "generated",
+                            "coordinate": "SetDegradation"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "drain-runtime-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.DrainRuntimeRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
+                            "binding": "generated",
+                            "coordinate": "DrainRuntime"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
+                            "binding": "generated",
+                            "coordinate": "DrainVerb"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "drain-runtime-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.DrainRuntimeResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
+                            "binding": "generated",
+                            "coordinate": "DrainVerb"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
+                            "binding": "generated",
+                            "coordinate": "DrainRuntime"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "cad-rpc",
+            "law": "Each CAD RPC direction binds one generated request or response to the executable geometry client and isolated OCP provider; both methods are unary, and output bodies cross by SHA-256 ArtifactRef after confirmed Put.",
+            "cases": [
+                {
+                    "id": "execute-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.cad.ExecuteRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:cad/service/provider#PROVIDER",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.cad.CadService.Execute",
+                            "binding": "generated",
+                            "coordinate": "CadProvider.execute"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/mesh/brep#BREP",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.cad.CadService.Execute",
+                            "binding": "generated",
+                            "coordinate": "CadServiceClient.execute"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable CAD client and provider carry no frozen Execute request through the contract harness."
+                        ]
+                    }
+                },
+                {
+                    "id": "execute-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.cad.ExecuteResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/mesh/brep#BREP",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.cad.CadService.Execute",
+                            "binding": "generated",
+                            "coordinate": "CadServiceClient.execute"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:cad/service/provider#PROVIDER",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.cad.CadService.Execute",
+                            "binding": "generated",
+                            "coordinate": "CadProvider.execute"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable CAD provider and client carry no frozen Execute reply through the contract harness."
+                        ]
+                    }
+                },
+                {
+                    "id": "tessellate-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.cad.TessellateRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:cad/service/provider#PROVIDER",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "CadProvider.tessellate"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/mesh/cad#BRIDGE",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "CadServiceClient.tessellate"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable CAD client and provider carry no frozen Tessellate request through the contract harness."
+                        ]
+                    }
+                },
+                {
+                    "id": "tessellate-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.cad.TessellateResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/mesh/cad#BRIDGE",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "CadServiceClient.tessellate"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:cad/service/provider#PROVIDER",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
+                            "binding": "generated",
+                            "coordinate": "CadProvider.tessellate"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable provider and client carry no frozen unary Tessellate receipt and referenced artifact through the contract harness."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "gaussian-splat-scan",
+            "law": "GaussianSplatScan is an inner protobuf-binary artifact payload; ArtifactService Put and Fetch carry its SHA-256 ArtifactRef, while the SPZ v4 or SOG v2 discriminant closes channel admission.",
+            "cases": [
+                {
+                    "id": "spz-v4",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.scan.GaussianSplatScan",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY",
+                            "coordinate": "SplatMapper.Read",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/scan/ingestion#INGESTION",
+                            "coordinate": "ScanIngestion.run",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The SPZ v4 producer and C# reader are executable, but no packed scan instance is frozen through artifact Put, Fetch, and semantic admission."
+                        ]
+                    }
+                },
+                {
+                    "id": "sog-v2",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.scan.GaussianSplatScan",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY",
+                            "coordinate": "SplatMapper.Read",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:geometry/scan/ingestion#INGESTION",
+                            "coordinate": "ScanIngestion.run",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The SOG v2 producer and C# reader are executable, but no packed scan instance is frozen through artifact Put, Fetch, and semantic admission."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "entity-edit",
+            "law": "An entity edit crosses as ProtoJSON of EntityEditWire — a tombstone or an RFC 6902 member patch over exact NodeWire ProtoJSON keyed by NodeId and base ContentAddress — and an over-ceiling diff collapses to one root replacement.",
+            "cases": [
+                {
+                    "id": "entity-edit",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.element.EntityEditWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:data/read/fold#LANE_SPEC",
+                            "direction": "message",
+                            "binding": "generated",
+                            "supports": [
+                                {
+                                    "kind": "message",
+                                    "fqn": "rasm.contracts.element.NodeWire"
+                                }
+                            ],
+                            "coordinate": "fold"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/merge#STRUCTURAL_DIFF",
+                            "direction": "message",
+                            "binding": "generated",
+                            "supports": [
+                                {
+                                    "kind": "message",
+                                    "fqn": "rasm.contracts.element.NodeWire"
+                                }
+                            ],
+                            "coordinate": "EditWire.Wire"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No merge corpus freezes base and target graphs with their edit union, so no branch carries a byte-deriving instance."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "oplog-entry",
+            "law": "The estate op-log envelope is the C# producer's fixed thirteen-slot MessagePack array; payload remains an opaque bin value, content key names those bytes, and only the nested crdt lane admits the generated CrdtOpWire.",
+            "cases": [
+                {
+                    "id": "oplog-entry",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Persistence/.planning/Version/ledger.md#[02]-[CHANGEFEED]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#CHANGEFEED",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "OpLogWire.Decode"
+                        },
+                        {
+                            "anchor": "python:runtime/transport/wire#CRDT_CODEC",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "OpLogCodec.decode"
+                        },
+                        {
+                            "anchor": "typescript:core/interchange/codec#SEQUENCE_GAP",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "OpLog.stream"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#CHANGEFEED",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "OpLogWire.Encode"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No C#-minted thirteen-slot envelope is frozen through the C#, Python, and TypeScript readers with its opaque payload and content key intact."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "crdt-ops",
+            "law": "Generated crdt CrdtOpWire is the sole ten-arm CRDT payload; only a crdt OpLogEntry raw slot carries it, non-CRDT lanes remain opaque, and operation identity stays the entry dot.",
+            "cases": [
+                {
+                    "id": "crdt-ops",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.crdt.CrdtOpWire",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/commits#CRDT_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "CrdtWire.Decode"
+                        },
+                        {
+                            "anchor": "python:runtime/transport/wire#CRDT_CODEC",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "CrdtOpCodec.ops"
+                        },
+                        {
+                            "anchor": "typescript:core/interchange/codec#SEQUENCE_GAP",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "OpLog.crdt"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/commits#CRDT_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "CrdtWire.Encode"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No C#-minted CrdtOpWire is frozen through the C#, Python, and TypeScript readers while retaining its outer operation identity."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "event-extensions",
+            "law": "Generated Extensions is the sole estate CloudEvents extension vocabulary; independent emitters mint it and every branch admits it through generated descriptors.",
+            "cases": [
+                {
+                    "id": "extensions",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.event.Extensions",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:runtime/transport/event#MESSAGE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "admitted"
+                        },
+                        {
+                            "anchor": "typescript:core/interchange/carrier#EVENT_ENVELOPE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "_read"
+                        },
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#EVENT_INGRESS",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "WireAdmission.EventExtensions.Admit"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "python:artifacts/delivery/notice#NOTICE",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "announce"
+                            },
+                            {
+                                "anchor": "typescript:core/interchange/carrier#EVENT_ENVELOPE",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "_mint"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No cross-runtime fixture carries one complete generated Extensions value through every minter and reader for value parity."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "host-wire",
+            "law": "Application-facing host wires cross as ProtoJSON through their owning contract-family packages under exact producer and generated reader boundaries; optional slots are absent rather than null.",
+            "cases": [
+                {
+                    "id": "command-availability",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.availability.CommandAvailability",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/state/evidence#AVAILABILITY_LATTICE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "of"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Observability/health#DEGRADATION_RAIL",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "CommandAvailability.Of"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer freezes no family vector — every apphost family crosses as ProtoJSON with no pinned instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "command-invocation",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.ui.CommandInvocation",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/invoke#COMMAND_GATEWAY",
+                            "coordinate": "bytes",
+                            "direction": "message",
+                            "binding": "generated"
+                        },
+                        {
+                            "anchor": "typescript:core/interchange/invoke#COMMAND_GATEWAY",
+                            "coordinate": "serve",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "application"
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The TypeScript gateway owns executable byte and socket readers, but no external application origin freezes one CommandInvocation ProtoJSON vector through either ingress."
+                        ]
+                    }
+                },
+                {
+                    "id": "command-gate",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.ui.CommandGateWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/codec#FEED_DEDUP",
+                            "coordinate": "Wire.feed",
+                            "direction": "message",
+                            "binding": "generated"
+                        },
+                        {
+                            "anchor": "typescript:ui/viewer/panel#EVENT_FOLD",
+                            "coordinate": "Panel.fold",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppUi/Shell/commands#AVAILABILITY_ALGEBRA",
+                            "coordinate": "CommandGate.Wire",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer feed and both TypeScript readers are executable, but no gate verdict is frozen from the C# availability fold through panel state."
+                        ]
+                    }
+                },
+                {
+                    "id": "appui-surface-program",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.ui.AppUiSurfaceProgram",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/panel#SURFACE_PROGRAM",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Panel.surface"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppUi/Shell/screens#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "ScreenMap.Emit"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The future application producer and generated TypeScript admission are decision-complete, but no runtime transport exercises the admitted root and no corpus instance is frozen."
+                        ]
+                    }
+                },
+                {
+                    "id": "geometry-residency",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.render.GeometryResidency",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/frame#RESIDENCY_MANIFEST",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "stream"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppUi/Render/pipeline#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "ResidencyMap.Mint"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer freezes no family vector — every appui family crosses as ProtoJSON with no pinned instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "evidence-timeline",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.ui.EvidenceTimelineWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/probe#CAPTURE_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Probe.capture"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#CORRELATION_JOIN",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "TimelineWire.Lower"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer freezes no family vector — every appui family crosses as ProtoJSON with no pinned instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "bcf-topic",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.bcf.BcfTopicWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/mark#TOPIC_BOARD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Mark.board"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Bim/Review/issues#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "BcfProjection.Project"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer freezes no family vector — the BCF, diff, and predicate families cross as ProtoJSON with no pinned instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "model-diff",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.bim.ModelDiffWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/review#ROW_JOIN",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Review.rows"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Bim/Review/diff#MODEL_DIFF",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "ModelDiff.Seal"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer freezes no family vector — the BCF, diff, and predicate families cross as ProtoJSON with no pinned instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "credential-public",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.credential.CredentialPublicWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:security/crypt/sign#KEY_MATERIAL",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Material.admit"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Carrier"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted CredentialPublicWire ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                },
+                {
+                    "id": "flag-verdict",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.feature.FlagVerdictWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:runtime/proc/flag#VERDICT_CONTRACT",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Verdict.admitted"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Runtime/features#VERDICT_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "ToWire"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted FlagVerdictWire ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                },
+                {
+                    "id": "binding-status",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.binding.BindingStatus",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/panel#EVENT_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Panel.fold"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "LiveWireContract.Status"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted BindingStatus ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                },
+                {
+                    "id": "coerced-value",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.binding.CoercedValueWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/panel#EVENT_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Panel.fold"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Coerced"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted CoercedValueWire ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                },
+                {
+                    "id": "write-receipt",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.binding.WriteReceiptWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/panel#EVENT_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Panel.fold"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Receipt"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted WriteReceiptWire ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                },
+                {
+                    "id": "evidence-receipt",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.ui.EvidenceReceiptWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/probe#CAPTURE_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Probe.capture"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#RECEIPT_UNION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "EvidenceWire.Lower"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted EvidenceReceiptWire ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                },
+                {
+                    "id": "bcf-viewpoint",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.bcf.BcfViewpointWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/mark#VIEWPOINT_RESTORE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Mark.restore"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Bim/Review/issues#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "BcfProjection.Project"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No corpus harness carries one producer-emitted BcfViewpointWire ProtoJSON instance through the direct TypeScript decoder."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "appearance-set",
+            "law": "Appearance crosses as producer-owned rasm.contracts.appearance.Set documents: C# mints baked and environment sets, Python mints PBR-ingest and environment sets, and every peer admits the generated family without deriving address or key.",
+            "cases": [
+                {
+                    "id": "baked",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.appearance.Set",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:data/object/asset#ASSET_GATE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Asset.gate"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "AppearanceEgress.Set"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer has pressed no concrete set — the Rasm.Materials Raster press estate holds no realized source — so no baked Set crosses with its generated ArtifactRef leaves."
+                        ]
+                    }
+                },
+                {
+                    "id": "ingest-pbr",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.appearance.Set",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:data/object/asset#ASSET_GATE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Asset.gate"
+                        },
+                        {
+                            "anchor": "dotnet:Rasm.Materials/Raster/set#SET_INGEST",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "SetIngest.Peer"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:artifacts/graphic/texture/set#EGRESS",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "TextureSet.assembled"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The Python PBR producer and both generated readers are executable, but no seed-zero Set document is frozen through all three boundaries."
+                        ]
+                    }
+                },
+                {
+                    "id": "environment",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.appearance.Set",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:data/object/asset#ASSET_GATE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Asset.gate"
+                        },
+                        {
+                            "anchor": "typescript:runtime/browser/fetch#DEPOT_SCHEDULER",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Depot.dome"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "python:artifacts/graphic/texture/set#EGRESS",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "TextureSet.assembled"
+                            },
+                            {
+                                "anchor": "dotnet:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "AppearanceEgress.Ibl"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "Both environment minters and the generated TypeScript reader are executable, but no independently minted Set pair is frozen for value parity."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "capability-descriptor",
+            "law": "The AppHost projects one canonical capability document and its seed-zero digest into capability.DescriptorPinWire; TypeScript admits the generated message only after re-hashing the document and matching the advertised pin.",
+            "cases": [
+                {
+                    "id": "descriptor-pin",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.capability.DescriptorPinWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/invoke#CAPABILITY_BIND",
+                            "coordinate": "Capability.admit",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Agent/capability#PEER_DISCOVERY",
+                            "coordinate": "CapabilityDiscovery.Project",
+                            "direction": "message",
+                            "binding": "generated"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The generated producer and TypeScript admission are executable, but no capability catalog freezes one complete descriptor document and matching digest through both boundaries."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "capability-discovery-rpc",
+            "law": "Capability discovery binds the generated empty request and catalog response to the executable Python client and C# service boundaries; the response carries the same descriptor pin the standalone capability document proves.",
+            "cases": [
+                {
+                    "id": "discover-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.capability.DiscoverRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
+                            "binding": "generated",
+                            "coordinate": "CapabilityDiscoveryServiceImpl.Discover"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:runtime/transport/serve#CAPABILITY_INVOKE",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
+                            "binding": "generated",
+                            "coordinate": "CapabilityInvoke.connect"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable discovery client and service carry no frozen Discover request through the contract harness."
+                        ]
+                    }
+                },
+                {
+                    "id": "discover-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.capability.DiscoverResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:runtime/transport/serve#CAPABILITY_INVOKE",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
+                            "binding": "generated",
+                            "coordinate": "CapabilityInvoke.connect"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
+                            "binding": "generated",
+                            "coordinate": "CapabilityDiscoveryServiceImpl.Discover"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable discovery service and client carry no frozen catalog and matching descriptor pin through the contract harness."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "material-wire",
+            "law": "A material crosses as rasm.contracts.appearance.Material — the OpenPBR Surface 1.1 parameter algebra, conductor key, capture receipt, and appearance content hash — colour as the scene-linear triple; peers re-derive no hash.",
+            "cases": [
+                {
+                    "id": "material-wire",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.appearance.Material",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/scene#APPEARANCE_BIND",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Pbr.index"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "AppearanceEgress.Project"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer has pinned no concrete material — no source tree runs the OpenPBR egress — so the appearance content hash carries no byte-deriving input."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "keyed-artifact",
+            "law": "A container proof holds exact glb|ifc|3dm bytes beside their seed-zero semantic ContentKey; ArtifactRef CAS identity is a separate SHA-256 transport law, and each peer reads the container with its own library.",
+            "cases": [
+                {
+                    "id": "glb",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "docs/laws/patterns.md#[01]-[CONTENT_IDENTITY]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:data/spatial/mesh#MESH",
+                            "coordinate": "_trimesh_load",
+                            "direction": "message",
+                            "binding": "proof"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Bim/Exchange/export#EXPORT_RAIL",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "BimExport.Export"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer must pin source geometry with a TessellationPolicy before a leaf tile is emitted, so no GLB carries a byte-deriving instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "ifc",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "docs/laws/patterns.md#[01]-[CONTENT_IDENTITY]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/mesh/daemon#DAEMON",
+                            "coordinate": "_tessellate_ifc",
+                            "direction": "message",
+                            "binding": "proof"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Bim/Exchange/wire#WIRE_PROJECTION",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "IfcWire.Seal"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer lacks the canonical IFC payload the WireParity row freezes, so no archive carries a byte-deriving instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "3dm",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "docs/laws/patterns.md#[01]-[CONTENT_IDENTITY]",
+                        "format": "binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:data/spatial/mesh#MESH",
+                            "coordinate": "_rhino3dm_load",
+                            "direction": "message",
+                            "binding": "proof"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Rhino/Exchange/archive#TRANSACTION_RAIL",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "ArchiveBytes"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No capture has frozen an archive — the first fixture is a minimal mesh-bearing .3dm beside its seed-zero digest, written once the producer rail runs."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "matrix-market-exchange",
+            "law": "The estate Matrix Market contract is coordinate real general text carrying sparse operand values only; both native minters and peer readers normalize row, column, and value facts while factor reproduction policy remains in HDF5.",
+            "cases": [
+                {
+                    "id": "sparse",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Compute/.planning/Tensor/factor.md#[02]-[SPARSE_SOLVE]",
+                        "format": "text"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "SparseOps.ReadMtx"
+                        },
+                        {
+                            "anchor": "python:compute/solvers/linear#EXCHANGE",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "read_mtx"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                                "direction": "message",
+                                "binding": "proof",
+                                "coordinate": "SparseOps.WriteMtx"
+                            },
+                            {
+                                "anchor": "python:compute/solvers/linear#EXCHANGE",
+                                "direction": "message",
+                                "binding": "proof",
+                                "coordinate": "SparseExchange.write_mtx"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/matrix-market-exchange/sparse_dotnet.mtx",
+                                        "role": "specimen",
+                                        "bytes": 94,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "a9d3dbc963e2f226a5dd10d34d9a0c9b"
+                                        },
+                                        "minter": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE@SparseOps.WriteMtx"
+                                    },
+                                    {
+                                        "path": "conformance/matrix-market-exchange/sparse_python.mtx",
+                                        "role": "specimen",
+                                        "bytes": 96,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "a81cee5999a0d2398bafe31137eb8017"
+                                        },
+                                        "minter": "python:compute/solvers/linear#EXCHANGE@SparseExchange.write_mtx"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/matrix-market-exchange/sparse.facts.json",
+                                    "bytes": 419,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "6d65890e0ad44cb72eb218ab012e9599"
+                                    },
+                                    "factsFormat": "matrix-market-facts"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "hdf5-exchange",
+            "law": "The estate HDF5 contract distinguishes native envelopes by exclusive root signatures /field, /bands, /A, and /waveform; each case fixes its roster, dtype, endian, storage, and admission law.",
+            "cases": [
+                {
+                    "id": "field",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Compute/.planning/Runtime/field.md#[02]-[FIELD_RESULT_CODEC]",
+                        "format": "hdf5"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:data/gridded/field#CONTAINER",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "FieldContainer.open"
+                        },
+                        {
+                            "anchor": "python:data/gridded/virtual#MANIFEST",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "HDFParser"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/field#FIELD_RESULT_CODEC",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "Hdf5Encode"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "semantic-conformance",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/hdf5-exchange/field_dotnet.h5",
+                                        "role": "specimen",
+                                        "bytes": 4734,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "f3df547663fd60979fda218dbd811545"
+                                        }
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/hdf5-exchange/field_dotnet.facts.json",
+                                    "bytes": 648,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "0f355744b1becb37b94a9af148f812c4"
+                                    },
+                                    "factsFormat": "hdf5-facts"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "graduation",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "libs/python/compute/.planning/experiments/model.md#[03]-[ENVELOPE]",
+                        "format": "hdf5"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Model/identity#MODEL_IDENTITY",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "GraduationEnvelope.Admit"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:compute/experiments/model#ENVELOPE",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "write"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "semantic-conformance",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/hdf5-exchange/graduation_python.h5",
+                                        "role": "specimen",
+                                        "bytes": 11752,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "807cf4d25d3b7d605f4000f62a8a5450"
+                                        }
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/hdf5-exchange/graduation_python.facts.json",
+                                    "bytes": 303,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "587f58ddd5c83154df6af0272dfaf956"
+                                    },
+                                    "factsFormat": "hdf5-facts"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "sparse",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Compute/.planning/Tensor/factor.md#[02]-[SPARSE_SOLVE]",
+                        "format": "hdf5"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "SparseOps.ReadArchive"
+                        },
+                        {
+                            "anchor": "python:compute/solvers/linear#EXCHANGE",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "read_archive"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                                "direction": "message",
+                                "binding": "proof",
+                                "coordinate": "SparseOps.WriteArchive"
+                            },
+                            {
+                                "anchor": "python:compute/solvers/linear#EXCHANGE",
+                                "direction": "message",
+                                "binding": "proof",
+                                "coordinate": "SparseExchange.write_archive"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/hdf5-exchange/sparse_dotnet.h5",
+                                        "role": "specimen",
+                                        "bytes": 5259,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "b4fa7c0ed9ccbf2723e33abc17b4019b"
+                                        },
+                                        "minter": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE@SparseOps.WriteArchive"
+                                    },
+                                    {
+                                        "path": "conformance/hdf5-exchange/sparse_python.h5",
+                                        "role": "specimen",
+                                        "bytes": 10624,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "e60010fc426c9cc125e4956c0e8e02f5"
+                                        },
+                                        "minter": "python:compute/solvers/linear#EXCHANGE@SparseExchange.write_archive"
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/hdf5-exchange/sparse.facts.json",
+                                    "bytes": 338,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "1bea74875c19a37ab4dc3c3305b68ccd"
+                                    },
+                                    "factsFormat": "hdf5-facts"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "waveform",
+                    "definition": {
+                        "kind": "law",
+                        "anchor": "libs/python/compute/.planning/analysis/signal.md#[03]-[WAVEFORM_EXCHANGE]",
+                        "format": "hdf5"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/field#SCIENTIFIC_INGEST",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "ImportWaveforms"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:compute/analysis/signal#WAVEFORM_EXCHANGE",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "write"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "semantic-conformance",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/hdf5-exchange/waveform_python.h5",
+                                        "role": "specimen",
+                                        "bytes": 4112,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "1f55fefed063e2a5472e54bc370b4fe3"
+                                        }
+                                    }
+                                ],
+                                "expected": {
+                                    "role": "expected",
+                                    "path": "conformance/hdf5-exchange/waveform_python.facts.json",
+                                    "bytes": 307,
+                                    "fingerprint": {
+                                        "algorithm": "xxh128",
+                                        "value": "cc6914de23030862011b50043532a300"
+                                    },
+                                    "factsFormat": "hdf5-facts"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "parity-document",
+            "law": "The Backend parity document crosses as rasm.contracts.parity.Backend ProtoJSON; independent branches mint contributions and admit foreign documents with printable keys and ordinally sorted collections.",
+            "cases": [
+                {
+                    "id": "backend-contract",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.parity.Backend",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Store/schema#CONFORMANCE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "BackendConformance.Project"
+                        },
+                        {
+                            "anchor": "typescript:data/lane/capability#CONTRACT",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Backend.project"
+                        },
+                        {
+                            "anchor": "python:runtime/execution/admission#BACKEND_CONTRACT",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "BackendGeneration.admit"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Persistence/Store/schema#IDENTITY",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "ContractComposition.Compose"
+                            },
+                            {
+                                "anchor": "typescript:data/lane/capability#CONTRACT",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "Backend.compose"
+                            },
+                            {
+                                "anchor": "python:runtime/execution/admission#BACKEND_CONTRACT",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "BackendGeneration.compose"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "value-parity",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/parity-document/backend-contract.dotnet.json",
+                                        "role": "specimen",
+                                        "bytes": 548,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "1c1bea9693af89a6013b6234b0359f534504a6fd74dabf7bfd2d7630bba05b50"
+                                        },
+                                        "minter": "dotnet:Rasm.Persistence/Store/schema#IDENTITY@ContractComposition.Compose"
+                                    },
+                                    {
+                                        "path": "conformance/parity-document/backend-contract.python.json",
+                                        "role": "specimen",
+                                        "bytes": 496,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "b4819dce401b662524c35be31c946271cadce4a81aca171b5a1dd29c8d684491"
+                                        },
+                                        "minter": "python:runtime/execution/admission#BACKEND_CONTRACT@BackendGeneration.compose"
+                                    },
+                                    {
+                                        "path": "conformance/parity-document/backend-contract.typescript.json",
+                                        "role": "specimen",
+                                        "bytes": 496,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "b4819dce401b662524c35be31c946271cadce4a81aca171b5a1dd29c8d684491"
+                                        },
+                                        "minter": "typescript:data/lane/capability#CONTRACT@Backend.compose"
+                                    }
+                                ],
+                                "expected": {
+                                    "path": "conformance/parity-document/backend-contract.facts.json",
+                                    "role": "expected",
+                                    "bytes": 603,
+                                    "fingerprint": {
+                                        "algorithm": "sha256",
+                                        "value": "923460fd1e23f31f3a12f878a3fbb8f1f605b6315b3cabf4bb39e07e7207aea4"
+                                    },
+                                    "factsFormat": "backend-generation"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "benchmark-claim",
+            "law": "A benchmark claim is ProtoJSON of BenchmarkClaimWire — suite, host, minted, metrics — with the host fingerprint crossing embedded and bare; a claim whose host print differs from the executing identity refuses before comparison.",
+            "cases": [
+                {
+                    "id": "claim",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.benchmark.BenchmarkClaimWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:ui/viewer/probe#CLAIM_BOARD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Probe.board"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "infrastructure",
+                        "minters": [
+                            {
+                                "anchor": "dotnet:Rasm.Compute/Runtime/claims#BENCHMARK_WIRE",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "Document"
+                            },
+                            {
+                                "anchor": "typescript:core/observe/board#BENCH",
+                                "direction": "message",
+                                "binding": "generated",
+                                "coordinate": "FromWire"
+                            }
+                        ]
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "Neither minter freezes a claim document — the C# equivalence sweep pins no host fingerprint and the TypeScript harness pins no suite."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "organization-wire",
+            "law": "Organization crosses as one recursive ordered forest; keys address ancestor-label chains, nested ownership is structural, and current is a resolvable sibling-index path.",
+            "cases": [
+                {
+                    "id": "organization-wire",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.organization.Organization",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:data/graph/graph#TOPOLOGY",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "organization_graph"
+                        },
+                        {
+                            "anchor": "typescript:data/read/fold#ORGANIZATION_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Organization.decode"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "OrganizationCodec.Encode"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No source tree runs Layers.Ask, so no host read has minted a byte-deriving instance of the organization family."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "scene-descriptor",
+            "law": "A scene descriptor crosses as rasm.contracts.scene.SceneDescriptor proto binary — sun derivation, photometry roster, and shading body by SHA-256 ArtifactRef — with lengths in metres and normalized solar angles.",
+            "cases": [
+                {
+                    "id": "scene-descriptor",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.scene.SceneDescriptor",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:geometry/energy/simulate#SIMULATE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "_scene"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Rhino/Objects/lights#ASK_AND_COMMIT",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "SceneMap.Encode"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No capture has frozen a descriptor — no source tree runs Lights.Capture — so the scene family carries no byte-deriving instance."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "tolerance-frame",
+            "law": "An ISO 1101 frame crosses as rasm.contracts.fabrication.FeatureControl proto binary — magnitudes exact in millimetres, modifiers ascending by key, each datum carrying its own material condition with precedence by position.",
+            "cases": [
+                {
+                    "id": "tolerance-frame",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.fabrication.FeatureControl",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:artifacts/drawing/dimension#DIMENSION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "GdtFrame.decode"
+                        },
+                        {
+                            "anchor": "tests/python/_testkit/test_corpus.py",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "test_live_corpus_proves_every_verified_vector_through_its_oracle"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Fabrication/Spec/tolerance#OWNER_FOLD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Encode"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "semantic-roundtrip",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "conformance/tolerance-frame/feature_control.bin",
+                                        "role": "specimen",
+                                        "bytes": 100,
+                                        "fingerprint": {
+                                            "algorithm": "xxh128",
+                                            "value": "3f1c0d9b13dd00752508e0e54b35c949"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "declaration-record",
+            "law": "A declaration record crosses as protobuf binary of rasm.contracts.declaration.DeclarationRecord; the producer separately derives its content key from generated ProtoJSON, while consumers decode the binary and re-author no field.",
+            "cases": [
+                {
+                    "id": "declaration-record",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.declaration.DeclarationRecord",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Materials/Properties/assessment#ASSESSMENT_RECORD",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "DeclarationWire.Decode"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:data/impact/declaration#DECLARATION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "record"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No frozen Ökobaudat sample declaration pins the byte-deriving input; the producer freezes one registry record per source row when the ingest lane executes."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "cesql-conformance",
+            "law": "Each minter compiles a vector once at admission and evaluates it through its own expression owner; Integer is 32-bit, seven error types close the answer vocabulary, and parity across the minters' verdict sets IS the conformance.",
+            "cases": [
+                {
+                    "id": "cesql-conformance",
+                    "definition": {
+                        "kind": "publisher",
+                        "format": "CloudEvents SQL conformance TCK, YAML vectors",
+                        "source": "vendor/cesql-conformance",
+                        "origin": {
+                            "repository": "https://github.com/cloudevents/spec",
+                            "commit": "33836c17ff8384b43800c2be14469fd52dc17468",
+                            "upstreamPath": "cesql/cesql_tck",
+                            "license": {
+                                "spdx": "Apache-2.0",
+                                "path": "vendor/cesql-conformance/LICENSE",
+                                "sha256": "c07c2bf22d1b6eadecdbc008b0693c9a876f85c1485c375ff57301085ffc8db9"
+                            }
+                        }
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/egress#SUBSCRIPTION_FILTER",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "CesqlExpression.Evaluate"
+                        },
+                        {
+                            "anchor": "typescript:runtime/work/filter#GRAMMAR_OWNER",
+                            "direction": "message",
+                            "binding": "proof",
+                            "coordinate": "Cesql.compile"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "publisher"
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "publisher-digest",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "vendor/cesql-conformance/binary_comparison_operators.yaml",
+                                        "role": "specimen",
+                                        "bytes": 2990,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "4270e50acc2eeb9e211b4f4ba1b3165a4376a084420adf09fe4604773b976a8d"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/binary_logical_operators.yaml",
+                                        "role": "specimen",
+                                        "bytes": 1468,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "7792192f34d0e3ebd1cc32d768e16ab998eaa401137342fb4ee2f19da640f454"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/binary_math_operators.yaml",
+                                        "role": "specimen",
+                                        "bytes": 1705,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "41626e0281db28b0e0f5c49740b8b3a4bc29aace76ebbf44f14c42a16ab2d25e"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/case_sensitivity.yaml",
+                                        "role": "specimen",
+                                        "bytes": 444,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "c8210d2c673fe1f4aaef10e49db4035f1cb2e8b8a7e4e7736e214c47df7cb7fc"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/casting_functions.yaml",
+                                        "role": "specimen",
+                                        "bytes": 1649,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "e3bcde8182cd521a576387a63f066bede5e50a2624c298303e2819d98bdb791c"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/context_attributes_access.yaml",
+                                        "role": "specimen",
+                                        "bytes": 1341,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "aa3db6fa1a0324c20f5364ce723e99f92f862944a4490cf1ed785634936cbe5f"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/exists_expression.yaml",
+                                        "role": "specimen",
+                                        "bytes": 1421,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "3fbad437e651a810137f060d56921c20f30e2bc0ae9caa0fd90935a6cc3ee863"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/in_expression.yaml",
+                                        "role": "specimen",
+                                        "bytes": 2139,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "3491bd2762be62ba4d3746240e174126706f36cb9e119efe1a3c75b8aab6a8d8"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/integer_builtin_functions.yaml",
+                                        "role": "specimen",
+                                        "bytes": 305,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "650754e8f28e6809378e1ebcb7f9c5064bf9cda8b24837f9c2b4f46fb2e79bd4"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/like_expression.yaml",
+                                        "role": "specimen",
+                                        "bytes": 3764,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "0ef036908d4a1d4e518003cfd4869eac44e4695b1a42f96fa853dd655706ce9f"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/literals.yaml",
+                                        "role": "specimen",
+                                        "bytes": 765,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "3351544c2d3c9d60d008306995153684e4dc65d99f32fd1a2ca75188bc9d464e"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/negate_operator.yaml",
+                                        "role": "specimen",
+                                        "bytes": 471,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "2c83115bd69a6e7bb12ae1fc959d300c63ba6f92f7dee49a84989554c1ce42fd"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/not_operator.yaml",
+                                        "role": "specimen",
+                                        "bytes": 501,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "2cf211d0523b05e0c42f7f59a74280d96a5d0f18d03e124a07e4b5a5799b8f6a"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/parse_errors.yaml",
+                                        "role": "specimen",
+                                        "bytes": 98,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "2612bb4170cd2354f499860a58ec9714808381932cd5f7a7c7e61bf76023d8e2"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/spec_examples.yaml",
+                                        "role": "specimen",
+                                        "bytes": 2037,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "48717d5e6eff63b77c76800d33e3570e13f5ff90f653dd3d00f71075002ad008"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/string_builtin_functions.yaml",
+                                        "role": "specimen",
+                                        "bytes": 3421,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "d06f4eeec5359fa6c405c7ebaaeb0af93addbfbba9d5a649d0d11f0a5eb3fcd9"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/sub_expression.yaml",
+                                        "role": "specimen",
+                                        "bytes": 238,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "952663b7b3517c3ebc28d8430a5d4b04d35c8009702866bc96f07e40d2f762c4"
+                                        }
+                                    },
+                                    {
+                                        "path": "vendor/cesql-conformance/subscriptions_api_recreations.yaml",
+                                        "role": "specimen",
+                                        "bytes": 5699,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "80a04a6389c3635d9749436695adb5ee033545c355bb625ea2c5251c631c62b4"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "cloudevents",
+            "law": "The CloudEvents envelope is the publisher's own definition — io.cloudevents.v1.CloudEvent generated per branch where no package ships it, the Avro schema graded as frozen bytes — and the estate respells no byte of either.",
+            "cases": [
+                {
+                    "id": "proto",
+                    "definition": {
+                        "kind": "publisher",
+                        "format": "CloudEvents 1.0 protobuf",
+                        "source": "vendor/cloudevents/proto/io/cloudevents/v1/cloudevents.proto",
+                        "origin": {
+                            "repository": "https://github.com/cloudevents/spec",
+                            "commit": "fc1f6f31f5f011a72183f1bcea20c987cb683ade",
+                            "license": {
+                                "spdx": "Apache-2.0",
+                                "path": "vendor/cloudevents/LICENSE",
+                                "sha256": "c07c2bf22d1b6eadecdbc008b0693c9a876f85c1485c375ff57301085ffc8db9"
+                            },
+                            "upstreamPath": "cloudevents/formats/cloudevents.proto"
+                        }
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/carrier#EVENT_ENVELOPE",
+                            "coordinate": "_eventProtobuf",
+                            "direction": "message",
+                            "binding": "generated",
+                            "roots": [
+                                "io.cloudevents.v1.CloudEvent",
+                                "io.cloudevents.v1.CloudEventBatch"
+                            ]
+                        },
+                        {
+                            "anchor": "python:runtime/transport/event#FORMAT",
+                            "coordinate": "ProtobufFormat",
+                            "direction": "message",
+                            "binding": "generated",
+                            "roots": [
+                                "io.cloudevents.v1.CloudEvent",
+                                "io.cloudevents.v1.CloudEventBatch"
+                            ]
+                        },
+                        {
+                            "anchor": "dotnet:Rasm/Domain/event#FORMAT_CONTRACT",
+                            "coordinate": "FromProtobuf",
+                            "direction": "message",
+                            "binding": "package",
+                            "roots": [
+                                "io.cloudevents.v1.CloudEvent",
+                                "io.cloudevents.v1.CloudEventBatch"
+                            ]
+                        }
+                    ],
+                    "authority": {
+                        "kind": "publisher"
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "publisher-digest",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "vendor/cloudevents/proto/io/cloudevents/v1/cloudevents.proto",
+                                        "role": "specimen",
+                                        "bytes": 1598,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "2bc1e82754cc8b7abb08fa8329e50a7643f6da18f6d60479ecbe403ae6e5fecc"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "avsc",
+                    "definition": {
+                        "kind": "publisher",
+                        "format": "CloudEvents 1.0 Avro schema",
+                        "source": "vendor/cloudevents/cloudevents.avsc",
+                        "origin": {
+                            "repository": "https://github.com/cloudevents/spec",
+                            "commit": "fc1f6f31f5f011a72183f1bcea20c987cb683ade",
+                            "license": {
+                                "spdx": "Apache-2.0",
+                                "path": "vendor/cloudevents/LICENSE",
+                                "sha256": "c07c2bf22d1b6eadecdbc008b0693c9a876f85c1485c375ff57301085ffc8db9"
+                            },
+                            "upstreamPath": "cloudevents/formats/cloudevents.avsc"
+                        }
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:runtime/net/channel#MQTT_SEAM",
+                            "coordinate": "Avro.single",
+                            "direction": "message",
+                            "binding": "generated"
+                        },
+                        {
+                            "anchor": "python:runtime/transport/event#FORMAT",
+                            "coordinate": "AvroFormat.read",
+                            "direction": "message",
+                            "binding": "package"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "publisher"
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "publisher-digest",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "vendor/cloudevents/cloudevents.avsc",
+                                        "role": "specimen",
+                                        "bytes": 1425,
+                                        "distributions": [
+                                            {
+                                                "kind": "typescript-json-module",
+                                                "path": "libs/contracts/gen/typescript/io/cloudevents/v1/cloudevents_avro.ts",
+                                                "symbol": "CloudEventsAvro"
+                                            },
+                                            {
+                                                "kind": "python-package-resource",
+                                                "path": "libs/contracts/gen/python/rasm/contracts/io/cloudevents/v1/cloudevents.avsc",
+                                                "package": "rasm.contracts"
+                                            }
+                                        ],
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "e00355124197530cdc2ab9b506890f2157cfa1bba4112e7d9c06e83d424d0ab6"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "grpc-health-rpc",
+            "law": "The surviving health check binds publisher messages to the executable C# client and Python server in each direction; publisher custody remains a separate frozen-byte case.",
+            "cases": [
+                {
+                    "id": "check-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "grpc.health.v1.HealthCheckRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:runtime/transport/serve#SERVE",
+                            "direction": "server-request",
+                            "method": "grpc.health.v1.Health.Check",
+                            "binding": "generated",
+                            "coordinate": "check"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#TRANSPORT_AXIS",
+                            "direction": "client-request",
+                            "method": "grpc.health.v1.Health.Check",
+                            "binding": "package",
+                            "coordinate": "WarmProbe.RoundTrip"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No contract-harness vector carries one Health.Check request from the C# client into the Python server admission."
+                        ]
+                    }
+                },
+                {
+                    "id": "check-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "grpc.health.v1.HealthCheckResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#TRANSPORT_AXIS",
+                            "direction": "client-response",
+                            "method": "grpc.health.v1.Health.Check",
+                            "binding": "package",
+                            "coordinate": "WarmProbe.RoundTrip"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "python:runtime/transport/serve#SERVE",
+                            "direction": "server-response",
+                            "method": "grpc.health.v1.Health.Check",
+                            "binding": "generated",
+                            "coordinate": "check"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "No contract-harness vector carries one Health.Check response from the Python server into the C# client admission."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "grpc-health",
+            "law": "grpc.health.v1 binds through a package-shipped client where a branch has one and generates from this vendored module where none does; a re-vendoring moves the provenance tag with the bytes.",
+            "cases": [
+                {
+                    "id": "grpc-health",
+                    "definition": {
+                        "kind": "publisher",
+                        "format": "gRPC health checking protocol v1, proto",
+                        "source": "vendor/grpc-health/proto/grpc/health/v1/health.proto",
+                        "origin": {
+                            "repository": "https://github.com/grpc/grpc-proto",
+                            "commit": "9b13d199cc0d4703c7ea26c9c330ba695866eb23",
+                            "upstreamPath": "grpc/health/v1/health.proto",
+                            "license": {
+                                "spdx": "Apache-2.0",
+                                "path": "vendor/grpc-health/LICENSE",
+                                "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+                            }
+                        }
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "python:runtime/transport/serve#SERVE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "roots": [
+                                "grpc.health.v1.HealthCheckRequest",
+                                "grpc.health.v1.HealthCheckResponse"
+                            ],
+                            "coordinate": "ServerHost"
+                        },
+                        {
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "direction": "message",
+                            "binding": "package",
+                            "roots": [
+                                "grpc.health.v1.HealthCheckRequest",
+                                "grpc.health.v1.HealthCheckResponse"
+                            ],
+                            "coordinate": "ServiceHost.Map"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "publisher"
+                    },
+                    "readiness": {
+                        "kind": "verified",
+                        "oracle": "publisher-digest",
+                        "vectors": [
+                            {
+                                "specimens": [
+                                    {
+                                        "path": "vendor/grpc-health/proto/grpc/health/v1/health.proto",
+                                        "role": "specimen",
+                                        "bytes": 2416,
+                                        "fingerprint": {
+                                            "algorithm": "sha256",
+                                            "value": "8d44f54645557c1e10ba0da377883fd4d24ad994aff4f2139d61b7e9f0ece511"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

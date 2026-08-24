@@ -652,7 +652,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from protovalidate import CompilationError, EvaluationError, ValidationError as ContractValidationError
 
-from rasm.contracts.gen.rasm.contracts.parity import parity_pb
+from rasm.contracts.rasm.contracts.parity import parity_pb
 from rasm.runtime.identity import CanonicalWriter
 from rasm.runtime.faults import (
     BACKEND_CLAIMANT,

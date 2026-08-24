@@ -115,7 +115,7 @@ type Expect<ExtendedMatchers = {}> = {
 // expect.poll(fn).toBe(x) and expect(fn).toPass() are the two general retry rails for non-DOM assertions.
 ```
 
-`toHaveScreenshot()` (pixel gauge, golden-image compare) and `toMatchAriaSnapshot()` (accessibility-tree gauge) are the two projection matchers the e2e gauge reads as pass/fail data; both persist a golden under the project's snapshot dir — align with the `tests/contracts/` frozen-fixture discipline.
+`toHaveScreenshot()` (pixel gauge, golden-image compare) and `toMatchAriaSnapshot()` (accessibility-tree gauge) are the two projection matchers the e2e gauge reads as pass/fail data; both persist a golden under the project's snapshot dir — align with the `libs/contracts/conformance/` frozen-vector discipline.
 
 Golden NAMES pick the pixel format: a `.png` or `.webp` extension captures in that format, so a committed golden switches encoding by rename alone. Standalone `page.screenshot({ path, type: 'webp', quality })` trades bytes for fidelity on the same encoder — `quality: 100` is lossless, and lower values open a lossy lane a golden never rides.
 

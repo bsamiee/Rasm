@@ -6,7 +6,7 @@ Authoring law for every C# spec, kit member, scenario, and benchmark under `test
 
 - [01]-[RULINGS](RULINGS.md): Settled .NET-tree testing decisions — package admissions, oracle discriminants, structure retirements.
 - [02]-[API](.api/): Dev-tool API catalogs, one per test-stack package family; kit members and specs transcribe at catalog-verified spellings.
-- [03]-[CONTRACTS](../contracts/README.md): Corpus conformance law — C# emits or round-trips fixtures by manifest role.
+- [03]-[CONTRACTS](../../libs/contracts/README.md): Estate conformance law — C# emits or round-trips vectors by manifest role.
 - [04]-[BRIDGE](../../tools/rhino-bridge/README.md): Scenario lifecycle, reference admission, and tolerance law for the live-host rail.
 
 ## [02]-[TOPOLOGY]

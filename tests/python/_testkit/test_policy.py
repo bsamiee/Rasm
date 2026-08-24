@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, UTC
 import enum
 import fnmatch
 import functools
-from importlib.util import find_spec
+from importlib.util import find_spec, module_from_spec, spec_from_file_location
 import os
 from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
 import shutil
@@ -179,9 +179,8 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     import by — the package under ``src`` for a src layout, the repo-relative dotted path otherwise
     — so the census reads the live modules instead of shadow-importing the tree a second time. The
     live lane proves that derivation on the repo: every registration names an importable package
-    whose suite sits under ``tests/python/libs``, and the contracts package registers exactly when
-    authored source survives the out-root carve — the emission neither earns a registration nor
-    suppresses one.
+    whose suite sits under ``tests/python/libs``, and the emitted contracts estate never registers —
+    an out root earns no suite, and no branch folder authors it.
     """
     source = tmp_path / "src"
     (source / "alpha").mkdir(parents=True)
@@ -198,6 +197,7 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     suites = tmp_path / "suites"
     monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {})
     monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "buf.gen.yaml")
+    monkeypatch.setattr(laws_mod, "_OUT_BASE", tmp_path)
 
     assert generated_roots(source) == frozenset({source / "emitted" / "gen"}), "out-root derivation drifted from the template"
     assert register_tree(source, suites) == ("alpha", "ns.pkg"), "registration drifted from disk shape"
@@ -207,15 +207,14 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "absent.yaml")
     assert register_tree(source, suites) == ("alpha", "emitted", "ns.pkg"), "an absent template must derive zero generated roots"
 
-    monkeypatch.setattr(laws_mod, "_TEMPLATE", REPO_ROOT / "buf.gen.yaml")
+    monkeypatch.setattr(laws_mod, "_TEMPLATE", REPO_ROOT / "libs" / "contracts" / "buf.gen.yaml")
+    monkeypatch.setattr(laws_mod, "_OUT_BASE", REPO_ROOT)
     live = register_tree(REPO_ROOT / "libs" / "python", REPO_ROOT / "tests" / "python" / "libs")
     assert all(find_spec(name) is not None for name in live), f"a registration named no importable package: {live}"
-    contracts = REPO_ROOT / "libs" / "python" / "contracts"
-    emitted = generated_roots(REPO_ROOT / "libs" / "python")
-    assert any(root.is_relative_to(contracts) for root in emitted), "template lost its Python out root"
-    authored = any(not any(py.is_relative_to(root) for root in emitted) for py in contracts.rglob("*.py"))
-    assert ("rasm.contracts" in live) is authored, f"contracts registration diverged from its authored source: {live}"
-    assert laws_mod.SUT_PACKAGES["rasm.contracts"].suite == REPO_ROOT / "tests" / "python" / "libs" / "contracts", "live suite derivation broke"
+    # The contracts estate is emission alone: its Python out root lies under its own gen tree, and no branch folder authors it.
+    emitted = generated_roots(REPO_ROOT / "libs" / "contracts")
+    assert emitted and all(root.is_relative_to(REPO_ROOT / "libs" / "contracts" / "gen") for root in emitted), "template lost its Python out root"
+    assert "rasm.contracts" not in live, f"the emitted estate must never register as a SUT: {live}"
 
 
 def test_registered_suts_carry_their_suite_roots() -> None:
@@ -604,9 +603,11 @@ _LITTER_ROUTED_TOOLS: dict[str, str] = {"import-linter": "lint-imports"}
 
 
 def _litter_policy() -> dict[str, _LitterRule]:
-    """Import the litter-guard hook by path (its dashed filename bars a plain import) and return its ``POLICY`` roster."""
-    from importlib.util import module_from_spec, spec_from_file_location
+    """Import the litter-guard hook by path, since its dashed filename bars a plain import.
 
+    Returns:
+        The hook module's ``POLICY`` roster.
+    """
     spec_obj = spec_from_file_location("litter_guard", _LITTER_HOOK)
     assert spec_obj is not None and spec_obj.loader is not None, f"hook not importable: {_LITTER_HOOK}"
     module = module_from_spec(spec_obj)

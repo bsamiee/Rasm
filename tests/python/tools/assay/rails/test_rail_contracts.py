@@ -11,6 +11,7 @@ import shutil
 from struct import pack
 from typing import Self, TYPE_CHECKING
 
+import anyio
 from expression import Ok, Result  # canned executor lanes return Result instances at runtime
 import jsonschema
 import msgspec
@@ -121,10 +122,21 @@ _MODULE_INFO = msgspec.json.encode({
     "default_label_name": "main",
 })
 _ACCOUNT = msgspec.json.encode({"username": "rasm-publisher"})
+# The one contracts estate: buf workspace, manifests, seams, `.api` catalogs, and the generated tree all seat under this root.
+_CORPUS = "libs/contracts"
+_README = f"{_CORPUS}/README.md"
+_TEMPLATE_PATH = f"{_CORPUS}/buf.gen.yaml"
+_CONFIG_PATH = f"{_CORPUS}/buf.yaml"
+_TS_PACKAGE = f"{_CORPUS}/package.json"
+_TS_REPOSITORY = "https://github.com/bsamiee/Rasm.git"
+_SEAM_DIR = "conformance/DEMO_SEAM"
+_PY_MARKER = f"{_CORPUS}/gen/python/rasm/contracts/py.typed"
+# Module paths are buf.yaml-relative: the named estate module and one unnamed publisher mirror under vendor/.
 _CONFIG = f"""version: v2
 modules:
-  - path: tests/contracts/proto
+  - path: proto
     name: {_MODULE}
+  - path: vendor/PUB/proto
 lint:
   use: [STANDARD]
   except:
@@ -156,36 +168,38 @@ managed:
   disable:
     - path: pub
 inputs:
-  - directory: .
+  - directory: libs/contracts
 plugins:
   - local: node_modules/.bin/protoc-gen-es
-    out: libs/typescript/contracts/gen
+    out: libs/contracts/gen/typescript
     opt: [target=ts]
     types: [demo.Thing, demo.DemoService.Do]
     include_imports: true
   - local: .venv/bin/protoc-gen-py
-    out: libs/python/contracts/rasm/contracts
+    out: libs/contracts/gen/python/rasm/contracts
     opt: [init_files=false]
     types: [demo.Thing, demo.DemoService.Do]
     include_imports: true
   - local: .venv/bin/protoc-gen-connectrpc
-    out: libs/python/contracts/rasm/contracts
+    out: libs/contracts/gen/python/rasm/contracts
     types: [demo.DemoService.Do]
     include_imports: true
   - remote: buf.build/protocolbuffers/csharp:v36.0
     revision: 1
-    out: libs/dotnet/Rasm.Contracts/Generated
+    out: libs/contracts/gen/dotnet
     types: [demo.Thing]
     include_imports: true
   - remote: buf.build/grpc/csharp:v1.83.0
     revision: 1
-    out: libs/dotnet/Rasm.Contracts/Generated
+    out: libs/contracts/gen/dotnet
     types: [demo.DemoService.Do]
     include_imports: true
 """
 
 _BINARIES = ("node_modules/.bin/protoc-gen-es", ".venv/bin/protoc-gen-py", ".venv/bin/protoc-gen-connectrpc")
-_OUTS = ("libs/typescript/contracts/gen", "libs/python/contracts/rasm/contracts", "libs/dotnet/Rasm.Contracts/Generated")
+_OUTS = ("libs/contracts/gen/typescript", "libs/contracts/gen/python/rasm/contracts", "libs/contracts/gen/dotnet")
+# The authored package shells beside the out roots: one per emission target, none of them generated, every one of them admitted at the root.
+_SHELLS = ("pyproject.toml", "tsconfig.json", "Rasm.Contracts.csproj")
 
 # The conforming TypeScript SDK manifest: the workspace wildcard resolves committed emission and `publishConfig` overlays the compiled tarball map.
 # Every export defect derives from this one document, so a fixture and the gate never drift into two spellings of the same package.
@@ -193,12 +207,13 @@ _TS_PUBLISHED: dict[str, object] = {"./*": {"types": "./dist/*.d.ts", "import": 
 _TS_MANIFEST: dict[str, object] = {
     "name": "@rasm/contracts",
     "version": "0.1.0",
+    "repository": {"type": "git", "url": _TS_REPOSITORY, "directory": _CORPUS},
     "license": "MIT",
     "sideEffects": False,
     "type": "module",
-    "exports": {"./*": "./gen/*.ts"},
+    "exports": {"./*": "./gen/typescript/*.ts"},
     "files": ["dist", "README.md"],
-    "scripts": {"build": "tsc --build tsconfig.build.json", "prepack": "pnpm run build"},
+    "scripts": {"build": "tsc --build", "prepack": "pnpm run build"},
     "dependencies": {"@bufbuild/protobuf": "catalog:"},
     "publishConfig": {"access": "public", "exports": _TS_PUBLISHED},
 }
@@ -214,7 +229,7 @@ _DEMO_MODULE = (
     "import datetime\n\nimport msgspec\n\n\n"
     "class Demo(msgspec.Struct, forbid_unknown_fields=True):\n    key: str\n    issued: datetime.date | None = None\n"
 )
-_SEAM_PATH = "DEMO_SEAM/contract.schema.json"
+_SEAM_PATH = f"{_SEAM_DIR}/contract.schema.json"
 _SEAM_ID = "contract.schema.json"
 _SEAM_SCHEMA = derived_schema(Demo, identity=_SEAM_ID)
 _HAND_SCHEMA = {
@@ -229,7 +244,8 @@ _HAND_SCHEMA = {
 _THING = "demo.Thing"
 _REPLY = "demo.Reply"
 _METHOD = "demo.DemoService.Do"
-_THING_PATH = f"DEMO_SEAM/{_THING}.jsonschema.strict.bundle.json"
+_EVENT = "pub.Event"
+_THING_PATH = f"{_SEAM_DIR}/{_THING}.jsonschema.strict.bundle.json"
 _DECLARATION = "rasm.contracts.declaration.DeclarationRecord"
 _FIXTURE_CONFIG = (
     "version: v2\nmodules:\n  - path: proto\ndeps:\n  - buf.build/bufbuild/protovalidate\n"
@@ -244,15 +260,15 @@ _FIXTURE_PROTO = (
 _ASSET_DOC = b'{"key": "alpha"}\n'
 _PUB_BYTES = b'{"type":"record","name":"Publisher","fields":[]}\n'
 _LICENSE_BYTES = b"Apache License 2.0\n"
-_DISTRIBUTION = TypeScriptJsonModule(path="libs/typescript/contracts/gen/io/publisher/v1/publisher_avro.ts", symbol="PublisherAvro")
-_PY_DISTRIBUTION = PythonPackageResource(path="libs/python/contracts/rasm/contracts/vendor/io/publisher/v1/publisher.avsc", package="rasm.contracts")
+_DISTRIBUTION = TypeScriptJsonModule(path="libs/contracts/gen/typescript/io/publisher/v1/publisher_avro.ts", symbol="PublisherAvro")
+_PY_DISTRIBUTION = PythonPackageResource(path="libs/contracts/gen/python/rasm/contracts/io/publisher/v1/publisher.avsc", package="rasm.contracts")
 _LINT_ROW = (
-    b'{"path":"tests/contracts/proto/rasm/contracts/scene/scene.proto","start_line":9,"start_column":3,"end_line":9,"end_column":20,'
+    b'{"path":"libs/contracts/proto/rasm/contracts/scene/scene.proto","start_line":9,"start_column":3,"end_line":9,"end_column":20,'
     b'"type":"FIELD_LOWER_SNAKE_CASE","message":"Field name must be lower_snake_case."}\n'
 )
 _DIFF = (
-    b"diff -u tests/contracts/proto/a.proto.orig tests/contracts/proto/a.proto\n"
-    b"--- tests/contracts/proto/a.proto.orig\t2026\n+++ tests/contracts/proto/a.proto\t2026\n@@ -1 +1 @@\n-x\n+y\n"
+    b"diff -u libs/contracts/proto/a.proto.orig libs/contracts/proto/a.proto\n"
+    b"--- libs/contracts/proto/a.proto.orig\t2026\n+++ libs/contracts/proto/a.proto\t2026\n@@ -1 +1 @@\n-x\n+y\n"
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -320,11 +336,8 @@ _DEMO_CASE = Case(
     id="demo",
     definition=SchemaDefinition(path=_SEAM_PATH, framing="canonical-json", derived_from="msgspec:demo_docs.shape.Demo"),
     authority=DomainAuthority(producer=_message("dotnet:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof")),
-    readiness=VerifiedReadiness(oracle="external-digest", vectors=(ProofVector(specimens=(_specimen("DEMO_SEAM/demo.json", _ASSET_DOC),)),)),
-    consumers=(
-        _message("python:Demo/Page/one#CLUSTER", "DemoSchema.read", "proof"),
-        _message("tests/contracts/README.md", "DemoSchema.prove", "proof"),
-    ),
+    readiness=VerifiedReadiness(oracle="external-digest", vectors=(ProofVector(specimens=(_specimen(f"{_SEAM_DIR}/demo.json", _ASSET_DOC),)),)),
+    consumers=(_message("python:Demo/Page/one#CLUSTER", "DemoSchema.read", "proof"), _message(_README, "DemoSchema.prove", "proof")),
 )
 _DEMO: Entry = Entry(id="DEMO_SEAM", law="The demo seam is canonical JSON whose key is the vocabulary token.", cases=(_DEMO_CASE,))
 _PROTO_DEFINITION = SchemaDefinition(path=_THING_PATH, framing="proto-json", derived_from=f"proto:{_THING}")
@@ -359,6 +372,20 @@ _PUB_CASE = Case(
     consumers=(_message("dotnet:Demo/Page/one#CLUSTER", "PublisherBytes.read", "package"),),
 )
 _PUB: Entry = Entry(id="PUB", law="The publisher bytes are frozen under immutable upstream custody.", cases=(_PUB_CASE,))
+# An estate seam whose message lives in the publisher package: its generated actors root the publisher symbol on the same plugin rows.
+_PUB_EVENT = Entry(
+    id="PUB_EVENT",
+    law="The publisher event message generates through the estate rows that carry every other root.",
+    cases=(
+        Case(
+            id="event",
+            definition=ProtoDefinition(message=_EVENT, framing="proto-binary"),
+            authority=DomainAuthority(producer=_message("dotnet:Demo/Page/one#CLUSTER", "DemoEvent.publish", "generated", roots=(_EVENT,))),
+            readiness=BlockedReadiness(blockers=("No shipping application publishes the publisher event through every generated binding.",)),
+            consumers=(_message("python:Demo/Page/one#CLUSTER", "DemoEvent.read", "generated", roots=(_EVENT,)),),
+        ),
+    ),
+)
 
 
 def _entry(**overrides: object) -> Entry:
@@ -469,6 +496,13 @@ def _json(value: object) -> bytes:
     return msgspec.json.format(msgspec.json.encode(value), indent=2) + b"\n"
 
 
+def _git_ignored(root: Path, *patterns: str) -> None:
+    """Seat the fixture in a git repository whose ignore roster is exactly ``patterns``; the estate audit reads its carve from git alone."""
+    if not (root / ".git").is_dir():
+        anyio.run(partial(anyio.run_process, cwd=str(root)), ("git", "init", "-q"))
+    _write(root, ".gitignore", "".join(f"{pattern}\n" for pattern in patterns))
+
+
 def _roster_files(root: Path, template: contracts_rail._Templates) -> dict[str, tuple[contracts_rail._File, ...]]:
     rows: dict[str, list[contracts_rail._File]] = {}
     for index, plugin in enumerate(template.main.plugins, start=1):
@@ -509,25 +543,27 @@ def _corpus(
         The repo root.
     """
     registry = Manifest(entries=entries if entries is not None else (_entry(), _BINDING, _vendored()))
-    _write(root, "buf.gen.yaml", template)
-    _write(root, "libs/typescript/contracts/package.json", _json(_TS_MANIFEST))
-    _write(root, "libs/typescript/contracts/README.md", "# contracts\n")  # the gate proves every non-built `files` row on disk
+    corpus = root / _CORPUS
+    _write(corpus, "buf.gen.yaml", template)
+    _write(corpus, "buf.yaml", config)
+    _write(corpus, "package.json", _json(_TS_MANIFEST))
+    # The one estate index page: the TS `files` row proves it on disk and bare-path anchors resolve their coordinates inside it.
+    _write(corpus, "README.md", "# contracts\n\nDemoSchema.prove reads the manifest descriptor contract.\n")
     for binary in binaries:
         _write(root, binary, "#!/bin/sh\nexit 0\n", executable=True)
-    corpus = root / "tests/contracts"
-    _write(corpus, "README.md", "# corpus\n\nDemoSchema.prove reads the manifest descriptor contract.\n")
     _write(corpus, "manifest.json", manifest if manifest is not None else _json(msgspec.to_builtins(registry)))
     _write(corpus, "manifest.schema.json", schema if schema is not None else derived_schema())
     _write(corpus, definition, seam_schema if isinstance(seam_schema, bytes) else _json(seam_schema))
-    _write(corpus, "DEMO_SEAM/demo.json", asset)
+    _write(corpus, f"{_SEAM_DIR}/demo.json", asset)
     _write(corpus, "vendor/PUB/pub.bin", _PUB_BYTES)
     _write(corpus, "vendor/PUB/LICENSE", _LICENSE_BYTES)
     (corpus / "proto").mkdir(exist_ok=True)
     (corpus / ".api").mkdir(exist_ok=True)
     cluster = (
         f"ApplicationInput.byte ApplicationInput.socket DemoSchema.write DemoSchema.read DemoRequest.call DemoRequest.handle "
-        f"DemoRequest.Handle PublisherBytes.read "
-        f"owns schema:{_SEAM_PATH}, proto:{_THING}, Thing, DemoService, Do, do, {_METHOD}, manifest, descriptor, corpus, contract, generated.\n"
+        f"DemoRequest.Handle PublisherBytes.read DemoEvent.publish DemoEvent.read "
+        f"owns schema:{_SEAM_PATH}, proto:{_THING}, proto:{_EVENT}, Thing, Event, DemoService, Do, do, {_METHOD}, manifest, descriptor, corpus, "
+        "contract, generated.\n"
     )
     _write(root, "libs/dotnet/Demo/.planning/Page/one.md", f"# page\n\n## [01]-[CLUSTER]\n\n{cluster}")
     _write(root, "libs/python/Demo/.planning/Page/one.md", f"# page\n\n## [02]-[CLUSTER]\n\n{cluster}")
@@ -535,7 +571,6 @@ def _corpus(
     _write(root, "libs/.planning/ARCHITECTURE.md", "# arch\n\n## [14]-[EVENT_FABRIC]\n\nbody\n")
     _write(root, "demo_docs/shape.py", _DEMO_MODULE)
     _write(root, "demo_docs/__init__.py", "")
-    _write(root, "buf.yaml", config)
     _write(root, "image.binpb", _image())
     template_result = read_template(root)
     roster_files = _roster_files(root, template_result.ok) if template_result.is_ok() else {}
@@ -550,6 +585,7 @@ def _corpus(
             _write(root, row.catalog, _CATALOG.replace(f"{ROSTER_BEGIN}\n{ROSTER_END}", f"{ROSTER_BEGIN}\n{block}{ROSTER_END}"))
     for out in _OUTS:
         _write(root, f"{out}/demo/demo_pb.txt", "generated\n")
+    _write(root, _PY_MARKER, b"")  # the projected typing marker every clean freshness diff expects beside the swept python tree
     return root
 
 
@@ -703,25 +739,26 @@ def test_check_runs_every_local_lane_without_reaching_the_registry(assay_root: A
     ]
     assert all(status == "ok" for _, status in detail.lanes), detail.lanes
     assert calls[1:5] == [
-        ("buf", "build", "-o", str(scratch / "image.binpb"), "--as-file-descriptor-set"),
-        ("buf", "lint", "--error-format", "json"),
-        ("buf", "format", "--diff", "--exit-code", "tests/contracts/proto"),
-        ("buf", "generate", "--template", "buf.gen.yaml", "-o", str(scratch / "gen")),
+        ("buf", "build", "libs/contracts", "-o", str(scratch / "image.binpb"), "--as-file-descriptor-set"),
+        ("buf", "lint", "libs/contracts", "--error-format", "json"),
+        ("buf", "format", "--diff", "--exit-code", "libs/contracts/proto"),
+        ("buf", "generate", "libs/contracts", "--template", "libs/contracts/buf.gen.yaml", "-o", str(scratch / "gen")),
     ]
     assert not any(argv[:2] == ("buf", "registry") for argv in calls)
+    roster = ("buf", "build", "libs/contracts", "-o")
     assert calls[5:10] == [
-        ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/dotnet-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
-        ("buf", "build", "-o", str(scratch / "roster/dotnet-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
+        (*roster, str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
+        (*roster, str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
+        (*roster, str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
+        (*roster, str(scratch / "roster/dotnet-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
+        (*roster, str(scratch / "roster/dotnet-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
     ]
     assert detail.module == _MODULE and not detail.baseline and not detail.published
     assert detail.packages == ("demo", "pub")
     assert dict(detail.counts) == {"files": 2, "packages": 2, "messages": 5, "services": 1, "entries": 3, "assets": 2, "findings": 0, "stale": 0}
     assert detail.seams == ("DEMO_SEAM", "DEMO_PROTO", "PUB")
     assert detail.plugins == (*((binary, str(root / binary)) for binary in _BINARIES), (JSONSCHEMA_PLUGIN, str(projector)))
-    assert detail.template == "buf.gen.yaml" and scratch.is_relative_to(assay_root.root / ".artifacts")
+    assert detail.template == "libs/contracts/buf.gen.yaml" and scratch.is_relative_to(assay_root.root / ".artifacts")
 
 
 @pytest.mark.parametrize(
@@ -759,7 +796,10 @@ def test_publish_admits_only_exact_first_publish_absence_and_returns_commit(assa
     )
     report = assert_ok(_run(assay_root, _fan(root, outcomes={"buf-module": Ok(absent)}, calls=calls), "publish"))
     detail = _detail(report)
-    push = ("buf", "push", ".", "--exclude-unnamed", "--create", "--create-visibility", "public", "--create-default-label", "main", "--label", "main")
+    push = (
+        *("buf", "push", "libs/contracts", "--exclude-unnamed"),
+        *("--create", "--create-visibility", "public", "--create-default-label", "main", "--label", "main"),
+    )
     assert report.status is RailStatus.OK and detail.module == _MODULE
     assert dict(detail.lanes)["buf-module"] == "skip" and dict(detail.lanes)["buf-baseline"] == "skip"
     assert dict(detail.lanes)["buf-prepush"] == "skip" and dict(detail.lanes)["buf-push"] == "ok"
@@ -795,7 +835,7 @@ def test_publish_runs_the_complete_present_module_gate_before_push(assay_root: A
     assert all(lanes[name] == "ok" for name in ("buf-auth", "buf-baseline", "corpus-gate", "freshness-gate", "buf-prepush", "buf-push", "buf-verify"))
     assert calls[0] == ("buf", "registry", "whoami", "buf.build", "--format", "json")
     assert calls[-3] == ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json")
-    assert calls[-2] == ("buf", "push", ".", "--exclude-unnamed", "--label", "main")
+    assert calls[-2] == ("buf", "push", "libs/contracts", "--exclude-unnamed", "--label", "main")
     assert calls[-1] == ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json")
     assert "--create" not in calls[-2] and "--create-visibility" not in calls[-2]
     assert calls.index(("corpus-gate", "check")) < len(calls) - 2
@@ -976,7 +1016,7 @@ def test_non_defect_exit_faults_its_lane_and_keeps_sibling_rows(assay_root: Assa
     assert dict(detail.lanes)["buf-build"] == "ok" and dict(detail.lanes)["buf-format"] == "faulted"
     assert dict(detail.lanes)["buf-lint"] == "failed"
     assert detail.faults == (("buf-format", "Failure: formatter could not read the estate module"),)
-    assert detail.violations == (("field_lower_snake_case", "tests/contracts/proto/rasm/contracts/scene/scene.proto", 9),)
+    assert detail.violations == (("field_lower_snake_case", "libs/contracts/proto/rasm/contracts/scene/scene.proto", 9),)
     assert any(row.id == "buf:field_lower_snake_case" for row in report.results)
 
 
@@ -986,7 +1026,7 @@ def test_format_lane_projects_diff_headers(assay_root: AssayHarness) -> None:
     report = assert_ok(_run(assay_root, _fan(root, outcomes={"buf-format": Ok(receipt(("buf", "format"), BUF_DEFECT_EXIT, stdout=_DIFF))})))
     detail = _detail(report)
     assert report.status is RailStatus.FAILED
-    assert detail.unformatted == ("tests/contracts/proto/a.proto",)
+    assert detail.unformatted == ("libs/contracts/proto/a.proto",)
     assert "--diff" in _FORMAT.command and "--exit-code" in _FORMAT.command and _FORMAT.mode is Mode.CHECK
 
 
@@ -1000,23 +1040,41 @@ def test_freshness_diffs_scratch_against_committed_roots(assay_root: AssayHarnes
     def regenerate(scratch: Path) -> None:
         for out in _OUTS:
             shutil.copytree(root / out, scratch / out, dirs_exist_ok=True)
-        _write(scratch, "libs/python/contracts/rasm/contracts/demo/demo_pb.txt", "regenerated\n")
-        _write(scratch, "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt", "new\n")
-        (scratch / "libs/dotnet/Rasm.Contracts/Generated/demo/demo_pb.txt").unlink()
+        _write(scratch, "libs/contracts/gen/python/rasm/contracts/demo/demo_pb.txt", "regenerated\n")
+        _write(scratch, "libs/contracts/gen/python/rasm/contracts/pub/pub_pb.txt", "new\n")
+        (scratch / "libs/contracts/gen/dotnet/demo/demo_pb.txt").unlink()
 
     report = assert_ok(_run(assay_root, _fan(root, regenerate=regenerate)))
     detail = _detail(report)
     assert report.status is RailStatus.FAILED
     assert detail.stale == (
-        ("changed", "libs/python/contracts/rasm/contracts/demo/demo_pb.txt"),
-        ("missing", "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt"),
-        ("orphan", "libs/dotnet/Rasm.Contracts/Generated/demo/demo_pb.txt"),
+        ("changed", "libs/contracts/gen/python/rasm/contracts/demo/demo_pb.txt"),
+        ("missing", "libs/contracts/gen/python/rasm/contracts/pub/pub_pb.txt"),
+        ("orphan", "libs/contracts/gen/dotnet/demo/demo_pb.txt"),
     )
     assert {row.id for row in report.results} == {"freshness:changed", "freshness:missing", "freshness:orphan"}
     diff = next(artifact for artifact in report.artifacts if artifact.id == "freshness-diff")
     assert "-generated" in Path(diff.path).read_text(encoding="utf-8") and "+regenerated" in Path(diff.path).read_text(encoding="utf-8")
     clean = assert_ok(_run(assay_root, _fan(root)))
     assert _detail(clean).stale == () and clean.status is RailStatus.OK
+
+
+def test_python_typing_marker_is_projected_after_the_sweep(assay_root: AssayHarness) -> None:
+    """`py.typed` is a projected distribution, never authored: a swept tree reads it missing, generate lands the empty marker, check reads clean."""
+    root = _corpus(assay_root.root)
+    marker = root / _PY_MARKER
+    marker.unlink()
+    stale = assert_ok(_run(assay_root, _fan(root)))
+    assert stale.status is RailStatus.FAILED and _detail(stale).stale == (("missing", _PY_MARKER),)
+    assert {row.id for row in stale.results} == {"freshness:missing"}
+    landed = assert_ok(_run(assay_root, _fan(root), "generate"))
+    assert landed.status is RailStatus.OK and f"distribution: {_PY_MARKER} written" in landed.notes
+    assert marker.is_file() and marker.read_bytes() == b""
+    clean = assert_ok(_run(assay_root, _fan(root)))
+    assert clean.status is RailStatus.OK and _detail(clean).stale == ()
+    marker.write_bytes(b"# authored\n")
+    authored = assert_ok(_run(assay_root, _fan(root)))
+    assert authored.status is RailStatus.FAILED and _detail(authored).stale == (("changed", _PY_MARKER),)
 
 
 def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarness) -> None:
@@ -1033,7 +1091,7 @@ def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarnes
         "",
         "",
     ]
-    registry = assert_ok(load_manifest(root / "tests/contracts"))
+    registry = assert_ok(load_manifest(root / _CORPUS))
     filtered = _roster_files(root, template)
     blocks = {
         language: re.sub(
@@ -1066,7 +1124,7 @@ def test_roster_blocks_render_inside_the_markdown_lane(assay_root: AssayHarness)
     """Emitted spans conform to the markdown lane: every rendered line holds the 150-column cap and the span closes on a blank line."""
     root = _corpus(assay_root.root)
     template = assert_ok(read_template(root))
-    registry = assert_ok(load_manifest(root / "tests/contracts"))
+    registry = assert_ok(load_manifest(root / _CORPUS))
     filtered = _roster_files(root, template)
     for language, row in contracts_rail._ROSTERS.items():
         block = contracts_rail._roster_block(row, filtered[language], contracts_rail._actor_roots(registry, language, row.kinds))
@@ -1154,10 +1212,10 @@ def test_publisher_oracle_refuses_evidence_outside_source_and_license_drift(tmp_
     held = msgspec.structs.replace(case, readiness=msgspec.structs.replace(readiness, vectors=(ProofVector(specimens=(stray,)),)))
     entry = msgspec.structs.replace(_PUB, cases=(held,))
     root = _corpus(tmp_path, (_entry(), _binding(), entry))
-    _write(root, "tests/contracts/vendor/PUB/stray.bin", _PUB_BYTES)
+    _write(root / _CORPUS, "vendor/PUB/stray.bin", _PUB_BYTES)
     rules, rows = _audit_rules(root, _image())
     assert "publisher-source" in rules, "\n".join(rows)
-    _write(root, "tests/contracts/vendor/PUB/LICENSE", b"drifted\n")
+    _write(root / _CORPUS, "vendor/PUB/LICENSE", b"drifted\n")
     rules, rows = _audit_rules(root, _image())
     assert "publisher-license" in rules, "\n".join(rows)
 
@@ -1182,11 +1240,30 @@ def test_selector_roots_are_exact_actor_fqns(tmp_path: Path, types: str, rules: 
 def test_generated_rpc_actor_requires_a_service_plugin(tmp_path: Path) -> None:
     """Deleting one language's service emitter leaves its generated RPC actor uncovered even though message generation still exists."""
     service = (
-        f"  - remote: buf.build/grpc/csharp:v1.83.0\n    revision: 1\n    out: libs/dotnet/Rasm.Contracts/Generated\n"
+        f"  - remote: buf.build/grpc/csharp:v1.83.0\n    revision: 1\n    out: libs/contracts/gen/dotnet\n"
         f"    types: [{_METHOD}]\n    include_imports: true\n"
     )
     rules, rows = _audit_rules(_corpus(tmp_path, template=_TEMPLATE.replace(service, "")), _image())
     assert "selector-coverage" in rules, "\n".join(rows)
+
+
+def test_one_out_root_per_emission_target_carries_estate_and_publisher_roots_alike(tmp_path: Path) -> None:
+    """A publisher-package root rides the same `types` row as the estate roots; a second row curating it alone drifts instead of routing it."""
+    entries = (_entry(), _BINDING, _PUB_EVENT, _vendored())
+    python_row = f"out: {_OUTS[1]}\n    opt: [init_files=false]\n    types: [{_THING}, {_METHOD}]"
+    dotnet_row = f"out: {_OUTS[2]}\n    types: [{_THING}]"
+    union = _TEMPLATE.replace(python_row, python_row.replace(f"{_METHOD}]", f"{_METHOD}, {_EVENT}]"))
+    union = union.replace(dotnet_row, dotnet_row.replace(f"{_THING}]", f"{_THING}, {_EVENT}]"))
+    assert union != _TEMPLATE
+    rules, rows = _audit_rules(_corpus(tmp_path / "union", entries, template=union), _image())
+    assert not rules & {"selector-drift", "selector-coverage", "selector-generic"}, "\n".join(rows)
+    rules, rows = _audit_rules(_corpus(tmp_path / "estate-only", entries), _image())
+    assert "selector-drift" in rules, "\n".join(rows)
+    vendor_row = f"  - local: .venv/bin/protoc-gen-py\n    out: {_OUTS[1]}/vendor\n    opt: [init_files=false]\n    types: [{_EVENT}]\n"
+    split = union + vendor_row + "    include_imports: true\n"
+    rules, rows = _audit_rules(_corpus(tmp_path / "split", entries, template=split), _image())
+    drifted = [row for row in rows if row.startswith(f"selector-drift: python:{_OUTS[1]}/vendor:")]
+    assert drifted and f"({_THING!r}, {_METHOD!r}, {_EVENT!r})" in drifted[0], "\n".join(rows)
 
 
 @pytest.mark.parametrize("coordinate", ["Missing.symbol", "Either|Other"], ids=("missing-literal", "non-singular"))
@@ -1286,14 +1363,34 @@ def test_faulted_filtered_roster_blocks_generation(assay_root: AssayHarness) -> 
 
 
 def test_remote_csharp_emitter_identities_are_versioned_and_exact() -> None:
-    message = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp:v36.0", out="libs/dotnet/Rasm.Contracts/Generated")
-    service = contracts_rail._Plugin(remote="buf.build/grpc/csharp:v1.83.0", out="libs/dotnet/Rasm.Contracts/Generated")
-    unversioned = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp", out="libs/dotnet/Rasm.Contracts/Generated")
-    lookalike = contracts_rail._Plugin(remote="buf.build/example/protocolbuffers-csharp:v36.0", out="libs/dotnet/Rasm.Contracts/Generated")
+    message = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp:v36.0", out=_OUTS[2])
+    service = contracts_rail._Plugin(remote="buf.build/grpc/csharp:v1.83.0", out=_OUTS[2])
+    unversioned = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp", out=_OUTS[2])
+    lookalike = contracts_rail._Plugin(remote="buf.build/example/protocolbuffers-csharp:v36.0", out=_OUTS[2])
 
     assert message.kinds == frozenset(("message", "enum"))
     assert service.kinds == frozenset(("service", "method"))
     assert unversioned.kinds == lookalike.kinds == frozenset()
+
+
+@pytest.mark.parametrize(
+    "out, language",
+    [
+        (_OUTS[0], "typescript"),
+        (_OUTS[1], "python"),
+        (_OUTS[2], "dotnet"),
+        ("libs/contracts/gen/dotnet/", "dotnet"),
+        ("libs/contracts/gen", ""),
+        ("libs/contracts/generated/python", ""),
+        ("libs/contracts/gen-python", ""),
+        ("libs/python/demo/rasm/demo", ""),
+        ("gen/python", ""),
+    ],
+    ids=("typescript", "python-nested", "dotnet", "trailing-slash", "tree-itself", "lookalike-sibling", "lookalike-prefix", "folder", "relative"),
+)
+def test_plugin_emission_target_is_the_first_segment_strictly_inside_the_generated_tree(out: str, language: str) -> None:
+    """An out root names its target by the segment beneath `libs/contracts/gen`; the tree itself, a lookalike, or any other root names none."""
+    assert contracts_rail._Plugin(local="x", out=out).language == language
 
 
 def test_semantic_roundtrip_accepts_messages_that_reach_a_map(tmp_path: Path) -> None:
@@ -1359,8 +1456,8 @@ def test_semantic_roundtrip_accepts_messages_that_reach_a_map(tmp_path: Path) ->
     case = Case(
         id="map",
         definition=ProtoDefinition(message="demo.MapOwner", framing="proto-binary"),
-        authority=DomainAuthority(producer=_message("tests/contracts/README.md", "MapOwner.prove", "proof")),
-        consumers=(_message("tests/contracts/README.md", "MapOwner.consume", "proof"),),
+        authority=DomainAuthority(producer=_message(_README, "MapOwner.prove", "proof")),
+        consumers=(_message(_README, "MapOwner.consume", "proof"),),
         readiness=VerifiedReadiness(oracle="semantic-roundtrip", vectors=(ProofVector(specimens=(specimen,)),)),
     )
     _write(tmp_path, specimen.path, raw)
@@ -1386,8 +1483,8 @@ def test_semantic_roundtrip_rejects_unknown_fields_but_accepts_the_exact_descrip
         case = msgspec.structs.replace(
             _DEMO_CASE,
             definition=ProtoDefinition(message=_THING, framing="proto-binary"),
-            authority=DomainAuthority(producer=_message("tests/contracts/README.md", "Thing.prove", "proof")),
-            consumers=(_message("tests/contracts/README.md", "Thing.consume", "proof"),),
+            authority=DomainAuthority(producer=_message(_README, "Thing.prove", "proof")),
+            consumers=(_message(_README, "Thing.consume", "proof"),),
             readiness=VerifiedReadiness(oracle="semantic-roundtrip", vectors=(ProofVector(specimens=(specimen,)),)),
         )
         root = tmp_path / name
@@ -1427,7 +1524,7 @@ def _parity_case(raw: bytes, expected_raw: bytes) -> tuple[Case, tuple[MessageAc
             definition=LawDefinition(anchor="libs/.planning/ARCHITECTURE.md#[14]-[EVENT_FABRIC]", format="binary"),
             authority=InfrastructureAuthority(minters=minters),
             readiness=VerifiedReadiness(oracle="value-parity", vectors=(ProofVector(specimens=specimens, expected=expected),)),
-            consumers=(_message("tests/contracts/README.md", "DemoSchema.prove", "proof"),),
+            consumers=(_message(_README, "DemoSchema.prove", "proof"),),
         ),
         minters,
     )
@@ -1441,7 +1538,7 @@ def _parity_case(raw: bytes, expected_raw: bytes) -> tuple[Case, tuple[MessageAc
             specimens[0],
             msgspec.structs.replace(specimens[1], path=specimens[0].path, minter=contracts_rail.actor_key(minters[1])),
         ),
-        lambda specimens, _minters: (specimens[0], msgspec.structs.replace(specimens[1], minter="tests/contracts/README.md@Wrong.minter")),
+        lambda specimens, _minters: (specimens[0], msgspec.structs.replace(specimens[1], minter=f"{_README}@Wrong.minter")),
         lambda specimens, _minters: (specimens[0],),
     ],
     ids=("missing-minter", "duplicate-path-different-minter", "wrong-minter", "one-specimen"),
@@ -1585,7 +1682,7 @@ def test_blocked_law_does_not_require_a_seam_directory(tmp_path: Path) -> None:
                 _DEMO_CASE,
                 id="law",
                 definition=LawDefinition(anchor="libs/.planning/ARCHITECTURE.md#[14]-[EVENT_FABRIC]", format="text"),
-                authority=DomainAuthority(producer=_message("tests/contracts/README.md", "Law.prove", "proof")),
+                authority=DomainAuthority(producer=_message(_README, "Law.prove", "proof")),
                 readiness=BlockedReadiness(blockers=("No source tree executes the design-only law, so no corpus evidence exists.",)),
                 consumers=(),
             ),
@@ -1634,9 +1731,9 @@ def test_plugin_hint_names_the_installer_by_seat() -> None:
 # --- [CORPUS_AUDIT]
 
 _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
-    ("manifest-missing", lambda t: _after(_corpus(t), lambda r: (r / "tests/contracts/manifest.json").unlink()), "manifest-missing"),
+    ("manifest-missing", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "manifest.json").unlink()), "manifest-missing"),
     ("manifest-undecodable", lambda t: _corpus(t, manifest=b'{"entries": [{"id": "X"}]}'), "manifest-undecodable"),
-    ("schema-missing", lambda t: _after(_corpus(t), lambda r: (r / "tests/contracts/manifest.schema.json").unlink()), "schema-missing"),
+    ("schema-missing", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "manifest.schema.json").unlink()), "schema-missing"),
     ("schema-stale", lambda t: _corpus(t, schema=b"{}\n"), "schema-stale"),
     ("id-duplicate", lambda t: _corpus(t, (_entry(), _entry(), _vendored())), "id-duplicate"),
     ("seam-duplicate", lambda t: _corpus(t, (_entry(), _entry(id="demo-seam"), _vendored())), "seam-duplicate"),
@@ -1704,7 +1801,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
             (
                 _entry(
                     definition=SchemaDefinition(
-                        path="DEMO_SEAM/absent.schema.json", framing="canonical-json", derived_from="msgspec:demo_docs.shape.Demo"
+                        path=f"{_SEAM_DIR}/absent.schema.json", framing="canonical-json", derived_from="msgspec:demo_docs.shape.Demo"
                     )
                 ),
                 _vendored(),
@@ -1794,7 +1891,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
                 _entry(
                     readiness=VerifiedReadiness(
                         oracle="external-digest",
-                        vectors=(ProofVector(specimens=(msgspec.structs.replace(_specimen("DEMO_SEAM/demo.json", _ASSET_DOC), bytes=1),)),),
+                        vectors=(ProofVector(specimens=(msgspec.structs.replace(_specimen(f"{_SEAM_DIR}/demo.json", _ASSET_DOC), bytes=1),)),),
                     )
                 ),
                 _vendored(),
@@ -1814,7 +1911,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
                             ProofVector(
                                 specimens=(
                                     msgspec.structs.replace(
-                                        _specimen("DEMO_SEAM/demo.json", _ASSET_DOC), fingerprint=Fingerprint(algorithm="xxh128", value="0" * 32)
+                                        _specimen(f"{_SEAM_DIR}/demo.json", _ASSET_DOC), fingerprint=Fingerprint(algorithm="xxh128", value="0" * 32)
                                     ),
                                 )
                             ),
@@ -1833,7 +1930,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
             (
                 _entry(
                     readiness=VerifiedReadiness(
-                        oracle="external-digest", vectors=(ProofVector(specimens=(_specimen("DEMO_SEAM/demo.json", b'{"key": 1}\n'),)),)
+                        oracle="external-digest", vectors=(ProofVector(specimens=(_specimen(f"{_SEAM_DIR}/demo.json", b'{"key": 1}\n'),)),)
                     )
                 ),
                 _vendored(),
@@ -1854,18 +1951,14 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
     ),
     (
         "distribution-export",
-        lambda t: _after(
-            _corpus(t, (_entry(), _distributed())), lambda r: _write(r, "libs/typescript/contracts/package.json", '{"name":"@rasm/contracts"}\n')
-        ),
+        lambda t: _after(_corpus(t, (_entry(), _distributed())), lambda r: _write(r, _TS_PACKAGE, '{"name":"@rasm/contracts"}\n')),
         "distribution-export",
     ),
     (
         "distribution-export-unpublished",
         lambda t: _after(
             _corpus(t, (_entry(), _distributed())),
-            lambda r: _write(
-                r, "libs/typescript/contracts/package.json", _json(_TS_MANIFEST | {"exports": _TS_PUBLISHED, "publishConfig": {"access": "public"}})
-            ),
+            lambda r: _write(r, _TS_PACKAGE, _json(_TS_MANIFEST | {"exports": _TS_PUBLISHED, "publishConfig": {"access": "public"}})),
         ),
         "distribution-export",
     ),
@@ -1895,18 +1988,52 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
         lambda t: _corpus(t, (_entry(cases=(_DEMO_CASE, msgspec.structs.replace(_DEMO_CASE, id="twin"))), _vendored())),
         "path-owned-twice",
     ),
-    ("root-stray", lambda t: _after(_corpus(t), lambda r: (r / "tests/contracts/rogue").mkdir()), "root-stray"),
-    ("seam-stray", lambda t: _after(_corpus(t), lambda r: _write(r, "tests/contracts/DEMO_SEAM/extra.bin", "x")), "seam-stray"),
-    ("roster-stale", lambda t: _corpus(t, roster=False), "roster-stale"),
     (
-        "roster-missing",
-        lambda t: _after(_corpus(t), lambda r: _write(r, "libs/python/contracts/.api/rasm-contracts.md", "# [DEMO]\n")),
-        "roster-missing",
+        "distribution-export-source",
+        lambda t: _after(
+            _corpus(t, (_entry(), _distributed())), lambda r: _write(r, _TS_PACKAGE, _json(_TS_MANIFEST | {"exports": {"./*": "./gen/*.ts"}}))
+        ),
+        "distribution-export",
     ),
+    (
+        "distribution-export-build",
+        lambda t: _after(
+            _corpus(t, (_entry(), _distributed())),
+            lambda r: _write(r, _TS_PACKAGE, _json(_TS_MANIFEST | {"scripts": {"build": "tsc --build tsconfig.json", "prepack": "pnpm run build"}})),
+        ),
+        "distribution-export",
+    ),
+    (
+        "distribution-export-directory",
+        lambda t: _after(
+            _corpus(t, (_entry(), _distributed())),
+            lambda r: _write(r, _TS_PACKAGE, _json(_TS_MANIFEST | {"repository": {"type": "git", "url": _TS_REPOSITORY, "directory": "libs/demo"}})),
+        ),
+        "distribution-export",
+    ),
+    (
+        "distribution-export-no-repository",
+        lambda t: _after(
+            _corpus(t, (_entry(), _distributed())),
+            lambda r: _write(r, _TS_PACKAGE, _json({key: value for key, value in _TS_MANIFEST.items() if key != "repository"})),
+        ),
+        "distribution-export",
+    ),
+    ("root-stray", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "rogue").mkdir()), "root-stray"),
+    ("root-stray-file", lambda t: _after(_corpus(t), lambda r: _write(r / _CORPUS, "rogue.md", "x")), "root-stray"),
+    ("vendor-stray", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "vendor/rogue").mkdir()), "root-stray"),
+    ("vendor-estate-seam", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "vendor/DEMO_SEAM").mkdir()), "root-stray"),
+    ("conformance-stray", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "conformance/rogue").mkdir()), "root-stray"),
+    ("conformance-publisher-seam", lambda t: _after(_corpus(t), lambda r: (r / _CORPUS / "conformance/PUB").mkdir()), "root-stray"),
+    ("conformance-file", lambda t: _after(_corpus(t), lambda r: _write(r / _CORPUS, "conformance/stray.json", "{}")), "root-stray"),
+    ("seam-stray", lambda t: _after(_corpus(t), lambda r: _write(r / _CORPUS, f"{_SEAM_DIR}/extra.bin", "x")), "seam-stray"),
+    ("roster-stale", lambda t: _corpus(t, roster=False), "roster-stale"),
+    ("roster-missing", lambda t: _after(_corpus(t), lambda r: _write(r, "libs/contracts/.api/python.md", "# [DEMO]\n")), "roster-missing"),
     ("roster-catalog", lambda t: _corpus(t, catalogs=()), "roster-catalog"),
+    ("roster-row", lambda t: _corpus(t, template=_TEMPLATE.replace(f"out: {_OUTS[0]}", "out: libs/contracts/gen/rust")), "roster-row"),
     (
         "lock-present",
-        lambda t: _corpus(t, config="version: v2\nmodules:\n  - path: tests/contracts/proto\ndeps:\n  - buf.build/bufbuild/protovalidate\n"),
+        lambda t: _corpus(t, config="version: v2\nmodules:\n  - path: proto\ndeps:\n  - buf.build/bufbuild/protovalidate\n"),
         "lock-present",
     ),
 )
@@ -1930,9 +2057,27 @@ def test_audit_clean_corpus_folds_zero_findings(tmp_path: Path) -> None:
 def test_blocked_case_cannot_materialize_a_seam_directory(tmp_path: Path) -> None:
     """A registered future seam remains virtual until one case carries real proof assets."""
     root = _corpus(tmp_path)
-    (root / "tests/contracts/DEMO_PROTO").mkdir()
+    (root / _CORPUS / "conformance/DEMO_PROTO").mkdir()
     rules, rows = _audit_rules(root, _image())
     assert "seam-without-proof" in rules, "\n".join(rows)
+
+
+def test_git_ignored_build_output_beside_the_estate_manifests_is_carved_from_the_stray_audit(tmp_path: Path) -> None:
+    """Build output at the estate root is admitted exactly when git ignores it: unignored it strays, and a tree with no git carves nothing."""
+    root = _corpus(tmp_path)
+    (root / _CORPUS / "node_modules/.bin").mkdir(parents=True)
+    _write(root / _CORPUS, "obj/Debug/built.dll", b"built")
+
+    def strays() -> tuple[str, ...]:
+        return tuple(row.removeprefix("root-stray: ").partition(":")[0] for row in _audit_rules(root, _image())[1] if row.startswith("root-stray"))
+
+    assert strays() == ("node_modules", "obj")
+    _git_ignored(root, "node_modules/", "obj/")
+    assert strays() == ()
+    _git_ignored(root, "node_modules/")
+    assert strays() == ("obj",)
+    (root / _CORPUS / "rogue").mkdir()
+    assert strays() == ("obj", "rogue")
 
 
 def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_order_drift(tmp_path: Path) -> None:
@@ -2106,7 +2251,7 @@ def test_audit_without_image_reports_the_missing_descriptor_set(tmp_path: Path) 
 def test_manifest_decode_partition(tmp_path: Path) -> None:
     """A missing or undecodable manifest is a FAILED defect naming the field; an unreadable one is a FAULTED corpus lane."""
     root = _corpus(tmp_path)
-    corpus = root / "tests/contracts"
+    corpus = root / _CORPUS
     assert assert_ok(load_manifest(corpus)).entries[0].id == "DEMO_SEAM"
     (corpus / "manifest.json").unlink()
     assert assert_error_status(load_manifest(corpus), RailStatus.FAILED).message.endswith("missing")
@@ -2124,12 +2269,12 @@ def test_derived_schema_is_the_one_authority(tmp_path: Path) -> None:
     jsonschema.Draft202012Validator.check_schema(schema)
     validator = jsonschema.Draft202012Validator(schema)
     root = _corpus(tmp_path)
-    document = msgspec.json.decode((root / "tests/contracts/manifest.json").read_bytes())
+    document = msgspec.json.decode((root / _CORPUS / "manifest.json").read_bytes())
     assert list(validator.iter_errors(document)) == []
     assert list(validator.iter_errors({"entries": [msgspec.to_builtins(_entry()) | {"seam": "legacy"}]}))
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert (REPO_ROOT / "tests/contracts/manifest.schema.json").read_bytes() == derived_schema()
-    (root / "tests/contracts/manifest.schema.json").write_bytes(derived_schema() + b"\n")
+    assert (REPO_ROOT / _CORPUS / "manifest.schema.json").read_bytes() == derived_schema()
+    (root / _CORPUS / "manifest.schema.json").write_bytes(derived_schema() + b"\n")
     assert "schema-stale" in _audit_rules(root, _image())[0]
 
 
@@ -2139,11 +2284,11 @@ def test_generate_derives_manifest_schema_and_invalid_manifest_blocks_every_writ
     calls: list[tuple[str, ...]] = []
     landed = assert_ok(_run(assay_root, _fan(root, calls=calls), "generate"))
     assert landed.status is RailStatus.OK
-    assert (root / "tests/contracts/manifest.schema.json").read_bytes() == derived_schema()
-    assert "schema: tests/contracts/manifest.schema.json written" in landed.notes
+    assert (root / _CORPUS / "manifest.schema.json").read_bytes() == derived_schema()
+    assert "schema: libs/contracts/manifest.schema.json written" in landed.notes
     assert any(argv[:2] == ("buf", "generate") and "-o" in argv for argv in calls)
 
-    (root / "tests/contracts/manifest.json").write_bytes(b'{"entries": [{"id": "torn"}]}')
+    (root / _CORPUS / "manifest.json").write_bytes(b'{"entries": [{"id": "torn"}]}')
     broken_calls: list[tuple[str, ...]] = []
     blocked = assert_ok(_run(assay_root, _fan(root, calls=broken_calls), "generate"))
     assert blocked.status is RailStatus.FAILED
@@ -2156,7 +2301,7 @@ def test_verified_json_specimens_validate_against_the_seam_schema(tmp_path: Path
     """A verified JSON specimen validates against its self-contained case schema."""
     root = _corpus(tmp_path)
     assert "asset-invalid" not in _audit_rules(root, _image())[0]
-    (root / "tests/contracts/DEMO_SEAM/demo.json").write_bytes(b'{"key": "alpha", "extra": 1}\n')
+    (root / _CORPUS / _SEAM_DIR / "demo.json").write_bytes(b'{"key": "alpha", "extra": 1}\n')
     rules, rows = _audit_rules(root, _image())
     assert "asset-invalid" in rules and "asset-bytes" in rules, rows
     assert any("additionalProperties" in row or "extra" in row for row in rows if row.startswith("asset-invalid")), rows
@@ -2198,17 +2343,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
     detail = _detail(stale)
     scratch = Path(detail.scratch)
     assert stale.status is RailStatus.FAILED and _rules(stale) == {"schema-stale"}
-    assert calls[5] == (
-        "buf",
-        "generate",
-        "tests/contracts/proto",
-        "--template",
-        JSONSCHEMA_TEMPLATE,
-        "-o",
-        str(scratch / "schema"),
-        "--type",
-        _THING,
-    )
+    assert calls[5] == ("buf", "generate", "libs/contracts", "--template", JSONSCHEMA_TEMPLATE, "-o", str(scratch / "schema"), "--type", _THING)
     assert dict(detail.lanes)[f"buf-jsonschema:{_THING}"] == "ok" and dict(detail.plugins)[JSONSCHEMA_PLUGIN] == str(projector)
     assert [name for name, _ in detail.lanes][4:] == [
         "buf-generate",
@@ -2222,8 +2357,8 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
         "freshness-gate",
     ]
     landed = assert_ok(_run(assay_root, _fan(root), "generate"))
-    assert landed.status is RailStatus.OK and f"schema: tests/contracts/{_THING_PATH} written" in landed.notes
-    assert (root / "tests/contracts" / _THING_PATH).read_bytes() == _bundle(_THING)
+    assert landed.status is RailStatus.OK and f"schema: {_CORPUS}/{_THING_PATH} written" in landed.notes
+    assert (root / _CORPUS / _THING_PATH).read_bytes() == _bundle(_THING)
     assert [name for name, _ in _detail(landed).lanes] == [
         "plugin-probe",
         "buf-build",
@@ -2240,9 +2375,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
     clean = assert_ok(_run(assay_root, _fan(root)))
     assert clean.status is RailStatus.OK and clean.results == ()
     again = assert_ok(_run(assay_root, _fan(root), "generate"))
-    assert f"schema: tests/contracts/{_THING_PATH} unchanged" in again.notes and (root / "tests/contracts" / _THING_PATH).read_bytes() == _bundle(
-        _THING
-    )
+    assert f"schema: {_CORPUS}/{_THING_PATH} unchanged" in again.notes and (root / _CORPUS / _THING_PATH).read_bytes() == _bundle(_THING)
 
 
 def test_proto_binary_framing_earns_no_schema_and_no_lane(assay_root: AssayHarness, projector: Path) -> None:
@@ -2291,7 +2424,7 @@ def test_live_projection_folds_validate_rules_into_the_bundle(assay_root: AssayH
     """The real plugin projects a fixture module's enum roster and `gte` rule as `enum` and `minimum` under the file-name `$id`."""
     module = assay_root.root / "fixture"
     _write(module, "buf.yaml", _FIXTURE_CONFIG)
-    _write(module, "buf.lock", (REPO_ROOT / "buf.lock").read_bytes())
+    _write(module, "buf.lock", (REPO_ROOT / _CORPUS / "buf.lock").read_bytes())
     _write(module, "proto/fx/fx.proto", _FIXTURE_PROTO)
     _, bundle = _live(assay_root, str(module), "fx.Thing")
     document = msgspec.json.decode(bundle.read_bytes())
@@ -2303,7 +2436,7 @@ def test_live_projection_folds_validate_rules_into_the_bundle(assay_root: AssayH
 
 def test_live_projection_of_the_declaration_root(assay_root: AssayHarness) -> None:
     """The corpus root message projects to a 2020-12 strict bundle whose `$id` is its file name and whose root refuses unknown properties."""
-    _, bundle = _live(assay_root, contracts_rail._ESTATE, _DECLARATION)
+    _, bundle = _live(assay_root, _CORPUS, _DECLARATION)
     document = msgspec.json.decode(bundle.read_bytes())
     root = document["$ref"].rpartition("/")[2]
     assert (
@@ -2323,16 +2456,17 @@ def test_generate_stages_buf_and_commits_through_the_transaction_writer_under_th
     calls: list[tuple[str, ...]] = []
     report = assert_ok(_run(assay_root, _fan(root, calls=calls), "generate"))
     scratch = Path(_detail(report).scratch)
+    roster = ("buf", "build", "libs/contracts", "-o")
     assert calls == [
         ("plugin-probe", "resolve"),
-        ("buf", "build", "-o", str(scratch / "image.binpb"), "--as-file-descriptor-set"),
-        ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/dotnet-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
-        ("buf", "build", "-o", str(scratch / "roster/dotnet-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
+        (*roster, str(scratch / "image.binpb"), "--as-file-descriptor-set"),
+        (*roster, str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
+        (*roster, str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
+        (*roster, str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
+        (*roster, str(scratch / "roster/dotnet-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
+        (*roster, str(scratch / "roster/dotnet-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
         ("corpus-gate", "check"),
-        ("buf", "generate", "--template", "buf.gen.yaml", "-o", str(scratch / "gen")),
+        ("buf", "generate", "libs/contracts", "--template", "libs/contracts/buf.gen.yaml", "-o", str(scratch / "gen")),
         ("corpus-emit", "write"),
     ]
     assert not _ROWS["buf-generate", Mode.STAGE].mode.writes and _ROWS["corpus-emit", Mode.WRITE].mode.writes and report.status is RailStatus.OK
@@ -2358,8 +2492,8 @@ def test_generate_stages_buf_and_commits_through_the_transaction_writer_under_th
 def test_generate_emits_the_roster_block_between_markers_and_check_byte_checks_it(assay_root: AssayHarness) -> None:
     """Stale blocks rewrite, fresh ones stay, a catalog without markers is a finding and never written; check then reads the block clean."""
     root = _corpus(assay_root.root, roster=False)
-    catalog = root / "libs/python/contracts/.api/rasm-contracts.md"
-    bare = root / "libs/dotnet/Rasm.Contracts/.api/rasm-contracts.md"
+    catalog = root / "libs/contracts/.api/python.md"
+    bare = root / "libs/contracts/.api/dotnet.md"
     bare.write_text("# [DEMO]\n\nno markers here\n", encoding="utf-8")
     before = catalog.read_text(encoding="utf-8")
     assert "roster-stale" in _audit_rules(root, _image())[0]
@@ -2376,7 +2510,7 @@ def test_generate_emits_the_roster_block_between_markers_and_check_byte_checks_i
     span = contracts_rail._roster_span(text)
     assert second.status is RailStatus.OK and all(note.endswith("written") for note in rosters) and len(rosters) == 3
     assert span is not None and "[ROSTER_SCOPE]: `demo`" in text[span[0] : span[1]]
-    assert f"schema: tests/contracts/{_SEAM_PATH} unchanged" in second.notes
+    assert f"schema: {_CORPUS}/{_SEAM_PATH} unchanged" in second.notes
     assert "roster-stale" not in _audit_rules(root, _image())[0] and "roster-missing" not in _audit_rules(root, _image())[0]
 
 
@@ -2402,9 +2536,8 @@ def test_scratch_requires_the_file_artifact_backend(assay_root: AssayHarness) ->
 def test_template_faults_name_the_parse_step(assay_root: AssayHarness) -> None:
     """A missing or unmodelled buf.gen.yaml is a parse fault for both verbs."""
     root = _corpus(assay_root.root, template="version: v2\nplugins:\n  - local: x\n    out: y\n    ghost: 1\n")
-    assert not (root / "buf.gen.python-support.yaml").exists()
     assert assert_error_status(_run(assay_root, _fan(root)), RailStatus.FAULTED).message.startswith("parse: template")
-    (root / "buf.gen.yaml").unlink()
+    (root / _TEMPLATE_PATH).unlink()
     assert assert_error_status(_run(assay_root, _fan(root), "generate"), RailStatus.FAULTED).message.startswith("parse: template")
 
 
@@ -2419,7 +2552,7 @@ def test_template_faults_name_the_parse_step(assay_root: AssayHarness) -> None:
 )
 def test_template_requires_exact_remote_plugin_revisions(tmp_path: Path, template: str) -> None:
     """Remote plugins pin both upstream version and positive BSR revision; local plugins cannot carry that registry coordinate."""
-    _write(tmp_path, "buf.gen.yaml", template)
+    _write(tmp_path, _TEMPLATE_PATH, template)
     fault = assert_error_status(read_template(tmp_path), RailStatus.FAULTED)
     assert fault.message.startswith("parse: template:")
 
@@ -2427,12 +2560,9 @@ def test_template_requires_exact_remote_plugin_revisions(tmp_path: Path, templat
 @pytest.mark.parametrize(
     "config",
     [
-        "version: v2\nmodules:\n  - path: tests/contracts/proto\n",
-        (
-            f"version: v2\nmodules:\n  - path: tests/contracts/proto\n    name: {_MODULE}\n"
-            "  - path: tests/contracts/vendor/pub/proto\n    name: buf.build/pub/contracts\n"
-        ),
-        f"version: v2\nmodules:\n  - path: tests/contracts/proto\n    name: {_MODULE}\n  - path: other/proto\n",
+        "version: v2\nmodules:\n  - path: proto\n",
+        (f"version: v2\nmodules:\n  - path: proto\n    name: {_MODULE}\n  - path: vendor/pub/proto\n    name: buf.build/pub/contracts\n"),
+        f"version: v2\nmodules:\n  - path: proto\n    name: {_MODULE}\n  - path: other/proto\n",
     ],
     ids=("unnamed-estate", "named-publisher", "foreign-local-module"),
 )
@@ -2477,6 +2607,6 @@ def test_catalog_rows_pin_lane_contract() -> None:
     assert {t.name for t in rows if t.defect_exit == BUF_DEFECT_EXIT} == {"buf-lint", "buf-format"}
     assert {t.name for t in rows if t.parser is Parser.BUF} == {"buf-lint"}
     assert _ROWS["buf-baseline", Mode.QUERY].command == ("buf", "registry", "module", "commit", "resolve", "{input}", "--format", "json")
-    assert _ROWS["buf-push", Mode.PUBLISH].command == ("buf", "push", ".", "--exclude-unnamed", "{flags*}", "--label", "{target}")
+    assert _ROWS["buf-push", Mode.PUBLISH].command == ("buf", "push", "libs/contracts", "--exclude-unnamed", "{flags*}", "--label", "{target}")
     assert all(t.command[0] == "buf" for t in rows if t.runner is Runner.PNPM)
     assert all(dict(t.env).get("BUF_CACHE_DIR") == ".cache/buf" for t in rows if t.runner is Runner.PNPM)

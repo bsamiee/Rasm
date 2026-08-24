@@ -20,12 +20,22 @@
         {
             "path": "libs/.planning/ARCHITECTURE.md",
             "description": "Tier-0 topology law: the stratification law every branch answers, contract classes, observability conformance anchors, the consumption-axis roster deployment shape rides",
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "tests/contracts/**", "docs/laws/**"]
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "libs/contracts/**", "libs/contracts/.api/**", "docs/laws/**"]
         },
         {
-            "path": "tests/contracts/manifest.json",
+            "path": "libs/contracts/manifest.json",
             "description": "Cross-language atomic-case registry: exact definition, authority, actors, readiness, oracle, and frozen evidence",
             "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "tests/**"]
+        },
+        {
+            "path": "libs/contracts/ARCHITECTURE.md",
+            "description": "Contracts-estate topology law: strata, seams, and the [07]-[REGISTRY] authority-class vocabulary every atomic case declares against",
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "libs/contracts/**", "libs/contracts/.api/**", "tests/**"]
+        },
+        {
+            "path": "libs/contracts/RULINGS.md",
+            "description": "Contracts-estate decision registry: settled re-litigation guards for the cross-language contracts estate",
+            "scope": ["libs/contracts/**", "libs/contracts/.api/**"]
         },
         {
             "path": "docs/laws/topology.md",

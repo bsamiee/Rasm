@@ -86,8 +86,8 @@ from expression import Error, Ok
 from expression.collections import Block
 from expression.extra.result import sequence, traverse
 from protobuf import Message, Oneof
-from rasm.contracts.gen.rasm.contracts.cad.operations_pb import TransformOp
-from rasm.contracts.gen.rasm.contracts.spatial.vector_pb import Axis3, Curve3, Frame3, Point3, UnitDirection3
+from rasm.contracts.rasm.contracts.cad.operations_pb import TransformOp
+from rasm.contracts.rasm.contracts.spatial.vector_pb import Axis3, Curve3, Frame3, Point3, UnitDirection3
 
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, BREP_OUTPUT, CadRail
 

@@ -77,7 +77,7 @@ from assay.core.model import (
     Tool,
     ToolArgs,
 )
-from assay.core.routing import Routed, Scope
+from assay.core.routing import discover, Routed, Scope
 from assay.core.transaction import SwapTransaction
 from assay.diagnostics import cap_note, fold
 from assay.rails.contracts_generation import changes, compose_image, freshness_rows, GenerationImage, render
@@ -108,20 +108,24 @@ type _Lanes = tuple[tuple[str, Completed], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-CORPUS: Final = "tests/contracts"
+CORPUS: Final = "libs/contracts"
 MANIFEST: Final = "manifest.json"
 SCHEMA: Final = "manifest.schema.json"
-TEMPLATE: Final = "buf.gen.yaml"
+# The buf workspace seats at the estate root; every buf lane runs from the repo root against the `libs/contracts` input.
+TEMPLATE: Final = f"{CORPUS}/buf.gen.yaml"
 ROSTER_BEGIN: Final = "<!-- roster:begin -->"
 ROSTER_END: Final = "<!-- roster:end -->"
-_CONFIG: Final = "buf.yaml"
-_LOCK: Final = "buf.lock"
+_CONFIG: Final = f"{CORPUS}/buf.yaml"
+_LOCK: Final = f"{CORPUS}/buf.lock"
 _SCHEMA_ANCHOR: Final = "https://json-schema.org/draft/2020-12/schema"
 _JSON_INDENT: Final = 4
 _JSON_WIDTH: Final = 150
 _LEASE: Final = "contracts"
 _VENDOR: Final = "vendor"
-_ESTATE: Final = f"{CORPUS}/proto"
+_CONFORMANCE: Final = "conformance"
+_ESTATE: Final = "proto"  # buf.yaml-relative, like every module path
+# The one generated tree: every plugin `out` lands strictly inside it, and the first segment beneath it names the emission target.
+_EMISSION: Final = PurePosixPath(CORPUS) / "gen"
 _IMAGE: Final = "image.binpb"
 _GEN: Final = "gen"
 _SCHEMAS: Final = "schema"
@@ -132,10 +136,28 @@ _BUNDLE: Final = ".jsonschema.strict.bundle.json"
 _JSON_FRAMINGS: Final[frozenset[SchemaFraming]] = frozenset(("proto-json", "canonical-json"))
 _NO_PROJECTIONS: Final[_Projections] = MappingProxyType({})
 _NO_ROSTER_FILES: Final[_RosterFiles] = MappingProxyType({})
-# The three roots beside the seam directories and the three files beside them; the audit admits nothing else at the corpus root.
-_ROOTS: Final[frozenset[str]] = frozenset((".api", "proto", _VENDOR))
-_ROOT_FILES: Final[frozenset[str]] = frozenset(("README.md", MANIFEST, SCHEMA))
+# The five roots and the manifests beside them; the audit admits nothing else at the estate root except git-ignored build output.
+_ROOTS: Final[frozenset[str]] = frozenset((".api", _ESTATE, _VENDOR, _CONFORMANCE, _EMISSION.name))
+_ROOT_FILES: Final[frozenset[str]] = frozenset((
+    "README.md",
+    "ARCHITECTURE.md",
+    "RULINGS.md",
+    "IDEAS.md",
+    "TASKLOG.md",
+    MANIFEST,
+    SCHEMA,
+    "buf.yaml",
+    "buf.gen.yaml",
+    "buf.lock",
+    "package.json",
+    "tsconfig.json",
+    "pyproject.toml",
+    "Rasm.Contracts.csproj",
+    "packages.lock.json",
+))
+_IGNORED: Final[tuple[str, ...]] = ("git", "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--", CORPUS)
 _BLOCKER_FLOOR: Final = 24
+_IGNORE_TIMEOUT_S: Final = 30.0
 _LAW_CAP: Final = 240
 _DIFF_LINES: Final = 400
 _STALE_CAP: Final = 200
@@ -152,14 +174,20 @@ _BSR_MODULE: Final = re.compile(r"^buf\.build/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0
 _BSR_COMMIT: Final = re.compile(r"^[0-9a-f]{32}$")
 _EVENT_TYPE: Final = re.compile(r"^rasm(?:\.[a-z][a-z0-9]*){3}$")  # rasm.<domain>.<subject>.<fact>; the [14]-[EVENT_FABRIC] grammar
 _DEFAULT_LABEL: Final = "main"
-_TS_PACKAGE: Final = "libs/typescript/contracts/package.json"
+# Bare-path anchors name a proof file or an estate index page; every other anchor rides the branch or tier grammar.
+_BARE_ANCHOR_ROOTS: Final = ("tests/", f"{CORPUS}/")
+_TS_PACKAGE: Final = f"{CORPUS}/package.json"
+_TS_BUILD: Final = "tsc --build"
+_TS_DIRECTORY: Final = CORPUS
 _TS_EXPORT: Final = "./*"
 # The wildcard carries two states of one map: the workspace manifest resolves committed TypeScript, and `pnpm pack` overlays
 # `publishConfig` so the tarball resolves compiled output. Reading the workspace half alone certifies the wrong document.
-_TS_SOURCE: Final = "./gen/*.ts"
+_TS_SOURCE: Final = "./gen/typescript/*.ts"
 _TS_TARGET: Final[Mapping[str, str]] = MappingProxyType({"types": "./dist/*.d.ts", "import": "./dist/*.js", "default": "./dist/*.js"})
 _PY_PACKAGE: Final = "rasm.contracts"
-_PY_PACKAGE_ROOT: Final = PurePosixPath("libs/python/contracts/rasm/contracts")
+_PY_PACKAGE_ROOT: Final = PurePosixPath(f"{CORPUS}/gen/python/rasm/contracts")
+# The typing marker is projected after the sweep like every other distribution; nothing hand-authored lives under the generated tree.
+_PY_MARKER: Final = (_PY_PACKAGE_ROOT / "py.typed").as_posix()
 _ROUTED: Final[Routed] = Routed(language=Language.PROTO, scope=Scope.CHANGED)
 # A missing plugin names its installer by where the template seats it: venv and node binaries are repo-installed, the rest ride the machine estate.
 _HINTS: Final[tuple[tuple[str, str], ...]] = ((".venv/", "uv sync"), ("node_modules/", "pnpm install"))
@@ -692,9 +720,9 @@ class _Plugin(_Row, frozen=True, kw_only=True):
 
     @property
     def language(self) -> str:
-        """The branch the out root lands under: the second segment of a `libs/<language>/...` out, else ``""``."""
-        parts = PurePosixPath(self.out).parts
-        return parts[1] if len(parts) > 1 and parts[0] == "libs" else ""
+        """The emission target the out root lands under: the first segment strictly inside the generated tree, else ``""``."""
+        out = PurePosixPath(self.out)
+        return out.relative_to(_EMISSION).parts[0] if out != _EMISSION and out.is_relative_to(_EMISSION) else ""
 
     @property
     def kinds(self) -> frozenset[_Kind]:
@@ -717,7 +745,7 @@ class _Plugin(_Row, frozen=True, kw_only=True):
 
 
 class _BufGen(_Row, frozen=True, kw_only=True):
-    """Root `buf.gen.yaml` as the rail reads it: the clean sweep, managed mode, the workspace input, and every plugin row."""
+    """The estate `buf.gen.yaml` as the rail reads it: the clean sweep, managed mode, the workspace input, and every plugin row."""
 
     version: Literal["v2"]
     clean: bool = False
@@ -738,7 +766,7 @@ class _Templates:
 
 
 class _BufConfig(msgspec.Struct, frozen=True, kw_only=True):
-    """Root ``buf.yaml`` module identity and dependency roster consumed by the corpus audit and publish custody."""
+    """The estate ``buf.yaml`` module identity and dependency roster consumed by the corpus audit and publish custody."""
 
     version: Literal["v2"]
     modules: tuple["_BufModule", ...]
@@ -867,12 +895,15 @@ class _Lane:
 
 @dataclass(frozen=True, slots=True)
 class _Roster:
-    """One generated package's roster: the `.api` catalog the block is emitted into, the censused descriptor kinds, and the name speller."""
+    """One emission target's roster: the censused descriptor kinds and the name speller; the `.api` catalog derives from the target."""
 
     language: str
-    catalog: str
     kinds: frozenset[_Kind]
     name: Callable[[_Kind, str], str]
+
+    @property
+    def catalog(self) -> str:
+        return f"{CORPUS}/.api/{self.language}.md"
 
 
 @dataclass(frozen=True, slots=True)
@@ -919,7 +950,7 @@ class _Corpus:
 
     def seam_dir(self, entry: Entry) -> Path:
         publisher = all(isinstance(case.authority, PublisherAuthority) for case in entry.cases)
-        return self.root / _VENDOR / entry.id if publisher else self.root / entry.id
+        return self.root / _VENDOR / entry.id if publisher else self.root / _CONFORMANCE / entry.id
 
 
 class _ProofContext(Protocol):
@@ -1279,14 +1310,14 @@ def _read_config(root: Path) -> Result[_BufConfig, Fault]:
     except msgspec.ValidationError as exc:
         return Error(Fault((_CONFIG,), RailStatus.FAULTED, f"{Step.PARSE}: config: {exc}"))
     estate = tuple(row for row in config.modules if row.path == _ESTATE)
-    foreign = tuple(row for row in config.modules if row.path != _ESTATE and not PurePosixPath(row.path).is_relative_to(f"{CORPUS}/{_VENDOR}"))
+    foreign = tuple(row for row in config.modules if row.path != _ESTATE and not PurePosixPath(row.path).is_relative_to(_VENDOR))
     named_vendor = tuple(row.path for row in config.modules if row.path != _ESTATE and row.name)
     reason = (
         f"{_CONFIG} must declare {_ESTATE} exactly once"
         if len(estate) != 1
         else f"{_ESTATE} must name one buf.build owner/module coordinate"
         if not _BSR_MODULE.fullmatch(estate[0].name)
-        else f"non-estate modules must live under {CORPUS}/{_VENDOR}: {', '.join(row.path for row in foreign)}"
+        else f"non-estate modules must live under {_VENDOR}: {', '.join(row.path for row in foreign)}"
         if foreign
         else f"publisher modules must remain unnamed: {', '.join(named_vendor)}"
         if named_vendor
@@ -1456,21 +1487,6 @@ def _actor_roots(manifest: Manifest, language: str, kinds: frozenset[_Kind]) -> 
     return tuple(dict.fromkeys(roots))
 
 
-def _publisher_packages(corpus: _Corpus) -> frozenset[str]:
-    sources = tuple(
-        case.definition.source for entry in corpus.manifest.entries for case in entry.cases if isinstance(case.definition, PublisherDefinition)
-    )
-    return frozenset(file.package for file in corpus.files if any(source.endswith(file.name) for source in sources))
-
-
-def _symbol_package(files: tuple[_File, ...], symbol: str) -> str:
-    for file in files:
-        names = (*(f"{file.package}.{name}" for name in (*file.messages, *file.enums, *file.services)), *(method.name for method in file.methods))
-        if symbol in names:
-            return file.package
-    return ""
-
-
 def _file_owns(file: _File, symbol: str) -> bool:
     return symbol in frozenset((
         *(f"{file.package}.{name}" for name in (*file.messages, *file.enums, *file.services)),
@@ -1494,18 +1510,8 @@ def _emitted(file: _File, kinds: frozenset[_Kind]) -> _File:
 
 
 def _plugin_roots(corpus: _Corpus, plugin: _Plugin) -> tuple[str, ...]:
-    roots = _actor_roots(corpus.manifest, plugin.language, plugin.kinds)
-    publishers = _publisher_packages(corpus)
-    vendor_row = "vendor" in PurePosixPath(plugin.out).parts
-    split_publishers = any(
-        row is not plugin
-        and row.language == plugin.language
-        and ("vendor" in PurePosixPath(row.out).parts) != vendor_row
-        and bool(row.kinds & plugin.kinds)
-        for row in corpus.template.main.plugins
-    )
-    routed = tuple(root for root in roots if (((_symbol_package(corpus.files, root) in publishers) == vendor_row) if split_publishers else True))
-    return tuple(dict.fromkeys(routed))
+    # One out root per emission target carries estate and publisher roots alike; publisher curation is a `types` row, never a second root.
+    return tuple(dict.fromkeys(_actor_roots(corpus.manifest, plugin.language, plugin.kinds)))
 
 
 def _known_symbols(corpus: _Corpus) -> frozenset[str]:
@@ -1552,9 +1558,9 @@ def _cs_name(kind: _Kind, dotted: str) -> str:
 _ROSTERS: Final[dict[str, _Roster]] = {
     row.language: row
     for row in (
-        _Roster("typescript", "libs/typescript/contracts/.api/rasm-ts-contracts.md", frozenset(("message", "enum", "service", "method")), _ts_name),
-        _Roster("python", "libs/python/contracts/.api/rasm-contracts.md", frozenset(("message", "enum", "service", "method")), _py_name),
-        _Roster("dotnet", "libs/dotnet/Rasm.Contracts/.api/rasm-contracts.md", frozenset(("message", "enum", "service", "method")), _cs_name),
+        _Roster("typescript", frozenset(("message", "enum", "service", "method")), _ts_name),
+        _Roster("python", frozenset(("message", "enum", "service", "method")), _py_name),
+        _Roster("dotnet", frozenset(("message", "enum", "service", "method")), _cs_name),
     )
 }
 _KINDS: Final[tuple[tuple[_Kind, Callable[[_File], tuple[str, ...]]], ...]] = (
@@ -1914,7 +1920,7 @@ def _anchor(repo: Path, text: str, *, paths: bool) -> str:
         case (_, re.Match() as found):
             name, index, token = found.groups()
             return _cluster(repo / "libs" / ".planning" / f"{name}.md", rf"\[{index}\]-\[{re.escape(token)}\]")
-        case _ if paths and text.startswith("tests/") and not text.startswith("/") and (repo / text).is_file():
+        case _ if paths and text.startswith(_BARE_ANCHOR_ROOTS) and not text.startswith("/") and (repo / text).is_file():
             return ""
         case _:
             return "anchor grammar is lang:pkg/page#CLUSTER, tier0:ARCHITECTURE#[NN]-[TOKEN], tier0:RULINGS#[NN]-[TOKEN]" + (
@@ -1945,7 +1951,7 @@ def _anchor_body(repo: Path, anchor: str) -> Result[str, str]:
         name, index, token = tier_found.groups()
         path = repo / "libs" / ".planning" / f"{name}.md"
         header = rf"^## \[{index}\]-\[{re.escape(token)}\]\s*$"
-    elif anchor.startswith("tests/") and not anchor.startswith("/"):
+    elif anchor.startswith(_BARE_ANCHOR_ROOTS) and not anchor.startswith("/"):
         path, header = repo / anchor, ""
     else:
         return Error("anchor grammar is invalid")
@@ -2332,14 +2338,13 @@ def _distribution_path_finding(corpus: _Corpus, subject: str, distribution: Dist
     if reason := _path_reason(where):
         return _finding("distribution-path", subject, f"{where!r}: {reason}", "name one normalized repo-relative generated-package path", where)
     if isinstance(distribution, PythonPackageResource):
-        root = _PY_PACKAGE_ROOT / "vendor"
-        if PurePosixPath(where).suffix == ".avsc" and _inside(where, root):
+        if PurePosixPath(where).suffix == ".avsc" and _inside(where, _PY_PACKAGE_ROOT):
             return None
         return _finding(
             "distribution-path",
             subject,
-            f"{where} is not an .avsc below the {_PY_PACKAGE} vendor resource root",
-            f"seat the exact resource below {root.as_posix()}",
+            f"{where} is not an .avsc below the {_PY_PACKAGE} package root",
+            f"seat the exact resource below {_PY_PACKAGE_ROOT.as_posix()}",
             where,
         )
     roots = tuple(PurePosixPath(row.out) for row in corpus.template.plugins if row.language == "typescript")
@@ -2381,6 +2386,7 @@ def _distribution_findings(corpus: _Corpus) -> Iterable[_Finding]:
                     "publishConfig": {"exports": dict() as published},
                     "scripts": dict() as scripts,
                     "dependencies": dict() as dependencies,
+                    "repository": {"directory": str() as directory},
                 },
             ):
                 export_ok = (
@@ -2392,7 +2398,8 @@ def _distribution_findings(corpus: _Corpus) -> Iterable[_Finding]:
                     and all(item == "dist" or (corpus.repo / _TS_PACKAGE).parent.joinpath(item).exists() for item in files)
                     and exports.get(_TS_EXPORT) == _TS_SOURCE
                     and published.get(_TS_EXPORT) == _TS_TARGET
-                    and scripts.get("build") == "tsc --build tsconfig.build.json"
+                    and scripts.get("build") == _TS_BUILD
+                    and directory == _TS_DIRECTORY
                     and scripts.get("prepack") == "pnpm run build"
                     and dependencies.get("@bufbuild/protobuf") == "catalog:"
                 )
@@ -3371,6 +3378,38 @@ def _seam_materialization(corpus: _Corpus, entry: Entry) -> _Finding | None:
     return None
 
 
+def _ignored(repo: Path) -> frozenset[str]:
+    # Build output beside the estate manifests (a link farm, a compiled tree, a compiler cache) is whatever git ignores there —
+    # read from the ignore roster, never a hand list that drifts; a repo with no git answers nothing and admits nothing extra.
+    listed = discover(_IGNORED, root=repo, timeout=_IGNORE_TIMEOUT_S).default_value(b"")
+    return frozenset(
+        PurePosixPath(row).relative_to(CORPUS).parts[0] for row in listed.decode(errors="replace").split("\0") if row.startswith(f"{CORPUS}/")
+    )
+
+
+def _stray_findings(corpus: _Corpus, estate: frozenset[str], publishers: frozenset[str]) -> Iterable[_Finding]:
+    # One census over three roots: the estate root admits its roots, manifests, and whatever git ignores there; each seam root admits
+    # exactly the directories its authority class registers, so a publisher id under conformance/ strays as loudly as a rogue name.
+    ignored = _ignored(corpus.repo)
+    admitted: tuple[tuple[str, Callable[[Path], bool], str], ...] = (
+        ("", lambda child: child.name in ignored or (child.name in _ROOTS if child.is_dir() else child.name in _ROOT_FILES), "at the estate root"),
+        (_VENDOR, lambda child: child.is_dir() and child.name in publishers, f"under {_VENDOR}/"),
+        (_CONFORMANCE, lambda child: child.is_dir() and child.name in estate, f"under {_CONFORMANCE}/"),
+    )
+    for seam_root, admits, where in admitted:
+        directory = corpus.root / seam_root if seam_root else corpus.root
+        for child in sorted(directory.iterdir()) if directory.is_dir() else ():
+            if not admits(child):
+                rel = f"{seam_root}/{child.name}" if seam_root else child.name
+                yield _finding(
+                    "root-stray",
+                    rel,
+                    f"unregistered entry {where}",
+                    "seat the file under its seam, vendor, conformance, or gen root, register the directory under its authority class, or delete it",
+                    f"{CORPUS}/{rel}",
+                )
+
+
 def _rule_disk(corpus: _Corpus) -> Iterable[_Finding]:
     root, entries = corpus.root, corpus.manifest.entries
     classes = {entry.id: frozenset(_entry_class(case) for case in entry.cases) for entry in entries}
@@ -3387,24 +3426,7 @@ def _rule_disk(corpus: _Corpus) -> Iterable[_Finding]:
             )
         if finding := _seam_materialization(corpus, entry):
             yield finding
-    for child in sorted(root.iterdir()) if root.is_dir() else ():
-        if not (child.name in (_ROOTS | estate) if child.is_dir() else child.name in _ROOT_FILES):
-            yield _finding(
-                "root-stray",
-                child.name,
-                "unregistered entry at the corpus root",
-                "register the seam, move the file under its seam, or delete it",
-                f"{CORPUS}/{child.name}",
-            )
-    for child in sorted((root / _VENDOR).iterdir()) if (root / _VENDOR).is_dir() else ():
-        if not (child.is_dir() and child.name in publishers):
-            yield _finding(
-                "root-stray",
-                f"{_VENDOR}/{child.name}",
-                "unregistered entry under vendor/",
-                "register the directory under publisher authority",
-                f"{CORPUS}/{_VENDOR}/{child.name}",
-            )
+    yield from _stray_findings(corpus, estate, publishers)
     # Every file under a seam has one atomic owner. Definition directories delimit publisher custody but do not duplicate file ownership.
     owners: dict[str, list[str]] = {}
     owned: dict[Path, set[str]] = {}
@@ -3513,7 +3535,7 @@ def _rule_roster(corpus: _Corpus) -> Iterable[_Finding]:
     for language in dict.fromkeys(row.language for row in corpus.template.plugins if row.language):
         roster = _ROSTERS.get(language)
         if roster is None:
-            yield _finding("roster-row", language, f"libs/{language} has no roster row", "land the language's _Roster row")
+            yield _finding("roster-row", language, f"{_EMISSION}/{language} has no roster row", "land the emission target's _Roster row")
             continue
         try:
             text = (corpus.output / roster.catalog).read_text(encoding="utf-8")
@@ -3763,6 +3785,7 @@ def _write_distributions(repo: Path, base: Path, manifest: Manifest) -> tuple[tu
             )
             continue
         emissions.append((distribution.path, rendered.ok))
+    emissions.append((_PY_MARKER, b""))
     rendered_image = render(base, tuple(emissions))
     if rendered_image.is_error():
         findings.append(_finding("distribution-write", "generation", rendered_image.error.message, "restore the staged image filesystem"))
@@ -3830,7 +3853,7 @@ def _generation_transaction(repo: Path, template: _Templates, manifest: Manifest
 def _roster_emission(staged: GenerationImage, corpus: _Corpus, language: str) -> tuple[tuple[_Finding, ...], tuple[str, bytes] | None, str | None]:
     roster = _ROSTERS.get(language)
     if roster is None:
-        return (_finding("roster-row", language, f"libs/{language} has no roster row", "land the language's _Roster row"),), None, None
+        return (_finding("roster-row", language, f"{_EMISSION}/{language} has no roster row", "land the emission target's _Roster row"),), None, None
     catalog = staged.read(roster.catalog)
     if catalog.is_error():
         finding = _finding(
@@ -4347,7 +4370,7 @@ def _derive_phase(
     projector = next((gate.projector for _, played in done for gate in (_gate(played),) if isinstance(gate, _Probe)), "")
     refusal = "" if projector else f"{JSONSCHEMA_PLUGIN} is not resolvable; {_MACHINE_HINT}"
     fqns = _targets(root, scratch / _IMAGE)
-    checks = tuple(_derive_check(_ESTATE, scratch, fqn) for fqn in fqns)
+    checks = tuple(_derive_check(CORPUS, scratch, fqn) for fqn in fqns)
     if checks and not refusal:
         (scratch / _SCHEMAS).mkdir(parents=True, exist_ok=True)
     return _phase(executor, checks, lambda chk: _seat(chk, RailStatus.UNSUPPORTED, refusal) if refusal else None, settings=settings, scope=scope).map(

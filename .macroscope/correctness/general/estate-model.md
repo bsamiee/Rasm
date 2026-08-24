@@ -3,12 +3,13 @@ include:
   - "libs/**"
   - "libs/**/.planning/**"
   - "libs/**/.api/**"
-  - "tests/contracts/**"
+  - "libs/contracts/**"
+  - "libs/contracts/.api/**"
 ---
 
 # [ESTATE_MODEL]
 
-`libs/` holds independently adoptable packages: each is an external-library-grade dependency an unrelated future application takes, and each serves unknown consumers by construction. Three language estates stand as peers — no branch produces above another, none is a prerequisite, and a branch's host domain names a focus, never a rank. Read `libs/.planning/ARCHITECTURE.md` and `tests/contracts/manifest.json` live before a finding; never carry a copy of either roster here.
+`libs/` holds independently adoptable packages: each is an external-library-grade dependency an unrelated future application takes, and each serves unknown consumers by construction. Three language estates stand as peers — no branch produces above another, none is a prerequisite, and a branch's host domain names a focus, never a rank. Read `libs/.planning/ARCHITECTURE.md` and `libs/contracts/manifest.json` live before a finding; never carry a copy of either roster here.
 
 ## [01]-[ASSUMED_CONSUMER]
 
@@ -24,8 +25,7 @@ include:
 
 ## [03]-[CONTRACT_CLASS]
 
-- Defined contract cases carry the only legitimate cross-estate coupling; read each case live from `manifest.json`, never infer its authority.
-- Apply `tests/contracts/README.md` `[01]-[AUTHORITY]`; a branch contradicting the declared class, actors, readiness, proof, or assets is a finding.
+- Defined contract cases carry the only legitimate cross-estate coupling; read each case live from `libs/contracts/manifest.json` under `libs/contracts/ARCHITECTURE.md` `[REGISTRY]`, never infer its authority.
 - Fences or adapters leaving one branch unable to run without another present carry the cross-language prerequisite defect; the finding names the atomic case and the declared authority it contradicts.
 
 ## [04]-[TRANSCRIPTION_CONFORMANCE]

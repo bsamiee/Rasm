@@ -90,11 +90,8 @@
 - Spec-stage fault-envelope deletions compact every producer and consumer — no reserve, alias, legacy field, or dual decoder preserves dead shape.
 - Recognized-but-malformed details refuse TYPED at admission — an unknown detail type and an unknown code stay opaque evidence nobody guesses at.
 - Remote domain codes drive no topology — transport outcomes alone elect failover, keeping each branch taxonomy local.
-- Proto packages spell `rasm.contracts.<family>` and managed mode derives every language option — an inline `csharp_namespace` forks it.
 - Estate surfaces spell no version segment — packages, event types, and storage keys reshape in place with every consumer updated same-change.
-- Assay's gated publish rail alone proves publication — descriptor equality and the `main`-label pin settle custody; local snapshots settle nothing.
 - Wire material crosses in its own binary encoding and text framings marshal at the call — the schema discriminant outranks a payload's armor label.
-- One `main` label carries the RELEASED stream — a lock shields resolved consumers alone, so an unready commit rides a non-default label or waits.
 
 ## [03]-[COLLAPSE]
 
@@ -111,20 +108,12 @@
 - Standalone seam ledgers do NOT re-enter — the folder `ARCHITECTURE.md` `[03]-[SEAMS]` is the one seam record, mirrored at both endpoints.
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
-- `ONE_WIRE_FIXTURE_CORPUS` does NOT re-enter — `tests/contracts/manifest.json` is the federation index, readiness authority, and fixture registry.
-- Root `buf.gen.yaml` is the ONE generation driver for every language — a build-driven protoc beside it mints a second authority for one emission.
-- Branch generation selects public message roots from real consumers; transitive imports form support closure and never widen the public roster.
-- Proto3 syntax stays until Protobuf-ES preserves optional presence under Editions; cross-language absence outranks edition novelty.
-- Protovalidate rules own wire constraints; branch admission evaluates them and never repeats the same scalar rule in hand code.
-- Generated package rosters derive between gate-owned markers from the descriptor image and the configured public roots/support closure.
-- Vendored modules curate per language at the MODULE level on two grounds alone — a namespace or stdlib collision, or a publisher-shipped type.
-- Generated-bindings trees are admitted IMPORT ROOTS, never strata — TS package folder, Python source root, .NET assembly; one law line per branch.
+- `libs/contracts/` is the ONE cross-language estate — definitions, conformance corpus, and every generated binding; a branch folder mints none.
+- Generated-bindings trees are admitted IMPORT ROOTS, never strata — each branch imports its `libs/contracts/gen/<lang>` root and seats no rank on it.
 - Python and TypeScript packages carry FLAT layouts — the importable directory at project root and entries at package root, a `src/` level refusing.
 - Import-shadow risk repairs at the `sys.path` entry, never by nesting — a `src/` level buys isolation that entry already decides.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
 - Observability backends stand per DEPLOYMENT — one branch serves unrelated app roots, so a placement card re-litigates the platform/product split.
-- BSR generated SDKs enter no branch — the pipeline carries no type filter and fixes `opt` at the plugin, so roots widen and emission flags vanish.
-- Publication opens generated SDKs to foreign consumers alone — vendored modules stay unnamed, so no SDK ever carries a branch's whole emission.
 
 ## [05]-[PROCESS]
 

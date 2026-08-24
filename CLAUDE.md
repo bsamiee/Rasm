@@ -39,7 +39,7 @@ Every structural mistake — a capability rebuilt over a wrong foundation, a fla
 |  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`                           |
 |  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`                           |
 |  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`                            |
-|  [04]   | Protobuf (`.proto`)        | Docs: `tests/contracts/proto`  | `tests/contracts/proto`          | `snake_case` files, `PascalCase` types |
+|  [04]   | Protobuf (`.proto`)        | Docs: `libs/contracts/proto`   | `libs/contracts/proto`           | `snake_case` files, `PascalCase` types |
 |  [05]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`                           |
 |  [06]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`                           |
 |  [07]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                            | `kebab-case`; index docs SCREAM        |

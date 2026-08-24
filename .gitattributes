@@ -37,12 +37,9 @@
 *.verified.* text eol=lf
 *.verified.txt text eol=lf working-tree-encoding=UTF-8
 
-# Generated out roots — one emission per branch, proved fresh by the contracts gate; a hand edit is a freshness failure.
-# Each root holds generated files alone, so the hand-authored package surface above it (py.typed, __init__.py, manifests) stays outside the sweep.
-libs/typescript/contracts/gen/** linguist-generated=true -diff
-libs/python/contracts/rasm/contracts/gen/** linguist-generated=true -diff
-libs/python/contracts/rasm/contracts/vendor/** linguist-generated=true -diff
-libs/dotnet/Rasm.Contracts/Generated/** linguist-generated=true -diff
+# The one generated tree — every emission target under it, proved fresh by the contracts gate; a hand edit is a freshness failure.
+# The tree holds generated files and gate-projected markers alone, so every manifest above it stays outside the sweep.
+libs/contracts/gen/** linguist-generated=true -diff
 *.bin binary
 
 # Icons

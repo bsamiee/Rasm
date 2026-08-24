@@ -199,8 +199,8 @@ from opentelemetry import propagate
 from protobuf import DescField, DescFieldValueMessage, DescFieldValueScalar, Message, Oneof, ScalarType
 from protobuf.wkt import Timestamp
 from protovalidate import CompilationError, EvaluationError, ValidationError as ContractValidationError, validate
-from rasm.contracts.gen.buf.validate.validate_pb import ext_field
-from rasm.contracts.gen.rasm.contracts.event.event_pb import Extensions
+from rasm.contracts.buf.validate.validate_pb import ext_field
+from rasm.contracts.rasm.contracts.event.event_pb import Extensions
 
 from cloudevents.core.base import BaseCloudEvent
 from cloudevents.core.exceptions import CloudEventValidationError
@@ -621,7 +621,7 @@ def creation(extensions: Extensions) -> Correlation:
 - Entry: `EventFormat.bound()` resolves and parses the generated AVSC once; `AvroFormat.read` is the exact publisher-Avro byte reader that `decode(body, media)` dispatches. Generic `write(event, suffix)` and `decode(body, media)` cover package CloudEvent singles and batches without narrowing their payload arm. Profile `encode(envelope, suffix)` first admits the row's sealed payload arm and mints the package event; `admit(events)` is the inverse Rasm-profile gate, and `admitted(event)` gives binary bindings the same gate.
 - Auto: version-factory fallthrough is refused. `core.bindings.common.get_event_factory_for_version` answers `SPECVERSION_V1_0` for EVERY unknown version string, so an unrecognized `specversion` decodes as the current generation rather than refusing; every row here binds `CloudEvent` explicitly and refuses a foreign `specversion` at the seam. `amqp` and `rabbitmq` hard-bind that same class, whose own required-attribute gate REFUSES every `specversion` but the current one — so those two raise where the auto-detecting `http`/`kafka` pair silently decodes a peer's unknown generation as this one.
 - Packages: `cloudevents` for the validating event/JSON format, `fastavro` for parsed-once schemaless Avro, `rasm.contracts` for the exact AVSC resource and generated protobuf envelope, `protobuf-py` for generated messages, plus `expression`/`msgspec` for rails and raw batch framing.
-- Growth: a new singular format is one instance row; a standardized batch form adds one `BatchCodec` value on that row; a new extension is one corpus field and regeneration. A publisher schema changes at `tests/contracts`, then Assay projects exact bytes to `rasm.contracts`; this owner changes only when the published encoding semantics change.
+- Growth: a new singular format is one instance row; a standardized batch form adds one `BatchCodec` value on that row; a new extension is one corpus field and regeneration. A publisher schema changes at `libs/contracts/vendor`, then Assay projects exact bytes into the `rasm.contracts` import root; this owner changes only when the published encoding semantics change.
 - Boundary: event-format serialization and profile admission only. Rejected: a registry frame around the CloudEvents Avro envelope; a hand AVSC constant; a tests/ asset read at runtime; an identity compression port; version-factory fallthrough; settlement inside decode; a batch media type with no publisher format.
 
 ```python signature
@@ -649,7 +649,7 @@ from fastavro.schema import SchemaParseException, UnknownType
 from fastavro.types import DictSchema
 from msgspec import Raw, Struct
 from protobuf import Message, Oneof, wkt
-from rasm.contracts.vendor.io.cloudevents.v1 import cloudevents_pb
+from rasm.contracts.io.cloudevents.v1 import cloudevents_pb
 
 from cloudevents.core.base import BaseCloudEvent, EventFactory
 from cloudevents.core.exceptions import CloudEventValidationError

@@ -13,8 +13,7 @@ This branch registry owns the substrate tiers every folder composes. FLOOR-GATED
 - [03]-[DATA](../data/README.md): Dataset movement and interchange.
 - [04]-[GEOMETRY](../geometry/README.md): Geometry and IFC evidence production.
 - [05]-[ARTIFACTS](../artifacts/README.md): Publication-grade output.
-- [06]-[CONTRACTS](../contracts/README.md): Generated corpus SDK and publisher resources.
-- [07]-[CAD](../cad/README.md): Exact solid modeling and neutral CAD exchange behind generated `CadService`.
+- [06]-[CAD](../cad/README.md): Exact solid modeling and neutral CAD exchange behind generated `CadService`.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
@@ -74,7 +73,7 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 [WIRE_CODEGEN]:
 - `protobuf-py` — Message runtime beneath the generated `_pb.py` bindings; binary and JSON codecs, descriptors, and the `wkt` carriers.
 - `connectrpc` — Connect, gRPC, and gRPC-Web service protocols, ASGI applications, interceptors, and typed clients over the generated stubs.
-- `rasm.contracts` — Typed module for generated classes, Connect applications, Protovalidate admission, and publisher resources.
+- `rasm.contracts` — Generated classes, Connect applications, and publisher modules off the `libs/contracts/gen/python` import root.
 - `protobuf` — Google message runtime beneath the Substrait plan IR and the ONNX model IR.
 
 [TEST_SUBSTRATE]:

@@ -268,7 +268,7 @@ public sealed partial class BenchmarkClaim {
 - Receipt: none.
 - Packages: LanguageExt.Core, NodaTime, Rasm.AppHost (project — `HostFingerprint`, `CpuBudget`), Rasm.Persistence (project — `ModelResultIndex`, `BenchmarkRow`), BCL inbox
 - Growth: a further host-derived read that only this domain can decide is one extension member here; a further host DIMENSION lands on the AppHost declaration.
-- Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `tests/contracts/` `HOST_FINGERPRINT` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
+- Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `libs/contracts/manifest.json` `HOST_FINGERPRINT` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
 
 ```csharp signature
 public static class HostClaims {

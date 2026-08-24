@@ -831,9 +831,11 @@ def test_phantom_inherited_fd_holder_yields_busy_naming_remedy(assay_root: Assay
     monkeypatch.setattr(govern_mod, "psutil", fake)
     stale = govern_mod._LeaseOwner(resource="phantom", run_id="old-run", pid=dead_pid, create_time=0.0)
     lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "phantom.lock")
-    with _lock_fd(lock_path, exclusive=True, seed=msgspec.json.encode(stale)):
-        with exclusive_lease("phantom", "new-run", settings=assay_root.settings) as refused:
-            fault = assert_error_status(refused, RailStatus.BUSY)
+    with (
+        _lock_fd(lock_path, exclusive=True, seed=msgspec.json.encode(stale)),
+        exclusive_lease("phantom", "new-run", settings=assay_root.settings) as refused,
+    ):
+        fault = assert_error_status(refused, RailStatus.BUSY)
     assert f"pid {dead_pid}" in fault.message and "dotnet build-server shutdown" in fault.message, (
         f"phantom holder diagnosis missing owner or remedy: {fault.message!r}"
     )

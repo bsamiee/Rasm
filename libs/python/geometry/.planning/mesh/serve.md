@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_MESH_SERVE]
 
-`GeometryServe` is the geometry-side owner of the generated `ComputeService` and complete generated `ArtifactService`. It returns tessellation receipts by reference, serves stored bodies through `Fetch`, and accepts verified bodies through `Put`. The runtime host seats `BodyAdmission(SERVER)` on both generated applications, while `rasm.contracts.artifact` alone owns cross-frame identity, extent, hashing, temporary-file custody, and framing.
+`GeometryServe` is the geometry-side owner of the generated `ComputeService` and complete generated `ArtifactService`. It returns tessellation receipts by reference, serves stored bodies through `Fetch`, and accepts verified bodies through `Put`. The runtime host seats `BodyAdmission(SERVER)` on both generated applications, while runtime `transport/artifact` alone owns cross-frame identity, extent, hashing, temporary-file custody, and framing.
 
 The servicer has no ring, byte cache, frame state machine, or second store. `TessellationDaemon.repository` is the one required repository used by tessellation input resolution, output publication, replay, `Fetch`, and `Put`.
 
@@ -12,13 +12,13 @@ The servicer has no ring, byte cache, frame state machine, or second store. `Tes
 
 - Owner: `GeometryServe.tessellate`, `GeometryServe.fetch`, and `GeometryServe.put` implement every generated method on `ComputeService` and `ArtifactService`; `served()` is the one application roster consumed by both `mount` and `companion`.
 - Law: `Tessellate` passes the admitted generated request whole into the persistent daemon and returns `TessellateResponse.artifact` from its published `ArtifactRef`. No flat `artifact_hash`, raw body, or geometry-authored wire carrier remains.
-- Law: `Fetch` opens the requested `sha256` through `daemon.repository.opened`, whose streamed arm holds custody across every yield and lets repository staging prove the stored body, and yields only `rasm.contracts.artifact.fetch_responses`. `Put` unwraps generated request envelopes through `put_frames`, receives through `rasm.contracts.artifact.receive`, persists its helper-owned path by atomic overwrite inside the helper context, and returns the same generated reference.
+- Law: `Fetch` opens the requested `sha256` through `daemon.repository.opened`, whose streamed arm holds custody across every yield and lets repository staging prove the stored body, and yields only `rasm.runtime.transport.artifact.fetch_responses`. `Put` unwraps generated request envelopes through `put_frames`, receives through `rasm.runtime.transport.artifact.receive`, persists its helper-owned path by atomic overwrite inside the helper context, and returns the same generated reference.
 - Law: `BodyAdmission(SERVER)` in `ServerHost` validates every unary and streamed message once. Serve adds only aggregate artifact proof and never repeats descriptor validation or field rules.
 - Law: one `Resource.REQUEST` charge settles each handled route, including refusals. Decode-time contract refusals never reach a handler and therefore carry no handler charge.
 - Law: the caller deadline admitted by `ServerHost` rides the daemon kernel. Artifact helper contexts close on success, refusal, cancellation, and downstream stream termination.
 - Entry: generated overrides collapse runtime rails through `ServerHost.settle`; `mount` proves geometry graduation before registering either application.
 - Receipt: serve emits no parallel receipt family. `@receipted` harvests the daemon once after each drive.
-- Packages: generated compute/artifact protocols, `rasm.contracts.artifact`, the daemon/graduation owners, and runtime host/journal custody.
+- Packages: generated compute/artifact protocols, runtime `transport/artifact`, the daemon/graduation owners, and runtime host/journal custody.
 - Growth: a new artifact integrity rule lands in the contracts helper; a new generated RPC adds one override and route charge here. Neither change adds a local frame dialect or storage port.
 - Boundary: runtime owns bind, Connect codecs, body admission, health, typed fault egress, and lifecycle. Geometry contributes generated application rows and one servicer instance.
 
@@ -30,17 +30,17 @@ from typing import TYPE_CHECKING, Any, Final, assert_never, override
 from connectrpc.request import RequestContext
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
-from rasm.contracts.artifact import ArtifactError, ArtifactRefusal, fetch_responses, put_frames, receive, rendered
-from rasm.contracts.gen.rasm.contracts.artifact.artifact_connect import ArtifactService, ArtifactServiceASGIApplication
-from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import (
+from rasm.runtime.transport.artifact import ArtifactError, ArtifactRefusal, fetch_responses, put_frames, receive, rendered
+from rasm.contracts.rasm.contracts.artifact.artifact_connect import ArtifactService, ArtifactServiceASGIApplication
+from rasm.contracts.rasm.contracts.artifact.artifact_pb import (
     ArtifactRef,
     FetchRequest,
     FetchResponse,
     PutRequest,
     PutResponse,
 )
-from rasm.contracts.gen.rasm.contracts.compute.compute_connect import ComputeService, ComputeServiceASGIApplication
-from rasm.contracts.gen.rasm.contracts.compute.compute_pb import TessellateRequest, TessellateResponse
+from rasm.contracts.rasm.contracts.compute.compute_connect import ComputeService, ComputeServiceASGIApplication
+from rasm.contracts.rasm.contracts.compute.compute_pb import TessellateRequest, TessellateResponse
 
 from rasm.data.tabular.columnar import DatasetRef
 from rasm.data.tabular.journal import FactJournal

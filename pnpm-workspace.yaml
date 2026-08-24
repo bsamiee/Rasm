@@ -1,4 +1,5 @@
 packages:
+  - 'libs/contracts'
   - 'libs/typescript/*'
   - 'libs/typescript/ui/*'
   - 'apps/*/*'

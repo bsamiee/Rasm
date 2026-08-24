@@ -75,7 +75,7 @@ _PUSH_MANIFEST_ARGV: tuple[str, ...] = ("git", "ls-files", "-z")
 # AssaySettings.sftp_push_concurrency / sftp_max_requests so a throttled or low-MaxSessions server can tune it down.
 # A Python lane pushes the package source, the test corpus, and the dependency/config anchors; nothing else in the tree is on
 # the import or test path. The prefixes are repo-relative dir roots; the files are repo-root anchors that resolve the env.
-_PYTHON_MANIFEST_PREFIXES: tuple[str, ...] = ("tools/", "tests/python/", "libs/python/", "src/")
+_PYTHON_MANIFEST_PREFIXES: tuple[str, ...] = ("tools/", "tests/python/", "libs/python/", "libs/contracts/", "src/")
 
 _PYTHON_CONFIG_FILES: frozenset[str] = frozenset((".python-version", "pyproject.toml", "uv.lock"))
 

@@ -7,7 +7,6 @@
 ```text codemap
 libs/dotnet/
 ├── Rasm/              # [KERNEL]         RhinoCommon-aware geometry and numeric kernel
-├── Rasm.Contracts/    # [WIRE]           Generated assembly and NuGet distribution; protoc + grpc_csharp_plugin own emitted code
 ├── Rasm.Element/      # [AEC_DOMAIN]     Lowest AEC element seam onto the one ElementGraph
 ├── Rasm.Materials/    # [AEC_DOMAIN]     Host-neutral profiles, appearance, and construction
 ├── Rasm.Bim/          # [AEC_DOMAIN]     Host-neutral BIM object model and IFC/glTF/STEP exchange
@@ -20,15 +19,14 @@ libs/dotnet/
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY]  GH2 host APIs; references only Rasm
 ```
 
-Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Contracts` carries index docs and configuration outside its generator-owned `Generated/` tree and no `.planning/`; the two host-boundary packages add a folder `.api/` tier over their host assemblies.
+Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; the two host-boundary packages add a folder `.api/` tier over their host assemblies.
 
 ## [02]-[STRATA]
 
 Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference, which is why the app platform spreads across four ranks rather than wearing one label.
 
 - S0 kernel — `Rasm` references no sibling and carries every rank above it.
-- S0 wire — `Rasm.Contracts` distributes generated bindings and holds no rank: no sibling reference, generation its only author, one NuGet identity.
-- S0 wire law — `Rasm.Contracts` imports its generated runtime closure alone, and the host plane's `only Rasm` law admits it beside the kernel.
+- `Rasm.Contracts` is the admitted import root at `libs/contracts/gen/dotnet`, never a rank — generation its sole author, admitted beside the kernel.
 - S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
 - S1 spine — `Rasm.AppHost` references only `Rasm` and PORT-decodes store shapes without a downward reference.
 - S1 law — the seam and the spine never reference each other, so a package composes either alone.
@@ -79,6 +77,8 @@ flowchart TB
     end
     subgraph S0["S0 KERNEL"]
         Rasm[Rasm]
+    end
+    subgraph ROOTS["IMPORT ROOT"]
         Contracts[Rasm.Contracts]
     end
     Rhino e1@-->|"[IMPORT]: PerceptualColor"| Rasm

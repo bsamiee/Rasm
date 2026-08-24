@@ -637,7 +637,7 @@ public static class SweepLane {
         // implementation, and composing `ContentHash.Of<TState>` over `CanonicalWriter` is the collapse it would
         // otherwise take — but the writer canonicalizes `-0.0` and NaN where these bytes do not, so the composition
         // changes the digest of byte-identical campaigns. `DoeDataset`'s content key is a REGISTERED cross-language
-        // seam (`tests/contracts/manifest.json`) whose python end keys by the value this fold produces and never
+        // seam (`libs/contracts/manifest.json`) whose python end keys by the value this fold produces and never
         // re-derives it, so a preimage change re-keys every stored campaign and silently forks two runtimes that
         // agree on every column. The collapse lands when the seam is re-keyed at both ends in one change, never
         // from this side alone.

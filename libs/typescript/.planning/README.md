@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH]
 
-`libs/typescript` is an independently adoptable host-free web, edge, and deployment platform composed as per-folder `@rasm/*` packages carrying `server`/`browser`/`wasm` conditions. TypeScript applications originate and operate branch-owned runtime, persistence, security, UI, and deployment capability with no peer branch present; polyglot applications exchange contract-conforming artifacts through the generated `contracts/` bindings, aligned by wire bytes and the frozen corpus every binding regenerates from, never by import.
+`libs/typescript` is an independently adoptable host-free web, edge, and deployment platform composed as per-folder `@rasm/*` packages carrying `server`/`browser`/`wasm` conditions. TypeScript applications originate and operate branch-owned runtime, persistence, security, UI, and deployment capability with no peer branch present; polyglot applications exchange contract-conforming artifacts through the generated `@rasm/contracts` bindings, aligned by wire bytes and the frozen corpus every binding regenerates from, never by import.
 
 One `pnpm-workspace.yaml` catalog pins versions; test infrastructure lives under `tests/`, never the branch.
 
@@ -14,7 +14,6 @@ Folder roots in stratum order; each root `README.md` carries the folder identity
 - [04]-[RUNTIME](../runtime/README.md) — execution substrate across both process planes and the browser condition.
 - [05]-[UI](../ui/README.md) — browser product surface; `viewer` the spatial second Nx project.
 - [06]-[IAC](../iac/README.md) — deploy plane; nothing depends on it at runtime.
-- [07]-[CONTRACTS](../contracts/README.md) — generated corpus bindings composed as an external package; generation is its only author.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
@@ -22,7 +21,7 @@ Cross-folder substrate; a consuming folder names its substrate set in its README
 
 [CONTRACT_BINDINGS]:
 - `@bufbuild/protobuf` — Runtime message, descriptor, registry, and codec substrate shared by generated bindings and core interchange.
-- `@rasm/contracts` — Independent generated SDK every corpus-family decode imports by module path; its folder `.api/` carries the roster.
+- `@rasm/contracts` — Generated SDK every corpus-family decode imports by module path from the `libs/contracts/gen/typescript` root.
 
 [TYPING_RAILS]:
 - `effect` — Carries the rail, schema, and layer substrate every folder composes.

@@ -2,7 +2,7 @@
     "stryker-config": {
         "test-runner": "mtp",
         "solution": "Workspace.slnx",
-        "mutate": ["**/libs/dotnet/**/*.cs", "**/tools/**/*.cs", "!**/obj/**", "!**/bin/**", "!**/vendor/**", "!**/Rasm.Contracts/Generated/**"],
+        "mutate": ["**/libs/dotnet/**/*.cs", "**/tools/**/*.cs", "!**/obj/**", "!**/bin/**", "!**/vendor/**"],
         "concurrency": 4,
         "additional-timeout": 5000,
         "thresholds": {

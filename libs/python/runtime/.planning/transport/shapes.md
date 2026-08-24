@@ -1,6 +1,6 @@
 # [PY_RUNTIME_SHAPES]
 
-Python's wire vocabulary is the generated `rasm.contracts.gen` source root — every descriptor-backed message crosses as its `<family>_pb` class, typed end to end, fresh by the corpus gate, and handed to handlers by Connect directly — so this page mints only what no generator emits: the `SPLAT_FORMS` release matrix, the `FaultRecovery` correspondence both directions of the runtime verdict seat on, the ONE module-level `Registry` over every generated descriptor, and ONE boot census over closed-family closure and the generated Connect applications each served or dialed service row names, proved in BOTH directions against the corpus descriptor. `dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY` is the peer mint of the same corpus, and one corpus emission owns contract compatibility — never a runtime descriptor diff.
+Python's wire vocabulary is the generated `rasm.contracts` import root — every descriptor-backed message crosses as its `<family>_pb` class, typed end to end, fresh by the corpus gate, and handed to handlers by Connect directly — so this page mints only what no generator emits: the `SPLAT_FORMS` release matrix, the `FaultRecovery` correspondence both directions of the runtime verdict seat on, the ONE module-level `Registry` over every generated descriptor, and ONE boot census over closed-family closure and the generated Connect applications each served or dialed service row names, proved in BOTH directions against the corpus descriptor. `dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY` is the peer mint of the same corpus, and one corpus emission owns contract compatibility — never a runtime descriptor diff.
 
 Canonical-bytes custody is recorded here and re-minted nowhere in this folder: the length- and count-framed content-key byte stream the `evidence/identity#IDENTITY` key runs over is the payload-agnostic `content-identity` contract layout, each branch writing it from its own canonical writer with parity proving at the corpus; the positional op-log MessagePack envelope is self-delimiting and its CRDT raw slot now carries generated protobuf, the amendment governing content keys rather than either framing. The census lives one tier below `transport/wire#CRDT_CODEC` because a wire-side registry forces a `shapes -> wire` back-edge from the gate.
 
@@ -11,7 +11,7 @@ Canonical-bytes custody is recorded here and re-minted nowhere in this folder: t
 
 ## [02]-[VOCABULARY]
 
-- Owner: generated classes ARE the proto vocabulary — a msgspec `Struct` restating a corpus message is the deleted mirror, so every descriptor-backed family (`compute`, `control`, `fault`, `appearance`, `scene`, `organization`, `fabrication`, `declaration`, `event`, `parity`, the vendored `health` and `cloudevents`) imports from `rasm.contracts.gen.rasm.contracts.<family>.v1.<family>_pb` (vendored: `rasm.contracts.vendor.grpc.health.v1`, `rasm.contracts.vendor.io.cloudevents.v1`) and this page declares no field of theirs. The appearance family that once crossed as the producer's positional MessagePack record is `rasm.contracts.appearance` — `Material`, `OpenPbr`, `Emission`, `Set`, `Plane`, `Ibl` — so the decode-only mirror structs, their key rosters, and the zip codec that served them are gone whole; the one MessagePack wire this branch still reads is the generic op-log envelope, whose `crdt` raw slot is discriminated at `transport/wire#CRDT_CODEC`.
+- Owner: generated classes ARE the proto vocabulary — a msgspec `Struct` restating a corpus message is the deleted mirror, so every descriptor-backed family (`compute`, `control`, `fault`, `appearance`, `scene`, `organization`, `fabrication`, `declaration`, `event`, `parity`, the vendored `health` and `cloudevents`) imports from `rasm.contracts.rasm.contracts.<family>.v1.<family>_pb` (vendored: `rasm.contracts.grpc.health.v1`, `rasm.contracts.io.cloudevents.v1`) and this page declares no field of theirs. The appearance family that once crossed as the producer's positional MessagePack record is `rasm.contracts.appearance` — `Material`, `OpenPbr`, `Emission`, `Set`, `Plane`, `Ibl` — so the decode-only mirror structs, their key rosters, and the zip codec that served them are gone whole; the one MessagePack wire this branch still reads is the generic op-log envelope, whose `crdt` raw slot is discriminated at `transport/wire#CRDT_CODEC`.
 - Cases: presence on a generated class is the generator's — a message-typed slot reads `None` when unset, an `optional` scalar constructs on `T | None`, reads its proto zero when unset under the native store, and answers presence through `has_field`; `Oneof(field, value)` on the oneof attribute, `None` for an unset oneof. A scalar whose producer MEASURES nothing on one arm — the chart residual an uncalibrated capture never solves — reads absent off `has_field` and no shape here re-spells it. `TessellateRequest` declares no `optional` column — its budget rides `TessellationPolicy.triangle_budget` under the required `policy` message — so every presence it answers is a message-typed slot's.
 - Auto: `WireI63` survives for the MessagePack op-log envelope alone — `OperationId` and `OpLogEntry` spell their non-negative signed-64 counters and HLC halves through it, matching the producer's `long.MaxValue` admission, while generated protobuf owns CRDT arm counters. `TessellateRequest`/`TessellateResponse`/`ArtifactFrame`/`GaussianSplatScan` are generated classes geometry `mesh/serve` and `scan/ingestion` import by symbol, minting no wire shape; `GaussianSplatScan.format` grounding is the `SPLAT_FORMS` matrix keyed on the generated `SplatFormat` enum and never a comment: one DECLARED cell per rostered release carries the band ceiling and the alpha activation it grounds, the corpus's `enum.defined_only` rule refusing every unrostered release at decode, and `splat_form` is the ONE read over it, seated here because the boot census walks declarations and a key is a VALUE.
 - Receipt: `FaultDetail` is the typed refusal detail the suite converges on through Connect error details; `transport/serve#SERVE` owns egress while `wire_detail`/`remote_fault` here own the one ingress correspondence every generated client can import without depending on the serve composition sink. `domain` and `case` identify the producing fault row, never a transport code. The producer states recovery on the `FaultRecovery` oneof, and `RecoveryCell` owns both directions between that generated cell and the interior `Recovery` vocabulary. `FaultRecovery`'s throttled arm IS the standard `google.rpc.RetryInfo`, so `RecoveryCell.advice` hands the serve edge THAT instance for its generic detail seat and no leg reconstructs a second window a later edit can drive apart.
@@ -34,13 +34,13 @@ from expression.collections import Block, Map
 from msgspec import Meta, Struct
 from protobuf import Oneof
 from protobuf.wkt import Duration, Empty
-from rasm.contracts import AdmissionError
-from rasm.contracts.artifact import ArtifactError
-from rasm.contracts.gen.google.rpc.error_details_pb import RetryInfo
-from rasm.contracts.gen.rasm.contracts.scan.gaussian_pb import SplatFormat
-from rasm.contracts.gen.rasm.contracts.fault.fault_pb import FaultDetail, FaultRecovery
+from rasm.contracts.google.rpc.error_details_pb import RetryInfo
+from rasm.contracts.rasm.contracts.scan.gaussian_pb import SplatFormat
+from rasm.contracts.rasm.contracts.fault.fault_pb import FaultDetail, FaultRecovery
 
 from rasm.runtime.faults import BoundaryFault, SERVE_REMOTE, SHAPES_FORMAT, SHAPES_WINDOW, FaultRow, Leg, Recovery, RuntimeRail
+from rasm.runtime.transport.artifact import ArtifactError
+from rasm.runtime.transport.body import AdmissionError
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -274,27 +274,27 @@ from expression import Error, Ok
 from expression.collections import Block, Map
 from msgspec import Struct
 from protobuf import Registry
-from rasm.contracts.gen.buf.validate import validate_pb
-from rasm.contracts.gen.google.rpc import error_details_pb
-from rasm.contracts.gen.google.type import date_pb
-from rasm.contracts.vendor.grpc.health.v1 import health_pb
-from rasm.contracts.vendor.grpc.health.v1.health_connect import HealthASGIApplication
-from rasm.contracts.vendor.io.cloudevents.v1 import cloudevents_pb
-from rasm.contracts.gen.rasm.contracts.appearance import appearance_pb
-from rasm.contracts.gen.rasm.contracts.artifact import artifact_pb
-from rasm.contracts.gen.rasm.contracts.capability import descriptor_pb
-from rasm.contracts.gen.rasm.contracts.capability import discovery_pb
-from rasm.contracts.gen.rasm.contracts.capability.discovery_connect import CapabilityDiscoveryServiceASGIApplication
-from rasm.contracts.gen.rasm.contracts.compute import compute_pb
-from rasm.contracts.gen.rasm.contracts.artifact.artifact_connect import ArtifactServiceASGIApplication
-from rasm.contracts.gen.rasm.contracts.compute.compute_connect import ComputeServiceASGIApplication
-from rasm.contracts.gen.rasm.contracts.declaration import declaration_pb
-from rasm.contracts.gen.rasm.contracts.event import event_pb
-from rasm.contracts.gen.rasm.contracts.fabrication import fabrication_pb
-from rasm.contracts.gen.rasm.contracts.fault import fault_pb
-from rasm.contracts.gen.rasm.contracts.organization import organization_pb
-from rasm.contracts.gen.rasm.contracts.parity import parity_pb
-from rasm.contracts.gen.rasm.contracts.scene import scene_pb
+from rasm.contracts.buf.validate import validate_pb
+from rasm.contracts.google.rpc import error_details_pb
+from rasm.contracts.google.type import date_pb
+from rasm.contracts.grpc.health.v1 import health_pb
+from rasm.contracts.grpc.health.v1.health_connect import HealthASGIApplication
+from rasm.contracts.io.cloudevents.v1 import cloudevents_pb
+from rasm.contracts.rasm.contracts.appearance import appearance_pb
+from rasm.contracts.rasm.contracts.artifact import artifact_pb
+from rasm.contracts.rasm.contracts.capability import descriptor_pb
+from rasm.contracts.rasm.contracts.capability import discovery_pb
+from rasm.contracts.rasm.contracts.capability.discovery_connect import CapabilityDiscoveryServiceASGIApplication
+from rasm.contracts.rasm.contracts.compute import compute_pb
+from rasm.contracts.rasm.contracts.artifact.artifact_connect import ArtifactServiceASGIApplication
+from rasm.contracts.rasm.contracts.compute.compute_connect import ComputeServiceASGIApplication
+from rasm.contracts.rasm.contracts.declaration import declaration_pb
+from rasm.contracts.rasm.contracts.event import event_pb
+from rasm.contracts.rasm.contracts.fabrication import fabrication_pb
+from rasm.contracts.rasm.contracts.fault import fault_pb
+from rasm.contracts.rasm.contracts.organization import organization_pb
+from rasm.contracts.rasm.contracts.parity import parity_pb
+from rasm.contracts.rasm.contracts.scene import scene_pb
 
 from rasm.runtime.faults import SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_SERVICES, RuntimeRail, boundary
 
@@ -311,7 +311,7 @@ type Generated = (
 
 # Fully-qualified service names this branch dials or serves. `rasm.contracts.compute` is the corpus family package
 # managed mode derives every peer spelling from, and `grpc.health.v1` is the upstream publisher package the vendored
-# `rasm.contracts.vendor.grpc.health.v1` module emits unchanged. Each member's text is byte-identical to its
+# `rasm.contracts.grpc.health.v1` module emits unchanged. Each member's text is byte-identical to its
 # application's `path` less the leading slash, which is the key `transport/serve#SERVE` seats its serving map on.
 class WireService(StrEnum):
     COMPUTE = "rasm.contracts.compute.ComputeService"

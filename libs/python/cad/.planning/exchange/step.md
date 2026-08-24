@@ -35,7 +35,7 @@ from OCP.IFSelect import IFSelect_ReturnStatus
 from OCP.STEPControl import STEPControl_Reader, STEPControl_StepModelType, STEPControl_Writer
 from OCP.StepData import StepData_StepModel
 from OCP.TopoDS import TopoDS_Shape
-from rasm.contracts.gen.rasm.contracts.cad.types_pb import SealedStep, StepProtocol
+from rasm.contracts.rasm.contracts.cad.types_pb import SealedStep, StepProtocol
 
 from rasm.cad.exchange.identity import EMITTED, canonical
 from rasm.cad.faults import BREP_INPUT, STEP_READ, STEP_SCHEMA, STEP_WRITE, CadRail, FaultRow

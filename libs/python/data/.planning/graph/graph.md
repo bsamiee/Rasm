@@ -58,7 +58,7 @@ from rasm.runtime.faults import (
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
-from rasm.contracts.gen.rasm.contracts.organization.organization_pb import Entity, Organization
+from rasm.contracts.rasm.contracts.organization.organization_pb import Entity, Organization
 
 if TYPE_CHECKING:
     from collections.abc import Callable

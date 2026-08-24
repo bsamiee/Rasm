@@ -243,7 +243,7 @@ Every kernel contract is a frozen-name value type the host binds and never re-mi
 - `PerceptualColor` is the one colour crossing on every rail carrying it — `System.Drawing.Color` admits through `OfRgb` and leaves through `ToRgb`.
 - `Document/layers#ORGANIZATION_PROJECTION` emits the recursive `organization.Organization` forest folded by Python and TypeScript data peers.
 - Wire names state the host-free organizational concept and the layer vocabulary translates at the projection — no host `Guid` or path crosses.
-- `tests/contracts/manifest.json` `ORGANIZATION_WIRE` owns that wire's schema and its fact identity.
+- `libs/contracts/manifest.json` `ORGANIZATION_WIRE` owns that wire's schema and its fact identity.
 - `Objects/lights#ASK_AND_COMMIT` emits the `rasm.contracts.scene` capture descriptor `python:geometry` decodes for daylight and comfort recipes.
 - One emitter owns the whole descriptor — Objects composes the `Render/settings#SUN_ASTRONOMY` band downward, so nothing mints half a capture.
 - Sun angles cross solved and the consumer grades declared fidelity; identity crosses RFC-4122 big-endian and spectra scene-linear on `SceneMap`.

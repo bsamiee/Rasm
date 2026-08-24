@@ -1,6 +1,6 @@
 # [TESTS]
 
-`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, the live-host scenario rail, and the cross-language contract corpus. Everything under this root exists to falsify production behavior and is rebuilt ground-up the moment a denser shape exists — kits, suites, test libraries, and tooling alike; breaking old tests is never a reason to preserve them, and a gate nobody can run is deleted. Settled decisions live in the estate and language-tree `RULINGS.md` registries — read before re-deciding, extended when a decision lacks a durable home.
+`tests/` is the polyglot proof estate: one adversarial kit per language, per-package suite homes, and the live-host scenario rail. Everything under this root exists to falsify production behavior and is rebuilt ground-up the moment a denser shape exists — kits, suites, test libraries, and tooling alike; breaking old tests is never a reason to preserve them, and a gate nobody can run is deleted. Settled decisions live in the estate and language-tree `RULINGS.md` registries — read before re-deciding, extended when a decision lacks a durable home.
 
 ## [01]-[LAYOUT]
 
@@ -8,11 +8,6 @@ One folder scheme spans all languages:
 
 ```text conceptual
 tests/
-├── contracts/          # Cross-language registry, estate proto sources, publisher bytes, and frozen proof assets
-│   ├── .api/           # Corpus tool catalogs — the buf gate and generation surface the root buf.yaml drives
-│   ├── proto/          # Estate buf module: rasm/contracts/<family>/, with ownership-sized sibling files
-│   ├── vendor/         # Publisher bytes: independent modules, schemata, and conformance vectors
-│   └── <seam>/         # Materialized only for verified case assets; blocked cases create no empty directory
 ├── dotnet/
 │   ├── .api/           # Dev-tool API catalogs the kit and suites compose
 │   ├── _architecture/  # Boundary + infra-primitive laws proving both kits
@@ -42,7 +37,7 @@ tests/
 [KIT_LAW]:
 - Shared test logic lives in exactly one per-language `_testkit`, C# adding `_scenariokit` for the host-aware scenario SDK.
 - Kits never live under `libs/` — libs is the production plane.
-- Nothing cross-language lives inside one language's tree — neutral seams are `tests/contracts/`, `tests/containers.json`, and the assay operator.
+- Nothing cross-language lives inside one language's tree — the neutral seams are `tests/containers.json`, `libs/contracts/`, and the assay operator.
 
 ## [02]-[LANES]
 
@@ -116,11 +111,6 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [12]   | TS e2e suite                | `tests/typescript/e2e`                                                                   |
 |  [13]   | TS architecture gauge       | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
 |  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
-|  [15]   | contract corpus asset seam  | `tests/contracts/<seam>/`, only when an atomic case carries verified frozen evidence     |
-|  [16]   | derived corpus schema       | `tests/contracts/<seam>/<fqn>.jsonschema.strict.bundle.json`, only for a real evaluator  |
-|  [17]   | corpus proto source         | `tests/contracts/proto/rasm/contracts/<family>/*.proto`, then regenerate                 |
-|  [18]   | vendored publisher source   | `tests/contracts/vendor/<publisher>/`, a proto as its own buf module under `proto/`      |
-|  [19]   | corpus tool API catalog     | `tests/contracts/.api/`, one catalog per binary gating the corpus                        |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/dotnet/libs` mirror `libs/dotnet`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 
@@ -148,11 +138,7 @@ Assay is the single mutation and coverage gate authority in all three languages;
 
 Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark sessions — launch directly; mutation, solution-wide static, and bridge verify ride assay, which owns staging, governor caps, and artifact scopes. Defense-in-depth holds regardless of invoker: every heavy tool's auto-discovered configuration carries its own concurrency cap, per-run and per-test timeouts, an explicit mutate/target scope, and `.artifacts/`/`.cache/` routing, so a bare invocation outside assay is small, self-limiting, and cheap to kill.
 
-## [08]-[CONTRACTS_CORPUS]
-
-`tests/contracts/` is the cross-language contract corpus. Estate Protobuf and publisher sources define the wire; `manifest.json` groups atomic cases by decoder-visible boundary and binds each case to its domain, infrastructure, application-origin, or publisher authority, exact definition, actors, readiness, and oracle. Frozen assets prove verified cases; blocked cases name missing executable evidence without materializing empty directories. [tests/contracts/README.md](contracts/README.md) carries the full authority and regeneration law.
-
-## [09]-[TOOLING_AWARENESS]
+## [08]-[TOOLING_AWARENESS]
 
 Before touching any testing surface, an agent checks the owners that carry the facts:
 

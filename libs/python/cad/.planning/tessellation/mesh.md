@@ -30,7 +30,7 @@ from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.TopoDS import TopoDS_Shape
 from expression import Error, Ok
 from msgspec import Struct
-from rasm.contracts.gen.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
+from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
 
 from rasm.cad.faults import MESH_KERNEL, CadRail
 
@@ -82,7 +82,7 @@ from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Shape
 from expression import Error, Ok
 from expression.collections import Block
 from expression.extra.result import traverse
-from rasm.contracts.gen.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
+from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
 
 from rasm.cad.faults import MESH_BUDGET, MESH_KERNEL, CadRail
 
@@ -130,8 +130,8 @@ from pathlib import Path
 
 from expression import Error, Ok, effect
 from msgspec import Struct
-from rasm.contracts.gen.rasm.contracts.cad.service_pb import TessellateRequest
-from rasm.contracts.gen.rasm.contracts.cad.types_pb import BrepKernelReceipt
+from rasm.contracts.rasm.contracts.cad.service_pb import TessellateRequest
+from rasm.contracts.rasm.contracts.cad.types_pb import BrepKernelReceipt
 
 from rasm.cad.exchange.assembly import transferred
 from rasm.cad.faults import MESH_BUDGET, CadFault, CadRail

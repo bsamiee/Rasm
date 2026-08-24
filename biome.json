@@ -37,7 +37,7 @@
             "!**/.scratch",
             "!**/.tmp",
             "!.claude/workflows",
-            "!libs/typescript/contracts/gen",
+            "!libs/contracts/gen",
             "!**/*.html"
         ]
     },
@@ -140,7 +140,7 @@
     },
     "overrides": [
         {
-            "includes": ["tests/contracts/**", "!tests/contracts/manifest.json"],
+            "includes": ["libs/contracts/conformance/**", "libs/contracts/vendor/**", "libs/contracts/manifest.schema.json"],
             "formatter": {
                 "enabled": false
             }

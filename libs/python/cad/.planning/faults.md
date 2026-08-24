@@ -35,9 +35,9 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from msgspec import Struct
 from protobuf import Message, Oneof
 from protobuf.wkt import Duration, Empty
-from rasm.contracts.gen.google.rpc.error_details_pb import RetryInfo
-from rasm.contracts.gen.rasm.contracts.clock.hlc_pb import Hlc
-from rasm.contracts.gen.rasm.contracts.fault.fault_pb import FaultDetail, FaultRecovery
+from rasm.contracts.google.rpc.error_details_pb import RetryInfo
+from rasm.contracts.rasm.contracts.clock.hlc_pb import Hlc
+from rasm.contracts.rasm.contracts.fault.fault_pb import FaultDetail, FaultRecovery
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

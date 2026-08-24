@@ -153,7 +153,7 @@
         },
         {
             "id": "test-estate-placement",
-            "rule": "Estate placement holds across the proof estate: tests/contracts/ custody reads each atomic case live from manifest.json and applies tests/contracts/README.md. A case contradicting its declared class, actors, readiness, proof, or asset custody is a finding; never copy the authority roster here. Container images pin only in tests/containers.json; markers are closed and auto-applied; benchmarks require their registry row; TypeScript unit specs colocate while C# and Python suites mirror production; e2e and load suffixes stay disjoint; every tools operator moves with its suite; reports land under .artifacts and work state under .cache through native configuration.",
+            "rule": "Estate placement holds across the proof estate: container images pin only in tests/containers.json; markers are closed and auto-applied; benchmarks require their registry row; TypeScript unit specs colocate while C# and Python suites mirror production; e2e and load suffixes stay disjoint; every tools operator moves with its suite; reports land under .artifacts and work state under .cache through native configuration.",
             "severity": "medium",
             "enabled": true,
             "scope": ["tests/**"]
@@ -297,24 +297,31 @@
         },
         {
             "id": "contract-class-custody",
-            "rule": "The three language estates are peers: no branch is a producer above another, no branch is a prerequisite, and a single-language application resolves its own graph whole. Read the atomic case live from tests/contracts/manifest.json and apply tests/contracts/README.md before judging authority. A case contradicting its declared class, actors, readiness, proof, or asset custody is a finding. Entry grouping never changes those facts. A case whose actors all sit in one runtime belongs in that branch's proof tree. A fence or adapter requiring another branch to exist is the prerequisite defect. Never copy the authority roster here.",
+            "rule": "The three language estates are peers: no branch is a producer above another, no branch is a prerequisite, and a single-language application resolves its own graph whole. Read the atomic case live from libs/contracts/manifest.json and apply libs/contracts/ARCHITECTURE.md [REGISTRY] before judging authority; never infer it from language rank. A fence or adapter requiring another branch to exist is the prerequisite defect.",
             "severity": "high",
             "enabled": true,
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "tests/contracts/**"]
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "libs/contracts/**", "libs/contracts/.api/**"]
+        },
+        {
+            "id": "contracts-estate-custody",
+            "rule": "libs/contracts/ is the one cross-language contracts estate every branch imports, and its authority is case-level: read the atomic case live from libs/contracts/manifest.json and apply libs/contracts/ARCHITECTURE.md [REGISTRY]. A case contradicting its declared class, actors, readiness, proof, or asset custody is a finding, as is a case whose actors all sit inside one runtime — it belongs in that branch's proof tree — and entry grouping never widens those facts; never copy the authority roster here. Directory custody: proto/rasm/contracts/<family>/ is the single definition language every binding derives from; vendor/<publisher>/ holds frozen publisher bytes and a hand edit there is a finding; conformance/<seam>/ holds the proof assets manifest cases cite; gen/{dotnet,python,typescript}/ holds only buf emissions and gate-projected markers swept on every generate, so a hand-authored file or edit under gen/ is a finding and a hand spelling beside a generated binding is a second wire model that deletes. manifest.json validates against manifest.schema.json, buf.yaml and buf.gen.yaml are the only generation authorities, and the .api/ catalogs (bufbuild-buf.md beside one per branch) are the stacking tier every contract fence composes from; a manifest case, buf row, or fence naming a family, actor, or path the tree does not hold is a phantom finding.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["libs/contracts/**", "libs/contracts/.api/**"]
         },
         {
             "id": "cross-language-transcription-drift",
             "rule": "Transcription applies only where Tier-0 explicitly requires branch-local vocabulary, and a drifted row is repaired at every named anchor in the same change, never through a shared library or a peer import. Generated contract bindings are not transcriptions: they derive from the corpus proto authority, so a hand branch spelling beside them is a second wire model and deletes.",
             "severity": "high",
             "enabled": true,
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "tests/contracts/**"]
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "libs/contracts/**", "libs/contracts/.api/**"]
         },
         {
             "id": "derived-plane-authority",
             "rule": "Append-only log planes own truth and every derived plane carries zero authority: folds, snapshots, traces, cell tables, overlays, and actor configurations accelerate reads and drop at warm-up cost. A shape crossing planes names its truth plane, its rebuild route, and the retention floor below which rebuild fails, so a crossing stating fewer than all three is a finding naming the page that owns the crossing. Reading a projection as authority is the defect it forecloses: a dropped accelerator becomes loss, and a write-back path into the derived plane folds drift into the log. An owner carrying no log declares itself ephemeral, so a durability or as-of claim on an unlogged owner is a finding whose repair is the missing declaration or the missing log.",
             "severity": "high",
             "enabled": true,
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "tests/contracts/**"]
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/contracts/**", "libs/contracts/.api/**"]
         },
         {
             "id": "enforcement-transcription-drift",

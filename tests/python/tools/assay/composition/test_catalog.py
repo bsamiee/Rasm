@@ -184,7 +184,7 @@ def test_contracts_rows_type_the_defect_exit_and_own_their_input() -> None:
 def test_contracts_descriptor_image_includes_reachable_imports() -> None:
     build = next(tool for tool in TOOLS if tool.name == "buf-build" and tool.mode is Mode.QUERY)
 
-    assert build.command == ("buf", "build", "-o", "{output}", "--as-file-descriptor-set")
+    assert build.command == ("buf", "build", "libs/contracts", "-o", "{output}", "--as-file-descriptor-set")
 
 
 # --- [MUTATION_INPUT_OWNERSHIP]

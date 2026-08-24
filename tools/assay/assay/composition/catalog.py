@@ -422,13 +422,11 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.CONTENT,
     ),
     # --- [CONTRACTS]
-    # buf is the one driver: lint/format are executable gate lanes (exit 100 = violations), build bares the
-    # descriptor set the corpus gate resolves against, and STAGE generate builds the complete scratch image that
-    # the freshness gate diffs or the transactional corpus writer commits.
+    # buf is the one driver, run from the repo root against the libs/contracts workspace input: lint/format are executable gate lanes
     Tool(
         "buf-lint",
         PNPM,
-        ("buf", "lint", "--error-format", "json"),
+        ("buf", "lint", "libs/contracts", "--error-format", "json"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
@@ -442,7 +440,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "buf-format",
         PNPM,
-        ("buf", "format", "--diff", "--exit-code", "tests/contracts/proto"),
+        ("buf", "format", "--diff", "--exit-code", "libs/contracts/proto"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
@@ -476,7 +474,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "buf-build",
         PNPM,
-        ("buf", "build", "-o", "{output}", "--as-file-descriptor-set"),
+        ("buf", "build", "libs/contracts", "-o", "{output}", "--as-file-descriptor-set"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
@@ -487,7 +485,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "buf-generate",
         PNPM,
-        ("buf", "generate", "--template", "buf.gen.yaml", "-o", "{output}"),
+        ("buf", "generate", "libs/contracts", "--template", "libs/contracts/buf.gen.yaml", "-o", "{output}"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
@@ -498,7 +496,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "buf-push",
         PNPM,
-        ("buf", "push", ".", "--exclude-unnamed", "{flags*}", "--label", "{target}"),
+        ("buf", "push", "libs/contracts", "--exclude-unnamed", "{flags*}", "--label", "{target}"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,

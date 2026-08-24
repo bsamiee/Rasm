@@ -40,7 +40,7 @@ from tests.python._testkit.spec import assert_ok
 
 COVERS: tuple[object, ...] = (load_manifest, assert_corpus)
 _ROOT = Path(__file__).parents[3]
-_CORPUS = _ROOT / "tests/contracts"
+_CORPUS = _ROOT / "libs/contracts"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -120,7 +120,7 @@ def test_generated_public_root_refuses_a_descriptor_alias(tmp_path: Path) -> Non
 
 def test_package_distribution_refuses_a_repeated_namespace_path_alias() -> None:
     """Resource lookup begins at the one package source root, never the first matching dotted subsequence."""
-    distribution = PythonPackageResource(path="tmp/rasm/contracts/vendor/schema.avsc", package="rasm.contracts")
+    distribution = PythonPackageResource(path="tmp/rasm/contracts/schema.avsc", package="rasm.contracts")
     with pytest.raises(AssertionError, match=r"outside the exact rasm\.contracts package root"):
         corpus_kit._package_bytes(distribution)
 
@@ -275,7 +275,7 @@ def test_python_distribution_refuses_a_non_package_path(tmp_path: Path) -> None:
     assert isinstance(readiness, VerifiedReadiness)
     specimen = readiness.vectors[0].specimens[0]
     distribution = next(row for row in specimen.distributions if isinstance(row, PythonPackageResource))
-    aliased = msgspec.structs.replace(distribution, path="libs/python/contracts/not-rasm/cloudevents.avsc")
+    aliased = msgspec.structs.replace(distribution, path="libs/contracts/gen/python/not-rasm/cloudevents.avsc")
     specimen = msgspec.structs.replace(specimen, distributions=tuple(aliased if row is distribution else row for row in specimen.distributions))
     raw = (_CORPUS / specimen.path).read_bytes()
     held = msgspec.structs.replace(case, readiness=msgspec.structs.replace(readiness, vectors=(ProofVector(specimens=(specimen,)),)))

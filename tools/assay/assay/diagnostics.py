@@ -83,17 +83,9 @@ _CS_DIAGNOSTIC = re.compile(
 )
 # Forward-slash-normalized, lowercased path fragments and suffix that mark generated/build-output rows as evidence-only: build
 # intermediates, staged build closures, and the three committed `assay contracts generate` out roots the freshness gate owns.
-# Generated out roots hold generated files alone; the python rows carve gen/vendor so the hand-written
-# admission modules and py.typed above them keep their real diagnostics (docs/laws/scars.md [GENERATED_TREE_AS_LAW]).
-_GENERATED_MARKERS: Final[tuple[str, ...]] = (
-    "/obj/",
-    "/.artifacts/assay/",
-    "/.artifacts/dotnet/",
-    "libs/python/contracts/rasm/contracts/gen/",
-    "libs/python/contracts/rasm/contracts/vendor/",
-    "libs/typescript/contracts/gen/",
-    "libs/dotnet/rasm.contracts/generated/",
-)
+# The one generated tree holds generated files alone, so every manifest above it keeps its real diagnostics
+# (docs/laws/scars.md [GENERATED_TREE_AS_LAW]); the marker is lowercase because the census lowercases every path.
+_GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/", "/.artifacts/dotnet/", "libs/contracts/gen/")
 _GENERATED_SUFFIX: Final[str] = ".g.cs"
 
 # --- [MODELS] ---------------------------------------------------------------------------

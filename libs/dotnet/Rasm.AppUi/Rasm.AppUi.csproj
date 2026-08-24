@@ -19,7 +19,7 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
         <ProjectReference Include="../Rasm.Compute/Rasm.Compute.csproj" />
-        <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" />
+        <ProjectReference Include="../../contracts/Rasm.Contracts.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
         <ProjectReference Include="../Rasm.Fabrication/Rasm.Fabrication.csproj" />
         <ProjectReference Include="../Rasm.Materials/Rasm.Materials.csproj" />

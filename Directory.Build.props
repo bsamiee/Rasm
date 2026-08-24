@@ -18,7 +18,6 @@
     <PropertyGroup Label="Project Classifiers">
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
         <!-- Classification carries three axes and no project-name literal: role reads tree position here, host surface reads the body-declared RasmHost token set in Directory.Build.targets, and layer reads the body-declared CspScope. -->
-        <IsDotnetLibraryProject Condition="'$(IsDotnetLibraryProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(DotnetLibsRoot)'))">true</IsDotnetLibraryProject>
         <IsDotnetLibraryTestProject Condition="'$(IsDotnetLibraryTestProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)'))">true</IsDotnetLibraryTestProject>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)'))">true</IsRhinoBridgeProject>
         <IsRhinoBridgeCargoProject Condition="'$(IsRhinoBridgeCargoProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)Cargo/'))">true</IsRhinoBridgeCargoProject>
@@ -40,7 +39,7 @@
     <PropertyGroup Label="Artifacts Output">
         <!-- The SDK artifacts layout under one .artifacts/dotnet root; a caller-supplied ArtifactsPath (assay) wins as a global property. NETSDK1199 requires this row to live in Directory.Build.props. -->
         <ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(MSBuildThisFileDirectory).artifacts/dotnet</ArtifactsPath>
-        <!-- IKVM caches the MPXJ Java closure in the machine temp dir; repo-local it survives temp eviction, so the minutes-long recompile and its vendor-closure warning wall stop recurring. -->
+        <!-- IKVM caches the MPXJ Java closure in the machine temp dir; repo-local it survives temp eviction. The cache key folds the resolved reference paths and Debug/Optimize metadata, so every artifacts scope and configuration mints its own key and recompiles cold once; the closure's IKVM diagnostics are carved at the Analysis Defaults promotion gate, never hidden by the cache. -->
         <IkvmCacheDir>$(MSBuildThisFileDirectory).cache/ikvm/</IkvmCacheDir>
     </PropertyGroup>
 
@@ -71,6 +70,8 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <!-- TreatWarningsAsErrors reaches compiler diagnostics alone; MSB reference-unification and SDK warnings need their own gate. -->
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
+        <!-- The IKVM closure compile reports vendor-jar facts no manifest row can repair — optional Maven dependencies the upstream POM leaves out (IKVM0100), Java 9+ multi-release overlays and Java 11 jars a Java 8 translator never loads (IKVM0101), and classes IKVM.Java already ships (IKVM0109). They stay visible warnings at this gate; every other IKVM code and every MSB/SDK warning stays fatal, and NoWarn hides nothing. -->
+        <MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors>
         <ErrorLog Condition="'$(CspSarifDir)' != ''">$(CspSarifDir)/$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- Analyzer verdicts green by repair, never by suppression: rule severity lives in .editorconfig alone, so no NoWarn row exists at any MSBuild surface; the shape guard in Directory.Build.targets refuses one in a project body. -->

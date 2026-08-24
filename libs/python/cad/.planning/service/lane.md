@@ -35,8 +35,8 @@ from msgspec import Struct
 from OCP.IGESControl import IGESControl_Controller
 from OCP.Interface import Interface_Static
 from OCP.STEPControl import STEPControl_Controller
-from rasm.contracts.gen.rasm.contracts.cad.operations_pb import ExecuteRequest
-from rasm.contracts.gen.rasm.contracts.cad.service_pb import TessellateRequest
+from rasm.contracts.rasm.contracts.cad.operations_pb import ExecuteRequest
+from rasm.contracts.rasm.contracts.cad.service_pb import TessellateRequest
 
 from rasm.cad.brep.operation import execute as execute_brep
 from rasm.cad.exchange.identity import SCHEMA, UNIT

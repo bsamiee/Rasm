@@ -165,7 +165,7 @@ public sealed partial class FieldHeader {
     // Rank rides the landed `Solver/field#DISCRETE_FIELD` `FieldRank` row, and `Components` is the row's OWN
     // derivation over the spatial dimension the grid declares — so a vector field carrying five components is
     // refused at admission rather than written into a container a reader then trusts. The WIRE keeps its two
-    // int32 slots verbatim (`tests/contracts` `hdf5-exchange/field` freezes that layout): the rank slot carries the row's
+    // int32 slots verbatim (`libs/contracts/conformance/hdf5-exchange` `field` freezes that layout): the rank slot carries the row's
     // `Order` and the component slot carries the derived count, which is evidence a foreign reader may check.
     public FieldRank Rank { get; }
     public int Components { get; }
@@ -485,7 +485,7 @@ public static class FieldPack {
 
     // Declaration is a VALUE handed to the one `Runtime/archive#CHUNK_CURSOR` capsule: the slot, its attributes,
     // the writer open, and the release are that owner's, so this producer states only what its container carries.
-    // The five ROOT attributes are the roster `tests/contracts` `hdf5-exchange/field` freezes and the python `FieldContainer`
+    // The five ROOT attributes are the roster `libs/contracts/conformance/hdf5-exchange` `field` freezes and the python `FieldContainer`
     // reader consumes, each crossing through the closed `ArchiveAttribute` vocabulary rather than an `object` bag.
     static Fin<ComputeArtifact> Emit(FieldArtifact field, FieldCodecPolicy policy, HdfArchivePolicy archive, Stream sink, Instant at) {
         ArchiveSlot<float> slot = new("field", field.Grid);

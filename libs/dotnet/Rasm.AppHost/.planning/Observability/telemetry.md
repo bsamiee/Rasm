@@ -215,7 +215,7 @@ public sealed class CausalEnricher : ILogEnricher {
 }
 ```
 
-[CAUSAL_CARRIAGE]: the causal stamp's four slots and the C# member carrying each. Carriage is PER-BRANCH and only the layout is shared — `tests/contracts/manifest.json` `HLC_TWO_HALF` rosters three co-equal minters, so a peer proves its own dialect against this column rather than against a header vocabulary this branch mints; a text carrier key minted here freezes one peer's transport dialect as estate law while a second peer's typed metadata lane already carries the same frame:
+[CAUSAL_CARRIAGE]: the causal stamp's four slots and the C# member carrying each. Carriage is PER-BRANCH and only the layout is shared — `libs/contracts/manifest.json` `HLC_TWO_HALF` rosters three co-equal minters, so a peer proves its own dialect against this column rather than against a header vocabulary this branch mints; a text carrier key minted here freezes one peer's transport dialect as estate law while a second peer's typed metadata lane already carries the same frame:
 
 | [INDEX] | [SLOT]   | [DOTNET_CARRIAGE]                                    | [SHARED_LAW]                                                    |
 | :-----: | :------- | :--------------------------------------------------- | :-------------------------------------------------------------- |

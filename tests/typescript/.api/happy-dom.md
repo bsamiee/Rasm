@@ -100,7 +100,7 @@ Specs reach these as globals (vitest env) or off a `Window` instance; the catalo
 | [INDEX] | [SYMBOL]                                   | [CAPABILITY]                                                                 |
 | :-----: | :----------------------------------------- | :--------------------------------------------------------------------------- |
 |  [01]   | `VirtualConsole` / `VirtualConsolePrinter` | console capture; `printer.readAll()` drains for assertion                    |
-|  [02]   | `DOMParser` / `XMLSerializer`              | HTML/XML ↔ document round-trip; the `tests/contracts/` golden byte assertion |
+|  [02]   | `DOMParser` / `XMLSerializer`              | HTML/XML ↔ document round-trip; the `libs/contracts/` golden byte assertion  |
 |  [03]   | `BrowserErrorCaptureEnum`                  | vocabulary `settings.errorCapture` selects                                   |
 |  [04]   | `BrowserNavigationCrossOriginPolicyEnum`   | vocabulary `navigation.crossOriginPolicy` selects                            |
 
