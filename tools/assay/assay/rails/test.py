@@ -337,7 +337,7 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
             return check
         stem = PurePosixPath(project.replace("\\", "/")).stem
         trx_dir = Path(str(settings.root)).resolve() / DOTNET_ARTIFACT_ROOTS["trx"] / stem
-        # Every run pins the results directory under the C# artifact root, so MTP output (and any env-enabled diagnostic
+        # Every run pins the results directory under the .NET artifact root, so MTP output (and any env-enabled diagnostic
         # session, which defaults its log beside the results) never lands TestResults litter at the repo root. A bare
         # --diagnostic-output-directory is refused by MTP without --diagnostic, so diagnostics route via testconfig.
         routes = ("--results-directory", str(trx_dir)) if tool.mode is Mode.RUN else ()

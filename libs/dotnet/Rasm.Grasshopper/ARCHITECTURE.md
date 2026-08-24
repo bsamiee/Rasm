@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_ARCHITECTURE]
 
-`Rasm.Grasshopper` maps the Grasshopper 2, Eto, and Rhino UI host boundary on the C# app strata: each sub-domain folder maps to exactly one namespace, and one owner closes each host concern over the live GH2 and Eto surfaces. It references the `Rasm` kernel and no sibling, so host-agnostic kernel math composes the motion and colour surfaces rather than a second in-folder derivation.
+`Rasm.Grasshopper` maps the Grasshopper 2, Eto, and Rhino UI host boundary on the .NET app strata: each sub-domain folder maps to exactly one namespace, and one owner closes each host concern over the live GH2 and Eto surfaces. It references the `Rasm` kernel and no sibling, so host-agnostic kernel math composes the motion and colour surfaces rather than a second in-folder derivation.
 
 ## [01]-[DOMAIN_MAP]
 

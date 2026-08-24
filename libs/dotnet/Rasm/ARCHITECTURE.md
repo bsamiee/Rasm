@@ -1,11 +1,11 @@
 # [RASM_ARCHITECTURE]
 
-`Rasm` maps the RhinoCommon- and Eto-aware geometry, numeric, and interaction kernel below the C# app strata: each sub-domain folder maps to exactly one namespace, and the kernel references no sibling. Kernel stays host-aware end to end under the Tier-0 universal-versus-capture law; the pure-numeric floor is host-neutral-shaped without minting a host-free assembly, and the interaction plane is the one owner of the host-boundary machinery both boundary packages compose.
+`Rasm` maps the RhinoCommon- and Eto-aware geometry, numeric, and interaction kernel below the .NET app strata: each sub-domain folder maps to exactly one namespace, and the kernel references no sibling. Kernel stays host-aware end to end under the Tier-0 universal-versus-capture law; the pure-numeric floor is host-neutral-shaped without minting a host-free assembly, and the interaction plane is the one owner of the host-boundary machinery both boundary packages compose.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm/                      # Kernel below the C# app strata: exact-arithmetic floor, operational geometry, interaction machinery
+Rasm/                      # Kernel below the .NET app strata: exact-arithmetic floor, operational geometry, interaction machinery
 ├── Domain/                # Kernel substrate floor every sibling composes
 │   ├── Rails.cs           # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor
 │   ├── Context.cs         # ToleranceLane rows bind Band and BaseDimensions; Context.For(lane) is the one read every gate threads

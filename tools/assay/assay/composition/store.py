@@ -80,7 +80,7 @@ class ArtifactFileSystem(Protocol):
 _ARTIFACTS: Final[str] = ".artifacts"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _BUILD: Final[str] = "build"
-# One C# artifact root: dotnet build closures land under `.artifacts/dotnet/` beside the stryker and trx roots,
+# One .NET artifact root: dotnet build closures land under `.artifacts/dotnet/` beside the stryker and trx roots,
 # so raw-dotnet and assay-driven builds share one tree and the SDK pivot layout beneath it.
 _DOTNET_ROOT: Final[str] = f"{_ARTIFACTS}/dotnet"
 # Run history accretes one encoded Envelope (+ optional full Report) per run; the JSON-shaped payloads compress an order of
@@ -589,7 +589,7 @@ class ArtifactScope:
         Returns:
             Artifact scope rooted under the build closure id.
         """
-        # Build closures are local dotnet writes, so the store pins the file protocol under the one C# artifact root
+        # Build closures are local dotnet writes, so the store pins the file protocol under the one .NET artifact root
         # even when run artifacts ride a shared cloud backend; the remote executor rebases the path like any scope path.
         store = settings.store(protocol="file", root=str(settings.local_root / _DOTNET_ROOT))
         path = store.ensure(_BUILD, closure, str(configuration) if configuration else settings.configuration.value)

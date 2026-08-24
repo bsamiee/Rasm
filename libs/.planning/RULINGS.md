@@ -118,7 +118,7 @@
 - Protovalidate rules own wire constraints; branch admission evaluates them and never repeats the same scalar rule in hand code.
 - Generated package rosters derive between gate-owned markers from the descriptor image and the configured public roots/support closure.
 - Vendored modules curate per language at the MODULE level on two grounds alone — a namespace or stdlib collision, or a publisher-shipped type.
-- Generated-bindings trees are admitted IMPORT ROOTS, never strata — TS package folder, Python source root, C# assembly; one law line per branch.
+- Generated-bindings trees are admitted IMPORT ROOTS, never strata — TS package folder, Python source root, .NET assembly; one law line per branch.
 - Python and TypeScript packages carry FLAT layouts — the importable directory at project root and entries at package root, a `src/` level refusing.
 - Import-shadow risk repairs at the `sys.path` entry, never by nesting — a `src/` level buys isolation that entry already decides.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.

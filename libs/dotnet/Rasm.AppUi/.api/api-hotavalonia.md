@@ -19,7 +19,7 @@
 |  [01]   | `build/HotAvalonia.props`              | capability + Avalonia floor      |
 |  [02]   | `build/HotAvalonia.targets`            | knob defaults + Fody/HARFS tasks |
 |  [03]   | `tasks/netstandard2.0/HotAvalonia.dll` | MSBuild task assembly (3 tasks)  |
-|  [04]   | `tools/HotAvalonia.Remote.dll`         | HARFS file server (out-of-proc)  |
+|  [04]   | `hotavalonia/tools/HotAvalonia.Remote.dll`         | HARFS file server (out-of-proc)  |
 
 [DEPENDENCY_ASSETS]: dependency fan-out (all `include="All"`)
 
@@ -36,7 +36,7 @@
 | :-----: | :----------------------------------------------- | :----------------------------------------------- |
 |  [01]   | `HotAvalonia.GenerateFileSystemServerConfigTask` | emit HARFS server config                         |
 |  [02]   | `HotAvalonia.GetFileSystemClientConfigTask`      | resolve client address/secret into runtimeconfig |
-|  [03]   | `HotAvalonia.StartFileSystemServerTask`          | launch `HotAvalonia.Remote.dll` after build      |
+|  [03]   | `HotAvalonia.StartFileSystemServerTask`          | launch `hotavalonia/tools/HotAvalonia.Remote.dll` after build      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -111,7 +111,7 @@ MSBuild knobs default in `HotAvalonia.targets`; runtime options land in `runtime
 [TOPOLOGY]:
 - Gate `$(HotAvalonia)` is `true` under `Configuration == Debug` or explicit `enable`; with it on, `DefineConstants` gains `HOTAVALONIA_ENABLE` (with `_USE_REMOTE_FILE_SYSTEM`/`_ENABLE_LITE`/`_EXCLUDE_EXTENSIONS` per knob), `CompileAvaloniaXaml` runs before the weave, and `HotAvaloniaGenerateFodyConfig` injects a `<HotAvalonia>` element into Fody's `WeaverConfiguration` so `HotAvalonia.Fody` patches the XAML-load methods.
 - `HotAvaloniaGenerateRuntimeConfig` (under `GenerateRuntimeConfigurationFiles == true`) emits the `RuntimeHostConfigurationOption` rows the injected runtime reads at startup.
-- Remote HARFS path (`HotAvaloniaRemote` on): `GenerateFileSystemServerConfigTask` writes the server config to `$(IntermediateOutputPath)\Avalonia\HotAvalonia.Remote.xml`, `GetFileSystemClientConfigTask` resolves the client address and secret, and `StartFileSystemServerTask` launches `tools/HotAvalonia.Remote.dll` after build to serve source to a non-desktop Android, iOS, or Browser target; iOS also forces the Mono interpreter and disables AOT.
+- Remote HARFS path (`HotAvaloniaRemote` on): `GenerateFileSystemServerConfigTask` writes the server config to `$(IntermediateOutputPath)\Avalonia\HotAvalonia.Remote.xml`, `GetFileSystemClientConfigTask` resolves the client address and secret, and `StartFileSystemServerTask` launches `hotavalonia/tools/HotAvalonia.Remote.dll` after build to serve source to a non-desktop Android, iOS, or Browser target; iOS also forces the Mono interpreter and disables AOT.
 - Reference stripping: `HotAvaloniaProcessReferences` defaults false (preserve), `HotAvaloniaExcludeReferences` always lists `HotAvalonia;HotAvalonia.Core;HotAvalonia.Fody` and adds `Avalonia.Markup.Xaml.Loader` only under `HotAvaloniaIncludeXamlLoader == false`; Release turns the gate off and strips every dev-loop assembly, so no hot-reload code ships.
 
 [STACKING]:

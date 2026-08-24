@@ -139,7 +139,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [NUMERIC_SUBSTRATE]:
 - `CSparse` — Managed sparse direct-factor terminal.
 - `MathNet.Numerics` — Quadrature, distributions, and the MKL/OpenBLAS provider hooks.
-- `MathNet.Numerics.Data.Text` — Matrix Market sparse exchange bound by `tests/contracts/matrix-market-exchange/sparse`.
+- `MathNet.Numerics.Data.Text` — Matrix Market sparse exchange bound by the `matrix-market-exchange` seam's `sparse` case.
 - `PeterO.Numbers` — Exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
 
 [GPU_DEVICE]:

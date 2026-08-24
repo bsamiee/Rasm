@@ -140,7 +140,7 @@ Couplings fanning out or carrying a proof condition land as cards, each stating 
 
 [SLO_VOCABULARY]:
 - Surface: Reliability-indicator vocabulary — an `Sli` case, a level-breach polarity row, a burn row, a severity row, or a panel kind.
-- Obligates: Both branch spellings — C# kernel signal capsule and ts core observe owner, with `core/observe/board` and `iac/operate/observe` legs.
+- Obligates: Both branch spellings — .NET kernel signal capsule and ts core observe owner, with `core/observe/board` and `iac/operate/observe` legs.
 - Law: Changes land both spellings and every fold dispatching on the family, since no compiler spans the two.
 - Law: Cases landing in one branch alone declare a target one runtime alerts on and the other cannot render.
 - Law: Series selection stays branch-local — the mounted row an objective names is its owning package's roster, and no coupling crosses for it.

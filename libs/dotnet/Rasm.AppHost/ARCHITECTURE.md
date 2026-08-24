@@ -117,7 +117,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Cross-boundary seams split by counterpart group: cross-runtime wires to the TypeScript and Python peers, and same-branch ports to the C# platform packages. Each edge collapses one sub-domain-to-partner contract family onto its load-bearing kind, and the owning implementation pages carry the full family each edge stands for.
+Cross-boundary seams split by counterpart group: cross-runtime wires to the TypeScript and Python peers, and same-branch ports to the .NET platform packages. Each edge collapses one sub-domain-to-partner contract family onto its load-bearing kind, and the owning implementation pages carry the full family each edge stands for.
 
 ```mermaid
 ---
