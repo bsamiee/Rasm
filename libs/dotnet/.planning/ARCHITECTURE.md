@@ -16,12 +16,11 @@ libs/dotnet/
 ├── Rasm.Compute/      # [APP_PLATFORM]   Measured tensor, model, and solver execution
 ├── Rasm.Persistence/  # [APP_PLATFORM]   Durable element, query, and version stores
 ├── Rasm.AppUi/        # [APP_PLATFORM]   Avalonia product UI shell
-├── Rasm.Generation/   # [APP_PLATFORM]   Target package — layout, generation, and assembly orchestration onto kernel geometry
 ├── Rasm.Rhino/        # [HOST_BOUNDARY]  RhinoCommon host APIs; references only Rasm
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY]  GH2 host APIs; references only Rasm
 ```
 
-Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Contracts` carries index docs and configuration outside its generator-owned `Generated/` tree and no `.planning/`; the two host-boundary packages add a folder `.api/` tier over their host assemblies. `Rasm.Generation` turns a sited occurrence, inherited generative data, construction primitives, and bond/layout policy into kernel geometry, its folder landing with its first design page.
+Planning-scoped packages carry a `.planning/` scaffold of index docs and design pages; `Rasm.Contracts` carries index docs and configuration outside its generator-owned `Generated/` tree and no `.planning/`; the two host-boundary packages add a folder `.api/` tier over their host assemblies.
 
 ## [02]-[STRATA]
 
@@ -43,8 +42,6 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S2 wire law — binary and ProtoJSON codecs compose the spine's neutral `WireAdmission`; S2 members hold generated messages, never a validator.
 - S2 law — S2 members never reference each other; alignment travels seam contracts and the content-keyed wire.
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
-- S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
-- S3 law — the two S3 members never reference each other, and generation composes the kernel's geometry operations rather than owning primitives.
 - S4 leaf — `Rasm.AppUi` references every host-neutral package below it, `Rasm.Contracts` included, and nothing references it.
 - S5 app shell — `apps/<plugin>/` shells, each its own app, seat outside `libs/dotnet` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
@@ -65,7 +62,6 @@ flowchart TB
     end
     subgraph S3["S3 ORCHESTRATION"]
         Compute[Rasm.Compute]
-        Generation[Rasm.Generation]
     end
     subgraph S2["S2 DOMAIN AND STORES"]
         Bim[Rasm.Bim]

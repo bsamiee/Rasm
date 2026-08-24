@@ -297,7 +297,7 @@ flowchart LR
 - `ComponentProjector.Project` stamps `Classification`/`PredefinedType` off its `IfcBinding` row, seed-excluded so a later attach never re-keys.
 - Model authors mint Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
 - `IIfcTypeReconciler` closes one loop: Bim's `ExportTypeCandidates` feeds `ComponentCatalogue.AdmitImported` by contract, never reference.
-- Model owners stay host-neutral: none holds a host curve or transform, and run and layout geometry lands in `Rasm.Generation` at the app root.
+- Model owners stay host-neutral: none holds a host curve or transform, and run and layout geometry lands above the domain at the app root.
 - `Rasm.Element` owns material-composition vocabulary, the perceptual owner color, and UnitsNet admits once per declared edge riding `MeasureValue`.
 - Each concern composes its admitted engine, and a kernel the ecosystem leaves unowned lands hand-authored at its owning page.
 - Every out-of-gamut, non-finite, or degenerate result rails to its banded fault, never a propagated NaN or sentinel.

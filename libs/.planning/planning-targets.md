@@ -11,7 +11,6 @@
 - Routing: `libs/dotnet/.planning/README.md`
 - Language-wide docs: `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md` under the core dir
 - Planning Folders: every package folder under `libs/dotnet/` — the kernel `Rasm` and its `Rasm.*` siblings, per the branch `[02]-[STRATA]` roster
-- Target Packages: `Rasm.Generation` (APP-PLATFORM layout/generation/assembly orchestration)
 
 [TYPESCRIPT]:
 - Core dir: `libs/typescript/.planning`

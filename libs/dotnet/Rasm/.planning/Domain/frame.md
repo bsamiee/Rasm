@@ -42,7 +42,6 @@ public sealed partial class TelemetrySource {
     public static readonly TelemetrySource Fabrication = new("Rasm.Fabrication");
     public static readonly TelemetrySource Persistence = new("Rasm.Persistence");
     public static readonly TelemetrySource Compute = new("Rasm.Compute");
-    public static readonly TelemetrySource Generation = new("Rasm.Generation");
     public static readonly TelemetrySource AppUi = new("Rasm.AppUi");
     public static readonly TelemetrySource Rhino = new("Rasm.Rhino");
     public static readonly TelemetrySource Grasshopper = new("Rasm.Grasshopper");
