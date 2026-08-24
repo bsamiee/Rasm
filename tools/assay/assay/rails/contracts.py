@@ -1,14 +1,15 @@
 """Drive the contracts plane through buf: the gate lanes, the corpus audit, scratch-regeneration freshness, and the committed regeneration.
 
-``check`` resolves the default BSR label to one immutable commit, probes every plugin binary, fans ``buf
-build``/``lint``/``format``/``breaking``/``generate``-to-scratch under one repo lease, projects every
-`proto:`-derived seam schema into scratch through ``protoc-gen-jsonschema``, audits the corpus registry against its
-schema, disk, anchors, derivations, emitted rosters, and the built descriptor set, then proves the committed out roots
-fresh by byte diff; ``generate`` probes, refuses on a template-plugin miss, builds one complete package/schema image
-in scratch, validates it, and commits every package root and derived schema through one recovery journal under the
-same lease. ``publish`` runs the complete check first, admits only the exact
-first-publish absence as bootstrap, then pushes the named estate module. The msgspec manifest model here is the registry's one authority:
-``manifest.schema.json`` derives from it and the audit rows carry every cross-field invariant.
+``check`` probes every plugin binary, fans ``buf build``/``lint``/``format``/``generate``-to-scratch under one repo
+lease, projects every `proto:`-derived seam schema into scratch through ``protoc-gen-jsonschema``, audits the corpus
+registry against its schema, disk, anchors, derivations, emitted rosters, and the built descriptor set, then proves the
+committed out roots fresh by byte diff — a local estate proof reaching no registry; ``generate`` probes, refuses on a
+template-plugin miss, builds one complete package/schema image in scratch, validates it, and commits every package root
+and derived schema through one recovery journal under the same lease. ``publish`` resolves the credential and the
+module's default-label commit, runs the complete check, re-resolves that commit immediately before the irreversible
+push, admits only the exact first-publish absence as bootstrap, and reads the pushed coordinate back off the label. The
+msgspec manifest model here is the registry's one authority: ``manifest.schema.json`` derives from it and the audit rows
+carry every cross-field invariant.
 """
 
 from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping
@@ -31,11 +32,7 @@ from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 import xxhash
-lazy from google.protobuf.descriptor_pb2 import (
-    DescriptorProto as GoogleDescriptorProto,
-    FileDescriptorProto as GoogleFileDescriptorProto,
-    FileDescriptorSet as GoogleFileDescriptorSet,
-)
+lazy from google.protobuf.descriptor_pb2 import FileDescriptorSet as GoogleFileDescriptorSet
 lazy from google.protobuf.descriptor_pool import DescriptorPool as GoogleDescriptorPool
 lazy from google.protobuf.json_format import Parse, ParseError
 lazy from google.protobuf.message import DecodeError, Message  # dynamic semantic decode on the corpus gate alone
@@ -91,7 +88,7 @@ from assay.rails.contracts_generation import changes, compose_image, freshness_r
 type EntryClass = Literal["application", "infrastructure", "domain", "publisher"]
 type Oracle = Literal["semantic-conformance", "semantic-roundtrip", "value-parity", "external-digest", "publisher-digest"]
 type FingerprintAlgorithm = Literal["xxh128", "sha256"]
-type FactsFormat = Literal["backend-generation-v1", "content-digest-v1", "hdf5-facts-v1", "hlc-value-v1", "matrix-market-facts-v1"]
+type FactsFormat = Literal["backend-generation", "content-digest", "hdf5-facts", "hlc-value", "matrix-market-facts"]
 type DistributionKind = Literal["python-package-resource", "typescript-json-module"]
 type ActorBinding = Literal["generated", "package", "proof"]
 type ActorDirection = Literal["message", "client-request", "client-response", "server-request", "server-response"]
@@ -126,7 +123,6 @@ _LEASE: Final = "contracts"
 _VENDOR: Final = "vendor"
 _ESTATE: Final = f"{CORPUS}/proto"
 _IMAGE: Final = "image.binpb"
-_BASE_IMAGE: Final = "baseline.binpb"
 _GEN: Final = "gen"
 _SCHEMAS: Final = "schema"
 _DIFF: Final = "freshness.diff"
@@ -154,6 +150,7 @@ _COORDINATE: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 _DIFF_HEADER: Final = re.compile(r"^\+\+\+ (\S+)")
 _BSR_MODULE: Final = re.compile(r"^buf\.build/[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$")
 _BSR_COMMIT: Final = re.compile(r"^[0-9a-f]{32}$")
+_EVENT_TYPE: Final = re.compile(r"^rasm(?:\.[a-z][a-z0-9]*){3}$")  # rasm.<domain>.<subject>.<fact>; the [14]-[EVENT_FABRIC] grammar
 _DEFAULT_LABEL: Final = "main"
 _TS_PACKAGE: Final = "libs/typescript/contracts/package.json"
 _TS_EXPORT: Final = "./*"
@@ -167,8 +164,8 @@ _ROUTED: Final[Routed] = Routed(language=Language.PROTO, scope=Scope.CHANGED)
 # A missing plugin names its installer by where the template seats it: venv and node binaries are repo-installed, the rest ride the machine estate.
 _HINTS: Final[tuple[tuple[str, str], ...]] = ((".venv/", "uv sync"), ("node_modules/", "pnpm install"))
 _MACHINE_HINT: Final = f"the machine estate supplies protoc, the grpc plugins, and {JSONSCHEMA_PLUGIN}"
-# Only publication spends a credential: build, lint, format, breaking against a public module, and remote-plugin generation
-# all resolve unauthenticated. A non-empty BUF_TOKEN outranks ~/.netrc outright, so a stale export beats a valid login.
+# Only publication spends a credential: build, lint, format, and remote-plugin generation all resolve unauthenticated.
+# A non-empty BUF_TOKEN outranks ~/.netrc outright, so a stale export beats a valid login.
 _CREDENTIAL_HINT: Final = "a non-empty BUF_TOKEN outranks ~/.netrc; clear the stale export, or seat the live one"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -627,9 +624,8 @@ class Entry(_Record, frozen=True, kw_only=True):
 
 
 class Manifest(_Record, frozen=True, kw_only=True):
-    """The corpus registry: one entry per seam under one schema version."""
+    """The corpus registry: one entry per seam."""
 
-    version: Literal[2]
     entries: tuple[Entry, ...]
 
 
@@ -742,7 +738,7 @@ class _Templates:
 
 
 class _BufConfig(msgspec.Struct, frozen=True, kw_only=True):
-    """Root ``buf.yaml`` module identity and dependency roster consumed by the compatibility and lock gates."""
+    """Root ``buf.yaml`` module identity and dependency roster consumed by the corpus audit and publish custody."""
 
     version: Literal["v2"]
     modules: tuple["_BufModule", ...]
@@ -969,12 +965,10 @@ _LANES: Final[tuple[_Lane, ...]] = (
     _Lane("buf-build", Mode.QUERY, output=_IMAGE),
     _Lane("buf-lint", Mode.CHECK),
     _Lane("buf-format", Mode.CHECK),
-    _Lane("buf-breaking", Mode.CHECK),
-    _Lane("buf-constraint", Mode.QUERY, output=_BASE_IMAGE),
     _Lane("buf-generate", Mode.STAGE, output=_GEN, gated=True),
 )
 _GATE: Final[msgspec.json.Decoder[_Gate]] = msgspec.json.Decoder(_Gate)
-_GATED: Final[frozenset[str]] = frozenset(("plugin-probe", "corpus-gate", "constraint-gate", "freshness-gate", "corpus-emit"))
+_GATED: Final[frozenset[str]] = frozenset(("plugin-probe", "corpus-gate", "freshness-gate", "corpus-emit"))
 _EMITTABLE: Final[frozenset[str]] = frozenset(("distribution-missing", "distribution-stale", "schema-missing", "schema-stale", "roster-stale"))
 _ENCODER: Final[msgspec.json.Encoder] = msgspec.json.Encoder()
 _MANIFEST: Final[msgspec.json.Decoder[Manifest]] = msgspec.json.Decoder(Manifest)
@@ -2065,12 +2059,12 @@ def _rule_definition(corpus: _Corpus) -> Iterable[_Finding]:
             subject, definition = f"{entry.id}/{case.id}", case.definition
             match definition:
                 case CloudEventDefinition(message=message, type=event_type):
-                    if not event_type.strip() or not event_type.endswith(".v1"):
+                    if not _EVENT_TYPE.fullmatch(event_type):
                         yield _finding(
                             "event-type",
                             subject,
-                            f"CloudEvents type {event_type!r} is not an exact versioned application discriminant",
-                            "name the exact producer type ending in .v1",
+                            f"CloudEvents type {event_type!r} is not an exact application discriminant",
+                            "name the exact producer type as rasm.<domain>.<subject>.<fact>",
                         )
                     yield from _unresolved(corpus, subject, (message,))
                 case ProtoDefinition(message=message):
@@ -3102,11 +3096,11 @@ def _proof_findings(corpus: _ProofContext, subject: str, case: Case) -> Iterable
             )
             continue
         format_matches = (
-            (expected_asset.facts_format == "backend-generation-v1" and isinstance(expected, BackendGenerationFacts))
-            or (expected_asset.facts_format == "content-digest-v1" and isinstance(expected, ContentDigestFacts))
-            or (expected_asset.facts_format == "hdf5-facts-v1" and isinstance(expected, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts)))
-            or (expected_asset.facts_format == "hlc-value-v1" and isinstance(expected, HlcValueFacts))
-            or (expected_asset.facts_format == "matrix-market-facts-v1" and isinstance(expected, MatrixMarketFacts))
+            (expected_asset.facts_format == "backend-generation" and isinstance(expected, BackendGenerationFacts))
+            or (expected_asset.facts_format == "content-digest" and isinstance(expected, ContentDigestFacts))
+            or (expected_asset.facts_format == "hdf5-facts" and isinstance(expected, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts)))
+            or (expected_asset.facts_format == "hlc-value" and isinstance(expected, HlcValueFacts))
+            or (expected_asset.facts_format == "matrix-market-facts" and isinstance(expected, MatrixMarketFacts))
         )
         if not format_matches:
             yield _finding(
@@ -3617,7 +3611,7 @@ def _corpus_of(
                 else "repair the named field; the schema is derived_schema()"
             )
             head.append(_finding(rule, MANIFEST, message, repair, f"{CORPUS}/{MANIFEST}"))
-            manifest = Manifest(version=2, entries=())
+            manifest = Manifest(entries=())
         case Result(error=fault):
             return Error(fault)
     corpus = _Corpus(
@@ -3707,147 +3701,6 @@ def _corpus(repo: Path, image: Path, template: _Templates, projections: _Project
                 return receipt(argv, status.exit_code, stdout=_ENCODER.encode(audit), status=status)
             case Result(error=fault):
                 return receipt(argv, RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
-
-    return run
-
-
-# --- [CONSTRAINTS]
-# `buf breaking` grades descriptor shape and carries rule options as opaque payload, so a tightened protovalidate rule
-# clears every category. This gate diffs the `buf.validate` rule options between the baseline image and the current one
-# per field and message FQN, refusing every provably or undecidably narrowed rule; loosened rules pass wire-compatible.
-
-_VALIDATE_EXTENSION: Final = 1159  # the one buf.validate extension number on MessageOptions, FieldOptions, and OneofOptions
-
-_LOOSENS_INCREASING: Final[frozenset[str]] = frozenset(("max_len", "max_bytes", "max_items", "max_pairs", "lt", "lte"))
-_LOOSENS_DECREASING: Final[frozenset[str]] = frozenset(("min_len", "min_bytes", "min_items", "min_pairs", "gt", "gte"))
-_LOOSENS_GROWING: Final[frozenset[str]] = frozenset(("in",))
-_LOOSENS_SHRINKING: Final[frozenset[str]] = frozenset(("not_in", "cel"))
-
-
-def _validate_payload(options: Message) -> bytes:
-    # Stock descriptor decode keeps unregistered extensions as unknown fields; LEN payloads of the one number merge.
-    # UnknownFieldSet is index-only (no __iter__ in runtime or stubs), so the walk indexes explicitly.
-    unknown = UnknownFieldSet(options)
-    fields = (unknown[position] for position in range(len(unknown)))
-    return b"".join(field.data for field in fields if field.field_number == _VALIDATE_EXTENSION and isinstance(field.data, bytes))
-
-
-def _rule_leaves(message: Message, prefix: str = "") -> tuple[tuple[str, object], ...]:
-    leaves: list[tuple[str, object]] = []
-    for descriptor, value in message.ListFields():
-        path = f"{prefix}{descriptor.name}"
-        if descriptor.type == descriptor.TYPE_MESSAGE and descriptor.is_repeated:
-            leaves.append((path, tuple(sorted(bytes(item.SerializeToString()) for item in value))))
-        elif descriptor.type == descriptor.TYPE_MESSAGE:
-            leaves.extend(_rule_leaves(value, f"{path}."))
-        elif descriptor.is_repeated:
-            leaves.append((path, tuple(value)))
-        else:
-            leaves.append((path, value))
-    return tuple(leaves)
-
-
-def _narrowed(before: Mapping[str, object], after: Mapping[str, object]) -> tuple[str, ...]:
-    """Fold one rule-leaf pair into the axes it narrows; an undecidable difference reads as narrowed, never as clear.
-
-    Returns:
-        One reason per narrowed axis, empty when every difference provably loosens.
-    """
-    reasons: list[str] = []
-    for path in sorted(frozenset(before) | frozenset(after)):
-        axis, b, a = path.rsplit(".", 1)[-1], before.get(path), after.get(path)
-        match (b, a):
-            case _ if b == a:
-                continue
-            case (_, None):  # a dropped rule only widens admission
-                continue
-            case (None, _):
-                reasons.append(f"{path} added")
-            case (int() | float(), int() | float()) if axis in _LOOSENS_INCREASING and a > b:
-                continue
-            case (int() | float(), int() | float()) if axis in _LOOSENS_DECREASING and a < b:
-                continue
-            case (tuple(), tuple()) if axis in _LOOSENS_GROWING and frozenset(b) <= frozenset(a):
-                continue
-            case (tuple(), tuple()) if axis in _LOOSENS_SHRINKING and frozenset(a) <= frozenset(b):
-                continue
-            case (True, False):  # a cleared flag only widens admission
-                continue
-            case _:
-                reasons.append(f"{path} narrowed {b!r} -> {a!r}")
-    return tuple(reasons)
-
-
-def _rule_index(image: Path) -> dict[str, dict[str, object]]:
-    # Field and message rule leaves keyed by FQN, parsed with the image's own embedded `buf.validate` schema; an image
-    # carrying no protovalidate schema (or no rules) indexes empty, so estates without constraints pay nothing here.
-    described = GoogleFileDescriptorSet.FromString(image.read_bytes())
-    pool = GoogleDescriptorPool()
-    pending = list(described.file)
-    while pending:  # buf orders topologically, but the retry ring keeps a shuffled set admissible
-        stuck = len(pending)
-        pending = [file for file in pending if not _pool_admits(pool, file)]
-        if len(pending) == stuck:
-            break
-    classes: dict[str, type[Message]] = {}
-    for kind, names in (("field", ("buf.validate.FieldRules", "buf.validate.FieldConstraints")), ("message", ("buf.validate.MessageRules",))):
-        for name in names:
-            if (found := _message_class(pool, name)) is not None:
-                classes[kind] = found
-                break
-    index: dict[str, dict[str, object]] = {}
-    for file in described.file:
-        for descriptor in file.message_type:
-            _index_message(index, classes, f"{file.package}.{descriptor.name}", descriptor)
-    return index
-
-
-def _message_class(pool: GoogleDescriptorPool, name: str) -> type[Message] | None:
-    try:
-        return GetMessageClass(pool.FindMessageTypeByName(name))
-    except KeyError:
-        return None
-
-
-def _pool_admits(pool: GoogleDescriptorPool, file: GoogleFileDescriptorProto) -> bool:
-    try:
-        pool.Add(file)
-    except Exception:  # ruff:ignore[blind-except]  # a duplicate or dep-starved file retries or drops; the index stays best-effort
-        return False
-    return True
-
-
-def _index_message(index: dict[str, dict[str, object]], classes: Mapping[str, type[Message]], fqn: str, descriptor: GoogleDescriptorProto) -> None:
-    if "message" in classes and (payload := _validate_payload(descriptor.options)):
-        index[f"{fqn}#message"] = dict(_rule_leaves(classes["message"].FromString(payload)))
-    if "field" in classes:
-        for field in descriptor.field:
-            if payload := _validate_payload(field.options):
-                index[f"{fqn}.{field.name}"] = dict(_rule_leaves(classes["field"].FromString(payload)))
-    for nested in descriptor.nested_type:
-        _index_message(index, classes, f"{fqn}.{nested.name}", nested)
-
-
-def _constraints(image: Path, baseline_image: Path) -> InprocThunk:
-    def run(check: Check) -> Completed:
-        argv = check.args.fill(check.tool.command)
-        try:
-            before, after = _rule_index(baseline_image), _rule_index(image)
-        except (OSError, DecodeError) as exc:
-            return receipt(argv, RailStatus.FAULTED.exit_code, stderr=str(exc).encode(), status=RailStatus.FAULTED)
-        findings = tuple(
-            _finding(
-                "constraint-narrowed",
-                fqn,
-                f"protovalidate rule narrowed against the published baseline: {'; '.join(reasons)}",
-                "widen the rule back, or version the field — `buf breaking` cannot see rule options, this gate is their proof",
-                _ESTATE,
-            )
-            for fqn in sorted(frozenset(before) & frozenset(after))
-            if (reasons := _narrowed(before[fqn], after[fqn]))
-        )
-        status = RailStatus.FAILED if findings else RailStatus.OK
-        return receipt(argv, status.exit_code, stdout=_ENCODER.encode(_Audit(findings=findings)), status=status)
 
     return run
 
@@ -4039,7 +3892,7 @@ def _emit(repo: Path, image: Path, template: _Templates, projections: _Projectio
                 argv, RailStatus.FAULTED.exit_code, stderr=b"no descriptor set was built; the roster cannot be emitted", status=RailStatus.FAULTED
             )
         # One registry read drives the stage, the transaction sources, and the journal targets, so no third derivation can drift.
-        registry = load_manifest(repo / CORPUS).default_value(Manifest(version=2, entries=()))
+        registry = load_manifest(repo / CORPUS).default_value(Manifest(entries=()))
         owned = _owned_files(template, registry)
         match compose_image(repo, image.parent / _GEN, image.parent / _COMMIT_IMAGE, out_dirs(template), owned):
             case Result(tag="ok", ok=staged):
@@ -4189,7 +4042,7 @@ def _published(done: Completed, module: str) -> Result[str, str]:
 def _detail(lanes: _Lanes, gates: tuple[_Gate, ...], rows: tuple[Match, ...], scratch: str, module: str) -> ContractsRun:
     probe = next((gate for gate in gates if isinstance(gate, _Probe)), _Probe())
     audit = next((gate for gate in gates if isinstance(gate, _Audit)), _Audit())
-    findings = sum(len(gate.findings) for gate in gates if isinstance(gate, _Audit))  # the constraint gate reports as a second audit
+    findings = sum(len(gate.findings) for gate in gates if isinstance(gate, _Audit))  # generate's emission leg reports as a second audit
     fresh = next((gate for gate in gates if isinstance(gate, _Freshness)), _Freshness())
     format_out = next((done.stdout for name, done in lanes if name == "buf-format"), b"")
     counts = (
@@ -4274,29 +4127,19 @@ def _probe(root: Path, template: _Templates, executor: Executor, *, settings: As
     return _phase(executor, (probe,), lambda _chk: None, settings=settings, scope=scope).map(itemgetter(0)).map(itemgetter(1))
 
 
-def _lane_check(lane: _Lane, scratch: Path, baseline: str = "") -> Check:
-    args = (
-        ToolArgs(input=baseline)
-        if lane.name == "buf-breaking"
-        else ToolArgs(input=baseline, output=str(scratch / lane.output))
-        if lane.name == "buf-constraint"
-        else ToolArgs(output=str(scratch / lane.output))
-        if lane.output
-        else ToolArgs()
-    )
+def _lane_check(lane: _Lane, scratch: Path) -> Check:
+    args = ToolArgs(output=str(scratch / lane.output)) if lane.output else ToolArgs()
     return Check(tool=_ROWS[lane.name, lane.mode], args=args)
 
 
-def _module_phase(
-    module: str, executor: Executor, *, bootstrap: bool, settings: AssaySettings, scope: ArtifactScope
-) -> Result[tuple[Completed, bool], Fault]:
+def _module_phase(module: str, executor: Executor, *, settings: AssaySettings, scope: ArtifactScope) -> Result[tuple[Completed, bool], Fault]:
     check = Check(tool=_ROWS["buf-module", Mode.QUERY], args=ToolArgs(input=module))
 
     def admitted(done: Completed) -> tuple[Completed, bool]:
         located = _located(done, module)
         if located.is_ok():
             return done, True
-        if bootstrap and _absent_module(done, module):
+        if _absent_module(done, module):
             return _seat(check, RailStatus.SKIP, f"first publish: {module} does not exist"), False
         if done.status in {RailStatus.OK, RailStatus.EMPTY}:
             reason = located.error
@@ -4311,25 +4154,24 @@ def _module_phase(
     return _phase(executor, (check,), lambda _chk: None, settings=settings, scope=scope).map(itemgetter(0)).map(itemgetter(1)).map(admitted)
 
 
-def _baseline_phase(
-    module: str, executor: Executor, *, present: bool, settings: AssaySettings, scope: ArtifactScope
-) -> Result[tuple[Completed, str], Fault]:
-    reference = f"{module}:{_DEFAULT_LABEL}"
-    check = Check(tool=_ROWS["buf-baseline", Mode.QUERY], args=ToolArgs(input=reference))
+def _baseline_phase(module: str, executor: Executor, *, present: bool, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
+    """Resolve the module's default label to the immutable commit publish custody compares against.
 
-    def admitted(done: Completed) -> tuple[Completed, str]:
+    Returns:
+        The resolver lane, seated SKIP when the module is absent for first publish and faulted when its coordinate cannot be read.
+    """
+    check = Check(tool=_ROWS["buf-baseline", Mode.QUERY], args=ToolArgs(input=f"{module}:{_DEFAULT_LABEL}"))
+
+    def admitted(done: Completed) -> Completed:
         coordinate = _resolved(done, module)
         if coordinate.is_ok():
-            return done, coordinate.ok
+            return done
         if done.status in {RailStatus.OK, RailStatus.EMPTY}:
             reason = coordinate.error
-            return (
-                msgspec.structs.replace(
-                    done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-baseline: faulted: {reason}")
-                ),
-                "",
+            return msgspec.structs.replace(
+                done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-baseline: faulted: {reason}")
             )
-        return (msgspec.structs.replace(done, status=RailStatus.FAULTED) if done.status is RailStatus.FAILED else done), ""
+        return msgspec.structs.replace(done, status=RailStatus.FAULTED) if done.status is RailStatus.FAILED else done
 
     return (
         _phase(
@@ -4411,12 +4253,12 @@ def _prepush_phase(module: str, lanes: _Lanes, executor: Executor, *, settings: 
                 done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-prepush: faulted: {reason}")
             )
 
-        return _module_phase(module, executor, bootstrap=True, settings=settings, scope=scope).map(absent)
+        return _module_phase(module, executor, settings=settings, scope=scope).map(absent)
 
     baseline = next((coordinate.ok for name, done in lanes if name == "buf-baseline" and (coordinate := _resolved(done, module)).is_ok()), "")
 
-    def unchanged(row: tuple[Completed, str]) -> Completed:
-        done, current = row
+    def unchanged(done: Completed) -> Completed:
+        current = _resolved(done, module).default_value("")
         if done.status not in {RailStatus.OK, RailStatus.EMPTY} or current == baseline:
             return done
         reason = f"default label moved from {baseline!r} to {current!r} before publish"
@@ -4517,61 +4359,33 @@ def _derive_phase(
 
 
 def _check_lanes(
-    root: Path,
-    template: _Templates,
-    config: _BufConfig,
-    scratch: Path,
-    settings: AssaySettings,
-    scope: ArtifactScope,
-    executor: Executor,
-    *,
-    bootstrap: bool = False,
+    root: Path, template: _Templates, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor
 ) -> Result[_Lanes, Fault]:
     gated = frozenset(lane.name for lane in _LANES if lane.gated)
     freshness = Check(tool=_ROWS["freshness-gate", Mode.QUERY], thunk=_freshness(root, scratch, out_dirs(template)))
 
-    def gate_phase(seed: tuple[Completed, Completed, Completed, str]) -> Result[_Lanes, Fault]:
-        probe, module_done, baseline_done, baseline = seed
+    def gate_phase(probe: Completed) -> Result[_Lanes, Fault]:
         missed = probe.status is not RailStatus.OK
-        lanes = tuple(_lane_check(lane, scratch, baseline) for lane in _LANES)
+        lanes = tuple(_lane_check(lane, scratch) for lane in _LANES)
 
         def seated(chk: Check) -> Completed | None:
-            if missed and chk.tool.name in gated:
-                return _seat(chk, RailStatus.SKIP, "plugin probe missed")
-            if chk.tool.name in {"buf-breaking", "buf-constraint"} and not baseline:
-                return _seat(chk, RailStatus.SKIP, "default BSR commit did not resolve")
-            return None
+            return _seat(chk, RailStatus.SKIP, "plugin probe missed") if missed and chk.tool.name in gated else None
 
-        return _phase(executor, lanes, seated, settings=settings, scope=scope).map(
-            lambda done: (("plugin-probe", probe), ("buf-module", module_done), ("buf-baseline", baseline_done), *done)
-        )
+        return _phase(executor, lanes, seated, settings=settings, scope=scope).map(lambda done: (("plugin-probe", probe), *done))
 
     def post_phase(derived: tuple[_Lanes, _Projections, _RosterFiles]) -> Result[_Lanes, Fault]:
         done, projections, roster_files = derived
         generated = dict(done)["buf-generate"]
         reason = "" if generated.status in {RailStatus.OK, RailStatus.EMPTY} else "scratch generation did not complete"
-        constraint_reason = "" if (scratch / _BASE_IMAGE).exists() else "baseline image did not build"
         corpus = Check(tool=_ROWS["corpus-gate", Mode.CHECK], thunk=_corpus(root, scratch / _IMAGE, template, projections, roster_files))
-        constraint = Check(tool=_ROWS["constraint-gate", Mode.CHECK], thunk=_constraints(scratch / _IMAGE, scratch / _BASE_IMAGE))
 
         def seated(chk: Check) -> Completed | None:
-            if reason and chk is freshness:
-                return _seat(chk, RailStatus.SKIP, reason)
-            if constraint_reason and chk is constraint:
-                return _seat(chk, RailStatus.SKIP, constraint_reason)
-            return None
+            return _seat(chk, RailStatus.SKIP, reason) if reason and chk is freshness else None
 
-        return _phase(executor, (corpus, constraint, freshness), seated, settings=settings, scope=scope).map(lambda post: (*done, *post))
+        return _phase(executor, (corpus, freshness), seated, settings=settings, scope=scope).map(lambda post: (*done, *post))
 
     return (
         _probe(root, template, executor, settings=settings, scope=scope)
-        .bind(
-            lambda probe: _module_phase(config.module, executor, bootstrap=bootstrap, settings=settings, scope=scope).bind(
-                lambda module: _baseline_phase(config.module, executor, present=module[1], settings=settings, scope=scope).map(
-                    lambda baseline: (probe, module[0], *baseline)
-                )
-            )
-        )
         .bind(gate_phase)
         .bind(lambda done: _derive_phase(root, scratch, done, executor, settings=settings, scope=scope))
         .bind(
@@ -4646,7 +4460,7 @@ def _generate_run(
             .map(lambda done: _report("generate", done, str(scratch), config.module))
         )
 
-    manifest = load_manifest(root / CORPUS).default_value(Manifest(version=2, entries=()))
+    manifest = load_manifest(root / CORPUS).default_value(Manifest(entries=()))
     return _generation_transaction(root, template, manifest).recover().bind(lambda _direction: run())
 
 
@@ -4696,11 +4510,19 @@ def _publish_run(
 
         return _prepush_phase(config.module, lanes, executor, settings=settings, scope=scope).bind(revalidated)
 
+    def custody(auth: Completed) -> Result[_Lanes, Fault]:
+        # The pre-gate reading the pre-push resolve compares against: absence here is the one admitted bootstrap.
+        return _module_phase(config.module, executor, settings=settings, scope=scope).bind(
+            lambda module: _baseline_phase(config.module, executor, present=module[1], settings=settings, scope=scope).map(
+                lambda baseline: (("buf-auth", auth), ("buf-module", module[0]), ("buf-baseline", baseline))
+            )
+        )
+
     def gated(auth: Completed) -> Result[Report, Fault]:
         if _verdict(auth) is not RailStatus.OK:
             return Ok(_report("publish", (("buf-auth", auth),), str(scratch), config.module))
-        return _check_lanes(root, template, config, scratch, settings, scope, executor, bootstrap=True).bind(
-            lambda lanes: push_phase((("buf-auth", auth), *lanes))
+        return custody(auth).bind(
+            lambda custodial: _check_lanes(root, template, scratch, settings, scope, executor).bind(lambda lanes: push_phase((*custodial, *lanes)))
         )
 
     return _auth_phase(config.module, executor, settings=settings, scope=scope).bind(gated)
@@ -4714,12 +4536,11 @@ def _leased(settings: AssaySettings, run: Callable[[], Result[Report, Fault]]) -
 
 
 def check(settings: AssaySettings, scope: ArtifactScope, params: ContractsParams, executor: Executor) -> Result[Report, Fault]:
-    """Gate the contracts plane against the resolved immutable BSR commit, then run every local proof lane under one lease.
+    """Run every local proof lane over the contracts plane under one lease: build, lint, format, scratch generation, and the gates.
 
-    A default-label resolution fault skips only breaking while every sibling still executes. A template-plugin miss skips
-    scratch generation and freshness; a projector miss seats the projection lanes UNSUPPORTED and the audit names each
-    underivable seam. Executed lane verdicts read their exit code, a defect exit parses to rows, and any other failure keeps
-    its siblings' rows.
+    A template-plugin miss skips scratch generation and freshness; a projector miss seats the projection lanes UNSUPPORTED
+    and the audit names each underivable seam. Executed lane verdicts read their exit code, a defect exit parses to rows,
+    and any other failure keeps its siblings' rows.
 
     Returns:
         Folded report with ``ContractsRun`` detail, or a template, scratch, lease, or spawn fault.
@@ -4731,7 +4552,7 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: ContractsParams
             lambda config: _scratch(settings, scope).bind(
                 lambda scratch: _leased(
                     settings,
-                    lambda: _check_lanes(root, template, config, scratch, settings, scope, executor).map(
+                    lambda: _check_lanes(root, template, scratch, settings, scope, executor).map(
                         lambda lanes: _report("check", lanes, str(scratch), config.module)
                     ),
                 )
@@ -4765,7 +4586,7 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: ContractsPara
     The credential resolves first, since module absence reads identically with and without one and would otherwise elect the
     bootstrap create blind. Existing modules re-resolve the unchanged default-label commit immediately before push; bootstrap
     re-proves exact absence; the pushed coordinate is read back off the default label. Authentication, network, malformed
-    resolver output, compatibility defects, stale generated trees, and every other non-clean lane prevent the push.
+    resolver output, a moved label, stale generated trees, and every other non-clean lane prevent the push.
 
     Returns:
         Folded report with the immutable published commit in ``ContractsRun``, or a config, scratch, lease, or spawn fault.

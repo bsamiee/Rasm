@@ -10,7 +10,7 @@
 - [03]-[TREE_SNAPSHOT]: `LayerTrait`, `PrintPen`, `LayerFace`, `DetailTrait`, `DetailFace`, `LayerNode`, and the `LayerTree` detached topology.
 - [04]-[EDITS_AND_OVERRIDES]: `LayerEdit` staged-property program on its slot rosters beside the `LayerOverride` per-detail family.
 - [05]-[COMMIT_RAIL]: `LayerOp`, `LayerDelta`, the `Layers` entry pair, and the `LayerReceipt` alias over the shared fact stream.
-- [06]-[ORGANIZATION_PROJECTION]: `OrganizationFact` host-free egress, its `IOrganizationAuthority` port, and the `rasm.contracts.organization.v1` `[Mapper]` codec.
+- [06]-[ORGANIZATION_PROJECTION]: `OrganizationFact` host-free egress, its `IOrganizationAuthority` port, and the `rasm.contracts.organization` `[Mapper]` codec.
 - [07]-[SURFACE_LEDGER]: page owner map.
 
 ## [02]-[IDENTITY_AND_ADDRESS]
@@ -1327,7 +1327,7 @@ public static partial class Layers {
 
 ## [06]-[ORGANIZATION_PROJECTION]
 
-- Owner: recursive `OrganizationEntity` carries one content-keyed entity, its ordered child forest, authority-issued members, and probed view overrides; `EntityPath` carries a typed current selection through sibling indexes; `OrganizationFact` is the whole detached forest. `IOrganizationAuthority` is the federation port a composition root binds, and `OrganizationCodec` is the ONE `[Mapper]` lowering the admitted fact onto `rasm.contracts.organization.v1` bytes.
+- Owner: recursive `OrganizationEntity` carries one content-keyed entity, its ordered child forest, authority-issued members, and probed view overrides; `EntityPath` carries a typed current selection through sibling indexes; `OrganizationFact` is the whole detached forest. `IOrganizationAuthority` is the federation port a composition root binds, and `OrganizationCodec` is the ONE `[Mapper]` lowering the admitted fact onto `rasm.contracts.organization` bytes.
 - Entry: `Layers.Ask(session, authority, views)` projects one admitted host-free forest inside the read window; `OrganizationCodec.Encode` is its sole proto-binary producer boundary.
 - Law: every name on this egress states the HOST-FREE organizational concept and the Rhino layer vocabulary translates HERE. Publishing `LayerStamp` field-for-field binds every peer decode to one host's layer model, which `libs/.planning/ARCHITECTURE.md` `[03]-[UNIVERSAL_VS_CAPTURE]` forecloses, so the host `Guid`, the `-1`-sentinel table index, and the `::`-joined path each stop at this boundary.
 - Law: organizational identity is the content key over the count-framed ancestor label chain, minted through the kernel `CanonicalWriter` — `Rows` count-frames the chain and `String` length-frames each label — so one organizational address keys identically across source documents and a worksession merge unions them. Folding the source key into that preimage is the rejected form, since it re-scopes a federation address down to one file. NAMED LOSS: the prior hand framer wrote its int32 frames big-endian; the kernel writer frames little-endian, so the organizational address RE-KEYS ONCE at this landing — stated here, never re-derived per consumer, and the wire's own field roster, numbers, and 16-byte big-endian key emission are untouched.
@@ -1345,13 +1345,13 @@ public static partial class Layers {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 // Framing left this boundary with the kernel drain: the preimage is `CanonicalWriter`'s, so no buffer writer, no
-// `Encoding`, and no frame helper survives here. `Rasm.Contracts.Organization.V1` is the GENERATED namespace of the
+// `Encoding`, and no frame helper survives here. `Rasm.Contracts.Organization` is the GENERATED namespace of the
 // corpus-homed source, reached by project reference rather than declared under this host package, because the family
 // it spells is host-free.
 using System.Buffers.Binary;
 using Celly.Protovalidate;
 using Google.Protobuf;
-using Rasm.Contracts.Organization.V1;
+using Rasm.Contracts.Organization;
 using Riok.Mapperly.Abstractions;
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -1601,7 +1601,7 @@ public static partial class OrganizationCodec {
     [MapProperty([nameof(OrganizationEntity.Name), nameof(LeafName.Value)], [nameof(Entity.Name)])]
     private static partial Entity Entity(OrganizationEntity entity);
 
-    private static partial Rasm.Contracts.Organization.V1.EntityPath Path(EntityPath path);
+    private static partial Rasm.Contracts.Organization.EntityPath Path(EntityPath path);
     private static partial ViewOverride Override(ViewOverrideFact value);
 
     // Content keys leave as 16 BIG-ENDIAN bytes while `XxHash128` fills its own buffer little-endian, so byte order

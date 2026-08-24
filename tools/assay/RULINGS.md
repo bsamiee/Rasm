@@ -32,11 +32,11 @@
 - `contracts generate` audits one staged image before the transaction admits it, so a pre-commit failure leaves the committed estate byte-unchanged.
 - Seam schemas are gate-emitted `json-strict-bundle` projections of their proto: file name is the `$id`; a hand schema fails `schema-hand-authored`.
 - `buf format` rides `--diff --exit-code` and never writes — Buf ships non-idempotent formatter releases, so the author lands the spelling at source.
-- `contracts check` resolves the module's `main` label to one immutable commit and proves FILE breaking on it; a resolver fault skips breaking alone.
-- `buf breaking` carries rule options as opaque payload, so the constraint gate diffs `buf.validate` rules on the baseline and refuses narrowing.
+- `contracts check` proves the estate from the working tree alone — build, lint, format, scratch generation, the rosters, and the gates reach no registry.
+- `contracts publish` resolves `main` before the gate and again immediately before the push; a label that moved between the two faults with nothing pushed.
 - `distribution-export` reads the workspace manifest and proves both halves: `exports` resolves `gen/*.ts`, `publishConfig` the `dist` triple.
 - `contracts publish` admits module absence as bootstrap alone; an absent label, auth, or network fault never creates, and no Git metadata rides.
-- Only publication spends a credential: build, lint, format, FILE breaking on the public module, and remote-plugin generation all resolve without one.
+- Only publication spends a credential: build, lint, format, and remote-plugin generation all resolve without one.
 - `contracts publish` resolves the credential before the gate; absence reads identically either way, so a blind lookup elects `--create` unproven.
 - `BUF_TOKEN` outranks `~/.netrc` while set non-empty and reads as logged out when unusable; an empty export falls through to the file.
 - Bootstrap rides `buf push --create`, creating and committing under one authorization; create-then-push strands a name no rename reclaims.

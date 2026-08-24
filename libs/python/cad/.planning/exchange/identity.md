@@ -30,7 +30,7 @@ from OCP.APIHeaderSection import APIHeaderSection_MakeHeader
 from OCP.StepBasic import StepBasic_Product
 from OCP.StepData import StepData_StepModel
 from OCP.TCollection import TCollection_HAsciiString
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import StepProtocol
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import StepProtocol
 
 from rasm.cad.faults import STEP_WRITE, CadRail
 

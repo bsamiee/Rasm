@@ -116,23 +116,23 @@ flowchart LR
     Geometry e3@<-->|"[WIRE]: ComputeService"| RasmCompute
     Runtime e4@<-->|"[CONTENT_KEY]: ContentAddress"| Element
     Runtime e5@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
-    AppHost e6@-->|"[WIRE]: capability.v1.DiscoverResponse"| Runtime
+    AppHost e6@-->|"[WIRE]: capability.DiscoverResponse"| Runtime
     Runtime e7@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| RasmCompute
     Runtime e8@<-->|"[WIRE]: OpLogEntry"| Persistence
     Compute e11@<-->|"[GRADUATION]: HandoffAxis"| RasmCompute
     RasmCompute e12@-->|"[SHAPE]: DoeDataset"| Data
     Data e13@<-->|"[WIRE]: SubstraitPlan"| Persistence
-    Data e14@-->|"[WIRE]: declaration.v1.DeclarationRecord"| Materials
+    Data e14@-->|"[WIRE]: declaration.DeclarationRecord"| Materials
     Bim e15@-->|"[PROJECTION]: GeoWire"| Data
-    Artifacts e16@-->|"[WIRE]: appearance.v1.Set"| Materials
+    Artifacts e16@-->|"[WIRE]: appearance.Set"| Materials
     Artifacts e17@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
-    Fabrication e18@-->|"[WIRE]: fabrication.v1.FeatureControl"| Artifacts
+    Fabrication e18@-->|"[WIRE]: fabrication.FeatureControl"| Artifacts
     RasmCompute e19@-->|"[CONTAINER]: FieldContainer"| Data
     Compute e20@<-->|"[CONTAINER]: SparseExchange"| RasmCompute
     Compute e21@-->|"[CONTAINER]: GraduationEnvelope"| RasmCompute
 ```
 
-Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Generated `contracts` classes carry the branch proto vocabulary every folder imports, runtime's transport plane holds the generated-bindings edge — the served Connect applications, the one descriptor registry, and the two-way boot census over closure and generated services — and contract compatibility is the corpus gate's (`buf breaking`), never a runtime descriptor diff.
+Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Generated `contracts` classes carry the branch proto vocabulary every folder imports, runtime's transport plane holds the generated-bindings edge — the served Connect applications, the one descriptor registry, and the two-way boot census over closure and generated services — and contract compatibility is the corpus emission's, never a runtime descriptor diff.
 
 ## [04]-[INTERNAL]
 
@@ -213,4 +213,4 @@ flowchart LR
 
 ## [06]-[ADMISSION_POLICY]
 
-Root manifest is the virtual workspace root owning the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers; each folder carries one member manifest holding distribution identity and bare-name edges, and `uv.lock` fixes every resolved version. Native distributions whose wheels stop below the floor ride the Forge python-overlay `.pth` behind one marker row; `RULINGS.md` settles that rail. Native rendering homes to `artifacts`; OCCT/STEP admission homes to the `cad` provider. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+Root manifest owns the virtual workspace root, the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers; member manifests hold distribution identity and bare-name edges, and `uv.lock` fixes every resolved version. Native wheels stopping below the floor ride the Forge python-overlay `.pth` behind one marker row `RULINGS.md` settles. Native rendering homes to `artifacts`, OCCT/STEP admission to `cad`, and every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.

@@ -257,7 +257,6 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
         else None
     )
     return Envelope(
-        schema_version=1,
         claim=bind.claim,
         verb=bind.verb,
         status=report.status,
@@ -314,7 +313,6 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
             diagnostic, truncated = _distill(fault, ms)
             persist = diagnostic.failing_step != Step.PARSE
             envelope = Envelope(
-                schema_version=1,
                 claim=bind.claim,
                 verb=bind.verb,
                 status=fault.status,
@@ -330,7 +328,6 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
             return _emit_envelope(settings, envelope, persist=persist)
         case rank:
             doubled = Envelope(
-                schema_version=1,
                 claim=bind.claim,
                 verb=bind.verb,
                 status=RailStatus.FAULTED,
@@ -386,7 +383,6 @@ def _encode(envelope: Envelope) -> bytes:
         return wire_encode(envelope)
     except UnicodeEncodeError:
         safe = Envelope(
-            schema_version=1,
             claim=envelope.claim,
             verb=wire_safe(envelope.verb),
             status=RailStatus.FAULTED,
@@ -606,7 +602,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (
         "check",
         contracts_rail.check,
         ContractsParams,
-        "Resolve the BSR default label to an immutable commit, then buf build + lint + format + breaking + corpus audit + freshness.",
+        "buf build + lint + format + scratch generation, then the plugin probe, corpus audit, and freshness diff.",
     ),
     Bind(Claim.CONTRACTS, "generate", contracts_rail.generate, ContractsParams, "buf generate --clean over every committed out root under lease."),
     Bind(Claim.CONTRACTS, "publish", contracts_rail.publish, ContractsParams, "Gate the full contract estate, then publish its named module to BSR."),

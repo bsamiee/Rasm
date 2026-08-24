@@ -60,8 +60,6 @@ Substrate vocabulary spans telemetry, storage engines, and execution: each term 
 
 ## [05]-[SCHEMA_AND_CHANGE]
 
-- `schema migration`: Advances a database from one declared shape to the next as an ordered change unit.
-- `declarative schema management`: Computes the change plan by diffing a desired schema against the live one, so no change script is hand-written.
 - `desired state`: Declares the shape a reconciler drives toward, and the reconciler owns every step reaching it.
 - `generation`: Identifies one immutable schema-artifact set by digest, and a digest change replaces that set whole.
     - [NOT]: Garbage-collector generations and code generation; only the schema deployment unit carries this word.

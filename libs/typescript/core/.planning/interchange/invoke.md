@@ -13,7 +13,7 @@
 
 - Owner: `Invoke.Transport` maps each Connect failure into exactly one `Wire.InvokeFault` outcome.
 - Law: one valid recognized detail becomes `Remote`; zero recognized details become `Transport`; malformed or multiple recognized details become terminal `MalformedDetail`.
-- Law: the detail is the generated `rasm.contracts.fault.v1.FaultDetail` read off `ConnectError.findDetails` against the one descriptor registry and decoded through `Wire.Remote.FromWire`; a `Transport` carries the class `Wire.Hops` rows for its code, the one table every hop grades through.
+- Law: the detail is the generated `rasm.contracts.fault.FaultDetail` read off `ConnectError.findDetails` against the one descriptor registry and decoded through `Wire.Remote.FromWire`; a `Transport` carries the class `Wire.Hops` rows for its code, the one table every hop grades through.
 - Boundary: only `Transport(connectivity | deadline | ceiling)` may drive topology; remote recovery may retry only on the current lane.
 
 ```typescript signature
@@ -28,7 +28,7 @@ import {
   type MessageInitShape,
   type MessageValidType,
 } from "@bufbuild/protobuf"
-import * as ui from "@rasm\/contracts/rasm/contracts/ui/v1/commands_pb"
+import * as ui from "@rasm\/contracts/rasm/contracts/ui/commands_pb"
 import { Headers, MsgPack, Ndjson, Socket } from "@effect/platform"
 import {
   Array,
@@ -539,8 +539,8 @@ const _unbindable = (admitted: Capability.Admitted, method: DescMethod): Wire.Fa
   })
 
 // Contract identity is package plus service family under the admitted generation digest. Both coordinates compare
-// before one method derives; `buf breaking` FILE remains the field-level compatibility authority, so no descriptor
-// walk or CloudEvents `dataschema` vocabulary enters this handshake.
+// before one method derives; every peer regenerates from the one live shape, so no descriptor walk or CloudEvents
+// `dataschema` vocabulary enters this handshake.
 const _diverged = (admitted: Capability.Admitted, service: DescService): Wire.Fault =>
   new Wire.Fault({
     family: "FaultDetail",

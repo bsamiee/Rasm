@@ -13,7 +13,7 @@ Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stde
 - `.config/dotnet-tools.json` is the register: every row carries a named owner and leaves with it, and package health reads SDK-first.
 - `dotnet-ef` is the register's recorded negative: no rail runs it, and `Rasm.Persistence` `Element/identity` scaffolding keeps the row.
 - `contracts check` gates the estate buf module under one lease, `generate` writes derived surfaces, and `publish` reruns it before the push.
-- `contracts check` runs credential-free and faults on module absence, naming it; only `publish` admits that absence, and only to bootstrap.
+- `contracts check` runs credential-free and reaches no registry; `publish` alone looks the module up, admitting exact absence only to bootstrap.
 - `contracts publish` probes `buf registry whoami`, pushes under the resolved account, then reads the returned coordinate off the default label.
 - `contracts publish` names a stale `BUF_TOKEN` export as the logged-out cause before the gate spends any work.
 - `contracts` derives each `proto:` seam schema through `protoc-gen-jsonschema` into scratch: `check` fails `schema-stale`, `generate` lands it.

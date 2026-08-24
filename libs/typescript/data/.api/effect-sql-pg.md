@@ -90,7 +90,7 @@ Driver owns the pool, wire protocol, LISTEN/NOTIFY, and the OTel span; every pg 
 [LOCAL_ADMISSION]:
 - compose the neutral `SqlClient` Tag in domain rows; reach for the `PgClient` Tag only for `listen`/`notify`/`json`. Hardcoding `PgClient` in a row that rides `SqlClient` blocks the sqlite lanes.
 - express advisory locks, COPY, idempotency claims, SKIP LOCKED, and the RLS GUC as `sql` fragments over `reserve`/`withTransaction`; the statement is the parameterized owner and the driver ships no wrapper.
-- `PgMigrator` (`run`/`layer`, re-exporting `@effect/sql/Migrator`) is banned branch-wide: DDL is idempotent declarative ensure — `iac` applies, `data` verifies, runtime never mutates schema — with read-time upcasting instead of migrations.
+- `PgMigrator` (`run`/`layer`, re-exporting `@effect/sql/Migrator`) is banned branch-wide: DDL is idempotent declarative ensure — `iac` applies, `data` verifies, runtime never mutates schema — and an event-shape change re-mints the journal whole instead of migrating it.
 - secrets (`url`, `password`) are `Redacted`; pool sizing (`maxConnections`, `connectionTTL`) is a `Config`/`iac` fact, never a row literal.
 
 [RAIL_LAW]:

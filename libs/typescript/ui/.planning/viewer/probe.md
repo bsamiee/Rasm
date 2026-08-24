@@ -220,7 +220,7 @@ const _board = (
 
 ```typescript
 import { Digest, Format, Wire } from "@rasm/core"
-import { EvidenceReceiptWireSchema } from "@rasm\/contracts/rasm/contracts/ui/v1/evidence_pb"
+import { EvidenceReceiptWireSchema } from "@rasm\/contracts/rasm/contracts/ui/evidence_pb"
 import { Array, DateTime, Effect, Equal, Option, type ParseResult, Schema } from "effect"
 
 const _PIXEL_VERSION = "rgba8-srgb-straight-top-left-v2" as const

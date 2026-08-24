@@ -37,7 +37,7 @@ Rasm.AppUi/
 │   ├── Ink.cs            # ChartChrome role fold, the ChartInk resolver, and the direct ChartFault family
 │   ├── Streams.cs        # ChartStream feed rows, the shape-checked TransformRow chain, ChartReducer order statistics
 │   ├── Tiles.cs          # DashboardTile union over one TileSource axis; the mount fold and the WatchRule alert rows
-│   ├── Boards.cs         # BoardContext value, the placement fold, snapshot migration, the cross-filter brush index
+│   ├── Boards.cs         # BoardContext value, the placement fold, the sealed snapshot grain, the cross-filter brush index
 │   ├── Custom.cs         # CustomVisual frozen layout catalog binding one VisualPayload case per row
 │   ├── Basemap.cs        # Mapsui MapControl with BasemapSource tile rows and NTS overlay rows; EditManager Apply verbs
 │   ├── Telemetry.cs      # TelemetryBoard row pinning EvidenceFan, frame objectives, store-profile receipts, EvidenceJoin
@@ -69,7 +69,7 @@ Rasm.AppUi/
 │   ├── Tour.cs           # ReviewTour ordered TourStop sequence binding saved Viewpoints with dwell and motion tokens
 │   └── Session.cs        # SessionRole rank rows, MembershipState lifecycle axis, MembershipOp verdict transitions
 ├── Diagnostics/          # Evidence, proof, dev loop, and quality governance
-│   ├── Evidence.cs       # EvidenceReceipt case fold into the HLC-stamped sink; scope identity, dimensions, meter mount
+│   ├── Evidence.cs       # EvidenceReceipt case fold into the HLC-stamped sink; scope identity, dimensions, meter mount, the durable-parcel seal
 │   ├── Proof.cs          # Capture, check, variant-density, benchmark, and replay cells off live catalogs; CsCheck and Verify seal
 │   ├── DevLoop.cs        # Reload knob rows, the attach-config inspector row, HUD sample feed, FlameNode fold, solve scrub
 │   └── Governor.cs       # PerfBudget fold over the GovernorState cell; hysteresis steps passes, residency, motion, XR together
@@ -92,6 +92,7 @@ Rasm.AppUi/
 Member-resolved strata order the interior, and every consumption edge points down.
 
 - S0 hub — `Diagnostics/Evidence` seats lowest; `EvidenceReceipt` NESTS producer receipts as co-ownership, so the fan adds no upward import.
+- S0 durable — `StateSeal` seats with the hub, so every persisted surface reaches one generation compare and mints no second stored-shape authority.
 - S0 substrate — fault families seat beside the hub, so a raising sub-domain adds a consumer and no code range collides with a sibling's.
 - S0 vocabulary — pure `Theme`: every visual literal traces to a generated `TokenRow`, and the swap re-seeds atomically.
 - S1 spines — one owner per fabric, so a second table serving one fabric is the forked-spine defect.

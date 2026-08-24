@@ -37,7 +37,7 @@ from builtins import frozendict
 from expression import Nothing, Option, Some
 from expression.collections import Block
 from msgspec import Struct
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import BooleanProvenance
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import BooleanProvenance
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -230,5 +230,5 @@ _ELECTED: Final[
 
 - [LIST_TRAVERSAL]-[OPEN]: which member reads a `TopTools_ListOfShape` in order — a bound iterator class, or Python iteration over the list itself; verify against the installed `OCP.TopTools` surface and land the row in the folder `.api` catalogue.
 - [MAP_REVERSE]-[OPEN]: does `TopTools_IndexedMapOfShape` answer a shape-to-index lookup, and does it report absence as zero or by raising; verify against the installed `OCP.TopTools` surface and land the row in the folder `.api` catalogue.
-- [PROVENANCE_WIRE]-[OPEN]: which `cad.v1` message carries the per-sub-shape correspondence beside `BooleanProvenance`, and does it ride `BrepKernelReceipt` or a separate response field; verify against `tests/contracts/proto/rasm/contracts/cad/v1/types.proto` and the wire-contract law.
+- [PROVENANCE_WIRE]-[OPEN]: which `cad` message carries the per-sub-shape correspondence beside `BooleanProvenance`, and does it ride `BrepKernelReceipt` or a separate response field; verify against `tests/contracts/proto/rasm/contracts/cad/types.proto` and the wire-contract law.
 - [DURABLE_NAME]-[OPEN]: does a resealed body admit a durable sub-shape name — a STEP-persisted identifier, or a correspondence stored beside the artifact — so a feature can follow a Boolean; verify against `exchange/identity#CANONICAL` and a live reseal probe.

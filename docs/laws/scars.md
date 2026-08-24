@@ -165,7 +165,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: Repair narrows the consuming signature, never a call-site cast or re-check — both re-assert what the type system already proved.
 
 [FROZEN_FOREIGN_ARTIFACT]:
-- Law: Vendored publisher bytes carve out of every respelling lane — formatter, breaking gate, generator, canonicalizer — staying byte-identical.
+- Law: Vendored publisher bytes carve out of every respelling lane — formatter, lint gate, generator, canonicalizer — staying byte-identical.
 - Trigger: Lanes reaching the vendored tree diff the estate's spelling over the publisher's, so re-vendoring reads as an estate edit.
 - Boundary: Readers modelling estate-emitted assets carve too — a vendored corpus emits no producer asset and reads as awaiting emission.
 - Boundary: Registries fingerprinting an asset's bytes make those bytes the contract, so estate-authored and publisher assets carve alike.

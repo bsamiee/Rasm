@@ -27,8 +27,8 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Tension: the settled rule is carrier-by-capture and never carrier-by-preference, so a span member stays right wherever no closure captures it and the ruling states that test rather than banning the span.
 
 [COMPUTE_SERVICE_GROWTH]-[BLOCKED]: the compute services carry every verb a peer fence dials, and no verb without both fences.
-- Capability: a service rpc exists exactly where a server fence and a peer client fence both name it, so progress, document events, and capture streaming arrive as rpc rows with their message owners rather than as declared gaps; the capability-inventory verb already landed as `capability.v1` `CapabilityDiscoveryService.Discover` with AppHost serving and the python runtime dialing, outside this branch's ingress roster.
-- Shape: `tests/contracts/proto/rasm/contracts/compute/v1/{compute,control}.proto` service blocks; `.planning/Runtime/wire.md` `[02]-[PROTO_VOCABULARY]` roster and law lines; the owning request/reply message rows.
+- Capability: a service rpc exists exactly where a server fence and a peer client fence both name it, so progress, document events, and capture streaming arrive as rpc rows with their message owners rather than as declared gaps; the capability-inventory verb already landed as `capability` `CapabilityDiscoveryService.Discover` with AppHost serving and the python runtime dialing, outside this branch's ingress roster.
+- Shape: `tests/contracts/proto/rasm/contracts/compute/{compute,control}.proto` service blocks; `.planning/Runtime/wire.md` `[02]-[PROTO_VOCABULARY]` roster and law lines; the owning request/reply message rows.
 - Unlocks: `Runtime/progress#PROGRESS_CELL` marks reach a remote subscriber, and a live document stream replaces host-callback polling.
 - Anchors: `Runtime/progress#PROGRESS_CELL` `ProgressMark`; `Rasm.AppHost/Observability/bundles#MANIFEST_RECEIPT`; `Rasm.AppUi/Editing/livedata#DATA_SOURCES`; wire-contract law — a service rpc survives only with a server fence AND a peer client fence.
 - Arms: a peer branch lands the client fence for a verb and the corpus source gains its rpc row in the same pass.
@@ -36,17 +36,17 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 
 [BOARD_PACK_FAMILY]-[BLOCKED]: the dashboard-and-reliability pack crosses to the deploy plane as a generated message.
 - Capability: one corpus family carries panels, indicators, burn rows, and alert specs so the compile leg reads a generated schema and the kernel roster's arms never mirror by hand in a peer.
-- Shape: new `tests/contracts/proto/rasm/contracts/board/v1/board.proto`; `.planning/Runtime/board.md` `[06]-[TS_PROJECTION]` binds the generated messages and `ComputeDescriptors` gains one `[Mapper]` seam onto them.
+- Shape: new `tests/contracts/proto/rasm/contracts/board/board.proto`; `.planning/Runtime/board.md` `[06]-[TS_PROJECTION]` binds the generated messages and `ComputeDescriptors` gains one `[Mapper]` seam onto them.
 - Unlocks: `typescript:iac/operate/observe#BOARD_APPLY` compiles dashboards and rule groups off the generated schema, and a kernel `Sli` arm added in C# breaks the peer build rather than drifting.
 - Anchors: `Runtime/board#PANEL_PROJECTION` `BoardPack`; kernel `Sli`/`AlertSpec`/`BurnRow`/`PanelSpec` rosters; `typescript:core/observe/board#PACKS`.
 - Arms: the corpus mints the family and the TS compile leg names its consumer fence.
 - Ripple: corpus `[BOARD_PACK_FAMILY]` (coordinator); `typescript:iac` `[BOARD_APPLY]`.
 
 [COMPUTE_RECEIPT_FAMILY]-[QUEUED]: a Compute receipt rides the generated host envelope as a packed generated message.
-- Capability: Compute mints a corpus receipt family so one composed message pairs `Receipt.V1.ReceiptHeaderWire` with a oneof over that family, one arm per case.
-- Shape: new `tests/contracts/proto/rasm/contracts/compute/v1/receipt.proto` over the `ComputeReceipt` case roster; `.planning/Runtime/receipts.md` `[02]-[RECEIPT_UNION]` gains one `[Mapper]` seam per case and `[05]-[TS_PROJECTION]` binds the generated envelope.
+- Capability: Compute mints a corpus receipt family so one composed message pairs `Receipt.ReceiptHeaderWire` with a oneof over that family, one arm per case.
+- Shape: new `tests/contracts/proto/rasm/contracts/compute/receipt.proto` over the `ComputeReceipt` case roster; `.planning/Runtime/receipts.md` `[02]-[RECEIPT_UNION]` gains one `[Mapper]` seam per case and `[05]-[TS_PROJECTION]` binds the generated envelope.
 - Unlocks: `ReceiptFolds.Journal` rehydrates a host envelope through `Any.Unpack` rather than the STJ `ComputeWireContext`; `Runtime/receipts` declares the union one-ended, so no peer decode fence is owed.
-- Anchors: `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface`; `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`; `Receipt.V1.ReceiptHeaderWire`.
+- Anchors: `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface`; `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`; `Receipt.ReceiptHeaderWire`.
 - Ripple: corpus `[COMPUTE_RECEIPT_FAMILY]` (coordinator); `Rasm.AppHost` envelope producer (Writer D).
 
 ## [02]-[CLOSED]

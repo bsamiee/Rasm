@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package rasm.contracts.fabrication;
+
+import "buf/validate/validate.proto";
+
+// --- [VOCABULARIES] -----------------------------------------------------------------------
+
+enum Characteristic {
+  CHARACTERISTIC_UNSPECIFIED = 0;
+  CHARACTERISTIC_STRAIGHTNESS = 1;
+  CHARACTERISTIC_FLATNESS = 2;
+  CHARACTERISTIC_CIRCULARITY = 3;
+  CHARACTERISTIC_CYLINDRICITY = 4;
+  CHARACTERISTIC_PROFILE_LINE = 5;
+  CHARACTERISTIC_PROFILE_SURFACE = 6;
+  CHARACTERISTIC_PARALLELISM = 7;
+  CHARACTERISTIC_PERPENDICULARITY = 8;
+  CHARACTERISTIC_ANGULARITY = 9;
+  CHARACTERISTIC_POSITION = 10;
+  CHARACTERISTIC_CONCENTRICITY = 11;
+  CHARACTERISTIC_SYMMETRY = 12;
+  CHARACTERISTIC_CIRCULAR_RUNOUT = 13;
+  CHARACTERISTIC_TOTAL_RUNOUT = 14;
+}
+
+enum Scope {
+  SCOPE_UNSPECIFIED = 0;
+  SCOPE_SURFACE = 1;
+  SCOPE_AXIS = 2;
+  SCOPE_MEDIAN_LINE = 3;
+  SCOPE_MEDIAN_PLANE = 4;
+  SCOPE_CENTER_POINT = 5;
+}
+
+// The kind decides its own second dimension: `unilateral` carries one, `projected` a positive height, and
+// `unequally_disposed` an offset inside the width; every other kind carries none.
+enum ZoneKind {
+  ZONE_KIND_UNSPECIFIED = 0;
+  ZONE_KIND_BILATERAL = 1;
+  ZONE_KIND_UNILATERAL = 2;
+  ZONE_KIND_DIAMETER = 3;
+  ZONE_KIND_SPHERICAL = 4;
+  ZONE_KIND_PROFILE = 5;
+  ZONE_KIND_PROJECTED = 6;
+  ZONE_KIND_UNEQUALLY_DISPOSED = 7;
+}
+
+enum Modifier {
+  MODIFIER_UNSPECIFIED = 0;
+  MODIFIER_TANGENT_PLANE = 1;
+  MODIFIER_FREE_STATE = 2;
+  MODIFIER_STATISTICAL = 3;
+  MODIFIER_COMMON_ZONE = 4;
+  MODIFIER_CONTINUOUS_FEATURE = 5;
+  MODIFIER_ALL_AROUND = 6;
+  MODIFIER_ALL_OVER = 7;
+  MODIFIER_ENVELOPE = 8;
+  MODIFIER_INDEPENDENCY = 9;
+  MODIFIER_RECIPROCITY = 10;
+  MODIFIER_MINIMUM_CIRCUMSCRIBED = 11;
+  MODIFIER_MAXIMUM_INSCRIBED = 12;
+  MODIFIER_LEAST_SQUARES = 13;
+  MODIFIER_MINIMAX_TANGENT = 14;
+}
+
+enum Material {
+  MATERIAL_UNSPECIFIED = 0;
+  MATERIAL_REGARDLESS = 1;
+  MATERIAL_MAXIMUM = 2;
+  MATERIAL_LEAST = 3;
+}
+
+enum Egress {
+  EGRESS_UNSPECIFIED = 0;
+  EGRESS_CUT_PROGRAM = 1;
+  EGRESS_PLACEMENT = 2;
+  EGRESS_REMNANT = 3;
+  EGRESS_CLI = 4;
+  EGRESS_THREE_MF = 5;
+  EGRESS_NC1 = 6;
+  EGRESS_STOCK_SNAPSHOT = 7;
+  EGRESS_TRAVELER = 8;
+  EGRESS_QUALITY_RECORD = 9;
+  EGRESS_FLAT_PATTERN = 10;
+  EGRESS_BEND_PROGRAM = 11;
+  EGRESS_WELD_PLAN = 12;
+  EGRESS_SCAN_VECTORS = 13;
+  EGRESS_PLAN = 14;
+  EGRESS_DIGITAL_PRODUCT_PASSPORT = 15;
+}
+
+// --- [FRAME] ------------------------------------------------------------------------------
+
+// The kind-discriminated content key: two egress families over equal bytes mint equal digests, so the kind
+// crosses beside the digest and a digest-only join merges two specifications.
+message SourceKey {
+  Egress kind = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  bytes digest = 2 [(buf.validate.field).bytes.len = 16];
+}
+
+// A datum carries its OWN material condition; its precedence is its POSITION in the system. The label excludes
+// the letters I, O, and Q.
+message Datum {
+  string label = 1 [(buf.validate.field).string.pattern = "^[A-HJ-NPR-Z]{1,2}$"];
+  Material material = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// The composite lower segment is a second row of the SAME box, never a second frame; the upper segment's zone
+// kind governs both rows.
+message Segment {
+  double width_mm = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  repeated Modifier modifiers = 2 [(buf.validate.field).repeated = {
+    max_items: 14
+    unique: true
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+  repeated Datum datums = 3 [(buf.validate.field).repeated.max_items = 3];
+}
+
+// One ISO 1101 feature-control frame. Magnitudes cross EXACT in millimetres; glyphs and decimal presentation
+// belong to the consuming drawing standard. Modifiers cross sorted ascending by their key. The nine-clause legality
+// conjunction (scope and zone admission per characteristic, modifier admission, datum regime) is the producer's;
+// the wire states the shape, the kind-gated second dimension, and the datum budget.
+message FeatureControl {
+  option (buf.validate.message).cel = {
+    id: "feature_control.second_dimension"
+    message: "second_mm is present exactly for unilateral, projected, and unequally-disposed zones"
+    expression: "has(this.second_mm) == (this.zone_kind in [2, 6, 7])"
+  };
+  option (buf.validate.message).cel = {
+    id: "feature_control.projected_height"
+    message: "a projected zone carries a positive height"
+    expression: "this.zone_kind != 6 || (has(this.second_mm) && this.second_mm > 0.0)"
+  };
+  option (buf.validate.message).cel = {
+    id: "feature_control.disposition_offset"
+    message: "an unequally-disposed offset lies inside the zone width"
+    expression: "this.zone_kind != 7 || (has(this.second_mm) && this.second_mm >= 0.0 && this.second_mm <= this.width_mm)"
+  };
+
+  bytes id = 1 [(buf.validate.field).bytes.len = 16];
+  SourceKey source = 2 [(buf.validate.field).required = true];
+  Characteristic characteristic = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  Scope scope = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  ZoneKind zone_kind = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  double width_mm = 6 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  optional double second_mm = 7 [(buf.validate.field).double.finite = true];
+  repeated Modifier modifiers = 8 [(buf.validate.field).repeated = {
+    max_items: 14
+    unique: true
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+  repeated Datum datums = 9 [(buf.validate.field).repeated.max_items = 3];
+  Material material = 10 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  Segment composite = 11;
+}

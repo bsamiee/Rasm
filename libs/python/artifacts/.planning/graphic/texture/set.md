@@ -2,7 +2,7 @@
 
 `set` is the texture PRODUCER: it takes a `SetSpec` — a slot-keyed map of sources and derive chains with their storage targets — and emits one `ArtifactWork` per SLOT, each crossing the caller-threaded runtime process lane exactly as the eight-bit raster farm does, then folds the drained receipts into one the generated `Set` behind a merkle set key. It owns the egress grammar, the KTX2 tool seam and its refusal, the set-level admission gates the plane vocabulary cannot state alone, and the `ArtifactReceipt.Texture` projection.
 
-This page mints the python-produced document: the ingest and IBL-assembled plane set IS the generated `rasm.contracts.appearance.v1.Set` class filled by keyword — `Plane`, `PackRow`, `Ibl`, and `PlaneRef` its rows, every closed column a corpus enum the branch vocabulary corresponds to by member NAME, so the corpus declaration is the wire contract and no mirror or rename layer exists. The C#-pressed `baked` kind rides the SAME `Set` message under its own producer — `kind` is the discriminant, and the `appearance_key`, `provenance`, and `press` columns the corpus CEL rules bind to that kind stay absent on every set python mints. Python IBL and HDRI products ride this document under the environment kinds; no python kind crosses as a second message. `ingest#INGEST` supplies the roster and the classification; `plane#PLANE` the codecs; `derive#DERIVE` the chains; `ibl#IBL` composes this page's emit for its own products. Blob egress stays app-root composition per the branch boundary — each plane crosses the one awaitable `ProductSink`, the exact generated `ArtifactRef` returned by `ArtifactTransfer.put` rides `PlaneRef.artifact`, and this page imports no object store.
+This page mints the python-produced document: the ingest and IBL-assembled plane set IS the generated `rasm.contracts.appearance.Set` class filled by keyword — `Plane`, `PackRow`, `Ibl`, and `PlaneRef` its rows, every closed column a corpus enum the branch vocabulary corresponds to by member NAME, so the corpus declaration is the wire contract and no mirror or rename layer exists. The C#-pressed `baked` kind rides the SAME `Set` message under its own producer — `kind` is the discriminant, and the `appearance_key`, `provenance`, and `press` columns the corpus CEL rules bind to that kind stay absent on every set python mints. Python IBL and HDRI products ride this document under the environment kinds; no python kind crosses as a second message. `ingest#INGEST` supplies the roster and the classification; `plane#PLANE` the codecs; `derive#DERIVE` the chains; `ibl#IBL` composes this page's emit for its own products. Blob egress stays app-root composition per the branch boundary — each plane crosses the one awaitable `ProductSink`, the exact generated `ArtifactRef` returned by `ArtifactTransfer.put` rides `PlaneRef.artifact`, and this page imports no object store.
 
 ## [01]-[INDEX]
 
@@ -57,10 +57,10 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy, Work
 from rasm.runtime.profiles import KTX_TOOL, resolved
-from rasm.contracts.gen.rasm.contracts.artifact.v1 import artifact_pb as artifact_wire
-from rasm.contracts.gen.rasm.contracts.appearance.v1 import appearance_pb as wire
-from rasm.contracts.gen.rasm.contracts.appearance.v1 import environment_pb as environment_wire
-from rasm.contracts.gen.rasm.contracts.appearance.v1 import set_pb as set_wire
+from rasm.contracts.gen.rasm.contracts.artifact import artifact_pb as artifact_wire
+from rasm.contracts.gen.rasm.contracts.appearance import appearance_pb as wire
+from rasm.contracts.gen.rasm.contracts.appearance import environment_pb as environment_wire
+from rasm.contracts.gen.rasm.contracts.appearance import set_pb as set_wire
 from rasm.runtime.workers import Kernel, KernelTrait
 
 from rasm.artifacts.core.hooks import ArtifactsLeg

@@ -54,7 +54,7 @@ public abstract partial record ReasoningTurn {
     public sealed record ToolCalled(string CallId, string Descriptor, JsonElement Arguments, Option<CommandReceipt> Receipt) : ReasoningTurn;
     public sealed record Message(string Text) : ReasoningTurn;
     public sealed record Completed(Option<ChatFinishReason> Reason, Option<UsageDetails> Usage) : ReasoningTurn;
-    public sealed record Faulted(Rasm.Contracts.Fault.V1.FaultObservation Fault) : ReasoningTurn;
+    public sealed record Faulted(Rasm.Contracts.Fault.FaultObservation Fault) : ReasoningTurn;
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------

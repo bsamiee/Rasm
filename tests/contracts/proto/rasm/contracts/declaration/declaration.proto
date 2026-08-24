@@ -1,0 +1,178 @@
+syntax = "proto3";
+
+package rasm.contracts.declaration;
+
+import "buf/validate/validate.proto";
+import "google/type/date.proto";
+
+// --- [VOCABULARIES] -----------------------------------------------------------------------
+
+enum Registry {
+  REGISTRY_UNSPECIFIED = 0;
+  REGISTRY_OKOBAUDAT = 1;
+  REGISTRY_EC3 = 2;
+  REGISTRY_EPD_NORGE = 3;
+  REGISTRY_BUNDLE = 4;
+}
+
+enum DeclaredUnit {
+  DECLARED_UNIT_UNSPECIFIED = 0;
+  DECLARED_UNIT_KG = 1;
+  DECLARED_UNIT_T = 2;
+  DECLARED_UNIT_M = 3;
+  DECLARED_UNIT_M2 = 4;
+  DECLARED_UNIT_M3 = 5;
+  DECLARED_UNIT_L = 6;
+  DECLARED_UNIT_PCS = 7;
+  DECLARED_UNIT_M2R1 = 8;
+}
+
+enum Standard {
+  STANDARD_UNSPECIFIED = 0;
+  STANDARD_EN15804A1 = 1;
+  STANDARD_EN15804A2 = 2;
+}
+
+enum Subtype {
+  SUBTYPE_UNSPECIFIED = 0;
+  SUBTYPE_GENERIC = 1;
+  SUBTYPE_SPECIFIC = 2;
+  SUBTYPE_INDUSTRY = 3;
+  SUBTYPE_REPRESENTATIVE = 4;
+}
+
+// The frozen EN 15804+A2 core-indicator roster in its canonical order.
+enum ImpactCategory {
+  IMPACT_CATEGORY_UNSPECIFIED = 0;
+  IMPACT_CATEGORY_GWP_TOTAL = 1;
+  IMPACT_CATEGORY_GWP_FOSSIL = 2;
+  IMPACT_CATEGORY_GWP_BIOGENIC = 3;
+  IMPACT_CATEGORY_GWP_LULUC = 4;
+  IMPACT_CATEGORY_ODP = 5;
+  IMPACT_CATEGORY_AP = 6;
+  IMPACT_CATEGORY_EP_FRESHWATER = 7;
+  IMPACT_CATEGORY_EP_MARINE = 8;
+  IMPACT_CATEGORY_EP_TERRESTRIAL = 9;
+  IMPACT_CATEGORY_POCP = 10;
+  IMPACT_CATEGORY_ADP_MINERALS = 11;
+  IMPACT_CATEGORY_ADP_FOSSIL = 12;
+  IMPACT_CATEGORY_WDP = 13;
+}
+
+// The EN 15978 module roster at declaration granularity; `A1_A3` is the one aggregate module a declaration
+// publishes as a single cell.
+enum Module {
+  MODULE_UNSPECIFIED = 0;
+  MODULE_A1_A3 = 1;
+  MODULE_A4 = 2;
+  MODULE_A5 = 3;
+  MODULE_B1 = 4;
+  MODULE_B2 = 5;
+  MODULE_B3 = 6;
+  MODULE_B4 = 7;
+  MODULE_B5 = 8;
+  MODULE_B6 = 9;
+  MODULE_B7 = 10;
+  MODULE_C1 = 11;
+  MODULE_C2 = 12;
+  MODULE_C3 = 13;
+  MODULE_C4 = 14;
+  MODULE_D = 15;
+}
+
+// --- [RECORD] -----------------------------------------------------------------------------
+
+// One declared cell. Cell PRESENCE is the coverage census: an undeclared cell is absent, never a zero. Negative
+// values are valid biogenic or avoided-burden carbon.
+message ImpactCell {
+  ImpactCategory category = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  Module stage = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  double value = 3 [(buf.validate.field).double.finite = true];
+}
+
+message Source {
+  Registry registry = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string uuid = 2 [(buf.validate.field).string.min_len = 1];
+  optional string version = 3;
+}
+
+// One verified product declaration keyed to an estate material identity. `issuer` and `registration` are the
+// duplicate-check pair; the declared unit is admitted at quantity exactly one, so no consumer rescales a cell. The
+// two scenario fractions are optional scenario data, absent when undeclared.
+message DeclarationRecord {
+  option (buf.validate.message).cel = {
+    id: "declaration.issued-date"
+    message: "issued must be a complete valid Gregorian date"
+    expression:
+      "this.issued.year >= 1 && this.issued.year <= 9999 && this.issued.month >= 1 && this.issued.month <= 12 && "
+      "this.issued.day >= 1 && this.issued.day <= (this.issued.month in [1, 3, 5, 7, 8, 10, 12] ? 31 : "
+      "this.issued.month == 2 ? (this.issued.year % 4 == 0 && (this.issued.year % 100 != 0 || "
+      "this.issued.year % 400 == 0) ? 29 : 28) : 30)"
+  };
+  option (buf.validate.message).cel = {
+    id: "declaration.valid-until-date"
+    message: "valid_until must be a complete valid Gregorian date"
+    expression:
+      "this.valid_until.year >= 1 && this.valid_until.year <= 9999 && this.valid_until.month >= 1 && "
+      "this.valid_until.month <= 12 && this.valid_until.day >= 1 && this.valid_until.day <= "
+      "(this.valid_until.month in [1, 3, 5, 7, 8, 10, 12] ? 31 : this.valid_until.month == 2 ? "
+      "(this.valid_until.year % 4 == 0 && (this.valid_until.year % 100 != 0 || this.valid_until.year % 400 == 0) "
+      "? 29 : 28) : 30)"
+  };
+  option (buf.validate.message).cel = {
+    id: "declaration.validity-order"
+    message: "valid_until must not precede issued"
+    expression:
+      "this.valid_until.year > this.issued.year || (this.valid_until.year == this.issued.year && "
+      "(this.valid_until.month > this.issued.month || (this.valid_until.month == this.issued.month && "
+      "this.valid_until.day >= this.issued.day)))"
+  };
+  option (buf.validate.message).cel = {
+    id: "declaration.cell-identity"
+    message: "impact category and module pairs must be unique"
+    expression: "this.cells.map(cell, string(int(cell.category)) + '/' + string(int(cell.stage))).unique()"
+  };
+
+  string material_key = 1 [(buf.validate.field).string.min_len = 1];
+  string product = 2 [(buf.validate.field).string.min_len = 1];
+  string issuer = 3 [(buf.validate.field).string.min_len = 1];
+  string registration = 4 [(buf.validate.field).string.min_len = 1];
+  DeclaredUnit declared_unit = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  Standard standard = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  Subtype subtype = 7 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  google.type.Date issued = 8 [(buf.validate.field).required = true];
+  google.type.Date valid_until = 9 [(buf.validate.field).required = true];
+  repeated ImpactCell cells = 10 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 195
+  }];
+  Source source = 11 [(buf.validate.field).required = true];
+  optional double recycled_content = 12 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+  optional double end_of_life_recovery = 13 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+    lte: 1
+  }];
+}

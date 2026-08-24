@@ -49,7 +49,7 @@
 - this binding projects the identical `CloudEvent` as the other CloudEvents egress sinks, so an `AMQP 1.0` consumer joins the CDC fan under the same envelope the changefeed emits.
 
 [LOCAL_ADMISSION]:
-- Egress composes `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, EventFormat.Json.Formatter)`; extension declarations derive from generated `event.v1.Extensions` descriptors at the producer/consumer projection, never a kernel roster or hand-spelled catalog.
+- Egress composes `ce.ToAmqpMessageWithUnderscorePrefix(ContentMode.Binary, EventFormat.Json.Formatter)`; extension declarations derive from generated `event.Extensions` descriptors at the producer/consumer projection, never a kernel roster or hand-spelled catalog.
 - `EventFormat` supplies the formatter instance from the branch owner's one row; serializer and document options fix at that construction, never per message and never per transport.
 - `ToAmqpMessageWithUnderscorePrefix` is the admitted egress; `ToAmqpMessage` and `ToAmqpMessageWithColonPrefix` write the JMS-incompatible `cloudEvents:` form.
 

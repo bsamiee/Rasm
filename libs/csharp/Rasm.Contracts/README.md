@@ -24,7 +24,7 @@
 ```
 
 [NAMESPACES]:
-- Emitted types sit at `Rasm.Contracts.<Family>.V1`, one namespace per corpus package family, with the directory mirroring that tail.
+- Emitted types sit at `Rasm.Contracts.<Family>`, one namespace per corpus package family, with the directory mirroring that tail.
 - `ArtifactService`, `CapabilityDiscoveryService`, `ComputeService`, and `ControlService` are the emitted service surfaces.
 - Server code derives `<Svc>.<Svc>Base` and client code binds `<Svc>.<Svc>Client` over a `CallInvoker`, both out of this one assembly.
 - Publisher CloudEvents and gRPC health types stay with their own packages, so nothing here shadows a package-shipped C# owner.
@@ -33,7 +33,7 @@ Generated types are the wire vocabulary, never domain models. Consumers bound bi
 
 ```csharp copy-safe
 using Google.Protobuf;
-using Rasm.Contracts.Declaration.V1;
+using Rasm.Contracts.Declaration;
 
 static DeclarationRecord Decode(System.IO.Stream source) {
     System.ArgumentNullException.ThrowIfNull(source);

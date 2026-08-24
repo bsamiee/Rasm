@@ -44,9 +44,9 @@ When a concept matches several signatures, the most specific row wins.
 - `RejectExternalDictionary(key)`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or one `Items`-derived frozen index; cross-product tables survive only with generated-owner keys and startup totality against the `Items` product.
 
 [CHANGE_FUNCTIONS]:
-- `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key migrations to conversion and wire seams.
+- `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key moves to conversion and wire seams.
 - `TuneGrowthAbsorption(owner)`: let columns under `SwitchMapMethodsGeneration.None` absorb item growth; let generated `Switch` push additions to consumers.
-- `TightenInvariant(owner)`: treat narrower factories as data migration with tests because compile signal is zero.
+- `TightenInvariant(owner)`: treat narrower factories as a data rebuild with tests because compile signal is zero.
 
 [EXEMPTION_FUNCTIONS]:
 - `UseManualFamily(axis)`: hand-roll only for foreign case extension, interface-required owners, unliftable generic payloads, ad-hoc arity past five, or runtime-sourced vocabulary admitted into a keyed owner with a frozen registry.
@@ -66,7 +66,7 @@ When a concept matches several signatures, the most specific row wins.
 - Reject: per-call-site error translation, and an owner `Create(string)` factory — rendered text carries no raw-value evidence, so the bridge captures that evidence and the typed case holds it.
 
 [KEY_AND_IDENTITY_POLICY]:
-- Law: the raw key stays private except conversion and explicit-interface egress; consumers compare and dispatch on the owner, and key-type migration breaks at the boundary.
+- Law: the raw key stays private except conversion and explicit-interface egress; consumers compare and dispatch on the owner, and a key-type move breaks at the boundary.
 - Law: comparer policy is a type argument; `IEqualityComparerAccessor<T>` and `IComparerAccessor<T>` swing equality, hashing, ordering, relational operators, and `CompareTo` together, with comparers cached in `static readonly` fields.
 - Law: string keys default to ordinal-ignore-case across generated surfaces but never inherit policy; every string-bearing layer declares one accessor type, and divergence is the defect.
 - Accept: `[MemberEqualityComparer<...>]` makes complex-owner equality opt-in; unmarked members remain materialized but leave equality, hashing, and diagnostic text.

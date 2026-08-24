@@ -57,7 +57,7 @@
 - `WireAdmission` owns one warmed contract validator over its descriptor roots; binary and ProtoJSON codecs compose it after parsing.
 - Per-validation evidence is a CLOSED two-case family — refusal carries elapsed, correlation, and fault codes alone; sentinel principal slots delete.
 - Sink tenancy is never a validation-receipt column — tenancy resolves at the sink, so a mirrored column states a second answer to one question.
-- Capability discovery is generated `capability.v1` from C# to Python and bound to the SDK pin — hand DTOs and TS generation are refused.
+- Capability discovery is generated `capability` from C# to Python and bound to the SDK pin — hand DTOs and TS generation are refused.
 - Webhook delivery consumes `PolicyDescriptor.WebhookDelivery` — an endpoint-local scope check forks the identity policy vocabulary.
 - Authorization policies consume canonical claims rebuilt from `Principal.Scopes` — provider scope names and shapes terminate at issuer projection.
 - Webhook verification and format decode consume one bounded immutable body capture — stream rereads can verify bytes different from those decoded.

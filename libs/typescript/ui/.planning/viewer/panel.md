@@ -15,7 +15,7 @@ Panel materializes the AppUi shell's generated surface program: stable surface i
 
 [EVENT_FOLD]:
 - Owner: `Panel.fold` — the keyed accumulator: the event feed carries one exact family selector beside foreign bytes, and each arm decodes its own generated message before folding into a `HashMap<key, Panel.Row>` — `BindingStatus` advances the lifecycle state beside its transport, direction, and last-good instant (clearing the optimistic slot on `faulted` alone), `CoercedValue` records the canonical magnitude the host landed beside both units, `WriteReceipt` lands the canonical value, its rendered pair, and the write's own four-arm disposition while clearing the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the selector union and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
-- Packages: `@rasm/core` (`Wire`, `Hlc`); `@rasm\/contracts/rasm/contracts/binding/v1/status_pb` (`BindingState`); `@rasm\/contracts/rasm/contracts/compute/v1/control_pb` (`DegradationLevel`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `Schema`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
+- Packages: `@rasm/core` (`Wire`, `Hlc`); `@rasm\/contracts/rasm/contracts/binding/status_pb` (`BindingState`); `@rasm\/contracts/rasm/contracts/compute/control_pb` (`DegradationLevel`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `Schema`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
 - Law: the row is the panel's whole truth — lifecycle, transport, direction, freshness, coercion, landed value, disposition, optimistic, gate; a panel reads one row through an `Atom.family` keyed by cell name and re-renders only on its own row's change.
 - Law: every row slot is option-seated, so a gate-only row states that no binding has spoken rather than seeding a lifecycle token no producer emits.
 - Law: the ARM owns the key — the board's key space is the shell's addressable cell, and each arm names which cell its event addresses: the livewire triple addresses its `binding` path, `CommandGate` its `key`, the `CommandRow` key the C# deck freezes. Both columns arrive on one control from the producer's own intent binding (`valueKey` beside `command`), so an affordance reads its value row and its gate row off the one board with no side map, no re-keying, and no second accumulator.
@@ -31,8 +31,8 @@ Panel materializes the AppUi shell's generated surface program: stable surface i
 
 ```typescript signature
 import { type Clock, Wire } from "@rasm/core"
-import { BindingState } from "@rasm\/contracts/rasm/contracts/binding/v1/status_pb"
-import { DegradationLevel } from "@rasm\/contracts/rasm/contracts/compute/v1/control_pb"
+import { BindingState } from "@rasm\/contracts/rasm/contracts/binding/status_pb"
+import { DegradationLevel } from "@rasm\/contracts/rasm/contracts/compute/control_pb"
 import { Array, Duration, Effect, HashMap, Match, Option, Schema, Stream } from "effect"
 import type { Motion } from "../../src/system/act.ts"
 import type { Theme } from "../../src/system/token.ts"
@@ -232,7 +232,7 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 
 [WIDGET_RENDER]:
 - Owner: `Panel.arms` exhausts the generated `ControlIntentWire.arm` oneof and returns the part key beside its optional constraint-program reference; `Panel.children` reads the one core walk projection, and `Panel.chrome` joins the view row with the generated emphasis value, icon slot, motion hold, and board affordance.
-- Packages: `@rasm/core` (`Wire.ControlIntent`); `@rasm\/contracts/rasm/contracts/ui/v1/controls_pb` (generated enum values); `effect` (`HashMap`, `Match`, `Option`); `../../src/system/token.ts` (`Theme.Tone`); `../../src/system/act.ts` (`Motion.Hold`).
+- Packages: `@rasm/core` (`Wire.ControlIntent`); `@rasm\/contracts/rasm/contracts/ui/controls_pb` (generated enum values); `effect` (`HashMap`, `Match`, `Option`); `../../src/system/token.ts` (`Theme.Tone`); `../../src/system/act.ts` (`Motion.Hold`).
 - Law: the core walk row is the ONE child projection over the generated key space; this view fold owns only the part and constraint reference the walk cannot decide. Kinds whose part narrows on their own posture, form, or temporal column read that column off their own arm, because the narrowing belongs with the value carrying it.
 - Law: the same exhaustive arm row projects a container's generated `constraintProgram`; surface admission reads that projection, so no second Panel/Dock roster can drift from render or recursion.
 - Law: `Match.discriminatorsExhaustive("case")` dispatches the generated oneof with no fallback, so every new producer arm breaks this declaration before a nesting arm can masquerade as a leaf.
@@ -247,7 +247,7 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 
 ```typescript signature
 import type { Wire } from "@rasm/core"
-import * as controls from "@rasm\/contracts/rasm/contracts/ui/v1/controls_pb"
+import * as controls from "@rasm\/contracts/rasm/contracts/ui/controls_pb"
 import { Match, Option } from "effect"
 
 declare namespace Panel {
@@ -457,7 +457,7 @@ const _route = <E, R>(sinks: Panel.Sinks<E, R>): ((interaction: Panel.Interactio
 ```typescript signature
 import { Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
 import { Fault, Wire } from "@rasm/core"
-import * as layout from "@rasm\/contracts/rasm/contracts/ui/v1/layout_pb"
+import * as layout from "@rasm\/contracts/rasm/contracts/ui/layout_pb"
 import { Effect, HashMap, Iterable, Option, Schema, SynchronizedRef } from "effect"
 
 const _relation = (value: layout.LayoutRelation): Operator => {

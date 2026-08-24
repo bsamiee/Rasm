@@ -56,7 +56,7 @@
 
 [STACKING]:
 - `api-cloudevents.md`: that catalogue owns the envelope, the `CloudEventFormatter` contract, `ContentMode`, `MimeUtilities`, and the `HttpUtilities` header grammar; this package binds them onto the ASP.NET Core abstractions alone, and the sibling `.Http` classes there serve `HttpClient`, `HttpListener`, and `HttpWebRequest` hosts this estate does not run.
-- Kernel owner anchor: every call takes the `EventFormat` row's formatter; each ingress supplies a generated-descriptor declaration for the `event.v1.Extensions` fields it consumes, so no kernel wire roster or attribute literal survives.
+- Kernel owner anchor: every call takes the `EventFormat` row's formatter; each ingress supplies a generated-descriptor declaration for the `event.Extensions` fields it consumes, so no kernel wire roster or attribute literal survives.
 - `Rasm.AppHost` consumer anchor: the HTTP ingress route probes, decodes under its generated-descriptor declarations, and admits tenancy before its injected domain projection routes the envelope; the abuse-protection `OPTIONS` handshake and its `WebHook-*` headers remain route-owned.
 
 [LOCAL_ADMISSION]:

@@ -296,8 +296,6 @@ public abstract partial record Arrival {
 }
 
 public static class EnvelopeSeam {
-    private const int Version = 1;
-    private const string VersionKey = "ctx.v";
     private const string OriginKey = "ctx.origin";
     private const string StampKey = "ctx.stamp";
 
@@ -312,19 +310,15 @@ public static class EnvelopeSeam {
         ArgumentNullException.ThrowIfNull(cell);
         var frame = new Dictionary<string, string>(StringComparer.Ordinal);
         Wire.Inject(new PropagationContext(current, Baggage.Create(new Dictionary<string, string>(StringComparer.Ordinal) {
-            [VersionKey] = Version.ToString(CultureInfo.InvariantCulture), [OriginKey] = cell.Origin, [StampKey] = cell.Now().Serialized,
+            [OriginKey] = cell.Origin, [StampKey] = cell.Now().Serialized,
         })), frame, Put);
         return frame;
     }
 
     public static Fin<Arrival> Admit(StampCell cell, Dictionary<string, string> frame, string peer) {
         var inbound = Wire.Extract(default, frame, Take);
-        return Optional(inbound.Baggage.GetBaggage(VersionKey))
-            .Bind(static held => int.TryParse(held, NumberStyles.None, CultureInfo.InvariantCulture, out var minted) && minted <= Version
-                ? Some(minted) : None)
-            .ToFin(Error.New(7301, "<envelope-version-ahead>"))
-            .Bind(_ => Optional(inbound.Baggage.GetBaggage(StampKey)).Bind(static text => Stamp.Parse(text))
-                .ToFin(Error.New(7302, "<unstamped-frame>")))
+        return Optional(inbound.Baggage.GetBaggage(StampKey)).Bind(static text => Stamp.Parse(text))
+            .ToFin(Error.New(7302, "<unstamped-frame>"))
             .Map(stamp => cell.Receive(stamp, peer))
             .Map(stamp => inbound.ActivityContext.TraceId != default
                 ? (Arrival)new Arrival.Joined(inbound.ActivityContext, stamp)

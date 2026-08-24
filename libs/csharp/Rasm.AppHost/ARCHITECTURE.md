@@ -146,7 +146,7 @@ flowchart LR
     Wire e4@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Core
     Runtime e5@-->|"[WIRE]: HostFingerprintWire"| Core
     Observability e6@-->|"[TRANSPORT]: OtelExport"| TsRuntime
-    Agent e7@-->|"[WIRE]: capability.v1.DiscoverResponse"| PyRuntime
+    Agent e7@-->|"[WIRE]: capability.DiscoverResponse"| PyRuntime
     Observability e8@<-->|"[TRANSPORT]: TraceContext"| PyRuntime
     Runtime e9@<-->|"[WIRE]: HlcStampWire"| PyRuntime
     Runtime e10@-->|"[WIRE]: CredentialPublicWire"| TsSecurity

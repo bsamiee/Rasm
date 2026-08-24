@@ -497,7 +497,7 @@ public sealed record StepStateSeam(
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new resume policy is one column on the resume read; a new reclaim predicate is one policy value on the sweep row; zero new surface.
 - Boundary: the crash-resume is the only mid-saga recovery owner — a re-run from the start, a best-effort replay, a second recovery store, and a scan the port law forbids are the deleted forms (the sweep rides the waterfalled op-union READ cases, never an AppHost-side table scan); resume reads the durable cursor so a committed step is never re-executed, the exactly-once-step guarantee; a resumed instance carries a fresh decoded token so two processes resuming one instance cannot both commit — the stale token loses the store CAS, and the dead holder's late advance is the decoded `LeaseFenced` rejection, never a silent double-commit.
-- Boundary: both entries are COMPOSITION-shaped and neither runs itself — `Resume` is a boot gate on the runtime module's post-migration fold and `Reclaim` is a maintenance-cadence `ScheduleEntry` gated on the reclaim-role lease, and `Runtime/modules#MODULE_LEDGER` seats both in the same pass; a recovery surface no boot reaches is prose, which is exactly the state this anchor was in.
+- Boundary: both entries are COMPOSITION-shaped and neither runs itself — `Resume` is a boot gate on the runtime module's post-generation fold and `Reclaim` is a maintenance-cadence `ScheduleEntry` gated on the reclaim-role lease, and `Runtime/modules#MODULE_LEDGER` seats both in the same pass; a recovery surface no boot reaches is prose, which is exactly the state this anchor was in.
 
 ```csharp signature
 // --- [OPERATIONS] ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail. The `EvidenceReceipt` cases fold every sibling receipt stream into the HLC-stamped sink message envelope through one generated projection seam and leave as the generated `Ui.V1.EvidenceReceiptWire`; the telemetry spine owns AppUi scope identity, the dimension vocabulary, the meter mount, and the kind roster every `rasm.appui.*` declaration writes through; one correlation join projects message-envelope streams into uncertainty-grouped timelines the document plane paginates; `[FAULT_FLOOR]` binds every AppUi failure to a direct generated fault union case. Capture, headless derivation, the dev loop, and the governor are sibling owners (`proof.md`, `devloop.md`, `governor.md`).
+Rasm.AppUi evidence is one rail. The `EvidenceReceipt` cases fold every sibling receipt stream into the HLC-stamped sink message envelope through one generated projection seam and leave as the generated `Ui.EvidenceReceiptWire`; the telemetry spine owns AppUi scope identity, the dimension vocabulary, the meter mount, and the kind roster every `rasm.appui.*` declaration writes through; one correlation join projects message-envelope streams into uncertainty-grouped timelines the document plane paginates; `[FAULT_FLOOR]` binds every AppUi failure to a direct generated fault union case. Capture, headless derivation, the dev loop, and the governor are sibling owners (`proof.md`, `devloop.md`, `governor.md`).
 
 Kernel vocabulary arrives whole from the signal capsule: the causal frame (`TelemetrySource`, `CorrelationId`, `TenantContext`, `ReceiptEnvelope`, `ReceiptSinkPort`), the instrument mechanism (`InstrumentSpec` over `InstrumentKind` x `MeasureForm`, `Buckets`, `LevelCells`, `InstrumentSet`, `InstrumentArm`, `IReceiptKind<TSelf>`, `ReceiptFan`, `TelemetryContributorPort`, `TelemetryIdentity`), the hook rail (`HookRail<TPoint,TFact,TOwner>`, `HookTap`), the fault floor (`FaultBand`, `[FaultCase]`, `Fault`), and the SLO algebra (`Sli`, `Objective`, `BoardPack`, `PanelSpec`). `AppHostPoint.Receipt` and `AppHostFact.Receipt` arrive settled from `Rasm.AppHost`.
 
@@ -10,11 +10,12 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 - [03]-[TELEMETRY_SPINE]: AppUi scope identity, the dimension vocabulary, the contribution and meter mount, the typed receipt-kind roster the fan mounts, and the viewport reliability objectives.
 - [04]-[CORRELATION_JOIN]: Causal timeline join keyed correlation and HLC with skew bands; the report-block and tenant-usage projections.
 - [05]-[FAULT_FLOOR]: Every AppUi fault family as a direct generated union with semantic case identities.
-- [06]-[TS_PROJECTION]: Generated evidence and timeline families the dashboard decodes.
+- [06]-[DURABLE_PARCEL]: Generation-sealed stored envelope, its key mint, and the residue disposition every persisted grain declares.
+- [07]-[TS_PROJECTION]: Generated evidence and timeline families the dashboard decodes.
 
 ## [02]-[RECEIPT_UNION]
 
-- Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceWire` — the generated `[Mapper]` seam lowering every case onto ONE arm of the generated `Rasm.Contracts.Ui.V1.EvidenceReceiptWire` and admitting the wire back; `EvidenceOps` — the kind roster every projection keys on (derived off the generated `kind` oneof descriptor), the one decode, and the envelope-payload bridge over the AppHost `WireJson` edge; `EvidenceMap` — the generated `[Mapper]` seam projecting every sibling receipt onto its case; `AppUiWireContext` — the package DURABLE context over the payloads no corpus family carries.
+- Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceWire` — the generated `[Mapper]` seam lowering every case onto ONE arm of the generated `Rasm.Contracts.Ui.EvidenceReceiptWire` and admitting the wire back; `EvidenceOps` — the kind roster every projection keys on (derived off the generated `kind` oneof descriptor), the one decode, and the envelope-payload bridge over the AppHost `WireJson` edge; `EvidenceMap` — the generated `[Mapper]` seam projecting every sibling receipt onto its case; `AppUiWireContext` — the package DURABLE context over the payloads no corpus family carries.
 - Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Effect | Asset | LiveData | CollabSync | CollabRevert | Media | Quality | GpuFrame | Layout | DispatcherLag | PreCommit — one domain case per `EvidenceReceiptWire.kind` arm, the kind literal being that arm's own field name (`surface`, `native_asset`, `live_data`, `collab_sync`, `collab_revert`, `gpu_frame`, `dispatcher_lag`, `pre_commit`, …) read off the descriptor and never re-spelled.
 - Entry: `Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant)` — `IO` carries the sink effect and the returned message envelope is the emission evidence; the payload is `EvidenceWire.Lower(this)` admitted outbound and rendered through the shared `WireJson.Element`; `EvidenceMap.ToEvidence(receipt)` — one generated method per sibling receipt family, reached by composition where the producer already holds its typed receipt; `EvidenceOps.Decode(envelope)` — the one payload decode both the fan and the usage fold ride, `WireJson.Read` then `EvidenceWire.Admit`; `EvidenceWire.Lower`/`Admit` — the forward and inverse halves of one correspondence on one owner.
 - Auto: composition binds each producer's sink onto its `EvidenceMap` projection — `VisualRuntime.Sink` to Render, the inspector receipt sink to Edit, the mount transaction to Surface, the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to Theme, Motion, and Asset, the `Collab/presence.md` `CollabWire` merge and `Collab/compare.md` `TimeTravel` revert sinks to CollabSync and CollabRevert, the `Document/media.md` mount sink to Media, the `Shell/solver.md` pass receipt to Layout, the `Diagnostics/governor.md` verdict and GPU-timeline sinks to Quality and GpuFrame, and the `Diagnostics/devloop.md` pre-commit tap to PreCommit — while the delegate-fed cases (Focus, Disposal, NativeAssetIdentity, LiveData, DispatcherLag) construct at their composition delegate, because their sources carry no receipt record to project. The Layout kind is receipt-only on the fan by declaration — `LayoutSolver.Observe` already writes both layout instruments off the same receipt, so a fan arm beside it would double every count.
@@ -23,7 +24,7 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 - Law: one arm per assignment. The generated setter of every oneof arm clears its siblings, so each `Lower` arm assigns exactly ONE property of a fresh `EvidenceReceiptWire`; a multi-arm initializer would erase every arm but the last and read as a healthy receipt.
 - Law: a 64-bit magnitude crosses as the proto scalar it is (`uint64 bytes`, `uint64 frame_ordinal`, `uint64 measured_nanoseconds`, `int64 magnitude`, `uint64 lamport`/`ops`); proto3 JSON canon renders it as a decimal string, so the retired invariant-decimal TEXT columns and their `Whole`/`Decimal` readers delete. NAMED LOSS: none — the JavaScript-safe text posture the hand columns bought is the canon's own. WITNESS: `TenantUsageFold.Accrue` adds `row.Bytes` as `ulong` with no parse.
 - Law: a `Media` case carries its fault as the DISCRIMINANT — `Option<FaultObservation>` present IS the failed outcome, absent IS ready — so the corpus CEL `evidence.media.fault` (a failed outcome carries its fault and a ready one carries none) is unrepresentable-to-violate at construction; `Lower` derives `MediaOutcome` from the carrier and `Admit` refuses an outcome that disagrees with the fault's presence.
-- Packages: Rasm.Contracts (project — `Ui.V1.EvidenceReceiptWire` and its nested arms, `PixelIdentityWire`, `NativeAssetFactWire`, `Fault.V1.FaultObservation`), Google.Protobuf (`Descriptor` reflection, `ByteString`, well-known `Timestamp`/`Duration`), NodaTime.Serialization.Protobuf (`ToTimestamp`, `ToProtobufDuration`, `ToNodaDuration`), Rasm.AppHost (project — `WireJson`, `FaultWire`), Thinktecture.Runtime.Extensions, Riok.Mapperly, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Rasm.Contracts (project — `Ui.EvidenceReceiptWire` and its nested arms, `PixelIdentityWire`, `NativeAssetFactWire`, `Fault.FaultObservation`), Google.Protobuf (`Descriptor` reflection, `ByteString`, well-known `Timestamp`/`Duration`), NodaTime.Serialization.Protobuf (`ToTimestamp`, `ToProtobufDuration`, `ToNodaDuration`), Rasm.AppHost (project — `WireJson`, `FaultWire`), Thinktecture.Runtime.Extensions, Riok.Mapperly, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one evidence family is one `kind` arm at the corpus, one domain case here, one `Lower` arm the total `Switch` demands, one `Admit` arm `Probe` demands, and one `EvidenceMap` partial where a producer holds a typed receipt; zero new surface.
 - Boundary: receipts are process-local and HLC-correlated, never globally shared; this typed union with slot metadata is the absorbing owner. The generated message is the ONE wire and the descriptor the ONE kind authority — `EvidenceOps.KindOf` projects the oneof field name, `Kinds` publishes it, and `Probe` proves case-versus-arm bijection at boot. `Seal` admits the lowered message before the sink and `WireJson.Read` validates every inbound payload before the inverse, so corpus rules are not prose a hand mapper can bypass. `Render.PixelIdentity` is the sole canonical-raster owner: its digest remains `UInt128`, and the boundary explicitly maps its one canonical version to `PixelLayout` while checked extents and content-key admission close the inverse. Absence rides `Option<T>` and crosses as proto3 `optional` presence. `EvidenceMap` is a projection seam under `RequiredMappingStrategy.Target` because source receipts carry envelope-owned columns; `EvidenceWire` runs `Both` because a wire arm is case-shaped. Explicit casts remain disabled, and union-valued columns cross through their generated total switch. Every corpus family leaves through `WireJson.Formatter` and enters through `WireJson.Read`; default protobuf JSON and package serializer contexts are deleted forms. `AppUiWireContext` survives only for durable payloads no peer decodes.
 
@@ -43,13 +44,13 @@ using Rasm.AppHost.Runtime;
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
-using FaultV1 = Rasm.Contracts.Fault.V1;
-using Host = Rasm.Contracts.Receipt.V1;
+using FaultV1 = Rasm.Contracts.Fault;
+using Host = Rasm.Contracts.Receipt;
 using NativeAssetFact = Rasm.AppUi.Render.NativeAssetFact;
 using PixelIdentity = Rasm.AppUi.Render.PixelIdentity;
 using RenderReceipt = Rasm.AppUi.Render.RenderReceipt;
 using Timestamp = Google.Protobuf.WellKnownTypes.Timestamp;
-using Wire = Rasm.Contracts.Ui.V1;
+using Wire = Rasm.Contracts.Ui;
 using WkDuration = Google.Protobuf.WellKnownTypes.Duration;
 using static LanguageExt.Prelude;
 
@@ -528,6 +529,8 @@ public static partial class EvidenceMap {
 // the corpus carries left this context with its STJ record; a row here naming a generated message's family is
 // the twin the wire-contract law refuses. A [Union]/polymorphic payload carries its [JsonPolymorphic]+
 // [JsonDerivedType] roster at its own declaration (RevertDelta 5, BoardItem 5), so the row names the ROOT alone.
+// Grains riding a `[06]` seal register their CLOSED `StateParcel<T>`, because the generator emits per closed
+// type and a bare inner row leaves the envelope the seal stores undescribed.
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -543,7 +546,11 @@ public static partial class EvidenceMap {
 [JsonSerializable(typeof(TableViewState))]
 [JsonSerializable(typeof(TableColumnState))]
 [JsonSerializable(typeof(ProjectionWindow))]
-[JsonSerializable(typeof(TableRowsWire))]
+[JsonSerializable(typeof(StateParcel<LayoutCheckpoint>))]
+[JsonSerializable(typeof(StateParcel<BoardState>))]
+[JsonSerializable(typeof(StateParcel<ConstraintProfile>))]
+[JsonSerializable(typeof(StateParcel<ScreenState>))]
+[JsonSerializable(typeof(StateParcel<DragPayload.TableRows>))]
 public partial class AppUiWireContext : JsonSerializerContext;
 ```
 
@@ -788,7 +795,7 @@ public static class ViewportObjectives {
 - Cases: `EvidenceSource` is `Live(Seq<ReceiptEnvelope>)` over the in-process sink and `Resident(Func<EvidenceScope, IO<Fin<Seq<ReceiptEnvelope>>>>, EvidenceScope)` over the durable evidence plane, both yielding the identical message-envelope values.
 - Entry: `Correlate(Seq<ReceiptEnvelope> envelopes, Option<TelemetrySource> package = default)` — pure fold; the package filter value is the model-result provenance projection over the Compute stream; `Correlated(EvidenceSource source, Option<TelemetrySource> package = default)` and `Resident(EvidenceSource source, Duration window)` — the source-taking twins whose effect is the READ alone, so a live board and a post-mortem reconstruction share one implementation; `Run(EvidenceSource source, StudySubmission submission)` — the run-queue join point, narrowing the source to the submission's own correlation and answering that one timeline; `Blocks(EvidenceTimeline timeline)` — projects a timeline into the export plane's `ReportBlock` rows, so the diagnostics report-PDF is `FlowReport.Render` over this projection; `Fold(Seq<ReceiptEnvelope> envelopes, Duration window)` — the message-envelope partition usage fold, deriving cost truth from sealed evidence and never re-measuring; a non-positive window refuses at admission and a payload the package wire context cannot decode fails the rail rather than dropping a billed fact.
 - Auto: rows order by the HLC pair physical-then-logical with the package key as the deterministic tiebreaker; every row derives the symmetric interval `Physical ± SkewBound`, and the fold assigns transitively overlapping intervals to one `UncertaintyGroup`, so presentation never invents a causal order inside an overlap component; the report projection includes that group identity beside the ordinal, package, kind, physical instant, and skew band.
-- Receipt: `EvidenceTimeline` crosses as the generated `Ui.V1.EvidenceTimelineWire` through `TimelineWire.Lower` and the AppHost `WireJson` edge; `TenantUsage` is an in-process table row on the durable context, because no corpus family carries usage and no peer decodes it; a usage row is derived evidence — every field folds from sealed message-envelope payloads, so chargeback carries sealed-evidence provenance.
+- Receipt: `EvidenceTimeline` crosses as the generated `Ui.EvidenceTimelineWire` through `TimelineWire.Lower` and the AppHost `WireJson` edge; `TenantUsage` is an in-process table row on the durable context, because no corpus family carries usage and no peer decodes it; a usage row is derived evidence — every field folds from sealed message-envelope payloads, so chargeback carries sealed-evidence provenance.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one provenance-filter row absorbs a new per-package view; one report column is one projection row; one usage axis is one `TenantUsage` field and one accrual arm; zero new surface.
 - Law: `Editing/forms#STUDY_FORM` `StudySubmission` is the run-queue correlation carrier and `Run` its one read-back; the queue screen composes the submission, this owner composes its evidence.
@@ -1012,18 +1019,106 @@ flowchart LR
 - Owner: every AppUi fault family is one direct generated `[Union] : Fault`; each semantic leaf declares `[FaultCase]` and owns its payload.
 - Cases: generated case identity carries telemetry and recovery identity.
 - Entry: recovery selects the concrete case through `error.IsType<XFault.Y>()`.
-- Receipt: every fault crossing the shared `ReceiptEnvelope`/`EvidenceTimeline` carries the generated `Rasm.Contracts.Fault.V1.FaultObservation` the AppHost `FaultWire.Observe` lowers; generated codes remain disjoint telemetry identity while foreign errors remain observable without fabricating one.
+- Receipt: every fault crossing the shared `ReceiptEnvelope`/`EvidenceTimeline` carries the generated `Rasm.Contracts.Fault.FaultObservation` the AppHost `FaultWire.Observe` lowers; generated codes remain disjoint telemetry identity while foreign errors remain observable without fabricating one.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new case is one `[FaultCase]` leaf; a new family is one direct generated `[Union] : Fault`.
 - Boundary: package fault registries, category mirrors, string factories, family-local validation errors, and family semigroups are deleted; accumulation rides `Validation<Error, T>` and `Error.Many`.
 
-## [06]-[TS_PROJECTION]
+## [06]-[DURABLE_PARCEL]
 
-- Owner: the generated `rasm.contracts.ui.v1` evidence family — `EvidenceReceiptWire` with its twenty nested arms, `PixelIdentityWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — produced by `EvidenceWire.Lower` and `TimelineWire.Lower`, rendered through the AppHost `WireJson.Formatter`; the command arm composes `DeckReceiptWire` and the media and layout arms `Fault.V1.FaultObservation`.
+- Owner: `StateKey` — the ONE persisted-grain key mint; `StateResidue` — the disposition a refused parcel takes, carrying what survives as its own delegate; `StateParcel<T>` — the stored envelope holding the generation beside the value; `Restored<T>` — a read's answer, the value or the blob it refused; `StateSeal` — one grain's whole durable regime, both halves of its correspondence on one owner.
+- Cases: `StateResidue` = hold | discard.
+- Law: stored state is a DECODE ADMISSION at one STABLE key. `Write` wraps the grain's value in a `StateParcel` whose `Generation` rides INSIDE the stored bytes, so `Read` compares it ahead of the inner decode and a payload parsing cleanly under today's shape while carrying yesterday's meaning refuses on CONTENT rather than on the key. Shape moves bump one `Generation` on the grain's own seal and the key holds for the grain's whole life, so no consumer re-addresses storage and no reader resolves a payload by where it sat.
+- Law: a refused parcel is no caller's failure — `Read` is TOTAL, so an oversize blob, unreadable bytes, a foreign generation, and a value the grain's own admission refuses reach the surface as ONE state: the grain rebuilds from the seed it declares. Disposition decides only whether the stored bytes survive beside that seed, never whether the grain boots. Admission rides the read as an arrow, so a decode satisfying the shape while breaking its invariants cannot slip past one consumer that forgot to re-admit.
+- Law: `hold` keeps the raw blob on `Restored.Residue` — visible, countable, and hand-recoverable — so a grain a person authored loses no evidence to a shape move, while `discard` drops it where a live source re-derives the whole value. NAMED LOSS: attribute-rename carry — a column renamed across a generation reaches no reader under the next one, because the seal PROVES a shape and translates none. WITNESS: `StateSeal.Read` holds one comparison and no step table.
+- Entry: `StateKey.Of(domain, grain)` — the one mint; `StateSeal.Of(domain, grain, generation, residue)` — one grain's declaration; `Write<T>(value)` / `Read<T>(blob, admit)` — the forward and inverse halves the same seal answers; `Restored.Or(seed)` — the one unwrap every consumer folds through.
+- Auto: each persisted grain declares one static seal row and reads its own seed through `Restored.Or` — `Charts/boards#BOARD_STATE` holds a board a person arranged, `Charts/ink#CONSTRAINT_PROFILE` holds a saved compliance set, `Shell/navigation#DOCK_LAYOUTS` holds a dock arrangement beside its own independent content-key admission, `Shell/screens#SCREEN_STATE` discards because the live screen re-derives every column it keeps, and `Shell/input#DRAG_CLIPBOARD` discards because a clipboard payload no build admits has no second reader; a grain earning the other disposition flips one row column with no consumer edit. Values crossing as a REGISTERED corpus family take no seal — their shape is adjudicated at the wire under the contracts gate, so `Render/viewpoint#VIEWPOINT_CODEC` carves rather than seals.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Text.Json, BCL inbox
+- Growth: a persisted grain is one `StateSeal` row and one closed `StateParcel<T>` roster registration; a shape move is one `Generation` bump; a disposition is one `StateResidue` row carrying its own keep delegate; zero new surface.
+- Boundary: the parcel rides `EvidenceOps.Wire`, the ONE composition-seated options every AppUi durable payload crosses, so a grain carrying `Instant`, `Option`, `Seq`, `Set`, or `HashMap` members round-trips on the registrations this owner cannot self-describe and a package-internal options set beside it is the silent default round-trip no decode refuses. Forward ladders, per-generation upcast steps, version ordinals inside keys, and decodes that rewrite the parsed node are the DELETED forms: each translated one authored shape into another and each translation is a second authority on what the grain means, so a build reading a stale payload rendered a shape nobody authored while every gate passed. Gate ORDER makes each cost what it must — the length read precedes any parse, so a corrupt or hostile blob never allocates against the UI thread, and the generation compare precedes the inner decode, so a stale parcel costs one integer read. `StateKey` refuses a dotted segment, since a segment carrying its own dot mints levels no reader parses and a hand-spelled key beside the mint is the two-producer drift `docs/laws/scars.md` `[UNREAD_KEY_ROW]` names. This owner decides SHAPE alone: where a blob lives, when it is written, and what prunes it stay each consumer's own port, so no store type, lane, or cadence enters here.
+
+```csharp signature
+// --- [TYPES] ----------------------------------------------------------------------------
+// Each row carries WHAT SURVIVES as its own delegate rather than a branch every reader repeats, so a grain's
+// declaration and the refusal behaviour it buys are one line.
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StateResidue {
+    public static readonly StateResidue Hold = new("hold", static blob => Some(blob));
+    public static readonly StateResidue Discard = new("discard", static _ => Option<string>.None);
+
+    [UseDelegateFromConstructor]
+    public partial Option<string> Keep(string blob);
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+// Every persisted grain addresses storage through this ONE mint. Dotted segments mint key levels no reader
+// parses, so this pattern admits four undotted segments and `Create` composes no level `Of` never named.
+[ValueObject<string>(SkipKeyMember = false)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class StateKey {
+    public static StateKey Of(string domain, string grain) => Create($"rasm.appui.{domain}.{grain}");
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Split('.') is ["rasm", "appui", { Length: > 0 }, { Length: > 0 }]
+            ? null
+            : new ValidationError("StateKey requires rasm.appui.<domain>.<grain> over undotted segments.");
+}
+
+// Generation rides INSIDE the stored bytes beside the value, so the comparison runs before the inner decode
+// rather than off a column the inner shape would have to keep carrying.
+public sealed record StateParcel<T>(int Generation, T Value);
+
+// Value present says the seal agreed; residue present says a `hold` grain kept its refused bytes beside the
+// seed; both absent says a `discard` grain refused — one shape, so no consumer branches on why.
+public sealed record Restored<T>(Option<T> Value, Option<string> Residue) {
+    public T Or(T seed) => Value.IfNone(seed);
+}
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
+// One grain's whole durable regime: the key it stores under, the generation its writer seals with, and what a
+// refusal leaves behind. Forward and inverse share this owner, so a write and the read answering it cannot
+// disagree about either half.
+public sealed record StateSeal(StateKey Key, int Generation, StateResidue Residue) {
+    // Generous enough that no honest grain approaches it, tight enough that a decode never becomes an
+    // allocation vector; the length read is the FIRST gate, so an oversize blob costs no parse.
+    public const int Ceiling = 1 << 20;
+
+    public static StateSeal Of(string domain, string grain, int generation, StateResidue residue) =>
+        new(StateKey.Of(domain, grain), generation, residue);
+
+    public Fin<string> Write<T>(T value) =>
+        Op.Of(name: "appui.state.write").Catch(() =>
+            Fin.Succ(JsonSerializer.Serialize(new StateParcel<T>(Generation, value), EvidenceOps.Wire)));
+
+    // TOTAL: oversize, unreadable, foreign-generation, and refused-admission are ONE outcome, because a stored
+    // payload this build cannot admit is nothing a caller can act on — the grain rebuilds from its seed. The
+    // grain's own admission runs HERE, so bytes decoding into the shape still prove the shape's invariants and
+    // every refusal reason takes the one disposition rather than one per consumer.
+    public Restored<T> Read<T>(string blob, Func<T, Fin<T>> admit) =>
+        (blob.Length > Ceiling
+            ? Option<T>.None
+            : Op.Of(name: "appui.state.read")
+                .Catch(() => Fin.Succ(JsonSerializer.Deserialize<StateParcel<T>>(blob, EvidenceOps.Wire)))
+                .ToOption()
+                .Bind(Optional)
+                .Filter(parcel => parcel.Generation == Generation)
+                .Bind(parcel => admit(parcel.Value).ToOption()))
+        .Match(
+            Some: static value => new Restored<T>(Some(value), None),
+            None: () => new Restored<T>(None, Residue.Keep(blob)));
+}
+```
+
+## [07]-[TS_PROJECTION]
+
+- Owner: the generated `rasm.contracts.ui` evidence family — `EvidenceReceiptWire` with its twenty nested arms, `PixelIdentityWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — produced by `EvidenceWire.Lower` and `TimelineWire.Lower`, rendered through the AppHost `WireJson.Formatter`; the command arm composes `DeckReceiptWire` and the media and layout arms `Fault.FaultObservation`.
 - Packages: Rasm.Contracts (project), Rasm.AppHost (project — `WireJson`)
 - Growth: one evidence family is one `kind` arm at the corpus, regenerated into every branch that binds it; zero new surface here.
-- Boundary: the TypeScript peer binds the generated schema (`@rasm\/contracts/rasm/contracts/ui/v1/evidence_pb`) and re-authors nothing, so no hand interface mirrors the family on either side; the JSON face is proto3 JSON canon — 64-bit magnitudes as decimal strings, instants as RFC 3339 timestamps, durations as seconds text, 16-byte keys as base64 bytes, absence as omission — under the one suite `TypeRegistry` the AppHost formatter carries; a usage table crosses no wire, because no corpus family carries it and no peer decodes it; reliability policy stays behind this seam entirely — `[03]`'s objective rows and their derived alert specs are process-local and mint no wire shape; the seam registers at `tests/contracts/manifest.json` `APPUI_WIRE`.
+- Boundary: the TypeScript peer binds the generated schema (`@rasm\/contracts/rasm/contracts/ui/evidence_pb`) and re-authors nothing, so no hand interface mirrors the family on either side; the JSON face is proto3 JSON canon — 64-bit magnitudes as decimal strings, instants as RFC 3339 timestamps, durations as seconds text, 16-byte keys as base64 bytes, absence as omission — under the one suite `TypeRegistry` the AppHost formatter carries; a usage table crosses no wire, because no corpus family carries it and no peer decodes it; reliability policy stays behind this seam entirely — `[03]`'s objective rows and their derived alert specs are process-local and mint no wire shape; the seam registers at `tests/contracts/manifest.json` `APPUI_WIRE`.
 
-## [07]-[RESEARCH]
+## [08]-[RESEARCH]
 
 (none)

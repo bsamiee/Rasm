@@ -69,7 +69,7 @@ public sealed class ShellHost : IDisposable {
             pipeName: string.Create(provider: CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}{rhinoPid}-{Guid.NewGuid().ToString(format: "N")[..8]}"),
             rhinoPid: rhinoPid,
             rhinoStartedAtUnixMs: HostStartedAtUnixMs(),
-            contractVersion: Handshake.CurrentVersion,
+            contractGeneration: Handshake.Generation,
             shellVersion: ShellVersion,
             rhinoVersion: RhinoApp.Version.ToString(),
             fault: string.Empty);
@@ -160,7 +160,7 @@ public sealed class ShellHost : IDisposable {
         connection.ClientPid = ClientPidOf(capabilities: supervisor.Capabilities);
         EnsureEndpoint();
         return new Handshake(
-            ContractVersion: Handshake.CurrentVersion,
+            ContractGeneration: Handshake.Generation,
             SenderVersion: ShellVersion,
             Capabilities: [
                 new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: RpcAssemblyVersion),
@@ -517,7 +517,7 @@ public sealed class ShellHost : IDisposable {
                 pipeName: string.Empty,
                 rhinoPid: rhinoPid,
                 rhinoStartedAtUnixMs: HostStartedAtUnixMs(),
-                contractVersion: Handshake.CurrentVersion,
+                contractGeneration: Handshake.Generation,
                 shellVersion: ShellVersion,
                 rhinoVersion: RhinoApp.Version.ToString(),
                 fault: fault));

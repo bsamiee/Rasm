@@ -264,7 +264,7 @@ public sealed partial record HookFaultView(
 
 public readonly record struct HookFaultRow(
     string Point,
-    Rasm.Contracts.Fault.V1.FaultObservation Cause,
+    Rasm.Contracts.Fault.FaultObservation Cause,
     DateTimeOffset At);
 
 // One acquisition value, so the bracket releases session and source together and no arm holds half of it.
@@ -496,7 +496,7 @@ public abstract partial record EntryState {
 
 public sealed record ArtifactRow(
     string Name, DataClassification Classification, EntryState State, int Redactions,
-    Option<Rasm.Contracts.Fault.V1.FaultObservation> Fault, ReadOnlyMemory<byte> Bytes);
+    Option<Rasm.Contracts.Fault.FaultObservation> Fault, ReadOnlyMemory<byte> Bytes);
 
 public sealed record SupportPolicy(
     Duration Lookback,
@@ -705,7 +705,7 @@ public sealed partial record SupportManifest(
         long TruncatedBytes,
         int Redactions,
         Option<string> ContentKey = default,
-        Option<Rasm.Contracts.Fault.V1.FaultObservation> Fault = default);
+        Option<Rasm.Contracts.Fault.FaultObservation> Fault = default);
 
     public int Redactions => Entries.Sum(static entry => entry.Redactions);
 }

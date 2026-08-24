@@ -2,7 +2,7 @@
 
 Shell owns application chrome as data: one region roster the pane solver realizes, one navigation item vocabulary every rail, tab strip, and breadcrumb renders, one scaffold grammar for page composition, and the shell's command rows on the one overlay vocabulary. react-resizable-panels solves pane constraints and ships the window-splitter interaction whole; RAC supplies tabs, breadcrumbs, disclosure, and tree semantics; routing stays the runtime plane's — hrefs arrive as plain strings through the atom bridge, and this owner resolves none. Module: `ui/src/view/shell.ts`.
 
-Composition facts arrive settled: the pane engine's `Layout` value crosses as `{ [panelId]: percentage }` through `defaultLayout` + `onLayoutChanged` (`.api/react-resizable-panels.md`); persisted grain keys derive through `system/atom#STORE_ROOT`'s versioned seal; the z ladder and breakpoints are `system/token#SCALE_TABLES` rows; enter/exit motion is `system/act#MOTION_ROWS`; the command table, its scope column, and the chord census are `view/overlay#PALETTE`'s — this page legislates rows for it and mints no second table.
+Composition facts arrive settled: the pane engine's `Layout` value crosses as `{ [panelId]: percentage }` through `defaultLayout` + `onLayoutChanged` (`.api/react-resizable-panels.md`); persisted grain keys derive through `system/atom#STORE_ROOT`'s one key mint and their parcels seal by generation; the z ladder and breakpoints are `system/token#SCALE_TABLES` rows; enter/exit motion is `system/act#MOTION_ROWS`; the command table, its scope column, and the chord census are `view/overlay#PALETTE`'s — this page legislates rows for it and mints no second table.
 
 ## [01]-[INDEX]
 
@@ -18,14 +18,14 @@ Composition facts arrive settled: the pane engine's `Layout` value crosses as `{
 - Packages: `react-resizable-panels` (`Group`, `Panel`, `Separator`, `Layout`, `LayoutChangedMeta` — the solver, the window-splitter aria/key model, and coarse-pointer hit targets all ship inside); `effect` (`Array`, `Option`, `Record`, `Schema`); `react` (`ComponentProps`).
 - Entry: one `Shell.rail` call per pane group; a second group is a nested `Group` under the same fold, never a second engine.
 - Law: prop records LIFT, never restate — every returned record is `ComponentProps` of the part it feeds (the `Overlay.sheet` law), so a package prop rename breaks here rather than at every app shell; `Panel` and `Separator` stay direct DOM children of their `Group`, ids are explicit and stable (the `useId` fallback re-keys across renders and orphans a persisted layout), and a `Separator` renders between every adjacent pair because edge dragging alone leaves the split unreachable by keyboard.
-- Law: persistence is the props pair gated on provenance — `defaultLayout` seeds from the persisted atom and `onLayoutChanged(layout, meta)` writes back only under `meta.isUserInteraction`, so a restore, a constraint recompute, and a programmatic `setLayout` never echo as user edits; the parcel decodes through `Shell.Persisted` on an `Atom.kvs` row whose key mints through the store owner's one `Store.key` member under the versioned seal (`system/atom#STORE_ROOT`) — a schema bump reads as absence and the shell boots on its region defaults, never on a mis-decoded layout.
+- Law: persistence is the props pair gated on provenance — `defaultLayout` seeds from the persisted atom and `onLayoutChanged(layout, meta)` writes back only under `meta.isUserInteraction`, so a restore, a constraint recompute, and a programmatic `setLayout` never echo as user edits; the parcel decodes through `Shell.Persisted` sealed by `Store.sealed` on an `Atom.kvs` row whose key mints through the store owner's one `Store.key` member (`system/atom#STORE_ROOT`) — layout is disposable, so the `discard` disposition drops a parcel written under another generation and the shell boots on its region defaults, never on a mis-decoded layout.
 - Law: exactly one relative panel per group — the content remainder carries `preserve-relative-size` while every chrome region pins `preserve-pixel-size`, so a window resize scales the work surface and holds the rails; the solver requires at least one relative member and this fold supplies it by construction.
 - Law: stance is DOM data, never a JS branch — `data-state`/`data-variant`/`data-side`/`data-collapsible` from `Shell.stamped` are the whole styling contract, recipes read them through the `cn` rail's variants, and `data-collapsible` stamps EMPTY while expanded so the collapse selector matches only the collapsed state; a `stance.open` conditional selecting class strings in render is the named defect.
 - Law: stance persists at the REGION grain — the parcel's `open` record keys region keys, so a rail and an inspector collapse independently and a toggle command names its region; one shared boolean re-opens every region on any toggle, and the `inspected` scaffold row already proves two collapsible regions in one chrome.
 - Law: the desktop frame is two elements per collapsible region — a in-flow GAP element animating width beside a FIXED positioned container carrying the content — so collapse and expand reflow the content column without laying out the rail's interior every frame; the gap/fixed pair is stylesheet structure the stamped attributes select, not module code.
 - Law: the mobile arm is the sheet host — under the coarse breakpoint a collapsible region renders through the overlay sheet row with `Shell.Stance.openMobile` as its detent-open state and an SR-only title, so no second drawer engine exists and the region's item rows render identically in both harnesses.
 - Growth: a new region is one row; a new chrome arrangement is one roster value; a vertical dock is the `orientation` value; a new stance axis is one `Shell.Stance` field beside its stamp — never a sibling shell component.
-- Boundary: which regions exist, their sizes, and their sides are app composition data; the sheet mechanics are `view/overlay#SHEET_HOST`'s; the kvs mechanics and the seal posture are `system/atom`'s.
+- Boundary: which regions exist, their sizes, and their sides are app composition data; the sheet mechanics are `view/overlay#SHEET_HOST`'s; the kvs mechanics and the seal grammar are `system/atom`'s.
 
 ```typescript signature
 import { Array, Option, Record, Schema } from "effect"
@@ -38,9 +38,9 @@ const _variants = ["sidebar", "floating", "inset"] as const
 const _collapses = ["offcanvas", "icon", "none"] as const
 const _sides = ["start", "end"] as const
 
-// `Store.key` mints this key at system/atom#STORE_ROOT: a parcel-shape change bumps the declared ordinal and
-// yesterday's layout reads as absence onto the region defaults
-const _LAYOUT = Store.key({ domain: "shell", grain: "layout", seal: { posture: "versioned", version: 1 } })
+// `_LAYOUT` holds for this grain's life while a parcel-shape change bumps the seal's generation, so yesterday's
+// layout refuses on content and the region defaults seat
+const _LAYOUT = Store.key({ domain: "shell", grain: "layout" })
 
 // chrome pins pixels, so the content remainder owns the relative slack above this floor
 const _CONTENT = { id: "content", floor: "20%" } as const
@@ -78,6 +78,10 @@ const _Persisted = Schema.Struct({
   layout: Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Number })),
   open: Schema.Record({ key: Schema.String, value: Schema.Boolean }),
 })
+
+// chrome layout is disposable, so `discard` drops a parcel carrying another generation and the region defaults seat;
+// `generation` bumps with the parcel shape while `_LAYOUT` never moves with it
+const _sealed = Store.sealed(_Persisted, { generation: 1, residue: "discard" })
 
 const _rail = (
   orientation: "horizontal" | "vertical",
@@ -289,6 +293,7 @@ const _rows = {
 declare namespace Shell {
   type Shape = {
     readonly Persisted: typeof _Persisted
+    readonly sealed: typeof _sealed
     readonly layout: typeof _LAYOUT
     readonly variants: typeof _variants
     readonly collapses: typeof _collapses
@@ -309,6 +314,7 @@ declare namespace Shell {
 
 const Shell: Shell.Shape = {
   Persisted: _Persisted,
+  sealed: _sealed,
   layout: _LAYOUT,
   variants: _variants,
   collapses: _collapses,

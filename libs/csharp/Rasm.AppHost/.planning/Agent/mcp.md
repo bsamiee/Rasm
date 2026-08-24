@@ -485,12 +485,12 @@ public static class McpDispatch {
 
     public static ToolResult Failed(
         string tool,
-        Rasm.Contracts.Fault.V1.FaultObservation fault,
+        Rasm.Contracts.Fault.FaultObservation fault,
         CorrelationId correlation) =>
         new(tool, [Fault(fault)], IsError: true, correlation);
 
     static JsonNode Fault(Error error) => Fault(FaultWire.Observe(error));
-    static JsonNode Fault(Rasm.Contracts.Fault.V1.FaultObservation fault) =>
+    static JsonNode Fault(Rasm.Contracts.Fault.FaultObservation fault) =>
         JsonSerializer.SerializeToNode(fault, SuiteContracts.Host)!;
 
     static Option<string> Shortfall(GrantFault fault) => fault.Switch(

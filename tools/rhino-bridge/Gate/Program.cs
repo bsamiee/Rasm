@@ -61,7 +61,7 @@ internal static partial class Program {
         long started = Posix.StartedAtUnixMs(pid).IfNone(0L);
         EndpointRecord endpoint = EndpointRecord.Create(
             pipeName: string.Create(CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}gate-{pid}"), rhinoPid: pid, rhinoStartedAtUnixMs: started,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
+            contractGeneration: Handshake.Generation, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
 
@@ -148,11 +148,11 @@ internal static partial class Program {
             Thread.Sleep(50);
         EndpointRecord dead = EndpointRecord.Create(
             pipeName: $"{EndpointRecord.PipePrefix}gate-dead", rhinoPid: deadPid, rhinoStartedAtUnixMs: 1L,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
+            contractGeneration: Handshake.Generation, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         Fin<LiveHost> deadAdmit = LiveHost.Admit(dead, default);
         EndpointRecord drifted = EndpointRecord.Create(
             pipeName: $"{EndpointRecord.PipePrefix}gate-drift", rhinoPid: Environment.ProcessId, rhinoStartedAtUnixMs: 1L,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: "gate", fault: "");
+            contractGeneration: Handshake.Generation, shellVersion: "gate", rhinoVersion: "gate", fault: "");
         Fin<LiveHost> driftAdmit = LiveHost.Admit(drifted, default);
         bool pass = deadAdmit is Fin<LiveHost>.Fail(Error gone) && gone.Message.Contains("not alive", StringComparison.Ordinal)
             && driftAdmit is Fin<LiveHost>.Fail(Error recycled) && recycled.Message.Contains("recycled", StringComparison.Ordinal);
@@ -450,7 +450,7 @@ internal static partial class Program {
         long started = Posix.StartedAtUnixMs(pid).IfNone(0L);
         EndpointRecord endpoint = EndpointRecord.Create(
             pipeName: string.Create(CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}live-{pid}"), rhinoPid: pid, rhinoStartedAtUnixMs: started,
-            contractVersion: Handshake.CurrentVersion, shellVersion: "gate", rhinoVersion: bundle.CFBundleVersion, fault: "");
+            contractGeneration: Handshake.Generation, shellVersion: "gate", rhinoVersion: bundle.CFBundleVersion, fault: "");
         return new LiveHost(Pid: pid, StartedAtUnixMs: started, Endpoint: endpoint, Fingerprint: default);
     }
 

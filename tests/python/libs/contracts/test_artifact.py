@@ -46,9 +46,9 @@ from rasm.contracts.artifact import (
     rendered,
     stage,
 )
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactFrame, ArtifactRef, FetchRequest, FetchResponse, PutRequest, PutResponse
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import BooleanInputs
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import SealedStep
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactFrame, ArtifactRef, FetchRequest, FetchResponse, PutRequest, PutResponse
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import BooleanInputs
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import SealedStep
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -353,7 +353,7 @@ def test_every_refusal_case_renders_a_distinct_token_carrying_its_own_evidence()
         (ArtifactWidth(expected=8, actual=3), ("8", "3")),
         (ArtifactIdentity(expected=b"\x01" * 32, actual=b"\x02" * 32), ("01" * 32, "02" * 32)),
         (ArtifactReference(expected=ArtifactRef(sha256=b"a" * 32, artifact_bytes=4), actual=None), ("None",)),
-        (ArtifactOpaque(type_url="type.googleapis.com/rasm.contracts.cad.v1.SealedStep"), ("type.googleapis.com/rasm.contracts.cad.v1.SealedStep",)),
+        (ArtifactOpaque(type_url="type.googleapis.com/rasm.contracts.cad.SealedStep"), ("type.googleapis.com/rasm.contracts.cad.SealedStep",)),
         (ArtifactCycle(type_name="google.protobuf.Struct"), ("google.protobuf.Struct",)),
         (ArtifactResealed(path=Path("/spool/artifact.glb")), ("/spool/artifact.glb",)),
     )
@@ -407,7 +407,7 @@ def test_descriptor_reference_discovery_retains_typed_coordinates() -> None:
 
     conflicted = BooleanInputs(operands=[SealedStep(artifact=first), SealedStep(artifact=ArtifactRef(sha256=first.sha256, artifact_bytes=9))])
     _refused(references(conflicted), ArtifactExtent)
-    _refused(references(Any(type_url="type.googleapis.com/rasm.contracts.cad.v1.SealedStep", value=b"opaque")), ArtifactOpaque)
+    _refused(references(Any(type_url="type.googleapis.com/rasm.contracts.cad.SealedStep", value=b"opaque")), ArtifactOpaque)
 
 
 def test_reference_traversal_refuses_a_message_live_on_its_own_ancestry() -> None:

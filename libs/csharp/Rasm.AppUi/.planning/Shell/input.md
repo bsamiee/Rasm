@@ -1,13 +1,13 @@
 # [APPUI_INPUT_INTERACTION]
 
-One interaction rail owns gesture mechanics for every admitted surface: keyboard chords derive from the one command table through a per-surface `GesturePolicy`, the behavior rail admits its trigger and action vocabulary as rows carrying their own timing election, pointer gestures resolve through the `GestureRow` roster and its kernel `InputVerdict` precedence fold over the frozen `PanZoomRow` canvas family, the `PenAxis` rows land every digitizer property on the one normalized axis grammar, `DragPayload` and `ClipboardRow` carry every transfer across the drag and clipboard boundaries on the validation rail under the kernel `Mime` format key, and the device fabric folds four SDK capsules onto the same command table through paired source and actuator legs. The page owns no key table, no conflict fold, no timer loop, and no second hotkey registry — the command deck, the AppHost schedule rows, the selection algebra, and the motion timing vocabulary arrive settled. The spine is Avalonia, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture.Runtime.Extensions, Riok.Mapperly, the kernel `FaultBand`/`SignedUnit`/`Mime`/`InputVerdict`/`Retriability` owners, and LanguageExt.Core.
+One interaction rail owns gesture mechanics for every admitted surface: keyboard chords derive from the one command table through a per-surface `GesturePolicy`, the behavior rail admits its trigger and action vocabulary as rows carrying their own timing election, pointer gestures resolve through the `GestureRow` roster and its kernel `InputVerdict` precedence fold over the frozen `PanZoomRow` canvas family, the `PenAxis` rows land every digitizer property on the one normalized axis grammar, `DragPayload` and `ClipboardRow` carry every transfer across the drag and clipboard boundaries on the validation rail under the kernel `Mime` format key, and the device fabric folds four SDK capsules onto the same command table through paired source and actuator legs. The page owns no key table, no conflict fold, no timer loop, and no second hotkey registry — the command deck, the AppHost schedule rows, the selection algebra, and the motion timing vocabulary arrive settled. The spine is Avalonia, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture.Runtime.Extensions, the kernel `FaultBand`/`SignedUnit`/`Mime`/`InputVerdict`/`Retriability` owners, and LanguageExt.Core.
 
 ## [01]-[INDEX]
 
 - [02]-[HOTKEY_DERIVATION]: Chord transform, scope split, gesture bindings over the frozen deck.
 - [03]-[BEHAVIOR_RAIL]: Admitted trigger and action rows; one intent-binding entry.
 - [04]-[POINTER_GESTURES]: The gesture roster and its precedence fold, the frozen pan-zoom canvas family, and the pen axis rows.
-- [05]-[DRAG_CLIPBOARD]: Typed transfer payload union, clipboard codec rows, and the one vendor wire seam.
+- [05]-[DRAG_CLIPBOARD]: Typed transfer payload union, clipboard codec rows, and the sealed vendor-format grain.
 - [06]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
 - [07]-[DEVICE_DRIVERS]: The four admitted SDK boundary capsules, their open and arm legs, and the driver receipts.
 
@@ -268,14 +268,14 @@ public static class PointerTrack {
 
 ## [05]-[DRAG_CLIPBOARD]
 
-- Owner: `DragPayload` transfer union; `ClipboardRow` codec row family over the kernel `Mime` format key; `TableRowsWire` and `TransferMap` — the one vendor-format wire record and its generated correspondence.
+- Owner: `DragPayload` transfer union; `ClipboardRow` codec row family over the kernel `Mime` format key; `DragPayload.TableRows.Seal` — the one vendor-format grain declaration.
 - Cases: `TableRows(Seq<string> Keys, string Tsv)` | `AssetKey(string Key)` | `HostObjects(Seq<Guid> Ids)` | `Files(Seq<string> Paths)` | `Image(ReadOnlyMemory<byte> Png)`
-- Entry: `public static Validation<Error, DragPayload> Admit(Seq<string> paths, Func<string, bool> admitted)` — external drop admission; `Validation<Error,T>` accumulates one refusal per unadmitted path; `public static Option<Validation<Error, DragPayload>> Decode(Seq<string> formats, Func<Mime, Option<ReadOnlyMemory<byte>>> read, JsonSerializerOptions wire)` — the format gate: the host's reported identifiers admit through `Mime` once, the present rows select the first round-trip leg, and `None` is the no-op an unroutable clipboard folds to.
+- Entry: `public static Validation<Error, DragPayload> Admit(Seq<string> paths, Func<string, bool> admitted)` — external drop admission; `Validation<Error,T>` accumulates one refusal per unadmitted path; `public static Option<Validation<Error, DragPayload>> Decode(Seq<string> formats, Func<Mime, Option<ReadOnlyMemory<byte>>> read)` — the format gate: the host's reported identifiers admit through `Mime` once, the present rows select the first round-trip leg, and `None` is the no-op an unroutable clipboard folds to.
 - Auto: every external drop runs `Admit` and every paste enters through `Decode` before any intent fires; refusals fold into the screen fault state with zero partial payloads; a drop reaches `Admit` from the attached behavior's own handler, so no surface carries a routed drop handler of its own.
 - Receipt: admitted payloads raise their command intents and ride the command receipt family — the rail mints no second receipt vocabulary.
-- Packages: Thinktecture.Runtime.Extensions, Riok.Mapperly, LanguageExt.Core, Xaml.Behaviors.Avalonia, Avalonia, Rasm (project — `Mime`), BCL inbox
-- Growth: a new transfer shape is one union case plus one `ClipboardRow`; a new drop surface is one attached behavior row; a payload column added to a vendor format is one wire-record field and one version bump; zero new surface.
-- Boundary: the format column is the kernel `Mime` value, so a host identifier canonicalizes and admits ONCE at the gate and the interior compares admitted keys — a bare-string roster compared the host's own casing against the page's and missed on a board that reported `TEXT/PLAIN`, and the six literals here admitted by accident rather than by grammar. The rows mint through `Mime.Create` because they are the page's own frozen literals: a defect there is a boot refusal on a value no runtime input can influence. The vendor formats cross a PROCESS boundary, so `application/x-rasm-table-rows+json` carries its own wire record with a version token rather than serializing the union case in place: a column added to `DragPayload.TableRows` broke every previously copied clipboard payload silently, and the generated `[Mapper]` correspondence now breaks at compile time instead while a stored payload from an older version refuses by name. Transfer attachment is declarative behavior rows, never code-behind: the typed payload rides `TypedDragBehavior` whose `Handler` column carries a `DropHandlerBase`-derived `IDropHandler` routing the admitted payload into the intent's `ReactiveCommand`, data-context transfer rides `ContextDragBehavior`/`ContextDropBehavior`, list reorder rides `ListReorderDragBehavior` with its `PlaceholderTemplate`, external file drop rides `FilesDropBehavior` (or `ContentControlFilesDropBehavior` on a content host) beside `FilesPreviewBehavior` for the drag-hover preview, and `DragDrop.SetAllowDrop(control, true)` with routed `DragDrop.DragOverEvent`/`DropEvent` handlers is the deleted form — `DragEventArgs.DataTransfer` reads and the `DragEventArgs.DragEffects` write live inside the handler alone, never `DragEventArgs.Data`; the behavior owns delivery and the payload rail owns admission, so `Admit` stays the one typed refusal producer and a path the surface accepted but the payload vocabulary refuses still accumulates its own `DropRejected`, with the `admitted` predicate column arriving from the dialogs file-filter vocabulary. The empty drop is its OWN guard rather than an arm nested inside the refusal switch, and every unadmitted path names itself on the applicative — `Error.Many` re-wrapped a sequence `Traverse` already carries, which is the same accumulation the uri-list leg beside it always used. A paste gates through `GetClipboardFormatsAction` into `Decode` so the present data-format identifiers select the matching `ClipboardRow` before any `Paste` runs and an absent format folds to no-op rather than a failed decode; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only structurally — it carries no paste leg at all, the gate skips it, and `PasteRejected` stays reserved for a genuine malformed decode instead of firing on every ordinary external text paste; every structured `DragPayload` case owns a `ClipboardRow` round-trip — `Files` rides the standard `text/uri-list` grammar and `HostObjects` the `application/x-rasm-host-objects` GUID row, both fail-closed with one accumulated refusal per malformed entry, so a copy-paste cycle preserves the structured case and no generic textual coercion can bypass its row; `TableRows.Tsv` alone supplies the explicit `text/plain` interoperability projection beside its full-fidelity JSON row; the host-objects clipboard leg and the cross-boundary drag leg are both live — the embedded root's native view accepts host drag-type registration additively and `DragDrop.SetAllowDrop(target, true)` reads back true on every admitted embedded host, so the payload rail crosses the foreign-view boundary on the same admission every in-process drop uses; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; structured copy crosses through one clipboard write keyed by the row `Format` identifiers, riding `Avalonia.Input.Platform.IClipboard.SetDataAsync(IAsyncDataTransfer)` with a `DataTransfer` carrying one `DataTransferItem` per `ClipboardRow` keyed by `DataFormat.CreateBytesApplicationFormat`/`CreateStringApplicationFormat`, each item built through `DataTransferItem.Create<T>(DataFormat<T>, T?)`/`CreateText` or `DataTransferItem.Set<T>(DataFormat<T>, T?)`, the read riding `IClipboard.TryGetDataAsync()` with `ClipboardExtensions.GetDataFormatsAsync` as the present-format gate and `ClipboardExtensions.TryGetTextAsync`/`ClipboardExtensions.TryGetValueAsync<T>(DataFormat<T>)` plus `DataTransferItem.TryGetRaw` as the typed extract, the `IAsyncDataTransfer` handed to `SetDataAsync` left undisposed because Avalonia takes ownership and disposes it once off the clipboard (a caller `using`/`Dispose` on the set transfer is the deleted form), and the legacy `DataObject`/`DataFormats`/`IDataObject` surface obsolete in Avalonia 12; the headless drop harness sequences `DragDrop` calls `DragEnter` → `DragOver` → `Drop` (mirroring `DragLeave` on the abort path) because a `DragOver` without a prior `DragEnter` seeds no drop context and fires no routed handler the attached behavior can observe, and headless input modifiers cross as `RawInputModifiers`, never `KeyModifiers`; the cross-boundary host-object drag binds `ManagedDragDropService` with `ManagedContextDropArgs` as its admitted managed transfer surface, registering its drag types onto the embedded root's own native view at mount and unregistering with the capsule teardown; the physical drag gesture across that boundary is the one perceptual remainder on this rail — registration, admission, and the routed drop all read as values, while a pointer actually carrying a payload from a host viewport onto a mounted row is confirmable by a human alone, so no design here waits on it.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Xaml.Behaviors.Avalonia, Avalonia, Rasm (project — `Mime`), BCL inbox
+- Growth: a new transfer shape is one union case plus one `ClipboardRow`; a new drop surface is one attached behavior row; a payload column added to a vendor format is one case field under one `Generation` bump on that case's seal; zero new surface.
+- Boundary: the format column is the kernel `Mime` value, so a host identifier canonicalizes and admits ONCE at the gate and the interior compares admitted keys — a bare-string roster compared the host's own casing against the page's and missed on a board that reported `TEXT/PLAIN`, and the six literals here admitted by accident rather than by grammar. The rows mint through `Mime.Create` because they are the page's own frozen literals: a defect there is a boot refusal on a value no runtime input can influence. The vendor formats cross a PROCESS boundary, so `application/x-rasm-table-rows+json` rides the case's own `Diagnostics/evidence#DURABLE_PARCEL` seal rather than serializing the union case bare: a column added to `DragPayload.TableRows` broke every previously copied clipboard payload silently, and the generation now rides inside the copied bytes so a payload from another build refuses on content and the paste answers absence. Parallel wire records carrying their own stamped ordinal are the deleted form — they made the case's column roster a fact two declarations had to agree about, and the mapper carving that ordinal was the seam where they disagreed. NAMED LOSS: attribute-rename carry across a generation, which a clipboard payload never needed. Codec rows carry format, copy, and paste alone: the seal reaches `EvidenceOps.Wire` itself, so no row threads a `JsonSerializerOptions` column and none reads one. Transfer attachment is declarative behavior rows, never code-behind: the typed payload rides `TypedDragBehavior` whose `Handler` column carries a `DropHandlerBase`-derived `IDropHandler` routing the admitted payload into the intent's `ReactiveCommand`, data-context transfer rides `ContextDragBehavior`/`ContextDropBehavior`, list reorder rides `ListReorderDragBehavior` with its `PlaceholderTemplate`, external file drop rides `FilesDropBehavior` (or `ContentControlFilesDropBehavior` on a content host) beside `FilesPreviewBehavior` for the drag-hover preview, and `DragDrop.SetAllowDrop(control, true)` with routed `DragDrop.DragOverEvent`/`DropEvent` handlers is the deleted form — `DragEventArgs.DataTransfer` reads and the `DragEventArgs.DragEffects` write live inside the handler alone, never `DragEventArgs.Data`; the behavior owns delivery and the payload rail owns admission, so `Admit` stays the one typed refusal producer and a path the surface accepted but the payload vocabulary refuses still accumulates its own `DropRejected`, with the `admitted` predicate column arriving from the dialogs file-filter vocabulary. The empty drop is its OWN guard rather than an arm nested inside the refusal switch, and every unadmitted path names itself on the applicative — `Error.Many` re-wrapped a sequence `Traverse` already carries, which is the same accumulation the uri-list leg beside it always used. A paste gates through `GetClipboardFormatsAction` into `Decode` so the present data-format identifiers select the matching `ClipboardRow` before any `Paste` runs and an absent format folds to no-op rather than a failed decode; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only structurally — it carries no paste leg at all, the gate skips it, and `PasteRejected` stays reserved for a genuine malformed decode instead of firing on every ordinary external text paste; every structured `DragPayload` case owns a `ClipboardRow` round-trip — `Files` rides the standard `text/uri-list` grammar and `HostObjects` the `application/x-rasm-host-objects` GUID row, both fail-closed with one accumulated refusal per malformed entry, so a copy-paste cycle preserves the structured case and no generic textual coercion can bypass its row; `TableRows.Tsv` alone supplies the explicit `text/plain` interoperability projection beside its full-fidelity JSON row; the host-objects clipboard leg and the cross-boundary drag leg are both live — the embedded root's native view accepts host drag-type registration additively and `DragDrop.SetAllowDrop(target, true)` reads back true on every admitted embedded host, so the payload rail crosses the foreign-view boundary on the same admission every in-process drop uses; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; structured copy crosses through one clipboard write keyed by the row `Format` identifiers, riding `Avalonia.Input.Platform.IClipboard.SetDataAsync(IAsyncDataTransfer)` with a `DataTransfer` carrying one `DataTransferItem` per `ClipboardRow` keyed by `DataFormat.CreateBytesApplicationFormat`/`CreateStringApplicationFormat`, each item built through `DataTransferItem.Create<T>(DataFormat<T>, T?)`/`CreateText` or `DataTransferItem.Set<T>(DataFormat<T>, T?)`, the read riding `IClipboard.TryGetDataAsync()` with `ClipboardExtensions.GetDataFormatsAsync` as the present-format gate and `ClipboardExtensions.TryGetTextAsync`/`ClipboardExtensions.TryGetValueAsync<T>(DataFormat<T>)` plus `DataTransferItem.TryGetRaw` as the typed extract, the `IAsyncDataTransfer` handed to `SetDataAsync` left undisposed because Avalonia takes ownership and disposes it once off the clipboard (a caller `using`/`Dispose` on the set transfer is the deleted form), and the legacy `DataObject`/`DataFormats`/`IDataObject` surface obsolete in Avalonia 12; the headless drop harness sequences `DragDrop` calls `DragEnter` → `DragOver` → `Drop` (mirroring `DragLeave` on the abort path) because a `DragOver` without a prior `DragEnter` seeds no drop context and fires no routed handler the attached behavior can observe, and headless input modifiers cross as `RawInputModifiers`, never `KeyModifiers`; the cross-boundary host-object drag binds `ManagedDragDropService` with `ManagedContextDropArgs` as its admitted managed transfer surface, registering its drag types onto the embedded root's own native view at mount and unregistering with the capsule teardown; the physical drag gesture across that boundary is the one perceptual remainder on this rail — registration, admission, and the routed drop all read as values, while a pointer actually carrying a payload from a host viewport onto a mounted row is confirmable by a human alone, so no design here waits on it.
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------------
@@ -283,7 +283,13 @@ public static class PointerTrack {
 public abstract partial record DragPayload {
     private DragPayload() { }
 
-    public sealed record TableRows(Seq<string> Keys, string Tsv) : DragPayload;
+    // Only this case crosses a PROCESS boundary as stored bytes, so it declares its own
+    // `Diagnostics/evidence#DURABLE_PARCEL` seal: a payload copied under one column roster and pasted under a
+    // later generation refuses on content, and DISCARDS, because a clipboard payload no build admits has no
+    // second reader and nothing about it is recoverable by hand.
+    public sealed record TableRows(Seq<string> Keys, string Tsv) : DragPayload {
+        public static readonly StateSeal Seal = StateSeal.Of("input", "table-rows", generation: 1, StateResidue.Discard);
+    }
 
     public sealed record AssetKey(string Key) : DragPayload;
 
@@ -315,34 +321,11 @@ public abstract partial record DragPayload {
                 .Map(static accepted => (DragPayload)new Files(accepted));
 }
 
-// The vendor format's own wire shape, versioned because it survives in a system clipboard the process does
-// not own: a payload copied under one column roster and pasted under the next refuses by name here instead of
-// decoding into a case whose meaning has shifted underneath it.
-public sealed record TableRowsWire(int Version, Seq<string> Keys, string Tsv) {
-    public const int CurrentVersion = 1;
-}
-
-// --- [BOUNDARIES] ----------------------------------------------------------------------------
-// The one correspondence between the transfer case and its wire record. Target completeness carves the
-// version column, which the mapper supplies rather than reads; the ExplicitCast conversion is excluded as the
-// guard against LanguageExt's throwing carrier casts.
-[Mapper(
-    RequiredMappingStrategy = RequiredMappingStrategy.Target,
-    EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
-public static partial class TransferMap {
-    [MapValue(nameof(TableRowsWire.Version), Use = nameof(Stamped))]
-    public static partial TableRowsWire ToWire(DragPayload.TableRows rows);
-
-    public static partial DragPayload.TableRows FromWire(TableRowsWire wire);
-
-    private static int Stamped() => TableRowsWire.CurrentVersion;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed record ClipboardRow(
     Mime Format,
-    Func<DragPayload, JsonSerializerOptions, Option<ReadOnlyMemory<byte>>> Copy,
-    Option<Func<ReadOnlyMemory<byte>, JsonSerializerOptions, Validation<Error, DragPayload>>> Paste) {
+    Func<DragPayload, Option<ReadOnlyMemory<byte>>> Copy,
+    Option<Func<ReadOnlyMemory<byte>, Validation<Error, DragPayload>>> Paste) {
     public const int MaxImageBytes = 33_554_432;
 
     // Two admissions over one row shape: a round-trip row carries both legs, a copy-only row carries no paste
@@ -351,42 +334,46 @@ public sealed record ClipboardRow(
     // hardcoded refusal the screen fault fold then raises as a failure the user caused by pasting.
     private static ClipboardRow RoundTrip(
         string format,
-        Func<DragPayload, JsonSerializerOptions, Option<ReadOnlyMemory<byte>>> copy,
-        Func<ReadOnlyMemory<byte>, JsonSerializerOptions, Validation<Error, DragPayload>> paste) =>
+        Func<DragPayload, Option<ReadOnlyMemory<byte>>> copy,
+        Func<ReadOnlyMemory<byte>, Validation<Error, DragPayload>> paste) =>
         new(Mime.Create(format), copy, Some(paste));
 
     private static ClipboardRow CopyOnly(
-        string format, Func<DragPayload, JsonSerializerOptions, Option<ReadOnlyMemory<byte>>> copy) =>
+        string format, Func<DragPayload, Option<ReadOnlyMemory<byte>>> copy) =>
         new(Mime.Create(format), copy, None);
 
     public static readonly ClipboardRow Text = CopyOnly(
         "text/plain",
-        static (payload, wire) => DragPayload.Textual(payload).Map(text => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(text)));
+        static payload => DragPayload.Textual(payload).Map(text => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(text)));
 
+    // Seal owns the encode, the ceiling, the generation compare, and the column-roster admission, so this row
+    // carries the two UTF-8 crossings alone and a refused paste answers absence rather than a decode fault.
     public static readonly ClipboardRow Table = RoundTrip(
         "application/x-rasm-table-rows+json",
-        copy: static (payload, wire) => payload is DragPayload.TableRows rows
-            ? Optional<ReadOnlyMemory<byte>>(JsonSerializer.SerializeToUtf8Bytes(TransferMap.ToWire(rows), wire))
+        copy: static payload => payload is DragPayload.TableRows rows
+            ? DragPayload.TableRows.Seal.Write(rows).ToOption().Map(static text => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(text))
             : None,
-        paste: static (bytes, wire) => Op.Of(name: "appui.input.table-paste").Catch(() => Fin.Succ(JsonSerializer.Deserialize<TableRowsWire>(bytes.Span, wire)))
-            .Bind(static decoded => Optional(decoded).ToFin(new InputDriverFault.PasteRejected("table rows absent")))
-            .Bind(static decoded => decoded.Version == TableRowsWire.CurrentVersion
-                ? Fin.Succ((DragPayload)TransferMap.FromWire(decoded))
-                : Fin.Fail<DragPayload>(new InputDriverFault.PasteRejected($"table rows version {decoded.Version}")))
-            .ToValidation());
+        paste: static bytes => DragPayload.TableRows.Seal
+            .Read<DragPayload.TableRows>(Encoding.UTF8.GetString(bytes.Span), static rows => rows.Keys.IsEmpty
+                ? Fin.Fail<DragPayload.TableRows>(new InputDriverFault.PasteRejected("table rows carry no column roster"))
+                : Fin.Succ(rows))
+            .Value
+            .Match(
+                Some: static rows => Success<Error, DragPayload>(rows),
+                None: static () => (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("table rows refuse this build's seal")));
 
     public static readonly ClipboardRow Png = RoundTrip(
         "image/png",
-        copy: static (payload, wire) => payload is DragPayload.Image image && image.Png.Length <= MaxImageBytes ? Optional(image.Png) : None,
-        paste: static (bytes, wire) => bytes.Length <= MaxImageBytes
+        copy: static payload => payload is DragPayload.Image image && image.Png.Length <= MaxImageBytes ? Optional(image.Png) : None,
+        paste: static bytes => bytes.Length <= MaxImageBytes
             && bytes.Span is [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ..]
             ? (Validation<Error, DragPayload>)new DragPayload.Image(bytes)
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("png signature mismatch"));
 
     public static readonly ClipboardRow Asset = RoundTrip(
         "application/x-rasm-asset-key",
-        copy: static (payload, wire) => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(key.Key)) : None,
-        paste: static (bytes, wire) => Encoding.UTF8.GetString(bytes.Span) is { Length: > 0 } key
+        copy: static payload => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(key.Key)) : None,
+        paste: static bytes => Encoding.UTF8.GetString(bytes.Span) is { Length: > 0 } key
             ? (Validation<Error, DragPayload>)new DragPayload.AssetKey(key)
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("empty asset key"));
 
@@ -394,14 +381,14 @@ public sealed record ClipboardRow(
     // a non-file URI accumulates one refusal per line, so a mixed paste reports every reject.
     public static readonly ClipboardRow Uris = RoundTrip(
         "text/uri-list",
-        copy: static (payload, wire) => payload is DragPayload.Files files
+        copy: static payload => payload is DragPayload.Files files
             ? files.Paths.Traverse(static path => Uri.TryCreate(path, UriKind.Absolute, out Uri? uri) && uri.IsFile
                     ? Some(uri.AbsoluteUri)
                     : Option<string>.None)
                 .As()
                 .Map(uris => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(string.Join("\r\n", uris)))
             : None,
-        paste: static (bytes, wire) => toSeq(Encoding.UTF8.GetString(bytes.Span).Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
+        paste: static bytes => toSeq(Encoding.UTF8.GetString(bytes.Span).Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
             .Filter(static line => !line.StartsWith('#'))
             .Traverse(static line => Uri.TryCreate(line, UriKind.Absolute, out Uri? uri) && uri.IsFile
                 ? Success<Error, string>(uri.LocalPath)
@@ -413,8 +400,8 @@ public sealed record ClipboardRow(
     // so a copy-paste cycle preserves the structured case fail-closed, never a text coercion.
     public static readonly ClipboardRow Host = RoundTrip(
         "application/x-rasm-host-objects",
-        copy: static (payload, wire) => payload is DragPayload.HostObjects host ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(string.Join(",", host.Ids))) : None,
-        paste: static (bytes, wire) => toSeq(Encoding.UTF8.GetString(bytes.Span).Split(',', StringSplitOptions.RemoveEmptyEntries))
+        copy: static payload => payload is DragPayload.HostObjects host ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(string.Join(",", host.Ids))) : None,
+        paste: static bytes => toSeq(Encoding.UTF8.GetString(bytes.Span).Split(',', StringSplitOptions.RemoveEmptyEntries))
             .Traverse(static token => Guid.TryParse(token, out Guid id)
                 ? Success<Error, Guid>(id)
                 : (Validation<Error, Guid>)new InputDriverFault.PasteRejected($"malformed host id: {token}"))
@@ -430,13 +417,13 @@ public sealed record ClipboardRow(
     // construction, an unroutable clipboard answers None, and a present-but-unreadable format answers None
     // too: refusal survives only for a decode that actually ran.
     public static Option<Validation<Error, DragPayload>> Decode(
-        Seq<string> formats, Func<Mime, Option<ReadOnlyMemory<byte>>> read, JsonSerializerOptions wire) =>
+        Seq<string> formats, Func<Mime, Option<ReadOnlyMemory<byte>>> read) =>
         formats
             .Choose(static format => Mime.Validate(format, null, out Mime admitted) is null ? Some(admitted) : None)
             .Choose(static format => Rows.TryGetValue(format, out ClipboardRow? row) ? Some(row) : None)
             .Choose(static row => row.Paste.Map(paste => (row.Format, Paste: paste)))
             .Head
-            .Bind(found => read(found.Format).Map(bytes => found.Paste(bytes, wire)));
+            .Bind(found => read(found.Format).Map(bytes => found.Paste(bytes)));
 }
 ```
 

@@ -23,6 +23,10 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
     - [NOT]: CQRS read-model projection, one instance rather than this definition, and geometric projection, which the drawing owners spell in full.
 - `statechart`: Declares a hierarchical transition system as data — nodes, guards, ordered transitions — whose macrostep folds that declaration.
 - `free frontier`: Marks a fault band's next unallocated code offset, so a new case appends there and a landed offset never reallocates.
+- `seal`: Seals a stored parcel with the generation its writer declared, so a decode under another generation refuses on content and never on the key.
+    - [NOT]: `sealed` class modifiers and cryptographic seals; only the generation-carrying stored envelope carries this word.
+- `residue`: Holds a stored payload the current shape does not admit, so evidence survives a decode the schema refuses.
+    - [NOT]: Solver residuals, which the compute owners spell in full.
 
 ## [02]-[BOUNDARY]
 
@@ -75,7 +79,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
 - `op log`: Records each operation as a replayable entry carrying the identity and causal metadata a merge needs.
 - `snapshot`: Captures one materialized state at a point so replay starts there rather than at the beginning.
     - [NOT]: Virtual-machine and volume snapshots; only a replay-shortening state capture carries this word.
-- `upcasting`: Rewrites an older persisted entry into the current shape at read time, so replay never reads a retired shape.
+- `re-mint`: Re-encodes a whole durable log into the current shape under one custody receipt, so the superseded log retires whole.
 - `compaction`: Collapses superseded history into the surviving state, bounded below by the retention frontier.
     - [NOT]: Mesh decimation and archive compression; only history collapse carries this word.
 - `outbox pattern`: Writes an outbound message into the same transaction as its state change, and a relay ships it afterward.

@@ -15,56 +15,71 @@
 
 [STORE_ROOT]:
 - Owner: `Store` — one assembled owner: `make({ layer, memoMap? })` builds the `AtomRuntime` through `Atom.context({ memoMap })` so runtime atoms and the host `ManagedRuntime` share one construction of every Layer node; `policy` is the registry row (`defaultIdleTTL`, `timeoutResolution`) the app's `RegistryProvider` spreads.
-- Packages: `@effect-atom/atom-react` (the barrel — `Atom`, `Registry`, `Result`, `Hydration` and the hook surface all reach the folder through it); `effect` (`Layer`, `Duration`).
+- Packages: `@effect-atom/atom-react` (the barrel — `Atom`, `Registry`, `Result`, `Hydration` and the hook surface all reach the folder through it); `effect` (`Layer`, `Duration`, `Option`, `Schema`); `@rasm/core` (`Shape.Json` — the residue leaf a refused parcel preserves).
 - Entry: `Store.make` is the one runtime mint; a per-atom `Layer` provision, a second registry outside test isolation, or a module-level `Atom.runtime` call beside it is the named defect.
 - Law: one `RegistryProvider` at the app root supplies the store; scoped per-instance state covers component-local cells — a global atom keyed by component id never exists.
 - Law: persistence is Schema-coded and the package surface IS the row, no wrapper — `Atom.kvs({ runtime, key, schema, defaultValue })` backs an atom by the platform `KeyValueStore` and `Atom.searchParam(name, { schema })` links one to a URL search param, each with the owning kernel schema (a brand, a `Schema.Literal` vocabulary) as the only codec, so `localStorage`/IndexedDB is never touched raw and a malformed stored value re-decodes to the default instead of poisoning the store.
-- Law: every persisted grain declares its SEAL posture, a closed pair — `versioned` carries a DECLARED ordinal segment in its key, so a schema bump mints a fresh key and the superseded value reads as absence falling to the default (the layout/workspace class, where yesterday's bytes re-decoding CLEANLY into today's schema while meaning something else is the silent mis-restore the ordinal forecloses; `Atom.kvs`'s malformed-to-default arm is the landing mechanism, so the posture buys semantic-drift safety on top of the decode guard, never beside it) — while `migrated` holds its key stable and walks the stored value through an upcast chain at decode (the draft/document class, where user state is precious and vanishing to a default is the defect; the chain derives from the owning roster's version steps, never a hand-kept ladder).
-- Law: the persisted key mints ONCE — `Store.key({ domain, grain, seal })` derives `rasm.ui.<domain>.<grain>` with `.v<N>` appended on the versioned posture, the ordinal DECLARED at the owning grain and never a schema hash, since a derived hash re-keys user state on an annotation edit that changed no semantics; a hand-spelled key beside the mint is the two-producer drift `UNREAD_KEY_ROW` names, so the landed grains — the chart workspace token, the theme kind, the locale, the form draft — re-key through this member and no page spells the format again.
+- Law: stored state is a DECODE ADMISSION — `Store.sealed(schema, seal)` wraps a grain's own schema in the `{ generation, value }` parcel, so the generation its writer declared rides INSIDE the stored bytes and the comparison runs before the inner decode; a parcel written under another generation refuses on CONTENT, which is what forecloses the silent mis-restore where yesterday's bytes decode cleanly into today's schema while meaning something else, and `Atom.kvs`'s malformed-to-default arm seats the seeded default.
+- Law: the `residue` column on the seal decides what a refused parcel leaves behind — `discard` drops it whole and the grain boots on its default, while `hold` decodes the refusal into `Store.Held` with the raw stored leaf preserved beside an absent value, so a precious grain keeps its evidence visible, counted, and hand-recoverable; a consumer unwraps `Store.Held.value` against its own seed and recovers from `residue` by hand.
+- Law: the persisted key mints ONCE — `Store.key({ domain, grain })` derives `rasm.ui.<domain>.<grain>` and that key holds stable for the grain's whole life, since the generation seals the VALUE and a shape change moves the seal alone; a hand-spelled key beside the mint is the two-producer drift `UNREAD_KEY_ROW` names, so every persisted grain reaches storage through this member and no page spells the format again.
 - Law: URL write SHAPING is a combinator on the persisted atom, never a routing-package hook tier — `runtime:browser/route` owns the typed query codec through `nuqs/server` and refuses `throttle`/`debounce`/`LimitUrlUpdates` at that seam because `createSerializer` ignores them, deferring the rate question to the hook tier it names a `ui` surface; that tier is `Atom.debounce` composed on the `Atom.searchParam` node, so how fast a hot control writes the URL is one combinator on the owning atom and this folder imports no query hook, no adapter, and no second URL-state binding. Placing `useQueryState` beside the store mints the second binding `ONE_FOLD_ONE_BINDING` forecloses, and a hand `URLSearchParams` write is the same defect wearing the platform's name.
 - Law: SSR handoff is a real member pair — `Store.dehydrate(registry)` emits the `DehydratedAtom` state the server serializes, `HydrationBoundary` rehydrates it before children read, `Atom.serializable(self, { schema })` marks the atoms that cross with the kernel schema as codec, and a client refetch of server-computed data is the named defect.
 - Law: the observe weave terminates here — `Store.make`'s `layer` is the ONE seam where an app's telemetry bridge rows (tracer, metric registry, log exporter) enter, so every `rasm.ui.<domain>.<verb>`-named rail behind a runtime atom exports the moment the app composes the bridge; owners state `Effect.withSpan`/`Effect.annotateLogs`/`Metric` rows at their own rails, span names share the `system/hook` rail vocabulary so a hook fact and its span correlate by name, and this folder imports zero collectors and mints zero exporters — removing the bridge layer removes every emission with zero owner edits.
 - Boundary: the `ManagedRuntime` and boot seam are the browser composition root's — this module never calls a `run*` method; the shared `memoMap` argument is how the app hands both runtimes one acquisition map at composition, with `Atom.defaultMemoMap` as the shared floor when the app supplies none.
-- Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call with its owning schema and one `Store.key` grain naming its seal posture — the `KeyValueStore` Layer swap is app composition.
+- Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call over a `Store.key` grain row and a `Store.sealed` seal row, and a shape change is one `generation` bump on that seal — the `KeyValueStore` Layer swap is app composition.
 
 ```typescript signature
 import { Atom, Hydration } from "@effect-atom/atom-react"
-import { Duration, type Layer, type Types } from "effect"
+import type { Shape } from "@rasm/core"
+import { Duration, type Layer, type Option, type Schema, type Types } from "effect"
 
 const _policy = {
   defaultIdleTTL: Duration.minutes(5),
   timeoutResolution: Duration.millis(100),
 } as const
 
+// a `hold` grain's refused parcel: the value absent because the generation disagreed, the raw stored leaf preserved
+// beside it — declared out here because `Store`'s own `Shape` member shadows the core import inside the namespace
+type _Held<A> = { readonly value: Option.Option<A>; readonly residue: Option.Option<Shape.Json> }
+
 declare namespace Store {
   type Options<R, E> = {
     readonly layer: Layer.Layer<R, E>
     readonly memoMap?: Layer.MemoMap
   }
-  type Seal = { readonly posture: "versioned"; readonly version: number } | { readonly posture: "migrated" }
+  type Disposition = "hold" | "discard"
   type Segment<S extends string> = S extends `${string}.${string}` ? never : S // a dotted segment would mint extra key levels no reader parses
-  type Grain<D extends string, G extends string> = { readonly domain: Store.Segment<D>; readonly grain: Store.Segment<G>; readonly seal: Store.Seal }
-  type Key = `rasm.ui.${string}.${string}` | `rasm.ui.${string}.${string}.v${number}`
+  type Grain<D extends string, G extends string> = { readonly domain: Store.Segment<D>; readonly grain: Store.Segment<G> }
+  type Key = `rasm.ui.${string}.${string}`
+  type Seal<P extends Store.Disposition> = { readonly generation: number; readonly residue: P }
+  type Parcel<I> = { readonly generation: number; readonly value: I }
+  type Held<A> = _Held<A>
+  type Decoded<A, P extends Store.Disposition> = P extends "hold" ? _Held<A> : A
   type Shape = Types.Simplify<{
     readonly policy: typeof _policy
     readonly make: <R, E>(options: Store.Options<R, E>) => Atom.AtomRuntime<R, E>
-    readonly key: <D extends string, G extends string>(row: Store.Grain<D, G>) => Store.Key
+    readonly key: typeof _key
+    readonly sealed: typeof _sealed
     readonly dehydrate: typeof Hydration.dehydrate
     readonly hydrate: typeof Hydration.hydrate
   }>
 }
 
-// each owning grain DECLARES its ordinal, counted from 1 — a schema-derived hash re-keys user state on an annotation
-// edit, and v0 names no prior generation to supersede
 const _key = <D extends string, G extends string>(row: Store.Grain<D, G>): Store.Key =>
-  row.seal.posture === "versioned"
-    ? `rasm.ui.${row.domain}.${row.grain}.v${row.seal.version}`
-    : `rasm.ui.${row.domain}.${row.grain}`
+  `rasm.ui.${row.domain}.${row.grain}`
+
+// `generation` compares BEFORE the inner schema runs, so a parcel decoding cleanly under today's shape
+// while carrying yesterday's meaning refuses; the `hold` arm hands that refused `value` leaf back verbatim
+declare const _sealed: <A, I, P extends Store.Disposition>(
+  schema: Schema.Schema<A, I>,
+  seal: Store.Seal<P>,
+) => Schema.Schema<Store.Decoded<A, P>, Store.Parcel<I>>
 
 const Store: Store.Shape = {
   policy: _policy,
   make: (options) => Atom.context({ memoMap: options.memoMap ?? Atom.defaultMemoMap })(options.layer),
   key: _key,
+  sealed: _sealed,
   dehydrate: Hydration.dehydrate,
   hydrate: Hydration.hydrate,
 }

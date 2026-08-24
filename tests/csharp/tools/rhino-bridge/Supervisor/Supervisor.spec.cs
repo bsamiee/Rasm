@@ -10,10 +10,10 @@ internal static class SessionGens {
     public static readonly string ReportDir = Directory.CreateTempSubdirectory(prefix: "rbx-spec-").FullName;
     public static readonly BundleInfo Bundle = new(AppPath: "/Applications/RhinoWIP.app", CFBundleName: "RhinoWIP", CFBundleExecutable: "Rhinoceros", CFBundleVersion: "9.0.26153");
     public static readonly HostFingerprint Fingerprint = new(BundleVersion: "9.0.26153.12416", RhinoCommonVersion: "9.0.26153.12416", Grasshopper2Version: "2.0.0", RuntimeVersion: "10.0.2");
-    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-spec", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
+    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-spec", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractGeneration: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
     public static readonly LiveHost Host = new(Pid: 4242, StartedAtUnixMs: 1_765_432_000_000, Endpoint: Endpoint, Fingerprint: Fingerprint);
-    public static readonly Handshake Ours = new(ContractVersion: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null);
-    public static readonly Handshake Peer = new(ContractVersion: 1, SenderVersion: "shell", Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")], Fingerprint: Fingerprint, Endpoint: Endpoint);
+    public static readonly Handshake Ours = new(ContractGeneration: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null);
+    public static readonly Handshake Peer = new(ContractGeneration: 1, SenderVersion: "shell", Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")], Fingerprint: Fingerprint, Endpoint: Endpoint);
     public static readonly CargoManifest Manifest = new(SessionId: Sid, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [], BuiltAgainst: Fingerprint, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]);
     public static readonly CargoReceipt Cargo = new(ContentHash: "xx64:abc", SwapMs: 100.0, Scenarios: [], Capabilities: [new CapabilityEntry(Key: "gh2.dataflow", Outcome: PhaseStatus.Unsupported, Receipt: "0b render-only")]);
     public static readonly SessionState.Ready Ready = new(Host: Host, Peer: Peer);

@@ -112,7 +112,7 @@ public readonly record struct AdmittedRecord(
     Uniqueness Key,
     UInt128 ContentKey,
     CloudEvent Envelope,
-    global::Rasm.Contracts.Event.V1.Extensions Extensions,
+    global::Rasm.Contracts.Event.Extensions Extensions,
     IngressPayload Payload);
 
 // injected delegate frame: `TryApply` atomically claims the uniqueness composite and folds an admitted foreign
@@ -124,9 +124,9 @@ public readonly record struct AdmittedRecord(
 // second fault grammar.
 public sealed record IngressPorts(
     Func<Uri, CancellationToken, IO<Fin<ReadOnlyMemory<byte>>>> Resolve,
-    Func<Uniqueness, UInt128, CloudEvent, global::Rasm.Contracts.Event.V1.Extensions, ReadOnlyMemory<byte>, CancellationToken, IO<Fin<bool>>> TryApply,
-    Func<Error, global::Rasm.Contracts.Fault.V1.FaultObservation> ObserveFault,
-    Func<global::Rasm.Contracts.Fault.V1.FaultObservation, string, CancellationToken, IO<Unit>> DeadLetter);
+    Func<Uniqueness, UInt128, CloudEvent, global::Rasm.Contracts.Event.Extensions, ReadOnlyMemory<byte>, CancellationToken, IO<Fin<bool>>> TryApply,
+    Func<Error, global::Rasm.Contracts.Fault.FaultObservation> ObserveFault,
+    Func<global::Rasm.Contracts.Fault.FaultObservation, string, CancellationToken, IO<Unit>> DeadLetter);
 
 // Per-drain evidence on the kernel validity floor: every consumed record is applied, deduplicated, or
 // dead-lettered, exactly once. `AtEdge` counts end-of-partition POSITIONS and therefore stands OUTSIDE that
@@ -417,7 +417,7 @@ public static class CdcIngress {
     // Payload shape is admitted at ONE site and the unsupported arm is a typed refusal, never a throw the
     // enclosing frame had to catch straight back into the value it should have been.
     static Fin<IngressPayload> Payload(
-        CloudEvent envelope, global::Rasm.Contracts.Event.V1.Extensions extensions, string id, Op key) =>
+        CloudEvent envelope, global::Rasm.Contracts.Event.Extensions extensions, string id, Op key) =>
         key.Catch(() => {
             Option<Uri> reference = extensions.HasDataref
                 ? Some(new Uri(extensions.Dataref, UriKind.RelativeOrAbsolute))

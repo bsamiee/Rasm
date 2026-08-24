@@ -1,6 +1,6 @@
 # [BIM_TESSELLATION_BRIDGE]
 
-`TessellationRequest` crosses canonical IFC SPF to the Python geometry companion and re-imports its GLB through the `import#IMPORT_RAIL` glTF path, minting the `TessellationOutcome` receipt over the dual content keys, mesh evidence, peer semantic/spill evidence, origin, and monotonic latency. STEP, IGES, and exact B-rep execution cross the separate `cad.v1.CadService` boundary. This bridge owns cache-before-cross and store-before-return over two injected ports, so this AEC-DOMAIN owner mints no `Rasm.Persistence` or `Rasm.Compute` reference, depends strictly upward, and stays HOST-LOCAL.
+`TessellationRequest` crosses canonical IFC SPF to the Python geometry companion and re-imports its GLB through the `import#IMPORT_RAIL` glTF path, minting the `TessellationOutcome` receipt over the dual content keys, mesh evidence, peer semantic/spill evidence, origin, and monotonic latency. STEP, IGES, and exact B-rep execution cross the separate `cad.CadService` boundary. This bridge owns cache-before-cross and store-before-return over two injected ports, so this AEC-DOMAIN owner mints no `Rasm.Persistence` or `Rasm.Compute` reference, depends strictly upward, and stays HOST-LOCAL.
 
 Two injected ports carry the policy: the content-addressed `ITessellationStore` over `Rasm.Persistence/Store` and the `ITessellationCompanion` cross over `Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION`. `Plan` is the one format door and `TessellationWire.Project` forms the real peer's exact message; content identity, transport, capability flags, published redrive, and `ImportedGeometry` re-entry compose from their existing owners. `import#EXPLICIT_TESSELLATION` owns in-process decoding of an already-tessellated IFC face set, so this page holds no duplicate decode fence.
 
@@ -17,7 +17,7 @@ Two injected ports carry the policy: the content-addressed `ITessellationStore` 
 - Auto: dual keys separate concerns. `SourceKey` is the pure, tolerance-independent IFC identity — the generated request's source-artifact coordinate and the nested ref's digest and extent coordinates, then the artifact digest and exact extent — and is the cross-projection join the GLB row and semantic-graph row of one source share. `ContentKey` folds that key with every GLB-affecting generated coordinate: policy parent and member numbers, IFC tolerance, the count-framed sorted generated setting set, generated dimensionality, and generated scope arm with its count-framed sorted payload. `Address` is the `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` value object minted off the `ContentKey` and the `InterchangeFormat.Glb` row.
 - Receipt: the in-flight fraction is the companion's alone — it runs the work out of process — and this owner publishes none rather than fabricating a stage ratio for a store lookup, while the token is read at every boundary the policy owns so an abandoned request never pays for the next long leg. `TessellationOutcome` is typed tessellation evidence on the `Fin<T>` rail, never a generic `IReceipt`/ledger. One outcome shape surfaces both a cached reuse and a fresh cross: `Origin` distinguishes them; `Semantic` and `Spill` are absent on a local cache hit and carry the validated peer evidence on a cross. Peer `element_count` means default-scene mesh placements after GPU-instancing expansion; `triangle_count` counts every decoded logical mesh's primitive triangles once. The outcome's locally decoded counts stay authoritative after exact equality proof, so peer counts do not become duplicate columns.
 - Packages: Rasm.Contracts (project — the generated tessellation request, response, scopes, and setting vocabularies), Google.Protobuf, Generator.Equals, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm, Rasm.Element
-- Growth: a new tessellation flag is one Bim capability row and one generated enum row; the typed projection breaks until both sides agree. A new scope modality is one domain case and one corpus oneof arm. IFC is the sole source the generated request admits and its retired source ordinal stays reserved, so a second execution source grows at `cad.v1` and never as a second arm here.
+- Growth: a new tessellation flag is one Bim capability row and one generated enum row; the typed projection breaks until both sides agree. A new scope modality is one domain case and one corpus oneof arm. IFC is the sole source the generated request admits and its retired source ordinal stays reserved, so a second execution source grows at `cad` and never as a second arm here.
 - Boundary: this companion bridge is the single imported-geometry-to-GLB path for anything requiring an evaluator — GeometryGym and the in-process `import#IMPORT_RAIL` `StepReader` carry no tessellation kernel, no in-process arm64 solid evaluator is admitted, and `IfcConvert`/ifcopenshell stays the permanent default because the only .NET web-ifc binding is Windows C++/CLI; an ALREADY-tessellated IFC face set never reaches here at all, decoding in process at `import#EXPLICIT_TESSELLATION` and handing its `Deferred` GlobalId set straight to `TessellationScope.Elements` so the cross narrows to the residue. Both content keys derive from the kernel `ContentHash` and the kernel `CanonicalWriter` (`Rasm/Domain/identity#CONTENT_KEY`), so this AEC-DOMAIN owner mints no `Rasm.Compute.InterchangeIdentity` call. `SourceKey` is the cross-projection join the app-platform artifact-index projection owns, so the IFC semantic graph and the tessellated geometry stay two projections of one content-keyed source. Store failures retain their original `Error`; a non-companion source format is the terminal `Refused`/`BimReason.Capability` verdict, while a failed companion cross is `BoundaryFailed(BimBoundary.TessellationCompanion, error)` and inherits the boundary's transient posture; direct or caught cancellation retains its kernel identity. RE-DRIVE is PUBLISHED, never executed: the root-bound executor reads that posture and drives the one declared cadence; a tier-local `Redrive.Run` here forks the estate's one schedule. Governance rides the PORT CONTRACT in BCL currency alone: the token is a `System` type the binding already speaks, so the out-of-process companion carries it into its own transport without this owner minting a cancellation type; an `IProgress<double>` beside it is the SINK WITH NO FEEDER the port equally forecloses, because the transport publishes no progress channel in either direction and a managed progress lane lands as a transport row FIRST. `import#IMPORT_RAIL` `FrameNormalization` coerces the glTF-canonical Y-up GLB to the kernel Z-up frame by the `InterchangeFormat.Glb` row, so this page mints no frame transform. This bridge reaches the `python:geometry/ifc-companion` IfcOpenShell package only through Compute's companion rpc, which owns the `geom.settings` argument mapping, the `IfcConvert` filter grammar, and the GLB stream-back.
 
 ```csharp signature
@@ -121,7 +121,7 @@ public sealed record TessellationOutcome(
     int TriangleCount,
     long GlbByteCount,
     Option<TessellationSemantic> Semantic,
-    Option<global::Rasm.Contracts.Compute.V1.Spill> Spill,
+    Option<global::Rasm.Contracts.Compute.Spill> Spill,
     TessellationOrigin Origin,
     Duration Took,
     Instant At);
@@ -182,10 +182,10 @@ public sealed partial record TessellationRequest {
         UInt128 sourceKey = ContentHash.Of(
             (Sha256: sha256, ArtifactBytes: checked((ulong)sourceBytes.Length)),
             static (artifact, writer) => writer
-                .Ordinal(global::Rasm.Contracts.Compute.V1.TessellateRequest.SourceArtifactFieldNumber)
-                .Ordinal(global::Rasm.Contracts.Artifact.V1.ArtifactRef.Sha256FieldNumber)
+                .Ordinal(global::Rasm.Contracts.Compute.TessellateRequest.SourceArtifactFieldNumber)
+                .Ordinal(global::Rasm.Contracts.Artifact.ArtifactRef.Sha256FieldNumber)
                 .Raw(artifact.Sha256.Span)
-                .Ordinal(global::Rasm.Contracts.Artifact.V1.ArtifactRef.ArtifactBytesFieldNumber)
+                .Ordinal(global::Rasm.Contracts.Artifact.ArtifactRef.ArtifactBytesFieldNumber)
                 .U64(artifact.ArtifactBytes));
         return TessellationWire.ContentKey(sourceKey, policy, settings, scope, key).Map(contentKey =>
             new TessellationRequest(sourceKey, contentKey, sourceBytes, policy, settings, scope));
@@ -256,7 +256,7 @@ public sealed partial record TessellationRequest {
     Fin<TessellationOutcome> Outcome(
         ImportedGeometry geometry, int glbBytes,
         Option<TessellationSemantic> semantic,
-        Option<global::Rasm.Contracts.Compute.V1.Spill> spill, TessellationOrigin origin,
+        Option<global::Rasm.Contracts.Compute.Spill> spill, TessellationOrigin origin,
         MonotonicTimeline timeline, Instant at, MonotonicStamp mark, Op key) =>
         timeline.Elapsed(mark, key).Map(elapsed => new TessellationOutcome(
                 geometry, Address, ContentKey, SourceKey, Policy.Chord.Value,
@@ -322,25 +322,25 @@ public static class TessellationWire {
             ContentAddress.Of((sourceKey, policy, settings, dimensionality, scope), 0.0, static (s, writer) =>
                 WriteScope(WriteSettings(writer
                         .U128(s.sourceKey)
-                        .Ordinal(global::Rasm.Contracts.Compute.V1.TessellateRequest.PolicyFieldNumber)
-                        .Ordinal(global::Rasm.Contracts.Geometry.V1.TessellationPolicy.DeflectionMFieldNumber)
+                        .Ordinal(global::Rasm.Contracts.Compute.TessellateRequest.PolicyFieldNumber)
+                        .Ordinal(global::Rasm.Contracts.Geometry.TessellationPolicy.DeflectionMFieldNumber)
                         .Double(s.policy.Chord.Value)
-                        .Ordinal(global::Rasm.Contracts.Geometry.V1.TessellationPolicy.AngleToleranceRadFieldNumber)
+                        .Ordinal(global::Rasm.Contracts.Geometry.TessellationPolicy.AngleToleranceRadFieldNumber)
                         .Double(s.policy.Angle.Value)
-                        .Ordinal(global::Rasm.Contracts.Geometry.V1.TessellationPolicy.TriangleBudgetFieldNumber)
+                        .Ordinal(global::Rasm.Contracts.Geometry.TessellationPolicy.TriangleBudgetFieldNumber)
                         .U64(checked((ulong)s.policy.TriangleBudget))
-                        .Ordinal(global::Rasm.Contracts.Compute.V1.TessellateRequest.ToleranceMFieldNumber)
+                        .Ordinal(global::Rasm.Contracts.Compute.TessellateRequest.ToleranceMFieldNumber)
                         .Double(s.policy.Distance.Value), s.settings, s.dimensionality),
                     s.scope)).Value);
 
     // ONE construction: the generated request IS the IFC request, so the projection makes one object and the
     // repeated settings column fills through the same collection initializer every scope arm already uses. Member
     // order tracks generated field number, the order ContentKey folds, so the two readings never drift apart.
-    public static Fin<global::Rasm.Contracts.Compute.V1.TessellateRequest> Project(
-        TessellationRequest request, global::Rasm.Contracts.Artifact.V1.ArtifactRef source, Op key) =>
+    public static Fin<global::Rasm.Contracts.Compute.TessellateRequest> Project(
+        TessellationRequest request, global::Rasm.Contracts.Artifact.ArtifactRef source, Op key) =>
         Dimension(request.Settings.Dimensionality, key).Map(dimensionality =>
-            new global::Rasm.Contracts.Compute.V1.TessellateRequest {
-                Policy = new global::Rasm.Contracts.Geometry.V1.TessellationPolicy {
+            new global::Rasm.Contracts.Compute.TessellateRequest {
+                Policy = new global::Rasm.Contracts.Geometry.TessellationPolicy {
                     DeflectionM = request.Policy.Chord.Value,
                     AngleToleranceRad = request.Policy.Angle.Value,
                     TriangleBudget = checked((ulong)request.Policy.TriangleBudget),
@@ -355,7 +355,7 @@ public static class TessellationWire {
     // The peer reports the policy-folded key it evaluated. The product adapter proves that coordinate before the
     // payload crosses back into Bim, while FrameEdge independently proves the raw artifact hash.
     public static Fin<TessellationCross> Admit(
-        TessellationRequest request, global::Rasm.Contracts.Compute.V1.TessellateResponse receipt,
+        TessellationRequest request, global::Rasm.Contracts.Compute.TessellateResponse receipt,
         ReadOnlyMemory<byte> glb, Op key) =>
         ContentHash.Admit(receipt.ContentKey.Span, key).Bind(reported =>
             reported == request.ContentKey
@@ -364,14 +364,14 @@ public static class TessellationWire {
                     key, BimScope.Tessellation, BimReason.Codec, "tessellation-content-key-mismatch")));
 
     static Fin<TessellationPeerEvidence> Peer(
-        global::Rasm.Contracts.Compute.V1.TessellateResponse receipt, Op key) =>
+        global::Rasm.Contracts.Compute.TessellateResponse receipt, Op key) =>
         from semantic in Semantic(receipt.Semantic, key)
         from spill in Spill(receipt.Spill, key)
         select new TessellationPeerEvidence(
             receipt.ElementCount, receipt.TriangleCount, semantic, spill);
 
     static Fin<Option<TessellationSemantic>> Semantic(
-        global::Rasm.Contracts.Compute.V1.Semantic? semantic, Op key) {
+        global::Rasm.Contracts.Compute.Semantic? semantic, Op key) {
         if (semantic is null) {
             return Fin.Fail<Option<TessellationSemantic>>(new BimFault.Refused(
                 key, BimScope.Tessellation, BimReason.Codec, "tessellation-semantic-missing"));
@@ -383,36 +383,36 @@ public static class TessellationWire {
             : Fin.Succ(Some(new TessellationSemantic(schema, project)));
     }
 
-    static Fin<global::Rasm.Contracts.Compute.V1.Spill> Spill(
-        global::Rasm.Contracts.Compute.V1.Spill spill, Op key) =>
-        spill != global::Rasm.Contracts.Compute.V1.Spill.Unspecified && Enum.IsDefined(spill)
+    static Fin<global::Rasm.Contracts.Compute.Spill> Spill(
+        global::Rasm.Contracts.Compute.Spill spill, Op key) =>
+        spill != global::Rasm.Contracts.Compute.Spill.Unspecified && Enum.IsDefined(spill)
             ? Fin.Succ(spill)
-            : Fin.Fail<global::Rasm.Contracts.Compute.V1.Spill>(new BimFault.Refused(
+            : Fin.Fail<global::Rasm.Contracts.Compute.Spill>(new BimFault.Refused(
                 key, BimScope.Tessellation, BimReason.Codec,
                 string.Join(':', new object?[] { "tessellation-spill-unsupported", (int)spill })));
 
-    static global::Rasm.Contracts.Compute.V1.GeomSetting Setting(GeomSetting setting) => setting.Switch(
-        weld:             static () => global::Rasm.Contracts.Compute.V1.GeomSetting.Weld,
-        worldCoords:      static () => global::Rasm.Contracts.Compute.V1.GeomSetting.WorldCoords,
-        defaultMaterials: static () => global::Rasm.Contracts.Compute.V1.GeomSetting.DefaultMaterials,
-        generateUvs:      static () => global::Rasm.Contracts.Compute.V1.GeomSetting.GenerateUvs,
+    static global::Rasm.Contracts.Compute.GeomSetting Setting(GeomSetting setting) => setting.Switch(
+        weld:             static () => global::Rasm.Contracts.Compute.GeomSetting.Weld,
+        worldCoords:      static () => global::Rasm.Contracts.Compute.GeomSetting.WorldCoords,
+        defaultMaterials: static () => global::Rasm.Contracts.Compute.GeomSetting.DefaultMaterials,
+        generateUvs:      static () => global::Rasm.Contracts.Compute.GeomSetting.GenerateUvs,
         disableOpeningSubtractions: static () =>
-            global::Rasm.Contracts.Compute.V1.GeomSetting.DisableOpeningSubtractions,
-        elementGuids:     static () => global::Rasm.Contracts.Compute.V1.GeomSetting.ElementGuids);
+            global::Rasm.Contracts.Compute.GeomSetting.DisableOpeningSubtractions,
+        elementGuids:     static () => global::Rasm.Contracts.Compute.GeomSetting.ElementGuids);
 
     static CanonicalWriter WriteSettings(
         CanonicalWriter writer, TessellationSettings settings,
-        global::Rasm.Contracts.Compute.V1.Dimensionality dimensionality) {
+        global::Rasm.Contracts.Compute.Dimensionality dimensionality) {
         var selected = SelectedSettings(settings);
         return selected
             .Fold(writer
-                .Ordinal(global::Rasm.Contracts.Compute.V1.TessellateRequest.GeomSettingsFieldNumber)
+                .Ordinal(global::Rasm.Contracts.Compute.TessellateRequest.GeomSettingsFieldNumber)
                 .Ordinal(selected.Count), static (state, setting) => state.Ordinal((int)setting))
-            .Ordinal(global::Rasm.Contracts.Compute.V1.TessellateRequest.DimensionalityFieldNumber)
+            .Ordinal(global::Rasm.Contracts.Compute.TessellateRequest.DimensionalityFieldNumber)
             .Ordinal((int)dimensionality);
     }
 
-    static Seq<global::Rasm.Contracts.Compute.V1.GeomSetting> SelectedSettings(TessellationSettings settings) =>
+    static Seq<global::Rasm.Contracts.Compute.GeomSetting> SelectedSettings(TessellationSettings settings) =>
         GeomSetting.Items
             .Where(settings.Flags.Admits)
             .Select(Setting)
@@ -420,41 +420,41 @@ public static class TessellationWire {
             .OrderBy(static setting => (int)setting)
             .ToSeq();
 
-    static Fin<global::Rasm.Contracts.Compute.V1.Dimensionality> Dimension(
+    static Fin<global::Rasm.Contracts.Compute.Dimensionality> Dimension(
         Dimensionality dimensionality, Op key) => dimensionality switch {
-            Dimensionality.Curves => Fin.Succ(global::Rasm.Contracts.Compute.V1.Dimensionality.Curves),
-            Dimensionality.SurfacesAndSolids => Fin.Succ(global::Rasm.Contracts.Compute.V1.Dimensionality.SurfacesAndSolids),
-            Dimensionality.CurvesSurfacesAndSolids => Fin.Succ(global::Rasm.Contracts.Compute.V1.Dimensionality.CurvesSurfacesAndSolids),
-            _ => Fin.Fail<global::Rasm.Contracts.Compute.V1.Dimensionality>(new BimFault.Refused(
+            Dimensionality.Curves => Fin.Succ(global::Rasm.Contracts.Compute.Dimensionality.Curves),
+            Dimensionality.SurfacesAndSolids => Fin.Succ(global::Rasm.Contracts.Compute.Dimensionality.SurfacesAndSolids),
+            Dimensionality.CurvesSurfacesAndSolids => Fin.Succ(global::Rasm.Contracts.Compute.Dimensionality.CurvesSurfacesAndSolids),
+            _ => Fin.Fail<global::Rasm.Contracts.Compute.Dimensionality>(new BimFault.Refused(
                 key, BimScope.Tessellation, BimReason.Codec,
                 string.Join(':', new object?[] { "tessellation-dimensionality-unsupported", (byte)dimensionality }))),
         };
 
-    static global::Rasm.Contracts.Compute.V1.TessellationScope Scope(TessellationScope scope) => scope.Switch(
-        wholeModel: static _ => new global::Rasm.Contracts.Compute.V1.TessellationScope { WholeModel = new Empty() },
-        elements: static row => new global::Rasm.Contracts.Compute.V1.TessellationScope {
-            Elements = new global::Rasm.Contracts.Compute.V1.ElementScope { GlobalIds = { Ordered(row.GlobalIds) } },
+    static global::Rasm.Contracts.Compute.TessellationScope Scope(TessellationScope scope) => scope.Switch(
+        wholeModel: static _ => new global::Rasm.Contracts.Compute.TessellationScope { WholeModel = new Empty() },
+        elements: static row => new global::Rasm.Contracts.Compute.TessellationScope {
+            Elements = new global::Rasm.Contracts.Compute.ElementScope { GlobalIds = { Ordered(row.GlobalIds) } },
         },
-        entities: static row => new global::Rasm.Contracts.Compute.V1.TessellationScope {
-            Entities = new global::Rasm.Contracts.Compute.V1.EntityScope { IfcTypes = { Ordered(row.IfcTypes) } },
+        entities: static row => new global::Rasm.Contracts.Compute.TessellationScope {
+            Entities = new global::Rasm.Contracts.Compute.EntityScope { IfcTypes = { Ordered(row.IfcTypes) } },
         },
-        excludeEntities: static row => new global::Rasm.Contracts.Compute.V1.TessellationScope {
-            ExcludeEntities = new global::Rasm.Contracts.Compute.V1.EntityScope { IfcTypes = { Ordered(row.IfcTypes) } },
+        excludeEntities: static row => new global::Rasm.Contracts.Compute.TessellationScope {
+            ExcludeEntities = new global::Rasm.Contracts.Compute.EntityScope { IfcTypes = { Ordered(row.IfcTypes) } },
         });
 
     static CanonicalWriter WriteScope(CanonicalWriter writer, TessellationScope scope) {
         var projected = Scope(scope);
         writer
-            .Ordinal(global::Rasm.Contracts.Compute.V1.TessellateRequest.ScopeFieldNumber)
+            .Ordinal(global::Rasm.Contracts.Compute.TessellateRequest.ScopeFieldNumber)
             .Ordinal((int)projected.KindCase);
         return projected.KindCase switch {
-            global::Rasm.Contracts.Compute.V1.TessellationScope.KindOneofCase.WholeModel => writer,
-            global::Rasm.Contracts.Compute.V1.TessellationScope.KindOneofCase.Elements =>
-                WriteTokens(writer.Ordinal(global::Rasm.Contracts.Compute.V1.ElementScope.GlobalIdsFieldNumber), projected.Elements.GlobalIds),
-            global::Rasm.Contracts.Compute.V1.TessellationScope.KindOneofCase.Entities =>
-                WriteTokens(writer.Ordinal(global::Rasm.Contracts.Compute.V1.EntityScope.IfcTypesFieldNumber), projected.Entities.IfcTypes),
-            global::Rasm.Contracts.Compute.V1.TessellationScope.KindOneofCase.ExcludeEntities =>
-                WriteTokens(writer.Ordinal(global::Rasm.Contracts.Compute.V1.EntityScope.IfcTypesFieldNumber), projected.ExcludeEntities.IfcTypes),
+            global::Rasm.Contracts.Compute.TessellationScope.KindOneofCase.WholeModel => writer,
+            global::Rasm.Contracts.Compute.TessellationScope.KindOneofCase.Elements =>
+                WriteTokens(writer.Ordinal(global::Rasm.Contracts.Compute.ElementScope.GlobalIdsFieldNumber), projected.Elements.GlobalIds),
+            global::Rasm.Contracts.Compute.TessellationScope.KindOneofCase.Entities =>
+                WriteTokens(writer.Ordinal(global::Rasm.Contracts.Compute.EntityScope.IfcTypesFieldNumber), projected.Entities.IfcTypes),
+            global::Rasm.Contracts.Compute.TessellationScope.KindOneofCase.ExcludeEntities =>
+                WriteTokens(writer.Ordinal(global::Rasm.Contracts.Compute.EntityScope.IfcTypesFieldNumber), projected.ExcludeEntities.IfcTypes),
             _ => writer,
         };
     }
@@ -484,7 +484,7 @@ public sealed record TessellationPeerEvidence(
     ulong ElementCount,
     ulong TriangleCount,
     Option<TessellationSemantic> Semantic,
-    global::Rasm.Contracts.Compute.V1.Spill Spill);
+    global::Rasm.Contracts.Compute.Spill Spill);
 
 public sealed record TessellationCross(ReadOnlyMemory<byte> Glb, TessellationPeerEvidence Peer);
 

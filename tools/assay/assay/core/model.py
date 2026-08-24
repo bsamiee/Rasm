@@ -707,7 +707,6 @@ class Diagnostic(Detail, frozen=True, tag="diagnostic"):
     hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
     dispatched: bool = True
     resource: tuple[tuple[str, float], ...] = ()
-    # trace_id/span_id are additive: defaults keep pre-trace payloads decodable, so schema_version stays 1.
     trace_id: str = ""
     span_id: str = ""
 
@@ -909,8 +908,6 @@ class Report(Base, frozen=True):
 class Envelope(Base, frozen=True, kw_only=True):
     """Top-level Assay wire Envelope."""
 
-    # schema_version is omitted on the wire (omit_defaults) until a v2 divergence forces a discriminant.
-    schema_version: Literal[1] = 1
     claim: Claim
     verb: str
     status: RailStatus = RailStatus.OK
@@ -1067,17 +1064,10 @@ def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = 
     """Return an envelope with exit code derived from report or fault status."""
     match payload:
         case Report() as r:
-            return Envelope(schema_version=1, claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)
+            return Envelope(claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)
         case Fault() as f:
             return Envelope(
-                schema_version=1,
-                claim=claim,
-                verb=verb,
-                status=f.status,
-                exit_code=f.status.exit_code,
-                run_id=run_id,
-                error=f,
-                error_context=error_context,
+                claim=claim, verb=verb, status=f.status, exit_code=f.status.exit_code, run_id=run_id, error=f, error_context=error_context
             )
 
 

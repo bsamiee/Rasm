@@ -31,7 +31,7 @@ Owned surfaces: the relay vocabulary, the `OutboxOrdinal` sign boundary, the dia
 - Law: absence is a REFUSAL and never a permissive default — the optional extension reads as the empty string no `DataGrade` key spells, so an ungraded envelope and a foreign key take one arm and neither reaches a hop; the producing mint stamps the grade it framed (`Rasm.Persistence` `Version/egress#EGRESS_SINK`), so an unstamped envelope names a broken producer rather than a public fact.
 - Law: replay relation declares against `Runtime/determinism#EVENT_LOG` and `Runtime/determinism#REPLAY_VERIFY` rather than restating a durability claim of its own — the hash-chained content-addressed log proves a relayed sequence was neither re-ordered nor re-authored, and the replay verifier proves a re-executed drain reaches the same per-step content hash, so this relay owes its replay evidence to those owners and mints none beside them.
 - Receipt: a relayed row mints one native `DeliveryReceipt` carrying the binding consumer key and hop verdict; a dead-letter transition persists generated fault evidence; no parallel outbox receipt.
-- Packages: Rasm.Contracts (`event.v1.Extensions`, `fault.v1.FaultObservation`), Celly.Protovalidate, Rasm (kernel `Redrive`/`ContentHash`/`EventEnvelope`/`DataGrade`/`BrokerReach`), CloudNative.CloudEvents, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Rasm.Contracts (`event.Extensions`, `fault.FaultObservation`), Celly.Protovalidate, Rasm (kernel `Redrive`/`ContentHash`/`EventEnvelope`/`DataGrade`/`BrokerReach`), CloudNative.CloudEvents, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new lifecycle state is one `RelayState` case breaking every reader's `Switch`; a new operational column is one field on `RelayEntry`; a new binding trust class is one `BindingTrust` row naming the reaches it admits; a new fault is one `OutboxFault` case with the `Retriability` it overrides; zero new surface.
 - Boundary: Persistence alone owns the transactional message and its one CloudEvent mint. The committed op-log is the outbox, the per-binding `OutboxCursor` is dispatch state, and `RelayEntry` is only the AppHost's in-process carrier over the exact envelope returned by `Egress.Envelope`; a second envelope table, a second event mint, or a durable AppHost row is the deleted parallel store. The envelope id remains `OpLogEntry.Id.Wire`, its subject remains `ContentHash.Hex(OpLogEntry.ContentKey)`, and its sequence is the op-log sequence encoded as canonical fixed-width `D20`; none is repurposed as another. The binding subscription supplies the consumer key and configured `OutboundHop`, so semantic subject never becomes routing metadata. The store's arrows take a `long` sequence while the relay ordinal is a `ulong`, and `OutboxOrdinal` is the one checked crossing. The outbox and workflow step-state rows share the producing tenant-scoped transaction, while each durable binding advances its own fenced cursor over the one egress spine. `Redrive.Settle` owns retry disposition against this lane's bound: a non-transient fault dead-letters on its first attempt, and a transient fault retains its earned attempt across sweeps.
 
@@ -144,17 +144,17 @@ public abstract partial record OutboxFault : Fault {
 }
 
 public static class OutboxEventExtensions {
-    private static readonly EventExtensionContract<global::Rasm.Contracts.Event.V1.Extensions> Contract = new(
-        global::Rasm.Contracts.Event.V1.Extensions.Parser,
-        global::Rasm.Contracts.Event.V1.Extensions.Descriptor,
+    private static readonly EventExtensionContract<global::Rasm.Contracts.Event.Extensions> Contract = new(
+        global::Rasm.Contracts.Event.Extensions.Parser,
+        global::Rasm.Contracts.Event.Extensions.Descriptor,
         new global::Celly.Protovalidate.Validator([
-            global::Rasm.Contracts.Event.V1.EventReflection.Descriptor,
+            global::Rasm.Contracts.Event.EventReflection.Descriptor,
         ]));
 
-    public static Fin<RasmEvent<global::Rasm.Contracts.Event.V1.Extensions>> Admit(CloudEvent envelope, Op key) =>
+    public static Fin<RasmEvent<global::Rasm.Contracts.Event.Extensions>> Admit(CloudEvent envelope, Op key) =>
         RasmEventEnvelope.Admit(envelope, Contract, key);
 
-    public static TraceCarrier Trace(global::Rasm.Contracts.Event.V1.Extensions message) =>
+    public static TraceCarrier Trace(global::Rasm.Contracts.Event.Extensions message) =>
         TraceCarrier.Admit(
             message.HasTraceparent ? message.Traceparent : null,
             message.HasTracestate ? message.Tracestate : null,
@@ -197,7 +197,7 @@ public sealed record RelayEntry(
         let extensions = admitted.Extensions
         from sequence in extensions.HasSequence
             ? Fin.Succ(extensions.Sequence)
-            : Fin.Fail<string>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.V1.Extensions.Sequence)))
+            : Fin.Fail<string>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.Extensions.Sequence)))
         from ordinal in OutboxOrdinal.Admit(sequence, key)
         // Absence reads as the empty string no `DataGrade` key spells, so an ungraded envelope and a foreign
         // key take ONE arm and neither reaches a hop — the permissive default this gate exists to deny.
@@ -205,7 +205,7 @@ public sealed record RelayEntry(
                 extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
                 && admittedGrade is { } handling
             ? Fin.Succ(handling)
-            : Fin.Fail<DataGrade>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.V1.Extensions.Dataclassification)))
+            : Fin.Fail<DataGrade>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.Extensions.Dataclassification)))
         select new RelayEntry(
             admitted.Envelope, state, ordinal, admitted.Time, grade,
             OutboxEventExtensions.Trace(extensions));
@@ -260,7 +260,7 @@ public static class OutboxRelay {
         // Poison arrows speak WIRE-STABLE PRIMITIVES, the same decode-only shape `LeaseElection` and
         // `StepStateSeam` take. `DeadLetter` persists quarantine and advances that exact row in one fenced
         // Persistence transaction; recovery remains `EgressPump.Replay` until a real public boundary consumes it.
-        Func<UInt128, string, long, Rasm.Contracts.Fault.V1.FaultObservation, int, ulong, Fin<OutboxOrdinal>> DeadLetter,
+        Func<UInt128, string, long, Rasm.Contracts.Fault.FaultObservation, int, ulong, Fin<OutboxOrdinal>> DeadLetter,
         // Fence reads the tenant-scoped generation through the coordination `BudgetToken` case — the SAME
         // read `Agent/capability#GRANT_BROKER` `DistributedBudget.Token` takes, composed rather than
         // re-minted, so a watermark advance and a budget debit present one generation identity.

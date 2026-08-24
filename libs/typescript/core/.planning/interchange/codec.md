@@ -32,9 +32,9 @@
 import { Array, type ParseResult, Schema, type Types } from "effect"
 
 // Keys transcribe the DECLARED message name of every corpus family this branch decodes, so a key is a spelling the
-// corpus minted: each admitted family crosses under its generated package — UI under `ui.v1`, render under
-// `render.v1` — appearance as the `appearance.v1` set document and material, and CRDT operations as the generated
-// `crdt.v1.CrdtOpWire` oneof. The remaining MessagePack families keep their producer-owned names because their
+// corpus minted: each admitted family crosses under its generated package — UI under `ui`, render under
+// `render` — appearance as the `appearance` set document and material, and CRDT operations as the generated
+// `crdt.CrdtOpWire` oneof. The remaining MessagePack families keep their producer-owned names because their
 // bytes carry no descriptor; the HLC cell rides its frozen two-half layout. Withdrawn this pass: `TallyWire` (no corpus family carries a progress
 // tally; `Evidence.Tally` is a state owner, not a wire), `TenantContextWire` and `OpenPbrGroupsWire` (nested members
 // of the receipt envelope and the material, which land as decoded shapes and register no census row), and the
@@ -95,18 +95,18 @@ import { BadRequest_FieldViolationSchema, RetryInfoSchema } from "@rasm/contract
 import { DateSchema } from "@rasm/contracts/google/type/date_pb"
 import { DateTimeSchema } from "@rasm/contracts/google/type/datetime_pb"
 import { TimeOfDaySchema } from "@rasm/contracts/google/type/timeofday_pb"
-import * as appearance from "@rasm/contracts/rasm/contracts/appearance/v1/appearance_pb"
-import * as appearanceEnvironment from "@rasm/contracts/rasm/contracts/appearance/v1/environment_pb"
-import * as appearanceSet from "@rasm/contracts/rasm/contracts/appearance/v1/set_pb"
-import * as artifact from "@rasm/contracts/rasm/contracts/artifact/v1/artifact_pb"
-import * as control from "@rasm/contracts/rasm/contracts/compute/v1/control_pb"
-import { CrdtOpWireSchema } from "@rasm/contracts/rasm/contracts/crdt/v1/crdt_pb"
-import * as graph from "@rasm/contracts/rasm/contracts/element/v1/graph_pb"
-import * as property from "@rasm/contracts/rasm/contracts/element/v1/value_pb"
-import { HlcSchema } from "@rasm/contracts/rasm/contracts/clock/v1/hlc_pb"
-import { FaultDetailSchema, FaultRecoverySchema } from "@rasm/contracts/rasm/contracts/fault/v1/fault_pb"
-import type { ControlIntentWireValid, MenuRowWireValid } from "@rasm/contracts/rasm/contracts/ui/v1/controls_pb"
-import * as evidence from "@rasm/contracts/rasm/contracts/element/v1/edit_pb"
+import * as appearance from "@rasm/contracts/rasm/contracts/appearance/appearance_pb"
+import * as appearanceEnvironment from "@rasm/contracts/rasm/contracts/appearance/environment_pb"
+import * as appearanceSet from "@rasm/contracts/rasm/contracts/appearance/set_pb"
+import * as artifact from "@rasm/contracts/rasm/contracts/artifact/artifact_pb"
+import * as control from "@rasm/contracts/rasm/contracts/compute/control_pb"
+import { CrdtOpWireSchema } from "@rasm/contracts/rasm/contracts/crdt/crdt_pb"
+import * as graph from "@rasm/contracts/rasm/contracts/element/graph_pb"
+import * as property from "@rasm/contracts/rasm/contracts/element/value_pb"
+import { HlcSchema } from "@rasm/contracts/rasm/contracts/clock/hlc_pb"
+import { FaultDetailSchema, FaultRecoverySchema } from "@rasm/contracts/rasm/contracts/fault/fault_pb"
+import type { ControlIntentWireValid, MenuRowWireValid } from "@rasm/contracts/rasm/contracts/ui/controls_pb"
+import * as evidence from "@rasm/contracts/rasm/contracts/element/edit_pb"
 import {
   Brand, Cause, Chunk, DateTime, Duration, Effect, Either, Encoding, Exit, Function, HashMap, Match, Option, Order, pipe, Predicate,
   Record,
@@ -216,7 +216,7 @@ const _policy = Fault.Class.family(_causes, {
       leg: "contract",
       // Drift raises carry their exact coordinate: advertised versus generated contract identity under one admitted
       // generation, a missing runtime adapter lane, a method-kind mismatch, or an unknown verb. `Dial.sdk` compares
-      // package and service family and walks no descriptor — `buf breaking` FILE remains field compatibility authority.
+      // package and service family and walks no descriptor — the one corpus emission remains field compatibility authority.
       detail: Schema.Struct({
         divergence: Schema.Union(
           Schema.Struct({
@@ -510,7 +510,7 @@ const Parity = {
 ## [05]-[LANDING_EVIDENCE]
 
 - Owner: landed core values reuse their canonical owners without local twins.
-- Owner: generated `crdt.v1.CrdtOpWire` is the sole ten-arm operation vocabulary; `CrdtOp` is `Format.proto.message(CrdtOpWireSchema)` refined only by producer-canonical repeated-row order, never a hand TypeScript union.
+- Owner: generated `crdt.CrdtOpWire` is the sole ten-arm operation vocabulary; `CrdtOp` is `Format.proto.message(CrdtOpWireSchema)` refined only by producer-canonical repeated-row order, never a hand TypeScript union.
 - Law: the generic op-log stays the producer's thirteen-slot MessagePack record and retains its raw payload. Only a `family === "crdt"` entry admits that payload through the generated required oneof; every other family stays opaque and no `Any`, arm tag table, or string bag enters.
 - Law: an unset or unknown oneof arm refuses at descriptor admission rather than crossing the merge algebra as opaque bytes; vector and observed-tag rows arrive in the corpus-declared strict order.
 - Law: evidence render arms retain encoded `frameHash`, optional `drawHash`, and optional canonical pixel identity.
@@ -582,7 +582,7 @@ const _i63 = Schema.Union(Schema.BigIntFromSelf, Schema.BigIntFromNumber).pipe(
 const _CrdtOp = Format.proto.message(CrdtOpWireSchema)
 type CrdtOp = typeof _CrdtOp.Type
 
-// Stamped arms compose clock.v1.Hlc directly. Non-stamped generated arms return absence; a fabricated zero would make
+// Stamped arms compose clock.Hlc directly. Non-stamped generated arms return absence; a fabricated zero would make
 // add/remove/counter/sequence ops look temporally ordered when the producer declared no stamp.
 const _hlc = Schema.decodeSync(Clock.Hlc)
 const _stamped = (op: CrdtOp): Option.Option<Clock.Hlc> => {
@@ -645,7 +645,7 @@ const CrdtOp = _CrdtOp.pipe(Schema.filter(_orderedCrdt, { message: () => "<crdt-
 - Law: well-known stamps type against the package's own `TimestampSchema`/`DurationSchema`, range-refined above them, and cross to the branch clock through `timestampMs`/`durationMs`; the HLC message lands as `Clock.Hlc` with no scaling.
 - Law: the producer's `NodeId` and its `ContentAddress` — the C# bare-digest brand this branch spells `ContentKey`, never C#'s own composite of that name — land as distinct brands off sixteen-byte keys, and `Node` retains the producer-carried authoritative content address.
 - Law: entity edits land the generated two-arm oneof as the branch's closed RFC 6902 document, every `Value` crossing `Shape.Json` through the generated codec and every pointer passing `Format.Patch`'s prototype-safe refinement.
-- Law: the appearance vocabulary IS the generated `appearance.v1` enum set — every roster derives from its enum, every legality column this page owns closes against the enum's defined members, and the plane laws no field rule states refine the generated `Set` above the descriptor.
+- Law: the appearance vocabulary IS the generated `appearance` enum set — every roster derives from its enum, every legality column this page owns closes against the enum's defined members, and the plane laws no field rule states refine the generated `Set` above the descriptor.
 - Law: `Wire.Artifact.reference` lands the exact 32-byte `ArtifactRef.sha256` as one `ArtifactSha256` identity and retains `artifactBytes`; SHA-256 hashes the ordered raw artifact octets with no semantic prefix or frame bytes.
 - Law: `Wire.Artifact.frame` lands the generated nested reference whole, and `Wire.Artifact.mint` proves a stream's ordered payload through the protocol-fixed SHA-256 owner; SHA-256 never enters `Digest.Kind` or replaces XXH3 semantic/cache keys.
 - Law: `Wire.Texture.reference` lands `PlaneRef.artifact` whole; no digest, extent, path, or file-derived identity sits beside it.
@@ -986,7 +986,7 @@ const _invokeReason = (fault: InvokeFault): InvokeReason =>
 
 // --- [APPEARANCE]
 
-// The appearance vocabulary is the corpus's own: every roster below is a generated enum of `rasm.contracts.appearance.v1`,
+// The appearance vocabulary is the corpus's own: every roster below is a generated enum of `rasm.contracts.appearance`,
 // so the tuple of admitted members DERIVES from the descriptor and this page mints no spelling. What this page OWNS is
 // the legality column beside each member — whether a transfer reaches a channel plane, which store a browser
 // transcoder can read, the neutral a packed slot fills with — and every column table closes against the enum's own

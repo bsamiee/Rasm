@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package rasm.contracts.cad;
+
+import "buf/validate/validate.proto";
+import "rasm/contracts/artifact/artifact.proto";
+import "rasm/contracts/spatial/vector.proto";
+
+enum StepProtocol {
+  STEP_PROTOCOL_UNSPECIFIED = 0;
+  STEP_PROTOCOL_AP203 = 1;
+  STEP_PROTOCOL_AP214 = 2;
+  STEP_PROTOCOL_AP242 = 3;
+}
+
+message Point2 {
+  reserved "x", "y";
+
+  double x_m = 1 [(buf.validate.field).double.finite = true];
+  double y_m = 2 [(buf.validate.field).double.finite = true];
+}
+
+message LineSpan {}
+
+message ArcSpan {
+  Point2 through = 1 [(buf.validate.field).required = true];
+}
+
+message SplineSpan {
+  repeated Point2 through = 1 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// Each knot owns the span from its point to the next knot; the final span terminates at knot zero.
+message ProfileKnot {
+  Point2 point = 1 [(buf.validate.field).required = true];
+  oneof outgoing {
+    option (buf.validate.oneof).required = true;
+
+    LineSpan line = 2;
+    ArcSpan arc = 3;
+    SplineSpan spline = 4;
+  }
+}
+
+message PiecewiseLoop {
+  repeated ProfileKnot knots = 1 [(buf.validate.field).repeated.min_items = 2];
+}
+
+message PeriodicSplineLoop {
+  option (buf.validate.message).cel = {
+    id: "periodic_spline_loop.distinct_tail"
+    message: "the closing point is implicit and must not repeat the first point"
+    expression:
+      "size(this.through) >= 3 && "
+      "(this.through[0].x_m != this.through[size(this.through) - 1].x_m || "
+      "this.through[0].y_m != this.through[size(this.through) - 1].y_m)"
+  };
+
+  repeated Point2 through = 1 [(buf.validate.field).repeated.min_items = 3];
+}
+
+message ProfileLoop {
+  oneof curve {
+    option (buf.validate.oneof).required = true;
+
+    PiecewiseLoop piecewise = 1;
+    PeriodicSplineLoop periodic_spline = 2;
+  }
+}
+
+message ProfileRegion {
+  ProfileLoop outer = 1 [(buf.validate.field).required = true];
+  repeated ProfileLoop holes = 2;
+}
+
+message Profile {
+  repeated ProfileRegion regions = 1 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message SealedStep {
+  reserved 1;
+  reserved "content";
+
+  StepProtocol protocol = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  rasm.contracts.artifact.ArtifactRef artifact = 3 [(buf.validate.field).required = true];
+}
+
+message TopologyCensus {
+  uint64 vertices = 1;
+  uint64 edges = 2;
+  uint64 faces = 3;
+  uint64 solids = 4;
+}
+
+message BooleanProvenance {
+  bool modified = 1;
+  bool generated = 2;
+}
+
+message BrepKernelReceipt {
+  option (buf.validate.message).cel = {
+    id: "brep_kernel_receipt.volume_delta_presence"
+    message: "volume delta is present exactly for watertight tessellations"
+    expression: "has(this.volume_delta_m3) == (has(this.watertight) && this.watertight)"
+  };
+
+  reserved 1;
+  reserved "valid", "centroid_m";
+  double volume_m3 = 2 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double area_m2 = 3 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  rasm.contracts.spatial.Point3 centroid = 4 [(buf.validate.field).required = true];
+  TopologyCensus topology = 5 [(buf.validate.field).required = true];
+  optional bool watertight = 6;
+  optional double volume_delta_m3 = 7 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  BooleanProvenance boolean_provenance = 8;
+}
+
+message TessellateResponse {
+  reserved 1, 5;
+  reserved "artifact_hash", "artifact_bytes";
+
+  uint64 element_count = 2;
+  uint64 triangle_count = 3;
+  BrepKernelReceipt kernel = 4 [(buf.validate.field).required = true];
+  rasm.contracts.artifact.ArtifactRef artifact = 6 [(buf.validate.field).required = true];
+}

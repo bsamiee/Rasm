@@ -1,12 +1,12 @@
 # [PERSISTENCE_VERSION_COMMITS]
 
-`CommitGraph` owns content-addressed history, ref policy, vector order, merge bases, anti-entropy ranges, and append-only rewrites. `Crdt` owns the convergent field algebra; `CrdtWire` projects it through the generated `rasm.contracts.crdt.v1.CrdtOpWire` oneof; `Hlc` supplies their shared causal cell. `ContentParityCorpus` derives every local fixture from the live writer and accepts foreign fixtures only through `Contribute`. Marten supplies the append substrate, `OpLogEntry` supplies the changefeed's positional message envelope, `GrantSet` supplies branch authorization, and `ContentHash.Of` supplies payload-byte integrity without replacing operation identity.
+`CommitGraph` owns content-addressed history, ref policy, vector order, merge bases, anti-entropy ranges, and append-only rewrites. `Crdt` owns the convergent field algebra; `CrdtWire` projects it through the generated `rasm.contracts.crdt.CrdtOpWire` oneof; `Hlc` supplies their shared causal cell. `ContentParityCorpus` derives every local fixture from the live writer and accepts foreign fixtures only through `Contribute`. Marten supplies the append substrate, `OpLogEntry` supplies the changefeed's positional message envelope, `GrantSet` supplies branch authorization, and `ContentHash.Of` supplies payload-byte integrity without replacing operation identity.
 
 ## [01]-[INDEX]
 
 - [02]-[COMMIT_DAG]: content-addressed commit-DAG with commit messages, named branches, annotated tags, maximal-antichain merge-base, and version vectors.
 - [03]-[CRDT_ALGEBRA]: RGA, OR-set, MV-register, PN-counter, LWW, and ephemeral-presence convergent CRDT.
-- [04]-[CRDT_WIRE]: HLC stamp, generated `crdt.v1` op payload, positional op-log embedding, and the cross-runtime parity corpus.
+- [04]-[CRDT_WIRE]: HLC stamp, generated `crdt` op payload, positional op-log embedding, and the cross-runtime parity corpus.
 
 ## [02]-[COMMIT_DAG]
 
@@ -680,7 +680,7 @@ Merge policy per mutation kind — `Crdt.Law` returns column three, and `Version
 - Entry: `CrdtWire.Encode(op)` maps onto the generated message, validates the descriptor rules plus strict causal-row order, and emits proto-binary bytes; `ContentKey(payload)` hashes THOSE held bytes without re-encoding; `CrdtWire.Decode(payload)` bounds extent, parses, validates, and maps one generated arm, failing `CommitFault.DecodeDrift` on malformed, unset, unknown, or non-canonical input. `ContentParityCorpus.Mint(...)` mints every minted-here vector over this page's own writers and folds in the contributed ones; `Contribute(slot, canonical)` is the contribution seam a foreign producer calls, failing `OwnerMinted` on an owner-minted slot; `Reconcile(local, golden)` accumulates every `ParityDrift` the cross-runtime harness finds.
 - Auto: `Hlc.Observe` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter; `CrdtWire.Encode` supplies the raw `OpLogEntry.Payload` only for the `crdt` family, while every other family retains its existing payload codec and the positional envelope stays unchanged. The generated oneof is the case authority and each adapter dispatch reads it directly; no `[MessagePack.Union]`, msgspec arm hierarchy, or TypeScript positional arm schema survives. `ContentParityCorpus.Mint` retains the actual proto payload bytes the live key consumed; semantic parity compares decoded generated values because protobuf serialization is not the cross-runtime canonical preimage.
 - Receipt: an encoded delta carries no receipt (the `OpLogEntry` carries the lane codec, content key, and HLC cell); an invalid domain-to-wire projection refuses as `CommitFault.EncodeDrift`, a decode failure folds into `store.crdt.decode` as `CommitFault.DecodeDrift`, and a parity drift folds into the `Reconcile` `Validation` as the accumulated `CommitFault.ParityDrift` cross-runtime mismatch set, never a first-mismatch abort.
-- Packages: Rasm.Contracts (`rasm.contracts.crdt.v1.CrdtOpWire` plus `clock.v1.Hlc`), Google.Protobuf, Celly.Protovalidate, Rasm (`Rasm.Domain` `ContentHash.Of` + `CanonicalWriter.Retaining`/`ToBytes` — parity mint; `Rasm.Domain.Fault` — fault-band base), NodaTime, LanguageExt.Core, BCL inbox.
+- Packages: Rasm.Contracts (`rasm.contracts.crdt.CrdtOpWire` plus `clock.Hlc`), Google.Protobuf, Celly.Protovalidate, Rasm (`Rasm.Domain` `ContentHash.Of` + `CanonicalWriter.Retaining`/`ToBytes` — parity mint; `Rasm.Domain.Fault` — fault-band base), NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new op is one corpus oneof arm plus its typed message, one `CrdtOp` arm, and the generated-arm/domain adapter pair; every peer regenerates from the same descriptor and no peer authors a wire case. A new parity leg is one `ParitySlot` row with one `Mint` or `Contribute` vector, never a second corpus store or a per-fixture golden-bytes constant family; zero new surface.
 - Boundary: `CrdtOpWire` is generated proto-binary under ONE family-derived discriminant: only `ColumnFamily.Crdt` decodes `OpLogEntry.Payload` as that message. The thirteen-slot MessagePack `OpLogEntry` envelope remains positional and its payload remains raw, so scalar, geometry, presence, commit, branch, and attest entries cross byte-identically without an `Any` or a fabricated CRDT arm. LWW `Adjudicate` survives only as the generated `set` arm reconstructing `LwwRegister`; an unset or unknown generated arm refuses typed.
 - Boundary: the `Hlc` layout is the KERNEL's byte-for-byte (`Rasm/Domain/frame#RECEIPT_PORT`) — physical half first as the Unix-tick `long` at one tick per hundred nanoseconds, logical half second as the monotone `ulong`, two `CanonicalWriter.I64` words — so `CanonicalBytes` streams the canonical sixteen-byte cell the commit key and the op key both hash, and ordering compares causality without a wall clock. `Hlc.Zero` is an in-memory absence value alone, because its physical half is outside the I63 domain the packed slot admits.
@@ -691,7 +691,7 @@ Merge policy per mutation kind — `Crdt.Law` returns column three, and `Version
 using System.Buffers.Binary;
 using Celly.Protovalidate;
 using Google.Protobuf;
-using Rasm.Contracts.Crdt.V1;
+using Rasm.Contracts.Crdt;
 
 // Cell layout remains the kernel's canonical-frame owner for commit and HLC parity. The generated CRDT message
 // composes the corpus Hlc message instead of re-spelling these halves on every operation arm.
@@ -830,18 +830,18 @@ public static class CrdtOpMapper {
         vector.Ordered.Map(static slot => new VectorSlot { Origin = Uuid(slot.Origin), Sequence = checked((ulong)slot.Seq) });
     static VersionVector Vector(IEnumerable<VectorSlot> slots) =>
         new(toHashMap(slots.Select(static slot => (Uuid(slot.Origin), checked((long)slot.Sequence)))));
-    static IEnumerable<Rasm.Contracts.Crdt.V1.ElementId> Ids(Seq<ElementId> ids) =>
+    static IEnumerable<Rasm.Contracts.Crdt.ElementId> Ids(Seq<ElementId> ids) =>
         ids.OrderBy(static id => id.Origin.ToString("N"), StringComparer.Ordinal).ThenBy(static id => id.Logical).Select(Id);
     static bool Ordered(IEnumerable<VectorSlot> rows) =>
         rows.Zip(rows.Skip(1), static (left, right) => left.Origin.Span.SequenceCompareTo(right.Origin.Span) < 0).All(static ordered => ordered);
-    static bool Ordered(IEnumerable<Rasm.Contracts.Crdt.V1.ElementId> rows) =>
+    static bool Ordered(IEnumerable<Rasm.Contracts.Crdt.ElementId> rows) =>
         rows.Zip(rows.Skip(1), static (left, right) =>
             (left.Origin.Span.SequenceCompareTo(right.Origin.Span), left.Logical.CompareTo(right.Logical)) is (< 0, _) or (0, < 0)).All(static ordered => ordered);
 
-    static Rasm.Contracts.Clock.V1.Hlc Stamp(Hlc cell) => new() { Physical = cell.Physical.ToUnixTimeTicks(), Logical = cell.Logical };
-    static Hlc Cell(Rasm.Contracts.Clock.V1.Hlc cell) => new(Instant.FromUnixTimeTicks(cell.Physical), cell.Logical);
-    static Rasm.Contracts.Crdt.V1.ElementId Id(ElementId id) => new() { Origin = Uuid(id.Origin), Logical = id.Logical };
-    static ElementId Id(Rasm.Contracts.Crdt.V1.ElementId id) => new(Uuid(id.Origin), id.Logical);
+    static Rasm.Contracts.Clock.Hlc Stamp(Hlc cell) => new() { Physical = cell.Physical.ToUnixTimeTicks(), Logical = cell.Logical };
+    static Hlc Cell(Rasm.Contracts.Clock.Hlc cell) => new(Instant.FromUnixTimeTicks(cell.Physical), cell.Logical);
+    static Rasm.Contracts.Crdt.ElementId Id(ElementId id) => new() { Origin = Uuid(id.Origin), Logical = id.Logical };
+    static ElementId Id(Rasm.Contracts.Crdt.ElementId id) => new(Uuid(id.Origin), id.Logical);
     static ByteString Octets(ReadOnlyMemory<byte> value) => ByteString.CopyFrom(value.Span);
 
     static ByteString Uuid(Guid value) {

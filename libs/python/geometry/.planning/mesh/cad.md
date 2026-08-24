@@ -28,10 +28,10 @@ from expression import Error, Ok, Option, Result
 from expression.collections import Block
 from msgspec import Struct
 from protobuf import Message
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import ExecuteRequest, ExecuteResponse
-from rasm.contracts.gen.rasm.contracts.cad.v1.service_connect import CadServiceClient
-from rasm.contracts.gen.rasm.contracts.cad.v1.service_pb import TessellateRequest
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import TessellateResponse
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import ExecuteRequest, ExecuteResponse
+from rasm.contracts.gen.rasm.contracts.cad.service_connect import CadServiceClient
+from rasm.contracts.gen.rasm.contracts.cad.service_pb import TessellateRequest
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import TessellateResponse
 
 from rasm.geometry.graduation import GeometryLeg
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, rostered

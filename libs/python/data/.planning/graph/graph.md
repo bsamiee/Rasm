@@ -2,7 +2,7 @@
 
 One graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. Its backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame seam joins on.
 
-Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin. `organization_graph` folds the C#-minted `rasm.organization.v1` organization document into the containment graph, decoding through the branch's one wire-shape owner at `runtime/transport/shapes#VOCABULARY` and minting no wire struct here; the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
+Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin. `organization_graph` folds the C#-minted `rasm.organization` organization document into the containment graph, decoding through the branch's one wire-shape owner at `runtime/transport/shapes#VOCABULARY` and minting no wire struct here; the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
 
 ## [01]-[INDEX]
 
@@ -58,7 +58,7 @@ from rasm.runtime.faults import (
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
-from rasm.contracts.gen.rasm.contracts.organization.v1.organization_pb import Entity, Organization
+from rasm.contracts.gen.rasm.contracts.organization.organization_pb import Entity, Organization
 
 if TYPE_CHECKING:
     from collections.abc import Callable

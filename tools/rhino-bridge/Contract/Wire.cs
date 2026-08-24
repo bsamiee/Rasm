@@ -310,7 +310,7 @@ public sealed partial class EndpointRecord {
     public string PipeName { get; }
     public int RhinoPid { get; }
     public long RhinoStartedAtUnixMs { get; }
-    public int ContractVersion { get; }
+    public int ContractGeneration { get; }
     public string ShellVersion { get; }
     public string RhinoVersion { get; }
     // Live and poisoned endpoint records share this codec so startup failure remains typed evidence.
@@ -318,7 +318,7 @@ public sealed partial class EndpointRecord {
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref string pipeName, ref int rhinoPid,
-        ref long rhinoStartedAtUnixMs, ref int contractVersion, ref string shellVersion,
+        ref long rhinoStartedAtUnixMs, ref int contractGeneration, ref string shellVersion,
         ref string rhinoVersion, ref string fault) =>
         validationError = pipeName switch {
             { Length: 0 } => null,
@@ -342,7 +342,7 @@ public sealed partial class EndpointRecord {
             string pipeName = string.Empty;
             int rhinoPid = 0;
             long rhinoStartedAtUnixMs = 0L;
-            int contractVersion = 0;
+            int contractGeneration = 0;
             string shellVersion = string.Empty;
             string rhinoVersion = string.Empty;
             string fault = string.Empty;
@@ -356,8 +356,8 @@ public sealed partial class EndpointRecord {
                     rhinoPid = reader.GetInt32();
                 else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(RhinoStartedAtUnixMs))))
                     rhinoStartedAtUnixMs = reader.GetInt64();
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(ContractVersion))))
-                    contractVersion = reader.GetInt32();
+                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(ContractGeneration))))
+                    contractGeneration = reader.GetInt32();
                 else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(ShellVersion))))
                     shellVersion = reader.GetString() ?? string.Empty;
                 else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(RhinoVersion))))
@@ -369,7 +369,7 @@ public sealed partial class EndpointRecord {
             }
             ValidationError? validationError = Validate(
                 pipeName: pipeName, rhinoPid: rhinoPid, rhinoStartedAtUnixMs: rhinoStartedAtUnixMs,
-                contractVersion: contractVersion, shellVersion: shellVersion, rhinoVersion: rhinoVersion, fault: fault, obj: out EndpointRecord? record);
+                contractGeneration: contractGeneration, shellVersion: shellVersion, rhinoVersion: rhinoVersion, fault: fault, obj: out EndpointRecord? record);
             return validationError is null && record is not null
                 ? record
                 : throw new JsonException(message: validationError?.ToString() ?? "unable to deserialize EndpointRecord");
@@ -383,7 +383,7 @@ public sealed partial class EndpointRecord {
             writer.WriteString(propertyName: WireName(options: options, name: nameof(PipeName)), value: value.PipeName);
             writer.WriteNumber(propertyName: WireName(options: options, name: nameof(RhinoPid)), value: value.RhinoPid);
             writer.WriteNumber(propertyName: WireName(options: options, name: nameof(RhinoStartedAtUnixMs)), value: value.RhinoStartedAtUnixMs);
-            writer.WriteNumber(propertyName: WireName(options: options, name: nameof(ContractVersion)), value: value.ContractVersion);
+            writer.WriteNumber(propertyName: WireName(options: options, name: nameof(ContractGeneration)), value: value.ContractGeneration);
             writer.WriteString(propertyName: WireName(options: options, name: nameof(ShellVersion)), value: value.ShellVersion);
             writer.WriteString(propertyName: WireName(options: options, name: nameof(RhinoVersion)), value: value.RhinoVersion);
             writer.WriteString(propertyName: WireName(options: options, name: nameof(Fault)), value: value.Fault);
@@ -469,12 +469,12 @@ public sealed record CargoManifest(
 public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 // Ownership: the frozen negotiation shape. Directional nulls and capability facts keep handshake
-// growth additive without dedicated one-off version fields.
+// growth additive without dedicated one-off generation fields.
 public sealed record Handshake(
-    int ContractVersion, string SenderVersion,
+    int ContractGeneration, string SenderVersion,
     CapabilityEntry[] Capabilities, HostFingerprint? Fingerprint, EndpointRecord? Endpoint) {
-    // The single contract-version declaration drives both directions and ShellSkew projection.
-    public const int CurrentVersion = 1;
+    // The single contract-generation declaration drives both directions and ShellSkew projection.
+    public const int Generation = 1;
     public const string ShellContentCapability = "shell.content.sha256";
 }
 

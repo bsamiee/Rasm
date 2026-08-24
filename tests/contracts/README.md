@@ -18,7 +18,7 @@ tests/contracts/
 ├── manifest.json · manifest.schema.json            # Authored registry and schema derived from the rail model
 ├── .api/                                           # Corpus tool catalog: buf, plugins, and the Assay-owned gate
 ├── proto/buf.md                                    # Module front door the BSR renders; absence falls back to the repo README
-├── proto/rasm/contracts/<family>/v1/*.proto        # Estate module; sibling files split by ownership, one package per family
+├── proto/rasm/contracts/<family>/*.proto           # Estate module; sibling files split by ownership, one package per family
 ├── vendor/<publisher>/                             # Immutable publisher sources, licenses, and conformance vectors
 └── <seam>/                                         # Present only when one or more cases carry verified proof assets
     ├── <vector>.bin                                # Frozen binary, framed identity vector, or publisher evidence
@@ -27,7 +27,7 @@ tests/contracts/
     └── <fqn>.jsonschema.strict.bundle.json         # Gate-derived only when a named consumer evaluates the document
 ```
 
-[PROTO_SEATING]: One estate family lands under `proto/rasm/contracts/<family>/v1/`, declares `package rasm.contracts.<family>.v1`, and carries no file option; managed mode derives every language option. Root `buf.yaml` names this one release unit `buf.build/rasm/contracts`; publisher modules remain unnamed and never enter that publication.
+[PROTO_SEATING]: One estate family lands under `proto/rasm/contracts/<family>/`, declares `package rasm.contracts.<family>`, and carries no file option; managed mode derives every language option. Root `buf.yaml` names this one release unit `buf.build/rasm/contracts`; publisher modules remain unnamed and never enter that publication.
 
 [PUBLISHER_SEATING]: One publisher lands under `vendor/<publisher>/`. Its proto is an independent Buf module under `proto/`; its definition records the local source, immutable repository commit and upstream path, colocated Apache-2.0 license, and license SHA-256.
 
@@ -69,8 +69,6 @@ Application authority never covers a missing estate producer: a deploying applic
 
 ## [06]-[GATE]
 
-`assay contracts check` is the one gate: prove the active `buf.build/rasm/contracts` module whose default label is `main`, resolve that label to an immutable commit, then build, STANDARD lint carving named rules on the one vendored module whose publisher spelling breaks them, format diff over the estate module alone, FILE breaking against that coordinate, manifest audit, and scratch freshness.
-
-Lookup and resolver faults skip breaking alone and preserve every sibling verdict; with the module published, that skip reads as an absent compatibility verdict rather than the standing state.
+`assay contracts check` is the one gate: build, STANDARD lint carving named rules where a spelling lawfully breaks them, format diff over the estate module alone, manifest audit, and scratch freshness.
 
 `assay contracts generate` writes clean public roots, locked support closure, emitted `.api` rosters, and derived schemas locally. `assay contracts publish` reruns the complete gate under the same lease, then re-resolves the unchanged default-label commit or re-proves exact module absence immediately before pushing the named estate module publicly, carrying no publisher module and no Git metadata. Missing labels, authentication failures, and network failures never bootstrap.

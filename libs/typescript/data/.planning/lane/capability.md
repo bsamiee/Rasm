@@ -430,7 +430,7 @@ declare namespace Capability {
 ## [05]-[CONTRACT]
 
 - Owner: `Backend.compose` mints this branch's own contribution; `Backend.merge` folds a non-empty contribution set into the deployment unit and retains the generated document's own contract coordinate; `Backend.project` decodes a foreign branch's contribution; `Backend.observe` maps one local reading — realized catalogue and recovery stamps together — into an observation; `Backend.admit` grades one verdict on the two proofs.
-- Cases: Effect SQL migrations, journal DDL, the PGLite generation, object-plane ensures, and the object custody descriptor each land as one generated `Artifact` carrying key, role, content, providers, and dependencies — the branch composes from its own artifacts alone; the custody row's stable content derives from settled retention and conformance tables with operator coordinates excluded from the preimage, minted at `object/store#CUSTODY_CONTRACT` beside its capability rows and realized-state observation.
+- Cases: the generation script, journal DDL, the PGLite generation, object-plane ensures, and the object custody descriptor each land as one generated `Artifact` carrying key, role, content, providers, and dependencies — the branch composes from its own artifacts alone; the custody row's stable content derives from settled retention and conformance tables with operator coordinates excluded from the preimage, minted at `object/store#CUSTODY_CONTRACT` beside its capability rows and realized-state observation.
 - Law: generated `Backend`, `Artifact`, and `Capability` messages are the contract vocabulary; `Format.proto` validates every message against the generated descriptor and protovalidate rules and emits the peer document through ProtoJSON. `CanonicalWriter` derives generation identity from the message's known semantic fields, never from protobuf or JSON serialization.
 - Law: ProtoJSON has no canonical byte spelling; `project` retains transported octets only for deployment, admits their semantic message once, and never compares them with a local re-encode. Merge collision checks use generated message equality over `Artifact` and `Capability` values.
 - Law: one generated-message projection defines the published order of every set-like repeated field; local and foreign documents must already equal that semantic projection before admission, so artifact, capability, provider, and dependency order cannot mint a second generation from one set.
@@ -462,7 +462,7 @@ import {
   CapabilitySchema,
   FailureRank,
   RestartClass,
-} from "@rasm\/contracts/rasm/contracts/parity/v1/parity_pb"
+} from "@rasm\/contracts/rasm/contracts/parity/parity_pb"
 import { CanonicalWriter, Digest, Fault, Format } from "@rasm/core"
 import { Array, DateTime, Duration, Effect, HashSet, Option, Order, Schema, String } from "effect"
 

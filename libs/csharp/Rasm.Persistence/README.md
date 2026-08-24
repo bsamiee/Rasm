@@ -16,7 +16,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [05]-[LEDGER](.planning/Version/ledger.md): Op-log changefeed, HLC clock, and CRDT merge dispatch over the sync transports.
 - [06]-[COMMITS](.planning/Version/commits.md): Content-addressed commit-DAG and convergent CRDT algebra.
 - [07]-[TIMETRAVEL](.planning/Version/timetravel.md): AS-OF reconstruct, diff, blame, and bisect fold over the changefeed prefix.
-- [08]-[MERGE](.planning/Version/merge.md): Three-way structural merge and base-addressed `FieldMask` edit egress onto `Element.V1.EntityEditWire`.
+- [08]-[MERGE](.planning/Version/merge.md): Three-way structural merge and base-addressed `FieldMask` edit egress onto `Element.EntityEditWire`.
 - [09]-[PROVENANCE](.planning/Version/provenance.md): W3C-PROV causal DAG and attested tamper-evidence ledger.
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.

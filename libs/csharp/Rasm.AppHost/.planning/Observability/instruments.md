@@ -359,7 +359,7 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
     // Status is receipt-only; counting it as rejection made every healthy transition a failure sample.
     public static readonly ReceiptKind WireStatus = new("wire-status", Silent);
     public static readonly ReceiptKind Write = new("write-back", static (set, payload) =>
-        WireJson.Read<Rasm.Contracts.Binding.V1.WriteReceiptWire>(payload, DecodeWire).Bind(row => set.Write(
+        WireJson.Read<Rasm.Contracts.Binding.WriteReceiptWire>(payload, DecodeWire).Bind(row => set.Write(
             AppHostMeasure.WriteDispositions.Row, 1d, InstrumentSet.Tags((AppHostSlot.Binding, row.BindingId)))));
     public static readonly ReceiptKind Roll = new("fleet-roll", static (set, payload) =>
         Decoded<RollAnnotationWire>("fleet-roll", payload).Bind(row => set.Write(

@@ -151,8 +151,8 @@ flowchart LR
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
     Compute e2@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail"| Wire
-    Element e3@<-->|"[WIRE]: rasm.contracts.element.v1"| Wire
-    Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.v1.CrdtOpWire)"| Wire
+    Element e3@<-->|"[WIRE]: rasm.contracts.element"| Wire
+    Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.CrdtOpWire)"| Wire
     Bim e6@-->|"[WIRE]: IfcWire"| Frame
     Bim e7@-->|"[WIRE]: BcfTopicWire"| Wire
     Materials e9@-->|"[WIRE]: Material"| Wire

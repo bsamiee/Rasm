@@ -1,46 +1,43 @@
 # [CONTRACTS_API_BUFBUILD_BUF]
 
-`buf` owns both axes of the contract corpus from the repo root: `buf.yaml` names `buf.build/rasm/contracts` and gates every `.proto`; `buf.gen.yaml` drives every committed binding tree through plugins Buf resolves. Assay proves the default label is `main`, resolves its immutable commit for FILE breaking, and requires that coordinate unchanged immediately before publication. Rule violations exit 100; every other non-zero is a tool failure.
+`buf` owns both axes of the contract corpus from the repo root: `buf.yaml` names `buf.build/rasm/contracts` and gates every `.proto`; `buf.gen.yaml` drives every committed binding tree through plugins Buf resolves. Assay proves the default label is `main` and requires its resolved commit unchanged immediately before publication. Rule violations exit 100; every other non-zero is a tool failure.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@bufbuild/buf`
 - package: `@bufbuild/buf` (Apache-2.0)
-- module: `buf`, `protoc-gen-buf-lint`, `protoc-gen-buf-breaking` under `node_modules/.bin/`, a node shim over the `@bufbuild/buf-<os>-<arch>` binary
+- module: `buf` and `protoc-gen-buf-lint` under `node_modules/.bin/`, a node shim over the `@bufbuild/buf-<os>-<arch>` binary
 - runtime: node; verbs reach the registry only where a flag names it, and `protoc_builtin` rows take the machine `protoc` buf never ships
-- rail: default-label resolution, exact-commit FILE breaking, proto lint, format diff, image building, generation, and gated BSR publication
+- rail: default-label resolution, proto lint, format diff, image building, generation, and gated BSR publication
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `buf.yaml` v2 — the gate axis every verb reads from the working directory upward
 
-| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [CAPABILITY]                                                                |
-| :-----: | :----------------------------------------- | :------------ | :-------------------------------------------------------------------------- |
-|  [01]   | `version: v2`                              | enum          | the config generation; `v1beta1`/`v1` migrate through `buf config migrate`  |
-|  [02]   | `modules: [{ path, name?, … }]`            | struct        | one record per module root; `path` fixes what a proto path is relative to   |
-|  [03]   | `modules[].includes` / `excludes`          | struct        | narrows discovery inside one root; excluding every file faults the build    |
-|  [04]   | `modules[].lint` / `modules[].breaking`    | struct        | one module's own rule config, REPLACING the workspace default whole         |
-|  [05]   | `modules[].<axis>.disable_builtin: true`   | struct        | drops every built-in rule so plugin rules alone grade; default `false`      |
-|  [06]   | `lint.use` / `breaking.use`                | struct        | the categories in force, resolved through `buf config ls-*-rules`           |
-|  [07]   | `lint.except` / `breaking.except`          | struct        | drops a named rule everywhere the config reaches                            |
-|  [08]   | `lint.ignore` / `lint.ignore_only`         | struct        | drops every rule, or one named rule, for `buf.yaml`-relative paths          |
-|  [09]   | `breaking.ignore` / `breaking.ignore_only` | struct        | the breaking-axis twins of row [08]                                         |
-|  [10]   | `breaking.ignore_unstable_packages`        | struct        | drops every alpha, beta, and test package from the breaking axis            |
-|  [11]   | `lint.service_suffix`                      | struct        | the suffix `SERVICE_SUFFIX` demands, default `Service`                      |
-|  [12]   | `lint.enum_zero_value_suffix`              | struct        | the suffix `ENUM_ZERO_VALUE_SUFFIX` demands, default `_UNSPECIFIED`         |
-|  [13]   | `lint.rpc_allow_*`                         | struct        | admits one type on both rpc sides, or `google.protobuf.Empty` on either     |
-|  [14]   | `lint.disallow_comment_ignores`            | struct        | refuses in-file `buf:lint:ignore <RULE>` directives; default `false`        |
-|  [15]   | `plugins: [{ plugin, options? }]`          | struct        | custom check plugins whose rules `use` names; a remote ref pins in the lock |
-|  [16]   | `policies: [{ policy, ignore?, … }]`       | struct        | a shared lint/breaking rule file, local path or BSR policy name             |
-|  [17]   | `deps: [<bsr-module>]` + `buf.lock`        | struct        | registry dependencies `buf dep update` pins; the protovalidate seat         |
-|  [18]   | `modules[].name`                           | struct        | BSR identity; only `tests/contracts/proto` names `buf.build/rasm/contracts` |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                                                                |
+| :-----: | :--------------------------------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `version: v2`                            | enum          | the config generation; `v1beta1`/`v1` migrate through `buf config migrate`  |
+|  [02]   | `modules: [{ path, name?, … }]`          | struct        | one record per module root; `path` fixes what a proto path is relative to   |
+|  [03]   | `modules[].includes` / `excludes`        | struct        | narrows discovery inside one root; excluding every file faults the build    |
+|  [04]   | `modules[].lint`                         | struct        | one module's own rule config, REPLACING the workspace default whole         |
+|  [05]   | `modules[].<axis>.disable_builtin: true` | struct        | drops every built-in rule so plugin rules alone grade; default `false`      |
+|  [06]   | `lint.use`                               | struct        | the categories in force, resolved through `buf config ls-lint-rules`        |
+|  [07]   | `lint.except`                            | struct        | drops a named rule everywhere the config reaches                            |
+|  [08]   | `lint.ignore` / `lint.ignore_only`       | struct        | drops every rule, or one named rule, for `buf.yaml`-relative paths          |
+|  [09]   | `lint.service_suffix`                    | struct        | the suffix `SERVICE_SUFFIX` demands, default `Service`                      |
+|  [10]   | `lint.enum_zero_value_suffix`            | struct        | the suffix `ENUM_ZERO_VALUE_SUFFIX` demands, default `_UNSPECIFIED`         |
+|  [11]   | `lint.rpc_allow_*`                       | struct        | admits one type on both rpc sides, or `google.protobuf.Empty` on either     |
+|  [12]   | `lint.disallow_comment_ignores`          | struct        | refuses in-file `buf:lint:ignore <RULE>` directives; default `false`        |
+|  [13]   | `plugins: [{ plugin, options? }]`        | struct        | custom check plugins whose rules `use` names; a remote ref pins in the lock |
+|  [14]   | `policies: [{ policy, ignore?, … }]`     | struct        | a shared lint rule file, local path or BSR policy name                      |
+|  [15]   | `deps: [<bsr-module>]` + `buf.lock`      | struct        | registry dependencies `buf dep update` pins; the protovalidate seat         |
+|  [16]   | `modules[].name`                         | struct        | BSR identity; only `tests/contracts/proto` names `buf.build/rasm/contracts` |
 
-- `modules[].lint`/`modules[].breaking`: a module block replaces the workspace default whole; nothing merges.
-- module block: an omitted `use` inside one falls to buf's built-in default — `STANDARD` for lint, `FILE` for breaking — never the workspace's category.
+- `modules[].lint`: one module block replaces the workspace default whole; nothing merges.
+- module block: an omitted `use` inside one falls to buf's built-in `STANDARD` default, never the workspace's category.
 - `disable_builtin: true`: leaves a module with no rule at all where no plugin supplies one, so `buf lint` WARNs `No lint rules are configured` and exits 0.
 - `lint.disallow_comment_ignores`: v2 INVERTS v1's `allow_comment_ignores`, and hard-rejects that key as `field allow_comment_ignores not found`.
-- `lint.disallow_comment_ignores`: lint-only — the same key under `breaking` decodes as `field disallow_comment_ignores not found`.
-- `lint.ignore`/`ignore_only`/`breaking.ignore`: paths resolve against the `buf.yaml` directory; `managed.disable` `path:` is module-relative.
+- `lint.ignore`/`ignore_only`: paths resolve against the `buf.yaml` directory; `managed.disable` `path:` is module-relative.
 - `buf config ls-lint-rules --configured-only --module-path <path>`: prints one module's resolved roster, the one census reading a carve as buf resolved it.
 
 [PUBLIC_TYPE_SCOPE]: `buf.gen.yaml` v2 — the generation axis `buf generate` reads from the working directory alone, seated at the repo root beside `buf.yaml`
@@ -100,15 +97,7 @@
 |  [04]   | `COMMENTS`  | enum          | non-empty comments on every enum, field, message, oneof, rpc, and service                             |
 |  [05]   | `UNARY_RPC` | enum          | `RPC_NO_CLIENT_STREAMING`, `RPC_NO_SERVER_STREAMING` — refuses every streaming rpc                    |
 
-[PUBLIC_TYPE_SCOPE]: breaking categories — chosen by what the corpus promises, resolved through `buf config ls-breaking-rules --version v2`
-
-| [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                                                                      |
-| :-----: | :---------- | :------------ | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `FILE`      | enum          | per-file identity — a moved message, renamed field, or deleted file fails; the strictest category |
-|  [02]   | `PACKAGE`   | enum          | per-package identity — a type moves between files freely inside one package                       |
-|  [03]   | `WIRE_JSON` | enum          | binary and JSON compatibility — a rename fails, a file move passes                                |
-|  [04]   | `WIRE`      | enum          | binary compatibility alone — a field rename passes, a type or number change fails                 |
-|  [05]   | `CSR`       | enum          | the registry-consumption profile, between `WIRE_JSON` and `PACKAGE`                               |
+- `STANDARD`: `PACKAGE_VERSION_SUFFIX` carves at the workspace `except` alone, since estate packages spell no version segment and reshape in place.
 
 [PUBLIC_TYPE_SCOPE]: input formats, error formats, and exit codes — the argument vocabulary every verb shares
 
@@ -131,27 +120,22 @@
 | :-----: | :---------------------------------------------------------- | :------ | :-------------------------------------------------------------- |
 |  [01]   | `buf lint [input]`                                          | command | rule violations at `path:line:col`; exit 100 when any fires     |
 |  [02]   | `buf format [input] --diff --exit-code`                     | command | canonical `.proto` layout as a diff; `-w` rewrites in place     |
-|  [03]   | `buf breaking [input] --against <input>`                    | command | refuses a change the category forbids against the exact input   |
-|  [04]   | `buf breaking [input] --against-registry`                   | command | registry default-branch commit; unnamed input modules fail      |
-|  [05]   | `buf build [input] -o <file>`                               | command | mints an image; `--as-file-descriptor-set` bares it             |
-|  [06]   | `buf generate [input] [--template] [-o <dir>] [--clean]`    | command | drives every template plugin row; `-o` prefixes each `out`      |
-|  [07]   | `buf ls-files [input] --format text\|json\|import`          | command | the file set a verb resolves, with or without imports           |
-|  [08]   | `buf stats [input]`                                         | command | file, package, message, field, service, and rpc counts          |
-|  [09]   | `buf config ls-modules` / `ls-*-rules`                      | command | the configured module roots; the live rule set from the binary  |
-|  [10]   | `buf config init` / `migrate`                               | command | scaffold a v2 config; lift v1 config to v2                      |
-|  [11]   | `buf dep update` / `graph` / `prune`                        | command | `buf.lock` maintenance and the dependency graph                 |
-|  [12]   | `buf export -o <dir>` / `buf convert --type --from --to`    | command | extract a source tree; recode one message across formats        |
-|  [13]   | `buf curl --protocol connect\|grpc\|grpcweb`                | command | call a running service; `--reflect` needs HTTP/2                |
-|  [14]   | `protoc-gen-buf-lint` / `protoc-gen-buf-breaking`           | plugin  | the same rule engines as protoc plugins                         |
-|  [15]   | `buf registry module commit resolve <module> --format json` | command | resolves the default label to its immutable 32-hex commit       |
-|  [16]   | `buf push [input] --exclude-unnamed --label main`           | command | pushes named modules alone; `--create` mints the module once    |
-|  [17]   | `buf plugin update` / `prune` / `push`                      | command | pins, drops, and publishes the check plugins `buf.lock` carries |
-|  [18]   | `buf lsp serve`                                             | command | the language server every editor integration dials              |
-|  [19]   | `buf source edit deprecate`                                 | command | writes `deprecated` onto named Protobuf types in place          |
+|  [03]   | `buf build [input] -o <file>`                               | command | mints an image; `--as-file-descriptor-set` bares it             |
+|  [04]   | `buf generate [input] [--template] [-o <dir>] [--clean]`    | command | drives every template plugin row; `-o` prefixes each `out`      |
+|  [05]   | `buf ls-files [input] --format text\|json\|import`          | command | the file set a verb resolves, with or without imports           |
+|  [06]   | `buf stats [input]`                                         | command | file, package, message, field, service, and rpc counts          |
+|  [07]   | `buf config ls-modules` / `ls-*-rules`                      | command | the configured module roots; the live rule set from the binary  |
+|  [08]   | `buf config init` / `migrate`                               | command | scaffold a v2 config; lift v1 config to v2                      |
+|  [09]   | `buf dep update` / `graph` / `prune`                        | command | `buf.lock` maintenance and the dependency graph                 |
+|  [10]   | `buf export -o <dir>` / `buf convert --type --from --to`    | command | extract a source tree; recode one message across formats        |
+|  [11]   | `buf curl --protocol connect\|grpc\|grpcweb`                | command | call a running service; `--reflect` needs HTTP/2                |
+|  [12]   | `protoc-gen-buf-lint`                                       | plugin  | the same rule engine as a protoc plugin                         |
+|  [13]   | `buf registry module commit resolve <module> --format json` | command | resolves the default label to its immutable 32-hex commit       |
+|  [14]   | `buf push [input] --exclude-unnamed --label main`           | command | pushes named modules alone; `--create` mints the module once    |
+|  [15]   | `buf plugin update` / `prune` / `push`                      | command | pins, drops, and publishes the check plugins `buf.lock` carries |
+|  [16]   | `buf lsp serve`                                             | command | the language server every editor integration dials              |
 
 - `buf lint --path <p>`: refuses a module root (`specify this module path directly as an input`); it names a file or subdirectory.
-- `buf breaking --path`: filters the input AND the baseline, so a path absent from the baseline fails `image contains no files`.
-- `buf breaking`: fails exit 1 `Module "path: …" had no .proto files` on a module the baseline lacks — a tool-failure form, never exit 100.
 - `buf registry module commit resolve`: JSON carries `commit` and `create_time`; the gate accepts only one lowercase 32-hex commit.
 - `buf config ls-lint-rules --configured-only --module-path <path>`: prints one module's resolved roster; `--module-path` is required past one module.
 - `buf alpha`: hidden from the top-level listing and source-marked `may be deleted`; `buf beta` lists but self-marks `likely to change`. Neither gates.
@@ -170,7 +154,6 @@
 - That carve seats per publisher module, never per observed delta: `grpc/health/v1` diffs to nothing only because the `csharp_namespace` default derives the publisher's own spelling.
 - Publisher modules clearing `STANDARD` whole carve nothing; `tests/contracts/vendor/cloudevents/proto` carries no rule block at all.
 - Publisher modules failing `STANDARD` restate `use: [STANDARD]` in their own block and `except` the exact rules their publisher spelling breaks.
-- No publisher module carries a `breaking` block: the estate lane runs `buf breaking tests/contracts/proto` and `--against-registry` refuses an unnamed module.
 - `buf format --diff --exit-code tests/contracts/proto` names the estate module alone, so no publisher byte enters the format path.
 - Root `buf.gen.yaml` feeds ONE workspace input (`directory: .`) to every plugin row; exact FQN filters resolve against that one image.
 - `protocolbuffers/csharp` and `grpc/csharp` run as BSR remote plugins pinned by upstream version and exact revision; no C# generator rides `${PATH}`.
@@ -193,5 +176,5 @@
 [RAIL_LAW]:
 - Package: `@bufbuild/buf`
 - Owns: the proto rule engine, BSR commit resolution and publication, canonical formatting, image minting, managed generation, and the readers
-- Accept: one active named estate module whose default label is `main`, unnamed publisher modules carving by named rule alone, the unchanged resolved commit under `--against`, one workspace input, exact actor-root filters, version-and-revision-pinned remote plugins, generated-only outs
-- Reject: a global binary, mutable-label breaking, a lowered category, an in-file comment ignore, `breaking.ignore`, an alternate baseline, descriptor snapshot, or second driver
+- Accept: one active named estate module whose default label is `main`, unnamed publisher modules carving by named rule alone, the resolved commit unchanged at publication, one workspace input, exact actor-root filters, version-and-revision-pinned remote plugins, generated-only outs
+- Reject: a global binary, a mutable publication label, a lowered category, an in-file comment ignore, a descriptor snapshot, or a second driver

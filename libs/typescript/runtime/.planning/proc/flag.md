@@ -22,7 +22,7 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 
 ```typescript signature
 import type { UnknownEnum } from '@bufbuild/protobuf';
-import { FlagReason } from '@rasm\/contracts/rasm/contracts/feature/v1/verdict_pb';
+import { FlagReason } from '@rasm\/contracts/rasm/contracts/feature/verdict_pb';
 import { Wire } from '@rasm/core';
 import { Array, DateTime, Duration, Effect, Match, Option, Record, Schema, String, pipe } from 'effect';
 

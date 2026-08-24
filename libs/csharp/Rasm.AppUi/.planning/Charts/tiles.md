@@ -139,7 +139,7 @@ public sealed partial class DeltaPolarity {
 
 - Owner: `TileState` — the per-tile lifecycle union; `TilePosture` — the presentation vocabulary each state projects onto, carrying opacity, veil, and interactivity as row columns; `TilePresentation` — the projected posture beside the drop depth and badge; `StatAnatomy` — the scalar tile's full reading; `TilePlacement` and `DashboardLayout` — the breakpoint-indexed board spine; `DashboardTile` — the closed tile union and its admission.
 - Cases: `TileState` = Loading | Ready | Empty | Failed | Cramped; `TilePosture` = live | veiled | inert | faulted; `DashboardTile` = Chart | Stat | Gauge | Table | Scorecard | Custom.
-- Entry: `TileState.Present` — the one presentation projection; `StatAnatomy.Folded(label, polarity, held, taus)` — the whole reading off ONE retained window; `DashboardLayout.Admit(key, version, placements, canvasState)` — accumulating admission with a per-tier sweep; `DashboardLayout.At(breakpoint)` — the widest-declared-tier resolution; `DashboardTile.Admit()` — the per-case source-arm proof.
+- Entry: `TileState.Present` — the one presentation projection; `StatAnatomy.Folded(label, polarity, held, taus)` — the whole reading off ONE retained window; `DashboardLayout.Admit(key, placements, canvasState)` — accumulating admission with a per-tier sweep; `DashboardLayout.At(breakpoint)` — the widest-declared-tier resolution; `DashboardTile.Admit()` — the per-case source-arm proof.
 - Auto: presentation is a projection of the state, so no tile decides its own opacity, veil, or interactivity — four postures resolve from five states and a sixth state lands as one arm; the scalar tile's headline, delta, spark, and declared percentiles are one retained window read four ways, so they cannot disagree; a gauge holds no window because a dial shows one reading and a trend under it states a second the dial cannot draw.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new lifecycle posture is one `TileState` case with its `Present` arm; a new tile kind is one `DashboardTile` case with its admission arm; zero new surface.
@@ -231,13 +231,14 @@ public readonly record struct TilePlacement(string TileKey, BreakpointRow At, in
             && (long)Row + RowSpan > other.Row;
 }
 
-public sealed record DashboardLayout(string Key, int Version, Seq<TilePlacement> Placements, Option<string> CanvasState) {
+// Layouts carry no shape ordinal: the stored form is a `Charts/boards#BOARD_STATE` sealed parcel whose
+// generation rides outside the value, so a column here moves the seal and never this record.
+public sealed record DashboardLayout(string Key, Seq<TilePlacement> Placements, Option<string> CanvasState) {
     // Accumulating admission with a per-tier SWEEP: placements sort by column and each candidate compares only
     // against the open set whose column extent still reaches it, so overlap costs the sweep's frontier rather
     // than every pair, and every violated tier names itself in one refusal.
-    public static Fin<DashboardLayout> Admit(string key, int version, Seq<TilePlacement> placements, Option<string> canvasState = default) =>
+    public static Fin<DashboardLayout> Admit(string key, Seq<TilePlacement> placements, Option<string> canvasState = default) =>
         (Gate(!string.IsNullOrWhiteSpace(key), $"{key}: blank key"),
-         Gate(version > 0, $"{key}: non-positive version"),
          Gate(placements.ForAll(static placement =>
                  !string.IsNullOrWhiteSpace(placement.TileKey)
                  && placement.Column >= 0 && placement.Row >= 0
@@ -245,7 +246,7 @@ public sealed record DashboardLayout(string Key, int Version, Seq<TilePlacement>
              $"{key}: degenerate placement"),
          placements.GroupBy(static placement => placement.At).AsIterable().ToSeq()
              .Traverse(tier => Tier(key, toSeq(tier))).Map(static _ => unit).As())
-            .Apply((_, _, _, _) => new DashboardLayout(key, version, placements, canvasState)).As().ToFin();
+            .Apply((_, _, _) => new DashboardLayout(key, placements, canvasState)).As().ToFin();
 
     static Validation<Error, Unit> Tier(string key, Seq<TilePlacement> tier) =>
         tier.Map(static placement => placement.TileKey).Distinct().Count == tier.Count

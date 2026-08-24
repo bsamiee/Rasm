@@ -568,7 +568,7 @@ Frame-admission vectors use `W = FrameBytes`, `L = WireLimits.Artifact.SizeLimit
 ```csharp signature
 using System.Security.Cryptography;
 using Google.Protobuf;
-using Rasm.Contracts.Artifact.V1;
+using Rasm.Contracts.Artifact;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
 // ONE hostile-parse ceiling record for this folder, modelled on `Rasm.Element`'s: every `CreateWithLimits` on the

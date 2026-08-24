@@ -279,7 +279,7 @@ public sealed partial class GltfChannel {
 // TextureTransform; the union of those rows with the channel's own registers before the write, so no
 // format#FORMAT_AXIS row serializes unregistered. A KTX2 payload arrives already wire-legal: the frozen
 // `TextureSet.Of` domain gate refuses rawBcn and astc before `AppearanceEgress.Set` constructs the generated
-// `appearance.v1.Set`, so the bytes this binder receives carry a Basis-transcodable or
+// `appearance.Set`, so the bytes this binder receives carry a Basis-transcodable or
 // uncompressed payload by construction and the sniff here reads container magic alone — for extension
 // registration, never a second legality gate re-deciding what the producer already proved.
 public sealed record ChannelImage {

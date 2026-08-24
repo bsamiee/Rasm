@@ -35,7 +35,7 @@ This page owns the transport axis, binding direction, edge coercion, write trans
 - Boundary: a frozen row carries no endpoint — `Hop` is a `Func<LiveWireRuntime, BindingSpec, OutboundHop>` reading the binding's own external address and the composition's own companion spec, so the eleven `localhost` URI literals and the two `ProcessStartInfo` mints that sat inside `static readonly` rows leave the axis entirely and `ARCHITECTURE.md` `[05]-[BOUNDARIES]`'s composition-root-pin clause holds at every row; the transport axis is the only external-binding owner — a per-protocol client, a protocol-specific binding service, and a parallel poller are the deleted forms, so all eleven transports ride one adapter contract; the OPC-UA legs compose the OPC-Foundation-certified session/subscription/monitored-item surface and the `.PubSub` application, the MQTT leg composes `MQTTnet`, and the REST/GraphQL legs compose the existing `OutboundHop.HttpApi` — a hand-rolled OPC-UA or MQTT client is the deleted form; the transport never owns its own resilience — it composes the `OutboundHop` row its bytes ride, so a flapping Modbus source breaks on the same circuit breaker an HTTP API breaks on; the at-edge value carries its declared unit so the coercion at `BINDING_SPEC` reads a known unit, never a guessed one; spreadsheet and ERP/PLM transports that have no native streaming poll on the schedule cadence, so the cadence is the row's read mechanism, not a transport quirk.
 
 ```csharp signature
-using Host = Rasm.Contracts.Binding.V1;
+using Host = Rasm.Contracts.Binding;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<string>]

@@ -109,7 +109,7 @@ Couplings fanning out or carrying a proof condition land as cards, each stating 
 - Law: Refusals seated at a consumer obligate the producer to publish the column that refusal reads in the same pass.
 
 [APPEARANCE_WIRE_MIRROR]:
-- Surface: Generated `rasm.contracts.appearance.v1.Material` and `Set` families owned by `tests/contracts/proto/rasm/contracts/appearance/v1`.
+- Surface: Generated `rasm.contracts.appearance.Material` and `Set` families owned by `tests/contracts/proto/rasm/contracts/appearance`.
 - Obligates: both `tests/contracts/` appearance entries and the `python:runtime/transport/shapes` and `typescript:core/interchange/codec` decoders.
 - Law: No compiler spans these surfaces, so a column, key-number, or order move lands every one in the same change, quoted verbatim.
 - Law: Schema authority is the producer's positional `[Key(n)]` roster — declaration order tracks it except where an append spells out of order.

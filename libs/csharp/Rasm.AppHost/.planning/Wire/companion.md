@@ -56,7 +56,7 @@ using NodaTime;
 using OpenTelemetry.Context;
 using Rasm.Domain;
 using Thinktecture;
-using CapabilityContract = Rasm.Contracts.Capability.V1;
+using CapabilityContract = Rasm.Contracts.Capability;
 using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Wire;
@@ -169,7 +169,7 @@ public abstract partial record CompanionSignal {
 
     public sealed record Drain(
         int PeerPid,
-        global::Rasm.Contracts.Compute.V1.DeadlineOutcome Outcome,
+        global::Rasm.Contracts.Compute.DeadlineOutcome Outcome,
         DrainRuntimeResponse Reply) : CompanionSignal;
 }
 
@@ -1078,7 +1078,7 @@ stateDiagram-v2
 - Receipt: one `Delivery` per request carrying accepted, duplicate, and externalized counts beside the REFUSAL CAUSES themselves, fanned through the one `FactSink` and fired at `AppHostPoint.Companion` — a 4xx names the axis or claim that refused it rather than a bare count, which is what the receipt line promised while both refusal arms discarded the cause.
 - Packages: Rasm.Contracts (generated `Extensions` message), CloudNative.CloudEvents, Microsoft.AspNetCore.App (shared framework), Rasm (the `Rasm/Domain/event` envelope algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new generated extension field joins declaration and reconstructed whole-message admission through `WireAdmission.EventExtensions`; a new protobuf value space is one kernel structural-kind bridge, never a field-name row here; a new HTTP event format is one `EventFormat` row this door consumes unchanged; a foreign refusal needs no case at all, since `CompanionFault.Of` adopts it whole — never a second door.
-- Boundary: `WireAdmission.EventExtensions` composes the kernel `EventExtensionContract<event.v1.Extensions>` over AppHost's one descriptor-root validator; a private per-handler validator is the deleted duplicate rule graph. `IngressPolicy.Project` receives the admitted message and typed `DataGrade` whole, while this door reads only `HasDataref` for the externalized tally; binding applications resolve the URI-reference. `subject` and `time` remain CloudEvents context attributes, and foreign envelopes pass the generic `EventEnvelope` gate without being forced through the Rasm type/source/id grammar. Messaging semantic conventions do not describe this HTTP handler, so no stranded non-HTTP binding roster or `messaging.*` masquerade survives here.
+- Boundary: `WireAdmission.EventExtensions` composes the kernel `EventExtensionContract<event.Extensions>` over AppHost's one descriptor-root validator; a private per-handler validator is the deleted duplicate rule graph. `IngressPolicy.Project` receives the admitted message and typed `DataGrade` whole, while this door reads only `HasDataref` for the externalized tally; binding applications resolve the URI-reference. `subject` and `time` remain CloudEvents context attributes, and foreign envelopes pass the generic `EventEnvelope` gate without being forced through the Rasm type/source/id grammar. Messaging semantic conventions do not describe this HTTP handler, so no stranded non-HTTP binding roster or `messaging.*` masquerade survives here.
 
 | [INDEX] | [ATTRIBUTE]                      | [CARRIES]                                       |
 | :-----: | :------------------------------- | :---------------------------------------------- |
@@ -1229,7 +1229,7 @@ public sealed record IngressPolicy(
     Func<Uri, Fin<Unit>> Source,
     Func<DataGrade, Fin<Unit>> Classification,
     DedupeWindow Dedupe,
-    Func<CloudEvent, global::Rasm.Contracts.Event.V1.Extensions, DataGrade, TenantContext, Op, Fin<DomainEvent>> Project,
+    Func<CloudEvent, global::Rasm.Contracts.Event.Extensions, DataGrade, TenantContext, Op, Fin<DomainEvent>> Project,
     ClockPolicy Clocks,
     FactSink<CompanionSignal> Fan);
 

@@ -1,6 +1,6 @@
 # [PERSISTENCE_STORE_SCHEMA]
 
-Rasm.Persistence composes framework-owned schema artifacts and the provisioning vocabulary into the generated `Rasm.Contracts.Parity.V1.Backend` contract. One strict semantic projection admits generated rows, the kernel `CanonicalWriter` mints generation identity from known fields, and ProtoJSON carries the admitted message without lending its bytes to identity. One verdict grades a deployment on contract realization and recovery recency.
+Rasm.Persistence composes framework-owned schema artifacts and the provisioning vocabulary into the generated `Rasm.Contracts.Parity.Backend` contract. One strict semantic projection admits generated rows, the kernel `CanonicalWriter` mints generation identity from known fields, and ProtoJSON carries the admitted message without lending its bytes to identity. One verdict grades a deployment on contract realization and recovery recency.
 
 ## [01]-[INDEX]
 
@@ -28,7 +28,7 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.AppHost.Runtime;
 using Rasm.Domain;
-using Parity = Rasm.Contracts.Parity.V1;
+using Parity = Rasm.Contracts.Parity;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Store;
@@ -309,12 +309,13 @@ public static class ContractComposition {
 - Law: the emitted set is THIS branch's contribution conforming to the corpus `BACKEND_CONTRACT` schema; a C#-only application deploys it directly, and a polyglot application merges it with peer contributions at the app root by artifact key.
 - Law: each branch mints its own generated contribution and admits peer ProtoJSON through its generated-message boundary; transported octets never become a canonical-content surrogate.
 - Law: adapters compare expected generation and observed evidence; availability or desired declarations prove nothing.
+- Law: the observed generation grades against the expected digest alone, so a match serves and every other value is a difference rather than a distance; an observation carrying artifact keys this contract never declares seats `Ahead` before `GenerationDrift` and carries those keys, because a binary composed before them describes neither their shape nor their compatibility.
 - Law: contract identity and data recency are TWO proofs on one verdict, never two generations — `GenerationDrift` proves the store carries the composed contract off the existing digest, and `RecoveryWindowExceeded` proves the data behind it is recent enough for the window the deployment declared, so a verdict carrying one alone cannot tell a moved schema from an intact schema behind a stale recovery point; `RecoveryWindow` derives both halves from the observation's OWN stamps — a lag admits at ZERO, the freshest measured recency, while only a frontier stamped after its own reading is skew dropping to unmeasured — and the two halves absorb absence oppositely under each `RecoveryAxis` row's declared law.
 - Entry: `public static BackendVerdict Admit(SchemaContract expected, BackendObservation observed, RecoveryObjective objective)` grades one contract against one observation, taking the declared objective as a PARAMETER — the composition root threads its `ResolvedProfile.Recovery` value in — so deployment shape reaches this owner as data and no runtime import inverts the strata.
 - Output: `contract.json` carries the generated message's ProtoJSON inside a generation-qualified publication.
 - Packages: Rasm.AppHost (`Runtime/profiles#PROFILE_AXIS` `RecoveryObjective`), NodaTime carrying the observation stamps and the durations both recovery halves gauge in.
 - Growth: a new recovery axis is one `RecoveryAxis` row carrying its measured accessor, its declared accessor, and its own absence law, beside its matching column on the `ResolvedProfile.Recovery` objective a composition root fills — the one `Gauged` fold then carries it into the verdict and the headroom readout alike.
-- Boundary: providers execute native migrations and provisioning; this owner neither synthesizes DDL nor orchestrates deployment; recovery evidence stays OBSERVATION-side, so a stamp, a lag, or an objective never enters the contract wire and `RecoveryObjective` is read settled from the profile row rather than re-spelled as a second DR vocabulary.
+- Boundary: providers execute native generation materialization and provisioning; this owner neither synthesizes DDL nor orchestrates deployment; recovery evidence stays OBSERVATION-side, so a stamp, a lag, or an objective never enters the contract wire and `RecoveryObjective` is read settled from the profile row rather than re-spelled as a second DR vocabulary.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -401,7 +402,7 @@ public sealed record BackendObservation(
 
     // `Created` is the cluster's realized extension set read in the one verification batch, and contract
     // capability rows are keyed by that same `ServerExtension.Key` space, so the projection is direct. Artifact
-    // evidence enters as a caller argument because only the migration and storage owners that realized an
+    // evidence enters as a caller argument because only the generation and storage owners that realized an
     // artifact can witness it; a desired declaration is not evidence.
     public static BackendObservation Of(
         GenerationId observed,
@@ -416,6 +417,7 @@ public sealed record BackendObservation(
 [Union]
 public abstract partial record BackendVerdict {
     public sealed record Admitted(BackendObservation Observation) : BackendVerdict;
+    public sealed record Ahead(Seq<string> Objects) : BackendVerdict;
     public sealed record GenerationDrift(GenerationId Expected, GenerationId Observed) : BackendVerdict;
     public sealed record CapabilityGap(Seq<string> Keys) : BackendVerdict;
     public sealed record ArtifactGap(Seq<string> Keys) : BackendVerdict;
@@ -440,16 +442,22 @@ public static class BackendAdmission {
             .Select(static row => row.Key)
             .Where(key => !observed.HeldArtifacts.Contains(key)));
         Seq<RecoveryReading> breaches = observed.Window.Exceeding(objective);
+        // An observation carrying keys this contract never declares is UNDESCRIBABLE, not distant: the digest
+        // comparison below reports a difference, and only this arm names what the composed binary cannot grade.
+        Seq<string> undescribable = toSeq(observed.HeldArtifacts)
+            .Filter(key => !expected.Document.Artifacts.Any(row => row.Key == key));
 
-        return observed.Generation != expected.Generation
-            ? new BackendVerdict.GenerationDrift(expected.Generation, observed.Generation)
-            : !requiredCapabilities.IsEmpty
-                ? new BackendVerdict.CapabilityGap(requiredCapabilities)
-                : !requiredArtifacts.IsEmpty
-                    ? new BackendVerdict.ArtifactGap(requiredArtifacts)
-                    : !breaches.IsEmpty
-                        ? new BackendVerdict.RecoveryWindowExceeded(breaches)
-                        : new BackendVerdict.Admitted(observed);
+        return !undescribable.IsEmpty
+            ? new BackendVerdict.Ahead(undescribable)
+            : observed.Generation != expected.Generation
+                ? new BackendVerdict.GenerationDrift(expected.Generation, observed.Generation)
+                : !requiredCapabilities.IsEmpty
+                    ? new BackendVerdict.CapabilityGap(requiredCapabilities)
+                    : !requiredArtifacts.IsEmpty
+                        ? new BackendVerdict.ArtifactGap(requiredArtifacts)
+                        : !breaches.IsEmpty
+                            ? new BackendVerdict.RecoveryWindowExceeded(breaches)
+                            : new BackendVerdict.Admitted(observed);
     }
 }
 ```

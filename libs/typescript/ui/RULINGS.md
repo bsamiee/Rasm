@@ -57,8 +57,9 @@
 - Appearance seating pairs each generated `Set` with its carrier appearance key — baked sets verify that key and environment kinds never seat.
 - Splat order is consumer-owned per view — the producer wire carries no ordering key, so back-to-front is a camera-epoch fold and never decode order.
 - Canvas keeps React Flow's own recognizers — the graph mirrors through one adapter atom; a second recognizer over its d3-zoom double-binds.
-- Persisted grain keys share ONE mint, `rasm.ui.<domain>.<grain>.v<N>` — `v<N>` is a DECLARED ordinal, never a schema hash, so no edit re-keys.
-- Editor quarantine is a STORED-doc decode mode alone — live collab refuses on the pinned generation; quarantine atoms shift shared position math.
+- Persisted grain keys share ONE mint, `rasm.ui.<domain>.<grain>` — generation seals the VALUE, so a stale parcel refuses on content, never on key.
+- Quarantine is the ONE unknown-shape posture — payloads hold as residue, live collab refuses on generation, quarantined atoms shift position math.
+- Foreign packages own their version fields — the engine stamps and reads its own, so the estate transcribes that field verbatim and mints none.
 - Key chords spell `Control` or `Mod` — react-aria's parser holds no `ctrl` token, so `Ctrl` parses as a KEY and drops the modifier silently.
 - Multi-panel elements persist at the ELEMENT grain — layout, active panel, and cross-filter live in the workspace token a panel config patches.
 - `AppUiSurfaceProgram` seats one app input: partition, unique-key control tree, and exact structured-variable layout closure; leaves stay support.

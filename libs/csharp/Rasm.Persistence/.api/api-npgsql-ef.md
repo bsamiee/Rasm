@@ -270,7 +270,7 @@
 - `api-marten`(`.api/api-marten.md`): the EF-mapped `ElementIdentity` row commits atomically with its event inside one `IDocumentSession` over the shared `NpgsqlDataSource`.
 - `api-npgsql`(`libs/csharp/.api/api-npgsql.md`): the ADO codec under this provider — identity columns, query translation, and migrations share one `NpgsqlDataSource` surface.
 - `api-npgsql-ef-nodatime`(`.api/api-npgsql-ef-nodatime.md`) / `api-nts-ef`(`.api/api-nts-ef.md`) / `api-pgvector-ef`(`.api/api-pgvector-ef.md`): temporal, spatial, and vector mappings stack onto this base provider through the one `UseNpgsql` options builder.
-- within-lib: `Store/provisioning` selects this as one `StoreProfile` provider row — `SetPostgresVersion`, the `IMigrator`/`NpgsqlMigrationBuilderExtensions` migration API, and `NpgsqlIndexBuilderExtensions` (`HasMethod`/`HasOperators`/`AreNullsDistinct`) are the provisioning declarations, never hand DDL.
+- within-lib: `Store/provisioning` selects this as one `StoreProfile` provider row — `SetPostgresVersion` and `NpgsqlIndexBuilderExtensions` (`HasMethod`/`HasOperators`/`AreNullsDistinct`) are the provisioning declarations the generation script renders from, never hand DDL.
 
 [LOCAL_ADMISSION]:
 - PostgreSQL EF enters behind the store-profile vocabulary like every provider; provider-specific model annotations stay profile metadata and never become public Persistence service families.

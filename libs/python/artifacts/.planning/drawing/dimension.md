@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_DRAWING_DIMENSION]
 
-`Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame.decode` reads the corpus `rasm.contracts.fabrication.v1.FeatureControl` message alone — `from_binary` plus one total fold onto the drawing vocabulary — seating every fact the `tolerance-frame` entry spells: no hand reader, no parallel tolerance owner, no producer-admitted field this frame drops.
+`Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame.decode` reads the corpus `rasm.contracts.fabrication.FeatureControl` message alone — `from_binary` plus one total fold onto the drawing vocabulary — seating every fact the `tolerance-frame` entry spells: no hand reader, no parallel tolerance owner, no producer-admitted field this frame drops.
 
 Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native path (`DXF` the `Drawing.write` blob, `SVG` the `SVGBackend`, `PDF` the `PyMuPdfBackend`) LEADS with `add_*_dim().render()` and the ISO tolerance as native DIM-variables (`dimtol`/`dimtp`/`dimtm`, `dimlim`, `MTextEditor.stack` for the stacked deviation), while the `LAYERED` path DECOMPOSES each dimension into named editable `graphic/layer#LAYER` `LayerNode` rows at full semantic parity — the extension/dimension-line geometry from `ezdxf.math.Construction*` anchor math (never hand-rolled trig) authored as `drawsvg` elements (never hand-formatted `<path d>` strings), per-case ISO 129-1 terminators anchored where the case actually terminates (arc ends tangent to the measured arc, one leader arrow on a radial, a datum triangle on a datum feature), the true measured value for EVERY case including the angular degrees and the `⌢`-prefixed arc length, the ISO 3098 measurement text outlined through `ziafont` (`typography/shape#SHAPE` owns the shaped run), and every `DimTol` mode typeset through the `typography/math#MATH` `Formula` owner seated through `seat` — `\pm` symmetric, stacked deviation, stacked limits, boxed basic — all penned by the discipline sRGB `Standard.rgb` resolves. `kiwisolver` `Solver` + `strength` bands solve the dimension-line offset STACK a fixed offset gets wrong. Rendering offloads through the owner's `lane: LanePolicy` instance seam onto the runtime thread lane, and the owner contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` case (or reused `ArtifactReceipt.Pdf` on the `PDF` backend) and one `core/plan#PLAN` `ArtifactWork` node — minting no IFC (`csharp:Rasm.Bim`) and computing no sheet placement, the dimensioned SVG/PDF bytes feeding `composition/sheet#SHEET`'s `FigurePlacement` as a bytes seam.
 
@@ -38,7 +38,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.msgpack import Encoder
 
-from rasm.contracts.gen.rasm.contracts.fabrication.v1.fabrication_pb import Characteristic, Datum, Egress, FeatureControl, Material, Modifier, Scope, Segment as WireSegment, ZoneKind
+from rasm.contracts.gen.rasm.contracts.fabrication.fabrication_pb import Characteristic, Datum, Egress, FeatureControl, Material, Modifier, Scope, Segment as WireSegment, ZoneKind
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.journal import Journal
@@ -246,7 +246,7 @@ class GdtOrigin(Struct, frozen=True):
 
 
 class GdtFrame(Struct, frozen=True):
-    # one ISO 1101 feature-control frame — admission target of the corpus `fabrication.v1.FeatureControl` message, and
+    # one ISO 1101 feature-control frame — admission target of the corpus `fabrication.FeatureControl` message, and
     # it carries every fact that message spells: a field the fold cannot seat is a fact dropped onto the drawing.
     characteristic: GdtChar
     tolerance: float  # zone magnitude in millimetres, exact — decimal presentation is this drawing standard's

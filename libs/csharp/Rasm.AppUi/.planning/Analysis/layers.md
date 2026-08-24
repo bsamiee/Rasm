@@ -1142,6 +1142,10 @@ public sealed record BakeContext(
     ChartInk Ink,
     CustomVisualStyle Style,
     ResolvedLocale Locale,
+    // Composition binds this per-key revision arrow to the ONE `Render/viewpoint#VIEW_REGISTRY` `ViewRevisions`
+    // minter: re-baking a layer at the same correlation must SUPERSEDE the reading it replaces, and only a
+    // process-wide sequence per key promises that.
+    Func<string, int> Revision,
     IClock Clock);
 
 // Each row carries its own fold, so the dispatch is row data and a fifth deliverable adds no arm. The view
@@ -1186,8 +1190,9 @@ public static class BakeFolds {
     public static IO<Fin<BakeProduct>> View(ResultLayer layer, LayerStack stack, BakeContext context) =>
         IO.pure(
             from provenance in layer.Provenance
+            let key = $"{AnalysisLayers.Plane}.{layer.Key}@{provenance.Correlation}"
             from receipt in Viewpoint.Capture(
-                $"{AnalysisLayers.Plane}.{layer.Key}@{provenance.Correlation}",
+                key, context.Revision(key),
                 context.Camera, context.Section, stack.Ground(context.Scene),
                 Seq<string>(), Seq<ViewMeasurement>(), context.Clock.GetCurrentInstant())
             select (BakeProduct)new BakeProduct.View(receipt));

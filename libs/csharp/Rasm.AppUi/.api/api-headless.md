@@ -17,6 +17,7 @@
 - namespace: `Avalonia.Headless.XUnit`
 - rail: evidence
 - depends: `xunit.v3.extensibility.core` — the attributes derive from `FactAttribute`/`TheoryAttribute` and implement `ITestFrameworkAttribute`
+- note: `xunit.v3` is the publisher's own distribution identity transcribed verbatim; the estate's no-version-segment law binds estate-minted names alone
 
 ## [02]-[PUBLIC_TYPES]
 

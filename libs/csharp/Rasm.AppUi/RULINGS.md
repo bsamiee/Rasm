@@ -66,6 +66,10 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Substrates DEGRADING silently are measured, never inferred from a channel they never write — `LayoutReceipt` reads each row's post-solve violation.
 - Per-surface admission matrices are a COLUMN on `ChromeSlot` — N rows re-deriving it are N chances to disagree, while a row predicate never widens.
 - Persisted carriers restore in the DEPENDENCY ORDER of their keys, `RegionProgram` first — each later carrier keys on a surface the earlier mints.
+- Stored state DECODE-ADMITS at ONE stable key with its generation inside the parcel — a stale payload refuses on content and no shape move re-keys.
+- Refused parcels answer a SEED, never a fault — every refusal reason reads alike, so no surface branches on why its grain came back empty.
+- `StateResidue` splits refusal LEAVINGS — authored grains HOLD bytes for hand recovery, re-derivable ones DISCARD, and no attribute rename survives.
+- Stored grains ADMIT or refuse whole — a translation is a second authority on what the author meant, and its output reads as authored.
 - Display units are EXPLICIT tokens per readout per system — `UnitsNet` resolves a system by seven-axis equality most rows leave undeclared.
 - Right-to-left is a PROJECTION over `MirrorSubject` — a surface names its subject once, and a never-flipping one PINS at its own root.
 - `MessageRegistry` coverage reads the non-falling-back accessor — a parent's answer makes every key present and a set-less layer EXEMPT.

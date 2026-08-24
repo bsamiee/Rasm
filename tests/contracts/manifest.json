@@ -1,5 +1,4 @@
 {
-    "version": 2,
     "entries": [
         {
             "id": "content-identity",
@@ -84,7 +83,7 @@
                                         "algorithm": "xxh128",
                                         "value": "1d43e05df17f81dd8b5378727e0486ac"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             }
                         ]
@@ -163,7 +162,7 @@
                                         "algorithm": "xxh128",
                                         "value": "161fd40439b349685fb625ea3b831bde"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -197,7 +196,7 @@
                                         "algorithm": "xxh128",
                                         "value": "d9a32e84aa33e6a4d9c4cd8c639d1a65"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -231,7 +230,7 @@
                                         "algorithm": "xxh128",
                                         "value": "2f651928abcb4ad4e2bb911a3476f940"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -265,7 +264,7 @@
                                         "algorithm": "xxh128",
                                         "value": "55d622bec23b69513e02efc71c6acb9c"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -299,7 +298,7 @@
                                         "algorithm": "xxh128",
                                         "value": "d6e007cf17229557016878d339c9ee1f"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             }
                         ]
@@ -378,7 +377,7 @@
                                         "algorithm": "xxh128",
                                         "value": "7b4be34ef564951cf37ea490667c24bb"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -412,7 +411,7 @@
                                         "algorithm": "xxh128",
                                         "value": "d632e98311bc35cb860e52adb7e4202f"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -446,7 +445,7 @@
                                         "algorithm": "xxh128",
                                         "value": "b2717f7f04a1e2790088a279cc4061bb"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -480,7 +479,7 @@
                                         "algorithm": "xxh128",
                                         "value": "592d131cb1390143fb70251085e6b617"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -514,7 +513,7 @@
                                         "algorithm": "xxh128",
                                         "value": "6b624b640137872aacd4ce95733ee5fc"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -548,7 +547,7 @@
                                         "algorithm": "xxh128",
                                         "value": "a126ed7a784c33ecc63f5eb1cff4ba2b"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -582,7 +581,7 @@
                                         "algorithm": "xxh128",
                                         "value": "5e62e05de10bd343f2395b2b04153e1a"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -616,7 +615,7 @@
                                         "algorithm": "xxh128",
                                         "value": "cffc795494efa816f6cee2c6c7f42196"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -650,7 +649,7 @@
                                         "algorithm": "xxh128",
                                         "value": "a1c7fe07f11f65c14b363d93da76f579"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -684,7 +683,7 @@
                                         "algorithm": "xxh128",
                                         "value": "c1665e14801a9f6510e9203b092e33f9"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -718,7 +717,7 @@
                                         "algorithm": "xxh128",
                                         "value": "b5a06603f9954540f99816579df1ab82"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             },
                             {
@@ -752,7 +751,7 @@
                                         "algorithm": "xxh128",
                                         "value": "cf05c4d3bb3244b503b5b1b9aeea748b"
                                     },
-                                    "factsFormat": "content-digest-v1"
+                                    "factsFormat": "content-digest"
                                 }
                             }
                         ]
@@ -768,7 +767,7 @@
                     "id": "message",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.clock.v1.Hlc",
+                        "message": "rasm.contracts.clock.Hlc",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -853,7 +852,7 @@
                                         "algorithm": "xxh128",
                                         "value": "dbe0bbcbd7f27f1a63596ec5f5c73b71"
                                     },
-                                    "factsFormat": "hlc-value-v1"
+                                    "factsFormat": "hlc-value"
                                 }
                             },
                             {
@@ -897,7 +896,7 @@
                                         "algorithm": "xxh128",
                                         "value": "0684ff7022e02dbe5afff70a67bbd83c"
                                     },
-                                    "factsFormat": "hlc-value-v1"
+                                    "factsFormat": "hlc-value"
                                 }
                             }
                         ]
@@ -913,7 +912,7 @@
                     "id": "detail",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.fault.v1.FaultDetail",
+                        "message": "rasm.contracts.fault.FaultDetail",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -1007,14 +1006,14 @@
                     "id": "tessellate-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.compute.v1.TessellateRequest",
+                        "message": "rasm.contracts.compute.TessellateRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:geometry/mesh/serve#SERVE",
                             "direction": "server-request",
-                            "method": "rasm.contracts.compute.v1.ComputeService.Tessellate",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
                             "binding": "generated",
                             "coordinate": "GeometryServe.tessellate"
                         }
@@ -1024,7 +1023,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
                             "direction": "client-request",
-                            "method": "rasm.contracts.compute.v1.ComputeService.Tessellate",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
                             "binding": "generated",
                             "coordinate": "CompanionEdge.Tessellate"
                         }
@@ -1040,14 +1039,14 @@
                     "id": "tessellate-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.compute.v1.TessellateResponse",
+                        "message": "rasm.contracts.compute.TessellateResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
                             "direction": "client-response",
-                            "method": "rasm.contracts.compute.v1.ComputeService.Tessellate",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
                             "binding": "generated",
                             "coordinate": "CompanionEdge.Tessellate"
                         }
@@ -1057,7 +1056,7 @@
                         "producer": {
                             "anchor": "python:geometry/mesh/serve#SERVE",
                             "direction": "server-response",
-                            "method": "rasm.contracts.compute.v1.ComputeService.Tessellate",
+                            "method": "rasm.contracts.compute.ComputeService.Tessellate",
                             "binding": "generated",
                             "coordinate": "GeometryServe.tessellate"
                         }
@@ -1073,14 +1072,14 @@
                     "id": "artifact-fetch-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.artifact.v1.FetchRequest",
+                        "message": "rasm.contracts.artifact.FetchRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:geometry/mesh/serve#SERVE",
                             "direction": "server-request",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Fetch",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
                             "binding": "generated",
                             "coordinate": "GeometryServe.fetch"
                         }
@@ -1090,7 +1089,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                             "direction": "client-request",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Fetch",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
                             "binding": "generated",
                             "coordinate": "Fetch"
                         }
@@ -1106,14 +1105,14 @@
                     "id": "artifact-fetch-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.artifact.v1.FetchResponse",
+                        "message": "rasm.contracts.artifact.FetchResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                             "direction": "client-response",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Fetch",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
                             "binding": "generated",
                             "coordinate": "Fetch"
                         }
@@ -1123,7 +1122,7 @@
                         "producer": {
                             "anchor": "python:geometry/mesh/serve#SERVE",
                             "direction": "server-response",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Fetch",
+                            "method": "rasm.contracts.artifact.ArtifactService.Fetch",
                             "binding": "generated",
                             "coordinate": "GeometryServe.fetch"
                         }
@@ -1139,14 +1138,14 @@
                     "id": "artifact-put-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.artifact.v1.PutRequest",
+                        "message": "rasm.contracts.artifact.PutRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:geometry/mesh/serve#SERVE",
                             "direction": "server-request",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Put",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
                             "binding": "generated",
                             "coordinate": "GeometryServe.put"
                         }
@@ -1157,14 +1156,14 @@
                             {
                                 "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                                 "direction": "client-request",
-                                "method": "rasm.contracts.artifact.v1.ArtifactService.Put",
+                                "method": "rasm.contracts.artifact.ArtifactService.Put",
                                 "binding": "generated",
                                 "coordinate": "Put"
                             },
                             {
                                 "anchor": "python:cad/service/spool#SPOOL",
                                 "direction": "client-request",
-                                "method": "rasm.contracts.artifact.v1.ArtifactService.Put",
+                                "method": "rasm.contracts.artifact.ArtifactService.Put",
                                 "binding": "generated",
                                 "coordinate": "ArtifactTransfer.publish"
                             }
@@ -1181,21 +1180,21 @@
                     "id": "artifact-put-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.artifact.v1.PutResponse",
+                        "message": "rasm.contracts.artifact.PutResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                             "direction": "client-response",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Put",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
                             "binding": "generated",
                             "coordinate": "Put"
                         },
                         {
                             "anchor": "python:cad/service/spool#SPOOL",
                             "direction": "client-response",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Put",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
                             "binding": "generated",
                             "coordinate": "ArtifactTransfer.publish"
                         }
@@ -1205,7 +1204,7 @@
                         "producer": {
                             "anchor": "python:geometry/mesh/serve#SERVE",
                             "direction": "server-response",
-                            "method": "rasm.contracts.artifact.v1.ArtifactService.Put",
+                            "method": "rasm.contracts.artifact.ArtifactService.Put",
                             "binding": "generated",
                             "coordinate": "GeometryServe.put"
                         }
@@ -1221,14 +1220,14 @@
                     "id": "set-degradation-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.compute.v1.SetDegradationRequest",
+                        "message": "rasm.contracts.compute.SetDegradationRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-request",
-                            "method": "rasm.contracts.compute.v1.ControlService.SetDegradation",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
                             "coordinate": "SetDegradation"
                         }
@@ -1238,7 +1237,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
                             "direction": "client-request",
-                            "method": "rasm.contracts.compute.v1.ControlService.SetDegradation",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
                             "coordinate": "Forward"
                         }
@@ -1254,14 +1253,14 @@
                     "id": "set-degradation-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.compute.v1.SetDegradationResponse",
+                        "message": "rasm.contracts.compute.SetDegradationResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
                             "direction": "client-response",
-                            "method": "rasm.contracts.compute.v1.ControlService.SetDegradation",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
                             "coordinate": "Forward"
                         }
@@ -1271,7 +1270,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-response",
-                            "method": "rasm.contracts.compute.v1.ControlService.SetDegradation",
+                            "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
                             "coordinate": "SetDegradation"
                         }
@@ -1287,14 +1286,14 @@
                     "id": "drain-runtime-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.compute.v1.DrainRuntimeRequest",
+                        "message": "rasm.contracts.compute.DrainRuntimeRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-request",
-                            "method": "rasm.contracts.compute.v1.ControlService.DrainRuntime",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
                             "coordinate": "DrainRuntime"
                         }
@@ -1304,7 +1303,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
                             "direction": "client-request",
-                            "method": "rasm.contracts.compute.v1.ControlService.DrainRuntime",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
                             "coordinate": "DrainVerb"
                         }
@@ -1320,14 +1319,14 @@
                     "id": "drain-runtime-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.compute.v1.DrainRuntimeResponse",
+                        "message": "rasm.contracts.compute.DrainRuntimeResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
                             "direction": "client-response",
-                            "method": "rasm.contracts.compute.v1.ControlService.DrainRuntime",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
                             "coordinate": "DrainVerb"
                         }
@@ -1337,7 +1336,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-response",
-                            "method": "rasm.contracts.compute.v1.ControlService.DrainRuntime",
+                            "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
                             "coordinate": "DrainRuntime"
                         }
@@ -1359,14 +1358,14 @@
                     "id": "execute-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.cad.v1.ExecuteRequest",
+                        "message": "rasm.contracts.cad.ExecuteRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:cad/service/provider#PROVIDER",
                             "direction": "server-request",
-                            "method": "rasm.contracts.cad.v1.CadService.Execute",
+                            "method": "rasm.contracts.cad.CadService.Execute",
                             "binding": "generated",
                             "coordinate": "CadProvider.execute"
                         }
@@ -1376,28 +1375,30 @@
                         "producer": {
                             "anchor": "python:geometry/mesh/brep#BREP",
                             "direction": "client-request",
-                            "method": "rasm.contracts.cad.v1.CadService.Execute",
+                            "method": "rasm.contracts.cad.CadService.Execute",
                             "binding": "generated",
                             "coordinate": "CadServiceClient.execute"
                         }
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The executable CAD client and provider carry no frozen Execute request through the contract harness."]
+                        "blockers": [
+                            "The executable CAD client and provider carry no frozen Execute request through the contract harness."
+                        ]
                     }
                 },
                 {
                     "id": "execute-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.cad.v1.ExecuteResponse",
+                        "message": "rasm.contracts.cad.ExecuteResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:geometry/mesh/brep#BREP",
                             "direction": "client-response",
-                            "method": "rasm.contracts.cad.v1.CadService.Execute",
+                            "method": "rasm.contracts.cad.CadService.Execute",
                             "binding": "generated",
                             "coordinate": "CadServiceClient.execute"
                         }
@@ -1407,28 +1408,30 @@
                         "producer": {
                             "anchor": "python:cad/service/provider#PROVIDER",
                             "direction": "server-response",
-                            "method": "rasm.contracts.cad.v1.CadService.Execute",
+                            "method": "rasm.contracts.cad.CadService.Execute",
                             "binding": "generated",
                             "coordinate": "CadProvider.execute"
                         }
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The executable CAD provider and client carry no frozen Execute reply through the contract harness."]
+                        "blockers": [
+                            "The executable CAD provider and client carry no frozen Execute reply through the contract harness."
+                        ]
                     }
                 },
                 {
                     "id": "tessellate-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.cad.v1.TessellateRequest",
+                        "message": "rasm.contracts.cad.TessellateRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:cad/service/provider#PROVIDER",
                             "direction": "server-request",
-                            "method": "rasm.contracts.cad.v1.CadService.Tessellate",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
                             "binding": "generated",
                             "coordinate": "CadProvider.tessellate"
                         }
@@ -1438,28 +1441,30 @@
                         "producer": {
                             "anchor": "python:geometry/mesh/cad#BRIDGE",
                             "direction": "client-request",
-                            "method": "rasm.contracts.cad.v1.CadService.Tessellate",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
                             "binding": "generated",
                             "coordinate": "CadServiceClient.tessellate"
                         }
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The executable CAD client and provider carry no frozen Tessellate request through the contract harness."]
+                        "blockers": [
+                            "The executable CAD client and provider carry no frozen Tessellate request through the contract harness."
+                        ]
                     }
                 },
                 {
                     "id": "tessellate-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.cad.v1.TessellateResponse",
+                        "message": "rasm.contracts.cad.TessellateResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:geometry/mesh/cad#BRIDGE",
                             "direction": "client-response",
-                            "method": "rasm.contracts.cad.v1.CadService.Tessellate",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
                             "binding": "generated",
                             "coordinate": "CadServiceClient.tessellate"
                         }
@@ -1469,7 +1474,7 @@
                         "producer": {
                             "anchor": "python:cad/service/provider#PROVIDER",
                             "direction": "server-response",
-                            "method": "rasm.contracts.cad.v1.CadService.Tessellate",
+                            "method": "rasm.contracts.cad.CadService.Tessellate",
                             "binding": "generated",
                             "coordinate": "CadProvider.tessellate"
                         }
@@ -1491,7 +1496,7 @@
                     "id": "spz-v4",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.scan.v1.GaussianSplatScan",
+                        "message": "rasm.contracts.scan.GaussianSplatScan",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -1522,7 +1527,7 @@
                     "id": "sog-v2",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.scan.v1.GaussianSplatScan",
+                        "message": "rasm.contracts.scan.GaussianSplatScan",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -1559,7 +1564,7 @@
                     "id": "entity-edit",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.element.v1.EntityEditWire",
+                        "message": "rasm.contracts.element.EntityEditWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1570,7 +1575,7 @@
                             "supports": [
                                 {
                                     "kind": "message",
-                                    "fqn": "rasm.contracts.element.v1.NodeWire"
+                                    "fqn": "rasm.contracts.element.NodeWire"
                                 }
                             ],
                             "coordinate": "fold"
@@ -1585,7 +1590,7 @@
                             "supports": [
                                 {
                                     "kind": "message",
-                                    "fqn": "rasm.contracts.element.v1.NodeWire"
+                                    "fqn": "rasm.contracts.element.NodeWire"
                                 }
                             ],
                             "coordinate": "EditWire.Wire"
@@ -1651,13 +1656,13 @@
         },
         {
             "id": "crdt-ops",
-            "law": "Generated crdt.v1 CrdtOpWire is the sole ten-arm CRDT payload; only a crdt OpLogEntry raw slot carries it, non-CRDT lanes remain opaque, and operation identity stays the entry dot.",
+            "law": "Generated crdt CrdtOpWire is the sole ten-arm CRDT payload; only a crdt OpLogEntry raw slot carries it, non-CRDT lanes remain opaque, and operation identity stays the entry dot.",
             "cases": [
                 {
                     "id": "crdt-ops",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.crdt.v1.CrdtOpWire",
+                        "message": "rasm.contracts.crdt.CrdtOpWire",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -1706,7 +1711,7 @@
                     "id": "extensions",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.event.v1.Extensions",
+                        "message": "rasm.contracts.event.Extensions",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1763,7 +1768,7 @@
                     "id": "command-availability",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.availability.v1.CommandAvailability",
+                        "message": "rasm.contracts.availability.CommandAvailability",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1785,14 +1790,16 @@
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The producer freezes no family vector — every apphost family crosses as ProtoJSON with no pinned instance."]
+                        "blockers": [
+                            "The producer freezes no family vector — every apphost family crosses as ProtoJSON with no pinned instance."
+                        ]
                     }
                 },
                 {
                     "id": "command-invocation",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.ui.v1.CommandInvocation",
+                        "message": "rasm.contracts.ui.CommandInvocation",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1823,7 +1830,7 @@
                     "id": "command-gate",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.ui.v1.CommandGateWire",
+                        "message": "rasm.contracts.ui.CommandGateWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1860,7 +1867,7 @@
                     "id": "appui-surface-program",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.ui.v1.AppUiSurfaceProgram",
+                        "message": "rasm.contracts.ui.AppUiSurfaceProgram",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1891,7 +1898,7 @@
                     "id": "geometry-residency",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.render.v1.GeometryResidency",
+                        "message": "rasm.contracts.render.GeometryResidency",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1913,14 +1920,16 @@
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The producer freezes no family vector — every appui family crosses as ProtoJSON with no pinned instance."]
+                        "blockers": [
+                            "The producer freezes no family vector — every appui family crosses as ProtoJSON with no pinned instance."
+                        ]
                     }
                 },
                 {
                     "id": "evidence-timeline",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.ui.v1.EvidenceTimelineWire",
+                        "message": "rasm.contracts.ui.EvidenceTimelineWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1942,14 +1951,16 @@
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The producer freezes no family vector — every appui family crosses as ProtoJSON with no pinned instance."]
+                        "blockers": [
+                            "The producer freezes no family vector — every appui family crosses as ProtoJSON with no pinned instance."
+                        ]
                     }
                 },
                 {
                     "id": "bcf-topic",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.bcf.v1.BcfTopicWire",
+                        "message": "rasm.contracts.bcf.BcfTopicWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -1980,7 +1991,7 @@
                     "id": "model-diff",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.bim.v1.ModelDiffWire",
+                        "message": "rasm.contracts.bim.ModelDiffWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2011,7 +2022,7 @@
                     "id": "credential-public",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.credential.v1.CredentialPublicWire",
+                        "message": "rasm.contracts.credential.CredentialPublicWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2042,7 +2053,7 @@
                     "id": "flag-verdict",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.feature.v1.FlagVerdictWire",
+                        "message": "rasm.contracts.feature.FlagVerdictWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2073,7 +2084,7 @@
                     "id": "binding-status",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.binding.v1.BindingStatus",
+                        "message": "rasm.contracts.binding.BindingStatus",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2104,7 +2115,7 @@
                     "id": "coerced-value",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.binding.v1.CoercedValueWire",
+                        "message": "rasm.contracts.binding.CoercedValueWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2135,7 +2146,7 @@
                     "id": "write-receipt",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.binding.v1.WriteReceiptWire",
+                        "message": "rasm.contracts.binding.WriteReceiptWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2166,7 +2177,7 @@
                     "id": "evidence-receipt",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.ui.v1.EvidenceReceiptWire",
+                        "message": "rasm.contracts.ui.EvidenceReceiptWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2197,7 +2208,7 @@
                     "id": "bcf-viewpoint",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.bcf.v1.BcfViewpointWire",
+                        "message": "rasm.contracts.bcf.BcfViewpointWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2228,13 +2239,13 @@
         },
         {
             "id": "appearance-set",
-            "law": "Appearance crosses as producer-owned rasm.contracts.appearance.v1.Set documents: C# mints baked and environment sets, Python mints PBR-ingest and environment sets, and every peer admits the generated family without deriving address or key.",
+            "law": "Appearance crosses as producer-owned rasm.contracts.appearance.Set documents: C# mints baked and environment sets, Python mints PBR-ingest and environment sets, and every peer admits the generated family without deriving address or key.",
             "cases": [
                 {
                     "id": "baked",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.appearance.v1.Set",
+                        "message": "rasm.contracts.appearance.Set",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -2265,7 +2276,7 @@
                     "id": "ingest-pbr",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.appearance.v1.Set",
+                        "message": "rasm.contracts.appearance.Set",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -2302,7 +2313,7 @@
                     "id": "environment",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.appearance.v1.Set",
+                        "message": "rasm.contracts.appearance.Set",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -2347,13 +2358,13 @@
         },
         {
             "id": "capability-descriptor",
-            "law": "The AppHost projects one canonical capability document and its seed-zero digest into capability.v1.DescriptorPinWire; TypeScript admits the generated message only after re-hashing the document and matching the advertised pin.",
+            "law": "The AppHost projects one canonical capability document and its seed-zero digest into capability.DescriptorPinWire; TypeScript admits the generated message only after re-hashing the document and matching the advertised pin.",
             "cases": [
                 {
                     "id": "descriptor-pin",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.capability.v1.DescriptorPinWire",
+                        "message": "rasm.contracts.capability.DescriptorPinWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2390,14 +2401,14 @@
                     "id": "discover-request",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.capability.v1.DiscoverRequest",
+                        "message": "rasm.contracts.capability.DiscoverRequest",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-request",
-                            "method": "rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
                             "binding": "generated",
                             "coordinate": "CapabilityDiscoveryServiceImpl.Discover"
                         }
@@ -2407,28 +2418,30 @@
                         "producer": {
                             "anchor": "python:runtime/transport/serve#CAPABILITY_INVOKE",
                             "direction": "client-request",
-                            "method": "rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
                             "binding": "generated",
                             "coordinate": "CapabilityInvoke.connect"
                         }
                     },
                     "readiness": {
                         "kind": "blocked",
-                        "blockers": ["The executable discovery client and service carry no frozen Discover request through the contract harness."]
+                        "blockers": [
+                            "The executable discovery client and service carry no frozen Discover request through the contract harness."
+                        ]
                     }
                 },
                 {
                     "id": "discover-response",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.capability.v1.DiscoverResponse",
+                        "message": "rasm.contracts.capability.DiscoverResponse",
                         "framing": "proto-binary"
                     },
                     "consumers": [
                         {
                             "anchor": "python:runtime/transport/serve#CAPABILITY_INVOKE",
                             "direction": "client-response",
-                            "method": "rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
                             "binding": "generated",
                             "coordinate": "CapabilityInvoke.connect"
                         }
@@ -2438,7 +2451,7 @@
                         "producer": {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-response",
-                            "method": "rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover",
+                            "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
                             "binding": "generated",
                             "coordinate": "CapabilityDiscoveryServiceImpl.Discover"
                         }
@@ -2454,13 +2467,13 @@
         },
         {
             "id": "material-wire",
-            "law": "A material crosses as rasm.contracts.appearance.v1.Material — the OpenPBR Surface 1.1 parameter algebra, conductor key, capture receipt, and appearance content hash — colour as the scene-linear triple; peers re-derive no hash.",
+            "law": "A material crosses as rasm.contracts.appearance.Material — the OpenPBR Surface 1.1 parameter algebra, conductor key, capture receipt, and appearance content hash — colour as the scene-linear triple; peers re-derive no hash.",
             "cases": [
                 {
                     "id": "material-wire",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.appearance.v1.Material",
+                        "message": "rasm.contracts.appearance.Material",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -2665,7 +2678,7 @@
                                         "algorithm": "xxh128",
                                         "value": "6d65890e0ad44cb72eb218ab012e9599"
                                     },
-                                    "factsFormat": "matrix-market-facts-v1"
+                                    "factsFormat": "matrix-market-facts"
                                 }
                             }
                         ]
@@ -2731,7 +2744,7 @@
                                         "algorithm": "xxh128",
                                         "value": "0f355744b1becb37b94a9af148f812c4"
                                     },
-                                    "factsFormat": "hdf5-facts-v1"
+                                    "factsFormat": "hdf5-facts"
                                 }
                             }
                         ]
@@ -2785,7 +2798,7 @@
                                         "algorithm": "xxh128",
                                         "value": "587f58ddd5c83154df6af0272dfaf956"
                                     },
-                                    "factsFormat": "hdf5-facts-v1"
+                                    "factsFormat": "hdf5-facts"
                                 }
                             }
                         ]
@@ -2864,7 +2877,7 @@
                                         "algorithm": "xxh128",
                                         "value": "1bea74875c19a37ab4dc3c3305b68ccd"
                                     },
-                                    "factsFormat": "hdf5-facts-v1"
+                                    "factsFormat": "hdf5-facts"
                                 }
                             }
                         ]
@@ -2918,7 +2931,7 @@
                                         "algorithm": "xxh128",
                                         "value": "cc6914de23030862011b50043532a300"
                                     },
-                                    "factsFormat": "hdf5-facts-v1"
+                                    "factsFormat": "hdf5-facts"
                                 }
                             }
                         ]
@@ -2928,13 +2941,13 @@
         },
         {
             "id": "parity-document",
-            "law": "The Backend parity document crosses as rasm.contracts.parity.v1.Backend ProtoJSON; independent branches mint contributions and admit foreign documents with printable keys and ordinally sorted collections.",
+            "law": "The Backend parity document crosses as rasm.contracts.parity.Backend ProtoJSON; independent branches mint contributions and admit foreign documents with printable keys and ordinally sorted collections.",
             "cases": [
                 {
                     "id": "backend-contract",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.parity.v1.Backend",
+                        "message": "rasm.contracts.parity.Backend",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2989,30 +3002,30 @@
                                     {
                                         "path": "parity-document/backend-contract.csharp.json",
                                         "role": "specimen",
-                                        "bytes": 549,
+                                        "bytes": 548,
                                         "fingerprint": {
                                             "algorithm": "sha256",
-                                            "value": "89497eacce3796b6b1e4f238a788bfe17be57259d8c5bfb35dd1193c4e486c51"
+                                            "value": "1c1bea9693af89a6013b6234b0359f534504a6fd74dabf7bfd2d7630bba05b50"
                                         },
                                         "minter": "csharp:Rasm.Persistence/Store/schema#IDENTITY@ContractComposition.Compose"
                                     },
                                     {
                                         "path": "parity-document/backend-contract.python.json",
                                         "role": "specimen",
-                                        "bytes": 497,
+                                        "bytes": 496,
                                         "fingerprint": {
                                             "algorithm": "sha256",
-                                            "value": "1db3c21696a6866b5156de31f25270802df15918be0b6d1c039ee57f51cbc93a"
+                                            "value": "b4819dce401b662524c35be31c946271cadce4a81aca171b5a1dd29c8d684491"
                                         },
                                         "minter": "python:runtime/execution/admission#BACKEND_CONTRACT@BackendGeneration.compose"
                                     },
                                     {
                                         "path": "parity-document/backend-contract.typescript.json",
                                         "role": "specimen",
-                                        "bytes": 497,
+                                        "bytes": 496,
                                         "fingerprint": {
                                             "algorithm": "sha256",
-                                            "value": "1db3c21696a6866b5156de31f25270802df15918be0b6d1c039ee57f51cbc93a"
+                                            "value": "b4819dce401b662524c35be31c946271cadce4a81aca171b5a1dd29c8d684491"
                                         },
                                         "minter": "typescript:data/lane/capability#CONTRACT@Backend.compose"
                                     }
@@ -3020,12 +3033,12 @@
                                 "expected": {
                                     "path": "parity-document/backend-contract.facts.json",
                                     "role": "expected",
-                                    "bytes": 607,
+                                    "bytes": 603,
                                     "fingerprint": {
                                         "algorithm": "sha256",
-                                        "value": "ca210daabd690945e89892c283e2a74262c6e404e738a0f42181d457f2e6d760"
+                                        "value": "923460fd1e23f31f3a12f878a3fbb8f1f605b6315b3cabf4bb39e07e7207aea4"
                                     },
-                                    "factsFormat": "backend-generation-v1"
+                                    "factsFormat": "backend-generation"
                                 }
                             }
                         ]
@@ -3041,7 +3054,7 @@
                     "id": "claim",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.benchmark.v1.BenchmarkClaimWire",
+                        "message": "rasm.contracts.benchmark.BenchmarkClaimWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -3086,7 +3099,7 @@
                     "id": "organization-wire",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.organization.v1.Organization",
+                        "message": "rasm.contracts.organization.Organization",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -3123,13 +3136,13 @@
         },
         {
             "id": "scene-descriptor",
-            "law": "A scene descriptor crosses as rasm.contracts.scene.v1.SceneDescriptor proto binary — sun derivation, photometry roster, and shading body by SHA-256 ArtifactRef — with lengths in metres and normalized solar angles.",
+            "law": "A scene descriptor crosses as rasm.contracts.scene.SceneDescriptor proto binary — sun derivation, photometry roster, and shading body by SHA-256 ArtifactRef — with lengths in metres and normalized solar angles.",
             "cases": [
                 {
                     "id": "scene-descriptor",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.scene.v1.SceneDescriptor",
+                        "message": "rasm.contracts.scene.SceneDescriptor",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -3160,13 +3173,13 @@
         },
         {
             "id": "tolerance-frame",
-            "law": "An ISO 1101 frame crosses as rasm.contracts.fabrication.v1.FeatureControl proto binary — magnitudes exact in millimetres, modifiers ascending by key, each datum carrying its own material condition with precedence by position.",
+            "law": "An ISO 1101 frame crosses as rasm.contracts.fabrication.FeatureControl proto binary — magnitudes exact in millimetres, modifiers ascending by key, each datum carrying its own material condition with precedence by position.",
             "cases": [
                 {
                     "id": "tolerance-frame",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.fabrication.v1.FeatureControl",
+                        "message": "rasm.contracts.fabrication.FeatureControl",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -3216,13 +3229,13 @@
         },
         {
             "id": "declaration-record",
-            "law": "A declaration record crosses as protobuf binary of rasm.contracts.declaration.v1.DeclarationRecord; the producer separately derives its content key from generated ProtoJSON, while consumers decode the binary and re-author no field.",
+            "law": "A declaration record crosses as protobuf binary of rasm.contracts.declaration.DeclarationRecord; the producer separately derives its content key from generated ProtoJSON, while consumers decode the binary and re-author no field.",
             "cases": [
                 {
                     "id": "declaration-record",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.declaration.v1.DeclarationRecord",
+                        "message": "rasm.contracts.declaration.DeclarationRecord",
                         "framing": "proto-binary"
                     },
                     "consumers": [
@@ -3491,21 +3504,30 @@
                             "coordinate": "_eventProtobuf",
                             "direction": "message",
                             "binding": "generated",
-                            "roots": ["io.cloudevents.v1.CloudEvent", "io.cloudevents.v1.CloudEventBatch"]
+                            "roots": [
+                                "io.cloudevents.v1.CloudEvent",
+                                "io.cloudevents.v1.CloudEventBatch"
+                            ]
                         },
                         {
                             "anchor": "python:runtime/transport/event#FORMAT",
                             "coordinate": "ProtobufFormat",
                             "direction": "message",
                             "binding": "generated",
-                            "roots": ["io.cloudevents.v1.CloudEvent", "io.cloudevents.v1.CloudEventBatch"]
+                            "roots": [
+                                "io.cloudevents.v1.CloudEvent",
+                                "io.cloudevents.v1.CloudEventBatch"
+                            ]
                         },
                         {
                             "anchor": "csharp:Rasm/Domain/event#FORMAT_CONTRACT",
                             "coordinate": "FromProtobuf",
                             "direction": "message",
                             "binding": "package",
-                            "roots": ["io.cloudevents.v1.CloudEvent", "io.cloudevents.v1.CloudEventBatch"]
+                            "roots": [
+                                "io.cloudevents.v1.CloudEvent",
+                                "io.cloudevents.v1.CloudEventBatch"
+                            ]
                         }
                     ],
                     "authority": {
@@ -3697,14 +3719,20 @@
                             "anchor": "python:runtime/transport/serve#SERVE",
                             "direction": "message",
                             "binding": "generated",
-                            "roots": ["grpc.health.v1.HealthCheckRequest", "grpc.health.v1.HealthCheckResponse"],
+                            "roots": [
+                                "grpc.health.v1.HealthCheckRequest",
+                                "grpc.health.v1.HealthCheckResponse"
+                            ],
                             "coordinate": "ServerHost"
                         },
                         {
                             "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "message",
                             "binding": "package",
-                            "roots": ["grpc.health.v1.HealthCheckRequest", "grpc.health.v1.HealthCheckResponse"],
+                            "roots": [
+                                "grpc.health.v1.HealthCheckRequest",
+                                "grpc.health.v1.HealthCheckResponse"
+                            ],
                             "coordinate": "ServiceHost.Map"
                         }
                     ],

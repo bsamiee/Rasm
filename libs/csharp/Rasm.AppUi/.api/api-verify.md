@@ -9,6 +9,7 @@
 - assembly: `Verify.XunitV3` (`net10.0`)
 - namespace: `VerifyXunit`
 - depends: `Verify` core (the `SettingsTask`/`VerifySettings`/`Target`/scrubber surface), `xunit.v3.extensibility.core`
+- note: `xunit.v3` is the publisher's own distribution identity transcribed verbatim; the estate's no-version-segment law binds estate-minted names alone
 - rail: test
 
 ## [02]-[PUBLIC_TYPES]

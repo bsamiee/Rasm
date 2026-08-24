@@ -249,14 +249,14 @@ flowchart LR
     Document e7@-->|"[WIRE]: CorpusRow"| Data
     Export e8@-->|"[WIRE]: GeoJSON"| Data
     Data e9@-->|"[SHAPE]: QualityProfile"| Visualization
-    Fabrication e10@-->|"[WIRE]: fabrication.v1.FeatureControl"| Drawing
+    Fabrication e10@-->|"[WIRE]: fabrication.FeatureControl"| Drawing
     Geometry e11@-->|"[BOUNDARY]: SceneGrid"| Scene
     Exchange e12@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Runtime e13@-->|"[PORT]: Kernel"| Scene
     Core e14@-->|"[PORT]: HookPoint"| Runtime
-    Runtime e15@-->|"[SHAPE]: appearance.v1.Set"| Graphic
-    Graphic e16@-->|"[WIRE]: appearance.v1.Set"| Materials
-    Graphic e17@-->|"[WIRE]: appearance.v1.Set"| Interchange
+    Runtime e15@-->|"[SHAPE]: appearance.Set"| Graphic
+    Graphic e16@-->|"[WIRE]: appearance.Set"| Materials
+    Graphic e17@-->|"[WIRE]: appearance.Set"| Interchange
     Core e18@-->|"[SHAPE]: Fact"| Runtime
     Delivery e19@-->|"[SHAPE]: Fact"| Runtime
     Document e20@-->|"[SHAPE]: Fact"| Runtime
@@ -267,9 +267,9 @@ flowchart LR
 
 `[SHAPE]: Fact` edges are the evidence half of the runtime seam and run outward: `core/receipt` builds each kind's `AuditFact` and `MeterFact` fan off the receipt it already carries, and every producer leg records that block through the runtime journal writer. Producing legs stay AWAITABLE by law, since recording suspends on a bounded intake, so the synchronous `contribute` projection carries no such edge.
 
-Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `fabrication.v1.FeatureControl` from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-spelled `GraduationEvidence`.
+Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `fabrication.FeatureControl` from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-spelled `GraduationEvidence`.
 
-Python mints the plane set as its appearance document: generated `rasm.contracts.appearance.v1.Set` carries the shape, and `graphic/texture/set` validates the completed document from its descriptor before it leaves the producer. Merkle set keys order the document while each stored file stays addressed by its own `PlaneRef.digest`, and two peers read the admitted set: Rasm.Materials as classification input, TypeScript core as a census-and-landing pair.
+Python mints the plane set as its appearance document: generated `rasm.contracts.appearance.Set` carries the shape, and `graphic/texture/set` validates the completed document from its descriptor before it leaves the producer. Merkle set keys order the document while each stored file stays addressed by its own `PlaneRef.digest`, and two peers read the admitted set: Rasm.Materials as classification input, TypeScript core as a census-and-landing pair.
 
 C#-pressed `baked` rides the same `Set` message under its own producer with the `appearance_key`, `provenance`, and `press` columns python leaves absent, and python reads none of it.
 

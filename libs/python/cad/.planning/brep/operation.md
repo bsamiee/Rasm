@@ -37,7 +37,7 @@ from OCP.TopoDS import TopoDS_Shape
 from builtins import frozendict
 from expression import Error, Ok, Option
 from protobuf import Message, Oneof
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import (
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import (
     BooleanInputs,
     ChamferOp,
     ExecuteRequest,
@@ -50,7 +50,7 @@ from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import (
     ThickOp,
     TransformOp,
 )
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import BrepKernelReceipt, SealedStep, StepProtocol
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import BrepKernelReceipt, SealedStep, StepProtocol
 
 from rasm.cad.brep.boolean import BOOLEANS, boolean
 from rasm.cad.brep.feature import featured

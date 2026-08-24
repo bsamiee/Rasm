@@ -84,9 +84,8 @@ def test_main_channel_separation(cli: VerbRunner) -> None:
     """Wire output stays on stdout; stderr carries no schema payload."""
     res = cli("static")
     assert len(res.stdout.splitlines()) == 1
-    assert b'"schema_version"' not in res.stderr
     decoded = read_one_envelope_from_bytes(res.stdout)
-    assert decoded.schema_version == 1
+    assert decoded.claim is Claim.STATIC
 
 
 # --- [MAIN_TRACING_LIFECYCLE]
@@ -242,7 +241,6 @@ def test_main_subprocess_failing_rail_channel_separation(cli: VerbRunner) -> Non
     assert len(res.stdout.splitlines()) == 1
     decoded = read_one_envelope_from_bytes(res.stdout)
     assert decoded.status is RailStatus.FAULTED
-    assert b"schema_version" not in res.stderr
     assert b"rail.finish" in res.stderr
 
 

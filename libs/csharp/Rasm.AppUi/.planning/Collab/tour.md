@@ -458,14 +458,14 @@ public static class TourCaptions {
 
 - Owner: `TourSource` `[Union]` the one closed tour-origin family; `SequenceStop` the saved-sequence source row; `SavedSequence` the ordered saved-viewpoint-key projection; `TopicTour` the BCF-topic-set projection folding a `Rasm.Bim` topic set into stops at the package edge.
 - Cases: `TourSource` = `SavedSequence` | `TopicTour` — a saved sequence orders stored viewpoint keys with their per-stop dwell and transition, and a topic tour expands every viewpoint of every coordination topic through the viewpoint codec under its own declared dwell and transition; one new tour origin is one `TourSource` case the generated total `Switch` breaks at every site.
-- Entry: `public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Instant at)` — the generated total switch projects each source onto the one `ReviewTour` keyed by the source's own `Key` field; the saved-sequence arm resolves each key to its stored viewpoint, the topic-tour arm folds each `BcfTopic` viewpoint to a stop through `ViewpointCodec.FromBcf`, and every stop admits through the `TourStop.Admit` rail bridge so a bad saved dwell folds typed instead of throwing through the generated factory inside the traversal.
+- Entry: `public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Func<string, int> revision, Instant at)` — the generated total switch projects each source onto the one `ReviewTour` keyed by the source's own `Key` field, the revision arrow binding the `Render/viewpoint#VIEW_REGISTRY` `ViewRevisions` minter every inbound BCF viewpoint draws its per-key reading from; the saved-sequence arm resolves each key to its stored viewpoint, the topic-tour arm folds each `BcfTopic` viewpoint to a stop through `ViewpointCodec.FromBcf`, and every stop admits through the `TourStop.Admit` rail bridge so a bad saved dwell folds typed instead of throwing through the generated factory inside the traversal.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
 - Growth: a new tour origin is one `TourSource` case plus its one `Build` arm; a new BCF mapping rides the existing topic projection; zero new surface.
 - Boundary:
   - `TourSource` is the one closed family, so a parallel tour-builder per origin is the deleted form — two origins are two cases of one union with a generated total `Switch`, never two builder classes.
   - `TopicTour` composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfViewpoint` contract at the package edge exactly as `Collab/issues#ISSUE_MODEL` does: AppUi owns the `ReviewTour` projection while `Rasm.Bim` owns the openBIM topic exchange, and a second BCF model or a direct `.bcfzip` reader here is the rejected form. Each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf`, so a topic tour's saved view rides the one portable view-state receipt.
   - The per-stop dwell and transition are the source ROW's own columns on BOTH arms, defaulting to motion tokens — the prior form claimed a topic row could override them while carrying no column to override with, so a topic tour's whole timing was two unconditional literals wearing a policy's name. Every value still traces to the motion catalog; a raw duration literal is unspellable.
-  - Each arm carries EXACTLY its own context: the saved arm takes the viewpoint resolver and the topic arm takes the capture instant, so neither state tuple carries a leg the other needs. `ViewpointCodec.FromBcf` reads an `Instant`, not a clock — an APP-stratum clock policy never crosses downward into this package.
+  - Each arm carries EXACTLY its own context: the saved arm takes the viewpoint resolver and the topic arm takes the capture instant beside the revision arrow, so neither state tuple carries a leg the other needs. `ViewpointCodec.FromBcf` reads an `Instant`, not a clock — an APP-stratum clock policy never crosses downward into this package — and it reads a MINTED revision rather than one it invents, because BCF carries no count of its own and a fabricated constant ties every re-import at the depot.
   - A stop REQUIRES a viewpoint by construction, so a viewpoint-less topic contributes no stop, and an all-viewpoint-less topic set fails `ReviewTour.Of` as the empty tour rather than succeeding silently.
   - The saved-sequence arm resolves keys through the caller-supplied `resolve` delegate, so the source mints no viewpoint store and reads the settled viewpoint persistence.
 
@@ -493,9 +493,9 @@ public abstract partial record TourSource {
 
     // `TraverseM` aborts on the first bad row because a partial tour is a WRONG tour: a stop silently dropped
     // from a coordination review is a topic nobody looked at.
-    public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Instant at) =>
+    public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, Func<string, int> revision, Instant at) =>
         Switch(
-            state: (Resolve: resolve, At: at),
+            state: (Resolve: resolve, Revision: revision, At: at),
             savedSequence: static (ctx, sequence) =>
                 sequence.Stops
                     .TraverseM(stop => ctx.Resolve(stop.ViewpointKey)
@@ -512,7 +512,7 @@ public abstract partial record TourSource {
                                 .Map(static comment => comment.Text)
                                 .Filter(static text => !string.IsNullOrEmpty(text)))
                         .Bind(narration => ViewpointCodec
-                            .FromBcf(row.Viewpoint.Guid, row.Viewpoint, ctx.At)
+                            .FromBcf(row.Viewpoint.Guid, ctx.Revision(row.Viewpoint.Guid), row.Viewpoint, ctx.At)
                             .Bind(view => TourStop.Admit(view, topic.Dwell, topic.Transition, Some(narration)))))
                     .As()
                     .Bind(stops => ReviewTour.Of(topic.Key, stops)));

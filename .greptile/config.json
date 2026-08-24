@@ -90,6 +90,12 @@
             "enabled": true
         },
         {
+            "id": "generation-replacement",
+            "rule": "Stateful stores rebuild from declared truth on shape change. Schema is ONE generation identified by a content digest over its artifact set; the deploy plane materializes that generation whole into a fresh namespace and cuts over atomically in one schema-rename transaction, while runtime verifies the generation it observes and never mutates it. Every relation declares its rebuild posture before it ships: Derived rebuilt from truth, Carried lifted by a declared INSERT ... SELECT inside the cutover transaction, Resident generation-invariant. Every migration script, Up/Down body, diff planner, expand-shadow-backfill-contract wave, and in-place alter is the forbidden surface; demand the generation replacement beside the relation's missing posture.",
+            "severity": "high",
+            "enabled": true
+        },
+        {
             "id": "fence-as-product",
             "rule": "Code fences in planning design pages are the work product: transcription-complete declarations verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and phantom members are defects. Prose describing a fence binds to the fence's actual behavior: a signature row or behavior claim diverging from the body — a described transformation the code does not perform — is a wrong contract, and the correct form states the invariant the code embodies. A research row is recorded epistemic debt: a fence settling a member a sibling research row still declares unverified is a defect, and a resolved row deletes whole with no tombstone. An admitted central-manifest row carrying a sanctioned gate comment and named follow-up is design-real: verification is the manifest admission, never wheel availability, and demanding a page drop the package over a temporary distribution gap is the capability-gating defect.",
             "severity": "high",

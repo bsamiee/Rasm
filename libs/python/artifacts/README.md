@@ -49,7 +49,7 @@
 - [32]-[TEXTURE_PLANE](.planning/graphic/texture/plane.md): `Plane` deep-pixel substrate and the codec rows lifting the estate 8-bit ceiling.
 - [33]-[TEXTURE_DERIVE](.planning/graphic/texture/derive.md): `DeriveOp` channel-derivation kernels over one separable resampler.
 - [34]-[TEXTURE_INGEST](.planning/graphic/texture/ingest.md): `TextureRole`/`IblProduct` slot vocabulary and its total loose-file classifier.
-- [35]-[TEXTURE_SET](.planning/graphic/texture/set.md): `TextureSet` producer minting the generated `appearance.v1.Set` behind a merkle set key.
+- [35]-[TEXTURE_SET](.planning/graphic/texture/set.md): `TextureSet` producer minting the generated `appearance.Set` behind a merkle set key.
 - [36]-[TEXTURE_IBL](.planning/graphic/texture/ibl.md): `Ibl` environment-radiance prefilter minting the products an `hdri` manifest names.
 - [37]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — point-at-distance, decimation, one tolerance policy.
 - [38]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` boolean, offset, and stroke-to-outline owner with metric text-on-path.

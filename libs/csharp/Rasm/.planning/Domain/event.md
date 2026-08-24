@@ -1,6 +1,6 @@
 # [RASM_EVENT]
 
-`Rasm.Domain` (`Domain/Event.cs`) owns the C# branch's CloudEvents 1.0 envelope mechanics — core grammar, mint boundary, carrier access, and format contract. Generated `rasm.contracts.event.v1.Extensions` owns the estate extension vocabulary above this foundation. Envelopes announce a fact and gain no authority over it: the producing receipt stays evidence truth and a consumer routes on attributes without opening the payload.
+`Rasm.Domain` (`Domain/Event.cs`) owns the C# branch's CloudEvents 1.0 envelope mechanics — core grammar, mint boundary, carrier access, and format contract. Generated `rasm.contracts.event.Extensions` owns the estate extension vocabulary above this foundation. Envelopes announce a fact and gain no authority over it: the producing receipt stays evidence truth and a consumer routes on attributes without opening the payload.
 
 Bindings, filters, subscriptions, and `dataref` residence policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `rails.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[05]-[SIGNAL_TAP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
 
@@ -15,9 +15,9 @@ Bindings, filters, subscriptions, and `dataref` residence policy seat at their c
 
 ## [02]-[EVENT_GRAMMAR]
 
-- Owner: `EventType` owns `rasm.<domain>.<subject>.<fact>.v<N>`; `EventSource` owns the producing capability URI-reference; `EventId` owns the operation identity scoped by that source. `ContentHash` remains the sole owner of the `subject` content-key spelling.
+- Owner: `EventType` owns `rasm.<domain>.<subject>.<fact>`; `EventSource` owns the producing capability URI-reference; `EventId` owns the operation identity scoped by that source. `ContentHash` remains the sole owner of the `subject` content-key spelling.
 - Entry: `EventType.Of` assembles the type; `EventSource.Of(domain, capability)` admits the independently stated producer coordinate; the Rasm profile proves domain agreement only. `EventId.Of(value, key)` admits the operation value; `ContentHash.Hex` and `.Admit` project the optional `subject` at the profile crossing.
-- Law: `<fact>` reads past tense and `v<N>` moves only when that EVENT's semantics break. Payload-schema evolution is independent: `dataschema` may move without changing the event major, while a semantic break moves the major even when `dataschema` is absent or unchanged. `EventType.At` derives the successor from the admitted value.
+- Law: `<fact>` reads past tense and carries the whole announced semantics, so a semantic break mints a fresh fact spelling rather than re-pointing the subscriptions keyed on the standing one. Payload-schema evolution stays independent: `dataschema` moves on its own axis and the type reads unchanged.
 - Law: `source` names the producing CAPABILITY and never a host, package, or deployment — a redeployment that re-authors the identity consumers keyed on is the failure the `rasm:` scheme and its two-segment path foreclose, since neither segment has a spelling an environment can move. It never derives from `type.subject`: source context and fact classification are independent CloudEvents attributes.
 - Law: `(source, id)` is the uniqueness composite every dedup reads. Producers sharing one capability source draw collision-resistant operation values from that source's namespace; `id` never repeats the capability as a prefix. The payload identity rides `subject`, while `dataref` is the residence URI-reference.
 - Law: admission proves the ROUND TRIP, never the parse — a bare `UInt128.TryParse` admits upper-case and short forms this fabric never emits, so `"A"` and a full-width key ending `0a` collapse onto one dedup key while both read correct in isolation. That proof has ONE owner at `identity.md`: `ContentHash.Hex` renders and `ContentHash.Admit` refuses the spellings the outbound half cannot produce, and this page re-declares neither the `x32` literal nor the case rule.
@@ -35,7 +35,6 @@ namespace Rasm.Domain;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 internal static class EventGrammar {
-    private static readonly SearchValues<char> DecimalGlyphs = SearchValues.Create("0123456789");
     private static readonly SearchValues<char> SegmentGlyphs =
         SearchValues.Create("abcdefghijklmnopqrstuvwxyz0123456789-");
 
@@ -48,13 +47,6 @@ internal static class EventGrammar {
         && text[^1] != '-'
         && !text.AsSpan().Contains("--", StringComparison.Ordinal)
         && !text.AsSpan().ContainsAnyExcept(SegmentGlyphs);
-
-    public static bool Major(string text) =>
-        text.Length > 0
-        && text[0] != '0'
-        && !text.AsSpan().ContainsAnyExcept(DecimalGlyphs)
-        && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed)
-        && parsed > 0;
 }
 
 [ValueObject<string>]
@@ -64,24 +56,19 @@ public readonly partial struct EventType {
     private const string Prefix = "rasm";
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Split('.') is [Prefix, var domain, var subject, var fact, ['v', .. var major]]
+        validationError = value.Split('.') is [Prefix, var domain, var subject, var fact]
             && EventGrammar.Segment(domain) && EventGrammar.Segment(subject) && EventGrammar.Segment(fact)
-            && EventGrammar.Major(major)
             ? null
-            : new ValidationError(message: $"EventType requires the rasm.<domain>.<subject>.<fact>.v<N> grammar: {value}");
+            : new ValidationError(message: $"EventType requires the rasm.<domain>.<subject>.<fact> grammar: {value}");
 
-    public static EventType Of(string domain, string subject, string fact, int major) =>
-        Create(value: string.Create(CultureInfo.InvariantCulture, $"{Prefix}.{domain}.{subject}.{fact}.v{major}"));
+    public static EventType Of(string domain, string subject, string fact) =>
+        Create(value: $"{Prefix}.{domain}.{subject}.{fact}");
 
+    // `ValidateFactoryArguments` fixes the arity in its list pattern, so each projection is total on an
+    // admitted value and forges no fallback arm.
     public string Domain => Part(index: 1);
     public string Subject => Part(index: 2);
     public string Fact => Part(index: 3);
-
-    // The skipped glyph is the `'v'` the validator's own `['v', .. var major]` pattern matched, so this projection
-    // is total on an admitted value and needs no fallback arm to forge.
-    public int Major => int.Parse(Part(index: 4).AsSpan(start: 1), NumberStyles.None, CultureInfo.InvariantCulture);
-
-    public EventType At(int major) => Of(domain: Domain, subject: Subject, fact: Fact, major: major);
 
     private string Part(int index) => Value.Split('.')[index];
 }
@@ -187,7 +174,7 @@ public sealed partial class DataGrade {
 - Entry: `EventEnvelope.Mint(request, key)` returns the generic strict SDK envelope. `RasmEventEnvelope.Mint(request, contract, key)` projects the generated message without a field roster, and `.Admit(envelope, contract, key)` returns the admitted typed profile. `EventEnvelope.Raise` remains the binary-mode inverse.
 - Auto: `CloudEvent.Validate()` throws on a malformed envelope, so construction, projected extension writes, and validation funnel through one `Op.Catch`; the first refused field is the verdict and no partly stamped instance escapes.
 - Law: the SDK indexer stamps IN PLACE, so a refused write leaves the instance partly stamped; what the rail guarantees is that such an instance is UNREACHABLE — `Mint` holds the only reference until `Validate()` returns it, and a refusal returns no envelope at all. A rail claiming the stronger "no half-stamped envelope exists" would be a law with no producer.
-- Law: the creation-time trace is the generated `event.v1.Extensions` `traceparent`/`tracestate`/`baggage` triplet projected descriptor-total by `EventExtensionContract<T>`. The transport carrier remains the current-hop context; this kernel neither names nor re-stamps any generated trace field.
+- Law: the creation-time trace is the generated `event.Extensions` `traceparent`/`tracestate`/`baggage` triplet projected descriptor-total by `EventExtensionContract<T>`. The transport carrier remains the current-hop context; this kernel neither names nor re-stamps any generated trace field.
 - Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot at this one crossing, exactly as optional `subject` does.
 - Law: `time` is the occurrence stamp and `recordedtime` is when the producer created the CloudEvent. A receiver preserves both and records its own arrival time only in its interior delivery carrier; re-stamping `recordedtime` at ingress erases the producer-to-receiver interval and violates the extension.
 - Law: the SDK's `DateTimeOffset` timestamp surface resolves 100-nanosecond ticks. Mint refuses a finer `Instant`, and descriptor projection refuses a generated `Timestamp` whose nanos are not tick-aligned; admission never rounds producer time silently.
@@ -761,7 +748,7 @@ flowchart LR
 ## [06]-[ACCEPTANCE]
 
 - Generic surface: mint and admit a non-Rasm CloudEvent with omitted `time`, a valid app-owned extension, and SDK-owned standard attributes; the round trip must not invoke the Rasm grammar.
-- Rasm identity: mint and admit independently constructed source and type values whose domains agree, and refuse a profile segment with uppercase, a leading or trailing hyphen, or repeated hyphens, plus a zero or zero-padded event major. Mint and admit an operation id whose text contains no capability prefix, prove uniqueness is the `(source, id)` pair, prove a present `subject` is exactly `ContentHash.Hex`, and refuse uppercase or short digest text.
+- Rasm identity: mint and admit independently constructed source and type values whose domains agree, and refuse a profile segment with uppercase, a leading or trailing hyphen, or repeated hyphens, plus a type whose segment count misses the grammar's arity. Mint and admit an operation id whose text contains no capability prefix, prove uniqueness is the `(source, id)` pair, prove a present `subject` is exactly `ContentHash.Hex`, and refuse uppercase or short digest text.
 - Standard attributes: preserve occurrence `time`, optional absolute `dataschema`, `datacontenttype`, and payload independently; a registry subject, package coordinate, or contract generation presented as `dataschema` must have no special admission path.
 - Generated extensions: populate every field on one generated `Extensions` value and prove descriptor-number-order construction and decode return the same generated value. The fixture must cover ordinary strings, the `dataref` URI-reference, integer sample rate, and timestamp fields; a generated timestamp with sub-tick nanos and a mint `Instant` finer than 100 nanoseconds must refuse rather than round. Adding a descriptor field must break this proof until its CloudEvents abstract type is supported.
 - Generated validation: one invalid generated value must refuse before mint and after each decode path with the generated rule id preserved. Duplicate extension declarations and duplicate binary attributes refuse; unknown peer attributes and peer names beyond the CloudEvents ceiling do not enter the returned generated message and do not fault the whole event.
@@ -771,25 +758,25 @@ flowchart LR
 
 One owner per axis; capability is a row, case, or column, never a sibling surface, and a consuming stratum composes one instance of this algebra rather than re-declaring a mint.
 
-| [INDEX] | [AXIS_CONCERN]       | [OWNER]                               | [RAIL]                                  |
-| :-----: | :------------------- | :------------------------------------ | :-------------------------------------- |
-|  [01]   | Profile grammar      | `EventGrammar`                        | strict shared segment + major admission |
-|  [02]   | Type grammar         | `EventType`                           | generated factory + segment projection  |
-|  [03]   | Producer identity    | `EventSource`                         | generated factory + `Reference`         |
-|  [04]   | Operation identity   | `EventId`                             | source-scoped value render/admit        |
-|  [05]   | Content-key slots    | `ContentHash`                         | `Hex` / `Admit` at profile crossing     |
-|  [06]   | Extension vocabulary | generated `event.v1.Extensions`       | whole generated message                 |
-|  [07]   | Projected field      | `EventField`                          | SDK attribute + value                   |
-|  [08]   | Handling policy      | `DataGrade` + `BrokerReach`           | `Redact` obligation / `Broker` reach    |
-|  [09]   | Generated bridge     | `EventExtensionContract<T>`           | descriptor walk + validation            |
-|  [10]   | Construction shape   | `CloudEventMint` / `RasmEventMint<T>` | generic standard / typed profile        |
-|  [11]   | Mint boundary        | `EventEnvelope` / `RasmEventEnvelope` | generic funnel / profile admission      |
-|  [12]   | Creation-time trace  | generated `Extensions` projection     | publisher / consumer boundary           |
-|  [13]   | Propagation seam     | `EventCarrier`                        | `Option`-publishing accessor pair       |
-|  [14]   | Format rows          | `EventFormat`                         | structured/batch rows + one formatter   |
-|  [15]   | Codec options        | `EventJson`                           | one serializer + document identity      |
-|  [16]   | Framing carriage     | `EventFrame`                          | body + chosen `ContentType`             |
-|  [17]   | Encode / decode      | `EventEnvelope`                       | bytes plus official proto messages      |
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]                               | [RAIL]                                 |
+| :-----: | :------------------- | :------------------------------------ | :------------------------------------- |
+|  [01]   | Profile grammar      | `EventGrammar`                        | strict shared segment admission        |
+|  [02]   | Type grammar         | `EventType`                           | generated factory + segment projection |
+|  [03]   | Producer identity    | `EventSource`                         | generated factory + `Reference`        |
+|  [04]   | Operation identity   | `EventId`                             | source-scoped value render/admit       |
+|  [05]   | Content-key slots    | `ContentHash`                         | `Hex` / `Admit` at profile crossing    |
+|  [06]   | Extension vocabulary | generated `event.Extensions`          | whole generated message                |
+|  [07]   | Projected field      | `EventField`                          | SDK attribute + value                  |
+|  [08]   | Handling policy      | `DataGrade` + `BrokerReach`           | `Redact` obligation / `Broker` reach   |
+|  [09]   | Generated bridge     | `EventExtensionContract<T>`           | descriptor walk + validation           |
+|  [10]   | Construction shape   | `CloudEventMint` / `RasmEventMint<T>` | generic standard / typed profile       |
+|  [11]   | Mint boundary        | `EventEnvelope` / `RasmEventEnvelope` | generic funnel / profile admission     |
+|  [12]   | Creation-time trace  | generated `Extensions` projection     | publisher / consumer boundary          |
+|  [13]   | Propagation seam     | `EventCarrier`                        | `Option`-publishing accessor pair      |
+|  [14]   | Format rows          | `EventFormat`                         | structured/batch rows + one formatter  |
+|  [15]   | Codec options        | `EventJson`                           | one serializer + document identity     |
+|  [16]   | Framing carriage     | `EventFrame`                          | body + chosen `ContentType`            |
+|  [17]   | Encode / decode      | `EventEnvelope`                       | bytes plus official proto messages     |
 
 ## [08]-[RESEARCH]
 

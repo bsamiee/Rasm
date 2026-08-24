@@ -5,7 +5,7 @@ The BCF 2.1/3.0 issue-exchange owner: one closed `BcfFile`/`BcfTopic`/`BcfCommen
 ## [01]-[INDEX]
 
 - [02]-[BCF_ARCHIVE]: the `BcfFile` archive root (`BcfTopic`/`BcfComment`/`BcfViewpoint` family, `BcfCamera` and `BcfVisibility` unions, `BcfViewHint` capability vocabulary, `BcfProject`/`BcfVocabulary`/`BcfDocument` members), `BcfEdge` the one foreign-schema correspondence, and the `.bcfzip` codec over `BcfExtensions`/`Worker`/`BcfBuilder`.
-- [03]-[TS_PROJECTION]: the generated `Bcf.V1` contract projection the TS UI decodes, the `BcfLifecycle` status election, and the `BcfApi` resource union with its spec-dialect snake_case bodies and per-verb re-drive budget.
+- [03]-[TS_PROJECTION]: the generated `Bcf` contract projection the TS UI decodes, the `BcfLifecycle` status election, and the `BcfApi` resource union with its spec-dialect snake_case bodies and per-verb re-drive budget.
 
 ## [02]-[BCF_ARCHIVE]
 
@@ -13,7 +13,7 @@ The BCF 2.1/3.0 issue-exchange owner: one closed `BcfFile`/`BcfTopic`/`BcfCommen
 - Entry: `BcfArchive.Read(ReadOnlyMemory<byte> bcfzip, Op key)` lands thrown container failures and already-typed admissions on one `Fin` through `Op.Catch`, preserving each original `Error` — it sniffs the generation through `BcfExtensions.GetVersionFromStreamArchive`, streams a native 3.0 archive per-part (`ParseMarkups`/`ParseExtensions`/`ParseProject`/`ParseDocuments`, no second full-graph materialization), up-converts a 2.1 source through `Worker.BcfFromStream`, folds both onto one `BcfFile`, and lifts each held `{topicGuid}/{Reference}` bitmap part into `BcfFile.Blobs`; `BcfArchive.Write(BcfFile file, Op key)` seeds the builder from the file's own vocabulary/project/documents (`WithDefaults()` only when the file carries no vocabulary), folds each topic through `BcfBuilder.AddMarkup`, emits through `Worker.ToBcf(bcf, BcfVersionEnum.Bcf30)`, and completes the container with each topic's bitmap parts — a reference the store cannot answer refuses BEFORE the container is touched, so a refusal never leaves a half-written archive. `BcfFile.Of(topics)` is the authoring factory a clash or IDS fold seeds a default-vocabulary file from.
 - Auto: `Read` projects every `Bcf30.Topic` column onto `BcfTopic` — `Index`/`ModifiedDate`/`ModifiedAuthor`/`ServerAssignedId`/`ReferenceLinks`/`RelatedTopics`/`DocumentReferences`/`BimSnippet` and the `Markup.Header` `Files` rows — the verbatim `TopicStatus` token landing on `StatusLabel` beside the elected `BcfStatus` lifecycle, and the topic order re-derived deterministically off the schema `Index`-then-`Guid` (a `ConcurrentBag` parse is bag-racy); reads each `Bcf30.ViewPoint` whole, each declared camera transcribed onto its typed case and handed to the ONE `BcfCamera.Admit` gate; `Write` re-authors ALL of it through the nested builders so the write round-trips exactly what the read captured.
 - Receipt: the `BcfFile` is the coordination evidence — topics, vocabulary, project, documents, and the source generation — so a CDE or viewer round-trips one typed root through the `Worker` `.bcfzip` codec, and the `BcfApi` REST projection rides the same topic family, never a second vocabulary.
-- Packages: Smino.Bcf.Toolkit, Rasm.Contracts (`Bcf.V1.BcfStatus`), Google.Protobuf, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Domain` (`Op`, `ICapability`/`CapabilitySet`)
+- Packages: Smino.Bcf.Toolkit, Rasm.Contracts (`Bcf.BcfStatus`), Google.Protobuf, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Domain` (`Op`, `ICapability`/`CapabilitySet`)
 - Growth: a new BCF entity is one record on the family projected from the `Smino.Bcf.Toolkit` graph, its members verified at `.api/api-smino-bcf-toolkit` before the fence spells them; a new topic or viewpoint column is one trailing-defaulted field the read/write folds each gain one line for; a new render hint is one `BcfViewHint` row; a new BCF version is one `BcfVersionEnum` the `Worker` converter already discriminates; the REST projection is one `BcfResource` case; never a row on the geometry-format axis and never a second issue store.
 - Boundary: FOREIGN-SCHEMA WIRE COLUMNS CROSS VERBATIM — `BcfHeaderFile.IsExternal`, `BcfBimSnippet.IsExternal`, the generated `BcfFileWire`/`BcfSnippetWire`, and `BcfApiSnippetBody` carry the same BCF 3.0 choices the builder round-trips through `SetIsExternal`; a house origin vocabulary would fork the standard (`RULINGS.md [04]`). The DOMAIN carriers are typed where the schema's own columns carry a corner law: `Components/Visibility` is `BcfVisibility`, a closed pair whose case names what the exception set means, while the three independent `ViewSetupHints` attributes ride one `CapabilitySet<BcfViewHint>`. Both project attribute-by-attribute at the builder, generated contract, and REST body. A board mutation fires the `Model/observability#HOOK_RAIL` `rasm.bim.review.issue` point with `BimFact.IssueMutated`; the CloudEvents announcement remains `Exchange/events#EVENT_PROJECTION`'s observe subscription. `Smino.Bcf.Toolkit` owns container read/write, with bitmap parts the single carve because its model carries references but no payload member; the codec lifts held parts into `BcfFile.Blobs` on read and appends them on write. `BcfStatus` is the generated lifecycle discriminant and `StatusLabel` carries the project-vocabulary token verbatim; `StatusToken` elects the write spelling without losing an extension status. `BcfCamera.Admit` owns the camera XOR and typed absence, and `BcfComment.ReplyToGuid` remains the REST-lane join BCF 3.0 markup omits. Document references accumulate the `DocumentGuid` XOR `Url` refusal beside malformed cameras. `Worker` and `BcfExtensions` complete at this boundary, every throw lowers through the `Fin<T>` funnel, and the foreign fluent builders retain the platform-forced statement seam. Viewpoints anchor on `Node.Object.ExternalId` [H6]. `BcfApi` publishes transport-neutral requests the Compute transport executes. Persistence joins typed rows by IFC GlobalId and owns durable lineage; `BcfArchive` remains the branch's one `.bcfzip` custodian.
 
@@ -32,7 +32,7 @@ using BcfToolkit.Utils;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
-using Rasm.Contracts.Bcf.V1;
+using Rasm.Contracts.Bcf;
 using Rasm.Bim.Model;
 using Rasm.Domain;
 using Thinktecture;
@@ -542,11 +542,11 @@ public static class BcfArchive {
 
 ## [03]-[TS_PROJECTION]
 
-- Owner: `BcfProjection` projects the archive topic family directly onto generated `Bcf.V1` messages; `BcfLifecycle` elects the generated status enum from the open BCF vocabulary; `BcfApi` owns the BCF-API resource union and its snake_case body register.
+- Owner: `BcfProjection` projects the archive topic family directly onto generated `Bcf` messages; `BcfLifecycle` elects the generated status enum from the open BCF vocabulary; `BcfApi` owns the BCF-API resource union and its snake_case body register.
 - Entry: `BcfProjection.Project(Seq<BcfTopic>)` returns one generated `BcfTopicWire` per topic. Transport selects binary framing or ProtoJSON rendering for each message; the producer introduces no collection envelope or serializer dialect. `BcfApi.Project` and `BcfApi.Open` remain the request and response halves over the API body register.
 - Auto: Mapperly fills generated message members and their `RepeatedField<T>` collections. Custom mappings cover only carrier laws the generator cannot infer: protobuf oneofs, proto3 optional scalars and strings, `Vector3` to `Point3` or `UnitDirection3`, `Instant` to `Timestamp`, and the bitmap enum.
 - Receipt: the generated `BcfTopicWire` and nested `BcfViewpointWire` values are the BCF cross-runtime contract; viewpoints preserve IFC GlobalIds so TS selection and C# coordination share one identity.
-- Packages: Rasm.Contracts (`Bcf.V1` messages), Google.Protobuf (`RepeatedField<T>`, `Timestamp`, binary framing and ProtoJSON), Riok.Mapperly, Thinktecture.Runtime.Extensions, NodaTime, NodaTime.Serialization.SystemTextJson, LanguageExt.Core, `Rasm.Domain` (`Op`, `RedrivePolicy`), BCL `System.Text.Json` + `System.Collections.Immutable` + `System.Collections.Frozen`
+- Packages: Rasm.Contracts (`Bcf` messages), Google.Protobuf (`RepeatedField<T>`, `Timestamp`, binary framing and ProtoJSON), Riok.Mapperly, Thinktecture.Runtime.Extensions, NodaTime, NodaTime.Serialization.SystemTextJson, LanguageExt.Core, `Rasm.Domain` (`Op`, `RedrivePolicy`), BCL `System.Text.Json` + `System.Collections.Immutable` + `System.Collections.Frozen`
 - Growth: a contract column lands in protobuf and regeneration breaks the mapper until the domain projection answers it; a BCF-API operation lands as one `BcfResource` case answered by both dispatch halves; an OData axis lands on `BcfQuery`.
 - Boundary: generated messages own the cross-runtime shape and serialization. `BcfProjection` owns domain conversion only, and transport owns framing or ProtoJSON rendering per message. `BcfApiContext` remains the sole snake_case JSON dialect because BCF-API resources are publisher-defined JSON rather than the estate protobuf wire. `BcfLifecycle` maps the open archive/API token onto the generated status enum while `StatusLabel` preserves the original token. `BcfApiVerb` carries re-drive policy as row data, and Compute executes the transport.
 
@@ -564,7 +564,7 @@ using LanguageExt;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using Rasm.Bim.Model;
-using Rasm.Contracts.Bcf.V1;
+using Rasm.Contracts.Bcf;
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
@@ -774,8 +774,8 @@ public static partial class BcfProjection {
             },
             static () => null);
 
-    [UserMapping] static Rasm.Contracts.Spatial.V1.Point3 Point(Vector3 value) => new() { XM = value.X, YM = value.Y, ZM = value.Z };
-    [UserMapping] static Rasm.Contracts.Spatial.V1.UnitDirection3 Direction(Vector3 value) => new() { X = value.X, Y = value.Y, Z = value.Z };
+    [UserMapping] static Rasm.Contracts.Spatial.Point3 Point(Vector3 value) => new() { XM = value.X, YM = value.Y, ZM = value.Z };
+    [UserMapping] static Rasm.Contracts.Spatial.UnitDirection3 Direction(Vector3 value) => new() { X = value.X, Y = value.Y, Z = value.Z };
     [UserMapping] static Timestamp Stamp(Instant value) => Timestamp.FromDateTime(value.ToDateTimeUtc());
     [UserMapping] static Timestamp? Stamp(Option<Instant> value) => value.Match<Timestamp?>(Stamp, static () => null);
     [UserMapping] static BcfSnippetWire? Snippet(Option<BcfBimSnippet> value) =>

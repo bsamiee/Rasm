@@ -1,6 +1,6 @@
 # [BIM_EVENTS]
 
-`Rasm.Bim` announces settled facts through the kernel CloudEvents mechanics and generated `event.v1.Extensions`. This page owns the one Bim projection from domain handling and causal values onto that generated message; it maintains no peer extension roster.
+`Rasm.Bim` announces settled facts through the kernel CloudEvents mechanics and generated `event.Extensions`. This page owns the one Bim projection from domain handling and causal values onto that generated message; it maintains no peer extension roster.
 
 Announcement is a SUBSCRIPTION, never an emit inside a domain fold: a rail fires its hook point and this projection observes, so a fact reaches a broker exactly when the registry already carried it in-process and a rail carries no envelope custody. `Model/observability#HOOK_RAIL` owns the fact family, its address slots, and its closed vocabularies; this page owns the wire body and the attribute projection over it.
 
@@ -124,18 +124,18 @@ public sealed partial class BimEventContext : JsonSerializerContext;
 public sealed record BimEventPort(EventSource Source, DataGrade Grade, Func<CloudEvent, Fin<Unit>> Emit);
 
 public static class BimEventExtensions {
-    public static readonly EventExtensionContract<global::Rasm.Contracts.Event.V1.Extensions> Contract = new(
-        global::Rasm.Contracts.Event.V1.Extensions.Parser,
-        global::Rasm.Contracts.Event.V1.Extensions.Descriptor,
+    public static readonly EventExtensionContract<global::Rasm.Contracts.Event.Extensions> Contract = new(
+        global::Rasm.Contracts.Event.Extensions.Parser,
+        global::Rasm.Contracts.Event.Extensions.Descriptor,
         new global::Celly.Protovalidate.Validator([
-            global::Rasm.Contracts.Event.V1.EventReflection.Descriptor,
+            global::Rasm.Contracts.Event.EventReflection.Descriptor,
         ]));
 
-    public static global::Rasm.Contracts.Event.V1.Extensions Of(
+    public static global::Rasm.Contracts.Event.Extensions Of(
         TraceCarrier trace,
         DataGrade grade,
         Instant recorded) {
-        global::Rasm.Contracts.Event.V1.Extensions message = new() {
+        global::Rasm.Contracts.Event.Extensions message = new() {
             Dataclassification = grade.Key,
             Recordedtime = global::Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(
                 recorded.ToDateTimeOffset()),
@@ -257,7 +257,7 @@ public static class BimEventing {
             value: Guid.CreateVersion7(at.ToDateTimeOffset()).ToString("N", CultureInfo.InvariantCulture),
             key: fact.Key)
         from envelope in RasmEventEnvelope.Mint(
-            new RasmEventMint<global::Rasm.Contracts.Event.V1.Extensions>(
+            new RasmEventMint<global::Rasm.Contracts.Event.Extensions>(
                 Type: row.Type,
                 Source: port.Source,
                 Id: id,

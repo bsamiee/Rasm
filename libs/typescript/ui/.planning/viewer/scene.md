@@ -28,9 +28,8 @@ type AppearanceRow = Extract<Wire.Decoded<"NodeWire">["payload"], { readonly cas
 
 declare namespace GlbViewport {
   // generic arguments carry the whole-buffer contract: a shared backing store reaches no `three` decode entry.
-  // `epoch` is the hauling side's REPLACEMENT counter, not a wire column — the residency manifest carries none, and
-  // `Frame.ResidencyManifest.version` is the producer's schema pin, equal on every lawful emission, so keying skew
-  // on it would pin every arrival identical and pass the guard below on a manifest two replacements out of date
+  // `epoch` is the hauling side's REPLACEMENT counter, not a wire column — the residency manifest carries none, so
+  // keying skew on any manifest column would pass the guard below on a manifest two replacements out of date
   type Arrival = { readonly key: Digest.Key<"content">; readonly epoch: number; readonly octets: Uint8Array<ArrayBuffer> }
   type Environment = Wire.Set
   // ONE appearance document: the generated appearance roster is the key preimage census AND flat pre-bind preview,
@@ -1288,7 +1287,7 @@ const _loop = (
 // core's frozen vocabulary and three's texture class both spell `Texture`; the wire anchor takes the alias because
 // three's class is the type this whole fold speaks, and the campaign's cross-module spelling for it is `TextureVocab`
 const TextureVocab = Wire.Texture
-import * as appearance from "@rasm\/contracts/rasm/contracts/appearance/v1/appearance_pb"
+import * as appearance from "@rasm\/contracts/rasm/contracts/appearance/appearance_pb"
 import { Effect, Match, Option, Queue, Ref, Scope, ScopedRef, Stream } from "effect"
 import {
   EquirectangularReflectionMapping, Euler, HalfFloatType, LinearFilter, LinearMipmapLinearFilter,

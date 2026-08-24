@@ -23,8 +23,8 @@
 ```typescript signature
 import { create, isMessage, type MessageShape } from "@bufbuild/protobuf"
 import { EmptySchema, timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt"
-import * as evidence from "@rasm\/contracts/rasm/contracts/benchmark/v1/claim_pb"
-import * as fingerprint from "@rasm\/contracts/rasm/contracts/benchmark/v1/fingerprint_pb"
+import * as evidence from "@rasm\/contracts/rasm/contracts/benchmark/claim_pb"
+import * as fingerprint from "@rasm\/contracts/rasm/contracts/benchmark/fingerprint_pb"
 import { Array, Data, DateTime, Duration, Effect, Either, Match, Metric, MetricPair, MetricState, Number, Option, Order, ParseResult, Predicate, Record, RegExp as Regex, Schema, type SchemaAST, Struct, pipe } from "effect"
 import type { measure as MitataMeasure } from "mitata"
 import { Digest } from "../value/contentKey.ts"

@@ -2,7 +2,7 @@
 
 Canvas owns the interactive-canvas engine class — node/flow editing, graph layout, and the temporal band plane — distinct from `view/chart`'s marks and the viewer's spatial render. `@xyflow/react` is the one flow engine, driven as controlled state: ONE atom cell holds the revision-stamped graph, every interaction folds through `applyNodeChanges`/`applyEdgeChanges` inside the one writer, and the engine keeps its own recognizers under the third-party-physics law. Layout is worker data admitted at revision equality alone. Module: `ui/src/view/canvas.ts`.
 
-Composed facts: the adapter-atom pattern is `view/table#STATE_FOLD`'s (`Grid.edge`): the cell owns and the engine binds through controlled props; persisted-grain keys ride `system/atom#STORE_ROOT`'s seal-versioned form; the proposal-admission law transcribes `viewer/scene`'s identity-keyed commit precedent onto async solves; hook facts ride `system/hook`'s open `Points`; faults derive through core `Fault.Class.family`; the document-embedding and anchor-space rows cross as VALUES under `view/content#BLOCK_ROSTER`'s and `view/presence#ANCHOR_PLANE`'s admission gates, never as lateral imports.
+Composed facts: the adapter-atom pattern is `view/table#STATE_FOLD`'s (`Grid.edge`): the cell owns and the engine binds through controlled props; persisted-grain keys mint and seal at `system/atom#STORE_ROOT`; the proposal-admission law transcribes `viewer/scene`'s identity-keyed commit precedent onto async solves; hook facts ride `system/hook`'s open `Points`; faults derive through core `Fault.Class.family`; the document-embedding and anchor-space rows cross as VALUES under `view/content#BLOCK_ROSTER`'s and `view/presence#ANCHOR_PLANE`'s admission gates, never as lateral imports.
 
 ## [01]-[INDEX]
 
@@ -20,7 +20,7 @@ Composed facts: the adapter-atom pattern is `view/table#STATE_FOLD`'s (`Grid.edg
 - Law: the cell HOLDS the engine vocabulary — storing `Node[]`/`Edge[]` directly (domain payloads ride `node.data`) means `applyNodeChanges` preserves unchanged nodes' object identity by construction, which is the reference-identity contract the engine's `nodeLookup` reconciliation demands; a projection that rebuilds the whole array from a foreign domain collection re-derives every node's measured internals per render and is the named defect — such a projection memoizes per node id and returns prior references for unchanged rows, or the domain collection stays in `node.data` and never forks into a parallel model.
 - Law: every write bumps `revision` inside the one writer — the ordinal is the admission coordinate `[04]`'s proposal fold reads, so no mutation can race a solve invisibly; the bump lives in `Canvas.apply`, never at a call site.
 - Law: the engine keeps its OWN recognizers — `panOnDrag`, `zoomOnScroll`, `zoomOnPinch` stay on their defaults and no `Gesture.useCanvas` binds the canvas element; the folder ruling and `system/act#CLASS_DIVISION`'s third-party-physics row both name layering a second recognizer over the engine's d3-zoom as the double-bind defect. `viewport` + `onViewportChange` still mirror the camera into the cell, so a viewpoint restore or a control intent is one viewport write.
-- Law: persistence is the seal-versioned parcel — `Canvas.Persisted` carries nodes, edges, and viewport with MUTABLE leaves (`Schema.mutable`, the `view/table` precedent: the engine's types are mutable arrays, and a readonly parcel forces the defensive copy where a restored graph silently forks); the key spells the folder's `rasm.ui.<domain>.<grain>.v<N>` seal-versioned form, so a parcel-shape change bumps the ordinal and an old key reads as absence onto the seeded default, never as a mis-decode. Measured `width`/`height` and `selected` never persist — measurement re-derives at mount and selection is session state.
+- Law: persistence is the sealed parcel — `Canvas.Persisted` carries nodes, edges, and viewport with MUTABLE leaves (`Schema.mutable`, the `view/table` precedent: the engine's types are mutable arrays, and a readonly parcel forces the defensive copy where a restored graph silently forks); the key spells the folder's one `rasm.ui.<domain>.<grain>` mint and holds for the grain's life while `Store.sealed` carries the generation in the stored bytes, so a parcel-shape change bumps the generation and a graph written under the prior one refuses on content, landing the seeded default under the `discard` disposition. Measured `width`/`height` and `selected` never persist — measurement re-derives at mount and selection is session state.
 - Law: `nodeTypes`/`edgeTypes` mount at module scope — a record rebuilt per render remounts every node (the catalogue trap); `[03]` owns the records.
 - Boundary: registry lifecycle and write modality are `system/atom`'s; `defaultNodes`/`defaultEdges` and `useNodesState` never appear — an uncontrolled canvas holds graph truth the estate cannot read; the `@xyflow/react/dist/base.css` structural import is app stylesheet data and `style.css` never loads (the token plane owns every visual rule).
 - Growth: a new interaction class is one change-variant arm the engine already emits through the same fold; a new persisted fact is one parcel field; a second canvas on one page is a second cell under a second provider — never a shared store.
@@ -83,14 +83,15 @@ const _Persisted = Schema.Struct({
   viewport: Schema.Struct({ x: Schema.Number, y: Schema.Number, zoom: Schema.Number }),
 })
 
-// `Store.key` mints this key at the one store member: a parcel-shape change bumps the declared ordinal, and the
-// stale key reads as absence onto the seeded default rather than mis-decoding yesterday's shape
-const _GRAPH = Store.key({ domain: "canvas", grain: "graph", seal: { posture: "versioned", version: 1 } })
+// `_GRAPH` mints once at the one store member and holds for this grain's life; a parcel-shape change bumps the
+// seal's generation, so yesterday's graph refuses on content and `discard` seats the seeded default
+const _GRAPH = Store.key({ domain: "canvas", grain: "graph" })
+const _sealed = Store.sealed(_Persisted, { generation: 1, residue: "discard" })
 
 const _persisted = (
   runtime: Atom.AtomRuntime<KeyValueStore.KeyValueStore, never>,
   seed: Canvas.Persisted,
-): Atom.Writable<Canvas.Persisted> => Atom.kvs({ runtime, key: _GRAPH, schema: _Persisted, defaultValue: () => seed })
+): Atom.Writable<Canvas.Persisted> => Atom.kvs({ runtime, key: _GRAPH, schema: _sealed, defaultValue: () => seed })
 
 declare namespace Canvas {
   type EdgeProps = {
@@ -189,8 +190,6 @@ declare namespace Canvas {
     readonly atom: true
     readonly parse: ReadonlyArray<never>
     readonly render: { readonly _tag: "Live"; readonly view: "canvas" }
-    readonly version: 1
-    readonly ups: ReadonlyArray<never>
     readonly steps: "decoded"
   }
 }
@@ -208,8 +207,6 @@ const _block: Canvas.Block = {
   atom: true,
   parse: [],
   render: { _tag: "Live", view: "canvas" },
-  version: 1,
-  ups: [],
   steps: "decoded",
 }
 ```

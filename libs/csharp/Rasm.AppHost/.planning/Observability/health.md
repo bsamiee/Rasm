@@ -396,7 +396,7 @@ public static class HealthSurface {
 
 ## [03]-[DEGRADATION_RAIL]
 
-- Owner: `Faculty` `[SmartEnum<string>]` realizes kernel `ICapability<Faculty>`; `CommandAccess` `[SmartEnum<string>]` carries the per-level default verdict; `CommandVerdict` `[Union]` is the three-case domain answer; `DegradationLevel` `[SmartEnum<string>]` carries rank, posture, retained set, and generated enum value; `DegradationPolicy` is the derivation table; `DegradationCell` owns the coherent reading atom; `CommandAvailability` projects deviations directly onto generated `Availability.V1.CommandAvailability` and its verdict oneof.
+- Owner: `Faculty` `[SmartEnum<string>]` realizes kernel `ICapability<Faculty>`; `CommandAccess` `[SmartEnum<string>]` carries the per-level default verdict; `CommandVerdict` `[Union]` is the three-case domain answer; `DegradationLevel` `[SmartEnum<string>]` carries rank, posture, retained set, and generated enum value; `DegradationPolicy` is the derivation table; `DegradationCell` owns the coherent reading atom; `CommandAvailability` projects deviations directly onto generated `Availability.CommandAvailability` and its verdict oneof.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Faculty` rows form the retained sets; three `CommandAccess` postures — `All`, `Reads`, `None`; three `CommandVerdict` cases — `Available`, `Gated(reason)`, `Withheld(level, reason)`.
 - Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor; `Read()` returns the coherent reading; `CommandAvailability.Of(CapabilityRegistry, DegradationState, Instant)` returns the generated protobuf carrier.
 - Auto: `DegradationCell` registers as the `IHealthCheckPublisher` and owns one `Atom<DegradationReading>` — `PublishAsync` snapshots the `HealthReport` and folds `Derive` in the SAME swap, so the published snapshot and the level it produced are one atomic transition and a reader can never observe a fresh level against a stale snapshot or the reverse; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives; `Force` and `Cascade` swap the `State` slot of the reading while preserving the last snapshot so the override is coherent with the evidence it overrides; every committed reading — derived, forced, cascaded alike — fires the `Observability/hooks#HOOK_ROSTER` `Degradation` replay row through the fact's own projected seat, so the held window carries the trajectory an attaching panel reads, the `Observability/instruments#RECEIPT_PROJECTION` tap writes the level gauge off that same fire, and the alert sweep folds the same value.
@@ -408,8 +408,8 @@ public static class HealthSurface {
 ```csharp signature
 using Google.Protobuf.WellKnownTypes;
 using NodaTime.Serialization.Protobuf;
-using Control = Rasm.Contracts.Compute.V1;
-using Host = Rasm.Contracts.Availability.V1;
+using Control = Rasm.Contracts.Compute;
+using Host = Rasm.Contracts.Availability;
 
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<string>]
@@ -911,12 +911,12 @@ public static class AlertEngine {
 export {
   CommandAvailabilitySchema,
   CommandVerdictWireSchema,
-} from "@rasm\/contracts/rasm/contracts/availability/v1/availability_pb";
-export type { CommandAvailability, CommandVerdictWire } from "@rasm\/contracts/rasm/contracts/availability/v1/availability_pb";
+} from "@rasm\/contracts/rasm/contracts/availability/availability_pb";
+export type { CommandAvailability, CommandVerdictWire } from "@rasm\/contracts/rasm/contracts/availability/availability_pb";
 export {
   DegradationLevel,
   DegradationLevelSchema,
-} from "@rasm\/contracts/rasm/contracts/compute/v1/control_pb";
+} from "@rasm\/contracts/rasm/contracts/compute/control_pb";
 
 type HealthStatusWire = "healthy" | "degraded" | "unhealthy";
 

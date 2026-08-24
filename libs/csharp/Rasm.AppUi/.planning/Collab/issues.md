@@ -16,9 +16,9 @@ Coordination rides the openBIM issue board: `Issue` composes the AppUi `Viewpoin
 
 - Owner: `IssueFault` the direct generated `[Union]` with one `[FaultCase]` leaf per issue failure; `IssueStatus` `[SmartEnum<string>]` the coordination lifecycle whose rows carry the cross-filter `Bit`, the `BcfStatus` correspondence, and the `CapabilitySet<SessionCapability>` a transition INTO the row demands; `Issue` the board issue record; `IssueBinding` the topic-to-viewpoint binding; `IssueMap` the generated projection seam over the BCF comment and tile correspondences.
 - Cases: `IssueStatus` = open, in-progress, resolved, closed, reopened; `[FaultCase]` = TopicMalformed | ViewpointUnbound | CommentConflict | Degenerate | Unwritten | ToolRefused | RasterFailed.
-- Entry: `Issue.FromTopic(BcfTopic topic, IClock clock)` — ADMITS the `Rasm.Bim` BCF topic at the boundary on a `Validation` applicative, so a blank title, an unknown status, and an unbound comment viewpoint all report in ONE refusal; `Issue.ToTopic()` — `with`-updates the carried source row (board-edited columns only) or mints a core-column topic for a board-authored issue; `IssueMap.ToEntry`/`ToComment`/`ToTile` — the generated member correspondences.
-- Auto: each issue carries the BCF topic identity beside its bound `Viewpoint` set, its comment projection, and the consumed source row, so the widened `BcfTopic` columns the board never edits survive the round-trip untouched; the status correspondence is ROW DATA — `FromBcf` is the `Items`-derived frozen index over the `Bcf` column and `ToTopic` reads `Status.Bcf`, so zero hand-enumerated mapping switches exist; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf`, whose refusal of a camera-less viewpoint accumulates beside the other admission gates, so the issue mints no second camera-snapshot shape; transition authority is the DESTINATION row's own `Needs` set, read by `Collab/session#ADMISSION_GATE`.
-- Packages: Rasm (project — `FaultBand`, `[FaultCase]`, `CapabilitySet`), Rasm.Bim (project), Rasm.Contracts (project — generated `Bcf.V1.BcfStatus`), Riok.Mapperly, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
+- Entry: `Issue.FromTopic(BcfTopic topic, Func<string, int> revision, IClock clock)` — ADMITS the `Rasm.Bim` BCF topic at the boundary on a `Validation` applicative, so a blank title, an unknown status, and an unbound comment viewpoint all report in ONE refusal; `Issue.ToTopic()` — `with`-updates the carried source row (board-edited columns only) or mints a core-column topic for a board-authored issue; `IssueMap.ToEntry`/`ToComment`/`ToTile` — the generated member correspondences.
+- Auto: each issue carries the BCF topic identity beside its bound `Viewpoint` set, its comment projection, and the consumed source row, so the widened `BcfTopic` columns the board never edits survive the round-trip untouched; the status correspondence is ROW DATA — `FromBcf` is the `Items`-derived frozen index over the `Bcf` column and `ToTopic` reads `Status.Bcf`, so zero hand-enumerated mapping switches exist; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf`, whose refusal of a camera-less viewpoint accumulates beside the other admission gates, so the issue mints no second camera-snapshot shape, and its per-key revision arrives from the `Render/viewpoint#VIEW_REGISTRY` `ViewRevisions` minter composition binds — BCF carries no count, so a re-imported topic supersedes the binding it replaces instead of tying with it; transition authority is the DESTINATION row's own `Needs` set, read by `Collab/session#ADMISSION_GATE`.
+- Packages: Rasm (project — `FaultBand`, `[FaultCase]`, `CapabilitySet`), Rasm.Bim (project), Rasm.Contracts (project — generated `Bcf.BcfStatus`), Riok.Mapperly, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new issue field is one `Issue` member and, where it crosses, one `IssueMap` row; a new lifecycle state is one `IssueStatus` row carrying its three columns; a new fault is one `[FaultCase]` leaf; zero new surface.
 - Boundary: the issue composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract at the package edge — a second BCF model or a direct `.bcfzip`/BCF-XML writer inside `Collab/` is the rejected form; `ToTopic` stays a HAND `with`-update by construction — the correspondence copies board-edited columns over a CARRIED immutable source row, which a generator constructs and cannot copy-with, so Mapperly's refusal is named here and the constructing correspondences ride `IssueMap` instead; the EXCHANGE line runs where a column means something to a foreign reader — assignment and labels cross because a CDE acts on them, while the attachment key, the comment editor peer, and the tile's last-editor ordinal stop at the board; `FromTopic` accumulates — its identity, status, comment-closure, and viewpoint-decode gates are INDEPENDENT, so a monadic chain reporting the first defect is the deleted form; the admitted identity IS the issue's own column and the exchange text parses ONCE at that gate, so the register level, the intent row, and every board verb take the typed value instead of re-parsing a string at each seam; `CommentEntry.Resolved` stays a bare bool — a measured thread fact with both states legal and no sibling flag sharing its regime.
 
@@ -27,20 +27,20 @@ Coordination rides the openBIM issue board: `Issue` composes the AppUi `Viewpoin
 // Closing requires resolve authority; reopening is ordinary authoring.
 [SmartEnum<string>]
 public sealed partial class IssueStatus {
-    public static readonly IssueStatus Open = new("open", bit: 0, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Open, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
-    public static readonly IssueStatus InProgress = new("in-progress", bit: 1, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.InProgress, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
-    public static readonly IssueStatus Resolved = new("resolved", bit: 2, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Resolved, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
-    public static readonly IssueStatus Closed = new("closed", bit: 3, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Closed, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
-    public static readonly IssueStatus Reopened = new("reopened", bit: 4, bcf: Rasm.Contracts.Bcf.V1.BcfStatus.Reopened, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
+    public static readonly IssueStatus Open = new("open", bit: 0, bcf: Rasm.Contracts.Bcf.BcfStatus.Open, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
+    public static readonly IssueStatus InProgress = new("in-progress", bit: 1, bcf: Rasm.Contracts.Bcf.BcfStatus.InProgress, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
+    public static readonly IssueStatus Resolved = new("resolved", bit: 2, bcf: Rasm.Contracts.Bcf.BcfStatus.Resolved, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
+    public static readonly IssueStatus Closed = new("closed", bit: 3, bcf: Rasm.Contracts.Bcf.BcfStatus.Closed, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Resolve));
+    public static readonly IssueStatus Reopened = new("reopened", bit: 4, bcf: Rasm.Contracts.Bcf.BcfStatus.Reopened, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
 
     public int Bit { get; }
-    public Rasm.Contracts.Bcf.V1.BcfStatus Bcf { get; }
+    public Rasm.Contracts.Bcf.BcfStatus Bcf { get; }
     public CapabilitySet<SessionCapability> Needs { get; }
 
-    private static readonly Lazy<FrozenDictionary<Rasm.Contracts.Bcf.V1.BcfStatus, IssueStatus>> ByBcf =
+    private static readonly Lazy<FrozenDictionary<Rasm.Contracts.Bcf.BcfStatus, IssueStatus>> ByBcf =
         new(static () => Items.ToFrozenDictionary(static row => row.Bcf));
 
-    public static Fin<IssueStatus> FromBcf(Rasm.Contracts.Bcf.V1.BcfStatus status) =>
+    public static Fin<IssueStatus> FromBcf(Rasm.Contracts.Bcf.BcfStatus status) =>
         ByBcf.Value.TryGetValue(status, out IssueStatus? row)
             ? Fin.Succ(row)
             : Fin.Fail<IssueStatus>(new IssueFault.TopicMalformed($"unknown BCF status {status}"));
@@ -113,11 +113,11 @@ public sealed record Issue(
     // decode are independent gates, so a malformed topic reports every violated invariant in one Fin.Fail.
     // The admission instant is read ONCE per topic, because every bound viewpoint is decoded at one boundary
     // crossing rather than at a clock read per camera.
-    public static Fin<Issue> FromTopic(Rasm.Bim.Coordination.BcfTopic topic, IClock clock) =>
-        Admitted(topic, clock.GetCurrentInstant());
+    public static Fin<Issue> FromTopic(Rasm.Bim.Coordination.BcfTopic topic, Func<string, int> revision, IClock clock) =>
+        Admitted(topic, revision, clock.GetCurrentInstant());
 
-    static Fin<Issue> Admitted(Rasm.Bim.Coordination.BcfTopic topic, Instant at) =>
-        (Identity(topic), IssueStatus.FromBcf(topic.Status).ToValidation(), Bound(topic), Seated(topic, at))
+    static Fin<Issue> Admitted(Rasm.Bim.Coordination.BcfTopic topic, Func<string, int> revision, Instant at) =>
+        (Identity(topic), IssueStatus.FromBcf(topic.Status).ToValidation(), Bound(topic), Seated(topic, revision, at))
             .Apply((identity, status, _, bindings) => new Issue(
                 identity, topic.Title, status, topic.TopicType, topic.Priority,
                 topic.Author, topic.CreationDate,
@@ -151,9 +151,12 @@ public sealed record Issue(
     // Every bound viewpoint admits through the ONE codec, whose refusal names a camera-less BCF viewpoint
     // rather than fabricating an origin view; the refusals ACCUMULATE beside the sibling gates, so a topic
     // carrying two undecodable viewpoints reports both.
-    static Validation<Error, Seq<IssueBinding>> Seated(Rasm.Bim.Coordination.BcfTopic topic, Instant at) =>
+    // BCF carries no revision of its own, so an inbound viewpoint takes the next reading THIS process mints for
+    // its key — a re-imported topic supersedes the binding it replaces instead of tying with it at the depot.
+    static Validation<Error, Seq<IssueBinding>> Seated(
+        Rasm.Bim.Coordination.BcfTopic topic, Func<string, int> revision, Instant at) =>
         topic.Viewpoints
-            .Traverse(vp => ViewpointCodec.FromBcf(vp.Guid, vp, at).ToValidation()
+            .Traverse(vp => ViewpointCodec.FromBcf(vp.Guid, revision(vp.Guid), vp, at).ToValidation()
                 .Map(view => new IssueBinding(vp.Guid, view)))
             .As();
 
@@ -411,7 +414,7 @@ public static class IssueTiles {
 ## [05]-[BOARD_PROJECTION]
 
 - Owner: `TriageBoard` the board projection owning the issue set, the issue-to-viewpoint binding, the markup fold, and the BCF round-trip. The name is deliberate: `Rasm.Bim/Review/coordination.md` owns the domain type `IssueBoard`, and this projection composes that domain rather than shadowing its name.
-- Entry: `TriageBoard.Load(Seq<BcfTopic> topics, IClock clock)` — folds a `Rasm.Bim`-read BCF topic set into the board issues; `Synced(CollabDoc doc)` — re-projects every issue's comment set FROM the merge authority, so a refreshed board is a pure read of the shared document; `Save()` — the total projection back onto the BCF topic set for the `Rasm.Bim` archive writer; `Navigate` — the bound-viewpoint resolve; `Markup(issueGuid, viewpointGuid, markup)` — the fold landing captured redlines onto the GUID-bound source viewpoint.
+- Entry: `TriageBoard.Load(Seq<BcfTopic> topics, Func<string, int> revision, IClock clock)` — folds a `Rasm.Bim`-read BCF topic set into the board issues, the revision arrow minting each inbound viewpoint's per-key reading; `Synced(CollabDoc doc)` — re-projects every issue's comment set FROM the merge authority, so a refreshed board is a pure read of the shared document; `Save()` — the total projection back onto the BCF topic set for the `Rasm.Bim` archive writer; `Navigate` — the bound-viewpoint resolve; `Markup(issueGuid, viewpointGuid, markup)` — the fold landing captured redlines onto the GUID-bound source viewpoint.
 - Receipt: board and comment durability is the one edit-intent stream; a board edit projects one `EditIntent` row.
 - Packages: LanguageExt.Core, NodaTime, Rasm.Bim (project), Rasm.Persistence (project)
 - Growth: a new board view is one projection over the issue set; zero new surface.
@@ -419,8 +422,9 @@ public static class IssueTiles {
 
 ```csharp signature
 public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
-    public static Fin<TriageBoard> Load(Seq<Rasm.Bim.Coordination.BcfTopic> topics, IClock clock) =>
-        topics.Traverse(topic => Issue.FromTopic(topic, clock)).As()
+    public static Fin<TriageBoard> Load(
+        Seq<Rasm.Bim.Coordination.BcfTopic> topics, Func<string, int> revision, IClock clock) =>
+        topics.Traverse(topic => Issue.FromTopic(topic, revision, clock)).As()
             .Map(issues => new TriageBoard("coordination", issues.ToSeq()));
 
     // `ToTopic` is total over the carried source row, so the save is a pure projection — a `Fin` that cannot

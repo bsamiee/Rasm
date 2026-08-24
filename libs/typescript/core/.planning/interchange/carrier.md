@@ -567,7 +567,7 @@ const Carrier: Carrier.Shape = {
 - Law: SDK construction remains strict on mint and admission; admission refuses absent `id` or `specversion` before the SDK can synthesize either, rejects non-v1 events the SDK reports as merely false, and keeps malformed required attributes or non-absolute `dataschema` values on `EventRefusal`.
 - Law: raw `data` and `data_base64` are exclusive. Admission decodes the base64 arm into canonical `Uint8Array` before SDK construction and repairs binding-produced non-byte typed arrays from that authoritative arm.
 - Law: `mint` writes the addressed attributes AFTER the injected carrier record, so a peer's `traceparent` can never shadow an addressed attribute.
-- Law: the Rasm profile admits `rasm.<domain>.<subject>.<fact>.v<N>` only when `<domain>` is a `Convention.domain` capability; event-type evolution remains independent of the payload-schema URI.
+- Law: the Rasm profile admits `rasm.<domain>.<subject>.<fact>` only when `<domain>` is a `Convention.domain` capability; event-type evolution remains independent of the payload-schema URI.
 - Law: generic admission delegates the required `source` URI-reference to the strict SDK; `Event.rasm.source(type, capability)` derives the profile's absolute `rasm:<domain>/<capability>` identity from two admitted axes, and `Fact` requires only that source and type share their domain. The event-type subject never re-authors producer capability.
 - Law: `id` is the producer's operation identity and never a digest, so `(source, id)` is the uniqueness composite every dedup and idempotency key reads. `Event.address` length-frames those UTF-8 arms and digests the frame into the bounded branch coordinate; transports and ingress consume that one mint rather than maintaining private concatenations.
 - Law: `subject` publishes the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched. Generated `dataref` remains the standard open URI-reference on generic and Rasm events; core validates and preserves the attribute but owns no residence, authorization, dereference, or inline/reference equality policy. A binding that spends it composes the data plane's confined capability before application settlement.
@@ -591,16 +591,16 @@ import {
   CloudEventBatchSchema,
   CloudEventSchema,
 } from "@rasm\/contracts/io/cloudevents/v1/cloudevents_pb"
-import { ExtensionsSchema } from "@rasm\/contracts/rasm/contracts/event/v1/event_pb"
+import { ExtensionsSchema } from "@rasm\/contracts/rasm/contracts/event/event_pb"
 import { AnySchema, TimestampSchema, timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt"
 import { DateTime } from "effect"
 import { Format } from "./format.ts"
 import { Digest } from "../value/contentKey.ts"
 
 // Type subject and producer capability are independent axes inside one Convention-owned capability domain; `<fact>`
-// reads past tense and `v<N>` versions the event contract independently of its payload schema.
+// reads past tense and carries the announced semantics whole, independently of the payload schema `dataschema` names.
 const _SEGMENT = "[a-z0-9]+(?:-[a-z0-9]+)*"
-const _TYPE = new RegExp(`^rasm\\.(${_SEGMENT})\\.(${_SEGMENT})\\.(${_SEGMENT})\\.v[1-9][0-9]*$`)
+const _TYPE = new RegExp(`^rasm\\.(${_SEGMENT})\\.(${_SEGMENT})\\.(${_SEGMENT})$`)
 const _SOURCE = new RegExp(`^rasm:(${_SEGMENT})/(${_SEGMENT})$`)
 
 const _typeDomain = (type: string): string => {

@@ -70,7 +70,7 @@ S0–S3 order the sub-domains, and every consumption edge points down; the one r
 - S2→S0 — `ContentAddress` crosses as the codec's minted identity, so storage re-derives no digest.
 - S2 wire — `Version/merge` binds `EntityEditWire`; `Version/egress` projects host dead-letter and replay messages.
 - S3 wire — `Query/federation` raises through AppHost `FaultWire`; egress fault observations arrive through an injected generated-message delegate.
-- S2 wire law — generated `crdt.v1.CrdtOpWire` owns the payload while the MessagePack entry's outer dot stays paired through CRDT replay.
+- S2 wire law — generated `crdt.CrdtOpWire` owns the payload while the MessagePack entry's outer dot stays paired through CRDT replay.
 
 ```mermaid
 ---
@@ -264,7 +264,7 @@ Each sink cursor carries one optional deferred head, and the first terminal row 
 - Async projections serve analytical lanes under a watermark alone.
 - Typed projection records and the seam `ElementGraph` are the only egress.
 - Provider failure converts once per rail; each sub-domain outcome keeps its own typed receipt or fact record.
-- Generated rails own converters, formatters, and migration artifacts.
+- Generated rails own converters, formatters, and generation artifacts.
 - Retention reachability spans the full event history.
 - Store classes unable to prove full-history reachability retain blobs through deduplication and cold tiering instead of collecting them.
 - `ProjectionContext` is the one time and causal seam, seating the kernel `CorrelationId`/`TenantContext` pair; the HLC is the one causal clock.

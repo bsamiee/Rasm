@@ -22,7 +22,7 @@
 - Law: the resolve ladder is ONE authority — `ResolvePass.MinRank` — read against `QualityTier`'s own rank roster. The per-tier table proves its coverage at type initialization exactly as `QualityTier.Ranked` proves its contiguity, so `ResolvePass.For(tier)` is TOTAL by construction and the absent-key fall to `Msaa` that answered the floor tier's most-degraded frame with a four-sample resolve has no spelling; a hand `(rank, pass)` roster beside the tier roster was a second authority over one ladder. `Taa` jitters the camera sub-pixel per frame and reprojects the prior frame through the motion-vector buffer under a neighborhood clamp, `Smaa` runs morphological edge AA, `Msaa` multi-samples the raster, and `Fsr` renders sub-resolution and spatially upscales, so the governor steps the whole ladder on the same hysteresis band that degrades the render passes.
 - Law: each of the resolve row's three columns reaches the surface it governs. `RenderScale` and `Samples` mint the frame's `RenderTargetRequest`, so an `Fsr` frame allocates at `round(display * 0.6)` and an `Msaa` frame asks its backend for four samples, while `RenderTarget.Samples` publishes what the allocation GRANTED. `Jitter` becomes a CAMERA fact: `FrameView.Of` converts the signed sub-pixel offset to NDC against the target the frame allocated, and the geometry draw adds `NdcJitter` to its projection's third column. Cull and LOD read `FrameView.Camera` and `FrameView.LodScale` — the governor's own degrade lever — because a sub-pixel offset moves no cull decision; the `PathTrace` arm reads `Camera` too, and that is load-bearing: a jittered lens differs from the prior frame's every frame, so `AccumulationTarget.Reset` would fire on every frame and the film would never converge past one sample. The `Taa` motion-vector buffer is ONE `Render/meshlets` `BindlessTable` slot, never a parallel motion-vector owner.
 - Law: the triangle column is a MEASURED draw count over one contract, and the contract is the frame's CUT. `RenderPass.Geometry` carries `Phase`, the `Render/meshlets` `CutPhase` row naming which slice of the cut it draws; `Charge`, the budget projection the pre-charge gate reads against that slice; and `Draw`, which returns the triangles it recorded. The cut is minted ONCE per geometry pass and charged then drawn, so the pre-charge estimate and the actual submission read one value; every other case contributes zero triangles, while the sim arm answers its swept field points and the pathTrace arm the film's shade-fault level on their own columns — measures with their own instruments, kept out of the triangle ceiling because a marched volume and a failed scatter are not triangles. `Render/meshlets`' `ClusterCull.DrawRows` mints BOTH meshlet geometry rows off one submit arrow — `CutPhase.Prior` then `CutPhase.Retest` — and the DAG orders them by their declared depth product rather than by their arrival order in a caller's seq.
-- Receipt: `FrameReceipt` — frame ordinal, backend, per-pass durations, the folded elapsed total, GPU duration, drawn triangles, swept sim points, film shade-fault level, the typed budget verdict, the deferred-pass set, instant and correlation. The elapsed total is a STORED column folded once at seal, because the receipt and the instrument write were two folds over one seq and two authorities over one number. The GPU column is MEASURED evidence off the `WgpuFrameEvidence` timestamp lane (`QueryType.Timestamp` `DeviceCreateQuerySet`, per-pass `RenderPassTimestampWrites`/`ComputePassTimestampWrites`, `CommandEncoderResolveQuerySet` into the read buffer, `BufferMapAsync`/`BufferGetMappedRange`/`BufferUnmap` readback, `QuerySetRelease` teardown), never the CPU elapsed re-labelled — a binding without the `timestamp-query` feature binds `None` and the column carries the honest `Duration.Zero`, while a FAILED readback keeps the zero and lands its fault on the receipt fault rail so unsupported and failed never conflate; `Diagnostics/governor.md` `GpuTimeline.Migrate` deepens the same column from the lane-measured frame duration to per-pass resolved nanoseconds only when EVERY pass resolved its timestamp pair, and that timeline is what seals the `EvidenceReceipt.GpuFrame` case. The frame receipt itself rides the composition-bound `Sink` and its measured facts reach the telemetry spine through `Observe`, so it mints no evidence case of its own; `Diagnostics/governor.md` folds it into `PerfSample`, and `RenderGraph.Observe` is the sole binder of `ResidencyBudget.Observe` so the evict, prefetch, and pool gauges read the plan THIS frame drew.
+- Receipt: `FrameReceipt` — frame ordinal, backend, per-pass durations, the folded elapsed total, GPU duration, drawn triangles, swept sim points, film shade-fault level, the typed budget verdict, the deferred-pass set, instant and correlation. The elapsed total is a STORED column folded once at seal, because the receipt and the instrument write were two folds over one seq and two authorities over one number. The GPU column is MEASURED evidence off the `WgpuFrameEvidence` timestamp lane (`QueryType.Timestamp` `DeviceCreateQuerySet`, per-pass `RenderPassTimestampWrites`/`ComputePassTimestampWrites`, `CommandEncoderResolveQuerySet` into the read buffer, `BufferMapAsync`/`BufferGetMappedRange`/`BufferUnmap` readback, `QuerySetRelease` teardown), never the CPU elapsed re-labelled — a binding without the `timestamp-query` feature binds `None` and the column carries the honest `Duration.Zero`, while a FAILED readback keeps the zero and lands its fault on the receipt fault rail so unsupported and failed never conflate; `Diagnostics/governor.md` `GpuTimeline.Deepen` deepens the same column from the lane-measured frame duration to per-pass resolved nanoseconds only when EVERY pass resolved its timestamp pair, and that timeline is what seals the `EvidenceReceipt.GpuFrame` case. The frame receipt itself rides the composition-bound `Sink` and its measured facts reach the telemetry spine through `Observe`, so it mints no evidence case of its own; `Diagnostics/governor.md` folds it into `PerfSample`, and `RenderGraph.Observe` is the sole binder of `ResidencyBudget.Observe` so the evict, prefetch, and pool gauges read the plan THIS frame drew.
 - Packages: SkiaSharp, Avalonia.Skia, Avalonia (compositor GPU interop), Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU, Silk.NET.WebGPU.Native.WGPU, QuikGraph, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `Deterministic.RadicalInverse` the TAA jitter sequence, `Cell.Commit` the resolve transition, `Custody.Bracket` the target lease), Rasm.AppHost (project)
 - Growth: a new frame stage is one `RenderPass` case with its `PassContract` row, which the schedule proof orders with no edit; a new resolve column is one `ResolvePass` column plus its read on `RenderTargetRequest.Of` or `FrameView.Of`; a new resolve row is one `MinRank` declaration the ladder table picks up; a new backend is one `GpuBackend` row constructed with its trait set, its target delegate, and its `GpuBinding` case — Skia Graphite re-admits as one `SkiaGraphite` row the moment SkiaSharp ships its Recorder/Context surface; a new substrate capability is one `GpuTrait` row every consumer reads by column; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Growth: a new viewport reliability indicator is one `ViewportObjectives` row on the evidence page, carried here with no edit.
@@ -1129,16 +1129,16 @@ public abstract partial record SimVisual(string Key) {
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: generated `Rasm.Contracts.Render.V1` `Spatial.V1.Point3`/`UnitDirection3`, `SphereWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `ViewMeasurementPointWire`, `ViewMeasurementWire`, `ViewpointWire`, `MeshoptStream`, `Meshlet`, `ResidencyTileWire`, and `GeometryResidency` are the sole viewpoint and content-keyed residency wire family; `ResidencyMap` projects the interior viewpoint, residency decision, and Compute payload directly into those messages. GPU pass internals and the suite content key never gain an AppUi wire twin.
+- Owner: generated `Rasm.Contracts.Render` `Spatial.Point3`/`UnitDirection3`, `SphereWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `ViewMeasurementPointWire`, `ViewMeasurementWire`, `ViewpointWire`, `MeshoptStream`, `Meshlet`, `ResidencyTileWire`, and `GeometryResidency` are the sole viewpoint and content-keyed residency wire family; `ResidencyMap` projects the interior viewpoint, residency decision, and Compute payload directly into those messages. GPU pass internals and the suite content key never gain an AppUi wire twin.
 - Entry: `ResidencyMap.Mint(viewpoint, plan, payloads, vramBudget)` returns `Fin<GeometryResidency>` after admitting the AppUi resident set against Compute's payload census; `ResidencyMap.Json` renders that same admitted projection through the shared AppHost `WireJson.Formatter`.
-- Packages: Rasm.Contracts (project — generated `Render.V1` residency family), Google.Protobuf (`ByteString`, generated repeated fields), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp`), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `ArtifactContent`), Rasm.AppHost (project — `WireJson`), Rasm.Compute (project)
-- Growth: a wire member or enum case lands once in `tests/contracts/proto/rasm/contracts/render/v1/residency.proto`, generation breaks the projection at its actual read, and every TypeScript consumer imports `@rasm\/contracts/rasm/contracts/render/v1/residency_pb`; zero hand C# records, TS interfaces, enum strings, or serializer contexts grow beside it.
+- Packages: Rasm.Contracts (project — generated `Render` residency family), Google.Protobuf (`ByteString`, generated repeated fields), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp`), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `ArtifactContent`), Rasm.AppHost (project — `WireJson`), Rasm.Compute (project)
+- Growth: a wire member or enum case lands once in `tests/contracts/proto/rasm/contracts/render/residency.proto`, generation breaks the projection at its actual read, and every TypeScript consumer imports `@rasm\/contracts/rasm/contracts/render/residency_pb`; zero hand C# records, TS interfaces, enum strings, or serializer contexts grow beside it.
 - Boundary: protobuf presence is the only absence spelling: optional scalar setters run only on `Some`, optional messages stay unset on `None`, and repeated fields fill on the generated collection surface. The payload's semantic XXH3 key selects it in the residency census while its independent `ArtifactContent` SHA-256 identity and encoded extent cross together as `ArtifactRef`; storage paths remain behind the app resolver and never leak into the semantic contract. Instants cross as protobuf `Timestamp`, and every closed Compute row maps totally onto its generated enum. The schema carries the producer descriptor whole — `Parent`, `ParentError`, `Curvature`, and `Cut` remain producer facts — while `GeometryResidency` replaces as one message per emission. Every resident key must resolve in the payload census; missing keys accumulate as `ViewportFault.ContextUnavailable`, so no successful contract can omit part of its admitted resident set. ProtoJSON leaves only through `WireJson.Formatter`; no package-local formatter, STJ context, or manifest wrapper participates. Render evidence remains the generated `EvidenceTimelineWire` render arm rather than a standalone frame family.
 
 ```csharp signature
 using NodaTime.Serialization.Protobuf;
 using Rasm.AppHost.Runtime;
-using Host = Rasm.Contracts.Render.V1;
+using Host = Rasm.Contracts.Render;
 
 // --- [BOUNDARIES] ---------------------------------------------------------------------------
 // The descriptor owns every target shape and vocabulary. This seam only performs irreducible domain
@@ -1146,8 +1146,6 @@ using Host = Rasm.Contracts.Render.V1;
 // population. Every message is returned as its generated type, so neither a transport DTO nor a manifest shell
 // can become a second wire authority.
 public static class ResidencyMap {
-    public const uint Schema = 4;
-
     public static Fin<string> Json(
         Viewpoint viewpoint,
         ResidencyPlan plan,
@@ -1173,7 +1171,6 @@ public static class ResidencyMap {
                 $"residency/budget: wire budget {vramBudget}b is negative"));
         return (tiles, budget).Apply((resident, admittedBudget) => {
             Host.GeometryResidency wire = new() {
-                Version = Schema,
                 Viewpoint = View(viewpoint),
                 VramBudget = admittedBudget,
             };
@@ -1202,10 +1199,9 @@ public static class ResidencyMap {
     }
 
     private static Fin<Viewpoint> View(Host.ViewpointWire wire, Op key) {
-        if (wire.Version != Viewpoint.Schema) {
-            return Fin.Fail<Viewpoint>(new ViewportFault.ContextUnavailable(
-                $"viewpoint/decode: schema {wire.Version} is not {Viewpoint.Schema}"));
-        }
+        // Arrivals CARRY their own revision: `version` is the producer's per-key successor count and this
+        // decode reads it, so admission proves it positive and nothing here re-mints or compares it against a
+        // local number — an equality gate refused every correctly-sequenced arrival whose count differed.
         return
             from camera in Camera(wire.Camera)
             from measurements in toSeq(wire.Measurements).TraverseM(row => Measurement(row, key)).As()
@@ -1214,6 +1210,7 @@ public static class ResidencyMap {
                 .Bind(value => key.Catch(() => Fin.Succ(value.ToInstant())))
             from view in Viewpoint.Capture(
                 wire.Key,
+                checked((int)wire.Version),
                 camera,
                 Optional(wire.Section).Map(Section),
                 toSeq(wire.Overrides).Map(Visibility),
@@ -1325,7 +1322,7 @@ public static class ResidencyMap {
     private static Host.ResidencyTileWire Tile(ResidencyPayload payload) {
         Host.ResidencyTileWire wire = new() {
             Kind = Kind(payload.Kind),
-            Artifact = new Rasm.Contracts.Artifact.V1.ArtifactRef {
+            Artifact = new Rasm.Contracts.Artifact.ArtifactRef {
                 Sha256 = ByteString.CopyFrom(Convert.FromHexString(payload.Artifact.Sha256)),
                 ArtifactBytes = payload.Artifact.Bytes,
             },
@@ -1397,10 +1394,10 @@ public static class ResidencyMap {
         quaternion: static _ => Host.StreamFilter.Quaternion,
         exponential: static _ => Host.StreamFilter.Exponential);
 
-    private static Rasm.Contracts.Spatial.V1.Point3 Point(System.Numerics.Vector3 value) =>
+    private static Rasm.Contracts.Spatial.Point3 Point(System.Numerics.Vector3 value) =>
         Point(value.X, value.Y, value.Z);
 
-    private static Rasm.Contracts.Spatial.V1.UnitDirection3 Direction(System.Numerics.Vector3 value) =>
+    private static Rasm.Contracts.Spatial.UnitDirection3 Direction(System.Numerics.Vector3 value) =>
         new() { X = value.X, Y = value.Y, Z = value.Z };
 
     private static Host.ViewCameraWire.Types.Frame Frame(CameraFrame frame) =>
@@ -1409,13 +1406,13 @@ public static class ResidencyMap {
     private static CameraFrame Frame(Host.ViewCameraWire.Types.Frame frame) =>
         new(Point(frame.Eye), Point(frame.Target), Direction(frame.Up));
 
-    private static System.Numerics.Vector3 Point(Rasm.Contracts.Spatial.V1.Point3 value) =>
+    private static System.Numerics.Vector3 Point(Rasm.Contracts.Spatial.Point3 value) =>
         new((float)value.XM, (float)value.YM, (float)value.ZM);
 
-    private static System.Numerics.Vector3 Direction(Rasm.Contracts.Spatial.V1.UnitDirection3 value) =>
+    private static System.Numerics.Vector3 Direction(Rasm.Contracts.Spatial.UnitDirection3 value) =>
         new((float)value.X, (float)value.Y, (float)value.Z);
 
-    private static Rasm.Contracts.Spatial.V1.Point3 Point(double x, double y, double z) =>
+    private static Rasm.Contracts.Spatial.Point3 Point(double x, double y, double z) =>
         new() { XM = x, YM = y, ZM = z };
 }
 ```
@@ -1424,7 +1421,7 @@ public static class ResidencyMap {
 
 - [VIEWPORT_GPU]: `GpuBackend.Target` absorbs Ganesh, raster, Wgpu, and browser target construction over the closed `GpuBinding` union, every arm reading the one `RenderTargetRequest` the resolve row derived and answering the sample count its allocation GRANTED, while `GpuBackend.Traits` states what each substrate can run so a pass roster narrows on set algebra rather than a case list. `RenderGraph` proves its pass order once at composition, advances `ResolveState` through the kernel commit, brackets one leased target at the requested extent, threads one `FrameView` into the cull and geometry arms, executes the proved order over one fold-carried cut, and seals measured `WgpuFrameEvidence`; meshlet, path-trace, resolve, and simulation acceleration remain pass delegates under that lease and create no parallel device or target owner.
 - [WGPU_BACKEND]: `WgpuPresentation` discriminates exclusive swapchain presentation from compositor import; its composited arm elects its `SyncArm` row ONCE from `GetSynchronizationCapabilities`, awaits `ImportCompleted`, answers a transient refusal on every `IsLost` state, and submits through the row's own `UpdateWith*Async` member. Timestamp resolve, buffer map, queue submission, and device polling retire through the one `WgpuFrameEvidence` lane, and `WgpuErrorScope` brackets every accelerated pass encoding inside the frame fold.
-- [WEB_RESIDENCY]: `ResidencyMap.Mint` projects Compute `ResidencyPayload` stream spans, meshlet hierarchy, bounds, content keys, and admitted splat tiles directly into generated `Render.V1.GeometryResidency`; the browser imports the same generated schema, and ProtoJSON crosses through AppHost `WireJson.Formatter` with no hand manifest, interface, or codec posture beside it.
+- [WEB_RESIDENCY]: `ResidencyMap.Mint` projects Compute `ResidencyPayload` stream spans, meshlet hierarchy, bounds, content keys, and admitted splat tiles directly into generated `Render.GeometryResidency`; the browser imports the same generated schema, and ProtoJSON crosses through AppHost `WireJson.Formatter` with no hand manifest, interface, or codec posture beside it.
 
 ## [06]-[RESEARCH]
 

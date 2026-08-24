@@ -15,7 +15,7 @@
 - Auto: the feed half and the delivery half meet on ONE bounded lane per subscription, so a lagging sink backpressures its own reader rather than stalling the shared feed or buffering the outbox in memory, and the fold hands rows to each leg in sequence order so a mid-batch refusal never advances past unconfirmed work. Rows the subscription's own filters withhold settle as delivered-and-filtered rather than as an ack, because a predicate answering false is a routing decision the receipt counts and never a transport outcome; an envelope the branch owner REFUSES to mint is poison by construction and letters, since a malformed grammar value cannot become well-formed on a later attempt. Wake arrives on the coordination `pg_notify` channel through `NpgsqlConnection.WaitAsync`, with the bounded poll as the correctness FLOOR — a missed NOTIFY costs latency, never a lost row, because the cursor law owns correctness.
 - Auto: what a binding preserves is its own engine's answer, not the envelope's — `partitionkey` reaches a real routing key on Kafka (`Message.Key`) and Pulsar (`MessageMetadata.Key`/`OrderingKey`), while NATS orders per subject, RabbitMQ per queue, MQTT per topic, and AMQP per link, none of which expose a key member at all, so per-entity order on those rows holds only where one entity's rows share one subject, queue, topic, or link (`#EGRESS_SINK`) and a blanket per-entity-order claim over the whole family reads as a guarantee those engines never made. Row `http` reconciles `DeliveryUnconfirmed` by re-reading `net._http_response` by request-id on the NEXT drain, so a PENDING response resolves without a dedicated poller; a crash between delivery and advance re-drains the suffix and every binding's dedup column states what absorbs it. Dead-letter replay decrements nothing: the conservation fold proves `delivered + filtered + held + deadLettered == drained` on every drain.
 - Receipt: a drain rides `store.egress.drain` carrying the sink, the from/through sequences, and the delivered/duplicate/held/dead-lettered counts; a dead-letter rides `store.egress.deadletter` carrying the content key and the fault; a replay rides `store.egress.replay`; each settled drain receipt fires the `rasm.persistence.egress.delivered` observe point (`Store/observability#HOOK_RAIL`) as a composition-root tap on the drain outcome, never an emit call inside the fold.
-- Packages: Npgsql (`NpgsqlConnection.Notification`/`WaitAsync` — the pump wake), Marten (`IDocumentSession.Store`/`SaveChangesAsync` — the dead-letter document; `StoreOptions.Schema.For<T>().PartitionOn` through `RollingWindow.Declare` — its rolling window), Rasm.Contracts (`Fault.V1.FaultObservation`), Rasm (`IValidityEvidence`/`ValidityClaim`), Microsoft.Extensions.Compliance.Redaction (`IRedactorProvider.GetRedactor(DataClassificationSet)` — the classified-field gate before the boundary), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
+- Packages: Npgsql (`NpgsqlConnection.Notification`/`WaitAsync` — the pump wake), Marten (`IDocumentSession.Store`/`SaveChangesAsync` — the dead-letter document; `StoreOptions.Schema.For<T>().PartitionOn` through `RollingWindow.Declare` — its rolling window), Rasm.Contracts (`Fault.FaultObservation`), Rasm (`IValidityEvidence`/`ValidityClaim`), Microsoft.Extensions.Compliance.Redaction (`IRedactorProvider.GetRedactor(DataClassificationSet)` — the classified-field gate before the boundary), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new delivery target is one `Subscription` value over an existing `Binding` row and one `outbox_cursor` row minted on first drain — zero pump edits and zero new types; a new transport is one `Binding` row carrying its modes, prefix, routing member, `protocolsettings` roster, and `dataref` policy; a new drain policy (batch width, wake channel, payload arrow) is one `EgressPorts`/subscription value; zero new surface — a per-sink pump, a second delivery path for replay, a fire-and-forget HTTP post, a presence row in the CDC drain, a lane gate seated at a caller instead of these two entries, or a CDC poller beside the changefeed is the deleted form because the pump is one fold, replay is the same fold, the advance law owns the cursor, and the durable lanes are the only drain source.
 - Boundary: the pump drains only durable rows. `Wait` is the sole full mode and close flushes. Delivered prefixes use `OutboxAdvance`; a first terminal row uses only `QuarantineAndAdvance`, never `DeadLetter` followed by `OutboxAdvance`. Replay may `Reletter` because its cursor was advanced by the first terminal commit. Cursor sequence and the CloudEvents `D20` `OutboxOrdinal` are the same non-negative store-local position; neither is an HLC or portable causal coordinate.
 - Boundary: the payload arrow redacts and frames BEFORE the mint (`ErasingRedactor` the fail-closed fallback), so an out-of-authority payload crosses masked rather than raw and the grade it answers is the `dataclassification` the mint stamps. Caller cancellation passes through untyped; the wire-native row hands bytes to the AppHost `OutboundHop` keyed pipeline and reads its delivery-honesty policy, so Persistence never owns that channel. Letters retire by PARTITION DROP, not by row sweep, so a letter neither `Retire` nor `Replay` ever consumed leaves at its window's trailing edge as one receipted `Version/retention#SWEEP_AND_GC` `DropPartition` and an unbounded letter table has no reachable state.
@@ -40,7 +40,7 @@ public sealed record DeadLetterRow(
     UInt128 ContentKey,
     SinkKey Sink,
     long Sequence,
-    global::Rasm.Contracts.Fault.V1.FaultObservation Fault,
+    global::Rasm.Contracts.Fault.FaultObservation Fault,
     int Attempts,
     Instant At) {
     // Sink plus operation content gives retries one stable document identity. Ambient UUID minting duplicates a
@@ -63,7 +63,7 @@ public readonly record struct PayloadFrame(
     string ContentType,
     Option<Uri> DataSchema,
     int EventMajor,
-    global::Rasm.Contracts.Event.V1.Extensions Extensions,
+    global::Rasm.Contracts.Event.Extensions Extensions,
     Option<Uri> Residence = default);
 
 // Changefeed fan-out rides this lane: one bounded channel per subscription between the feed half and the delivery
@@ -115,7 +115,7 @@ public sealed record EgressPorts(
     Func<OpLogEntry, PayloadFrame> Frame,
     Func<PayloadFrame, IO<Uri>> Reside,
     Func<ActivityContext, TraceCarrier> Carrier,
-    Func<Error, global::Rasm.Contracts.Fault.V1.FaultObservation> ObserveFault,
+    Func<Error, global::Rasm.Contracts.Fault.FaultObservation> ObserveFault,
     Func<SinkKey, int, IO<Seq<DeadLetterRow>>> Letters,
     Func<DeadLetterRow, Option<LeaseToken>, IO<Fin<OutboxCursor>>> QuarantineAndAdvance,
     Func<DeadLetterRow, IO<Unit>> Reletter,
@@ -305,7 +305,7 @@ public static class EgressPump {
                 Observation(row.ContentKey, sink.Bind.Key, ports, fault), Attempts: 1, frame.Now()),
             sink.Bind.Held);
 
-    static global::Rasm.Contracts.Fault.V1.FaultObservation Observation(
+    static global::Rasm.Contracts.Fault.FaultObservation Observation(
         UInt128 contentKey, SinkKey sink, EgressPorts ports, Error cause) =>
         ports.ObserveFault(new EgressFault.DeadLetter(contentKey, sink, cause));
 
@@ -380,7 +380,7 @@ public static class EgressPump {
 - Auto: content mode is the binding row's own capability set and the subscription's settings selection within it, never a per-leg literal — every header-bearing transport reaches binary so a broker filters on the prefixed attribute names without parsing the body, and each row's prefix (`ce-` HTTP/NATS/RabbitMQ, `ce_` Kafka, `cloudEvents_` AMQP, UNPREFIXED MQTT) is a column rather than a spelling each leg repeats. Serdes-governed Kafka bodies own the `Data` bytes and their schema-id framing beside the `ce_*` headers with zero key collision, because the payload arrow frames them over one registry client BEFORE the envelope — the Avro and JSON-Schema serdes alone, since the durable payload is lane-codec bytes and never an `IMessage<T>` — so envelope codec and body codec never share a `JsonSerializerOptions`.
 - Auto: the `http` row's multi-row drain encodes ONE batch body only under a receiving contract that advertises the batch media type, never on the transport's own say-so: `net.http_post` hands back one id, `net._http_response` stores ONE status against it, and the CloudEvents batch binding defines no per-event response element — so a receiver settling per REQUEST answers N envelopes with a single status and the drain reports a merged tally that cannot tell zero redelivery from a wedged retry. `PerRequest` is therefore the pg_net floor and its cursor-advancing drain posts SINGLE-row bodies. `PerEnvelope` admits batching only when the receiver returns each disposition with its exact `(source,id)`; correlation rebuilds offer order from identity after the response and refuses missing, duplicate, or foreign keys, so batch position and intermediary reframing carry no settlement meaning.
 - Receipt: per-subscription delivery evidence rides the drain receipt (`#EGRESS_PUMP`); a subscription names its cursor row through `SinkBinding.Key` and its transport through the `Binding` row, never a free string.
-- Packages: Rasm.Contracts (`event.v1.Extensions`), Celly.Protovalidate, Rasm (CloudEvents mechanics and interior handling policy), CloudNative.CloudEvents with Kafka and AMQP bindings, Pidgin, NATS.Net, Confluent.Kafka, Confluent.SchemaRegistry, OpenTelemetry.Instrumentation.ConfluentKafka, RabbitMQ.Client, MQTTnet, DotPulsar, StackExchange.Redis, AMQPNetLite.Core, System.Threading.Channels, ClickHouse.Driver, pg_net, BCL inbox.
+- Packages: Rasm.Contracts (`event.Extensions`), Celly.Protovalidate, Rasm (CloudEvents mechanics and interior handling policy), CloudNative.CloudEvents with Kafka and AMQP bindings, Pidgin, NATS.Net, Confluent.Kafka, Confluent.SchemaRegistry, OpenTelemetry.Instrumentation.ConfluentKafka, RabbitMQ.Client, MQTTnet, DotPulsar, StackExchange.Redis, AMQPNetLite.Core, System.Threading.Channels, ClickHouse.Driver, pg_net, BCL inbox.
 - Growth: a new delivery target is one `Subscription` value; a new transport one `Binding` row; a new extension changes `event.proto`, while this producer adds only the value it actually supplies.
 - Boundary: the envelope is the single cross-consumer, cross-language vocabulary — the AppHost outbox relay and the durable-orchestration dispatch drain the SAME projection as their hop payload, so a per-consumer re-pack is the drift defect. `id` is the OPERATION identity and `subject` the content key, so replay dedup reads `(source, id)` and a broker sequence keys nothing. Row `http` NEVER fire-and-forgets: `net.http_post` enqueues and the response reconciliation is the only advance authority.
 - Boundary: a payload past the row's `dataref` threshold externalizes to `Store/blobstore#OBJECT_STORE` and the envelope carries the reference, so no leg holds a multi-megabyte body to encode and no streaming encoder exists beside the owner's one encode. Row `wirenative` reads the AppHost delivery-honesty policy — the database is excluded from the AppHost hop law, sink delivery is not — and the redis row's acknowledged trim keeps the stream bounded by CONSUMPTION rather than a time guess. This family is egress-only: the inbound Kafka consume leg is the `Version/ingress` `CdcIngress` owner where the consumer-side instrumented twins bind, never a binding row here, and its `(source, id)` dedup is the consumer half every dedup-honesty row presumes.
@@ -511,7 +511,7 @@ public sealed partial class Binding {
     // `messagetimeoutms` IS settable because it is this leg's whole retry BOUND — see the `[RETRY_OWNER]` column.
     public static readonly Binding Kafka = new("kafka",
         caps: BindingCaps.Of(BindingCapability.Binary, BindingCapability.Structured), prefix: "ce_",
-        routesOn: Some(global::Rasm.Contracts.Event.V1.Extensions.PartitionkeyFieldNumber), required: ["topicname"], optional: ["partitionkeyextractor", "clientid", "messagetimeoutms", "mode"],
+        routesOn: Some(global::Rasm.Contracts.Event.Extensions.PartitionkeyFieldNumber), required: ["topicname"], optional: ["partitionkeyextractor", "clientid", "messagetimeoutms", "mode"],
         dataref: new(Threshold: 1 << 20, Dual: false), spec: true,
         degrade: "`Error.IsRetriable` is internal; transactions never span the cursor");
 
@@ -554,7 +554,7 @@ public sealed partial class Binding {
     // `Prefix` is empty because there is no prefixed attribute contract to honour or to violate.
     public static readonly Binding Pulsar = new("pulsar",
         caps: BindingCaps.Of(BindingCapability.Structured), prefix: "",
-        routesOn: Some(global::Rasm.Contracts.Event.V1.Extensions.PartitionkeyFieldNumber), required: ["topic"], optional: ["accessmode"],
+        routesOn: Some(global::Rasm.Contracts.Event.Extensions.PartitionkeyFieldNumber), required: ["topic"], optional: ["accessmode"],
         dataref: new(Threshold: 5 << 20, Dual: false), spec: false,
         degrade: "no transactions; a fenced producer surfaces only on `IState`");
 
@@ -719,23 +719,23 @@ public sealed record Subscription(SinkBinding Bind, Binding Binding, ProtocolSet
 public static class EgressEventExtensions {
     // One generated-message bridge owns declaration, projection, inverse admission, field-kind correspondence,
     // and descriptor validation. This package contributes VALUES only.
-    public static readonly EventExtensionContract<global::Rasm.Contracts.Event.V1.Extensions> Contract = new(
-        global::Rasm.Contracts.Event.V1.Extensions.Parser,
-        global::Rasm.Contracts.Event.V1.Extensions.Descriptor,
+    public static readonly EventExtensionContract<global::Rasm.Contracts.Event.Extensions> Contract = new(
+        global::Rasm.Contracts.Event.Extensions.Parser,
+        global::Rasm.Contracts.Event.Extensions.Descriptor,
         new global::Celly.Protovalidate.Validator([
-            global::Rasm.Contracts.Event.V1.EventReflection.Descriptor,
+            global::Rasm.Contracts.Event.EventReflection.Descriptor,
         ]));
 
-    public static Fin<global::Rasm.Contracts.Event.V1.Extensions> Of(
+    public static Fin<global::Rasm.Contracts.Event.Extensions> Of(
         OpLogEntry row, Subscription sink, PayloadFrame framed, TraceCarrier trace, Op key) =>
         row.Sequence < 0
-            ? Fin.Fail<global::Rasm.Contracts.Event.V1.Extensions>(
+            ? Fin.Fail<global::Rasm.Contracts.Event.Extensions>(
                 key.InvalidInput(nameof(OpLogEntry.Sequence)))
             : key.Catch(() => Fin.Succ(Built(row, sink, framed, trace)));
 
-    static global::Rasm.Contracts.Event.V1.Extensions Built(
+    static global::Rasm.Contracts.Event.Extensions Built(
         OpLogEntry row, Subscription sink, PayloadFrame framed, TraceCarrier trace) {
-        global::Rasm.Contracts.Event.V1.Extensions message = framed.Extensions.Clone();
+        global::Rasm.Contracts.Event.Extensions message = framed.Extensions.Clone();
         message.Sequence = checked((ulong)row.Sequence).ToString("D20", CultureInfo.InvariantCulture);
         message.Dataclassification = framed.Grade.Key;
         // The durable entry stamp is the event-recording instant this projection can replay unchanged. A drain-time
@@ -791,7 +791,7 @@ public static class Egress {
             from extensions in EgressEventExtensions.Of(
                 row, sink, framed, row.Trace.Continue().Map(ports.Carrier).IfNone(default(TraceCarrier)), key)
             from envelope in RasmEventEnvelope.Mint(
-                new RasmEventMint<global::Rasm.Contracts.Event.V1.Extensions>(
+                new RasmEventMint<global::Rasm.Contracts.Event.Extensions>(
                     Type: type,
                     Source: source,
                     Id: id,

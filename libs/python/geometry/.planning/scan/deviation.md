@@ -47,7 +47,7 @@ from rasm.geometry.graduation import (
     evidence_run,
 )
 from rasm.contracts.artifact import ArtifactTransfer
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactRef
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactRef
 from rasm.geometry.mesh.quality import closure_fold
 from rasm.geometry.mesh.spatial import MeshSpatial, SpatialQuery, SpatialResult
 from rasm.geometry.scan.ingestion import Cloud

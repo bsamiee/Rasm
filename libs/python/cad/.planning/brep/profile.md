@@ -1,6 +1,6 @@
 # [PY_CAD_PROFILE]
 
-`profile` owns the planar grammar of `rasm.contracts.cad.v1`: loops become closed wires on a placed frame, regions become oriented faces carrying their holes, and an admitted offset rebuilds those faces as exact areas. Every generative arm at `solid#GENERATIVE` enters through this owner's face run, so profile closure, hole repair, and offset area validity are decided once here and never re-decided per solid.
+`profile` owns the planar grammar of `rasm.contracts.cad`: loops become closed wires on a placed frame, regions become oriented faces carrying their holes, and an admitted offset rebuilds those faces as exact areas. Every generative arm at `solid#GENERATIVE` enters through this owner's face run, so profile closure, hole repair, and offset area validity are decided once here and never re-decided per solid.
 
 Loop closure and span kind are structural on the wire, so this owner refuses only what the kernel refuses, returning `CadRail` over `BREP_INPUT` and `BREP_KERNEL`. Span construction composes `placement#SPANS` under the planar lift a once-lowered `Basis` supplies, which is what keeps the 2-D knot family and the 3-D segment family on one algebra. `PlacedProfile.offset` projects to `Option` at its single read and never travels inward as a null.
 
@@ -38,8 +38,8 @@ from expression import Error, Ok, Option
 from expression.collections import Block
 from expression.extra.result import sequence, traverse
 from protobuf import Message, Oneof
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import PlacedProfile
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import PiecewiseLoop, Point2, ProfileLoop, ProfileRegion
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import PlacedProfile
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import PiecewiseLoop, Point2, ProfileLoop, ProfileRegion
 
 from rasm.cad.brep.placement import Basis, EdgeKind, Lift, admitted, joined, minted, spanning, wired
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadRail

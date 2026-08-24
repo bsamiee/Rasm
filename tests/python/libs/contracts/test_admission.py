@@ -23,7 +23,7 @@ from protovalidate import ValidationError
 import pytest
 
 from rasm.contracts.admission import AdmissionError, AdmissionPhase, AdmissionSide, AsyncClosable, BodyAdmission
-from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
+from rasm.contracts.gen.rasm.contracts.clock.hlc_pb import Hlc
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

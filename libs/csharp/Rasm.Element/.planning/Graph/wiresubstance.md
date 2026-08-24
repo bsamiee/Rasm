@@ -24,7 +24,7 @@ using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Element.V1;
+using Rasm.Contracts.Element;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Properties;
@@ -116,8 +116,8 @@ internal static partial class WireCodec {
   EnvironmentalWire w = new() { Basis = ToWire(set.Basis) };
   w.Impacts.AddRange(ImpactCategory.Items.OrderBy(static row => row.Key).SelectMany(category =>
    LifecycleStage.Items.OrderBy(static row => row.Key).Select(stage => new BandCellWire {
-    Category = (Rasm.Contracts.Declaration.V1.ImpactCategory)(category.Key + 1),
-    Band = (Rasm.Contracts.Element.V1.LifecycleBand)(stage.Key + 1),
+    Category = (Rasm.Contracts.Declaration.ImpactCategory)(category.Key + 1),
+    Band = (Rasm.Contracts.Element.LifecycleBand)(stage.Key + 1),
     Value = set.IndicatorAt(category, stage),
    })));
   set.RecycledContent.IfSome(v => w.RecycledContent = v);
@@ -187,10 +187,10 @@ internal static partial class WireCodec {
  [UserMapping] internal static AcousticWire ToWire(MaterialPropertySet.Acoustic set) {
   AcousticWire w = new();
   w.Absorption.AddRange(set.AbsorptionSpectrum.Select(static (value, index) => new BandValueWire {
-   Band = (Rasm.Contracts.Element.V1.AcousticBand)(index + 1), Value = value,
+   Band = (Rasm.Contracts.Element.AcousticBand)(index + 1), Value = value,
   }));
   w.SoundReductionIndexDb.AddRange(set.SoundReductionIndexDb.Select(static (value, index) => new BandValueWire {
-   Band = (Rasm.Contracts.Element.V1.AcousticBand)(index + 1), Value = value,
+   Band = (Rasm.Contracts.Element.AcousticBand)(index + 1), Value = value,
   }));
   set.DynamicStiffnessMNPerM3.IfSome(v => w.DynamicStiffnessMnPerM3 = v); set.FlowResistivityPaSPerM2.IfSome(v => w.FlowResistivityPaSPerM2 = v);
   set.LossFactor.IfSome(v => w.LossFactor = v); return w;
@@ -279,76 +279,76 @@ internal static partial class WireCodec {
     : Fin.Fail<double[]>(new KernelFault.InvalidValue(
      $"element-wire.{column}", "carry every acoustic band exactly once", Some(key))));
 
- static Rasm.Contracts.Element.V1.FireRating ToWire(FireRating value) => value == FireRating.A1
-  ? Rasm.Contracts.Element.V1.FireRating.A1
+ static Rasm.Contracts.Element.FireRating ToWire(FireRating value) => value == FireRating.A1
+  ? Rasm.Contracts.Element.FireRating.A1
   : value == FireRating.A2
-   ? Rasm.Contracts.Element.V1.FireRating.A2
+   ? Rasm.Contracts.Element.FireRating.A2
    : value == FireRating.B
-    ? Rasm.Contracts.Element.V1.FireRating.B
+    ? Rasm.Contracts.Element.FireRating.B
     : value == FireRating.C
-     ? Rasm.Contracts.Element.V1.FireRating.C
+     ? Rasm.Contracts.Element.FireRating.C
      : value == FireRating.D
-      ? Rasm.Contracts.Element.V1.FireRating.D
+      ? Rasm.Contracts.Element.FireRating.D
       : value == FireRating.E
-       ? Rasm.Contracts.Element.V1.FireRating.E
+       ? Rasm.Contracts.Element.FireRating.E
        : value == FireRating.F
-        ? Rasm.Contracts.Element.V1.FireRating.F
+        ? Rasm.Contracts.Element.FireRating.F
         : throw new UnreachableException();
 
- static Fin<FireRating> ToFireRating(Rasm.Contracts.Element.V1.FireRating value, Op key) => value switch {
-  Rasm.Contracts.Element.V1.FireRating.A1 => Fin.Succ(FireRating.A1),
-  Rasm.Contracts.Element.V1.FireRating.A2 => Fin.Succ(FireRating.A2),
-  Rasm.Contracts.Element.V1.FireRating.B => Fin.Succ(FireRating.B),
-  Rasm.Contracts.Element.V1.FireRating.C => Fin.Succ(FireRating.C),
-  Rasm.Contracts.Element.V1.FireRating.D => Fin.Succ(FireRating.D),
-  Rasm.Contracts.Element.V1.FireRating.E => Fin.Succ(FireRating.E),
-  Rasm.Contracts.Element.V1.FireRating.F => Fin.Succ(FireRating.F),
+ static Fin<FireRating> ToFireRating(Rasm.Contracts.Element.FireRating value, Op key) => value switch {
+  Rasm.Contracts.Element.FireRating.A1 => Fin.Succ(FireRating.A1),
+  Rasm.Contracts.Element.FireRating.A2 => Fin.Succ(FireRating.A2),
+  Rasm.Contracts.Element.FireRating.B => Fin.Succ(FireRating.B),
+  Rasm.Contracts.Element.FireRating.C => Fin.Succ(FireRating.C),
+  Rasm.Contracts.Element.FireRating.D => Fin.Succ(FireRating.D),
+  Rasm.Contracts.Element.FireRating.E => Fin.Succ(FireRating.E),
+  Rasm.Contracts.Element.FireRating.F => Fin.Succ(FireRating.F),
   _ => Fin.Fail<FireRating>(key.InvalidInput(nameof(FireWire.Reaction))),
  };
 
- static Rasm.Contracts.Element.V1.SmokeClass ToSmokeClass(string value) => value switch {
-  "s1" => Rasm.Contracts.Element.V1.SmokeClass.S1,
-  "s2" => Rasm.Contracts.Element.V1.SmokeClass.S2,
-  "s3" => Rasm.Contracts.Element.V1.SmokeClass.S3,
+ static Rasm.Contracts.Element.SmokeClass ToSmokeClass(string value) => value switch {
+  "s1" => Rasm.Contracts.Element.SmokeClass.S1,
+  "s2" => Rasm.Contracts.Element.SmokeClass.S2,
+  "s3" => Rasm.Contracts.Element.SmokeClass.S3,
   _ => throw new UnreachableException(),
  };
 
- static Rasm.Contracts.Element.V1.DropletClass ToDropletClass(string value) => value switch {
-  "d0" => Rasm.Contracts.Element.V1.DropletClass.D0,
-  "d1" => Rasm.Contracts.Element.V1.DropletClass.D1,
-  "d2" => Rasm.Contracts.Element.V1.DropletClass.D2,
+ static Rasm.Contracts.Element.DropletClass ToDropletClass(string value) => value switch {
+  "d0" => Rasm.Contracts.Element.DropletClass.D0,
+  "d1" => Rasm.Contracts.Element.DropletClass.D1,
+  "d2" => Rasm.Contracts.Element.DropletClass.D2,
   _ => throw new UnreachableException(),
  };
 
  static string ToSmokeToken(FireWire wire) => !wire.HasSmoke ? "" : wire.Smoke switch {
-  Rasm.Contracts.Element.V1.SmokeClass.S1 => "s1",
-  Rasm.Contracts.Element.V1.SmokeClass.S2 => "s2",
-  Rasm.Contracts.Element.V1.SmokeClass.S3 => "s3",
+  Rasm.Contracts.Element.SmokeClass.S1 => "s1",
+  Rasm.Contracts.Element.SmokeClass.S2 => "s2",
+  Rasm.Contracts.Element.SmokeClass.S3 => "s3",
   _ => throw new UnreachableException(),
  };
 
  static string ToDropletToken(FireWire wire) => !wire.HasDroplets ? "" : wire.Droplets switch {
-  Rasm.Contracts.Element.V1.DropletClass.D0 => "d0",
-  Rasm.Contracts.Element.V1.DropletClass.D1 => "d1",
-  Rasm.Contracts.Element.V1.DropletClass.D2 => "d2",
+  Rasm.Contracts.Element.DropletClass.D0 => "d0",
+  Rasm.Contracts.Element.DropletClass.D1 => "d1",
+  Rasm.Contracts.Element.DropletClass.D2 => "d2",
   _ => throw new UnreachableException(),
  };
 
- static Rasm.Contracts.Element.V1.MeasurementBasis ToWire(MeasurementBasis value) => value == MeasurementBasis.PerKg
-  ? Rasm.Contracts.Element.V1.MeasurementBasis.PerKg
+ static Rasm.Contracts.Element.MeasurementBasis ToWire(MeasurementBasis value) => value == MeasurementBasis.PerKg
+  ? Rasm.Contracts.Element.MeasurementBasis.PerKg
   : value == MeasurementBasis.PerM2
-   ? Rasm.Contracts.Element.V1.MeasurementBasis.PerM2
+   ? Rasm.Contracts.Element.MeasurementBasis.PerM2
    : value == MeasurementBasis.PerM3
-    ? Rasm.Contracts.Element.V1.MeasurementBasis.PerM3
+    ? Rasm.Contracts.Element.MeasurementBasis.PerM3
     : value == MeasurementBasis.PerItem
-     ? Rasm.Contracts.Element.V1.MeasurementBasis.PerItem
+     ? Rasm.Contracts.Element.MeasurementBasis.PerItem
      : throw new UnreachableException();
 
- static Fin<MeasurementBasis> ToMeasurementBasis(Rasm.Contracts.Element.V1.MeasurementBasis value, Op key) => value switch {
-  Rasm.Contracts.Element.V1.MeasurementBasis.PerKg => Fin.Succ(MeasurementBasis.PerKg),
-  Rasm.Contracts.Element.V1.MeasurementBasis.PerM2 => Fin.Succ(MeasurementBasis.PerM2),
-  Rasm.Contracts.Element.V1.MeasurementBasis.PerM3 => Fin.Succ(MeasurementBasis.PerM3),
-  Rasm.Contracts.Element.V1.MeasurementBasis.PerItem => Fin.Succ(MeasurementBasis.PerItem),
+ static Fin<MeasurementBasis> ToMeasurementBasis(Rasm.Contracts.Element.MeasurementBasis value, Op key) => value switch {
+  Rasm.Contracts.Element.MeasurementBasis.PerKg => Fin.Succ(MeasurementBasis.PerKg),
+  Rasm.Contracts.Element.MeasurementBasis.PerM2 => Fin.Succ(MeasurementBasis.PerM2),
+  Rasm.Contracts.Element.MeasurementBasis.PerM3 => Fin.Succ(MeasurementBasis.PerM3),
+  Rasm.Contracts.Element.MeasurementBasis.PerItem => Fin.Succ(MeasurementBasis.PerItem),
   _ => Fin.Fail<MeasurementBasis>(key.InvalidInput(nameof(EnvironmentalWire.Basis))),
  };
 

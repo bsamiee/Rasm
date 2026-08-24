@@ -8,7 +8,7 @@
 - package: `Rasm.Contracts`
 - version: MinVer derivation from the repository's `v*` tags, never a hand-kept literal
 - assembly: `Rasm.Contracts.dll`
-- namespace: `Rasm.Contracts.<Family>.V1`
+- namespace: `Rasm.Contracts.<Family>`
 - depends: `Celly.Protovalidate`, `Google.Api.CommonProtos`, `Google.Protobuf`, `Grpc.Core.Api`
 - role: Generated-only assembly with publisher-owned package types omitted from its public roots
 - rail: Project-referenced workspace symbols and package-referenced external symbols over the same embedded descriptors
@@ -19,11 +19,11 @@
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                        |
 | :-----: | :----------------------------------- | :------------ | :-------------------------------------------------- |
-|  [01]   | `Rasm.Contracts.<F>.V1.<Msg>`        | class         | generated `IMessage<T>` value                       |
+|  [01]   | `Rasm.Contracts.<F>.<Msg>`           | class         | generated `IMessage<T>` value                       |
 |  [02]   | `<Msg>.Parser`                       | property      | typed binary and stream parser                      |
 |  [03]   | `<Msg>.Descriptor`                   | property      | generated message descriptor                        |
 |  [04]   | `<File>Reflection.Descriptor`        | property      | generated file descriptor and imported option graph |
-|  [05]   | `Rasm.Contracts.<F>.V1.<Enum>`       | enum          | generated closed numeric vocabulary                 |
+|  [05]   | `Rasm.Contracts.<F>.<Enum>`          | enum          | generated closed numeric vocabulary                 |
 |  [06]   | `<Msg>.<Oneof>OneofCase`             | enum          | generated oneof discriminant                        |
 |  [07]   | `<Msg>.Has<Field>`/`.Clear<Field>()` | property pair | optional scalar and enum presence access            |
 |  [08]   | `<Msg>.Types.<Nested>`               | class         | nested generated declaration                        |
@@ -31,13 +31,13 @@
 |  [10]   | `<Svc>.<Svc>Client`                  | class         | generated unary and streaming client surface        |
 
 [SYMBOL_TRAPS]:
-- `capability.v1.AvailableCapability` emits `string descriptor = 1` as `Descriptor_` — protoc mangles a field colliding with the static `Descriptor`.
+- `capability.AvailableCapability` emits `string descriptor = 1` as `Descriptor_` — protoc mangles a field colliding with the static `Descriptor`.
 - Fences bind the GENERATED spelling — a hand-written `Descriptor` binds the static message descriptor, never the field value.
 
 ## [03]-[ROSTER]
 
 <!-- roster:begin -->
-[ROSTER_SCOPE]: `rasm.contracts.artifact.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.artifact` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                  | [KIND]  | [ORIGIN]        | [SYMBOL]                |
 | :-----: | :---------------------- | :------ | :-------------- | :---------------------- |
@@ -51,7 +51,7 @@
 |  [08]   | `ArtifactService.Fetch` | method  | public-root     | `ArtifactService.Fetch` |
 |  [09]   | `ArtifactService.Put`   | method  | public-root     | `ArtifactService.Put`   |
 
-[ROSTER_SCOPE]: `rasm.contracts.appearance.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.appearance` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                                            | [KIND]  | [ORIGIN]        | [SYMBOL]                              |
 | :-----: | :------------------------------------------------ | :------ | :-------------- | :------------------------------------ |
@@ -75,7 +75,7 @@
 |  [18]   | `Emission`                                        | message | support-closure | `Emission`                            |
 |  [19]   | `Material`                                        | message | public-root     | `Material`                            |
 
-[ROSTER_SCOPE]: `rasm.contracts.compute.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.compute` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                          | [KIND]  | [ORIGIN]        | [SYMBOL]                        |
 | :-----: | :------------------------------ | :------ | :-------------- | :------------------------------ |
@@ -103,7 +103,7 @@
 |  [22]   | `ComputeService`                | service | support-closure | `ComputeService`                |
 |  [23]   | `ComputeService.Tessellate`     | method  | public-root     | `ComputeService.Tessellate`     |
 
-[ROSTER_SCOPE]: `rasm.contracts.availability.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.availability` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                              | [KIND]  | [ORIGIN]        | [SYMBOL]                      |
 | :-----: | :---------------------------------- | :------ | :-------------- | :---------------------------- |
@@ -112,7 +112,7 @@
 |  [03]   | `CommandVerdictWire.Types.Withheld` | message | support-closure | `CommandVerdictWire.Withheld` |
 |  [04]   | `CommandAvailability`               | message | public-root     | `CommandAvailability`         |
 
-[ROSTER_SCOPE]: `rasm.contracts.bcf.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.bcf` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
 | :-----: | :------------------ | :------ | :-------------- | :------------------ |
@@ -134,7 +134,7 @@
 |  [16]   | `BcfStatus`         | enum    | support-closure | `BcfStatus`         |
 |  [17]   | `BcfBitmapFormat`   | enum    | support-closure | `BcfBitmapFormat`   |
 
-[ROSTER_SCOPE]: `rasm.contracts.benchmark.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.benchmark` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                | [KIND]  | [ORIGIN]        | [SYMBOL]              |
 | :-----: | :-------------------- | :------ | :-------------- | :-------------------- |
@@ -154,7 +154,7 @@
 |  [14]   | `PayloadBand`         | enum    | support-closure | `PayloadBand`         |
 |  [15]   | `BenchRung`           | enum    | support-closure | `BenchRung`           |
 
-[ROSTER_SCOPE]: `rasm.contracts.declaration.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.declaration` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
 | :-----: | :------------------ | :------ | :-------------- | :------------------ |
@@ -168,7 +168,7 @@
 |  [08]   | `ImpactCategory`    | enum    | support-closure | `ImpactCategory`    |
 |  [09]   | `Module`            | enum    | support-closure | `Module`            |
 
-[ROSTER_SCOPE]: `rasm.contracts.element.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.element` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]               | [KIND]  | [ORIGIN]        | [SYMBOL]             |
 | :-----: | :------------------- | :------ | :-------------- | :------------------- |
@@ -193,7 +193,7 @@
 |  [19]   | `EditMembers`        | message | support-closure | `EditMembers`        |
 |  [20]   | `EntityEditWire`     | message | public-root     | `EntityEditWire`     |
 
-[ROSTER_SCOPE]: `rasm.contracts.bim.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.bim` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
 | :-----: | :------------------ | :------ | :-------------- | :------------------ |
@@ -207,7 +207,7 @@
 |  [08]   | `ModelDiffWire`     | message | public-root     | `ModelDiffWire`     |
 |  [09]   | `DeltaShape`        | enum    | support-closure | `DeltaShape`        |
 
-[ROSTER_SCOPE]: `rasm.contracts.binding.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.binding` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                              | [KIND]  | [ORIGIN]        | [SYMBOL]                      |
 | :-----: | :---------------------------------- | :------ | :-------------- | :---------------------------- |
@@ -224,13 +224,13 @@
 |  [11]   | `WriteReceiptWire`                  | message | public-root     | `WriteReceiptWire`            |
 |  [12]   | `EchoClass`                         | enum    | support-closure | `EchoClass`                   |
 
-[ROSTER_SCOPE]: `rasm.contracts.clock.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.clock` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME] | [KIND]  | [ORIGIN]    | [SYMBOL] |
 | :-----: | :----- | :------ | :---------- | :------- |
 |  [01]   | `Hlc`  | message | public-root | `Hlc`    |
 
-[ROSTER_SCOPE]: `rasm.contracts.fault.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.fault` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]             | [KIND]  | [ORIGIN]        | [SYMBOL]           |
 | :-----: | :----------------- | :------ | :-------------- | :----------------- |
@@ -238,7 +238,7 @@
 |  [02]   | `FaultObservation` | message | support-closure | `FaultObservation` |
 |  [03]   | `FaultDetail`      | message | public-root     | `FaultDetail`      |
 
-[ROSTER_SCOPE]: `rasm.contracts.capability.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.capability` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [SYMBOL]                              |
 | :-----: | :------------------------------------ | :------ | :-------------- | :------------------------------------ |
@@ -251,7 +251,7 @@
 |  [07]   | `CapabilityDiscoveryService`          | service | support-closure | `CapabilityDiscoveryService`          |
 |  [08]   | `CapabilityDiscoveryService.Discover` | method  | public-root     | `CapabilityDiscoveryService.Discover` |
 
-[ROSTER_SCOPE]: `rasm.contracts.crdt.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.crdt` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]          | [KIND]  | [ORIGIN]        | [SYMBOL]        |
 | :-----: | :-------------- | :------ | :-------------- | :-------------- |
@@ -269,20 +269,20 @@
 |  [12]   | `LeaveOp`       | message | support-closure | `LeaveOp`       |
 |  [13]   | `CrdtOpWire`    | message | public-root     | `CrdtOpWire`    |
 
-[ROSTER_SCOPE]: `rasm.contracts.credential.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.credential` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                 | [KIND]  | [ORIGIN]        | [SYMBOL]               |
 | :-----: | :--------------------- | :------ | :-------------- | :--------------------- |
 |  [01]   | `CertificateChain`     | message | support-closure | `CertificateChain`     |
 |  [02]   | `CredentialPublicWire` | message | public-root     | `CredentialPublicWire` |
 
-[ROSTER_SCOPE]: `rasm.contracts.event.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.event` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]       | [KIND]  | [ORIGIN]    | [SYMBOL]     |
 | :-----: | :----------- | :------ | :---------- | :----------- |
 |  [01]   | `Extensions` | message | public-root | `Extensions` |
 
-[ROSTER_SCOPE]: `rasm.contracts.fabrication.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.fabrication` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]           | [KIND]  | [ORIGIN]        | [SYMBOL]         |
 | :-----: | :--------------- | :------ | :-------------- | :--------------- |
@@ -297,14 +297,14 @@
 |  [09]   | `Material`       | enum    | support-closure | `Material`       |
 |  [10]   | `Egress`         | enum    | support-closure | `Egress`         |
 
-[ROSTER_SCOPE]: `rasm.contracts.feature.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.feature` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]            | [KIND]  | [ORIGIN]        | [SYMBOL]          |
 | :-----: | :---------------- | :------ | :-------------- | :---------------- |
 |  [01]   | `FlagVerdictWire` | message | public-root     | `FlagVerdictWire` |
 |  [02]   | `FlagReason`      | enum    | support-closure | `FlagReason`      |
 
-[ROSTER_SCOPE]: `rasm.contracts.organization.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.organization` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]         | [KIND]  | [ORIGIN]        | [SYMBOL]       |
 | :-----: | :------------- | :------ | :-------------- | :------------- |
@@ -313,7 +313,7 @@
 |  [03]   | `EntityPath`   | message | support-closure | `EntityPath`   |
 |  [04]   | `Organization` | message | public-root     | `Organization` |
 
-[ROSTER_SCOPE]: `rasm.contracts.parity.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.parity` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]         | [KIND]  | [ORIGIN]        | [SYMBOL]       |
 | :-----: | :------------- | :------ | :-------------- | :------------- |
@@ -325,7 +325,7 @@
 |  [06]   | `FailureRank`  | enum    | support-closure | `FailureRank`  |
 |  [07]   | `RestartClass` | enum    | support-closure | `RestartClass` |
 
-[ROSTER_SCOPE]: `rasm.contracts.render.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.render` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
 | :-----: | :------------------ | :------ | :-------------- | :------------------ |
@@ -338,14 +338,14 @@
 |  [07]   | `StreamMode`        | enum    | support-closure | `StreamMode`        |
 |  [08]   | `StreamFilter`      | enum    | support-closure | `StreamFilter`      |
 
-[ROSTER_SCOPE]: `rasm.contracts.scan.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.scan` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
 | :-----: | :------------------ | :------ | :-------------- | :------------------ |
 |  [01]   | `GaussianSplatScan` | message | public-root     | `GaussianSplatScan` |
 |  [02]   | `SplatFormat`       | enum    | support-closure | `SplatFormat`       |
 
-[ROSTER_SCOPE]: `rasm.contracts.scene.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.scene` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                    | [KIND]  | [ORIGIN]        | [SYMBOL]                  |
 | :-----: | :------------------------ | :------ | :-------------- | :------------------------ |
@@ -366,7 +366,7 @@
 |  [15]   | `Falloff`                 | enum    | support-closure | `Falloff`                 |
 |  [16]   | `WebDialect`              | enum    | support-closure | `WebDialect`              |
 
-[ROSTER_SCOPE]: `rasm.contracts.ui.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+[ROSTER_SCOPE]: `rasm.contracts.ui` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
 | [INDEX] | [NAME]                                          | [KIND]  | [ORIGIN]        | [SYMBOL]                            |
 | :-----: | :---------------------------------------------- | :------ | :-------------- | :---------------------------------- |
@@ -408,7 +408,7 @@
 
 [TOPOLOGY]:
 - Root generation rewrites the generated tree and roster markers from one descriptor image.
-- Managed package identity derives `Rasm.Contracts.<Family>.V1`; selective roots omit publisher-owned packages from both C# plugins.
+- Managed package identity derives `Rasm.Contracts.<Family>`; selective roots omit publisher-owned packages from both C# plugins.
 - `Directory.Build.props` isolates the assembly from workspace references and analyzers while central package versions remain active.
 - Embedded descriptors carry corpus validation options into `Celly.Protovalidate.Validator`.
 

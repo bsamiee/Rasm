@@ -57,7 +57,7 @@ from assay.rails.contracts import (
     WaveformFacts,
 )
 import rasm.contracts.gen as generated
-from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
+from rasm.contracts.gen.rasm.contracts.clock.hlc_pb import Hlc
 import rasm.contracts.vendor as vendored
 from rasm.contracts.vendor.io.cloudevents.v1.cloudevents_pb import CloudEvent
 
@@ -294,11 +294,11 @@ def _facts(case: Case, specimen: SpecimenAsset, expected: ExpectedFacts, root: P
 def _expected(root: Path, asset: ExpectedAsset, /) -> ExpectedFacts:
     decoded = _FACTS.decode(_asset(root, asset))
     matches = (
-        (asset.facts_format == "backend-generation-v1" and isinstance(decoded, BackendGenerationFacts))
-        or (asset.facts_format == "content-digest-v1" and isinstance(decoded, ContentDigestFacts))
-        or (asset.facts_format == "hlc-value-v1" and isinstance(decoded, HlcValueFacts))
-        or (asset.facts_format == "hdf5-facts-v1" and isinstance(decoded, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts)))
-        or (asset.facts_format == "matrix-market-facts-v1" and isinstance(decoded, MatrixMarketFacts))
+        (asset.facts_format == "backend-generation" and isinstance(decoded, BackendGenerationFacts))
+        or (asset.facts_format == "content-digest" and isinstance(decoded, ContentDigestFacts))
+        or (asset.facts_format == "hlc-value" and isinstance(decoded, HlcValueFacts))
+        or (asset.facts_format == "hdf5-facts" and isinstance(decoded, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts)))
+        or (asset.facts_format == "matrix-market-facts" and isinstance(decoded, MatrixMarketFacts))
     )
     assert matches, f"{asset.path}: {asset.facts_format} does not match {type(decoded).__name__}"
     return decoded
@@ -341,13 +341,13 @@ def _vector(case: Case, vector: ProofVector, root: Path, /) -> bool:
                 _roundtrip(case, specimen, _asset(root, specimen))
             return True
         case "semantic-conformance":
-            assert vector.expected is not None and vector.expected.facts_format == "hdf5-facts-v1", (
+            assert vector.expected is not None and vector.expected.facts_format == "hdf5-facts", (
                 f"{case.id}: Python has no local semantic-conformance route outside the Assay corpus oracle"
             )
             return False
         case "value-parity":
             assert vector.expected is not None, f"{case.id}: value parity requires typed expected facts"
-            if vector.expected.facts_format in {"backend-generation-v1", "hdf5-facts-v1", "matrix-market-facts-v1"}:
+            if vector.expected.facts_format in {"backend-generation", "hdf5-facts", "matrix-market-facts"}:
                 return False
             expected = _expected(root, vector.expected)
             for specimen in vector.specimens:

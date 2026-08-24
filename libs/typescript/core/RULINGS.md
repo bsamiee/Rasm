@@ -69,7 +69,7 @@
 - `Event.address` is the one tagged, length-framed `(source,id)` digest consumed by ingress and transport deduplication.
 - `Invoke.Dial` is the ONE Connect selector — its adapter family admits the supported web and Node pairs, and no other pair has a type arm.
 - Connect GET carries no knob — no service this branch binds declares `NO_SIDE_EFFECTS`, so `useHttpGet` and a protocol `httpGet` column stay deleted.
-- `Wire.Texture` derives every roster from the generated `appearance.v1` enums — columns close on defined members; a token roster is the twin.
+- `Wire.Texture` derives every roster from the generated `appearance` enums — columns close on defined members; a token roster is the twin.
 - Caller-defined magnitudes ride the wide event, never a metric row — a summed series folds disparate units into a code no UCUM row spells.
 - `Convention` families with a caller-keyed remainder declare ONE rendered payload row — nested shapes and instants flatten into no closed roster.
 - `Wire.GeoFeature` stays OUT of the family roster — the Bim crossing is raw GeoJSON text and WKB bytes, so no producer row or parity gate seats it.
@@ -98,7 +98,7 @@
 ## [04]-[STRUCTURE]
 
 - `Wire` landing mirrors of C# ProtoJSON do NOT re-enter — the generated semantic-package schemas under protovalidate land them.
-- `interchange/contract.ts` does NOT re-enter — `buf breaking` FILE at the corpus is the one compatibility authority; no page diffs descriptors.
+- `interchange/contract.ts` does NOT re-enter — one live contract shape reshapes corpus-wide, regenerating every consumer; no page diffs descriptors.
 - `DescriptorPin` lands at `interchange/codec`; `interchange/invoke` admits it and `Dial.sdk` raises divergent protobuf package identity as `drift`.
 
 ## [05]-[PROCESS]

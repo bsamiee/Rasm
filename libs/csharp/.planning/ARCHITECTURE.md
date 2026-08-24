@@ -159,15 +159,15 @@ flowchart LR
     Element e2@<-->|"[WIRE]: GlbContentHash"| PyGeometry
     Element e3@<-->|"[CONTENT_KEY]: ContentAddress"| PyRuntime
     Bim e4@<-->|"[WIRE]: IfcWire"| PyGeometry
-    Materials e5@-->|"[WIRE]: appearance.v1.Material"| PyRuntime
-    Materials e6@<-->|"[WIRE]: appearance.v1.Set"| PyArtifacts
-    Fabrication e7@-->|"[WIRE]: fabrication.v1.FeatureControl"| PyArtifacts
-    AppHost e8@-->|"[WIRE]: capability.v1.DiscoverResponse"| PyRuntime
+    Materials e5@-->|"[WIRE]: appearance.Material"| PyRuntime
+    Materials e6@<-->|"[WIRE]: appearance.Set"| PyArtifacts
+    Fabrication e7@-->|"[WIRE]: fabrication.FeatureControl"| PyArtifacts
+    AppHost e8@-->|"[WIRE]: capability.DiscoverResponse"| PyRuntime
     Compute e9@-->|"[WIRE]: ComputeService.Tessellate unary + ArtifactService.Fetch server-stream"| PyGeometry
-    Compute e10@<-->|"[WIRE]: fault.v1.FaultDetail"| PyRuntime
+    Compute e10@<-->|"[WIRE]: fault.FaultDetail"| PyRuntime
     Compute e11@-->|"[GRADUATION]: GraduationEvidence"| PyCompute
     Compute e12@-->|"[SHAPE]: DoeDataset"| PyData
-    Persistence e13@<-->|"[WIRE]: native MessagePack OpLogEntry; crdt payload = crdt.v1.CrdtOpWire"| PyRuntime
+    Persistence e13@<-->|"[WIRE]: native MessagePack OpLogEntry; crdt payload = crdt.CrdtOpWire"| PyRuntime
     Persistence e14@<-->|"[WIRE]: SubstraitPlan"| PyData
     Compute e15@-->|"[CONTAINER]: FieldContainer"| PyData
     Compute e16@<-->|"[CONTAINER]: SparseExchange"| PyCompute
@@ -200,16 +200,16 @@ flowchart LR
     TsUi([typescript:ui])
     TsRuntime([typescript:runtime])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| TsCore
-    Persistence e3@-->|"[WIRE]: native MessagePack OpLogEntry; crdt payload = crdt.v1.CrdtOpWire"| TsCore
+    Persistence e3@-->|"[WIRE]: native MessagePack OpLogEntry; crdt payload = crdt.CrdtOpWire"| TsCore
     Bim e4@-->|"[WIRE]: IfcWire"| TsCore
-    Bim e5@<-->|"[WIRE]: bcf.v1 BcfTopicWire"| TsUi
-    Materials e6@-->|"[WIRE]: appearance.v1.Material + Set"| TsCore
-    AppUi e7@-->|"[WIRE]: ui.v1 command + control + layout + evidence; render.v1 residency + view"| TsUi
-    AppHost e8@-->|"[WIRE]: receipt.v1 ReceiptHeaderWire"| TsCore
-    AppHost e9@-->|"[WIRE]: outbox.v1 + binding.v1"| TsUi
-    Persistence e10@<-->|"[CONTRACT]: parity.v1.Backend"| TsData
+    Bim e5@<-->|"[WIRE]: bcf BcfTopicWire"| TsUi
+    Materials e6@-->|"[WIRE]: appearance.Material + Set"| TsCore
+    AppUi e7@-->|"[WIRE]: ui command + control + layout + evidence; render residency + view"| TsUi
+    AppHost e8@-->|"[WIRE]: receipt ReceiptHeaderWire"| TsCore
+    AppHost e9@-->|"[WIRE]: outbox + binding"| TsUi
+    Persistence e10@<-->|"[CONTRACT]: parity.Backend"| TsData
     AppHost e11@-->|"[TRANSPORT]: OtelExport"| TsRuntime
-    Compute e12@-->|"[WIRE]: fault.v1.FaultDetail"| TsCore
+    Compute e12@-->|"[WIRE]: fault.FaultDetail"| TsCore
 ```
 
 ## [04]-[INTERNAL]
@@ -243,7 +243,7 @@ flowchart LR
 
 Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` for the two projectors and `IGraphConstraint` for composition-time delta legality. Element's `TypeCandidate` record carries the type-reconciliation loop beside them as contract-aligned data under the Bim-declared `IIfcTypeReconciler` port, both ends composing one declaration, never a package edge. Owners mint their own identity at their own seam and nothing re-mints a peer's: Materials the deterministic Type node, Bim the per-ingest rooted id.
 
-Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the migration.
+Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the move.
 
 Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule, every stratum composes it as instances with per-folder fact unions as the one per-folder signal type, and telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
 

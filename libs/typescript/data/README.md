@@ -14,7 +14,7 @@
 
 [JOURNAL]:
 - [07]-[APPEND](.planning/journal/append.md): Journal, outbox, and idempotency settling atomically — a replay returns its stored receipt.
-- [08]-[EVOLVE](.planning/journal/evolve.md): Schema evolution without migrations — author-stamped versions lift at read through total chains.
+- [08]-[EVOLVE](.planning/journal/evolve.md): One generation per log — a shape change re-mints it whole under a custody receipt.
 - [09]-[FACT](.planning/journal/fact.md): Audit evidence and usage metering as one polymorphic fact family on one buffered rail.
 - [10]-[RETAIN](.planning/journal/retain.md): Lawful aging — the log never rewrites; windows expire ledgers, shredding folds reads to redaction.
 

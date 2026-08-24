@@ -127,6 +127,8 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 
 [COMPOSITION]:
+- ALWAYS keep one live shape per estate surface — schemas, contracts, and storage keys spell no version segment; change replaces the shape whole.
+- ALWAYS rebuild stateful stores from declared truth on shape change — desired-state apply and whole replacement; migration logic never exists.
 - ALWAYS compose existing logic before minting parallel forms; wire new logic into consumers same-pass — a file no owner reaches is a dead end.
 - ALWAYS treat admitted packages as the standard library — use the deepest operator they reach; unmined capability is a hand-rolling defect.
 - ALWAYS route a wanted capability DOWN-STRATA to the lowest folder that nearly holds it; surgical substrate work powers every consumer above.
@@ -188,9 +190,9 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - ALWAYS apply smaller-to-larger only after ownership and dependency: anchors before policies, axes before models, leaf ops before orchestration.
 - ALWAYS treat kind as an owner-local tiebreaker, not a new section — it ranks only among peers equal in ownership, dependency, and semantic rank.
 - ALWAYS order same-owner peers public, then internal, then private — unless static construction, generated semantics, or read-before-use wins.
-- ALWAYS hold owner-defined domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, public API.
+- ALWAYS hold owner-defined domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, provisioning-step, public API.
 - ALWAYS insert a domain extension right after its closest core section; a precise label is earned by real ownership.
 - ALWAYS use extension vocabulary: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, `[ENTRY]`.
 - NEVER split source-generated owners, delegate-backed enum behavior, validation partials, or operation-local state for mechanical section order.
-- NEVER split resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy section order.
+- NEVER split resource/disposal boundaries, dispatch tables, SQL invariants, or DDL provisioning units to satisfy section order.
 - NEVER seat callable row catalogs, memo tables, or DDL-dependent objects in `[CONSTANTS]`; home each in its owning later section or extension.

@@ -48,10 +48,12 @@
 - Cross-package references to a twice-carried name scope-qualify at the reference site — the ambiguity is the citation's defect, never the owner's.
 - Producing folders declare a fact's `Retain` CLASS and never a window, ledger, or groom — the plane arrives bound at the composition root.
 - Append-only log planes own truth and derived planes carry zero authority — a crossing shape names its truth plane and its rebuild route.
+- Schema generations replace WHOLE — the deploy plane materializes and cuts over atomically, and runtime verifies the generation it observes.
+- Relations declare where truth lives — `Derived` rebuilds from the log, `Carried` re-materializes at cutover, `Resident` outlives the generation.
 - Vector clocks encode with slots SORTED by origin — bucket order gives one causal position a digest per runtime, unfreezing every fixture over it.
 - Compaction admits only where the entry's causal context DOMINATES its declared horizon — a state fold holds no frontier and refuses nothing.
 - Op-log entries retain one thirteen-slot MessagePack envelope because their raw payload carries multiple lane codecs.
-- `crdt` is the ONE lane binding op-log payload bytes to generated `crdt.v1.CrdtOpWire`; every other lane stays opaque and unframed.
+- `crdt` is the ONE lane binding op-log payload bytes to generated `crdt.CrdtOpWire`; every other lane stays opaque and unframed.
 - `CrdtOpWire` carries a delta, not operation identity — every merge fold retains the outer op-log dot.
 - MV-register versions retain their dots; observed context removes only versions it dominates.
 - OR-set removal scopes observed tags to its element, and RGA compaction preserves routes to live descendants.
@@ -88,9 +90,9 @@
 - Spec-stage fault-envelope deletions compact every producer and consumer — no reserve, alias, legacy field, or dual decoder preserves dead shape.
 - Recognized-but-malformed details refuse TYPED at admission — an unknown detail type and an unknown code stay opaque evidence nobody guesses at.
 - Remote domain codes drive no topology — transport outcomes alone elect failover, keeping each branch taxonomy local.
-- Proto packages spell `rasm.contracts.<family>.v1` and managed mode derives every language option — an inline `csharp_namespace` forks it.
-- Breaking proof pins the active module's `main` label to one immutable commit and proves FILE against it; publication re-pins it unchanged at push.
-- Assay's gated publish rail alone proves first publication — descriptor equality, local snapshots, `breaking.ignore`, and baselines settle nothing.
+- Proto packages spell `rasm.contracts.<family>` and managed mode derives every language option — an inline `csharp_namespace` forks it.
+- Estate surfaces spell no version segment — packages, event types, and storage keys reshape in place with every consumer updated same-change.
+- Assay's gated publish rail alone proves publication — descriptor equality and the `main`-label pin settle custody; local snapshots settle nothing.
 - Wire material crosses in its own binary encoding and text framings marshal at the call — the schema discriminant outranks a payload's armor label.
 - One `main` label carries the RELEASED stream — a lock shields resolved consumers alone, so an unready commit rides a non-default label or waits.
 

@@ -1,6 +1,6 @@
 # [PERSISTENCE]
 
-A store is one declared profile and one operation rail. Engine, placement, and codec are orthogonal axes crossed by one profile row — provider admission, capability slots, write authority, naming policy, and converter admission are row columns — so a new deployment topology is rows with zero new store code. The context is a pooled unit-of-work capsule that never escapes its bracket, and every store interaction is a value in one closed op family whose arity is the input value's shape. Boot folds schema state to one typed verdict — a store whose schema is newer than the compiled model is a typed rejection carrying the unknown identifiers, never a best-effort open — and a schema change is a typed value classified physically, gated at generation, and split into expand and contract waves. Identity mints once at admission, every secondary key surface derives from one selector, and write mass self-emits its facts and its invalidation inside the statement that caused them. Growth lands as rows: a new engine is one profile row, a new operation one request case, a new aggregate one configuration block, a new hot query one compiled-delegate row.
+A store is one declared profile and one operation rail. Engine, placement, and codec are orthogonal axes crossed by one profile row — provider admission, capability slots, write authority, naming policy, and converter admission are row columns — so a new deployment topology is rows with zero new store code. The context is a pooled unit-of-work capsule that never escapes its bracket, and every store interaction is a value in one closed op family whose arity is the input value's shape. Boot folds the observed generation digest and object census to one typed verdict — a store carrying objects the compiled model cannot describe refuses typed and names them, never a best-effort open — and a shape change mints one whole generation the deploy plane materializes into a fresh namespace and publishes by one rename transaction. Identity mints once at admission, every secondary key surface derives from one selector, and write mass self-emits its facts and its invalidation inside the statement that caused them. Growth lands as rows: a new engine is one profile row, a new operation one request case, a new aggregate one configuration block, a new hot query one compiled-delegate row.
 
 ## [01]-[STORE_CHOOSER]
 
@@ -13,8 +13,8 @@ This table routes a persistence concern to its owning surface; the most specific
 |  [03]   | domain types in columns | one generated-converter admission      | hand-written converter per type |
 |  [04]   | aggregate document      | complex-type mapping declaration       | owned-entity JSON               |
 |  [05]   | save observation        | interceptor spine rows                 | service-layer try/catch         |
-|  [06]   | schema state at boot    | migration verdict fold                 | best-effort open                |
-|  [07]   | destructive change      | generation-time class gate + waves     | apply-time gating               |
+|  [06]   | schema state at boot    | generation verdict fold                | best-effort open                |
+|  [07]   | shape change            | generation digest + cutover rename     | in-place alter wave             |
 |  [08]   | row identity            | identity policy row + one key selector | per-surface key respelling      |
 |  [09]   | store operations        | one op family + one bracket            | repository per aggregate        |
 |  [10]   | pagination              | keyset page op, `Option<Cursor>` input | offset paging                   |
@@ -24,11 +24,11 @@ This table routes a persistence concern to its owning surface; the most specific
 ## [02]-[PROFILE_AXIS]
 
 [AXIS_ROWS]:
-- Law: a store is one profile row crossing three orthogonal axes, each a `[SmartEnum<string>]` item — engine carries the provider-admission delegate (a `[UseDelegateFromConstructor]` partial) plus capability columns, placement carries write, migrate, and read-ahead authority, codec carries the naming-and-converter framing delegate plus the tracking-posture column — so a new engine, placement, or codec is one item that lands every `Switch` arm at compile time, never a parallel record bag forfeiting totality; interior code never branches on the provider, and provider probes are test assertions only.
+- Law: a store is one profile row crossing three orthogonal axes, each a `[SmartEnum<string>]` item — engine carries the provider-admission delegate (a `[UseDelegateFromConstructor]` partial) plus capability columns, placement carries write, materialize, and read-ahead authority, codec carries the naming-and-converter framing delegate plus the tracking-posture column — so a new engine, placement, or codec is one item that lands every `Switch` arm at compile time, never a parallel record bag forfeiting totality; interior code never branches on the provider, and provider probes are test assertions only.
 - Law: capability columns are option-typed lane slots — a lane the engine lacks is an absent slot that never composes for that profile, exclusion at composition with a typed explanation, never a runtime not-supported throw.
-- Law: the relational base is the shared knob set every row inherits as data — `MaxBatchSize`, `CommandTimeout`, `MigrationsHistoryTable`, `UseQuerySplittingBehavior`, `UseParameterizedCollectionMode`, `ExecutionStrategy` — and the `ExecutionStrategy` slot is where store transaction retry lands as a profile row, the retry-owner split arriving settled.
+- Law: the relational base is the shared knob set every row inherits as data — `MaxBatchSize`, `CommandTimeout`, `UseQuerySplittingBehavior`, `UseParameterizedCollectionMode`, `ExecutionStrategy` — and the `ExecutionStrategy` slot is where store transaction retry lands as a profile row, the retry-owner split arriving settled.
 - Law: the model cache keys on context type plus design-time flag, never provider — one context type against two engines silently serves the first-built model to the second; the escape trilemma is legislated at composition: per-profile context types, one compiled model per profile, or `IModelCacheKeyFactory`, which forecloses compiled models entirely.
-- Law: naming is schema policy declared once — `UseSnakeCaseNamingConvention` rewrites every identifier at model build, migrations record the rewritten names as schema facts, and the compiled model carries them at zero runtime cost; changing the policy on a live schema is a full-rename migration, a day-zero decision.
+- Law: naming is schema policy declared once — `UseSnakeCaseNamingConvention` rewrites every identifier at model build, the generation artifacts record the rewritten names, and the compiled model carries them at zero runtime cost; a policy change moves every identifier, so it mints a generation whose every truth relation carries across, a day-zero decision.
 - Law: generated domain types cross through one admission — `UseThinktectureValueConverters` installs the conventions plugin and every keyed smart enum, value object, and keyed union maps through its derived converter; `AddThinktectureValueConverters` and `HasThinktectureValueConverter` narrow scope and never widen, a hand-written converter for a generated type is the rejected form, and converter bridges stay public or internal because a private member fails only when the model compiles.
 - Boundary: the embedded row admits its provider here; journal mode, pragmas, and cross-process file law are embedded-durability specialization composed beneath the row.
 
@@ -37,17 +37,17 @@ This table routes a persistence concern to its owning surface; the most specific
 - Law: a pooled context is frozen state — `OnConfiguring` runs once for the pool's lifetime — so per-acquisition discriminants stamp through a wrapping `IDbContextFactory<TContext>` that acquires from the pooled factory and stamps before handing out; pool return resets EF-owned state only, and driver session state leaks across acquisitions unless restored before the bracket closes.
 - Law: tracking is the codec row's column, not a free knob — the read codec carries `QueryTrackingBehavior.NoTrackingWithIdentityResolution` as its model-wide default so projections that alias repeated entities resolve identities without the tracked path, the write codec carries `TrackAll`, and the per-query `AsNoTrackingWithIdentityResolution` operator is the single-statement override above either default; the tracked path exists only inside unit-of-work ops that end in a save.
 - Law: model acquisition is a three-route fold per row — compiled (`UseModel` plus the fingerprint gate), cached-built under the shared memory governor, per-discriminant compiled instances; below hundreds of entity types the regeneration obligation costs more than the first-operation latency it buys.
-- Law: `EnsureCreated` bypasses the history mechanism and a later migration apply fails — the ephemeral test row is its only admission.
+- Law: three materialization arms read one compiled model — `GenerateCreateScript` renders the generation as a value the deploy plane carries, `IRelationalDatabaseCreator.CreateTables` builds it into the session's current namespace, and `Database.EnsureCreated` paired with `EnsureDeleted` serves the ephemeral row owning its whole store — and the placement row elects the arm, never a call site.
 - Exemption: the options-builder fold and the stamping body are the platform-forced statement seam.
 
 ```csharp conceptual
 [SmartEnum<string>]
 public sealed partial class Placement {
-    public static readonly Placement SingleWriter = new("<placement-a>", writes: true, appliesPending: true, readsAhead: false);
-    public static readonly Placement FleetMember = new("<placement-b>", writes: true, appliesPending: false, readsAhead: false);
-    public static readonly Placement Reader = new("<placement-c>", writes: false, appliesPending: false, readsAhead: true);
+    public static readonly Placement SingleWriter = new("<placement-a>", writes: true, materializes: true, readsAhead: false);
+    public static readonly Placement FleetMember = new("<placement-b>", writes: true, materializes: false, readsAhead: false);
+    public static readonly Placement Reader = new("<placement-c>", writes: false, materializes: false, readsAhead: true);
     public bool Writes { get; }
-    public bool AppliesPending { get; }
+    public bool Materializes { get; }
     public bool ReadsAhead { get; }
 }
 
@@ -70,7 +70,7 @@ public sealed partial class EngineRow {
     public partial DbContextOptionsBuilder<StoreContext> Admit(DbContextOptionsBuilder<StoreContext> builder, string dsn);
 
     static DbContextOptionsBuilder<StoreContext> Sqlite(DbContextOptionsBuilder<StoreContext> builder, string dsn) =>
-        builder.UseSqlite(dsn, static sqlite => sqlite.MigrationsHistoryTable("<history-a>"));
+        builder.UseSqlite(dsn, static sqlite => sqlite.CommandTimeout(30));
     static DbContextOptionsBuilder<StoreContext> Postgres(DbContextOptionsBuilder<StoreContext> builder, string dsn) =>
         builder.UseNpgsql(dsn, static npgsql => npgsql.EnableRetryOnFailure());
 }
@@ -107,7 +107,7 @@ public sealed record StoreProfile(EngineRow Engine, Placement Placement, Codec C
 [DOCUMENT_SHAPE]:
 - Law: complex types are the document owner — value semantics end-to-end, so one value legally aliases into two slots and content equality translates in queries; one declaration chooses table splitting into prefixed columns or `ToJson` into a document column, and that declaration silently decides the write lane: complex document interiors are legal set-based targets, owned-entity JSON is foreclosed from that lane and rejected for new models.
 - Law: `ComplexCollection` exists only in the JSON mapping and never table-splits; structs admit as complex types while struct collections do not, and an all-optional complex type is a model-validation rejection, so every complex type carries one required member.
-- Law: migrating owned to complex is a model-shape change with an identical stored document when the column mapping holds — the set-based unlock is free.
+- Law: moving owned to complex is a model-shape change with an identical stored document when the column mapping holds — the set-based unlock is free.
 - Law: a generated-type member inside a document rides converter-then-document — the converter mints the primitive, the document writer places it — so max-length policy and `HasJsonPropertyName` compose from two owners onto one property, declared at one model-building site.
 - Law: `ConfigureConventions` is the model-wide admission seam for everything else — `Properties<T>()` conversions, `DefaultTypeMapping<TScalar>`, `ComplexProperties<TProperty>`, `IgnoreAny<T>` — and a per-property conversion declared outside it is the drift form: one type, one mapping, declared once.
 - Law: primitive collections and parameterized query collections share one translation-mode axis — multi-parameter expansion with cardinality padding, one JSON-array parameter, inlined constants — declared by `UseParameterizedCollectionMode` and overridden per site with `EF.Constant`/`EF.Parameter`; padding buys cardinality buckets, one plan for eight values, and inlined constants redact from logs by default.
@@ -181,72 +181,72 @@ public sealed class SaveGate(Disposition disposition) : ISaveChangesInterceptor 
 }
 ```
 
-## [05]-[MIGRATION_ALGEBRA]
+## [05]-[GENERATION_ALGEBRA]
 
-[MIGRATION_VALUE]:
-- Law: a migration is data before action — `UpOperations` and `DownOperations` materialize without a store, `TargetModel` and `ActiveProvider` read from the artifact — so every audit folds over operations and parsing generated SQL is the rejected form; identifiers are timestamp-prefixed, so identifier order is application order and the applied maximum is the store's schema stamp.
-- Law: each migration applies in its own transaction — a mid-set failure leaves an applied prefix, never a torn migration — and recovery is idempotent re-apply of the remainder, never rollback of the prefix; the applied-set receipt is monotone, cheap enough to fold on every boot.
-- Law: rollback is a generation parameter, never a special tool — a `from` newer than `to` yields the rollback script, `Migrate(targetMigration)` applies `Down` bodies in reverse identifier order, and target `0` is full teardown, gated like any destructive operation.
-- Law: `Migrate` holds a store-wide lock for the whole span and a hard kill abandons the embedded lock table — boot reclaims the stale lock (detect, verify no live holder, clear) before applying, because patience retries forever against a ghost; seeding rides the lock through `UseSeeding`/`UseAsyncSeeding`, single-writer by construction and idempotent by contract, the created flag its only freshness signal.
-- Law: the vehicle is a placement column — bundle-per-release for fleets, idempotent script for operator-gated stores, runtime boot apply only on the single-writer row inside the gated lifecycle state; fleet boot apply is rejected even though the lock makes it safe, because it grants every instance DDL rights and couples rollout order to schema state.
-- Law: `MigrationBuilder.Sql` is itself an operation and stays visible to the fold; `suppressTransaction: true` degrades the receipt unit from migration to operation, so a suppressed operation is idempotent in its own right, and hand-written DDL beside the migration set is invisible drift the next scaffold silently fights.
+[GENERATION_VALUE]:
+- Law: a generation is data before action — one compiled model renders its whole artifact set with no store in reach, `GenerateCreateScript` yielding the artifacts as a value an audit folds over, so parsing emitted SQL to recover a shape is the rejected form.
+- Law: the generation's name is a content digest over that artifact set, so two builds of one model name one generation, any artifact edit mints a new name, and the digest is the store's entire schema stamp — an authoring timestamp, a sequence prefix, and a monotone counter each name a build rather than a shape.
+- Law: materialization runs as one transaction against a namespace nothing yet serves — create the namespace, build every artifact inside it, publish by renaming it over the live name — because the engine runs DDL transactionally, so a torn build publishes nothing and the successor re-runs whole from an empty namespace; resume from a partial build is the declared loss, priced against a half-materialized store no verdict can classify.
+- Law: seeding rides that same transaction under the single-writer row and stays idempotent by contract, so a re-run seeds identically and the generation digest is the one freshness signal any reader consults.
+- Law: the vehicle is a placement column — the deploy plane materializes for fleets, and runtime materialization binds the single-writer row inside the gated lifecycle state alone, because a fleet materializing at boot grants every instance DDL rights and couples rollout order to schema state.
 
 [BOOT_VERDICT]:
-- Law: boot computes one total verdict from two identifier sets and a drift gate — applied minus assembly non-empty is schema-newer-than-model, a typed rejection carrying the unknown identifiers, because an older binary's model cannot describe columns it has never seen and a silent open corrupts on first write.
-- Law: the pending arm routes by placement, the fresh store is its own provision arm, and equal sets run `HasPendingModelChanges` — the runtime half of the fingerprint gate, catching added-migration-without-regeneration; the inverse hole, a model edit with neither migration nor regeneration, closes only at build time by regenerate-and-diff.
-- Law: read-ahead serving is legal only under a declared expand-only suite invariant — the unknown suffix is locally unclassifiable, so the sound default is hard rejection and the degradable row is a deployment invariant, never a runtime discovery.
+- Law: boot grades the observed generation against the compiled digest alone and reads the object census purely as the evidence a verdict carries, so one comparison decides and no fold re-derives shape from catalog rows.
+- Law: `Ahead` names objects the compiled model cannot describe and refuses typed, because an older binary writing into a shape it never saw corrupts on first write; read-ahead serving of those objects is legal only under a declared carry-forward invariant on the profile row, never a runtime discovery.
+- Law: `Absent` routes by placement — the materializing row builds and serves, every other row waits on the deploy plane — and `Behind` names the declared objects the published namespace lacks so the operator reads what the successor generation adds.
+- Law: the compiled digest measures the mounted model itself, so a digest match IS serving and no runtime drift arm exists; artifact-versus-model drift closes at build time by regenerate-and-diff, since `HasPendingModelChanges` reads a migrations snapshot no generation carries.
 
 ```csharp conceptual
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SchemaVerdict {
     private SchemaVerdict() { }
     public sealed record Serving : SchemaVerdict;
-    public sealed record ServingBehind(Seq<string> Unknown) : SchemaVerdict;
-    public sealed record Provisioned(Seq<string> Applied) : SchemaVerdict;
-    public sealed record Advanced(Seq<string> Applied) : SchemaVerdict;
-    public sealed record AwaitBundle(Seq<string> Pending, bool Fresh) : SchemaVerdict;
-    public sealed record Drifted : SchemaVerdict;
+    public sealed record Behind(Seq<string> Objects) : SchemaVerdict;
+    public sealed record Ahead(Seq<string> Objects) : SchemaVerdict;
+    public sealed record Absent : SchemaVerdict;
 }
 
+public readonly record struct Census(Option<string> Digest, FrozenSet<string> Objects);
+
 public static class SchemaGate {
-    public static Fin<SchemaVerdict> Admit(StoreContext store, Placement placement) {
+    public static Fin<SchemaVerdict> Admit(StoreContext store, Placement placement, string compiled, Census observed) {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(placement);
-        var assembly = toSeq(store.Database.GetMigrations());
-        var applied = toSeq(store.Database.GetAppliedMigrations());
-        var unknown = applied.Filter(id => !assembly.Exists(held => held == id));
-        var pending = assembly.Filter(id => !applied.Exists(held => held == id));
-        return (unknown.IsEmpty, pending.IsEmpty) switch {
-            (false, _) when placement.ReadsAhead => Fin.Succ<SchemaVerdict>(new SchemaVerdict.ServingBehind(unknown)),
-            (false, _) => Fin.Fail<SchemaVerdict>(Error.New(8201, $"<schema-ahead:{unknown}>")),
-            (_, false) when placement.AppliesPending => Op.Of().Catch(() => {
-                store.Database.Migrate();
-                return Fin.Succ<SchemaVerdict>(applied.IsEmpty
-                    ? new SchemaVerdict.Provisioned(pending)
-                    : new SchemaVerdict.Advanced(pending));
-            }),
-            (_, false) => Fin.Succ<SchemaVerdict>(new SchemaVerdict.AwaitBundle(pending, Fresh: applied.IsEmpty)),
-            _ => Fin.Succ<SchemaVerdict>(store.Database.HasPendingModelChanges() ? new SchemaVerdict.Drifted() : new SchemaVerdict.Serving()),
+        var declared = toSeq(store.Model.GetEntityTypes())
+            .Map(static kind => kind.GetSchemaQualifiedTableName() ?? string.Empty)
+            .Filter(static name => name.Length > 0);
+        var unknown = toSeq(observed.Objects).Filter(name => !declared.Exists(held => held == name));
+        return observed.Digest.Case switch {
+            null when placement.Materializes => Materialized(store),
+            null => Fin.Succ<SchemaVerdict>(new SchemaVerdict.Absent()),
+            string held when held == compiled => Fin.Succ<SchemaVerdict>(new SchemaVerdict.Serving()),
+            _ when unknown.IsEmpty => Fin.Succ<SchemaVerdict>(new SchemaVerdict.Behind(declared.Filter(name => !observed.Objects.Contains(name)))),
+            _ when placement.ReadsAhead => Fin.Succ<SchemaVerdict>(new SchemaVerdict.Ahead(unknown)),
+            _ => Fin.Fail<SchemaVerdict>(Error.New(8201, $"<generation-ahead:{unknown}>")),
         };
     }
+
+    static Fin<SchemaVerdict> Materialized(StoreContext store) =>
+        Op.Of().Catch(() => {
+            store.GetService<IRelationalDatabaseCreator>().CreateTables();   // the namespace this session's search_path pins, published by the deploy plane's rename
+            return Fin.Succ<SchemaVerdict>(new SchemaVerdict.Serving());
+        });
 }
 ```
 
-[WAVE_GATE]:
-- Law: every schema change decomposes into an expand wave and a contract wave with a deployment boundary between — expand strictly additive, contract removing only after every old-shape reader retires — and the gate runs at generation time over `UpOperations`, because apply-time gating leaves only skip-and-drift or apply-and-lose.
-- Law: the fold classifies physically per the `ActiveProvider` the migration stamps, first match wins, and admits destructive classes only under a per-migration token; rename is the forbidden middle — expand plus backfill plus contract — and a migration mixing waves rejects whole.
-- Law: the backfill between waves is bulk-rail data work, never schema-rail — a row-mass backfill squats on the fleet-wide lock past the health-probe window.
-- Law: a destructive `Up` whose `Down` cannot restore data declares irreversibility — a fabricated lossy `Down` is a second destructive operation in disguise.
+[REBUILD_GATE]:
+- Law: every relation declares one rebuild posture before it ships, and that posture decides its whole cutover behavior — the table is the closed vocabulary, and a new relation picks a row rather than describing a procedure.
+- Law: `Derived` relations rebuild from truth inside the materialization transaction, so reversing a generation that only re-derives costs one re-materialization of its predecessor's artifacts and preserves every byte.
+- Law: `Carried` relations declare their `INSERT … SELECT` against the superseded namespace as a column on the relation, executed inside the cutover transaction, so a reviewer reads the projection beside the shape it feeds; reversing carried truth is a deploy-plane restore, since an inverse projection fabricates whatever the forward one dropped.
+- Law: `Resident` relations are generation-invariant — the object plane, the cold tail, and the event log outlive every generation and no cutover reaches them — so the truth a rebuild replays from never rides a generation.
+- Law: the profile row declares the tolerated-generation span, and a superseded generation retires when no live process binds it, so retirement reads bindings and never a clock.
+- Law: generations inside that span coexist behind per-session `search_path` — each process pins the generation its verdict admitted for the whole session, so the publishing rename never re-points a running session and the span itself is the window a phased dual-shape rollout once bought.
 
-| [INDEX] | [UP_OPERATION]                                  | [PHYSICAL_CLASS] | [DISPOSITION]         |
-| :-----: | :---------------------------------------------- | :--------------- | :-------------------- |
-|  [01]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                |
-|  [02]   | `AddColumnOperation` required, no default       | destructive      | rejected expand       |
-|  [03]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle      |
-|  [04]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite |
-|  [05]   | `AlterColumnOperation` tightening nullability   | destructive      | contract              |
-|  [06]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract              |
-|  [07]   | `SqlOperation` without a class token            | destructive      | worst-case default    |
+| [INDEX] | [POSTURE]  | [TRUTH_SOURCE]              | [CUTOVER_COST]                    | [RETIREMENT_GATE]                    |
+| :-----: | :--------- | :-------------------------- | :-------------------------------- | :----------------------------------- |
+|  [01]   | `Derived`  | truth relations + event log | full rebuild inside the one txn   | the successor already holds it whole |
+|  [02]   | `Carried`  | the superseded namespace    | one declared `INSERT … SELECT`    | no live session pinned to the source |
+|  [03]   | `Resident` | itself                      | zero — no cutover statement lands | never retires                        |
 
 ## [06]-[IDENTITY_AXIS]
 
@@ -256,7 +256,7 @@ public static class SchemaGate {
 - Law: ordering survives transcription only when the spelling preserves it — the canonical text form is lexically time-ordered, the default byte export is not — so `ToByteArray(bigEndian: true)` is the binary transcription law; without it a binary-keyed primary index degrades to random-insert fragmentation, the pathology the row exists to delete.
 - Law: content-hash identity is encoding identity — the canonical encoding is a declared policy, the digest is the boundaries.md `BYTE_IDENTITY` codec injected as the row's `Mint` arrow, never a second hashing path, and the collision posture is a declared column whose idempotent row is the natural partner of conflict-tolerant bulk ingestion; this injected-digest factory row is why the axis is a delegate-bearing `record` of static rows rather than a `[SmartEnum]` of fixed items — the content-hash row mints from a runtime codec a fixed singleton cannot close over, the lone owner-shape exemption on this page.
 - Law: natural keys ride the generated-converter seam on immutable owners — a mutable primary key is delete-insert wearing an update's clothes.
-- Law: each aggregate declares one key selector once — `Expression<Func<TRow, TKey>>` — and every secondary surface derives mechanically: foreign keys, index orderings, changefeed keys, cache tags, pagination cursors; identity-row change is never `AlterColumn` — it is an expand-wave second key backfilled by the deterministic mint, a derivation flip, and a contract-wave drop, the only identity migration preserving foreign references, changefeed continuity, and cursor validity at once.
+- Law: each aggregate declares one key selector once — `Expression<Func<TRow, TKey>>` — and every secondary surface derives mechanically: foreign keys, index orderings, changefeed keys, cache tags, pagination cursors; an identity-row change mints a new generation whose `Carried` relations re-mint every key through the deterministic mint inside the cutover projection, so foreign references, changefeed continuity, and cursor validity land already consistent in the published namespace.
 
 ```csharp conceptual
 public sealed class Fact {

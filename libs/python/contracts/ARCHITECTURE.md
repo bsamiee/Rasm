@@ -15,24 +15,24 @@ contracts/
     │   ├── buf/validate/        # Rule vocabulary the artifact law reads and Protovalidate evaluates
     │   ├── google/rpc/          # Error-detail closure the fault family reaches
     │   ├── google/type/         # Calendar closure the declaration family reaches
-    │   └── rasm/contracts/      # Estate families, one versioned package each
-    │       ├── appearance/v1/   # Surface appearance Set, environment planes, and the pack and plane rosters
-    │       ├── artifact/v1/     # ArtifactRef, ArtifactFrame, and the ArtifactService fetch and put pair
-    │       ├── cad/v1/          # Exact-modeling operations and types under the CadService execute and tessellate pair
-    │       ├── capability/v1/   # Capability descriptors under the CapabilityDiscoveryService discover call
-    │       ├── clock/v1/        # Hlc stamp every causal ordering carries
-    │       ├── compute/v1/      # ComputeService tessellate call and its request and response pair
-    │       ├── crdt/v1/         # CrdtOpWire replication operations
-    │       ├── declaration/v1/  # DeclarationRecord impact cells and their sources
-    │       ├── event/v1/        # Extensions vocabulary the estate mints over the CloudEvents envelope
-    │       ├── fabrication/v1/  # FeatureControl fabrication vocabulary
-    │       ├── fault/v1/        # FaultDetail every branch projects its refusals onto
-    │       ├── geometry/v1/     # TessellationPolicy the mesh producers read
-    │       ├── organization/v1/ # Organization and Entity graph vocabulary
-    │       ├── parity/v1/       # Backend parity rows the conformance corpus proves
-    │       ├── scan/v1/         # GaussianSplatScan reality-capture payload
-    │       ├── scene/v1/        # SceneDescriptor sun band, photometry, and shading references
-    │       └── spatial/v1/      # Point, frame, and curve vocabulary every geometric family composes
+    │   └── rasm/contracts/      # Estate families, one package each
+    │       ├── appearance/      # Surface appearance Set, environment planes, and the pack and plane rosters
+    │       ├── artifact/        # ArtifactRef, ArtifactFrame, and the ArtifactService fetch and put pair
+    │       ├── cad/             # Exact-modeling operations and types under the CadService execute and tessellate pair
+    │       ├── capability/      # Capability descriptors under the CapabilityDiscoveryService discover call
+    │       ├── clock/           # Hlc stamp every causal ordering carries
+    │       ├── compute/         # ComputeService tessellate call and its request and response pair
+    │       ├── crdt/            # CrdtOpWire replication operations
+    │       ├── declaration/     # DeclarationRecord impact cells and their sources
+    │       ├── event/           # Extensions vocabulary the estate mints over the CloudEvents envelope
+    │       ├── fabrication/     # FeatureControl fabrication vocabulary
+    │       ├── fault/           # FaultDetail every branch projects its refusals onto
+    │       ├── geometry/        # TessellationPolicy the mesh producers read
+    │       ├── organization/    # Organization and Entity graph vocabulary
+    │       ├── parity/          # Backend parity rows the conformance corpus proves
+    │       ├── scan/            # GaussianSplatScan reality-capture payload
+    │       ├── scene/           # SceneDescriptor sun band, photometry, and shading references
+    │       └── spatial/         # Point, frame, and curve vocabulary every geometric family composes
     └── vendor/                  # Publisher emission root, collision-safe beside gen
         ├── grpc/health/v1/      # Publisher Health service and its generated Connect stubs
         └── io/cloudevents/v1/   # Publisher CloudEvent messages beside the exact cloudevents.avsc resource
@@ -97,13 +97,13 @@ flowchart LR
     Geometry([python:geometry])
     Artifacts([python:artifacts])
     Data([python:data])
-    Corpus e1@-->|"[CONTRACT]: rasm.contracts.artifact.v1"| Gen
+    Corpus e1@-->|"[CONTRACT]: rasm.contracts.artifact"| Gen
     Corpus e2@-->|"[CONTRACT]: io.cloudevents.v1"| Vendor
     Gen e3@-->|"[CONTRACT]: ExecuteRequest"| Cad
-    Gen e4@-->|"[CONTRACT]: capability.v1.DiscoverResponse"| Runtime
-    Gen e5@-->|"[CONTRACT]: scene.v1.SceneDescriptor"| Geometry
-    Gen e6@-->|"[CONTRACT]: appearance.v1.Set"| Artifacts
-    Gen e7@-->|"[CONTRACT]: declaration.v1.DeclarationRecord"| Data
+    Gen e4@-->|"[CONTRACT]: capability.DiscoverResponse"| Runtime
+    Gen e5@-->|"[CONTRACT]: scene.SceneDescriptor"| Geometry
+    Gen e6@-->|"[CONTRACT]: appearance.Set"| Artifacts
+    Gen e7@-->|"[CONTRACT]: declaration.DeclarationRecord"| Data
 ```
 
 ```mermaid
@@ -129,7 +129,7 @@ flowchart LR
     Artifact e3@-->|"[BOUNDARY]: ArtifactSink"| Geometry
 ```
 
-Every edge leaves this package: the corpus defines, generation transcribes, and consumers read, so no counterpart mints a shape back and no arrow is two-headed. Each edge collapses every contract between its endpoints at that kind — `cad` also reads `SealedStep` and `TessellationPolicy`, `geometry` also reads `geometry.v1.TessellationPolicy`, and `runtime` also reads the fault, clock, and event families its transport plane serves. `compute` holds no edge here, composing peer evidence rather than generated vocabulary.
+Every edge leaves this package: the corpus defines, generation transcribes, and consumers read, so no counterpart mints a shape back and no arrow is two-headed. Each edge collapses every contract between its endpoints at that kind — `cad` also reads `SealedStep` and `TessellationPolicy`, `geometry` also reads `geometry.TessellationPolicy`, and `runtime` also reads the fault, clock, and event families its transport plane serves. `compute` holds no edge here, composing peer evidence rather than generated vocabulary.
 
 Publisher bytes cross with their exact resource: `io.cloudevents.v1` lands as generated messages beside the untouched `cloudevents.avsc` a consumer parses rather than transcribes, and `grpc.health.v1` lands as messages and Connect stubs because no publisher ships a Python health client.
 
@@ -181,4 +181,4 @@ Generation deletes and rewrites both roots whole, so identity and policy above t
 - Corpus sources and frozen publisher bytes own wire shape; generation transcribes them, and no emitted module is hand-corrected.
 - `rasm-contracts` member manifest owns distribution identity and dependency closure; root lane carves hold over both emission roots.
 - Consumer packages own domain admission, handler composition, and fault projection; refusal evidence crosses as values they map.
-- `tests/contracts` owns compatibility — `buf breaking` grades a wire change, and no runtime descriptor diff stands beside it.
+- `tests/contracts` owns compatibility — the corpus emission every branch regenerates settles a wire change, no runtime descriptor diff beside it.

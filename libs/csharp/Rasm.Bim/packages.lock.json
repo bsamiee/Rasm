@@ -932,7 +932,7 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "System.IO.Hashing": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",

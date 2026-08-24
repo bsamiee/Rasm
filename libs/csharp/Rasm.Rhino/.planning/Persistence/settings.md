@@ -885,7 +885,7 @@ public static class SettingStore {
     // The host resolves the current key FIRST and reaches the roster only on a miss, so the adopted key is derived
     // by the same order BEFORE the read runs: a seated current key adopts nothing, otherwise the first seated
     // roster key is the one the read is about to rename away. Deriving it after the read is impossible — the
-    // migration has already erased the evidence.
+    // rename has already erased the evidence.
     private static Fin<Option<SettingKey>> Adopted(PersistentSettings node, SettingKey key, Seq<SettingKey> legacy, Op op) =>
         legacy.IsEmpty
             ? Fin.Succ(value: Option<SettingKey>.None)

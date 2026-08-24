@@ -23,7 +23,7 @@
 - `ProjectionContext` is this package's one time-and-causal frame — a `ClockPolicy` or `Principal` parameter inverts the strata the frame fixes.
 - `Crdt.Apply` and `GraphDelta.Apply` are the only materializers — projection, merge, and AS-OF fold one delta, so a second forks replay.
 - Member patches are binary — `FieldMask` diff over `NodeWire`, `IsValid` gate, `Merge` apply; ProtoJSON renders `PatchOp` leaves, never a target.
-- `EntityEdit` lowers onto `Element.V1.EntityEditWire` through `EditWire` — key and base cross as 16-byte addresses, one `PatchOp` per mask path.
+- `EntityEdit` lowers onto `Element.EntityEditWire` through `EditWire` — key and base cross as 16-byte addresses, one `PatchOp` per mask path.
 - `SnapshotHeader` is the native 88-byte artifact trust frame — fixed offsets, pre-parser CRC, and digests through `ContentHash.Wire`/`Admit`.
 - Usage levels carry `rasm.tenant` alone — class and tier stay `UsageReceipt` facts, so no meter dimension multiplies the capped tenant series.
 - Settlement fans every column `EgressReceipt.Drained` partitions, duplicates included — an omitted column reports a rate above its own traffic.
@@ -59,6 +59,8 @@
 - `Lane` is the ONE lane-token owner — `StoreProfile.Lanes` and `ServerExtension.Lane` compose it, so a bare token forks one vocabulary.
 - Every `Lane` row admits ONCE at its owning entry — `Admit` and `Register` read the ROW's own `Lane`, so a new row gates with no new call site.
 - `StoreProfile` and `BackendProvider` are DISJOINT — one names an engine a generation is minted FOR, the other an engine this package OPENS.
+- `AutoCreate.None` is the STORE posture — the runtime asserts configuration and materializes nothing, so every DDL byte lands from the deploy plane.
+- Read models REBUILD from the event log through the projection daemon — replay is the whole upgrade path, so no projection preserves state.
 - `FlightServer` is NOT a gRPC service — no bind attribute rides its hierarchy, so `MapGrpcService<T>` fails and `AddFlightServer<T>` binds.
 - Flight refusals raise through AppHost `FaultWire.Raise` — one producer table packs `FaultDetail`; a page-local `StatusCode` switch is the twin.
 - `WireLimits.Plan` is the ONE foreign-plan ceiling — both Substrait doors read it, so a size or depth past the row refuses before allocation.
@@ -107,7 +109,7 @@
 - One `DotSource` per store mints every dot — the changefeed range and the authoring stamp reserving apart mint one counter twice.
 - `VersionVector` owns `Ordered`/`CanonicalBytes` and every byte-deriving reader takes them — a caller enumerating `Slots` writes bucket order.
 - `OperationId.Counter` streams as ONE parity-pinned `CanonicalWriter.I64` word — `U64` never substitutes, a sixteen-byte twin forks the key.
-- `ColumnFamily.Crdt.Codec` is generated `crdt.v1.CrdtOpWire`; `OpLogEntryWire` retains those bytes at `[Key(6)] Payload`.
+- `ColumnFamily.Crdt.Codec` is generated `crdt.CrdtOpWire`; `OpLogEntryWire` retains those bytes at `[Key(6)] Payload`.
 - `OpLogEntryWire`'s thirteen-slot MessagePack envelope leaves every non-CRDT lane opaque.
 - `OpLogWire.Encode` and `Decode` share one admission fold; sync ports exchange frames, never typed entries.
 - Ordinary dots are nonzero and gap-free; only the exact empty-origin, zero-counter, empty-context value is genesis.

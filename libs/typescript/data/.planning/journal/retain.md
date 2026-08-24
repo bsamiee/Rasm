@@ -37,7 +37,7 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 - Law: declaration and lift are operator acts running under the maintenance-plane posture — a `Retain.Hold` carries subject keys whose tenants a single pin's check arm refuses, and a lift answers owners across every tenant a matter touched; the subject-face reads inside a pinned erase see exactly the declaring tenant's rows, which is the read that gate needs.
 - Law: the hold gate rides every subject-scoped closer — a `_GROOMS` row naming a `held` subject column composes `Retain.holding.subject` in BOTH renderings, so the scheduled statement and the in-process sweep honour one suspension; relations carrying no subject column hold nothing, which is `operational`'s standing degrade; `erase` refuses a held subject with the typed `RetainHold` naming its live matters, because a destroyed key is the one closer no lift recovers; the object plane composes `Retain.holding.owner` at its retag fold and `lift` answers the lifted owner roster the maintenance seam re-tags.
 - Law: the partition drop carries NO hold gate and never can — children are keyed by the sequence spine and carve no subject, so a gate there refuses a whole boundary for one held subject and stalls compaction estate-wide; preservation is COLLECTION AT DECLARATION instead — `Retain.hold` lands each held subject's journal slice into object custody through the handed `Preserve` port inside the declaration's own unit of work, and the hold row commits FIRST so the landing's reference row re-derives its tag against a live hold and takes the object plane's `held` posture with no second write and no window a sweep reads it unheld. The fact plane needs none of it: `_GROOMS.facts` composes the subject gate directly, so this leg covers exactly the plane no gate reaches.
-- Law: preservation lands the RAW envelope slice — `Retain.slice` renders the same rows the export decodes, verbatim as newline-delimited bytes, because evidence a matter rests on cannot depend on an upcast plan that itself evolves; the collection is ONE owner with two renderings exactly as the groom roster is, so an export and a preservation can never disagree about what a subject's history was.
+- Law: preservation lands the RAW envelope slice — `Retain.slice` renders the same rows the export decodes, verbatim as newline-delimited bytes, because evidence a matter rests on cannot depend on a family the next re-mint reshapes; the slice is therefore evidence OF the generation that produced it, joining the live log through the custody receipt rather than through a decode, and the collection is ONE owner with two renderings exactly as the groom roster is, so an export and a preservation can never disagree about what a subject's history was.
 - Law: the landing is a HANDED port exactly as `RefRead` is — this page declares `Preserve` and the object plane satisfies it, so the journal stratum names no store and the identity fold, the conditional put, and the reference row stay owned where they already are; the port carries its own error and requirement parameters because a byte landing is not a relational read and a concrete channel here would name the object plane's fault family.
 
 ```typescript signature
@@ -581,14 +581,14 @@ const _erase = (key: SubjectKey) =>
 
 ## [04]-[DSAR_EXPORT]
 
-- Owner: the subject-slice collection both custody roads read — its export rendering and the verbatim `Retain.slice` rendering the hold's preservation landing consumes — and `Retain.dsar` above it, the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, lifted through the journal family's own upcast plan into the live member, joined with the key's object references AND the fact stream's own subject-indexed audit rows, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material — and the subject-index slot this page publishes to the write transaction; `Retain.RefRead` is this page's PORT for the object leg, so the reference relation keeps one reader surface.
-- Packages: `effect` (`Stream`, `Array`); `journal/evolve.md` (`Upcast.Plan` — the one read-lift road; `Upcast.Envelope` — the persisted coordinate the export row spreads); `journal/append.md` (the read stream and the `Slot` contract); `read/live.md` (`Live.merged` — the slot's empty coordinate); the object plane's reference read arrives as the `RefRead` argument — `object/store.md` publishes the one implementation.
-- Entry: the subject index is written at publish time — `Retain.slot(subjects)` mints the `Journal.Slot` an app carries in its publish intent: the caller's `subjects` projection names each event's subject keys, the slot stamps `(subject, sequence)` rows inside the commit, and the DSAR read is therefore an index scan, never a full-log crawl; the caller hands `dsar` the same folded `Upcast.Plan` its journal binding holds AND the store's published reference read, so export, replay, and the reference relation each lift through one anchor.
-- Law: the object leg is a HANDED contract, never cross-strata SQL — this page declares the `RefRead` port and the object plane satisfies it exactly as the upcast plan arrives, so the strata direction holds, an `object_ref` schema change ripples through one published read, and this plane carries none of the store's SQL.
+- Owner: the subject-slice collection both custody roads read — its export rendering and the verbatim `Retain.slice` rendering the hold's preservation landing consumes — and `Retain.dsar` above it, the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, admitted through the journal family the log's generation compiles to, joined with the key's object references AND the fact stream's own subject-indexed audit rows, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material — and the subject-index slot this page publishes to the write transaction; `Retain.RefRead` is this page's PORT for the object leg, so the reference relation keeps one reader surface.
+- Packages: `effect` (`Stream`, `Array`); `journal/evolve.md` (`Payload.Envelope` — the persisted coordinate the export row spreads; `Payload.json` — the one column-to-family admission); `journal/append.md` (the read stream and the `Slot` contract); `read/live.md` (`Live.merged` — the slot's empty coordinate); the object plane's reference read arrives as the `RefRead` argument — `object/store.md` publishes the one implementation.
+- Entry: the subject index is written at publish time — `Retain.slot(subjects)` mints the `Journal.Slot` an app carries in its publish intent: the caller's `subjects` projection names each event's subject keys, the slot stamps `(subject, sequence)` rows inside the commit, and the DSAR read is therefore an index scan, never a full-log crawl; the caller hands `dsar` the same event family its journal binding proved AND the store's published reference read, so export, replay, and the reference relation each admit through one anchor.
+- Law: the object leg is a HANDED contract, never cross-strata SQL — this page declares the `RefRead` port and the object plane satisfies it exactly as the event family arrives, so the strata direction holds, an `object_ref` schema change ripples through one published read, and this plane carries none of the store's SQL.
 - Growth: a new export surface (object bytes bundled, format variants) is a projection of the same fold — the subject spine never changes.
 - Law: the export and the erasure share one spine — the same `subject_journal` index that finds events to export finds nothing to rewrite on erasure, proving the two rights compose: export reads what remains readable, erasure makes fields unreadable, and both leave the log bytes untouched.
 - Law: every subject-bearing plane answers the SAME custody coordinate — the event index, the object-reference owner, and the fact stream's own subject column each key on `(app, tenant, subject)`, so one erase destroys one data key and redacts all three at once; a plane reachable by subject but absent from this fold exports nothing and proves nothing, which is the portability hole the shared coordinate forecloses.
-- Law: the fold is streaming and decoded to the live family — each row admits through `_EntryRow`, the envelope family's row projection plus this join's `recorded_at`, and reaches `plan.decode` whole, so historical event versions upcast and the export carries admitted members rather than a raw envelope; a malformed or unplanned historical row quarantines as `ParseError` on the stream, and the `subject_journal.sequence` join runs engine-side against the BIGINT column, so no sequence value crosses the process untyped.
+- Law: the fold is streaming and decoded to the live family — each row admits through `_EntryRow`, the envelope's projection plus this join's `recorded_at`, and its payload reaches the compiled family whole, so the export carries admitted members rather than a raw envelope; a malformed row quarantines as `ParseError` on the stream, and the `subject_journal.sequence` join runs engine-side against the BIGINT column, so no sequence value crosses the process untyped.
 - Law: sensitive projection columns never enter the export — the `Model.Sensitive` field class strips them from every JSON variant by construction wherever the read plane's own row declares it; sealed payload fields export opened only where the consuming exporter composes `Retain.open` against a live key, and an erased subject's fields export as the redaction marker the `Option.none` fold names.
 - Law: the object leg exports REFERENCES, never bytes — a key whose class ran the ladder to a `restore`-posture rung answers no synchronous fetch, so the consumer bundling an archive reads `Retain.depthRows` and plans the restore; an export promising bytes it cannot produce inside a request is the portability failure this leg refuses to pretend away.
 
@@ -596,7 +596,7 @@ const _erase = (key: SubjectKey) =>
 import { Array, Stream, type ParseResult } from "effect"
 import { Digest } from "@rasm/core"
 import { Live } from "../read/live.ts"
-import { Upcast } from "./evolve.ts"
+import { Payload } from "./evolve.ts"
 
 declare namespace Retain {
   type Entry<A> = {
@@ -607,7 +607,7 @@ declare namespace Retain {
   // the leg answered, so a second decode at that call site has no spelling.
   type Ref = { readonly key: Digest.Key<"content">; readonly retention: Class }
   // The object leg's port: declared here where the strata floor sits, satisfied by the store's published read,
-  // handed to `dsar` exactly as the upcast plan is — so the reference relation has ONE reader surface.
+  // handed to `dsar` exactly as the event family is — so the reference relation has ONE reader surface.
   type RefRead = (
     owner: string,
   ) => Effect.Effect<ReadonlyArray<Ref>, SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>
@@ -652,7 +652,7 @@ const _slot = <A>(subjects: (event: A) => ReadonlyArray<Retain.Subject>): Journa
 })
 
 const _EntryRow = Schema.Struct({
-  ...Upcast.Envelope.row.fields,
+  ...Payload.Envelope.fields,
   recorded_at: Schema.String,
 })
 
@@ -666,12 +666,12 @@ const _FactRow = Schema.Struct({
 const _admitEntry = Schema.decodeUnknown(_EntryRow)
 
 // ONE subject-slice collection, read off the index rather than the log. Two renderings ride it for the same reason
-// the groom roster carries two: the export maps it through admission and the upcast plan into live members, and the
-// preservation landing renders the SAME rows verbatim, so the two can never disagree about a subject's history.
+// the groom roster carries two: the export maps it through admission and the compiled family into live members, and
+// the preservation landing renders the SAME rows verbatim, so the two can never disagree about a subject's history.
 const _sliced = (subject: SubjectKey) =>
   Stream.unwrap(
     Effect.map(SqlClient.SqlClient, (sql) =>
-      sql`SELECT e.tag, e.event_version, e.payload, CAST(e.recorded_at AS TEXT) AS recorded_at FROM journal_event e
+      sql`SELECT e.tag, e.payload, CAST(e.recorded_at AS TEXT) AS recorded_at FROM journal_event e
           JOIN subject_journal s ON s.sequence = e.sequence AND s.app = e.app AND s.tenant = e.tenant
           WHERE s.app = ${subject.app} AND s.tenant = ${subject.tenant} AND s.subject = ${subject.subject}
           ORDER BY e.sequence`.stream),
@@ -687,13 +687,13 @@ const _utf8 = new TextEncoder()
 const _slice = (subject: SubjectKey) =>
   Stream.map(_sliced(subject), (row) => _utf8.encode(`${JSON.stringify(row)}\n`))
 
-const _dsar = <A>(subject: SubjectKey, plan: Upcast.Plan<A>, refs: Retain.RefRead): Retain.Export<A> => ({
+const _dsar = <A, I>(subject: SubjectKey, family: Schema.Schema<A, I>, refs: Retain.RefRead): Retain.Export<A> => ({
   subject,
   events: Stream.mapEffect(_sliced(subject), (raw) =>
     Effect.gen(function* () {
       const row = yield* _admitEntry(raw)
-      // Read-lift road: historical versions upcast, the live family proves the landing, malformed history quarantines as ParseError
-      const event = yield* plan.decode(row)
+      // The compiled family proves the landing; a malformed stored payload quarantines as ParseError on this stream
+      const event = yield* Schema.decodeUnknown(Payload.json(family))(row.payload)
       return { event, recordedAt: row.recorded_at } satisfies Retain.Entry<A>
     })),
   // Fact rows are the SECOND indexed plane a subject spans: their own `subject` column carries the same custody

@@ -1046,29 +1046,30 @@ public static class HopCarry<T> {
 
 ## [06]-[DISCOVERY_ATTACH]
 
-- Owner: `DiscoveryManifest` attach record; `ContractGeneration` the contract coordinate a peer advertises — protobuf package family plus its `v<N>` generation, with `Compute` derived once from the generated `ComputeReflection.Descriptor` package and never hand-spelled or re-read at a caller; `CompanionChild` spawn capsule; `Discovery` static surface — path law, atomic publish, staleness probe, contract gate, UDS connect, spawn, the named drain-verb arrow, and the drain-fan producer.
-- Cases: `Compatible` admits the peer manifest on family-and-generation EQUALITY and refuses everything else as `HopFault.ContractBroken` — no additive arm exists, because a compatible widening lands a retired field in the proto3 unknown set at the consumer and a change `buf breaking` FILE refuses never reaches a running peer.
+- Owner: `DiscoveryManifest` attach record; `ContractGeneration` the contract coordinate a peer advertises — the generated descriptor's whole package, with `Compute` derived once from the generated `ComputeReflection.Descriptor` package and never hand-spelled or re-read at a caller; `CompanionChild` spawn capsule; `Discovery` static surface — path law, atomic publish, staleness probe, contract gate, UDS connect, spawn, the named drain-verb arrow, and the drain-fan producer.
+- Cases: `Compatible` admits the peer manifest on package EQUALITY and refuses everything else as `HopFault.ContractBroken` — no additive arm exists, because a widening lands a retired field in the proto3 unknown set at the consumer while a peer built off a foreign emission answers shapes this consumer never admits.
 - Entry: `Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract)` — `Fin` aborts on missing, empty, or dead-pid manifests; `Compatible(DiscoveryManifest peer, ContractGeneration local)` returns `Fin<DiscoveryManifest>`; `FanOf(OutboundRuntime runtime, ILatencyContext latency, FactSink<CompanionSignal> fan, Duration cooperative, string reason)` seats the drain-fan producer and its existing AppHost evidence sink, taking the parent's remaining cooperative allotment as the budget the child inherits; `DrainVerb(Duration cooperative, string reason)` invokes `ControlService.DrainRuntime` and returns its generated `DrainRuntimeResponse` for settlement.
 - Packages: Grpc.Net.Client (`GrpcChannel.ForAddress`; a `ConnectCallback` handler resolves `HttpHandlerType.Custom`, which forfeits the balancer surface WHOLE yet reports only half that forfeit — `ConnectAsync`, `State`, and `WaitForStateChangedAsync` raise `InvalidOperationException` loudly, while `CallOptions.WithWaitForReady(true)` accepts and does nothing, because `Custom` takes the passive subchannel transport whose connect reports Ready without connecting and leaves the one `PickResultType.Fail` arm that reads the flag unreachable), Grpc.Core.Api (`RpcException.StatusCode`/`Status.Detail`, `Metadata` — every remote fault leaves as a throw), Rasm.Contracts (project — `ControlService.ControlServiceClient`, `DrainRuntimeRequest`, `DrainRuntimeResponse`, and `ComputeReflection.Descriptor`), Google.Protobuf (`FileDescriptor.Package`), NodaTime.Serialization.Protobuf (`ToProtobufDuration` carries the inherited remainder onto the drain request), Rasm (kernel `Redrive`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: the connect dispatch is the single Unix-domain-socket route; socket-file mode and the accept-side peer-credential read are the access boundary, never a transport-level ACL; a second family a peer must advertise is one more `ContractGeneration` column on the manifest beside one more derived static off its `<F>Reflection.Descriptor`; zero new surface.
-- Boundary: `Publish` and `Connect` are the named boundary capsules carrying statement bodies — atomic temp-write-then-move publication and the UDS connect callback; the socket lives at the temp-root `rasm-{pid}.sock` path under the 104-byte `sun_path` cap; the manifest directory is created 0700 and directory mode is the credential boundary; `Compatible` compares the contract's package family and generation — `buf breaking` FILE at the corpus is the one compatibility authority, a retired field lands in the peer's unknown set, and serialized-descriptor byte equality is refused by construction because buf's image and protoc's `FileDescriptorProto` bytes diverge on `json_name` and option encoding, so `SerializedData` equality across a C# host and a Connect peer is a falsehood; the spawn's post-spawn manifest read is the ONE in-process re-drive on this spine — `CompanionSpawn` is `SingleShot`, so its pipeline arms no retry row at all and a manifest a child has not yet published is a `StaleManifest` the kernel discriminant marks transient, which is exactly the row `OutboundSurface.Redriven` re-drives on the caller's own `RedrivePolicy`; `DrainFan` is the parent-to-child drain-fan producer — it dials the peer over the `LocalIpc` hop case through `OutboundSurface.Run` and invokes `DrainVerb`, the ONE named `ControlService.DrainRuntime` arrow, returning the `IO<Unit>` that `Spawn` threads into `CompanionChild.FanDrain` as the `drainFan` arg, so the drain conductor fans onto a named verb rather than a delegate any caller fills; the client arrow admits the generated `DrainRuntimeResponse`, derives the worst validated `DeadlineOutcome`, and fans the whole generated message as canonical ProtoJSON through `CompanionSignal.Drain` before settling the hop — no response is ignored, no local reply mirror exists, and `Met`, `Escalated`, and `Forced` are all delivered evidence; only a schema-valid reply whose `final_phase` is not `UNLOADED` is `HopFault.ContractBroken`, because that response refuses the drain method's completion postcondition rather than describing a legal straggler policy; liveness over this transport is an actual CALL, since the channel forfeits every connectivity member — a connect-probe drain raises `InvalidOperationException` on every fan and proves nothing about the peer, and wait-for-ready is the silent face of that one forfeit rather than a second remedy beside it; the redial and the retry cover DISJOINT fault classes and never stack, so nothing here is missing a third wait — `HopStrategy.ArmRedial` handles `ExecutionRejectedException` alone (a shed limiter, an open circuit) while a dead-peer connect arrives as `HttpRequestException`/`SocketException` on the retry row's `Transient` predicate, and wait-for-ready contributes its queueing only where the handler type admits the flag at all, which this channel never does; the accepted-socket peer-credential read moves to `Wire/companion#PEER_ADMISSION` (the serving side reads the connecting peer's uid and pid once at accept and never trusts the manifest) — a seam-split, not an owner here.
+- Boundary: `Publish` and `Connect` are the named boundary capsules carrying statement bodies — atomic temp-write-then-move publication and the UDS connect callback; the socket lives at the temp-root `rasm-{pid}.sock` path under the 104-byte `sun_path` cap; the manifest directory is created 0700 and directory mode is the credential boundary; `Compatible` compares the descriptor package whole — the one corpus emission every branch regenerates from is the one compatibility authority, a retired field lands in the peer's unknown set, and serialized-descriptor byte equality is refused by construction because buf's image and protoc's `FileDescriptorProto` bytes diverge on `json_name` and option encoding, so `SerializedData` equality across a C# host and a Connect peer is a falsehood; the spawn's post-spawn manifest read is the ONE in-process re-drive on this spine — `CompanionSpawn` is `SingleShot`, so its pipeline arms no retry row at all and a manifest a child has not yet published is a `StaleManifest` the kernel discriminant marks transient, which is exactly the row `OutboundSurface.Redriven` re-drives on the caller's own `RedrivePolicy`; `DrainFan` is the parent-to-child drain-fan producer — it dials the peer over the `LocalIpc` hop case through `OutboundSurface.Run` and invokes `DrainVerb`, the ONE named `ControlService.DrainRuntime` arrow, returning the `IO<Unit>` that `Spawn` threads into `CompanionChild.FanDrain` as the `drainFan` arg, so the drain conductor fans onto a named verb rather than a delegate any caller fills; the client arrow admits the generated `DrainRuntimeResponse`, derives the worst validated `DeadlineOutcome`, and fans the whole generated message as canonical ProtoJSON through `CompanionSignal.Drain` before settling the hop — no response is ignored, no local reply mirror exists, and `Met`, `Escalated`, and `Forced` are all delivered evidence; only a schema-valid reply whose `final_phase` is not `UNLOADED` is `HopFault.ContractBroken`, because that response refuses the drain method's completion postcondition rather than describing a legal straggler policy; liveness over this transport is an actual CALL, since the channel forfeits every connectivity member — a connect-probe drain raises `InvalidOperationException` on every fan and proves nothing about the peer, and wait-for-ready is the silent face of that one forfeit rather than a second remedy beside it; the redial and the retry cover DISJOINT fault classes and never stack, so nothing here is missing a third wait — `HopStrategy.ArmRedial` handles `ExecutionRejectedException` alone (a shed limiter, an open circuit) while a dead-peer connect arrives as `HttpRequestException`/`SocketException` on the retry row's `Transient` predicate, and wait-for-ready contributes its queueing only where the handler type admits the flag at all, which this channel never does; the accepted-socket peer-credential read moves to `Wire/companion#PEER_ADMISSION` (the serving side reads the connecting peer's uid and pid once at accept and never trusts the manifest) — a seam-split, not an owner here.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
-// Generated descriptors are the ONE spelling: buf's PACKAGE_VERSION_SUFFIX holds the `.v<N>` tail on every estate package,
-// so the split is total by gate and a package without it is a corpus defect the gate refuses before any build.
-public sealed record ContractGeneration(string Family, int Generation) {
+// Generated descriptors are the ONE spelling: every estate package reads `rasm.contracts.<family>`, so the family
+// splits off a fixed prefix and a descriptor outside that namespace is a foreign emission this attach never admits.
+public sealed record ContractGeneration(string Family) {
+    private const string Estate = "rasm.contracts.";
+
     // Compute's local generation derives once off the committed emission this assembly references; a caller
     // re-deriving it from a second descriptor read or a literal is the knob this member deletes.
     public static readonly Fin<ContractGeneration> Compute = Of(ComputeReflection.Descriptor);
 
-    public string Coordinate => $"{Family}.v{Generation}";
+    public string Coordinate => $"{Estate}{Family}";
 
     public static Fin<ContractGeneration> Of(FileDescriptor file) =>
-        file.Package.LastIndexOf(".v", StringComparison.Ordinal) is var at && at > 0
-        && int.TryParse(file.Package.AsSpan(at + 2), NumberStyles.None, CultureInfo.InvariantCulture, out int generation)
-            ? Fin.Succ(new ContractGeneration(file.Package[..at], generation))
-            : Fin.Fail<ContractGeneration>(new HopFault.ContractBroken($"<no-generation:{file.Package}>"));
+        file.Package.StartsWith(Estate, StringComparison.Ordinal) && file.Package.Length > Estate.Length
+            ? Fin.Succ(new ContractGeneration(file.Package[Estate.Length..]))
+            : Fin.Fail<ContractGeneration>(new HopFault.ContractBroken($"<foreign-package:{file.Package}>"));
 }
 
 public sealed record DiscoveryManifest(
@@ -1111,8 +1112,8 @@ public static class Discovery {
             .Bind(manifest => manifest.ToFin(new HopFault.StaleManifest($"empty manifest: {pid}")))
             .Bind(static manifest => Alive(manifest));
 
-    // Equality on the generation IS the handshake: unknown fields are tolerated by the parser, a FILE-breaking change never
-    // reaches a running peer, and no descriptor byte crosses — buf's image and protoc's bytes never agree on one source.
+    // Equality on the package IS the handshake: unknown fields are tolerated by the parser, one corpus emission generates
+    // both peers, and no descriptor byte crosses — buf's image and protoc's bytes never agree on one source.
     public static Fin<DiscoveryManifest> Compatible(DiscoveryManifest peer, ContractGeneration local) =>
         peer.Contract == local
             ? Fin.Succ(peer)
@@ -1207,13 +1208,13 @@ public static class Discovery {
 
     // The generated enum is the severity vocabulary. Proto admission above has already refused unspecified
     // or foreign values, so this fold only ranks the three authored arms and carries the reply whole.
-    static global::Rasm.Contracts.Compute.V1.DeadlineOutcome Outcome(DrainRuntimeResponse reply) =>
-        toSeq(reply.Steps).Fold(global::Rasm.Contracts.Compute.V1.DeadlineOutcome.Met, static (held, step) =>
+    static global::Rasm.Contracts.Compute.DeadlineOutcome Outcome(DrainRuntimeResponse reply) =>
+        toSeq(reply.Steps).Fold(global::Rasm.Contracts.Compute.DeadlineOutcome.Met, static (held, step) =>
             step.Outcome switch {
-                global::Rasm.Contracts.Compute.V1.DeadlineOutcome.Met => held,
-                global::Rasm.Contracts.Compute.V1.DeadlineOutcome.Escalated =>
-                    held == global::Rasm.Contracts.Compute.V1.DeadlineOutcome.Forced ? held : step.Outcome,
-                global::Rasm.Contracts.Compute.V1.DeadlineOutcome.Forced => step.Outcome,
+                global::Rasm.Contracts.Compute.DeadlineOutcome.Met => held,
+                global::Rasm.Contracts.Compute.DeadlineOutcome.Escalated =>
+                    held == global::Rasm.Contracts.Compute.DeadlineOutcome.Forced ? held : step.Outcome,
+                global::Rasm.Contracts.Compute.DeadlineOutcome.Forced => step.Outcome,
                 _ => held,
             });
 
@@ -1225,7 +1226,7 @@ public static class Discovery {
                     ControlVerb.DrainRuntime.Key,
                     WireJson.Element(reply),
                     new CompanionSignal.Drain(peer.Pid, Outcome(reply), reply))
-                .Map(_ => reply.FinalPhase == global::Rasm.Contracts.Compute.V1.RuntimePhase.Unloaded
+                .Map(_ => reply.FinalPhase == global::Rasm.Contracts.Compute.RuntimePhase.Unloaded
                     ? (HopOutcome)new HopOutcome.Delivered()
                     : new HopOutcome.Faulted(new HopFault.ContractBroken(
                         $"{DrainRuntimeResponse.Descriptor.FullName}.final_phase:{reply.FinalPhase}"))),

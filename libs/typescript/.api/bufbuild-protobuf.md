@@ -228,7 +228,7 @@
 - INT64/UINT64 fields are `bigint` (or `string` under long-as-string codegen), bridged by `protoInt64` — `.parse(s)` from a string, `.zero` the identity; `Number`-coercing a 64-bit field loses precision past 2^53.
 - `toBinary(schema, msg)` emits descriptor-ordered fields, but map insertion order and retained unknown-field order remain observable.
 - Byte-addressed identity retains producer octets; semantic identity owns an explicit canonical projection above protobuf encoding.
-- Compatibility is the corpus gate's — `buf breaking` FILE refuses a breaking source before regeneration — so no page diffs descriptors at runtime; `readUnknownFields` preserves binary forward residue and `ignoreUnknownFields` states whether ProtoJSON accepts or refuses an unrecognized peer field.
+- Compatibility is the corpus emission's — every binding regenerates from one reshaped source — so no page diffs descriptors at runtime; `readUnknownFields` preserves binary forward residue and `ignoreUnknownFields` states whether ProtoJSON accepts or refuses an unrecognized peer field.
 - Validation is `@bufbuild/protovalidate`'s (`.api/bufbuild-protovalidate.md`) over this runtime's descriptors — the branch validates nothing by hand; `reflect`, `buildPath`/`parsePath`, and `ScalarType` have NO branch consumer (the content-key parity fold compares digests and round-trips through `Schema`, never a descriptor walk), and `pathToString` alone is read, to render a `Violation.field`.
 
 [STACKING]:

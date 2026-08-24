@@ -19,7 +19,7 @@
 using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Contracts.Element.V1;
+using Rasm.Contracts.Element;
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Element.Geospatial;

@@ -110,7 +110,7 @@ import { Breaker, Machine } from './client.ts';
 
 // One sample type feeds the derived arbitrary below: generation needs a grammar-lawful `type`, and the roster's own
 // pattern is what makes an invented literal fail the very admission the generator exists to exercise.
-const _SAMPLE_TYPE = 'rasm.fanout.probe.sampled.v1';
+const _SAMPLE_TYPE = 'rasm.fanout.probe.sampled';
 
 // The public port adds generation and rendering metadata to the core semantic schema; it owns no second predicate or
 // transform over the CloudEvents envelope.

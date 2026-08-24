@@ -1,6 +1,6 @@
 # [CORE_FRAME]
 
-`Frame` owns bounded artifact reassembly, schema-pinned residency admission, and IFC container admission. Interleaved bands fold by artifact and generation under one ingress budget, verification gates the joined allocation, and each residency manifest replaces whole against the producer's pinned cluster roster and the budget it declares. Module `core/src/interchange/frame.ts` admits an arrival class as one refusal row, a residency payload as one kind row, and an IFC serialization as one admission row.
+`Frame` owns bounded artifact reassembly, residency admission, and IFC container admission. Interleaved bands fold by artifact and generation under one ingress budget, verification gates the joined allocation, and each residency manifest replaces whole against the producer's pinned cluster roster and the budget it declares. Module `core/src/interchange/frame.ts` admits an arrival class as one refusal row, a residency payload as one kind row, and an IFC serialization as one admission row.
 
 `Frame` composes the `value` floor's `Digest` identity and `Shape.Ingress` ceilings, the `codec` owner's fault, gap, parity, and quarantine rails, and the `format` owner's proto suite and JSON schema mints. Producers own every payload axis crossing this plane, so `Frame` folds arrivals into receipts, views, ledgers, and admissions and mints no payload axis of its own.
 
@@ -8,7 +8,7 @@
 
 - [02]-[FRAME_PROTOCOL]: bounded keyed frame assembly and sequence evidence; `Frame.Artifact`.
 - [03]-[KEY_VERIFY]: delegated verification and single-allocation joins; `Frame.Artifact`.
-- [04]-[RESIDENCY_MANIFEST]: schema-pinned viewport manifest admission, per-kind census, and budget grading; `Frame.Residency`.
+- [04]-[RESIDENCY_MANIFEST]: viewport manifest admission, per-kind census, and budget grading; `Frame.Residency`.
 - [05]-[IFC_ADMISSION]: serialization rows and their two direction verdicts, the sparse container and release crossings, the release-header read; `Frame.Ifc`.
 
 ## [02]-[FRAME_PROTOCOL]
@@ -237,15 +237,13 @@ const ArtifactAssembly: {
 
 ## [04]-[RESIDENCY_MANIFEST]
 
-- Owner: `Frame.Residency` admits the producer's viewport residency manifest and grades it against the pinned schema and the budget it declares.
+- Owner: `Frame.Residency` admits the producer's viewport residency manifest and grades it against the budget it declares.
 - Law: the manifest REPLACES — the producer mints the whole resident tile set for one viewpoint on every emission, so no held state exists for an arrival to patch and this crossing carries no delta arm.
-- Law: the schema pin grades the CLUSTER ROSTER as much as the envelope, so a version off the pin refuses before any tile column is read.
-- Law: refusal direction grades the arrival — a version below the pin reads `stale`, one above reads `conflict`, both carrying the version pair.
 - Law: duplicate content keys refuse, and the collection ceiling is `Shape.Ingress`; every other field rule is the corpus's `buf.validate` rule on the generated `GeometryResidency`, evaluated once at the descriptor admission.
 - Law: `kind` decides cull and draw posture, and the same rows carry the per-kind census the declared VRAM budget is judged against.
 
 ```typescript signature
-import * as appuiResidency from "@rasm\/contracts/rasm/contracts/render/v1/residency_pb"
+import * as appuiResidency from "@rasm\/contracts/rasm/contracts/render/residency_pb"
 
 const _payloadStream = <A>(
   family: Wire.FaultFamily,
@@ -262,11 +260,6 @@ const _payloadStream = <A>(
       ), { concurrency: 1 }),
   )
 
-// The producer's schema pin, carried as a VALUE because it grades every arrival: the pin counts the cluster roster
-// as much as the envelope, so a decoder reading a column set one row short of the producer's stops at the wrong
-// offset on every cluster past the first and every figure derived below it is fiction. Four is the roster carrying
-// the producer's `parent`, `parentError`, and `cut` columns.
-const _RESIDENCY_SCHEMA = 4
 
 // The manifest is the GENERATED `GeometryResidency`: every column — the viewpoint, the camera, the measurement
 // vertices, the meshopt streams, the meshlet cut columns — is the descriptor's, every scalar rule is
@@ -332,19 +325,6 @@ const _EMPTY_CENSUS: Residency.Census = {
   [appuiResidency.ResidencyKind.GAUSSIAN_SPLAT]: _EMPTY_TALLY,
 }
 
-// Direction names the refusal exactly as every other arrival on this page grades one: a manifest BELOW the pin is
-// superseded and reads `stale`, one ABOVE carries columns this decoder has never seen and reads `conflict`. Both are
-// one defect — a cluster roster read at the wrong offset — told apart by which end moved, and the version pair rides
-// the evidence a board drills on.
-const _schemaFault = (manifest: Residency.Manifest): Wire.Fault =>
-  new Wire.Fault({
-    family: "GeometryResidency",
-    // one comparison elects the reason and the SAME pair rides both arms, so the two verdicts cannot disagree about
-    // which end moved — the retired form re-spelled that comparison a second time to pick a prose token
-    case: manifest.version < _RESIDENCY_SCHEMA
-      ? { reason: "stale", pinned: _RESIDENCY_SCHEMA, arrived: manifest.version }
-      : { reason: "conflict", pinned: _RESIDENCY_SCHEMA, arrived: manifest.version },
-  })
 
 // The census and the resident total are ONE fold: a second pass to sum what the per-kind tally already accumulated is
 // the parallel model this owner forecloses, and the budget guard needs both figures at the same moment anyway. Byte
@@ -368,16 +348,13 @@ const _tallied = (manifest: Residency.Manifest): Residency.View =>
       })),
   )
 
-// Schema first, then the claim: a roster read at the wrong offset makes every byte figure below it fiction, and a
-// manifest whose resident set overruns the budget it DECLARES evicted nothing — the producer refuses that plan as a
+// A manifest whose resident set overruns the budget it DECLARES evicted nothing — the producer refuses that plan as a
 // budget fault before it mints, so an arrival carrying one crossed a producer that did not run its own gate.
 const _admitted = (manifest: Residency.Manifest): Either.Either<Residency.View, Wire.Fault> =>
-  manifest.version !== _RESIDENCY_SCHEMA
-    ? Either.left(_schemaFault(manifest))
-    : pipe(_tallied(manifest), (view) =>
-        view.resident > manifest.vramBudget
-          ? Either.left(_overrun("GeometryResidency", "<residency-vram-budget>", Number(view.resident), Number(manifest.vramBudget), Option.none()))
-          : Either.right(view))
+  pipe(_tallied(manifest), (view) =>
+    view.resident > manifest.vramBudget
+      ? Either.left(_overrun("GeometryResidency", "<residency-vram-budget>", Number(view.resident), Number(manifest.vramBudget), Option.none()))
+      : Either.right(view))
 
 // ONE entry over both arities, discriminating on the value's own shape: a manifest replaces whole, so the stream arm
 // is a MAP where the prior ledger needed an accumulator, and a caller holding a single decoded arrival reaches the
@@ -401,7 +378,6 @@ const _envelope: Schema.Schema<Residency.Manifest, Uint8Array> = Format.proto.fa
 
 const Residency: {
   readonly Manifest: typeof Manifest
-  readonly schema: typeof _RESIDENCY_SCHEMA
   readonly kinds: typeof _kinds
   readonly kind: typeof _kindRows
   readonly envelope: typeof _envelope
@@ -413,7 +389,6 @@ const Residency: {
   readonly splatBorne: (view: Residency.View) => ReadonlyArray<Residency.Tile>
 } = {
   Manifest,
-  schema: _RESIDENCY_SCHEMA,
   kinds: _kinds,
   kind: _kindRows,
   envelope: _envelope,

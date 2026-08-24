@@ -1,12 +1,12 @@
 # [APPUI_CHARTS_BOARDS]
 
-The board-scoped context and its survivals: one typed variable-and-range value every tile feed and title reads, one placement fold every layout derives from, one migration-gated snapshot crossing the composition-seated wire, one deep-link query codec riding the router's grammar, and the board meter contribution. Tiles live at `Charts/tiles.md`, the brushed state at `Charts/boards.md`. Linked brushing is board-lifetime state, so the filter channel and its cross-filter index seat here beside the context every tile reads.
+The board-scoped context and its survivals: one typed variable-and-range value every tile feed and title reads, one placement fold every layout derives from, one generation-sealed snapshot crossing the composition-seated wire, one deep-link query codec riding the router's grammar, and the board meter contribution. Tiles live at `Charts/tiles.md`, the brushed state at `Charts/boards.md`. Linked brushing is board-lifetime state, so the filter channel and its cross-filter index seat here beside the context every tile reads.
 
 ## [01]-[INDEX]
 
 - [02]-[BOARD_CONTEXT]: Variables, the time range, the refresh tick, and the deep-link codec.
 - [03]-[PLACEMENT_FOLD]: The per-tier grid and the one wrapping fold every layout derives from.
-- [04]-[BOARD_STATE]: The migration ladder and the size-gated snapshot round-trip.
+- [04]-[BOARD_STATE]: The sealed snapshot round-trip and the residue a refused parcel holds.
 - [05]-[BOARD_TELEMETRY]: The board meter rows and their composition-bound projections.
 - [06]-[FILTER_STATE]: The brushed state, the delta union, the lens value, and the polygon brush.
 - [07]-[CROSS_FILTER]: The one push, the two projections, the bitmap index, and the pixel-to-data map.
@@ -200,7 +200,7 @@ public static class BoardLink {
 
 - Owner: `PlacementGrid` — the column count per breakpoint tier, mintable only through its frozen roster; `SpanPolicy` — equal-weight against fixed-span wrapping; `PlacementFlow` — the ONE placement fold every board layout derives from.
 - Cases: `SpanPolicy` = Equal | Fixed(span).
-- Entry: `PlacementGrid.For(at)` — the tier's grid row; `PlacementFlow.Flow(grid, keys, span, rowSpan, from)` — the one fold; `PlacementFlow.Layout(key, version, bands, canvasState)` — the whole-board derivation across every tier.
+- Entry: `PlacementGrid.For(at)` — the tier's grid row; `PlacementFlow.Flow(grid, keys, span, rowSpan, from)` — the one fold; `PlacementFlow.Layout(key, bands, canvasState)` — the whole-board derivation across every tier.
 - Auto: every board layout derives its columns and spans from the grid row for the active breakpoint, so a literal column index, a literal span, and a literal wrap arithmetic are all unspellable; a FACET grid is the same fold at a tile-local grid whose column count is the facet's own declared width — a grid is a grid at every scale.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new responsive tier is one roster row over the settled breakpoint vocabulary; a new spanning posture is one `SpanPolicy` arm; zero new surface.
@@ -254,8 +254,8 @@ public static class PlacementFlow {
 
     // The whole-board fold: a board declares its bands in reading order and every tier derives its own rows,
     // so a responsive board is one declaration rather than one arrangement per width.
-    public static Fin<DashboardLayout> Layout(string key, int version, Seq<(Seq<string> Keys, int RowSpan)> bands, Option<string> canvasState = default) =>
-        DashboardLayout.Admit(key, version,
+    public static Fin<DashboardLayout> Layout(string key, Seq<(Seq<string> Keys, int RowSpan)> bands, Option<string> canvasState = default) =>
+        DashboardLayout.Admit(key,
             toSeq(PlacementGrid.Rows).Bind(grid =>
                 bands.Fold((Acc: Seq<TilePlacement>(), Row: 0), (state, band) =>
                     Flow(grid, band.Keys, new SpanPolicy.Equal(), band.RowSpan, state.Row) switch {
@@ -267,70 +267,32 @@ public static class PlacementFlow {
 
 ## [04]-[BOARD_STATE]
 
-- Owner: `BoardMigration` — the declared forward ladder over typed steps; `BoardState` — the size-gated, migrated, re-admitted snapshot.
-- Entry: `BoardMigration.Climb(node, from, to)` — the ladder walk; `BoardState.Capture(layout, filter, context)` — the admitted snapshot; `Serialize()` / `Restore(blob, expected)` — the round-trip on the one composition-seated wire; `Reapply(crossFilter)` — the brush restore pushed as a delta.
-- Packages: LanguageExt.Core, System.Text.Json, BCL inbox
-- Growth: a schema move is one `BoardMigration` row; zero new surface.
-- Boundary: an OLDER blob migrates forward through the declared ladder, a NEWER blob refuses because it carries fields this build cannot honour, and an oversize blob refuses before decode so a corrupt or hostile snapshot never allocates against the UI thread — a bare version equality check discarded every arrangement on every schema move, silently. Each migration step is a railed fold over the parsed node — an absent member names itself on the rail rather than surfacing as a null-dereference out of a restore — and the node it rewrites is the restore's own working copy, parsed and discarded inside one call. The snapshot rides `EvidenceOps.Wire`, the ONE composition-seated options every AppUi durable payload crosses: it carries the NodaTime registration and the `Option`/`Seq`/`Set`/`HashMap` converters this record cannot self-describe, while the generated owners round-trip on their own stamped converters — the dock serializer's package-internal options can carry none of those, which is why handing this record that rail was a silent default round-trip no decode refused. Restore is a DELTA like every other change, pushed under the board key, so a side door writing the brush subject directly cannot seat a state no brush could produce.
+- Owner: `BoardState` — the whole restorable board as ONE sealed grain: its layout, its brushed state, and the context every tile reads.
+- Entry: `BoardState.Seal` — the grain's one `Diagnostics/evidence#DURABLE_PARCEL` `StateSeal` row; `Capture(layout, filter, context)` — the admitted snapshot and the seal's own admission arrow; `Save()` / `Open(blob)` — the round-trip through that seal; `Reapply(crossFilter)` — the brush restore pushed as a delta.
+- Auto: the arrangement a person built is what this grain holds, so the seal declares `StateResidue.Hold` and a parcel the generation refuses reaches the shell as raw bytes beside the seeded default — the board opens, the loss is visible, and the arrangement stays recoverable by hand.
+- Packages: LanguageExt.Core
+- Growth: a new restorable board column is one `BoardState` field under one `Generation` bump on the seal row; zero new surface.
+- Boundary: a board's stored shape carries no forward ladder, no per-generation step, and no version ordinal in its key — the seal proves the generation inside the bytes and the board rebuilds from its declared default where they disagree, because a step table translating one authored arrangement into another is a second authority on what the arrangement meant and a build reading its output renders a board nobody arranged while every gate passes. NAMED LOSS: attribute-rename carry — a placement or context column renamed across a generation reaches no reader under the next, and the residue is where that arrangement survives. The snapshot rides `EvidenceOps.Wire` through the seal, the ONE composition-seated options every AppUi durable payload crosses: it carries the NodaTime registration and the `Option`/`Seq`/`Set`/`HashMap` converters this record cannot self-describe, while the generated owners round-trip on their own stamped converters — the dock serializer's package-internal options can carry none of those, which is why handing this record that rail was a silent default round-trip no decode refused. `Capture` IS the admission the seal runs, so a parcel that decoded into the shape still proves overlap, window order, and variable domains before a tile reads it. Restore is a DELTA like every other change, pushed under the board key, so a side door writing the brush subject directly cannot seat a state no brush could produce.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
-// A board a user arranged survives a placement-schema change.
-public sealed record BoardMigration(int From, int To, Func<JsonNode, Fin<JsonNode>> Step) {
-    public static readonly Seq<BoardMigration> Ladder = Seq(
-        new BoardMigration(1, 2, static node => Breakpointed(node)));
-
-    // Placement rows gained a breakpoint column: a version-one blob's rows are the expanded tier's rows, and
-    // every narrower tier re-derives from the placement fold rather than being invented here. The walk is
-    // railed — a blob without the members this step rewrites names itself instead of throwing out of restore.
-    static Fin<JsonNode> Breakpointed(JsonNode node) =>
-        Optional(node["Layout"]).ToFin(Fail: (Error)new ChartFault.SnapshotRejected("migration/layout", 2))
-            .Map(layout => {
-                foreach (JsonNode? placement in layout["Placements"]?.AsArray() ?? []) {
-                    placement?.AsObject().Add("At", BreakpointRow.Expanded.Key);
-                }
-                layout["Version"] = 2;
-                return node;
-            });
-
-    public static Fin<JsonNode> Climb(JsonNode node, int from, int to) =>
-        from == to
-            ? Fin.Succ(node)
-            : Ladder.Find(step => step.From == from).Match(
-                Some: step => step.Step(node).Bind(next => Climb(next, step.To, to)),
-                None: () => Fin.Fail<JsonNode>(new ChartFault.SnapshotRejected($"migration/{from}->{to}", to)));
-}
-
+// --- [MODELS] ---------------------------------------------------------------------------
 public sealed record BoardState(DashboardLayout Layout, FilterState Filter, BoardContext Context) {
-    // Generous enough that no honest board approaches it, tight enough that a decode never becomes an
-    // allocation vector; the profile round-trip reads the same ceiling.
-    public const int Ceiling = 1 << 20;
+    // Boards hold what a person ARRANGED, so a refused parcel HOLDS: bytes stay beside the seeded default,
+    // visible and hand-recoverable, where a shape move outran the arrangement.
+    public static readonly StateSeal Seal = StateSeal.Of("chart", "board", generation: 2, StateResidue.Hold);
 
     public static Fin<BoardState> Capture(DashboardLayout layout, FilterState filter, BoardContext context) =>
-        DashboardLayout.Admit(layout.Key, layout.Version, layout.Placements, layout.CanvasState)
+        DashboardLayout.Admit(layout.Key, layout.Placements, layout.CanvasState)
             .Bind(admitted => FilterState.Admit(filter)
                 .Bind(admittedFilter => BoardContext.Admit(context)
                     .Map(admittedContext => new BoardState(admitted, admittedFilter, admittedContext))));
 
-    public Fin<string> Serialize() =>
-        Op.Of(name: "appui.chart.board-encode").Catch(() => Fin.Succ(JsonSerializer.Serialize(this, EvidenceOps.Wire)));
+    public Fin<string> Save() => Seal.Write(this);
 
-    // Size-gated, then migrated, then decoded, then re-admitted: four gates in the order that makes each
-    // cheap, so an oversize blob costs a length read and a stale blob a node walk.
-    public static Fin<BoardState> Restore(string blob, DashboardLayout expected) =>
-        blob.Length > Ceiling
-            ? Fin.Fail<BoardState>(new ChartFault.RecordOversize("board", blob.Length, Ceiling))
-            : Op.Of(name: "appui.chart.board-parse").Catch(() => Fin.Succ(JsonNode.Parse(blob)))
-                .Bind(node => Optional(node).ToFin(Fail: (Error)new ChartFault.SnapshotRejected(expected.Key, expected.Version)))
-                .Bind(node => Version(node) switch {
-                    var found when found > expected.Version => Fin.Fail<JsonNode>(new ChartFault.SnapshotRejected(expected.Key, expected.Version)),
-                    var found => BoardMigration.Climb(node, found, expected.Version),
-                })
-                .Bind(node => Op.Of(name: "appui.chart.board-decode").Catch(() => Fin.Succ(JsonSerializer.Deserialize<BoardState>(node, EvidenceOps.Wire))))
-                .Bind(state => Optional(state).ToFin(Fail: (Error)new ChartFault.SnapshotRejected(expected.Key, expected.Version)))
-                .Bind(state => Capture(state.Layout, state.Filter, state.Context));
-
-    static int Version(JsonNode node) => node["Layout"]?["Version"]?.GetValue<int>() ?? 0;
+    // Seal answers the whole refusal space and re-runs THIS admission inside it, so the caller reads one
+    // value: the restored board, or the default it opens on with the refused bytes held beside it.
+    public static Restored<BoardState> Open(string blob) =>
+        Seal.Read<BoardState>(blob, static state => Capture(state.Layout, state.Filter, state.Context));
 
     // Restore is a DELTA pushed under the board key: a side door writing the subject directly would skip the
     // admission the push owns.

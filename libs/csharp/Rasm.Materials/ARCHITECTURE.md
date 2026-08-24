@@ -196,12 +196,12 @@ flowchart LR
     Appearance e16@-->|"[WIRE]: StageRequest"| Compute
     Compute e17@-->|"[WIRE]: StageResult"| Appearance
     Appearance e18@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
-    Appearance e19@-->|"[WIRE]: appearance.v1.Material"| Core
-    Appearance e20@-->|"[WIRE]: appearance.v1.Material"| PyRuntime
-    Appearance e21@-->|"[WIRE]: appearance.v1.Set"| Core
-    Appearance e22@-->|"[WIRE]: appearance.v1.Set"| PyRuntime
-    Appearance e23@-->|"[WIRE]: appearance.v1.Material"| Ui
-    PyArtifacts e24@-->|"[WIRE]: appearance.v1.Set"| Raster
+    Appearance e19@-->|"[WIRE]: appearance.Material"| Core
+    Appearance e20@-->|"[WIRE]: appearance.Material"| PyRuntime
+    Appearance e21@-->|"[WIRE]: appearance.Set"| Core
+    Appearance e22@-->|"[WIRE]: appearance.Set"| PyRuntime
+    Appearance e23@-->|"[WIRE]: appearance.Material"| Ui
+    PyArtifacts e24@-->|"[WIRE]: appearance.Set"| Raster
     PyData e25@-->|"[WIRE]: DeclarationRecord"| Properties
     Host e26@-->|"[WIRE]: CaptureSource"| Appearance
     Projection e27@-->|"[PORT]: TelemetryContributorPort"| AppHost

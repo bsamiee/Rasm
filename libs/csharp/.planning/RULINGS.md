@@ -63,6 +63,7 @@
 - Hook censuses freeze at the composition's ONE `HookRegistry.Mount` — a contributing rail hands its `Points` in and calls nothing itself.
 - `ArtifactKind` seats at the lowest stratum both its strata peers reach — seating a taxonomy beside the first consumer's index recurs it.
 - Every declared `HookPoint` lands its FIRE SITE in the same change — a veto point nothing fires advertises an admission gate that admits everything.
+- Compiled models source the generation artifact ALONE — `MigrationsAssembly` binds nothing, and a second assembly forks the shape one digest names.
 - `Rasm` `Deterministic` is the branch's ONE splitmix64 owner. [NOT] a frozen wire constant whose VALUES define a format and re-cut stored payloads.
 - Present-but-sealed upstream payloads bind through ONE `[UnsafeAccessor]` capsule at the boundary page, pinned to the manifest — never a re-parse.
 - Domain-carrier accessors seat with the field-name roster — the message-envelope owner, else the egress leg; `TraceContext` declares shape alone.
@@ -142,7 +143,7 @@
 - ONE producer leg crosses a fault — `Rasm.AppHost` `FaultWire.Raise` over `Grpc.StatusProto`; a folder-local `Error → StatusCode` switch forks it.
 - ONE ProtoJSON edge serves the branch — `Rasm.AppHost` `WireJson` with the registry over every `<File>Reflection`; `.Default` is the deleted form.
 - Every cross-language C# wire is a generated `Rasm.Contracts` message or a publisher type — a record mirroring one under any codec is the twin.
-- MessagePack frames the explicit primitive op-log envelope and branch-interior stage crossing; generated `crdt.v1.CrdtOpWire` owns its raw slot.
+- MessagePack frames the explicit primitive op-log envelope and branch-interior stage crossing; generated `crdt.CrdtOpWire` owns its raw slot.
 - Fault families carry no category mirror — the union case IS the identity, and a parallel roster publishes a second discriminant per family.
 - Family-local `Semigroup`/`Aggregate`/`Combine` folds collapse to `Error.Many` — two accumulation paradigms disagree on flattening and on posture.
 - Generic text faults collapse into typed cases — a leaf carrying only `Detail` states no identity, and its string is presentation, never routed.

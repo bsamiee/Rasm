@@ -13,8 +13,7 @@
 - Proto messages keep their plain name and mint `Wire` only on a co-resident domain collision — `element.proto` suffixes all, `compute.proto` none.
 - RPCs bind their payload directly under the lint-required name — an envelope seats only where a second field embeds that payload, stated on site.
 - Producer-refused invariants ship as contract LAW, never a wire column — a constant column hands every consumer a knob to renormalize against.
-- Published protos grow ALONE — deprecation retires a member, `reserved` rescues no FILE deletion, and a reshaped family mints `v2` beside `v1`.
-- Tightened protovalidate rules clear every breaking category — narrowing admission on a published message is a break the gate reports nowhere.
+- Published protos reshape IN PLACE — every consumer updates same-change, and publication re-pins the `main` stream as the one live shape.
 
 ## [03]-[COLLAPSE]
 
@@ -30,7 +29,7 @@
 - Vendored protos are their OWN buf module outside the format path — estate rules re-spell publisher bytes.
 - Vendored modules carve NAMED lint rules alone, restating `use: [STANDARD]` because a module block merges nothing from the workspace.
 - `disable_builtin` never stands in for a carve — it grades a module against nothing and WARNs on every run while the exit code reads clean.
-- Vendored modules clearing `STANDARD` whole carry no rule block, and none carries a `breaking` block the estate lane can ever reach.
+- Vendored modules clearing `STANDARD` whole carry no rule block.
 - Gate-derived projections alone carry a schema, earned by a verified document its consumer evaluates; a hand-authored one defines no seam.
 - Estate protos carry in-situ field law and `// --- [SECTION]` banners alone — narrative, drift, or snapshot prose restates a moving owner.
 - Module documentation seats `buf.md` at the estate module root — absent it the BSR renders the repo README to every external consumer.
@@ -57,7 +56,5 @@
 - Protovalidate rules own field constraints in estate proto sources; branch admission evaluates them at every decode and emit boundary.
 - `ShGolden.Prove` sweeps run at LANDING cadence in the owning suite's default lane — no runtime path, hot loop, or bench session gates on them.
 - Golden proofs re-run the SHIPPING fold against the page's evaluated vectors — a private re-derivation proves its own arithmetic and nothing else.
-- Compatibility resolves the active module's `main` label once and proves FILE on the returned commit; no snapshot or alternate baseline substitutes.
 - `contracts publish` alone admits exact module absence, re-proved just before bootstrap; a missing label, auth, or network fault never bootstraps.
-- Breaking proof rides the published module's resolved commit — an unresolved baseline SKIPS the lane, and that skip supplies no verdict at all.
 - litter-guard `POLICY` censuses two-way against the `[ARTIFACT_ROUTING]` litter-guard rows, and each row's block and pass forms prove by running the hook.

@@ -14,8 +14,8 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 
 ## [02]-[LANE_SPEC]
 
-- Owner: `Lane.Spec` — one `Fold.Plan` bound to one keyed relation under a `Live.Band`, carrying the state codec, stamp projection, upcast plan, and batch engine; `Lane.at` realizes the per-cell `Fold.AsOf` coordinate from the relation's own position columns, and `Lane.Edit.fold` decodes each foreign `EntityEditWire` document once before folding content-addressed edits under the graph's redaction manifest.
-- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Upcast.Plan`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
+- Owner: `Lane.Spec` — one `Fold.Plan` bound to one keyed relation under a `Live.Band`, carrying the state codec, stamp projection, event family, and batch engine; `Lane.at` realizes the per-cell `Fold.AsOf` coordinate from the relation's own position columns, and `Lane.Edit.fold` decodes each foreign `EntityEditWire` document once before folding content-addressed edits under the graph's redaction manifest.
+- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Payload.Column`, `Payload.json`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
 - Entry: an owning lane declares one `Lane.Spec` beside its relation and hands it to `Lane.of`, which settles the coordinate read and the inline slot together.
 - Law: `Lane.Spec.name` mints through `Live.scope` at the composition, never as a bare literal — the band carries its scope discriminant by construction, so a lane declared under two scopes wakes apart and no spec author can spell an unqualified band.
 - Law: every projection row carries its own position — `sequence`, `stamp_physical`, and `stamp_logical` sit on the row, so `Fold.AsOf` reads what a caller already fetched and a staleness question costs no second relation.
@@ -33,7 +33,7 @@ import { Clock, Fault, Fold, Format, Wire } from "@rasm/core"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal } from "../journal/append.ts"
-import type { Upcast } from "../journal/evolve.ts"
+import { Payload } from "../journal/evolve.ts"
 import { Batch } from "./batch.ts"
 import { Live } from "./live.ts"
 import { Query } from "./query.ts"
@@ -45,7 +45,7 @@ declare namespace Lane {
     readonly state: Schema.Schema<S, I>
     readonly relation: Query.Relation
     readonly stamp: (event: A) => Clock.Hlc
-    readonly decode: Upcast.Plan<A>
+    readonly family: Schema.Schema<A, unknown>
     readonly batch: Batch.Engine
   }
   type At = Fold.AsOf
@@ -212,7 +212,7 @@ import { Live } from "./live.ts"
 const _held = <S, I>(sql: SqlClient.SqlClient, table: Query.Relation["table"], state: Schema.Schema<S, I>) => {
   const found = SqlSchema.findAll({
     Request: Schema.Array(Live.Keys.Cell),
-    Result: Schema.Struct({ cell: Live.Keys.Cell, state: Upcast.json(state) }),
+    Result: Schema.Struct({ cell: Live.Keys.Cell, state: Payload.json(state) }),
     execute: (keys) =>
       sql.onDialectOrElse({
         orElse: () => sql`SELECT cell, state FROM ${sql(table)} WHERE ${sql.in("cell", keys)}`,
@@ -339,7 +339,7 @@ import { BigInt, Function, Layer, Metric, Option, type ParseResult, Request, Sch
 import { Machine, Reactivity } from "@effect/experimental"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { Convention, Fault, Identity } from "@rasm/core"
-import { Upcast } from "../journal/evolve.ts"
+import { Payload } from "../journal/evolve.ts"
 
 declare namespace Lane {
   type Mark = _Mark
@@ -405,7 +405,6 @@ const _Checkpoint = Schema.Struct({ checkpoint: Journal.Sequence })
 const _Page = Schema.Struct({
   sequence: Journal.Sequence,
   tag: Schema.String,
-  event_version: Upcast.Generation,
   payload: Schema.Unknown, // deliberately raw: a poison payload fails inside the per-event effect, never the whole page read
 })
 
@@ -425,7 +424,7 @@ const _page = (sql: SqlClient.SqlClient, app: Identity.App.Key) =>
     Request: Schema.Struct({ floor: Journal.Sequence, take: Schema.Int.pipe(Schema.positive()) }),
     Result: _Page,
     execute: (window) =>
-      sql`SELECT sequence, tag, event_version, payload FROM journal_event
+      sql`SELECT sequence, tag, payload FROM journal_event
           WHERE app = ${app} AND sequence > ${window.floor}
           ORDER BY sequence LIMIT ${window.take}`,
   })
@@ -459,8 +458,7 @@ const _decoded = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>)
   { readonly fault: ParseResult.ParseError; readonly row: typeof _Page.Type }
 > =>
   Effect.mapBoth(
-    Effect.flatMap(Schema.decodeUnknown(Upcast.Column)(row.payload), (payload) =>
-      spec.decode.decode({ tag: row.tag, eventVersion: row.event_version, payload })),
+    Schema.decodeUnknown(Payload.json(spec.family))(row.payload),
     { onFailure: (fault) => ({ fault, row }), onSuccess: (event) => ({ event, row }) },
   )
 
@@ -707,15 +705,15 @@ export { Lane }
 
 ## [06]-[ORGANIZATION_FOLD]
 
-- Owner: `Organization.decode` is the sole TypeScript landing for generated `organization.v1.Organization` bytes; it preserves the recursive forest's sibling order while projecting entity, member, and view rows for `read/query#ORGANIZATION_ROWS`.
+- Owner: `Organization.decode` is the sole TypeScript landing for generated `organization.Organization` bytes; it preserves the recursive forest's sibling order while projecting entity, member, and view rows for `read/query#ORGANIZATION_ROWS`.
 - Entry: `Organization.decode(bytes)` runs generated Protovalidate through `Format.proto.frame(OrganizationSchema)`, then one bounded frontier proves only schema-inexpressible laws: globally unique entity keys, at most 65,536 entities, depth at most 64, and exact current-path resolution.
 - Law: nesting is structural and every member/view row is emitted with its owning entity. `position` derives from repeated-list position at this landing; no ordinal crosses or survives beside it.
 - Boundary: duplicate entity keys refuse before any `Map` insert; current is the resolved entity address or absence, never an unchecked key. Generated rules already own member/view uniqueness and field bounds, so this fold does not revalidate them.
-- Packages: `@rasm/contracts` (generated `organization.v1.OrganizationSchema`); `@rasm/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
+- Packages: `@rasm/contracts` (generated `organization.OrganizationSchema`); `@rasm/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
 
 ```typescript signature
 import { fromBinary, type MessageShape } from "@bufbuild/protobuf"
-import { OrganizationSchema } from "@rasm/contracts/rasm/contracts/organization/v1/organization_pb"
+import { OrganizationSchema } from "@rasm/contracts/rasm/contracts/organization/organization_pb"
 
 type OrganizationEntityRow = {
   readonly address: string

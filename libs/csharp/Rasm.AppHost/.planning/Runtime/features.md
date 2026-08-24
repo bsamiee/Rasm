@@ -45,17 +45,16 @@ public readonly partial struct Variant {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlagReason {
-    public static readonly FlagReason Static = new(Reason.Static, wire: Rasm.Contracts.Feature.V1.FlagReason.Static);
-    public static readonly FlagReason Default = new(Reason.Default, wire: Rasm.Contracts.Feature.V1.FlagReason.Default);
-    public static readonly FlagReason TargetingMatch = new(
-        Reason.TargetingMatch, wire: Rasm.Contracts.Feature.V1.FlagReason.Targeting);
-    public static readonly FlagReason Split = new(Reason.Split, wire: Rasm.Contracts.Feature.V1.FlagReason.Split);
-    public static readonly FlagReason Cached = new(Reason.Cached, wire: Rasm.Contracts.Feature.V1.FlagReason.Cached);
-    public static readonly FlagReason Disabled = new(Reason.Disabled, wire: Rasm.Contracts.Feature.V1.FlagReason.Disabled);
-    public static readonly FlagReason Error = new(Reason.Error, wire: Rasm.Contracts.Feature.V1.FlagReason.Error);
-    public static readonly FlagReason Unknown = new(Reason.Unknown, wire: Rasm.Contracts.Feature.V1.FlagReason.Unknown);
+    public static readonly FlagReason Static = new(Reason.Static, wire: Rasm.Contracts.Feature.FlagReason.Static);
+    public static readonly FlagReason Default = new(Reason.Default, wire: Rasm.Contracts.Feature.FlagReason.Default);
+    public static readonly FlagReason TargetingMatch = new(Reason.TargetingMatch, wire: Rasm.Contracts.Feature.FlagReason.Targeting);
+    public static readonly FlagReason Split = new(Reason.Split, wire: Rasm.Contracts.Feature.FlagReason.Split);
+    public static readonly FlagReason Cached = new(Reason.Cached, wire: Rasm.Contracts.Feature.FlagReason.Cached);
+    public static readonly FlagReason Disabled = new(Reason.Disabled, wire: Rasm.Contracts.Feature.FlagReason.Disabled);
+    public static readonly FlagReason Error = new(Reason.Error, wire: Rasm.Contracts.Feature.FlagReason.Error);
+    public static readonly FlagReason Unknown = new(Reason.Unknown, wire: Rasm.Contracts.Feature.FlagReason.Unknown);
 
-    public Rasm.Contracts.Feature.V1.FlagReason Wire { get; }
+    public Rasm.Contracts.Feature.FlagReason Wire { get; }
 
     // Provider text is FOREIGN and admits ONCE: a provider that invents a reason lands `Unknown` here rather
     // than reaching a decoder with a token no wire union carries.
@@ -231,7 +230,7 @@ public static class Bucketing {
 
 ## [04]-[VERDICT_PROJECTION]
 
-- Owner: `FlagVerdict` is the canonical evaluation-outcome carrier the cross-page consumers read; generated `Feature.V1.FlagVerdictWire` is its peer projection; `FeatureMap` projects directly onto that message; `FeatureFault` `[Union]` is the closed evaluation-fault family riding the kernel `[FaultCase]`/`Fault` floor; `Features` is the static evaluation surface over the one resolved `IFeatureClient`; `SpineHook` is the one registered `Hook` every evaluation crosses; `FeaturesRuntime` is the composition record the hook and provider-event handlers read.
+- Owner: `FlagVerdict` is the canonical evaluation-outcome carrier the cross-page consumers read; generated `Feature.FlagVerdictWire` is its peer projection; `FeatureMap` projects directly onto that message; `FeatureFault` `[Union]` is the closed evaluation-fault family riding the kernel `[FaultCase]`/`Fault` floor; `Features` is the static evaluation surface over the one resolved `IFeatureClient`; `SpineHook` is the one registered `Hook` every evaluation crosses; `FeaturesRuntime` is the composition record the hook and provider-event handlers read.
 - Cases: `FeatureFault` = `ProviderNotReady` | `FlagAbsent` | `TypeMismatch` | `ContextInvalid` — one case per `OpenFeature` `ErrorType` cause that crosses into domain logic, each breaking every consumer arm.
 - Entry: `Evaluate(IFeatureClient client, FlagKey key, FlagSubject subject)` returns `IO<FlagVerdict>` — builds the `EvaluationContext` from the subject through `EvaluationContext.Builder().SetTargetingKey(...).Set(...)`, runs `client.GetObjectDetailsAsync((string)key, new Value(), context)` returning `FlagEvaluationDetails<Value>`, and projects the detail's `Variant`, admitted `FlagReason`, `ErrorType`, and resolved value onto one `FlagVerdict`, yielding `FlagVerdict.Inert` when the provider reports itself unready so an absent rail resolves the one declared fallback rather than a variant no definition seated; `Context(FlagSubject subject)` returns `EvaluationContext` — the one builder fold every evaluation shares so subject identity, tenant slug, and targeting attributes enter the provider through one shape.
 - Auto: the verdict is the single shape the consumers read — `Agent/reasoning#MODEL_GOVERNANCE` `ModelRoute.From(FlagVerdict)` maps `Variant` to a model route and `Sandbox/provisioning#ROLLOVER_DRAIN` maps `Variant` to a `RollStrategy` row, both reading the same `(FlagKey Key, Variant Variant, bool Enabled, string Reason)` projection so neither re-runs the evaluator nor re-derives the bucket; the evaluation reads `FlagEvaluationDetails<T>` carrying `Value`, `FlagKey`, `Reason`, `Variant`, `ErrorType`, and `ErrorMessage` so a provider failure lands on `ErrorType` plus `Reason.Error` and never throws across the client boundary — the `Classify` fold lifts a non-`None` `ErrorType` to the typed `FeatureFault`, and a clean evaluation projects the `Variant`/`Reason` onto an `Enabled = ErrorType.None && Reason != Reason.Disabled` verdict; the reason rides the verdict as a `FlagReason` ROW rather than provider text, so a consumer distinguishes a targeting match from a default fallthrough by comparing rows and `Enabled` derives from one row test instead of two string compares; the targeting context is built once per evaluation through the `Context` fold and the ambient global `EvaluationContext` carries the cross-cutting attributes — the tenant slug and the host key seated ONCE at `Register` through `Api.Instance.SetContext`, never re-set on every `FlagSubject`; an absent features rail seats no provider, so the composition binds `FlagVerdict.Inert` as the whole verdict function and an unready provider re-keys the same value at `Evaluate` — one shape for both absences, so the consumers fall to their policy defaults (`ModelRoute.Default`, the policy `RollStrategy`) off a real verdict rather than a per-consumer fallback, and never a hard-coded model or an unguarded rollout.
@@ -305,7 +304,7 @@ public static class Features {
 }
 
 internal static class FeatureMap {
-    public static Rasm.Contracts.Feature.V1.FlagVerdictWire ToWire(FlagVerdict verdict) => new() {
+    public static Rasm.Contracts.Feature.FlagVerdictWire ToWire(FlagVerdict verdict) => new() {
         Flag = verdict.Key.Value,
         Value = verdict.Enabled,
         Variant = verdict.Variant.Value,
@@ -409,8 +408,8 @@ export {
   FlagReason,
   FlagReasonSchema,
   FlagVerdictWireSchema,
-} from "@rasm\/contracts/rasm/contracts/feature/v1/verdict_pb";
-export type { FlagVerdictWire } from "@rasm\/contracts/rasm/contracts/feature/v1/verdict_pb";
+} from "@rasm\/contracts/rasm/contracts/feature/verdict_pb";
+export type { FlagVerdictWire } from "@rasm\/contracts/rasm/contracts/feature/verdict_pb";
 ```
 
 ## [07]-[RESEARCH]

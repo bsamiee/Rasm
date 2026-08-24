@@ -72,7 +72,7 @@ file static class ShellSeam {
             writer.WriteString(propertyName: "pipeName", value: string.Empty);
             writer.WriteNumber(propertyName: "rhinoPid", value: Environment.ProcessId);
             writer.WriteNumber(propertyName: "rhinoStartedAtUnixMs", value: new DateTimeOffset(dateTime: host.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds());
-            writer.WriteNumber(propertyName: "contractVersion", value: 0);
+            writer.WriteNumber(propertyName: "contractGeneration", value: 0);
             writer.WriteString(propertyName: "shellVersion", value: string.Empty);
             writer.WriteString(propertyName: "rhinoVersion", value: RhinoApp.Version.ToString());
             writer.WriteString(propertyName: "fault", value: fault);

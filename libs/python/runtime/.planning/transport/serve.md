@@ -2,7 +2,7 @@
 
 Companion server-host and daemon composition root: `ServerHost` owns the inbound Connect lifecycle — every generated `<Svc>ASGIApplication` constructed here over its servicer, mounted under one dispatcher, and served by hypercorn — and the interceptor tuple every rpc crosses: metadata admission once per call and descriptor-driven constraint validation on every request and response body. `ServerHost` is itself the generated `grpc.health.v1` `Health` servicer, so the host's serving state publishes through the same generated seam every dialer reaches. `CapabilityInvoke` is the descriptor-driven outbound dial over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon's unary `ComputeService.Tessellate`, server-streaming `ArtifactService.Fetch`, and client-streaming `ArtifactService.Put` over the corpus Connect contract on the UDS leg and re-mints nothing it composes: hypercorn owns the plaintext UNIX-socket ASGI bind and answers gRPC by prior-knowledge h2c, Connect over h2 and HTTP/1.1, and gRPC-Web with no further config; the socket path stays under the `AF_UNIX` `sun_path` limit or the bind refuses with `AF_UNIX path too long`. Connect's server and client both run asyncio loop primitives, so this host serves under `anyio.run(..., backend="asyncio")` alone.
 
-Wire vocabulary is generated under two roots: estate and support types beneath `rasm.contracts.gen`, publisher types beneath `rasm.contracts.vendor`. Compute and control arrive from `rasm.contracts.gen.rasm.contracts.compute.v1`, faults from `rasm.contracts.gen.rasm.contracts.fault.v1`, `google.rpc` details from `rasm.contracts.gen.google.rpc`, and the vendored health service from `rasm.contracts.vendor.grpc.health.v1`. These are the only import roots for wire symbols on this page; causal time remains `evidence/clock#CLOCK`'s and admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and W3C inbound extraction here — the ASGI middleware is this ingress's trace-context authority.
+Wire vocabulary is generated under two roots: estate and support types beneath `rasm.contracts.gen`, publisher types beneath `rasm.contracts.vendor`. Compute and control arrive from `rasm.contracts.gen.rasm.contracts.compute`, faults from `rasm.contracts.gen.rasm.contracts.fault`, `google.rpc` details from `rasm.contracts.gen.google.rpc`, and the vendored health service from `rasm.contracts.vendor.grpc.health.v1`. These are the only import roots for wire symbols on this page; causal time remains `evidence/clock#CLOCK`'s and admitted context `execution/admission#CONTEXT`'s. Seam ledgers file the `CredentialPolicy` axis decode and W3C inbound extraction here — the ASGI middleware is this ingress's trace-context authority.
 
 ## [01]-[INDEX]
 
@@ -75,8 +75,8 @@ from rasm.contracts import AdmissionSide, BodyAdmission
 from rasm.contracts.gen.google.rpc.error_details_pb import BadRequest
 from rasm.contracts.vendor.grpc.health.v1.health_connect import Health, HealthASGIApplication
 from rasm.contracts.vendor.grpc.health.v1.health_pb import HealthCheckRequest, HealthCheckResponse
-from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
-from rasm.contracts.gen.rasm.contracts.fault.v1.fault_pb import FaultDetail
+from rasm.contracts.gen.rasm.contracts.clock.hlc_pb import Hlc
+from rasm.contracts.gen.rasm.contracts.fault.fault_pb import FaultDetail
 import structlog
 
 from rasm.runtime.admission import Deadline, RuntimeContext, RuntimeProfile
@@ -542,7 +542,7 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, recovery: Recovery) -
 
 ## [03]-[CAPABILITY_INVOKE]
 
-- Owner: `CapabilityInvoke` discovers through generated `capability.v1.CapabilityDiscoveryService`, verifies the returned catalog against the SDK pin, then dispatches generated request and reply messages over the brokered capability path.
+- Owner: `CapabilityInvoke` discovers through generated `capability.CapabilityDiscoveryService`, verifies the returned catalog against the SDK pin, then dispatches generated request and reply messages over the brokered capability path.
 - Law: RE-DRIVE IS TWO AXES AND NEVER A BOOL — the class's route (the Connect status the `RetryClass.WIRE` row grades) crossed with the producer's own `Recovery` verdict off the decoded `FaultDetail`, and `_redrive` is the one place both are readable at once. `terminal` spends no further attempt even inside the transient trio, `throttled` rides back as the delay `stamina` waits in place of its own curve, and every other verdict defers to the row, so the overlay narrows or re-times the class curve and never widens it. `wire_detail` is the ONE detail read and `_stated` the ONE verdict lift over it, both composed by the gate and the public `remote_fault` terminal lift alike, so the posture a retry acted on and the fault a caller receives can never be decoded two different ways. That verdict is the THIRD precedence rung the fault family declares and cannot carry: `reliability/faults#FAULT` owns the two rungs it can see and routes the peer-stated one here, where a live `ConnectError` exists to read; absence rides `Option` rather than a fourth case, so an unstated posture never masquerades as a stated one.
 - Entry: `CapabilityInvoke.connect(target, expected_pin, tenant, credential, profile, scope)` dials discovery first; it re-hashes and decodes the carried canonical document, proves the expected pin, exact-joins the sorted live availability and estimate rows to that document, and enrolls only the joined native view. Any divergence closes the transport.
 - Entry: `run(descriptor_id, request, into)` admits the id against the generated catalog and sends the typed message over `/{WireService.CAPABILITY}/{descriptor_id}`.
@@ -572,9 +572,9 @@ from opentelemetry import propagate, trace
 from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from protobuf import Message
 from pyqwest import Client
-from rasm.contracts.gen.rasm.contracts.capability.v1.discovery_connect import CapabilityDiscoveryServiceClient
-from rasm.contracts.gen.rasm.contracts.capability.v1.discovery_pb import CostUnit, DiscoverRequest, DiscoverResponse
-from rasm.contracts.gen.rasm.contracts.fault.v1.fault_pb import FaultDetail
+from rasm.contracts.gen.rasm.contracts.capability.discovery_connect import CapabilityDiscoveryServiceClient
+from rasm.contracts.gen.rasm.contracts.capability.discovery_pb import CostUnit, DiscoverRequest, DiscoverResponse
+from rasm.contracts.gen.rasm.contracts.fault.fault_pb import FaultDetail
 
 from rasm.runtime.admission import RuntimeProfile
 from rasm.runtime.clock import Tenant

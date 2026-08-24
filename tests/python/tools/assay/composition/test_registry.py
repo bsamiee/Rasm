@@ -332,7 +332,7 @@ def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.Mon
 
     Mutant caught: re-raising the error → caller gets UnicodeEncodeError instead of a valid NDJSON line.
     """
-    env = Envelope(schema_version=1, claim=Claim.STATIC, verb="static", status=RailStatus.OK, exit_code=0, run_id="x")
+    env = Envelope(claim=Claim.STATIC, verb="static", status=RailStatus.OK, exit_code=0, run_id="x")
     calls = iter((True, False))  # first encode raises, subsequent encodes succeed
 
     def patched(obj: object) -> bytes:

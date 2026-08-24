@@ -58,7 +58,7 @@ Render an inline status, result, change, or state as a bracketed token so an age
 - Compact glyphs render only where density matters — checked lists, delta summaries, table cells — with the global meanings above.
 - Reserve these tokens for status, result, change, and state; never scatter them through prose or duplicate a record field or checkbox state.
 - A checkbox asserts completion; `[X]` is a compact fail marker, never a replacement for `- [x]`.
-- A type-local marker such as `[PROVISIONAL]` or `[DEPRECATED]` is valid only when a type standard declares its closed vocabulary, meaning, and removal behavior before first use.
+- Type-local markers such as `[PROVISIONAL]` are valid only when a type standard declares their closed vocabulary, meaning, and removal behavior before first use.
 - Suffix forms such as `[ACTIVE <ID>]` are valid only as codemap or source-key projections; the base token comes from a declared vocabulary and the suffix adds no lifecycle meaning.
 - A bracketed inline lifecycle marker uppercases the canonical token and hyphenates interior spaces.
 - Invocation markers weight instruction-file constraints; group labels introduce a list or table; GitHub alerts interrupt the reading path; compact glyphs fill dense cells; lifecycle tokens mirror a record `Status` inline.

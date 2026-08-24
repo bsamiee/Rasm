@@ -221,7 +221,7 @@ const Law = {
             predicate: (step, { a }) => Effect.sync(() => options.order(a, step(a)) <= 0),
             witness: options.witness,
         }),
-    // Upcast totality: the subject decoder succeeds over the whole generated input space — the event-spine version-fold proof.
+    // Decode totality: the subject decoder succeeds over the whole generated input space — the event-spine re-mint proof.
     total: <I, E, R>(
         options: Law.Stock<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }> & { readonly arb: FastCheck.Arbitrary<I> },
     ): Law.Law<(input: I) => Effect.Effect<unknown, E, R>, R> =>

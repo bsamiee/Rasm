@@ -23,7 +23,7 @@ using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Element.V1;
+using Rasm.Contracts.Element;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Properties;
@@ -212,8 +212,8 @@ internal static partial class WireCodec {
    Opt(row.Identity.HasUsage, row.Identity.Usage)))), "quantity-set.groups", key);
 
  static Fin<(InheritanceMode Mode, EvidenceGrade Rank)> BagAxes(
-  Rasm.Contracts.Element.V1.InheritanceMode inheritance,
-  Rasm.Contracts.Element.V1.EvidenceGrade sourceRank,
+  Rasm.Contracts.Element.InheritanceMode inheritance,
+  Rasm.Contracts.Element.EvidenceGrade sourceRank,
   Op key) =>
   (ToInheritance(inheritance, key), ToEvidenceGrade(sourceRank, key))
    .Apply(static (mode, rank) => (mode, rank)).As().ToFin();
@@ -223,92 +223,92 @@ internal static partial class WireCodec {
    key.AcceptValidated<PropertyName>(p.Name).Bind(name => ToValue(p.Value, key).Map(v => (Name: name, Value: v)))).As()
    .Bind(pairs => Named(pairs, key));
 
- static Rasm.Contracts.Element.V1.InheritanceMode ToWire(InheritanceMode value) => value == InheritanceMode.OccurrenceWins
-  ? Rasm.Contracts.Element.V1.InheritanceMode.OccurrenceWins
+ static Rasm.Contracts.Element.InheritanceMode ToWire(InheritanceMode value) => value == InheritanceMode.OccurrenceWins
+  ? Rasm.Contracts.Element.InheritanceMode.OccurrenceWins
   : value == InheritanceMode.TypeDrivenOverride
-   ? Rasm.Contracts.Element.V1.InheritanceMode.TypeDrivenOverride
+   ? Rasm.Contracts.Element.InheritanceMode.TypeDrivenOverride
    : value == InheritanceMode.TypeDrivenOnly
-    ? Rasm.Contracts.Element.V1.InheritanceMode.TypeDrivenOnly
+    ? Rasm.Contracts.Element.InheritanceMode.TypeDrivenOnly
     : throw new UnreachableException();
 
- static Fin<InheritanceMode> ToInheritance(Rasm.Contracts.Element.V1.InheritanceMode value, Op key) => value switch {
-  Rasm.Contracts.Element.V1.InheritanceMode.OccurrenceWins => Fin.Succ(InheritanceMode.OccurrenceWins),
-  Rasm.Contracts.Element.V1.InheritanceMode.TypeDrivenOverride => Fin.Succ(InheritanceMode.TypeDrivenOverride),
-  Rasm.Contracts.Element.V1.InheritanceMode.TypeDrivenOnly => Fin.Succ(InheritanceMode.TypeDrivenOnly),
+ static Fin<InheritanceMode> ToInheritance(Rasm.Contracts.Element.InheritanceMode value, Op key) => value switch {
+  Rasm.Contracts.Element.InheritanceMode.OccurrenceWins => Fin.Succ(InheritanceMode.OccurrenceWins),
+  Rasm.Contracts.Element.InheritanceMode.TypeDrivenOverride => Fin.Succ(InheritanceMode.TypeDrivenOverride),
+  Rasm.Contracts.Element.InheritanceMode.TypeDrivenOnly => Fin.Succ(InheritanceMode.TypeDrivenOnly),
   _ => Fin.Fail<InheritanceMode>(key.InvalidInput(nameof(PropertySetWire.Inheritance))),
  };
 
- static Rasm.Contracts.Element.V1.EvidenceGrade ToWire(EvidenceGrade value) => value.Key switch {
-  10 => Rasm.Contracts.Element.V1.EvidenceGrade.Catalogue,
-  15 => Rasm.Contracts.Element.V1.EvidenceGrade.Defined,
-  20 => Rasm.Contracts.Element.V1.EvidenceGrade.Import,
-  25 => Rasm.Contracts.Element.V1.EvidenceGrade.Measured,
-  30 => Rasm.Contracts.Element.V1.EvidenceGrade.Derived,
-  40 => Rasm.Contracts.Element.V1.EvidenceGrade.User,
+ static Rasm.Contracts.Element.EvidenceGrade ToWire(EvidenceGrade value) => value.Key switch {
+  10 => Rasm.Contracts.Element.EvidenceGrade.Catalogue,
+  15 => Rasm.Contracts.Element.EvidenceGrade.Defined,
+  20 => Rasm.Contracts.Element.EvidenceGrade.Import,
+  25 => Rasm.Contracts.Element.EvidenceGrade.Measured,
+  30 => Rasm.Contracts.Element.EvidenceGrade.Derived,
+  40 => Rasm.Contracts.Element.EvidenceGrade.User,
   _ => throw new UnreachableException(),
  };
 
- static Fin<EvidenceGrade> ToEvidenceGrade(Rasm.Contracts.Element.V1.EvidenceGrade value, Op key) => value switch {
-  Rasm.Contracts.Element.V1.EvidenceGrade.Catalogue => Fin.Succ(EvidenceGrade.Catalogue),
-  Rasm.Contracts.Element.V1.EvidenceGrade.Defined => Fin.Succ(EvidenceGrade.Defined),
-  Rasm.Contracts.Element.V1.EvidenceGrade.Import => Fin.Succ(EvidenceGrade.Import),
-  Rasm.Contracts.Element.V1.EvidenceGrade.Measured => Fin.Succ(EvidenceGrade.Measured),
-  Rasm.Contracts.Element.V1.EvidenceGrade.Derived => Fin.Succ(EvidenceGrade.Derived),
-  Rasm.Contracts.Element.V1.EvidenceGrade.User => Fin.Succ(EvidenceGrade.User),
+ static Fin<EvidenceGrade> ToEvidenceGrade(Rasm.Contracts.Element.EvidenceGrade value, Op key) => value switch {
+  Rasm.Contracts.Element.EvidenceGrade.Catalogue => Fin.Succ(EvidenceGrade.Catalogue),
+  Rasm.Contracts.Element.EvidenceGrade.Defined => Fin.Succ(EvidenceGrade.Defined),
+  Rasm.Contracts.Element.EvidenceGrade.Import => Fin.Succ(EvidenceGrade.Import),
+  Rasm.Contracts.Element.EvidenceGrade.Measured => Fin.Succ(EvidenceGrade.Measured),
+  Rasm.Contracts.Element.EvidenceGrade.Derived => Fin.Succ(EvidenceGrade.Derived),
+  Rasm.Contracts.Element.EvidenceGrade.User => Fin.Succ(EvidenceGrade.User),
   _ => Fin.Fail<EvidenceGrade>(key.InvalidInput(nameof(PropertySetWire.SourceRank))),
  };
 
- static Rasm.Contracts.Element.V1.Interpolation ToWire(Interpolation value) => value == Interpolation.NotDefined
-  ? Rasm.Contracts.Element.V1.Interpolation.NotDefined
+ static Rasm.Contracts.Element.Interpolation ToWire(Interpolation value) => value == Interpolation.NotDefined
+  ? Rasm.Contracts.Element.Interpolation.NotDefined
   : value == Interpolation.Linear
-   ? Rasm.Contracts.Element.V1.Interpolation.Linear
+   ? Rasm.Contracts.Element.Interpolation.Linear
    : value == Interpolation.LogLinear
-    ? Rasm.Contracts.Element.V1.Interpolation.LogLinear
+    ? Rasm.Contracts.Element.Interpolation.LogLinear
     : value == Interpolation.LogLog
-     ? Rasm.Contracts.Element.V1.Interpolation.LogLog
+     ? Rasm.Contracts.Element.Interpolation.LogLog
      : throw new UnreachableException();
 
- static Fin<Interpolation> ToInterpolation(Rasm.Contracts.Element.V1.Interpolation value, Op key) => value switch {
-  Rasm.Contracts.Element.V1.Interpolation.NotDefined => Fin.Succ(Interpolation.NotDefined),
-  Rasm.Contracts.Element.V1.Interpolation.Linear => Fin.Succ(Interpolation.Linear),
-  Rasm.Contracts.Element.V1.Interpolation.LogLinear => Fin.Succ(Interpolation.LogLinear),
-  Rasm.Contracts.Element.V1.Interpolation.LogLog => Fin.Succ(Interpolation.LogLog),
+ static Fin<Interpolation> ToInterpolation(Rasm.Contracts.Element.Interpolation value, Op key) => value switch {
+  Rasm.Contracts.Element.Interpolation.NotDefined => Fin.Succ(Interpolation.NotDefined),
+  Rasm.Contracts.Element.Interpolation.Linear => Fin.Succ(Interpolation.Linear),
+  Rasm.Contracts.Element.Interpolation.LogLinear => Fin.Succ(Interpolation.LogLinear),
+  Rasm.Contracts.Element.Interpolation.LogLog => Fin.Succ(Interpolation.LogLog),
   _ => Fin.Fail<Interpolation>(key.InvalidInput(nameof(TableWire.Interpolation))),
  };
 
- static Rasm.Contracts.Element.V1.AttestationRole ToWire(AttestationRole value) => value == AttestationRole.Manufacturer
-  ? Rasm.Contracts.Element.V1.AttestationRole.Manufacturer
+ static Rasm.Contracts.Element.AttestationRole ToWire(AttestationRole value) => value == AttestationRole.Manufacturer
+  ? Rasm.Contracts.Element.AttestationRole.Manufacturer
   : value == AttestationRole.ManufacturerAuthorized
-   ? Rasm.Contracts.Element.V1.AttestationRole.ManufacturerAuthorized
+   ? Rasm.Contracts.Element.AttestationRole.ManufacturerAuthorized
    : value == AttestationRole.Purchaser
-    ? Rasm.Contracts.Element.V1.AttestationRole.Purchaser
+    ? Rasm.Contracts.Element.AttestationRole.Purchaser
     : value == AttestationRole.Independent
-     ? Rasm.Contracts.Element.V1.AttestationRole.Independent
+     ? Rasm.Contracts.Element.AttestationRole.Independent
      : value == AttestationRole.Quality
-      ? Rasm.Contracts.Element.V1.AttestationRole.Quality
+      ? Rasm.Contracts.Element.AttestationRole.Quality
       : value == AttestationRole.Regulator
-       ? Rasm.Contracts.Element.V1.AttestationRole.Regulator
+       ? Rasm.Contracts.Element.AttestationRole.Regulator
        : value == AttestationRole.WeldingInspector
-        ? Rasm.Contracts.Element.V1.AttestationRole.WeldingInspector
+        ? Rasm.Contracts.Element.AttestationRole.WeldingInspector
         : value == AttestationRole.CalibrationLaboratory
-         ? Rasm.Contracts.Element.V1.AttestationRole.CalibrationLaboratory
+         ? Rasm.Contracts.Element.AttestationRole.CalibrationLaboratory
          : value == AttestationRole.MaterialReviewBoard
-          ? Rasm.Contracts.Element.V1.AttestationRole.MaterialReviewBoard
+          ? Rasm.Contracts.Element.AttestationRole.MaterialReviewBoard
           : value == AttestationRole.SustainabilityVerifier
-           ? Rasm.Contracts.Element.V1.AttestationRole.SustainabilityVerifier
+           ? Rasm.Contracts.Element.AttestationRole.SustainabilityVerifier
            : throw new UnreachableException();
 
- static Fin<AttestationRole> ToAttestationRole(Rasm.Contracts.Element.V1.AttestationRole value, Op key) => value switch {
-  Rasm.Contracts.Element.V1.AttestationRole.Manufacturer => Fin.Succ(AttestationRole.Manufacturer),
-  Rasm.Contracts.Element.V1.AttestationRole.ManufacturerAuthorized => Fin.Succ(AttestationRole.ManufacturerAuthorized),
-  Rasm.Contracts.Element.V1.AttestationRole.Purchaser => Fin.Succ(AttestationRole.Purchaser),
-  Rasm.Contracts.Element.V1.AttestationRole.Independent => Fin.Succ(AttestationRole.Independent),
-  Rasm.Contracts.Element.V1.AttestationRole.Quality => Fin.Succ(AttestationRole.Quality),
-  Rasm.Contracts.Element.V1.AttestationRole.Regulator => Fin.Succ(AttestationRole.Regulator),
-  Rasm.Contracts.Element.V1.AttestationRole.WeldingInspector => Fin.Succ(AttestationRole.WeldingInspector),
-  Rasm.Contracts.Element.V1.AttestationRole.CalibrationLaboratory => Fin.Succ(AttestationRole.CalibrationLaboratory),
-  Rasm.Contracts.Element.V1.AttestationRole.MaterialReviewBoard => Fin.Succ(AttestationRole.MaterialReviewBoard),
-  Rasm.Contracts.Element.V1.AttestationRole.SustainabilityVerifier => Fin.Succ(AttestationRole.SustainabilityVerifier),
+ static Fin<AttestationRole> ToAttestationRole(Rasm.Contracts.Element.AttestationRole value, Op key) => value switch {
+  Rasm.Contracts.Element.AttestationRole.Manufacturer => Fin.Succ(AttestationRole.Manufacturer),
+  Rasm.Contracts.Element.AttestationRole.ManufacturerAuthorized => Fin.Succ(AttestationRole.ManufacturerAuthorized),
+  Rasm.Contracts.Element.AttestationRole.Purchaser => Fin.Succ(AttestationRole.Purchaser),
+  Rasm.Contracts.Element.AttestationRole.Independent => Fin.Succ(AttestationRole.Independent),
+  Rasm.Contracts.Element.AttestationRole.Quality => Fin.Succ(AttestationRole.Quality),
+  Rasm.Contracts.Element.AttestationRole.Regulator => Fin.Succ(AttestationRole.Regulator),
+  Rasm.Contracts.Element.AttestationRole.WeldingInspector => Fin.Succ(AttestationRole.WeldingInspector),
+  Rasm.Contracts.Element.AttestationRole.CalibrationLaboratory => Fin.Succ(AttestationRole.CalibrationLaboratory),
+  Rasm.Contracts.Element.AttestationRole.MaterialReviewBoard => Fin.Succ(AttestationRole.MaterialReviewBoard),
+  Rasm.Contracts.Element.AttestationRole.SustainabilityVerifier => Fin.Succ(AttestationRole.SustainabilityVerifier),
   _ => Fin.Fail<AttestationRole>(key.InvalidInput(nameof(AttestationWire.Role))),
  };
 }

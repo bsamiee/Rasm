@@ -123,7 +123,7 @@ public readonly record struct ExtentProbe(
 public sealed partial class ExtentMode {
     // Congruent rows: the offset is the LIVE ordinal times the declared row extent, so the scroll math is
     // integer-exact and O(1) and the prefix tree is never read.
-    public static readonly ExtentMode Fixed = new("fixed", Rasm.Contracts.Ui.V1.ExtentMode.Fixed,
+    public static readonly ExtentMode Fixed = new("fixed", Rasm.Contracts.Ui.ExtentMode.Fixed,
         tracks: false,
         seatOf: static (probe, raw) => new RowSeat(probe.Ordinal(raw), probe.Ordinal(raw) * probe.Seed, probe.Seed),
         totalOf: static probe => probe.Live * probe.Seed,
@@ -131,13 +131,13 @@ public sealed partial class ExtentMode {
 
     // Heterogeneous rows: offsets and totals read the prefix tree at O(log n) and the window seeks rather than
     // divides, so a band header taller than its members costs one tree walk instead of a per-surface extent map.
-    public static readonly ExtentMode Measured = new("measured", Rasm.Contracts.Ui.V1.ExtentMode.Measured,
+    public static readonly ExtentMode Measured = new("measured", Rasm.Contracts.Ui.ExtentMode.Measured,
         tracks: true,
         seatOf: static (probe, raw) => new RowSeat(probe.Ordinal(raw), probe.Prefix(raw), probe.Extent(raw)),
         totalOf: static probe => probe.Prefix(probe.Raw),
         windowOf: static (probe, range) => probe.Sought(range));
 
-    public Rasm.Contracts.Ui.V1.ExtentMode Wire { get; }
+    public Rasm.Contracts.Ui.ExtentMode Wire { get; }
 
     // Whether a mount REPORTS its arranged extents at all. Fixed rows are congruent by construction and have
     // nothing to report, so the window subscribes no measurement pump there rather than every fixed caller
@@ -1035,16 +1035,16 @@ public sealed partial class DragAxis : ICapability<DragAxis> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OverviewAxis {
     public static readonly OverviewAxis Vertical = new(
-        "vertical", Rasm.Contracts.Ui.V1.OverviewAxis.Vertical,
+        "vertical", Rasm.Contracts.Ui.OverviewAxis.Vertical,
         uniform: false, tracks: CapabilitySet<DragAxis>.Of(DragAxis.Y));
     public static readonly OverviewAxis Horizontal = new(
-        "horizontal", Rasm.Contracts.Ui.V1.OverviewAxis.Horizontal,
+        "horizontal", Rasm.Contracts.Ui.OverviewAxis.Horizontal,
         uniform: false, tracks: CapabilitySet<DragAxis>.Of(DragAxis.X));
     public static readonly OverviewAxis Plane = new(
-        "plane", Rasm.Contracts.Ui.V1.OverviewAxis.Plane,
+        "plane", Rasm.Contracts.Ui.OverviewAxis.Plane,
         uniform: true, tracks: CapabilitySet<DragAxis>.All);
 
-    public Rasm.Contracts.Ui.V1.OverviewAxis Wire { get; }
+    public Rasm.Contracts.Ui.OverviewAxis Wire { get; }
 
     public bool Uniform { get; }
 

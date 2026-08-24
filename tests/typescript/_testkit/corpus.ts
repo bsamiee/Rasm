@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createRegistry, type DescMessage, type DescService, equals, fromBinary, fromJsonString, toBinary, toJsonString } from '@bufbuild/protobuf';
 import { FileSystem, Path } from '@effect/platform';
-import { HlcSchema } from '@rasm/contracts/rasm/contracts/clock/v1/hlc_pb';
+import { HlcSchema } from '@rasm/contracts/rasm/contracts/clock/hlc_pb';
 import { Array, Context, Data, Effect, Match, Option, Schema } from 'effect';
 import { xxhash128 } from 'hash-wasm';
 
@@ -73,7 +73,7 @@ const _Specimen = Schema.Struct({
 const _Expected = Schema.Struct({
     role: Schema.Literal('expected'),
     ..._Asset,
-    factsFormat: Schema.Literal('backend-generation-v1', 'content-digest-v1', 'hdf5-facts-v1', 'hlc-value-v1', 'matrix-market-facts-v1'),
+    factsFormat: Schema.Literal('backend-generation', 'content-digest', 'hdf5-facts', 'hlc-value', 'matrix-market-facts'),
 });
 const _Vector = Schema.Struct({
     specimens: Schema.NonEmptyArray(_Specimen),
@@ -159,7 +159,7 @@ const _Case = Schema.Struct({
     consumers: _Rows(_Actor),
 });
 const _Entry = Schema.Struct({ id: Schema.NonEmptyString, law: Schema.NonEmptyString, cases: Schema.NonEmptyArray(_Case) });
-const _Manifest = Schema.Struct({ version: Schema.Literal(2), entries: Schema.NonEmptyArray(_Entry) });
+const _Manifest = Schema.Struct({ entries: Schema.NonEmptyArray(_Entry) });
 
 const _Field = Schema.Struct({
     kind: Schema.Literal('field'),
@@ -262,11 +262,11 @@ const _Facts = Schema.Union(_BackendGeneration, _Content, _Hdf, _Hlc, _MatrixMar
 const _decode = Schema.decodeUnknown(Schema.parseJson(_Manifest), _PARSE);
 const _decodeJson = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown), _PARSE);
 const _factDecoders: Readonly<Record<Expected['factsFormat'], (input: string) => Effect.Effect<Facts, unknown>>> = {
-    'backend-generation-v1': Schema.decodeUnknown(Schema.parseJson(_BackendGeneration), _PARSE),
-    'content-digest-v1': Schema.decodeUnknown(Schema.parseJson(_Content), _PARSE),
-    'hdf5-facts-v1': Schema.decodeUnknown(Schema.parseJson(_Hdf), _PARSE),
-    'hlc-value-v1': Schema.decodeUnknown(Schema.parseJson(_Hlc), _PARSE),
-    'matrix-market-facts-v1': Schema.decodeUnknown(Schema.parseJson(_MatrixMarket), _PARSE),
+    'backend-generation': Schema.decodeUnknown(Schema.parseJson(_BackendGeneration), _PARSE),
+    'content-digest': Schema.decodeUnknown(Schema.parseJson(_Content), _PARSE),
+    'hdf5-facts': Schema.decodeUnknown(Schema.parseJson(_Hdf), _PARSE),
+    'hlc-value': Schema.decodeUnknown(Schema.parseJson(_Hlc), _PARSE),
+    'matrix-market-facts': Schema.decodeUnknown(Schema.parseJson(_MatrixMarket), _PARSE),
 };
 const _sameContent = Schema.equivalence(_Content);
 const _sameHlc = Schema.equivalence(_Hlc);

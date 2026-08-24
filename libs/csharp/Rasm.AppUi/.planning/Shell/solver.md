@@ -1,6 +1,6 @@
 # [APPUI_LAYOUT_SOLVER]
 
-A declarative constraint-layout engine replaces width-breakpoint knobs with a real Cassowary solver so responsive, self-sizing, and adaptive layouts resolve from typed constraints across desktop, web, and immersive surfaces. `LayoutConstraint` is the algebra of equalities, inequalities, and priorities over edge, size, and anchor variables; flex, grid-track, and auto-layout are constraint-row presets over it rather than parallel layout panels; and `LayoutSolver` is one custom Avalonia `Panel` that folds the `Kiwi` dual-simplex solve into the native measure/arrange pass. The page owns the constraint vocabulary, the flex/grid/auto-layout preset rows, the solver capsule, and the generated `Ui.V1.LayoutProgram` projection; it mints no parallel layout panel, peer-facing record family, second binding path, or per-surface layout engine (the `[04]-[BOUNDARIES]` parallel-control-framework clause forecloses it). The spine is `Kiwi` (`Variable`/`Term`/`Expression`/`Constraint`/`Strength`/`Solver`, `.api/api-kiwi.md`), Avalonia `Panel`/`Layoutable`, the `Theme/tokens` `MetricFamily` rows, the kernel `MonotonicTimeline`/`Custody`/`CapabilitySet` owners, the generated `Rasm.Contracts.Ui.V1` messages, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+A declarative constraint-layout engine replaces width-breakpoint knobs with a real Cassowary solver so responsive, self-sizing, and adaptive layouts resolve from typed constraints across desktop, web, and immersive surfaces. `LayoutConstraint` is the algebra of equalities, inequalities, and priorities over edge, size, and anchor variables; flex, grid-track, and auto-layout are constraint-row presets over it rather than parallel layout panels; and `LayoutSolver` is one custom Avalonia `Panel` that folds the `Kiwi` dual-simplex solve into the native measure/arrange pass. The page owns the constraint vocabulary, the flex/grid/auto-layout preset rows, the solver capsule, and the generated `Ui.LayoutProgram` projection; it mints no parallel layout panel, peer-facing record family, second binding path, or per-surface layout engine (the `[04]-[BOUNDARIES]` parallel-control-framework clause forecloses it). The spine is `Kiwi` (`Variable`/`Term`/`Expression`/`Constraint`/`Strength`/`Solver`, `.api/api-kiwi.md`), Avalonia `Panel`/`Layoutable`, the `Theme/tokens` `MetricFamily` rows, the kernel `MonotonicTimeline`/`Custody`/`CapabilitySet` owners, the generated `Rasm.Contracts.Ui` messages, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
@@ -25,13 +25,13 @@ A declarative constraint-layout engine replaces width-breakpoint knobs with a re
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayoutRelation {
     public static readonly LayoutRelation Eq = new(
-        "eq", Rasm.Contracts.Ui.V1.LayoutRelation.Eq, RelationalOperator.Equal);
+        "eq", Rasm.Contracts.Ui.LayoutRelation.Eq, RelationalOperator.Equal);
     public static readonly LayoutRelation Le = new(
-        "le", Rasm.Contracts.Ui.V1.LayoutRelation.Le, RelationalOperator.LessThanOrEqual);
+        "le", Rasm.Contracts.Ui.LayoutRelation.Le, RelationalOperator.LessThanOrEqual);
     public static readonly LayoutRelation Ge = new(
-        "ge", Rasm.Contracts.Ui.V1.LayoutRelation.Ge, RelationalOperator.GreaterThanOrEqual);
+        "ge", Rasm.Contracts.Ui.LayoutRelation.Ge, RelationalOperator.GreaterThanOrEqual);
 
-    public Rasm.Contracts.Ui.V1.LayoutRelation Wire { get; }
+    public Rasm.Contracts.Ui.LayoutRelation Wire { get; }
 
     public RelationalOperator Operator { get; }
 }
@@ -40,15 +40,15 @@ public sealed partial class LayoutRelation {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayoutStrength {
     public static readonly LayoutStrength Required = new(
-        "required", Rasm.Contracts.Ui.V1.LayoutStrength.Required, Strength.Required);
+        "required", Rasm.Contracts.Ui.LayoutStrength.Required, Strength.Required);
     public static readonly LayoutStrength Strong = new(
-        "strong", Rasm.Contracts.Ui.V1.LayoutStrength.Strong, Strength.Strong);
+        "strong", Rasm.Contracts.Ui.LayoutStrength.Strong, Strength.Strong);
     public static readonly LayoutStrength Medium = new(
-        "medium", Rasm.Contracts.Ui.V1.LayoutStrength.Medium, Strength.Medium);
+        "medium", Rasm.Contracts.Ui.LayoutStrength.Medium, Strength.Medium);
     public static readonly LayoutStrength Weak = new(
-        "weak", Rasm.Contracts.Ui.V1.LayoutStrength.Weak, Strength.Weak);
+        "weak", Rasm.Contracts.Ui.LayoutStrength.Weak, Strength.Weak);
 
-    public Rasm.Contracts.Ui.V1.LayoutStrength Wire { get; }
+    public Rasm.Contracts.Ui.LayoutStrength Wire { get; }
 
     public double Value { get; }
 }
@@ -784,11 +784,11 @@ flowchart LR
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: the generated `Rasm.Contracts.Ui.V1` layout family — `LayoutVarWire`, `LayoutTermWire`, `LayoutExprWire`, `LayoutConstraintWire`, `LayoutEdit`, `LayoutValue`, and `LayoutProgram`; `LayoutMap` the sole domain-to-message correspondence; `LayoutWireCases` the deterministic canonical producer inputs. `LayoutProgram` is reusable support inside the manifest-rooted `Shell/screens#TS_PROJECTION` `AppUiSurfaceProgram`; the current generated TypeScript consumer re-solves that ordered closure and no C# runtime egress is claimed.
+- Owner: the generated `Rasm.Contracts.Ui` layout family — `LayoutVarWire`, `LayoutTermWire`, `LayoutExprWire`, `LayoutConstraintWire`, `LayoutEdit`, `LayoutValue`, and `LayoutProgram`; `LayoutMap` the sole domain-to-message correspondence; `LayoutWireCases` the deterministic canonical producer inputs. `LayoutProgram` is reusable support inside the manifest-rooted `Shell/screens#TS_PROJECTION` `AppUiSurfaceProgram`; the current generated TypeScript consumer re-solves that ordered closure and no C# runtime egress is claimed.
 - Entry: `LayoutMap.Emit(ConstraintProgram program, Seq<ValueRow> measured)` projects the live program once into `LayoutProgram`; `LayoutWireCases.ProtoJson` renders the deterministic canonical sequence through `WireJson.Formatter` for the test-owned snapshot assertion.
-- Packages: Rasm.Contracts (project, generated `Ui.V1` family), Rasm.AppHost (project, `WireJson`), Google.Protobuf, LanguageExt.Core
+- Packages: Rasm.Contracts (project, generated `Ui` family), Rasm.AppHost (project, `WireJson`), Google.Protobuf, LanguageExt.Core
 - Growth: a new required contract member regenerates the binding and breaks the one projection or its completeness proof until supplied; one canonical case row per preset shape the generator admits; zero hand message or peer-schema surface.
-- Boundary: Positional parity is a producer contract because an under-constrained Cassowary system admits many valid assignments. The projection emits the required nonempty surface identity, structured variable-introduction order, edit variables with generated `LayoutStrength`, authored suggestions, and resolved measurement suggestions in the order the desktop tableau consumed them; solved positions never cross. Interior `LayoutVar`/`LayoutTerm`/`LayoutExpr`/`LayoutConstraint` remain behavioral solver values, while generated messages are the one peer-facing shape. `LayoutRelation` and `LayoutStrength` carry their generated enum coordinate on the same behavioral row, so no string roster, STJ record, TypeScript interface mirror, or second JSON options surface survives. The AppUI contract test compares every such row set to the generated nonzero enum roster. `@rasm\/contracts/rasm/contracts/ui/v1/layout_pb` supplies the peer schema, and `WireJson.Formatter` supplies the only JSON spelling.
+- Boundary: Positional parity is a producer contract because an under-constrained Cassowary system admits many valid assignments. The projection emits the required nonempty surface identity, structured variable-introduction order, edit variables with generated `LayoutStrength`, authored suggestions, and resolved measurement suggestions in the order the desktop tableau consumed them; solved positions never cross. Interior `LayoutVar`/`LayoutTerm`/`LayoutExpr`/`LayoutConstraint` remain behavioral solver values, while generated messages are the one peer-facing shape. `LayoutRelation` and `LayoutStrength` carry their generated enum coordinate on the same behavioral row, so no string roster, STJ record, TypeScript interface mirror, or second JSON options surface survives. The AppUI contract test compares every such row set to the generated nonzero enum roster. `@rasm\/contracts/rasm/contracts/ui/layout_pb` supplies the peer schema, and `WireJson.Formatter` supplies the only JSON spelling.
 
 ```csharp signature
 // --- [COMPOSITION] --------------------------------------------------------------------------

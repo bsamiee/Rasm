@@ -50,7 +50,7 @@ from expression import Error, Ok, Option
 from expression.collections import Block
 from expression.extra.result import traverse
 from protobuf import Message, Oneof
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import (
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import (
     ExtrudeOp,
     LoftOp,
     LoftStyle,
@@ -60,8 +60,8 @@ from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import (
     SweepOp,
     ThickOp,
 )
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import ProfileLoop, ProfileRegion
-from rasm.contracts.gen.rasm.contracts.spatial.v1.vector_pb import UnitDirection3
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import ProfileLoop, ProfileRegion
+from rasm.contracts.gen.rasm.contracts.spatial.vector_pb import UnitDirection3
 
 from rasm.cad.brep.boolean import BOOLEANS, nary
 from rasm.cad.brep.placement import Basis, ShapeBuilder, admitted, axis, built, curve, direction, frame, point, seated

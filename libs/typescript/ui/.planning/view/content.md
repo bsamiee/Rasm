@@ -2,11 +2,11 @@
 
 Content owns the prose plane and the document editor as one derivation: `Content.Block` rows are the single authority a compiled class derives its ProseMirror `Schema`, effect `Schema` codec, DOM rule sets, and wire form from, so a document grammar is a table edit, never four hand-kept mirrors. `Content.mount` seats one imperative `EditorView` behind a container the React tree never reconciles into, every mutation rides `state.tr` through one dispatch fold into the atom bridge, and `prosemirror-collab` rebases against the authority behind the `Sequencer` port. Module: `ui/src/view/content.ts`.
 
-Composition facts arrive settled: appearance keys resolve through `system/token#TONE_VOCABULARY` and emit through `Theme.css`; recipes ride `system/primitive#STYLED_SPINE`; every HTML-bearing string passes `Primitive.sanitize` before a DOM sink; untrusted document trees decode through core `Shape.Ingress.bounded`; the draft atom persists on `system/atom#STORE_ROOT`'s `migrated` seal, so a precious draft upcasts and never vanishes; faults derive through core `Fault.Class.family`; dirty navigation binds the route plane's `Guard.hold` at composition.
+Composition facts arrive settled: appearance keys resolve through `system/token#TONE_VOCABULARY` and emit through `Theme.css`; recipes ride `system/primitive#STYLED_SPINE`; every HTML-bearing string passes `Primitive.sanitize` before a DOM sink; untrusted document trees decode through core `Shape.Ingress.bounded`; the draft atom persists on `system/atom#STORE_ROOT`'s `hold` residue disposition, so a refused parcel holds beside the seeded default; faults derive through core `Fault.Class.family`; dirty navigation binds the route plane's `Guard.hold` at composition.
 
 ## [01]-[INDEX]
 
-- [02]-[BLOCK_ROSTER]: `Content.roster` derives all four artifacts from the `Content.Block` row contract, with the migration lattice and the stored-doc quarantine; `Content`, `ContentFault`, `ContentCensus`.
+- [02]-[BLOCK_ROSTER]: `Content.roster` derives all four artifacts from the `Content.Block` row contract, with the generation join and the stored-doc quarantine; `Content`, `ContentFault`, `ContentCensus`.
 - [03]-[PROSE_PLANE]: `Content.registers` bridges the typography plugin, with the `not-prose` boundary and the type-hierarchy recipe; `Content`.
 - [04]-[EDITOR_HOST]: `Content.mount` scopes the `EditorView` acquisition, the plugin value roster, the paste gate, and the command roster; `Content`.
 - [05]-[COLLAB_LANE]: `Content.collab` drives the `Sequencer` port — send/receive trip, generation pinning, draft persistence; `Content`, `Sequencer`.
@@ -15,15 +15,15 @@ Composition facts arrive settled: appearance keys resolve through `system/token#
 ## [02]-[BLOCK_ROSTER]
 
 [BLOCK_ROSTER]:
-- Owner: `Content.Block` — the one row contract for everything a document may hold, split into its two PM planes: a `Node` row carries `kind`, the `attrs` effect `Schema` struct (the shape authority — the PM `AttributeSpec` bag and the codec field both derive from it), the `content` expression, `group`/`inline`/`atom` flags, `parse` rules, a `render` arm (`toDOM` spec for inert kinds, a node-view constructor for live embeds), `version` with its `ups` migration chain, and the `steps` policy; a `Mark` row carries `kind`, `attrs`, `inclusive`/`excludes`, `parse`, `render`, `version`/`ups`, and `steps`. `Content.roster(rows)` is the compile gate: it refuses duplicate kinds, content expressions naming absent kinds or groups, and any row whose `ups` chain fails `length === version - 1` (the `migration-gap` refusal — a version bump without its upcast is an authoring-time fault, never a user-facing one), then derives `Content.Compiled` whole: the PM `Schema` (spec rows assembled over `addListNodes` for the list family), the document codec (`Schema.suspend` recursive union — the one sanctioned hand-stated encoded twin), `DOMParser.fromSchema`/`DOMSerializer.fromSchema`, and the roster `generation` — the canonical `kind@version` join in declared order, compared as declared data and never a schema hash.
+- Owner: `Content.Block` — the one row contract for everything a document may hold, split into its two PM planes: a `Node` row carries `kind`, the `attrs` effect `Schema` struct (the shape authority — the PM `AttributeSpec` bag and the codec field both derive from it), the `content` expression, `group`/`inline`/`atom` flags, `parse` rules, a `render` arm (`toDOM` spec for inert kinds, a node-view constructor for live embeds), and the `steps` policy; a `Mark` row carries `kind`, `attrs`, `inclusive`/`excludes`, `parse`, `render`, and `steps`. `Content.roster(rows)` is the compile gate: it refuses duplicate kinds and content expressions naming absent kinds or groups, then derives `Content.Compiled` whole: the PM `Schema` (spec rows assembled over `addListNodes` for the list family), the document codec (`Schema.suspend` recursive union — the one sanctioned hand-stated encoded twin), `DOMParser.fromSchema`/`DOMSerializer.fromSchema`, and the roster `generation` — the canonical `kind@<attrs identity>` join in declared order, compared as declared data and never a schema hash.
 - Cases: embeddable surfaces register by VALUE — `view/media`'s figure row, `view/canvas`'s graph row, and the chart panel row each export a `Content.Block`-shaped value from their own page, and the composition root hands `Content.roster` the assembled set at editor boot, exactly as `Overlay.commands` admits a command table; a `declare module` augmentation between view siblings is the lateral import the strata law forbids, so the open-interface form is deliberately not used here.
-- Law: quarantine is a STORED-DOC decode posture alone — `Content.Compiled.stored` maps a node kind this roster lacks onto the interior quarantine atom (kind and raw payload held whole, re-decoded through the migration walk when the roster catches up) and strips an unknown mark into the same recorded residue, while `Content.Compiled.wire` refuses the whole payload as `decode-refused`; live collab never quarantines, because a quarantine atom occupies different position arithmetic than the node it stands for and silently corrupts every subsequent step's coordinates — the sequencer pins the generation instead (`[05]`).
-- Law: the migration lattice is executable — a stored envelope carries the generation it was written under beside the document, decode walks each node from its stored version through the row's `ups` chain in order, and a stored version NEWER than the row refuses as `migration-gap` rather than guessing downward; the chain composes per kind, so one roster edit migrates every persisted draft and no hand-written migration exists beside the table.
+- Law: quarantine is a STORED-DOC decode posture alone — `Content.Compiled.stored` maps a node kind this roster lacks onto the interior quarantine atom (kind and raw payload held whole, re-admitted when the roster gains the kind) and folds an unknown mark into the same recorded residue, while `Content.Compiled.wire` refuses the whole payload as `decode-refused`; live collab never quarantines, because a quarantine atom occupies different position arithmetic than the node it stands for and silently corrupts every subsequent step's coordinates — the sequencer pins the generation instead (`[05]`).
+- Law: the stored envelope carries the generation it was written under beside the document, and a decode under a different generation re-admits every node the CURRENT roster names — an unrecognized node holds whole as residue and an unrecognized attribute folds into that residue — so one roster edit re-admits every persisted draft and no chain of steps stands beside the table; that collapse loses rename carry, so a renamed attribute's stored value lands in residue rather than reaching its new name.
 - Law: the `steps` policy gates authoring, never rendering — a `decode` row renders wherever a document carries it while the command and input-rule derivations skip it, so read-only embeds (a chart inside collaborative prose) ship as one column value and the sequencer never sees an insert step for them.
 - Law: the seed rows are data like every later row — paragraph, heading, blockquote, code block, rule, the list family through `addListNodes`, hard break, and the mark rows emphasis, strong, link, code, and `thread` — the annotation mark whose `id` attribute is the durable text anchor `view/presence`'s thread plane reads, riding PM's own position mapping so a comment anchor survives every edit with no bespoke carry rule.
 - Packages: `prosemirror-model` (`Schema`, `NodeSpec`/`MarkSpec`, `DOMParser`/`DOMSerializer`, `Node.fromJSON`/`toJSON`, `Node.check`); `prosemirror-schema-list` (`addListNodes` — list structure and the `itemContent` shape its verbs assume); `effect` (`Schema`, `Either`, `Option`, `Array`, `Record`); `@rasm/core` (`Shape.vocabulary`, `Shape.Json`, `Fault.Class`).
 - Boundary: the quarantine atom renders as an inert chip through its own `toDOM` and counts onto the `[06]` metric — self-healing but never silent; which rows a deployment registers is the composition root's, and this page owns the contract, the gate, and the prose-core seed alone.
-- Growth: a new block is one row (its four derivations arrive compiled); a new attribute is one field on the row's `attrs` schema with one `ups` arm; a new embeddable surface is one exported row value at its owning page — never a schema edit here, a codec fork, or a parser rule written by hand.
+- Growth: a new block is one row (its four derivations arrive compiled); a new attribute is one field on the row's `attrs` schema, which moves the generation join by construction; a new embeddable surface is one exported row value at its owning page — never a schema edit here, a codec fork, or a parser rule written by hand.
 
 ```typescript signature
 import { Fault, Shape } from "@rasm/core"
@@ -35,31 +35,17 @@ const _planes = ["node", "mark"] as const
 const _steps = ["authored", "decoded"] as const
 
 // Four legs partition the plane and each reason renders its OWN subject, because the operator act differs per leg:
-// a roster refusal names the plane and the row it condemns, a migration gap states the two ordinals that disagree,
-// a generation skew states both joins side by side, and an ingress or decode refusal names the payload's cause.
-// One free `detail` string spelled all six, so a version bump missing its upcast and a duplicate kind read alike.
+// a roster refusal names the plane and the row it condemns, a generation skew states both joins side by side, and
+// an ingress, decode, or sequencer refusal names the payload's own cause. One free `detail` string spelled every
+// reason alike, so a duplicate kind and an unreachable authority read the same on a board.
 const _family = Fault.Class.family(
-  ["roster-invalid", "migration-gap", "generation-skew", "ingress-refused", "decode-refused", "sequencer-lost"] as const,
+  ["roster-invalid", "generation-skew", "ingress-refused", "decode-refused", "sequencer-lost"] as const,
   {
     "roster-invalid": Fault.Class.row({
       class: "invalid",
       leg: "roster",
       detail: Schema.Struct({ plane: Schema.Literal(..._planes), kind: Schema.String, cause: Schema.String }),
       render: ({ cause, kind, plane }) => `${plane} row ${kind} refused: ${cause}`,
-    }),
-    // The gap is ARITHMETIC, so the row states both ordinals: a reader repairs the chain without re-deriving the
-    // count from a sentence, and the `length === version - 1` law is legible in the refusal it produces.
-    "migration-gap": Fault.Class.row({
-      class: "invalid",
-      leg: "roster",
-      detail: Schema.Struct({
-        plane: Schema.Literal(..._planes),
-        kind: Schema.String,
-        version: Schema.Int,
-        ups: Schema.Int,
-      }),
-      render: ({ kind, plane, ups, version }) =>
-        `${plane} row ${kind}@v${version} declares ${ups} upcasts where ${version - 1} close the chain`,
     }),
     "generation-skew": Fault.Class.row({
       class: "conflicted",
@@ -107,16 +93,15 @@ class ContentFault extends Schema.TaggedError<ContentFault>()("ContentFault", {
   }
 }
 
-// The roster gate admits every row INDEPENDENTLY — a duplicate kind decides nothing about a sibling's upcast chain
-// — so it censuses every offending row in one refusal and an author repairs the whole registration in one pass
-// rather than one round trip per row. Every other reason is a single verdict and keeps the plain carrier.
+// `_roster` admits every row INDEPENDENTLY — a duplicate kind decides nothing about a sibling's content
+// expression — so it censuses every offending row in one refusal and an author repairs the whole registration in
+// one pass rather than one round trip per row. Every other reason is a single verdict and keeps the plain carrier.
 const ContentCensus = _family.census("ContentCensus")
 type ContentCensus = InstanceType<typeof ContentCensus>
 
 declare namespace Content {
   type Plane = (typeof _planes)[number]
   type Steps = (typeof _steps)[number]
-  type Up = (prior: Shape.Json) => Shape.Json
   type Render =
     | { readonly _tag: "Spec"; readonly toDOM: NonNullable<NodeSpec["toDOM"]> }
     | { readonly _tag: "Live"; readonly view: string } // names the nodeViews key the host binds; the constructor itself is host material
@@ -131,8 +116,6 @@ declare namespace Content {
         readonly atom: boolean
         readonly parse: ReadonlyArray<NonNullable<NodeSpec["parseDOM"]>[number]>
         readonly render: Content.Render
-        readonly version: number
-        readonly ups: ReadonlyArray<Content.Up> // length === version - 1: the contiguous upcast chain the gate proves
         readonly steps: Content.Steps
       }
     | {
@@ -143,12 +126,10 @@ declare namespace Content {
         readonly excludes: Option.Option<string>
         readonly parse: ReadonlyArray<NonNullable<MarkSpec["parseDOM"]>[number]>
         readonly render: Content.Render
-        readonly version: number
-        readonly ups: ReadonlyArray<Content.Up>
         readonly steps: Content.Steps
       }
   type Doc = { readonly kind: string; readonly attrs: Record.ReadonlyRecord<string, unknown>; readonly marks: ReadonlyArray<{ readonly kind: string; readonly attrs: Record.ReadonlyRecord<string, unknown> }>; readonly text: Option.Option<string>; readonly children: ReadonlyArray<Content.Doc> }
-  type Envelope = { readonly generation: string; readonly doc: Shape.Json } // the stored form: migration reads the generation, decode walks the ups
+  type Envelope = { readonly generation: string; readonly doc: Shape.Json } // the stored form: decode judges the generation, then re-admits each node against the live roster
   type Compiled = {
     readonly schema: PmSchema
     readonly codec: Schema.Schema<Content.Doc, Shape.Json>
@@ -156,20 +137,24 @@ declare namespace Content {
     readonly serializer: DOMSerializer
     readonly generation: string
     readonly rows: Record.ReadonlyRecord<string, Content.Block>
-    readonly stored: (envelope: Content.Envelope) => Either.Either<PmNode, ContentFault> // quarantines unknown node kinds, strips unknown marks into residue, walks the migration lattice
+    readonly stored: (envelope: Content.Envelope) => Either.Either<PmNode, ContentFault> // quarantines unknown node kinds and folds unknown marks and attributes into residue
     readonly wire: (raw: unknown) => Either.Either<PmNode, ContentFault> // refuses whole on any unknown kind: the live plane never quarantines
   }
 }
 
 // this interior row is an inert atom leaf holding the foreign kind and its raw payload byte-preserved, so a
-// roster that later gains the kind re-decodes the payload through its migration walk instead of losing it
+// roster that later gains the kind re-admits the payload whole instead of losing it
 const _QUARANTINE = "quarantine"
 
 // presence's thread plane reads this durable text-anchor mark; PM's own StepMap carries it across every edit
 const _THREAD = "thread"
 
+// `_attrsIdentity` reads the row's own declared field names in declared order, so adding, dropping, or renaming
+// an attribute moves the join while an annotation or comment edit leaves it still
+declare const _attrsIdentity: (row: Content.Block) => string
+
 const _generation = (rows: ReadonlyArray<Content.Block>): string =>
-  Array.map(rows, (row) => `${row.kind}@${row.version}`).join(",") // declared ordinals in declared order — never a schema hash
+  Array.map(rows, (row) => `${row.kind}@${_attrsIdentity(row)}`).join(",") // declared data in declared order — never a schema hash
 
 declare const _roster: (
   rows: Array.NonEmptyReadonlyArray<Content.Block>,
@@ -326,7 +311,7 @@ declare const _commands: (compiled: Content.Compiled) => Record.ReadonlyRecord<s
 - Law: dirty navigation reads the loop's own state — unconfirmed steps (`sendableSteps !== null`) hold the route plane's `Guard.hold` token, and the token releases when the authority confirms; a `beforeunload` listener beside it restates the guard the runtime already owns.
 - Law: carets are presence facts, never document steps — `Content.caret(state)` projects the selection's `{ anchor, head }` integer pair for the presence plane's caret axis (`core/state/presence`'s landed `_AXES` row), remote carets render as a plugin-field `DecorationSet` mapped through `tr.mapping`, and a cursor smuggled in as a document step is the rejected shape the collab catalogue names.
 - Law: the anchor-space row is this page's export — `Content.anchors(surface, view, transactions)` answers the structural space value the presence registry admits at the composition root: `resolve` reads `coordsAtPos` off the live view, `carry` maps a position pair through each transaction's `mapping` (raw positions go stale on every edit, so the arm is load-bearing, never optional), and `epoch` is the dispatch fold's own transaction stream; a stale-position anchor rendered without this arm is the drift the column exists to close.
-- Law: the draft persists under the `migrated` seal posture — one `Atom.kvs` row holds the `Content.Envelope` (generation beside document JSON) on a STABLE key, decode walks the migration lattice, and a schema bump upcasts the precious draft rather than vanishing it; the persisted-grain law is `system/atom#STORE_ROOT`'s, and this page owns only the envelope shape and the walk.
+- Law: the draft persists on a STABLE key under the `hold` residue disposition — one `Atom.kvs` row holds the `Content.Envelope` (generation beside document JSON) sealed by `Store.sealed`, and a generation miss hands the raw stored document back as residue beside the seeded default, so the precious draft stays recoverable by hand; the persisted-grain law is `system/atom#STORE_ROOT`'s, and this page owns the envelope shape and the re-admission walk alone.
 - Packages: `prosemirror-collab` (`collab`, `sendableSteps`, `receiveTransaction`, `getVersion` — never the undeclared `rebaseSteps`); `prosemirror-transform` (`Step.toJSON`/`Step.fromJSON` — the wire round trip); `effect` (`Context`, `Effect`, `Stream`, `Schema`); `@rasm/core` (`Fault.Class`).
 - Boundary: the authority's storage substrate (the step log, snapshots, its recovery) is server material behind the port; history composes with no coordination — remote steps rebase its branches and undo never reverts another client's work; presence transport, rosters, and leases are `view/presence`'s plane.
 - Growth: a new authority engine is one Layer satisfying the Tag; a new frame policy (batch width, pull cadence) is a field on the port's own row — never a second loop, a peer-to-peer arm, or a CRDT bridge beside the ordered lane.
@@ -353,7 +338,7 @@ class Sequencer extends Context.Tag("ui/Sequencer")<Sequencer, {
   readonly live: Stream.Stream<Sequencer.Frame, ContentFault>
 }>() {}
 
-// this stored draft envelope seats generation beside document, so the migration walk knows where each node starts
+// this stored draft envelope seats generation beside document, so a decode judges meaning before it admits a node
 const _Envelope = Schema.Struct({
   generation: Schema.NonEmptyString,
   doc: Shape.Json,
@@ -414,7 +399,7 @@ declare const _collab: (
 
 [COMMIT_SEAM]:
 - Owner: the crossing members riding `Content` — `Content.field(compiled)` is the form-field commit codec: the compiled document codec IS the `Schema` the form plane's `Form.standard` validates and the wire decodes, so a document field row binds `value`/`onChange` at the controlled boundary with the committed document crossing as the codec's kernel value and the editor's interior state never mirroring into the draft atom (the same two-owner grammar the token field settled — live state widget-interior, committed value one codec); `Content.rendered(compiled, doc, document)` projects a document through the derived `DOMSerializer` into a `DocumentFragment` against an EXPLICIT document, so server rendering and export serialization share one projection; `Content.committed(write, registry, editor)` is the observed commit trip.
-- Law: the commit trip is woven at the effect — the veto-free observe point `rasm.ui.content.commit` publishes each settled outcome tagged by the bounded stage vocabulary (`committed`/`quarantined`/`migrated`), `Effect.withSpan("rasm.ui.content.commit")` carries the editor id as span attribute and log annotation, and quarantine counts feed `_QUARANTINED` tagged by the foreign kind — roster drift across deployments reads on a board before a user reports a grey chip; one stage value drives the hook fact and the metric tag, so the two cannot disagree.
+- Law: the commit trip is woven at the effect — the veto-free observe point `rasm.ui.content.commit` publishes each settled outcome tagged by the bounded stage vocabulary (`committed`/`quarantined`), `Effect.withSpan("rasm.ui.content.commit")` carries the editor id as span attribute and log annotation, and quarantine counts feed `_QUARANTINED` tagged by the foreign kind — roster drift across deployments reads on a board before a user reports a grey chip; one stage value drives the hook fact and the metric tag, so the two cannot disagree.
 - Law: export is the landed matrix's row, not a member here — the `Document` source case, its admitted formats, and the serializer cell land at `view/export`'s matrix (`json` from the codec's encoded side, `text` from `textContent`, `svg`/`png` per embedded kind through each row's own owner), and this page supplies only the projections those cells compose.
 - Packages: `@rasm/core` (`Convention` — the metric mount; the `contentQuarantine` row's convention counterpart lands at `core/observe/convention` per the instrument-admission coupling); `effect` (`Effect`, `Metric`, `Option`); `react-dom` (nothing — the form action seam is `view/form`'s).
 - Boundary: which flows commit, and where committed documents persist, are app material; the quarantine chip's tone keys `Theme.Tone` through the status plane's vocabulary; the thread mark's anchor semantics are `view/presence`'s to read.
@@ -432,7 +417,7 @@ declare module "../system/hook.ts" {
 }
 
 declare namespace Commit {
-  type Stage = "committed" | "quarantined" | "migrated"
+  type Stage = "committed" | "quarantined"
   type Fact = { readonly editor: string; readonly stage: Commit.Stage; readonly kind: Option.Option<string> }
 }
 

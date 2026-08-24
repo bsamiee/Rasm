@@ -75,7 +75,7 @@
 - Compute's payload messages carry NO `Wire` suffix — nothing co-resident collides, so a suffix binds a name `compute.proto` never mints.
 - Wire messages spell `<Verb>Request`/`<Verb>Receipt` and the domain shape keeps its name — a rename moves a wire name and forks the roster.
 - TypeScript consumes the generated `@rasm\/contracts` schemas — no Compute page mints a TS interface, alias, or method-shape roster.
-- `ContractGuard`/`ContractSurface`/`ContractDrift` do NOT re-enter — `buf breaking` FILE and the generation compare at `Discovery` own compatibility.
+- `ContractGuard`/`ContractSurface`/`ContractDrift` do NOT re-enter — `Discovery`'s generation compare owns agreement, peers regenerating one shape.
 
 ## [05]-[PROCESS]
 

@@ -13,9 +13,9 @@ namespace Rasm.Bridge.Contract.Tests;
 internal static class WireGens {
     public static readonly EventStamp Stamp = new(SessionId: Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f"), Sequence: 17, AtUnixMs: 1_765_432_100_123, Scenario: "blocks.baseline");
     public static readonly HostFingerprint Host = new(BundleVersion: "9.0.26153.12416", RhinoCommonVersion: "9.0.26153.12416", Grasshopper2Version: "2.0.0", RuntimeVersion: "10.0.2");
-    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-test", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractVersion: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
+    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-test", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractGeneration: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
     public static readonly Handshake Shell = new(
-        ContractVersion: 1, SenderVersion: "1.0.0",
+        ContractGeneration: 1, SenderVersion: "1.0.0",
         Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")],
         Fingerprint: Host, Endpoint: Endpoint);
     public static readonly Gen<string> PipeSuffix = Gen.Char[start: 'a', finish: 'z'].Array[0, 60].Select(selector: static chars => new string(value: chars));
@@ -95,7 +95,7 @@ public sealed class RpcProxyLaws {
         _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static async client => {
             IBridgeShell proxy = client.Attach<IBridgeShell>();
             CancellationToken ct = TestContext.Current.CancellationToken;
-            Handshake reply = await proxy.HelloAsync(supervisor: new Handshake(ContractVersion: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            Handshake reply = await proxy.HelloAsync(supervisor: new Handshake(ContractGeneration: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: "shell", actual: reply.SenderVersion);
             Assert.Equal(expected: WireGens.Endpoint, actual: reply.Endpoint);
             Assert.Equal(expected: WireGens.Host, actual: reply.Fingerprint);
@@ -241,7 +241,7 @@ public sealed class ConverterCompositionLaws {
     [Fact]
     public void HandshakeWithEndpointRoundTrips() {
         Handshake back = JsonSerializer.Deserialize(json: JsonSerializer.Serialize(value: WireGens.Shell, jsonTypeInfo: BridgeJsonContext.Default.Handshake), jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
-        Assert.Equal(expected: WireGens.Shell.ContractVersion, actual: back.ContractVersion);
+        Assert.Equal(expected: WireGens.Shell.ContractGeneration, actual: back.ContractGeneration);
         Assert.Equal(expected: WireGens.Shell.Capabilities, actual: back.Capabilities);
         Assert.Equal(expected: WireGens.Shell.Fingerprint, actual: back.Fingerprint);
         Assert.Equal(expected: WireGens.Endpoint, actual: back.Endpoint);
@@ -251,11 +251,11 @@ public sealed class ConverterCompositionLaws {
     public void EndpointAdmissionTakesPipePrefixOrEmptyPoison() {
         Assert.Equal(expected: "rbx-", actual: EndpointRecord.PipePrefix);
         Spec.ForAll(gen: WireGens.PipeSuffix, property: static suffix =>
-            Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
+            Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
         // Empty pipe is the poison-record shape admitted for typed startup-failure evidence.
-        Assert.Null(@object: EndpointRecord.Validate(pipeName: "", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "shell load failed", obj: out _));
+        Assert.Null(@object: EndpointRecord.Validate(pipeName: "", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "shell load failed", obj: out _));
         Assert.All(collection: (string[])["rb-old-prefix", "RBX-upper", $"rbx-{new string(c: 'x', count: 61)}"], action: static name =>
-            Assert.NotNull(@object: EndpointRecord.Validate(pipeName: name, rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractVersion: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
+            Assert.NotNull(@object: EndpointRecord.Validate(pipeName: name, rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
     }
 
     [Fact]
@@ -273,14 +273,14 @@ public sealed class ConverterCompositionLaws {
 public sealed class ToleranceLaws {
     [Fact]
     public void UnknownHandshakeFieldsAreSkipped() {
-        Handshake back = JsonSerializer.Deserialize(json: """{"contractVersion":7,"senderVersion":"future","capabilities":[],"fingerprint":null,"endpoint":null,"futureField":{"nested":[1,2,3]}}""", jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
-        Assert.Equal(expected: 7, actual: back.ContractVersion);
+        Handshake back = JsonSerializer.Deserialize(json: """{"contractGeneration":7,"senderVersion":"future","capabilities":[],"fingerprint":null,"endpoint":null,"futureField":{"nested":[1,2,3]}}""", jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
+        Assert.Equal(expected: 7, actual: back.ContractGeneration);
         Assert.Equal(expected: "future", actual: back.SenderVersion);
     }
 
     [Fact]
     public void UnknownEndpointFieldsAreSkipped() {
-        Handshake back = JsonSerializer.Deserialize(json: """{"contractVersion":1,"senderVersion":"s","capabilities":[],"fingerprint":null,"endpoint":{"pipeName":"rbx-test","rhinoPid":4242,"rhinoStartedAtUnixMs":1765432000000,"contractVersion":1,"shellVersion":"1.0.0","rhinoVersion":"9.0.26153","futureField":true}}""", jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
+        Handshake back = JsonSerializer.Deserialize(json: """{"contractGeneration":1,"senderVersion":"s","capabilities":[],"fingerprint":null,"endpoint":{"pipeName":"rbx-test","rhinoPid":4242,"rhinoStartedAtUnixMs":1765432000000,"contractGeneration":1,"shellVersion":"1.0.0","rhinoVersion":"9.0.26153","futureField":true}}""", jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
         Assert.Equal(expected: WireGens.Endpoint, actual: back.Endpoint);
     }
 

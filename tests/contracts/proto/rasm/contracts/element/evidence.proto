@@ -1,0 +1,381 @@
+syntax = "proto3";
+
+package rasm.contracts.element;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/type/date.proto";
+import "rasm/contracts/artifact/artifact.proto";
+import "rasm/contracts/element/value.proto";
+
+// --- [VOCABULARIES] -----------------------------------------------------------------------
+
+enum Discipline {
+  DISCIPLINE_UNSPECIFIED = 0;
+  DISCIPLINE_STRUCTURAL = 1;
+  DISCIPLINE_SEISMIC = 2;
+  DISCIPLINE_WIND = 3;
+  DISCIPLINE_DYNAMIC = 4;
+  DISCIPLINE_THERMAL = 5;
+  DISCIPLINE_HYGROTHERMAL = 6;
+  DISCIPLINE_ENERGY = 7;
+  DISCIPLINE_DAYLIGHT = 8;
+  DISCIPLINE_ACOUSTIC = 9;
+  DISCIPLINE_FIRE = 10;
+  DISCIPLINE_CIRCULATION = 11;
+  DISCIPLINE_WATER = 12;
+  DISCIPLINE_ELECTRICAL = 13;
+  DISCIPLINE_DURABILITY = 14;
+  DISCIPLINE_CIRCULARITY = 15;
+  DISCIPLINE_ENVIRONMENTAL = 16;
+  DISCIPLINE_COST = 17;
+}
+
+enum AssessmentOutcome {
+  ASSESSMENT_OUTCOME_UNSPECIFIED = 0;
+  ASSESSMENT_OUTCOME_PENDING = 1;
+  ASSESSMENT_OUTCOME_QUEUED = 2;
+  ASSESSMENT_OUTCOME_RUNNING = 3;
+  ASSESSMENT_OUTCOME_COMPUTED = 4;
+  ASSESSMENT_OUTCOME_FAILED = 5;
+  ASSESSMENT_OUTCOME_CANCELLED = 6;
+  ASSESSMENT_OUTCOME_STALE = 7;
+  ASSESSMENT_OUTCOME_SUPERSEDED = 8;
+}
+
+enum SolvePhase {
+  SOLVE_PHASE_UNSPECIFIED = 0;
+  SOLVE_PHASE_ADMISSION = 1;
+  SOLVE_PHASE_SOLVE = 2;
+  SOLVE_PHASE_EXTRACTION = 3;
+  SOLVE_PHASE_PUBLICATION = 4;
+}
+
+// `resource` and `timeout` are re-dispatchable; every other kind is deterministic on the same inputs.
+enum FailureKind {
+  FAILURE_KIND_UNSPECIFIED = 0;
+  FAILURE_KIND_INPUT = 1;
+  FAILURE_KIND_NUMERIC = 2;
+  FAILURE_KIND_RESOURCE = 3;
+  FAILURE_KIND_TIMEOUT = 4;
+  FAILURE_KIND_ABORTED = 5;
+  FAILURE_KIND_FOREIGN = 6;
+}
+
+enum SamplingKind {
+  SAMPLING_KIND_UNSPECIFIED = 0;
+  SAMPLING_KIND_INSTANTANEOUS = 1;
+  SAMPLING_KIND_AVERAGED = 2;
+  SAMPLING_KIND_TOTAL = 3;
+  SAMPLING_KIND_CUMULATIVE = 4;
+  SAMPLING_KIND_MINIMUM = 5;
+  SAMPLING_KIND_MAXIMUM = 6;
+}
+
+enum ObservationGrade {
+  OBSERVATION_GRADE_UNSPECIFIED = 0;
+  OBSERVATION_GRADE_MEASURED = 1;
+  OBSERVATION_GRADE_VALIDATED = 2;
+  OBSERVATION_GRADE_SUBSTITUTED = 3;
+  OBSERVATION_GRADE_SUSPECT = 4;
+  OBSERVATION_GRADE_MISSING = 5;
+}
+
+// A field interpolates between cells; a raster contains its cells.
+enum CoverageKind {
+  COVERAGE_KIND_UNSPECIFIED = 0;
+  COVERAGE_KIND_RASTER = 1;
+  COVERAGE_KIND_FIELD = 2;
+}
+
+enum ChannelDtype {
+  CHANNEL_DTYPE_UNSPECIFIED = 0;
+  CHANNEL_DTYPE_FLOAT32 = 1;
+  CHANNEL_DTYPE_FLOAT16 = 2;
+  CHANNEL_DTYPE_UNORM8 = 3;
+  CHANNEL_DTYPE_UNORM16 = 4;
+  CHANNEL_DTYPE_INT8 = 5;
+  CHANNEL_DTYPE_INT16 = 6;
+  CHANNEL_DTYPE_UINT16 = 7;
+  CHANNEL_DTYPE_INT32 = 8;
+  CHANNEL_DTYPE_UINT32 = 9;
+  CHANNEL_DTYPE_INT64 = 10;
+  CHANNEL_DTYPE_UINT64 = 11;
+  CHANNEL_DTYPE_FLOAT64 = 12;
+  CHANNEL_DTYPE_CINT16 = 13;
+  CHANNEL_DTYPE_CINT32 = 14;
+  CHANNEL_DTYPE_CFLOAT32 = 15;
+  CHANNEL_DTYPE_CFLOAT64 = 16;
+  CHANNEL_DTYPE_UINT8 = 17;
+  CHANNEL_DTYPE_CFLOAT16 = 18;
+}
+
+enum BandRole {
+  BAND_ROLE_UNSPECIFIED = 0;
+  BAND_ROLE_UNDEFINED = 1;
+  BAND_ROLE_GRAY = 2;
+  BAND_ROLE_PALETTE = 3;
+  BAND_ROLE_RED = 4;
+  BAND_ROLE_GREEN = 5;
+  BAND_ROLE_BLUE = 6;
+  BAND_ROLE_ALPHA = 7;
+}
+
+// `projection` is naming evidence alone — round-trippable identification no engine builds a transform from.
+enum CrsResolution {
+  CRS_RESOLUTION_UNSPECIFIED = 0;
+  CRS_RESOLUTION_UNREFERENCED = 1;
+  CRS_RESOLUTION_EPSG = 2;
+  CRS_RESOLUTION_WKT = 3;
+  CRS_RESOLUTION_PROJECTION = 4;
+}
+
+// --- [ASSESSMENT] -------------------------------------------------------------------------
+
+message DiagnosticWire {
+  SolvePhase phase = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  FailureKind kind = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string message = 3;
+  optional sint32 code = 4;
+}
+
+message ProvenanceWire {
+  string author = 1;
+  string tool = 2 [(buf.validate.field).string.min_len = 1];
+  string version = 3;
+  google.protobuf.Timestamp at = 4 [(buf.validate.field).required = true];
+  google.protobuf.Duration elapsed = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).duration.gte = {}
+  ];
+  google.protobuf.Timestamp window_start = 6;
+  google.protobuf.Timestamp window_end = 7;
+  optional bytes correlation = 8 [(buf.validate.field).bytes.len = 16];
+  uint32 attempt = 9;
+}
+
+// `route` is an opaque lowercase token the producing solver roster owns. Content is coherent with the outcome:
+// a failed or cancelled assessment carries `diagnostic`, a computed or stale one carries `results`.
+message AssessmentWire {
+  option (buf.validate.message).cel = {
+    id: "assessment.failure_content"
+    message: "failed and cancelled outcomes carry a diagnostic"
+    expression: "(this.outcome in [5, 6]) == has(this.diagnostic)"
+  };
+
+  Discipline discipline = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  string route = 2 [(buf.validate.field).string.pattern = "^[a-z0-9][a-z0-9._-]*$"];
+  bytes input_key = 3 [(buf.validate.field).bytes.len = 16];
+  AssessmentOutcome outcome = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated NamedValueWire results = 5;
+  DiagnosticWire diagnostic = 6;
+  rasm.contracts.artifact.ArtifactRef result_artifact = 7;
+  ProvenanceWire provenance = 8 [(buf.validate.field).required = true];
+  repeated bytes depends_on = 9 [(buf.validate.field).repeated.items.bytes.len = 16];
+}
+
+// --- [OBSERVATION] ------------------------------------------------------------------------
+
+// The sample bytes ride the object store under `series_artifact`, never the wire.
+message ObservationChunkWire {
+  google.protobuf.Timestamp window_start = 1 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp window_end = 2 [(buf.validate.field).required = true];
+  rasm.contracts.artifact.ArtifactRef series_artifact = 3 [(buf.validate.field).required = true];
+  uint32 sample_count = 4;
+}
+
+// `tolerance` is the ZERO-CENTRED instrument band every sample shifts onto.
+message SensorProvenanceWire {
+  string manufacturer = 1;
+  string model = 2;
+  string serial = 3;
+  google.type.Date calibrated_at = 4;
+  MeasureBandWire tolerance = 5;
+}
+
+message GradeCountWire {
+  ObservationGrade grade = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint32 count = 2;
+}
+
+// The moment group crosses whole or not at all.
+message MomentsWire {
+  uint32 count = 1;
+  uint32 rejected = 2;
+  double mass = 3 [(buf.validate.field).double.finite = true];
+  double m2 = 4 [(buf.validate.field).double.finite = true];
+  double m3 = 5 [(buf.validate.field).double.finite = true];
+  double m4 = 6 [(buf.validate.field).double.finite = true];
+}
+
+message SeriesStatisticsWire {
+  option (buf.validate.message).cel = {
+    id: "series_statistics.unique_grades"
+    message: "census grades must be unique"
+    expression: "this.census.map(row, row.grade).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "series_statistics.moment_extremes"
+    message: "moments require minimum, maximum, and mean"
+    expression: "!has(this.moments) || (has(this.minimum) && has(this.maximum) && has(this.mean))"
+  };
+
+  repeated GradeCountWire census = 1 [(buf.validate.field).repeated.max_items = 5];
+  google.protobuf.Duration span = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).duration.gte = {}
+  ];
+  MeasureValueWire minimum = 3;
+  MeasureValueWire maximum = 4;
+  MeasureValueWire mean = 5;
+  MeasureValueWire total = 6;
+  MomentsWire moments = 7;
+}
+
+// `cadence` absent is an event-driven series. Both window bounds are admitted, so neither is optional.
+// `canonical_unit` is the measure value's open unit spelling beside the SI dimension signature that keys the value;
+// a sensor aspect draws from no roster the corpus closes.
+message ObservationWire {
+  string sensor = 1 [(buf.validate.field).string.min_len = 1];
+  string aspect = 2 [(buf.validate.field).string.min_len = 1];
+  DimensionWire dimension = 3 [(buf.validate.field).required = true];
+  string canonical_unit = 4 [(buf.validate.field).string.min_len = 1];
+  SamplingKind sampling = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  google.protobuf.Duration cadence = 6 [(buf.validate.field).duration.gt = {}];
+  google.protobuf.Timestamp window_start = 7 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp window_end = 8 [(buf.validate.field).required = true];
+  repeated ObservationChunkWire chunks = 9;
+  SeriesStatisticsWire statistics = 10 [(buf.validate.field).required = true];
+  SensorProvenanceWire provenance = 11;
+}
+
+// --- [GEOREFERENCE] -----------------------------------------------------------------------
+
+message ProjectedCrsWire {
+  string name = 1;
+  optional uint32 epsg = 2 [(buf.validate.field).uint32.gt = 0];
+  optional string wkt = 3;
+  optional string map_projection = 4;
+  optional string map_zone = 5;
+  CrsResolution resolution = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// `vertical_datum` blank beside an absent `vertical_epsg` is the absent vertical frame.
+message GeoReferenceWire {
+  double eastings = 1 [(buf.validate.field).double.finite = true];
+  double northings = 2 [(buf.validate.field).double.finite = true];
+  double orthogonal_height = 3 [(buf.validate.field).double.finite = true];
+  double x_axis_abscissa = 4 [(buf.validate.field).double.finite = true];
+  double x_axis_ordinate = 5 [(buf.validate.field).double.finite = true];
+  double scale_x = 6 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double scale_y = 7 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double scale_z = 8 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  string geodetic_datum = 9;
+  string vertical_datum = 10;
+  ProjectedCrsWire crs = 11;
+  optional double epoch = 12 [(buf.validate.field).double.finite = true];
+  optional uint32 vertical_epsg = 13 [(buf.validate.field).uint32.gt = 0];
+}
+
+// --- [COVERAGE] ---------------------------------------------------------------------------
+
+// The affine's fourth row is the invariant [0 0 0 1] and never crosses: `affine` is m00..m03, m10..m13, m20..m23.
+message CellLatticeWire {
+  repeated double affine = 1 [(buf.validate.field).repeated = {
+    min_items: 12
+    max_items: 12
+    items: {
+      double: {finite: true}
+    }
+  }];
+  uint32 columns = 2 [(buf.validate.field).uint32.gt = 0];
+  uint32 rows = 3 [(buf.validate.field).uint32.gt = 0];
+  uint32 layers = 4 [(buf.validate.field).uint32.gt = 0];
+  uint64 ceiling = 5 [(buf.validate.field).uint64.gt = 0];
+}
+
+// The legend colour crosses as its display-byte quadruple, the same projection the content key takes.
+message ColorBinWire {
+  uint32 index = 1;
+  uint32 r = 2 [(buf.validate.field).uint32.lte = 255];
+  uint32 g = 3 [(buf.validate.field).uint32.lte = 255];
+  uint32 b = 4 [(buf.validate.field).uint32.lte = 255];
+  uint32 a = 5 [(buf.validate.field).uint32.lte = 255];
+  string category = 6;
+}
+
+message CoverageBandWire {
+  uint32 index = 1;
+  string name = 2;
+  ChannelDtype sample_type = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  BandRole role = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional double no_data = 5 [(buf.validate.field).double.finite = true];
+  // A band declaring no unit crosses `units` blank, the same absent spelling `name` takes.
+  string units = 6;
+  double offset = 7 [(buf.validate.field).double.finite = true];
+  double scale = 8 [(buf.validate.field).double.finite = true];
+  optional double range_min = 9 [(buf.validate.field).double.finite = true];
+  optional double range_max = 10 [(buf.validate.field).double.finite = true];
+  repeated ColorBinWire palette = 11;
+}
+
+// A level carries its own lattice whole, never a decimation factor.
+message OverviewLevelWire {
+  rasm.contracts.artifact.ArtifactRef raster_artifact = 1 [(buf.validate.field).required = true];
+  sint32 block_x = 2;
+  sint32 block_y = 3;
+  CellLatticeWire grid = 4 [(buf.validate.field).required = true];
+}
+
+// The raster blob rides the object store under `raster_artifact`; `overviews` are the coarsen chain in decimation
+// order, so position IS the level ordinal.
+message CoverageWire {
+  CoverageKind kind = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  rasm.contracts.artifact.ArtifactRef raster_artifact = 2 [(buf.validate.field).required = true];
+  repeated CoverageBandWire bands = 3 [(buf.validate.field).repeated.min_items = 1];
+  GeoReferenceWire crs = 4 [(buf.validate.field).required = true];
+  repeated OverviewLevelWire overviews = 5;
+  sint32 base_block_x = 6;
+  sint32 base_block_y = 7;
+  CellLatticeWire grid = 8 [(buf.validate.field).required = true];
+}

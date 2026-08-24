@@ -53,6 +53,7 @@
 - `Schema.partialWith` drops the record's node annotation — a closed key domain piped through it re-seats its posture outside or silently reopens.
 - Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
 - Queue durability is the SKIP-LOCKED outbox — `data` owns the outbox relation and `runtime` the relay, so no broker deployment enters `iac`.
+- `Migrator` binds nowhere — ensure rows census fail-closed at Layer construction and the deploy plane applies them, so runtime mutates no schema.
 
 ## [03]-[COLLAPSE]
 

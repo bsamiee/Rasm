@@ -53,7 +53,7 @@ import { enumToJson } from "@bufbuild/protobuf"
 import {
   AlphaMode, AlphaModeSchema, Container, ContainerSchema, KtxPayload, KtxPayloadSchema, LayerLaw, LayerLawSchema,
   MipPolicy, MipPolicySchema, Pack, PackSchema, PlaneFormat, PlaneFormatSchema, Primaries, Role, RoleSchema, Transfer, TransferSchema,
-} from "@rasm\/contracts/rasm/contracts/appearance/v1/appearance_pb"
+} from "@rasm\/contracts/rasm/contracts/appearance/appearance_pb"
 import {
   KHR_DF_FLAG_ALPHA_PREMULTIPLIED, KHR_DF_MODEL_ASTC, KHR_DF_MODEL_ETC1S, KHR_DF_MODEL_RGBSDA, KHR_DF_MODEL_UASTC,
   KHR_DF_PRIMARIES_ACES, KHR_DF_PRIMARIES_ACESCC, KHR_DF_PRIMARIES_ADOBERGB, KHR_DF_PRIMARIES_BT2020,

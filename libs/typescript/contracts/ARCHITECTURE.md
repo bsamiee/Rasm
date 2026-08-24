@@ -12,7 +12,7 @@ contracts/
     ├── google/rpc/             # Retry and field-violation details the fault family embeds by reference
     ├── google/type/            # Calendar date, civil date-time, and time-of-day the property value family embeds
     ├── io/cloudevents/v1/      # Publisher event descriptors beside the frozen AVSC projection; both direct codec inputs
-    └── rasm/contracts/         # Estate families at family/v1/source_pb.ts, one module per proto source the closure reaches
+    └── rasm/contracts/         # Estate families at family/source_pb.ts, one module per proto source the closure reaches
 ```
 
 ## [02]-[STRATA]
@@ -46,7 +46,7 @@ flowchart LR
     Data([data])
     Runtime([runtime])
     Foreign([foreign installer])
-    Corpus e1@-->|"[WIRE]: rasm.contracts.element.v1"| Estate
+    Corpus e1@-->|"[WIRE]: rasm.contracts.element"| Estate
     Corpus e2@-->|"[SHAPE]: buf.validate + google.rpc + google.type"| Support
     Corpus e3@-->|"[WIRE]: io.cloudevents.v1"| Publisher
     Estate e4@-->|"[CONTRACT]: FaultDetailSchema"| Core

@@ -16,7 +16,7 @@ data/
     │   └── tenant.ts     # Tenancy write path pinning the session-coordinate GUCs across RLS, schema, and database cases
     ├── journal/          # Record of truth: atomic writes, evolution, facts, lawful aging
     │   ├── append.ts     # One atomic write owner and the outbox relay claim seam
-    │   ├── evolve.ts     # Read-time upcasting: per-tag version chains, snapshot as a projection
+    │   ├── evolve.ts     # Journal generation identity, the whole-log re-mint, snapshot as a projection
     │   ├── fact.ts       # AuditFact and MeterFact rows draining into one stream-discriminated table
     │   └── retain.ts     # Retention classes, crypto-shredding, and DSAR portability folds
     ├── object/           # Content-addressed object plane over one Digest.Key
@@ -83,7 +83,7 @@ flowchart TB
     Tenant e2@-->|"[IMPORT]: Pg"| Postgres
     Tenant e3@-->|"[IMPORT]: Live"| Live
     Journal e4@-->|"[IMPORT]: Tenancy"| Tenant
-    Journal e5@-->|"[IMPORT]: Upcast"| Evolve
+    Journal e5@-->|"[IMPORT]: Generation"| Evolve
     Journal e6@-->|"[IMPORT]: Live"| Live
     Journal e7@-->|"[IMPORT]: Capability"| Capability
     Object e8@-->|"[IMPORT]: Journal"| Journal
@@ -166,7 +166,7 @@ flowchart LR
     Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
     Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
-    Persistence e28@<-->|"[CONTRACT]: rasm.contracts.parity.v1.Backend"| Capability
+    Persistence e28@<-->|"[CONTRACT]: rasm.contracts.parity.Backend"| Capability
     Fact e29@-->|"[PORT]: AuditJournal"| Security
     Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
     Core e31@-->|"[SHAPE]: Hops"| Olap
@@ -210,7 +210,7 @@ flowchart LR
     Residence e6@-->|"serve: query target"| Query
 ```
 
-`lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth: `append` commits journal, outbox, and idempotency together so a replay returns the stored receipt, and read-time upcasting keeps the log append-only. `object` binds every byte plane to the one content identity through a single admission fold.
+`lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth: `append` commits journal, outbox, and idempotency together so a replay returns the stored receipt, and one generation per log keeps every reader on one shape. `object` binds every byte plane to the one content identity through a single admission fold.
 
 `read` composes the guarantee lanes into consumption, from proven-shape CRUD to reciprocal-rank fusion. One pool and one code path serve a fleet-scale consumer with tenancy carried as a scope value; an artifact hashed in any runtime is reusable by every other; and `retain` makes erasure cryptographically total: destroying the sole wrapped key folds every sealed read to a redaction marker.
 

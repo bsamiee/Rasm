@@ -1,7 +1,7 @@
 # Gate axis; generation is sibling buf.gen.yaml
 version: v2
 modules:
-  - path: tests/contracts/proto                      # rasm.contracts.<family>.v1; directory spells the package
+  - path: tests/contracts/proto                      # rasm.contracts.<family>; directory spells the package
     name: buf.build/rasm/contracts                   # One published estate release unit; vendored publisher modules remain unnamed
   - path: tests/contracts/vendor/cloudevents/proto   # Publisher bytes; the envelope clears STANDARD whole, so it carves nothing
   - path: tests/contracts/vendor/grpc-health/proto   # Publisher bytes; Python has no package-shipped health client, so it generates here
@@ -21,5 +21,5 @@ deps:
 lint:
   use: [STANDARD]
   disallow_comment_ignores: true                     # Carves live in this reviewable file; v2 admits buf:lint:ignore by default and this refuses it
-breaking:
-  use: [FILE]  # Generated trees bind the file path as an import path; file move breaks a consumer the wire rules pass
+  except:
+    - PACKAGE_VERSION_SUFFIX                         # Estate surfaces spell no version segment; packages reshape in place

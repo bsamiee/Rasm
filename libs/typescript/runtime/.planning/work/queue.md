@@ -346,7 +346,7 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
 
 ```typescript signature
 // Claim tags ARE the announced `type` — `data:journal/append#RELAY_ROWS` mints its envelope with
-// `type: deliverable.tag` — so `rasm.<domain>.<subject>.<fact>.v<N>` is the one grammar any reader of this column
+// `type: deliverable.tag` — so `rasm.<domain>.<subject>.<fact>` is the one grammar any reader of this column
 // has, and `<subject>` is the channel a drain routes on and a series fans on. `Lane` publishes the read because it
 // owns the column: a second grammar spelled beside it answers the WHOLE tag for every well-formed row, which is one
 // series per event family instead of one per channel and a routing predicate that agrees with nothing.

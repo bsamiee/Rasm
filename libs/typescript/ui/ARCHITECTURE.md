@@ -133,7 +133,7 @@ flowchart LR
     Runtime e10@-->|"[PORT]: Vital.Report"| System
     Runtime e11@-->|"[BOUNDARY]: EXT_meshopt_compression"| Viewer
     Runtime e12@-->|"[PORT]: Egress"| View
-    Materials e13@-->|"[WIRE]: appearance.v1 Material · Set · PlaneRef"| Viewer
+    Materials e13@-->|"[WIRE]: appearance Material · Set · PlaneRef"| Viewer
     AppUi e14@-->|"[WIRE]: AppUiSurfaceProgram + CommandGateWire"| Viewer
     Bim e15@-->|"[WIRE]: BcfTopicWire"| Viewer
     Bim e16@-->|"[WIRE]: BcfViewpointWire"| Viewer

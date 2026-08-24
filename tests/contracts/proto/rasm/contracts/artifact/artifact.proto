@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package rasm.contracts.artifact;
+
+import "buf/validate/validate.proto";
+
+message ArtifactRef {
+  // Content identity is the whole identity; a second opaque id forks the key every cache compares.
+  reserved "artifact_id";
+
+  // SHA-256 over the exact raw artifact octets with no frame, protobuf, or domain prefix.
+  bytes sha256 = 1 [(buf.validate.field).bytes.len = 32];
+  uint64 artifact_bytes = 2 [(buf.validate.field).uint64 = {
+    gt: 0
+    lte: 1073741824
+  }];
+}
+
+message ArtifactFrame {
+  option (buf.validate.message).cel = {
+    id: "artifact_frame.extent"
+    message: "payload cannot exceed the declared artifact extent"
+    expression: "uint(this.payload.size()) <= this.artifact.artifact_bytes"
+  };
+
+  reserved 1, 2;
+  reserved "artifact_id", "artifact_bytes";
+
+  bytes payload = 3 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 65536
+  }];
+  ArtifactRef artifact = 4 [(buf.validate.field).required = true];
+}
+
+message FetchRequest {
+  // Content identity is the whole identity; a second opaque id forks the key every cache compares.
+  reserved "artifact_id";
+
+  // The same raw-octet SHA-256 coordinate carried by ArtifactRef.
+  bytes sha256 = 1 [(buf.validate.field).bytes.len = 32];
+}
+
+// `ArtifactFrame` is the one payload both stream directions carry, so this response wraps it instead of taking its name.
+message FetchResponse {
+  ArtifactFrame frame = 1 [(buf.validate.field).required = true];
+}
+
+// The same shared frame rides inbound, so this request wraps it instead of taking its name.
+message PutRequest {
+  ArtifactFrame frame = 1 [(buf.validate.field).required = true];
+}
+
+// `ArtifactRef` is embedded across the corpus, so this response wraps it instead of taking its name.
+message PutResponse {
+  ArtifactRef artifact = 1 [(buf.validate.field).required = true];
+}
+
+service ArtifactService {
+  rpc Fetch(FetchRequest) returns (stream FetchResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Every frame repeats one ref, the payload sum equals its extent, and `sha256` is SHA-256 over the exact ordered
+  // raw artifact octets with no frame, protobuf, or domain prefix; the binding chooses its atomic storage strategy.
+  rpc Put(stream PutRequest) returns (PutResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+}

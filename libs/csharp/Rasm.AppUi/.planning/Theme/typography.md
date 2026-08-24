@@ -182,33 +182,33 @@ public sealed partial class FamilyLane {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TypographyRole {
     public static readonly TypographyRole Micro = Row(
-        "micro", Rasm.Contracts.Ui.V1.TypographyRole.Micro, 10, LeadingClass.Snug, 1, TrimPolicy.Ellipsis);
+        "micro", Rasm.Contracts.Ui.TypographyRole.Micro, 10, LeadingClass.Snug, 1, TrimPolicy.Ellipsis);
     public static readonly TypographyRole Caption = Row(
-        "caption", Rasm.Contracts.Ui.V1.TypographyRole.Caption, 12, LeadingClass.Snug, 1, TrimPolicy.Wrap);
+        "caption", Rasm.Contracts.Ui.TypographyRole.Caption, 12, LeadingClass.Snug, 1, TrimPolicy.Wrap);
     public static readonly TypographyRole Label = Row(
-        "label", Rasm.Contracts.Ui.V1.TypographyRole.Label, 12, LeadingClass.Snug, 2, TrimPolicy.Ellipsis);
+        "label", Rasm.Contracts.Ui.TypographyRole.Label, 12, LeadingClass.Snug, 2, TrimPolicy.Ellipsis);
     // Uppercase counters need opening the optical curve never supplies — the curve is calibrated on mixed case.
     public static readonly TypographyRole Overline = Row(
-        "overline", Rasm.Contracts.Ui.V1.TypographyRole.Overline, 11, LeadingClass.Snug, 2, TrimPolicy.Clip,
+        "overline", Rasm.Contracts.Ui.TypographyRole.Overline, 11, LeadingClass.Snug, 2, TrimPolicy.Clip,
         casing: FeatureFacet.Upper, trackingBias: 0.08d);
     public static readonly TypographyRole Body = Row(
-        "body", Rasm.Contracts.Ui.V1.TypographyRole.Body, 14, LeadingClass.Normal, 1, TrimPolicy.Wrap, heading: 4);
+        "body", Rasm.Contracts.Ui.TypographyRole.Body, 14, LeadingClass.Normal, 1, TrimPolicy.Wrap, heading: 4);
     public static readonly TypographyRole Code = Row(
-        "code", Rasm.Contracts.Ui.V1.TypographyRole.Code, 13, LeadingClass.Normal, 1, TrimPolicy.Clip,
+        "code", Rasm.Contracts.Ui.TypographyRole.Code, 13, LeadingClass.Normal, 1, TrimPolicy.Clip,
         numerals: FeatureFacet.Disambiguated, lane: FamilyLane.Mono);
     public static readonly TypographyRole Numeric = Row(
-        "numeric", Rasm.Contracts.Ui.V1.TypographyRole.Numeric, 14, LeadingClass.Normal, 1, TrimPolicy.Clip,
+        "numeric", Rasm.Contracts.Ui.TypographyRole.Numeric, 14, LeadingClass.Normal, 1, TrimPolicy.Clip,
         numerals: FeatureFacet.Slashed);
     public static readonly TypographyRole Section = Row(
-        "section", Rasm.Contracts.Ui.V1.TypographyRole.Section, 16, LeadingClass.Normal, 3, TrimPolicy.Wrap, heading: 3);
+        "section", Rasm.Contracts.Ui.TypographyRole.Section, 16, LeadingClass.Normal, 3, TrimPolicy.Wrap, heading: 3);
     public static readonly TypographyRole Title = Row(
-        "title", Rasm.Contracts.Ui.V1.TypographyRole.Title, 18, LeadingClass.Snug, 3, TrimPolicy.Ellipsis, heading: 2);
+        "title", Rasm.Contracts.Ui.TypographyRole.Title, 18, LeadingClass.Snug, 3, TrimPolicy.Ellipsis, heading: 2);
     public static readonly TypographyRole Headline = Row(
-        "headline", Rasm.Contracts.Ui.V1.TypographyRole.Headline, 24, LeadingClass.Tight, 3, TrimPolicy.Ellipsis, heading: 1);
+        "headline", Rasm.Contracts.Ui.TypographyRole.Headline, 24, LeadingClass.Tight, 3, TrimPolicy.Ellipsis, heading: 1);
     public static readonly TypographyRole Display = Row(
-        "display", Rasm.Contracts.Ui.V1.TypographyRole.Display, 32, LeadingClass.Tight, 3, TrimPolicy.Ellipsis);
+        "display", Rasm.Contracts.Ui.TypographyRole.Display, 32, LeadingClass.Tight, 3, TrimPolicy.Ellipsis);
 
-    public Rasm.Contracts.Ui.V1.TypographyRole Wire { get; }
+    public Rasm.Contracts.Ui.TypographyRole Wire { get; }
 
     public int Size { get; }
 
@@ -229,14 +229,14 @@ public sealed partial class TypographyRole {
     public Option<int> Heading { get; }
 
     private static TypographyRole Row(
-        string key, Rasm.Contracts.Ui.V1.TypographyRole wire, int size, LeadingClass leading, int rung, TrimPolicy trim,
+        string key, Rasm.Contracts.Ui.TypographyRole wire, int size, LeadingClass leading, int rung, TrimPolicy trim,
         FeatureFacet? numerals = null, FeatureFacet? casing = null, FamilyLane? lane = null, double trackingBias = 0d, int? heading = null) =>
         new(key, wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
             lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
 
     // The axis guard the two-type split used to prove at compile time.
     static partial void ValidateConstructorArguments(
-        ref string key, ref Rasm.Contracts.Ui.V1.TypographyRole wire, ref int size, ref LeadingClass leading,
+        ref string key, ref Rasm.Contracts.Ui.TypographyRole wire, ref int size, ref LeadingClass leading,
         ref int rung, ref TrimPolicy trim, ref FeatureFacet numerals, ref FeatureFacet casing, ref FamilyLane lane,
         ref double trackingBias, ref Option<int> heading) {
         if (numerals.Axis != FacetAxis.Numeral || casing.Axis != FacetAxis.Casing) {

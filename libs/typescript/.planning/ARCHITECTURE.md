@@ -106,9 +106,9 @@ flowchart LR
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Core
     Compute e19@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail"| Core
-    Element e2@<-->|"[WIRE]: rasm.contracts.element.v1"| Core
-    Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.v1.CrdtOpWire)"| Core
-    Persistence e14@<-->|"[CONTRACT]: rasm.contracts.parity.v1.Backend"| Data
+    Element e2@<-->|"[WIRE]: rasm.contracts.element"| Core
+    Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.CrdtOpWire)"| Core
+    Persistence e14@<-->|"[CONTRACT]: rasm.contracts.parity.Backend"| Data
     Bim e6@-->|"[WIRE]: IfcWire"| Core
     Materials e7@-->|"[WIRE]: Material"| Core
     AppUi e8@-->|"[WIRE]: CommandInvocation"| Core
@@ -124,7 +124,7 @@ flowchart LR
 
 Every contract family decodes once at the core interchange codec registry: `core` edges freeze the wire spelling from the owning endpoint file, and `ui` and `data` edges name decoded shapes landed there. Backend is the composition exception: every persistence branch mints one generated contribution, then the data composition owner decodes foreign peers and merges the deployment generation.
 
-`buf breaking` FILE at the corpus refuses a breaking source before any binding regenerates, and a consumer tolerates unknown fields while refusing a peer whose advertised protobuf package identity differs from its generated service descriptor. TypeScript consumes the GLB tessellation rail there, and Python `artifacts` sends generated `rasm.contracts.appearance.v1.Set` into core through the neutral corpus, never an import.
+One corpus emission owns compatibility — a wire reshapes in place and every binding regenerates from it — so a consumer tolerates unknown fields while refusing a peer whose advertised protobuf package identity differs from its generated service descriptor. TypeScript consumes the GLB tessellation rail there, and Python `artifacts` sends generated `rasm.contracts.appearance.Set` into core through the neutral corpus, never an import.
 
 Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 
@@ -203,8 +203,8 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 
 | [INDEX] | [CHANGE]              | [OWNER_SURFACE]                                     | [SHAPE_OF_THE_EDIT]                                       |
 | :-----: | :-------------------- | :-------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | event type            | the app's `Schema.TaggedClass` family               | one tagged case + its upcast step                         |
-|  [02]   | event version         | `data/journal/evolve` upcast chains                 | one version step; the log is never rewritten              |
+|  [01]   | event type            | the app's `Schema.TaggedClass` family               | one tagged case; the family's own digest moves            |
+|  [02]   | event shape           | `data/journal/evolve` generation identity           | one re-mint; the log carries one generation whole         |
 |  [03]   | wire family           | `core/interchange/codec` registry                   | one census row + one landing row                          |
 |  [04]   | projection            | `data/read/fold` lane rows                          | one lane row at its staleness budget                      |
 |  [05]   | retrieval lane        | `data/read/search` roster                           | one lane row                                              |

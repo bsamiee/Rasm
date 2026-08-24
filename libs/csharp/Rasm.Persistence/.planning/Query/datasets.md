@@ -133,7 +133,7 @@ public readonly record struct SeriesJobHealth(string Hypertable, string Status, 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class SeriesLane {
     // Provisioning rides the one residence emitter over the kind's own schema projection, and derived steps ride
-    // that same reviewed-migration rail every `Store/provisioning#SERVER_EXTENSIONS` admission rides, gated on the
+    // that same reviewed generation rail every `Store/provisioning#SERVER_EXTENSIONS` admission rides, gated on the
     // verdict holding the `timescaledb` lane.
     public static Fin<Seq<ProvisionStep>> Provision(SeriesKind kind) =>
         ResidenceDdl.Provision(Residence.Series, kind.Schema, kind.Policy);
@@ -445,7 +445,7 @@ public static class ReceiptResidence {
 
 | [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                         |
 | :-----: | :------------------ | :---------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | series provisioning | derived from the `SeriesKind` row         | one emitter, migration-carried, verdict-gated                     |
+|  [01]   | series provisioning | derived from the `SeriesKind` row         | one emitter, generation-carried, verdict-gated                    |
 |  [02]   | policy cadence      | each residence's own scheduler            | never AppHost-scheduled; `job_stats` is the Series proof row      |
 |  [03]   | irregular timesteps | the `Weighted` fold off the plan builder  | a naive `avg` over-counts dense bursts                            |
 |  [04]   | rollup statistic    | materialised summary + read-time accessor | one statistic per caption; never `avg` accelerating `time_weight` |

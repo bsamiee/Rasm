@@ -39,8 +39,8 @@ from OCP.TopoDS import TopoDS_Builder, TopoDS_Compound, TopoDS_Shape
 from OCP.XCAFApp import XCAFApp_Application
 from OCP.XCAFDoc import XCAFDoc_DocumentTool, XCAFDoc_ShapeTool
 from protobuf import Oneof
-from rasm.contracts.gen.rasm.contracts.cad.v1.service_pb import TessellateRequest
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import SealedStep
+from rasm.contracts.gen.rasm.contracts.cad.service_pb import TessellateRequest
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import SealedStep
 
 from rasm.cad.exchange.step import ExchangeArrow, declared, gated, schema
 from rasm.cad.faults import CAF_ROOTS, CAF_TRANSFER, STEP_SCHEMA, CadRail

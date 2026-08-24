@@ -79,7 +79,7 @@ public abstract partial record UpdateOutcome {
     public sealed record Restarted(string Target) : UpdateOutcome;
     public sealed record RolledBack(
         Option<string> Prior,
-        Rasm.Contracts.Fault.V1.FaultObservation Fault) : UpdateOutcome;
+        Rasm.Contracts.Fault.FaultObservation Fault) : UpdateOutcome;
     public sealed record Declined(string Reason) : UpdateOutcome;
 
     public UpdatePhase Phase => Switch(

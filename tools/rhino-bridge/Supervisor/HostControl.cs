@@ -168,7 +168,7 @@ internal sealed class SupervisorConnection : IAsyncDisposable {
 
     internal Task<Handshake> HelloAsync(CancellationToken ct) =>
         shell.HelloAsync(supervisor: new Handshake(
-            ContractVersion: Handshake.CurrentVersion,
+            ContractGeneration: Handshake.Generation,
             SenderVersion: SupervisorVersion,
             Capabilities: [new CapabilityEntry(
                 Key: "client.pid", Outcome: PhaseStatus.Ok,
@@ -539,7 +539,7 @@ internal static class Shutdown {
                 return unit;
             EndpointRecord poisoned = EndpointRecord.Create(
                 pipeName: string.Empty, rhinoPid: 0, rhinoStartedAtUnixMs: now,
-                contractVersion: Handshake.CurrentVersion, shellVersion: "supervisor", rhinoVersion: string.Empty,
+                contractGeneration: Handshake.Generation, shellVersion: "supervisor", rhinoVersion: string.Empty,
                 fault: $"supervisor shutdown: {reason}");
             File.WriteAllText(path: path, contents: JsonSerializer.Serialize(value: poisoned, jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {

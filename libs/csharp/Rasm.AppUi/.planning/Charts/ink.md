@@ -41,30 +41,28 @@ public abstract partial record ChartFault : Fault {
     [FaultCase(6)]
     public sealed partial record PayloadMismatch(string Kind, string Payload) : ChartFault($"chart/payload: {Kind} rejected {Payload}");
     [FaultCase(7)]
-    public sealed partial record SnapshotRejected(string LayoutKey, int Version) : ChartFault($"chart/snapshot: {LayoutKey} requires version {Version}");
-    [FaultCase(8)]
     public sealed partial record PlacementRejected(string LayoutKey) : ChartFault($"chart/placement: {LayoutKey} is invalid");
-    [FaultCase(9)]
+    [FaultCase(8)]
     public sealed partial record FilterRejected() : ChartFault("chart/filter: state is invalid");
-    [FaultCase(10)]
+    [FaultCase(9)]
     public sealed partial record RecordOversize(string Kind, int Bytes, int Ceiling) : ChartFault($"chart/record: {Kind} sealed {Bytes} retained bytes over the {Ceiling} ceiling");
-    [FaultCase(11)]
+    [FaultCase(10)]
     public sealed partial record PaintUnresolved(string Chrome) : ChartFault($"chart/paint: {Chrome} resolves no generated rung");
-    [FaultCase(12)]
+    [FaultCase(11)]
     public sealed partial record TransformRejected(string Reason) : ChartFault($"chart/transform: {Reason}");
-    [FaultCase(13)]
+    [FaultCase(12)]
     public sealed partial record SpecRejected(string Reason) : ChartFault($"chart/spec: {Reason}");
-    [FaultCase(14)]
+    [FaultCase(13)]
     public sealed partial record ContextRejected(string Reason) : ChartFault($"chart/context: {Reason}");
-    [FaultCase(15)]
+    [FaultCase(14)]
     public sealed partial record SourceMismatch(string TileKey) : ChartFault($"chart/source: {TileKey} binds a source its case cannot read");
-    [FaultCase(16)]
+    [FaultCase(15)]
     public sealed partial record ThresholdRejected(string Reason) : ChartFault($"chart/threshold: {Reason}");
-    [FaultCase(17)]
+    [FaultCase(16)]
     public sealed partial record ProfileRejected(string Reason) : ChartFault($"chart/profile: {Reason}");
-    [FaultCase(18)]
+    [FaultCase(17)]
     public sealed partial record LegendRejected(string Reason) : ChartFault($"chart/legend: {Reason}");
-    [FaultCase(19)]
+    [FaultCase(18)]
     public sealed partial record BrushRejected(string Reason) : ChartFault($"chart/brush: {Reason}");
 }
 ```
@@ -515,13 +513,13 @@ public sealed record ThresholdList(
 
 ## [05]-[CONSTRAINT_PROFILE]
 
-- Owner: `BoundDirection` — the comparison vocabulary carrying predicate, margin, and driver as row data; `ConstraintRow` — one saved check; `ConstraintProfile` — the named, project-scoped, versioned check set carrying its own grading list and the verdict folds; `ConstraintVerdict` — one row's reading.
+- Owner: `BoundDirection` — the comparison vocabulary carrying predicate, margin, and driver as row data; `ConstraintRow` — one saved check; `ConstraintProfile` — the named, project-scoped, generation-sealed check set carrying its own grading list and the verdict folds; `ConstraintVerdict` — one row's reading.
 - Cases: `BoundDirection` = at-most | at-least | within.
-- Entry: `ConstraintRow.Admit(candidate)` — accumulating admission over key, metric, bound, ceiling, and source arm; `ConstraintRow.Read(measured, grade)` — the one comparison; `ConstraintRow.Chip(verdict, locale)` — the verdict text a scorecard cell and a table chip both print; `ConstraintProfile.Admit(candidate)` — row keys, grading basis, and per-row admissions accumulated; `ConstraintProfile.Reading(verdicts)` — the worst-of badge; `ConstraintProfile.Pressure(verdicts, keep)` — the kernel `Ranked.Top` pressure ordering a truncated card keeps; `ConstraintProfile.Restore(blob, expected)` — size-gated, version-gated, row-by-row re-admission.
+- Entry: `ConstraintRow.Admit(candidate)` — accumulating admission over key, metric, bound, ceiling, and source arm; `ConstraintRow.Read(measured, grade)` — the one comparison; `ConstraintRow.Chip(verdict, locale)` — the verdict text a scorecard cell and a table chip both print; `ConstraintProfile.Admit(candidate)` — row keys, grading basis, and per-row admissions accumulated; `ConstraintProfile.Reading(verdicts)` — the worst-of badge; `ConstraintProfile.Pressure(verdicts, keep)` — the kernel `Ranked.Top` pressure ordering a truncated card keeps; `ConstraintProfile.Seal` with `Save()` / `Open(blob)` — the sealed round-trip whose admission arrow is `Admit` itself.
 - Auto: a constraint profile grades every row through its one percentage-basis list, so a zoning check, a code check, and a budget check read one severity ladder and one ink; every admission accumulates ALL defects through the `Validation` applicative, so a profile with three bad rows names three rows in one refusal.
 - Packages: UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new check is one `ConstraintRow`; a new comparison sense is one `BoundDirection` row with its predicate, margin, and driver columns; zero new surface.
-- Boundary: the profile NEVER computes a metric — every row names a scalar `TileSource` arm and the scorecard subscribes it through the same live-data scalar-fold edge a stat tile takes, so a gross-floor-area check and the area readout beside it are one number. Comparison is unit-safe by CONSTRUCTION: bound and measured value both stand in the role's own metric unit — the canonical storage unit every measured feed writes — and the display unit is ELECTED at render exactly as an axis title's is, so a row carrying a transcribed unit abbreviation is unspellable. MARGIN is signed distance in that metric unit; RATIO is that distance as a fraction of the bound's magnitude and is an `Option` — a zero-magnitude bound admits no fraction, and the retired fallback that published the raw margin in the ratio column handed the one cross-metric-comparable column a value in the role's own unit (`RULINGS [02]` ratio law); the zero test reads `EpsilonPolicy.ZeroTolerance`, never `double.Epsilon`, which is the denormal floor and no tolerance at all. The DRIVER names which edge broke; a passing row's driver is empty, since naming a cause on a pass invents one. `Passes` is a DERIVATION of the margin's sign, never a stored column a mutation could desynchronize. Severity is the profile's ONE `ThresholdList` read at the shortfall under a percentage basis; a ratio-less breach grades at the ladder's deepest step because an unscalable breach cannot be ranked shallow, and a ratio-less pass grades at the floor. Ranking reads kernel `Ranked.Top` over ascending ratio so the closest-to-breach rows rise and a truncated card keeps exactly the rows a designer must see; ratio-less rows seat last. A profile is a SAVED artifact crossing the one composition-seated `EvidenceOps.Wire` under the shared record ceiling; a version above the build's refuses, a version below re-admits row by row because every row is self-describing. `ConstraintVerdict` is DISTINCT from Fabrication's nesting `ConstraintVerdict` — this row grades a live metric against a saved compliance bound; the NFP row witnesses a geometric non-fit — the shared name carries no shared regime.
+- Boundary: the profile NEVER computes a metric — every row names a scalar `TileSource` arm and the scorecard subscribes it through the same live-data scalar-fold edge a stat tile takes, so a gross-floor-area check and the area readout beside it are one number. Comparison is unit-safe by CONSTRUCTION: bound and measured value both stand in the role's own metric unit — the canonical storage unit every measured feed writes — and the display unit is ELECTED at render exactly as an axis title's is, so a row carrying a transcribed unit abbreviation is unspellable. MARGIN is signed distance in that metric unit; RATIO is that distance as a fraction of the bound's magnitude and is an `Option` — a zero-magnitude bound admits no fraction, and the retired fallback that published the raw margin in the ratio column handed the one cross-metric-comparable column a value in the role's own unit (`RULINGS [02]` ratio law); the zero test reads `EpsilonPolicy.ZeroTolerance`, never `double.Epsilon`, which is the denormal floor and no tolerance at all. The DRIVER names which edge broke; a passing row's driver is empty, since naming a cause on a pass invents one. `Passes` is a DERIVATION of the margin's sign, never a stored column a mutation could desynchronize. Severity is the profile's ONE `ThresholdList` read at the shortfall under a percentage basis; a ratio-less breach grades at the ladder's deepest step because an unscalable breach cannot be ranked shallow, and a ratio-less pass grades at the floor. Ranking reads kernel `Ranked.Top` over ascending ratio so the closest-to-breach rows rise and a truncated card keeps exactly the rows a designer must see; ratio-less rows seat last. A profile is a SAVED artifact crossing the one composition-seated `EvidenceOps.Wire` through its own `Diagnostics/evidence#DURABLE_PARCEL` seal, whose ceiling and generation compare are the shared owner's; a parcel the generation refuses HOLDS its bytes beside the seeded profile, because a compliance set is authored and its rows stay readable by hand. NAMED LOSS: attribute-rename carry — a row column renamed across a generation reaches no reader under the next. `ConstraintVerdict` is DISTINCT from Fabrication's nesting `ConstraintVerdict` — this row grades a live metric against a saved compliance bound; the NFP row witnesses a geometric non-fit — the shared name carries no shared regime.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -629,17 +627,18 @@ public sealed record ConstraintProfile(
     string Key,
     string Label,
     string Project,
-    int Version,
     ThresholdList Grade,
     Seq<ConstraintRow> Rows) {
+    // Compliance sets are AUTHORED, so a refused parcel holds its bytes beside the seeded profile.
+    public static readonly StateSeal Seal = StateSeal.Of("chart", "profile", generation: 1, StateResidue.Hold);
+
     public static Fin<ConstraintProfile> Admit(ConstraintProfile candidate) =>
         (Gate(!string.IsNullOrWhiteSpace(candidate.Key), $"{candidate.Key}: blank key"),
          Gate(!string.IsNullOrWhiteSpace(candidate.Project), $"{candidate.Key}: blank project"),
-         Gate(candidate.Version > 0, $"{candidate.Key}: non-positive version"),
          Gate(!candidate.Rows.IsEmpty, $"{candidate.Key}: empty row set"),
          Gate(candidate.Rows.Map(static row => row.Key).Distinct().Count == candidate.Rows.Count, $"{candidate.Key}: duplicate row keys"),
          Gate(candidate.Grade.Basis == ThresholdBasis.Percentage, $"{candidate.Key}: grade must be percentage-basis"))
-            .Apply((_, _, _, _, _, _) => candidate).As().ToFin()
+            .Apply((_, _, _, _, _) => candidate).As().ToFin()
             .Bind(static admitted => admitted.Rows.Traverse(ConstraintRow.Admit).As().Map(rows => admitted with { Rows = rows }));
 
     // The badge reads the WORST live row, so one failing check is never averaged away by nine passing ones.
@@ -652,20 +651,11 @@ public sealed record ConstraintProfile(
     public Seq<ConstraintVerdict> Pressure(Seq<ConstraintVerdict> verdicts, int keep) =>
         Rasm.Domain.Ranked.Top(verdicts, keep, static verdict => verdict.Ratio.IfNone(double.PositiveInfinity), ExtremumDirection.Minimum);
 
-    // The same wire and the same ceiling every AppUi durable payload crosses — the composition-seated merged
-    // suite options, never a second options graph.
-    public Fin<string> Serialize() =>
-        Op.Of(name: "appui.chart.profile-encode").Catch(() => Fin.Succ(JsonSerializer.Serialize(this, EvidenceOps.Wire)));
+    // Seal owns the wire, the ceiling, and the generation compare every AppUi durable payload crosses, so
+    // this owner states only which grain it is and what a refusal keeps.
+    public Fin<string> Save() => Seal.Write(this);
 
-    // A profile BELOW the expected version re-admits row by row — every row is self-describing — and one ABOVE
-    // it refuses, since it carries columns this build cannot honour.
-    public static Fin<ConstraintProfile> Restore(string blob, int expected) =>
-        blob.Length > BoardState.Ceiling
-            ? Fin.Fail<ConstraintProfile>(new ChartFault.RecordOversize("profile", blob.Length, BoardState.Ceiling))
-            : Op.Of(name: "appui.chart.profile-decode").Catch(() => Fin.Succ(JsonSerializer.Deserialize<ConstraintProfile>(blob, EvidenceOps.Wire)))
-                .Bind(profile => profile is null || profile.Version > expected
-                    ? Fin.Fail<ConstraintProfile>(new ChartFault.ProfileRejected($"version/{expected}"))
-                    : Admit(profile));
+    public static Restored<ConstraintProfile> Open(string blob) => Seal.Read<ConstraintProfile>(blob, Admit);
 
     static Validation<Error, Unit> Gate(bool holds, string detail) =>
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.ProfileRejected(detail);

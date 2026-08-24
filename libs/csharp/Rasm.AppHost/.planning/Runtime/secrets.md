@@ -1,6 +1,6 @@
 # [APPHOST_SECRETS_AND_CREDENTIAL_MATERIAL]
 
-`SecretLease` owns the credential-material lifecycle: one row family acquires, rotates, and zeroizes credential material against the RID-dispatched credential-store provider the host resolves through `Runtime/config#SOURCE_AXIS`'s `ConfigSource.SecretsStore` row, and it carries the per-store-open KMS-unwrap handle `Rasm.Persistence/Element/identity#KMS_CUSTODY` reads as one `SecretLease`-class content carrier so the cloud-KMS key-handle lifecycle stays the runtime lease's concern rather than a long-lived Persistence-side key. `CredentialPublic` is the suite's only credential-material wire vocabulary: the host admits every public credential as raw DER under one closed two-arm material family, projects the generated `Credential.V1.CredentialPublicWire` the TypeScript verifier decodes, and crosses no armored text, bare `byte[]`, or parallel base64 envelope. Owned axes are the secret-lease lifecycle, public credential-material admission, and KMS-unwrap custody over System.Security.Cryptography, Microsoft.Extensions.Compliance.Redaction, generated protobuf contracts, the kernel identity and transition capsules, Generator.Equals, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
+`SecretLease` owns the credential-material lifecycle: one row family acquires, rotates, and zeroizes credential material against the RID-dispatched credential-store provider the host resolves through `Runtime/config#SOURCE_AXIS`'s `ConfigSource.SecretsStore` row, and it carries the per-store-open KMS-unwrap handle `Rasm.Persistence/Element/identity#KMS_CUSTODY` reads as one `SecretLease`-class content carrier so the cloud-KMS key-handle lifecycle stays the runtime lease's concern rather than a long-lived Persistence-side key. `CredentialPublic` is the suite's only credential-material wire vocabulary: the host admits every public credential as raw DER under one closed two-arm material family, projects the generated `Credential.CredentialPublicWire` the TypeScript verifier decodes, and crosses no armored text, bare `byte[]`, or parallel base64 envelope. Owned axes are the secret-lease lifecycle, public credential-material admission, and KMS-unwrap custody over System.Security.Cryptography, Microsoft.Extensions.Compliance.Redaction, generated protobuf contracts, the kernel identity and transition capsules, Generator.Equals, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ## [01]-[INDEX]
 
@@ -222,9 +222,9 @@ public static class SecretLeaseOps {
 
 ## [03]-[CREDENTIAL_PEM]
 
-- Owner: `Der` is the owned-storage DER element; `DerChain` is the ordered leaf-first roster; `CredentialMaterial` `[Union]` closes the generated `material` oneof onto two public arms; generated `Credential.V1.CredentialPublicWire` is the cross-language carrier; `PemFault` `[Union]` bands through `FaultBand.Pem`; `CredentialPublic` owns admission and projection.
+- Owner: `Der` is the owned-storage DER element; `DerChain` is the ordered leaf-first roster; `CredentialMaterial` `[Union]` closes the generated `material` oneof onto two public arms; generated `Credential.CredentialPublicWire` is the cross-language carrier; `PemFault` `[Union]` bands through `FaultBand.Pem`; `CredentialPublic` owns admission and projection.
 - Cases: `CredentialMaterial` = Chain | Spki, one arm per generated oneof member and no third; `PemFault` = CertRejected | ChainEmpty | SpkiRejected.
-- Entry: `Chain(Seq<ReadOnlyMemory<byte>> certificates)` returns `Fin<CredentialMaterial>` — every element parses through `X509CertificateLoader.LoadCertificate` and copies out inside that proving scope; `Spki(ReadOnlyMemory<byte> key)` returns `Fin<CredentialMaterial>` — the body parses through `PublicKey.CreateFromSubjectPublicKeyInfo` and refuses a trailing tail; `Carrier(CredentialMaterial material, string keyId)` returns generated `Credential.V1.CredentialPublicWire` with the intact key id and exactly one oneof arm.
+- Entry: `Chain(Seq<ReadOnlyMemory<byte>> certificates)` returns `Fin<CredentialMaterial>` — every element parses through `X509CertificateLoader.LoadCertificate` and copies out inside that proving scope; `Spki(ReadOnlyMemory<byte> key)` returns `Fin<CredentialMaterial>` — the body parses through `PublicKey.CreateFromSubjectPublicKeyInfo` and refuses a trailing tail; `Carrier(CredentialMaterial material, string keyId)` returns generated `Credential.CredentialPublicWire` with the intact key id and exactly one oneof arm.
 - Auto: raw DER is the canonical crossing and RFC-7468 armor is DELETED — armor is a text framing whose label is a self-declared string, so the private-key arm it forced a runtime filter to police has no case to inhabit once the oneof carries only public arms; the same ASN.1 parse each consumer's own import runs is the admission gate here, so a PKCS#8 body handed to the public arm refuses at the producer rather than at a verifier that has lost the cause; `Der` copies its octets because `X509Certificate2.RawDataMemory` is a view the certificate's handle bounds, and `ImmutableArray<byte>` storage discharges `UnsafeWrap`'s outlive obligation so the chain crosses with no second copy.
 - Receipt: rotation rides `SECRET_LEASE`'s `SecretReceipt`, so the material axis adds no parallel receipt; generated `CredentialPublicWire` is the producer capability surface.
 - Packages: Rasm.Contracts, Google.Protobuf, System.Security.Cryptography, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
@@ -242,7 +242,7 @@ using LanguageExt;
 using Rasm.Domain;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Host = Rasm.Contracts.Credential.V1;
+using Host = Rasm.Contracts.Credential;
 
 namespace Rasm.AppHost.Runtime;
 
@@ -357,8 +357,8 @@ public static class CredentialPublic {
 export {
   CertificateChainSchema,
   CredentialPublicWireSchema,
-} from "@rasm\/contracts/rasm/contracts/credential/v1/public_pb";
-export type { CertificateChain, CredentialPublicWire } from "@rasm\/contracts/rasm/contracts/credential/v1/public_pb";
+} from "@rasm\/contracts/rasm/contracts/credential/public_pb";
+export type { CertificateChain, CredentialPublicWire } from "@rasm\/contracts/rasm/contracts/credential/public_pb";
 ```
 
 ## [05]-[RESEARCH]

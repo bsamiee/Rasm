@@ -11,7 +11,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 
 ## [02]-[NODE_CODEC]
 
-- Owner: `tests/contracts/proto/rasm/contracts/element/v1/{graph,value,substance,evidence}.proto` owns the generated `NodeWire` dependency closure; `Rasm.Contracts` carries generated C# messages; this folder owns native projection.
+- Owner: `tests/contracts/proto/rasm/contracts/element/{graph,value,substance,evidence}.proto` owns the generated `NodeWire` dependency closure; `Rasm.Contracts` carries generated C# messages; this folder owns native projection.
 - Cases: `NodeWire.payload` mirrors the eight `Node` cases. Nested generated oneofs mirror `PropertyValue`, `TemporalValue`, `MaterialComposition`, and `MaterialPropertySet` only because a node payload can reach them. `CoverageSample` stays branch-interior because no node seats it.
 - Law: `NodeWire` exists to make `Persistence/Version/merge#STRUCTURAL_DIFF` field-mask edits schema-aware. It does not make the enclosing graph, delta algebra, relationship algebra, headers, redaction policy, or event framing a cross-language contract.
 - Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `SeamConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
@@ -40,7 +40,7 @@ using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Element.V1;
+using Rasm.Contracts.Element;
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Properties;
@@ -52,7 +52,7 @@ using static Rasm.Element.Graph.SeamConverters;
 namespace Rasm.Element.Graph;
 
 // The generated messages arrive by project reference — <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" /> —
-// and each generated descriptor reads its ownership-split corpus path under rasm/contracts/element/v1.
+// and each generated descriptor reads its ownership-split corpus path under rasm/contracts/element.
 
 // --- [TYPES] ------------------------------------------------------------------------------
 // The union-arity OWNER: one row per crossing family carrying the seam arm count AND the generated oneof-enum
@@ -170,27 +170,27 @@ public static partial class SeamConverters {
   band.StandardDeviationSi.IfSome(sd => w.StandardDeviationSi = sd); band.CoverageFactor.IfSome(k => w.CoverageFactor = k); return w;
  }
 
- static Rasm.Contracts.Element.V1.UncertaintyKind ToWire(UncertaintyKind value) => value == UncertaintyKind.Exact
-  ? Rasm.Contracts.Element.V1.UncertaintyKind.Exact
+ static Rasm.Contracts.Element.UncertaintyKind ToWire(UncertaintyKind value) => value == UncertaintyKind.Exact
+  ? Rasm.Contracts.Element.UncertaintyKind.Exact
   : value == UncertaintyKind.Absolute
-   ? Rasm.Contracts.Element.V1.UncertaintyKind.Absolute
+   ? Rasm.Contracts.Element.UncertaintyKind.Absolute
    : value == UncertaintyKind.Relative
-    ? Rasm.Contracts.Element.V1.UncertaintyKind.Relative
+    ? Rasm.Contracts.Element.UncertaintyKind.Relative
     : value == UncertaintyKind.Interval
-     ? Rasm.Contracts.Element.V1.UncertaintyKind.Interval
+     ? Rasm.Contracts.Element.UncertaintyKind.Interval
      : value == UncertaintyKind.Normal
-      ? Rasm.Contracts.Element.V1.UncertaintyKind.Normal
+      ? Rasm.Contracts.Element.UncertaintyKind.Normal
       : throw new UnreachableException();
 
  public static Fin<MeasureBand> ToMeasureBand(MeasureBandWire? w, Op key) =>
   w is null
    ? new KernelFault.InvalidValue("element-wire.measure-band", "required message is absent", Some(key))
    : (w.Kind switch {
-       Rasm.Contracts.Element.V1.UncertaintyKind.Exact => Fin.Succ(UncertaintyKind.Exact),
-       Rasm.Contracts.Element.V1.UncertaintyKind.Absolute => Fin.Succ(UncertaintyKind.Absolute),
-       Rasm.Contracts.Element.V1.UncertaintyKind.Relative => Fin.Succ(UncertaintyKind.Relative),
-       Rasm.Contracts.Element.V1.UncertaintyKind.Interval => Fin.Succ(UncertaintyKind.Interval),
-       Rasm.Contracts.Element.V1.UncertaintyKind.Normal => Fin.Succ(UncertaintyKind.Normal),
+       Rasm.Contracts.Element.UncertaintyKind.Exact => Fin.Succ(UncertaintyKind.Exact),
+       Rasm.Contracts.Element.UncertaintyKind.Absolute => Fin.Succ(UncertaintyKind.Absolute),
+       Rasm.Contracts.Element.UncertaintyKind.Relative => Fin.Succ(UncertaintyKind.Relative),
+       Rasm.Contracts.Element.UncertaintyKind.Interval => Fin.Succ(UncertaintyKind.Interval),
+       Rasm.Contracts.Element.UncertaintyKind.Normal => Fin.Succ(UncertaintyKind.Normal),
        _ => Fin.Fail<UncertaintyKind>(new KernelFault.InvalidValue(
         "element-wire.measure-band.kind", "name a defined non-default kind", Some(key))),
       }).Bind(kind => MeasureBand.Admit(

@@ -28,17 +28,17 @@ Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RuntimePhase {
-    public static readonly RuntimePhase Boot = new("boot", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Boot);
-    public static readonly RuntimePhase Ready = new("ready", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Ready);
-    public static readonly RuntimePhase Running = new("running", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Running);
-    public static readonly RuntimePhase Degraded = new("degraded", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Degraded);
-    public static readonly RuntimePhase Draining = new("draining", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Draining);
-    public static readonly RuntimePhase Unloaded = new("unloaded", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Unloaded);
-    public static readonly RuntimePhase Faulted = new("faulted", wire: Rasm.Contracts.Compute.V1.RuntimePhase.Faulted);
+    public static readonly RuntimePhase Boot = new("boot", wire: Rasm.Contracts.Compute.RuntimePhase.Boot);
+    public static readonly RuntimePhase Ready = new("ready", wire: Rasm.Contracts.Compute.RuntimePhase.Ready);
+    public static readonly RuntimePhase Running = new("running", wire: Rasm.Contracts.Compute.RuntimePhase.Running);
+    public static readonly RuntimePhase Degraded = new("degraded", wire: Rasm.Contracts.Compute.RuntimePhase.Degraded);
+    public static readonly RuntimePhase Draining = new("draining", wire: Rasm.Contracts.Compute.RuntimePhase.Draining);
+    public static readonly RuntimePhase Unloaded = new("unloaded", wire: Rasm.Contracts.Compute.RuntimePhase.Unloaded);
+    public static readonly RuntimePhase Faulted = new("faulted", wire: Rasm.Contracts.Compute.RuntimePhase.Faulted);
     public static readonly RuntimePhase SupportCapture = new(
-        "support-capture", wire: Rasm.Contracts.Compute.V1.RuntimePhase.SupportCapture);
+        "support-capture", wire: Rasm.Contracts.Compute.RuntimePhase.SupportCapture);
 
-    public Rasm.Contracts.Compute.V1.RuntimePhase Wire { get; }
+    public Rasm.Contracts.Compute.RuntimePhase Wire { get; }
 }
 
 // --- [TABLES] ---------------------------------------------------------------------------
@@ -258,11 +258,11 @@ public sealed partial class TerminationKind {
 [JsonDerivedType(typeof(MarkerDrifted), "marker-drifted")]
 public abstract partial record FaultSource {
     private FaultSource() { }
-    public sealed record Unhandled(Rasm.Contracts.Fault.V1.FaultObservation Evidence, TerminationKind Termination) : FaultSource;
-    public sealed record UnobservedTask(Rasm.Contracts.Fault.V1.FaultObservation Evidence) : FaultSource;
+    public sealed record Unhandled(Rasm.Contracts.Fault.FaultObservation Evidence, TerminationKind Termination) : FaultSource;
+    public sealed record UnobservedTask(Rasm.Contracts.Fault.FaultObservation Evidence) : FaultSource;
     public sealed record Signalled([property: JsonConverter(typeof(JsonStringEnumConverter<PosixSignal>))] PosixSignal Signal) : FaultSource;
     public sealed record HostCrashMarker(string Path, Option<BootMarker> Marker = default) : FaultSource;
-    public sealed record MarkerDrifted(string Path, Rasm.Contracts.Fault.V1.FaultObservation Cause) : FaultSource;
+    public sealed record MarkerDrifted(string Path, Rasm.Contracts.Fault.FaultObservation Cause) : FaultSource;
 
     [JsonIgnore]
     public string Kind => Switch(

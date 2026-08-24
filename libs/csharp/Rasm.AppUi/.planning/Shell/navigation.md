@@ -1,6 +1,6 @@
 # [APPUI_SHELL_NAVIGATION]
 
-Rasm.AppUi composes one shell: a three-case `NavRequest` union over a `RouteVerb` roster dispatches on the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows through a `RegionProgram` into the Dock model graph so dockables are screens and the topology is data, `WorkspaceRow` rows name the arrangements a mode carries, `LayoutLedger` flows layout checkpoints as versioned content-keyed blobs through `LayoutPersistence` delegates with cadence, drain, support, telemetry, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, rail, status, HUD, context, and tray rows from intent keys per supplied `ConsumptionProfile`, and `AdaptiveLayout` owns the breakpoint table whose tiers select the chrome programs. The page owns the routing spine, the dock fabric with its region program, workspace, tear-out, checkpoint-cadence, external-dock-surface, and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Irihi.Ursa, Thinktecture vocabulary, kernel identity and capability owners, and LanguageExt rails.
+Rasm.AppUi composes one shell: a three-case `NavRequest` union over a `RouteVerb` roster dispatches on the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows through a `RegionProgram` into the Dock model graph so dockables are screens and the topology is data, `WorkspaceRow` rows name the arrangements a mode carries, `LayoutLedger` flows layout checkpoints as content-keyed blobs through `LayoutPersistence` delegates with cadence, drain, support, telemetry, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, rail, status, HUD, context, and tray rows from intent keys per supplied `ConsumptionProfile`, and `AdaptiveLayout` owns the breakpoint table whose tiers select the chrome programs. The page owns the routing spine, the dock fabric with its region program, workspace, tear-out, checkpoint-cadence, external-dock-surface, and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Irihi.Ursa, Thinktecture vocabulary, kernel identity and capability owners, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
@@ -263,12 +263,13 @@ public sealed class ShellRoot(
 - Owner: `DockZone` the region address; `DockableRow` registration row; `RegionRow` and `RegionProgram` the layout topology as data; `PinnedPosture` the auto-hide row; `ShellDockFactory` boundary capsule over the Dock model graph; `DropVerdict` the drag-preview caption fold; `ShellPolicy` policy anchor; `WorkspaceRow` and `Workspaces` the named-workspace family; `SurfaceKey` the per-instance mint; `DocumentInstances` the template-spawn fold; `TearOut` and `WindowPlacement` the float and display-clamp surface; `LayoutCheckpoint` content-keyed blob record; `LayoutPersistence` port-delegate record; `LayoutLedger` checkpoint, restore, telemetry, and registration fold surface.
 - Entry: `public static IO<Option<LayoutCheckpoint>> Flush(IClock clock, LayoutPersistence port, Atom<Option<UInt128>> last)` — `IO` carries the capture-hash-persist effect over BOTH workspace rails, the dock payload and the router route-stack; the unchanged-key skip is a `Cell.Step` transition so two racing flushes commit one persist; `public Fin<IRootDock> Build()` folds the roster through the region program; `public IO<Fin<Seq<RouteRestoreFact>>> Enter(WorkspaceRow workspace)` switches a named workspace, `public IO<Unit> Save(WorkspaceRow row)` pins the live arrangement into that workspace's own cell without leaving it, and `public IO<Fin<Seq<RouteRestoreFact>>> Reset(WorkspaceRow row)` discards the cell and re-enters from the region program.
 - Auto: the cadence, drain, support, and telemetry rows register once at composition — flush fires on the `Every` cadence and again on the drain row inside `DrainBand.Interaction` at `ShellPolicy.DrainRank`, the support capture reads the latest blob, and boot restore runs once from the fault-spine probe consequence, re-materializing the dock graph and setting the router stack through `ShellRoot.Restore` in one pass; the deserialized graph rehydrates each dockable's context through the factory's own `ContextLocator`/`DockableLocator`, an unresolvable saved route key folds to the fallback row with its typed `RouteRestoreFact.Fell` cause, and every saved float rectangle clamps against the live working-area set BEFORE `InitLayout`; zero UI timers.
-- Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-key skip; the checkpoint record is the restore evidence and the support artifact body; `RouteRestoreFact` rows are the per-key restore evidence; the flush and restore instruments write off those two outcomes, so a skipped flush and a declined crash offer count nothing.
+- Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-key skip and on a refused encode, which leaves the key cell untouched so the next tick re-attempts the same content; the checkpoint record is the restore evidence and the support artifact body; `RouteRestoreFact` rows are the per-key restore evidence; the flush and restore instruments write off those two outcomes, so a skipped flush and a declined crash offer count nothing.
 - Packages: Dock.Avalonia, Dock.Model.ReactiveUI, Dock.Serializer.SystemTextJson, NodaTime, LanguageExt.Core, Rasm (kernel), Rasm.AppHost (project), BCL inbox
 - Law: the four persisted carriers restore in ONE stated order and never concurrently — `LayoutCheckpoint` first, then `WindowState` (float rectangles clamp against live displays before `InitLayout` seats them), then `ScreenState` per mounted screen, then `CanvasState` per viewport. The order is causal: screen state keys on `(ScreenId, SurfaceKey)` and the surface keys do not exist until the dock graph and its float windows are seated. Collisions resolve LAST-WRITER-BY-RANK inside one carrier and NEVER across carriers; an absent partition is a first-run fact, not a fault.
+- Law: SHAPE and INTEGRITY are two independent admissions on one checkpoint — the seal answers whether this build authored the parcel and `LayoutCheckpoint.Admit` whether the payload and its content key still agree, so a stored arrangement HOLDS its bytes on either refusal and the shell opens on its declared layout. Shape ordinals on the record beside a gate reading them are the deleted form: the generation belongs inside the stored bytes, where a reader cannot skip it, and the content key stays the integrity question it always was. NAMED LOSS: attribute-rename carry across a generation — a torn-out float rectangle or route key renamed under one generation reaches no reader under the next, and the residue is where that arrangement survives.
 - Law: the capability ladder resolves dockable base value → `IRootDock.RootDockCapabilityPolicy` → `IDock.DockCapabilityPolicy` → `IDockable.DockCapabilityOverrides`, each present value winning — so a `DockableRow` writes the dockable's own base flags (the WEAKEST rung), a zone writes its policy, the program writes the root policy, and `DockCapabilityOverrides` stays reserved for a per-dockable exception; writing a row's answer into the overrides makes every policy above it dead code that still type-checks.
-- Law: the serializer is the package's own `DockSerializer` with the source-generated `DockSystemTextJsonContext` resolver — its options carry `ReferenceHandler.Preserve` and the `$type` polymorphic resolver over `IDockable`/`IDock`/`IRootDock`/`IDockWindow`/`IDocumentTemplate`/`IToolTemplate`, so a hand-rolled `IDockSerializer` or replacement options set is the rejected form; the payload crosses the Persistence port as an opaque versioned blob pruned to `RetainedCheckpoints` generations; the dashboard-board snapshot does NOT ride this serializer — its `Instant` and LanguageExt members need the composition-bound suite wire, while the dock GRAPH blob needs `$type` polymorphism only this payload has: two blobs, two serializers, each the one its own members demand.
-- Growth: a new dockable is one `DockableRow` row registered from the screen catalog; a new region address is one `DockZone` row; a new baseline layout is one `RegionProgram` value; a new workspace is one `WorkspaceRow`; a new cadence, rank, retention, or drop-selector bound is one policy value on `ShellPolicy`; a new layout instrument is one `InstrumentSpec` row on `LayoutLedger.TelemetryRow`.
+- Law: the serializer is the package's own `DockSerializer` with the source-generated `DockSystemTextJsonContext` resolver — its options carry `ReferenceHandler.Preserve` and the `$type` polymorphic resolver over `IDockable`/`IDock`/`IRootDock`/`IDockWindow`/`IDocumentTemplate`/`IToolTemplate`, so a hand-rolled `IDockSerializer` or replacement options set is the rejected form; the payload crosses the Persistence port as an opaque blob pruned to `RetainedCheckpoints` entries, wrapped in the checkpoint's own `Diagnostics/evidence#DURABLE_PARCEL` seal so both port legs move bytes under a partition key and the generation rides inside them; the dashboard-board snapshot does NOT ride this serializer — its `Instant` and LanguageExt members need the composition-bound suite wire, while the dock GRAPH blob needs `$type` polymorphism only this payload has: two blobs, two serializers, each the one its own members demand.
+- Growth: a new dockable is one `DockableRow` row registered from the screen catalog; a new region address is one `DockZone` row; a new baseline layout is one `RegionProgram` value; a new workspace is one `WorkspaceRow`; a new checkpoint column is one `LayoutCheckpoint` field under one `Generation` bump on its seal; a new cadence, rank, retention, or drop-selector bound is one policy value on `ShellPolicy`; a new layout instrument is one `InstrumentSpec` row on `LayoutLedger.TelemetryRow`.
 - Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout`/`InitializeFactory` false so the factory owns initialization; the dock chrome variant resolves through the `IDockThemeManager` bound at composition off the theme-token variant subscription, `DockSurfaceWorkbenchBrush` and `DockSeparatorBrush` minting from the token emission as ordinary role slots; the dock skin carries ZERO keys of its own and inherits every light/dark decision from the base Semi dictionaries, so variant coherence is a standing obligation no structural check inside this page can see; floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate; rows where `ShellPolicy.ExternalSurface` holds register an AppUi-supplied `IExternalDockSurface` ADAPTER through `DockControl.RegisterExternalDockSurface` — Dock holds registered surfaces as `WeakReference` and keeps enumeration internal, so the adapter's lifetime is composition-owned (the activation scope holds it for the mount's life) and the registration rows here are the readable roster; the drop overlay rides `GlobalDockTarget` and `DockControl.ShowSelector(DockSelectorMode)`/`HideSelector()` under the `ShellPolicy.DropSelector` gate over the three-member `Documents | Tools | All` domain; dockable `Context` resolves through the same `ShellRoot.Resolve` admission as navigation, so a stale `DockableRow.RouteKey` yields the identical `NavFault.UnknownRoute` evidence — a dockable IS a screen and a second viewmodel system is the deleted pattern; RESTORE reaches that same admission through the package's own locators (`GetContext(id)`, `RestoreDockable(id)`), an off-roster id sealing the same fault and answering null so the package drops the dockable — the alternative is a structurally perfect layout of dead shells; drop legality is POLICY ROWS the package's own resolver reads (`DockGroup` + `DockGroupValidator` gate cross-group drops); pinned auto-hide rides `PinnedPosture` columns through `PreviewPinnedDockable`/`TogglePreviewPinnedDockable` so a hover peek never unpins — `PinDockable` itself TOGGLES; the drag ghost is `DragPreviewControl` bound through `ControlRecycling`, and its caption is the MANAGER's own verdict (`DockCapabilityResolver.Evaluate` beside `IDockManager.LastCapabilityEvaluation`) so a refused drop names the policy rung that refused it; the dock's own overlay stack (`OverlayHost`…`BusyOverlayControl`) stays unmounted — modal presentation has exactly two admitted owners (`Shell/dialogs#SESSION_ALGEBRA`) and the drop SELECTOR is a different mechanism that renders drag targets rather than presenting content; `IDockState.Save`/`Restore`/`Reset` is the IN-PROCESS snapshot pair a workspace switch takes while the serialized checkpoint stays the CROSS-PROCESS carrier — the same fact at two lifetimes; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row, so the flushed layout captures post-suspension state; the support artifact reports the REDACTOR's own count through the AppHost `SupportArtifact.Produce` pair bound to the same `Redactor` every bundle column masks through, because the payload carries route keys and catalog-resolved titles; a TEAR-OUT is `FloatDockable(dockable, DockWindowOptions)` with the float host chromed by the owned window row (`Shell/hosts` `WindowRow.TearOut`) so a torn-out panel wears Dock's own `HostWindowTitleBar` and `ToolChromeRole` decides what fills the vacated band; float geometry restores CLAMPED against `SurfaceSession.Displays` and re-clamps on every `SurfaceFact.DisplayChanged`.
 
 ```csharp signature
@@ -524,7 +525,6 @@ public static class DropVerdict {
 // --- [CONSTANTS] ----------------------------------------------------------------------------
 
 public static class ShellPolicy {
-    public const int LayoutVersion = 2;
     public const int DrainRank = 20;
     public const int RetainedCheckpoints = 4;
     public const long LayoutArtifactBytes = 262_144;
@@ -549,9 +549,18 @@ public static class ShellPolicy {
 
 public sealed record LayoutContent(string Payload, Seq<string> RouteStack);
 
-// The content key is the kernel digest, so the checkpoint's integrity check compares two values of known
-// provenance and a caller-supplied hash function has no seam to enter.
-public sealed record LayoutCheckpoint(int Version, UInt128 ContentKey, LayoutContent Content, Instant At);
+// Content key is the kernel digest, so the checkpoint's integrity check compares two values of known
+// provenance and a caller-supplied hash function has no seam to enter. Shape and INTEGRITY stay independent
+// questions: the seal answers whether this build authored the parcel, `Admit` whether the payload and the key
+// still agree — a stored arrangement HOLDS its bytes on either refusal, since a person built the layout.
+public sealed record LayoutCheckpoint(UInt128 ContentKey, LayoutContent Content, Instant At) {
+    public static readonly StateSeal Seal = StateSeal.Of("shell", "layout", generation: 2, StateResidue.Hold);
+
+    public static Fin<LayoutCheckpoint> Admit(LayoutCheckpoint candidate) =>
+        LayoutLedger.Key(candidate.Content) == candidate.ContentKey
+            ? Fin.Succ(candidate)
+            : Fin.Fail<LayoutCheckpoint>(new NavFault.CheckpointRejected("content-key"));
+}
 
 // Support returns the AppHost `ArtifactPayload` — bytes AND the mask tally — because a literal zero beside a
 // payload nothing examined asserts a measurement no redactor took; composition binds it to the same
@@ -561,9 +570,9 @@ public sealed record LayoutPersistence(
     Func<Seq<string>> RouteStack,
     Func<LayoutCheckpoint, Fin<Seq<RouteRestoreFact>>> Restore,
     Func<LayoutCheckpoint, ArtifactPayload> Support,
-    Func<LayoutCheckpoint, IO<Unit>> Persist,
+    Func<string, IO<Unit>> Persist,
     Func<InstrumentSpec, Unit> Count,
-    IO<Option<LayoutCheckpoint>> Latest) {
+    IO<Option<string>> Latest) {
     // The one serializer binding: the generated DockSystemTextJsonContext resolver keeps layout round-trips
     // AOT-safe, restore re-inits through the factory so InitializeLayout stays false, and the SAME checkpoint
     // restores the router stack through ShellRoot.Restore — one blob, two rails. A view-model whose
@@ -573,19 +582,16 @@ public sealed record LayoutPersistence(
         DockControl control, ShellDockFactory factory, ShellRoot shell, string fallbackRoute,
         Func<Seq<PixelRect>> displays,
         Func<LayoutCheckpoint, (ReadOnlyMemory<byte> Bytes, int Redactions)> support,
-        Func<LayoutCheckpoint, IO<Unit>> persist, Func<InstrumentSpec, Unit> count, IO<Option<LayoutCheckpoint>> latest) {
+        Func<string, IO<Unit>> persist, Func<InstrumentSpec, Unit> count, IO<Option<string>> latest) {
         DockSerializer serializer = new(new DockSystemTextJsonContext());
         return new(
             Serialize: () => serializer.Serialize(control.Layout),
             RouteStack: () => toSeq(shell.Router.NavigationStack).Choose(static vm => Optional(vm.UrlPathSegment).Filter(static key => key.Length > 0)),
-            // Version and content-key are INDEPENDENT admissions and accumulate; the payload decode binds
-            // after both, because a blob failing either is not worth deserializing.
+            // Shape and integrity both answered before this leg: the seal proved the generation and `Admit`
+            // proved the key, so a checkpoint reaching here is worth deserializing.
             Restore: checkpoint =>
-                (Gate(checkpoint.Version == ShellPolicy.LayoutVersion, $"version:{checkpoint.Version}"),
-                 Gate(LayoutLedger.Key(checkpoint.Content) == checkpoint.ContentKey, "content-key"))
-                    .Apply(static (_, _) => unit).As().ToFin()
-                    .Bind(_ => Optional(serializer.Deserialize<RootDock>(checkpoint.Content.Payload))
-                        .ToFin(new NavFault.CheckpointRejected("dock-payload")))
+                Optional(serializer.Deserialize<RootDock>(checkpoint.Content.Payload))
+                    .ToFin(new NavFault.CheckpointRejected("dock-payload"))
                     // The clamp lands BEFORE InitLayout: initialization seats every float host at the geometry
                     // the graph carries, so a rectangle corrected afterwards has already shown a window on a
                     // screen that is gone.
@@ -599,9 +605,6 @@ public sealed record LayoutPersistence(
             Persist: persist,
             Count: count,
             Latest: latest);
-
-        static Validation<Error, Unit> Gate(bool holds, string detail) =>
-            holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail(new NavFault.CheckpointRejected(detail));
     }
 }
 
@@ -634,17 +637,21 @@ public static class LayoutLedger {
         });
 
     // The unchanged-key skip is a TRANSITION: the step declines on an equal key, so two racing flushes commit
-    // one persist and the loser reads the declined transition rather than re-persisting a blob it lost.
+    // one persist and the loser reads the declined transition rather than re-persisting a blob it lost. Seal
+    // FIRST and step second: a refused encode leaves the cell holding the prior key, so the next cadence tick
+    // re-attempts the identical content instead of skipping it as already flushed.
     public static IO<Option<LayoutCheckpoint>> Flush(IClock clock, LayoutPersistence port, Atom<Option<UInt128>> last) =>
         IO.lift(() => (Payload: port.Serialize(), Stack: port.RouteStack()))
             .Map(captured => new LayoutContent(captured.Payload, captured.Stack))
-            .Map(content => new LayoutCheckpoint(ShellPolicy.LayoutVersion, Key(content), content, clock.GetCurrentInstant()))
-            .Bind(next => Cell.Step(
-                    last,
-                    prior => prior == Some(next.ContentKey) ? Option<Option<UInt128>>.None : Some(Some(next.ContentKey)),
-                    new NavFault.CheckpointRejected("layout-flush-declined")) is Transition<Option<UInt128>>.Committed
-                ? port.Persist(next).Map(_ => (port.Count(Flushed), Some(next)).Item2)
-                : IO.pure(Option<LayoutCheckpoint>.None));
+            .Map(content => new LayoutCheckpoint(Key(content), content, clock.GetCurrentInstant()))
+            .Bind(next => LayoutCheckpoint.Seal.Write(next).Match(
+                Succ: blob => Cell.Step(
+                        last,
+                        prior => prior == Some(next.ContentKey) ? Option<Option<UInt128>>.None : Some(Some(next.ContentKey)),
+                        new NavFault.CheckpointRejected("layout-flush-declined")) is Transition<Option<UInt128>>.Committed
+                    ? port.Persist(blob).Map(_ => (port.Count(Flushed), Some(next)).Item2)
+                    : IO.pure(Option<LayoutCheckpoint>.None),
+                Fail: _ => IO.pure(Option<LayoutCheckpoint>.None)));
 
     public static Option<LayoutCheckpoint> Offer(Seq<FaultSource> crashes, Option<LayoutCheckpoint> latest) =>
         crashes.Exists(static fault => fault is FaultSource.HostCrashMarker) ? latest : None;
@@ -652,9 +659,12 @@ public static class LayoutLedger {
     // Counted returns the same outcome it observes, so the restore count fires on an ACCEPTED restore alone —
     // a declined crash offer and a first-run empty latest are not restores, and a rejected checkpoint never
     // counts one either.
+    // Stored blobs open ONCE, here: a parcel this build did not author or whose payload and key disagree
+    // answers absence, so the crash offer, the warm restore, and a first run reach one empty path and the
+    // shell opens on its declared layout.
     public static IO<Fin<Seq<RouteRestoreFact>>> Restore(
         LayoutPersistence port, Seq<FaultSource> crashes, Func<LayoutCheckpoint, IO<RestoreVerdict>> confirm) =>
-        port.Latest.Bind(latest =>
+        port.Latest.Map(Opened).Bind(latest =>
             Offer(crashes, latest) is { IsSome: true, Case: LayoutCheckpoint offered }
                 ? confirm(offered).Bind(verdict => verdict is RestoreVerdict.Accepted
                     ? IO.lift(fun(() => Counted(port, port.Restore(offered))))
@@ -665,6 +675,11 @@ public static class LayoutLedger {
 
     private static Fin<Seq<RouteRestoreFact>> Counted(LayoutPersistence port, Fin<Seq<RouteRestoreFact>> outcome) =>
         outcome.Map(facts => (port.Count(Restored), facts).Item2);
+
+    // Blobs become checkpoints in ONE place: the restore path and the support capture read one admission, so
+    // a parcel this build did not author reads as absent to both rather than to whichever asked.
+    private static Option<LayoutCheckpoint> Opened(Option<string> blob) =>
+        blob.Bind(static held => LayoutCheckpoint.Seal.Read<LayoutCheckpoint>(held, LayoutCheckpoint.Admit).Value);
 
     public static ScheduleEntry CheckpointRow(IClock clock, LayoutPersistence port, Atom<Option<UInt128>> last) =>
         new(
@@ -690,9 +705,10 @@ public static class LayoutLedger {
                 Classification: DataClassification.Operational,
                 EstimatedBytes: ShellPolicy.LayoutArtifactBytes,
                 // The redaction count is the redactor's own measurement, never a literal: an absent checkpoint
-                // contributes zero bytes and zero redactions because nothing was examined.
+                // contributes zero bytes and zero redactions because nothing was examined — and a parcel the
+                // seal refuses is absent by the same read, so the bundle never masks bytes it cannot admit.
                 Produce: capture => port.Latest.Map(latest =>
-                    latest.Map(port.Support).IfNone(ArtifactPayload.Empty)))));
+                    Opened(latest).Map(port.Support).IfNone(ArtifactPayload.Empty)))));
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Flushed, Restored);

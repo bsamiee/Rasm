@@ -444,8 +444,7 @@ declare namespace Depot {
   type Fault<E> = E | PoolFault | ParseResult.ParseError | WorkerError.WorkerError
   // the held cell: the admitted view exactly as core folded it — its `census` and `resident` total ride along rather
   // than being re-summed downstream — beside the keys this epoch has already hauled. `epoch` is this depot's own
-  // replacement counter and the ONE ordinal a consumer keys supersession on: `Manifest.version` is the producer's
-  // schema pin and reads the same constant on every emission, while `viewpoint.version` restarts per viewpoint key.
+  // replacement counter and the ONE ordinal a consumer keys supersession on; `viewpoint.version` restarts per viewpoint key.
   type Residency = {
     readonly view: Frame.ResidencyView
     readonly keyed: ReadonlyArray<readonly [Frame.ResidencyTile, Wire.Artifact.Reference]>
@@ -477,7 +476,7 @@ declare namespace Depot {
 // The successor test the wire cannot take for itself: the producer stamps `viewpoint.version` PER viewpoint key, so a
 // re-entered viewpoint restarts its own count and only the pair decides supersession — a same-key arrival must strictly
 // advance the version, while a different key names a subject this depot holds no prior reading on and always admits.
-// Nothing else on the manifest can carry this verdict: `version` is the schema pin, equal on every lawful emission.
+// Nothing else on the manifest can carry this verdict.
 // the viewpoint is REQUIRED by corpus rule and the generated type still spells presence, so the pair lifts once here
 const _skewed = (held: Option.Option<Depot.Residency>, manifest: Frame.ResidencyManifest): Option.Option<PoolFault> =>
   Option.flatMap(held, (live) =>

@@ -39,11 +39,11 @@ from msgspec import Struct
 from protobuf import Message
 from rasm.contracts import AdmissionSide, BodyAdmission
 from rasm.contracts.artifact import ArtifactSink, ArtifactTransfer, output
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactRef
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import ExecuteRequest, ExecuteResponse
-from rasm.contracts.gen.rasm.contracts.cad.v1.service_connect import CadService, CadServiceASGIApplication
-from rasm.contracts.gen.rasm.contracts.cad.v1.service_pb import TessellateRequest
-from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import (
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactRef
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import ExecuteRequest, ExecuteResponse
+from rasm.contracts.gen.rasm.contracts.cad.service_connect import CadService, CadServiceASGIApplication
+from rasm.contracts.gen.rasm.contracts.cad.service_pb import TessellateRequest
+from rasm.contracts.gen.rasm.contracts.cad.types_pb import (
     BrepKernelReceipt,
     SealedStep,
     StepProtocol,

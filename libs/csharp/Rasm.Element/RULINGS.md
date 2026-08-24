@@ -44,7 +44,7 @@
 ## [04]-[STRUCTURE]
 
 - `Rasm.Element.Classification.Classification` keeps type-equals-namespace-segment; a consumer-side `using` alias resolves it in one hop.
-- Wire-unfreeze events do NOT re-enter — the family evolves additively under `buf breaking` FILE; a new arm lands with its seam feature.
+- Wire-unfreeze events do NOT re-enter — the family reshapes in place with every decoder regenerated; a new arm lands with its seam feature.
 - `WireCodec` is ONE `[Mapper]` partial across the `Graph/` wire pages — the attribute, parity fold, key codecs, and shared gates ride `Graph/wire`.
 - `SeamConverters`-shaped peer reach resolves through `Graph/wire`'s `[UserMapping]` set — a copied converter forks the crossing's one spelling.
 - Wire-plane pages carry the `wire` prefix their fence carries — a bare `payload` page name hides the codec family and forks the router pairing.

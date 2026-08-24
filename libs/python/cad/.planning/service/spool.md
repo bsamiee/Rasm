@@ -53,7 +53,7 @@ from rasm.contracts.artifact import (
     references,
     rendered,
 )
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import (
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import (
     ArtifactRef,
     FetchRequest,
     FetchResponse,

@@ -957,7 +957,7 @@ const _channels = {
 } as const
 
 // Routing reads the ANNOUNCED grammar through its one owner: `queue#PARK_REPLAY`'s `Lane.channel` reads `<subject>`
-// off the claim tag `data:journal/append#RELAY_ROWS` mints as the envelope's own `type`, so `rasm.deliver.webhook.queued.v1`
+// off the claim tag `data:journal/append#RELAY_ROWS` mints as the envelope's own `type`, so `rasm.deliver.webhook.queued`
 // routes here and fans the park series there under one reading. Re-splitting the tag beside that owner is how a
 // routing predicate and a metric dimension come to disagree about what a channel is.
 const _routed = (tag: string): Option.Option<Deliver.Kind> =>

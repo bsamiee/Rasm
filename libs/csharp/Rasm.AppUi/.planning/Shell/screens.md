@@ -196,7 +196,7 @@ public sealed partial class ProductScreen : ReactiveObject, IActivatableViewMode
         edits.Where(edited => StringComparer.Ordinal.Equals(edited, key)).Select(static _ => unit);
 
     public ScreenState Blank() =>
-        new(Row.Key, Surface, Seq<string>(), 0d, None, Set<string>(), None, Runtime.Clock.GetCurrentInstant(), ScreenState.CurrentVersion);
+        new(Row.Key, Surface, Seq<string>(), 0d, None, Set<string>(), None, Runtime.Clock.GetCurrentInstant());
 }
 
 // The product roster. Every key is a const because the same string is the route key, the dock id, the
@@ -393,7 +393,7 @@ public sealed class ScreenLifetimes : IDisposable {
 
 ## [04]-[DERIVED_STATE]
 
-- Owner: `ScreenFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per screen failure; `ScreenIncident` — the fault-cell state record; `ScreenOps` derived-state extensions.
+- Owner: `ScreenFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per screen failure, each leaf earning its seat from a live raise; `ScreenIncident` — the fault-cell state record; `ScreenOps` derived-state extensions.
 - Entry: `public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, Expression<Func<ProductScreen,T>> property, IScheduler scheduler, T initial)` — one paced OAPH row per derived property with the target member carried as a checked expression rather than a reflection string.
 - Auto: `WhenAnyValue` and `SubscribeToExpressionChain` streams feed `Derive`; `FoldFaults` captures command and pipeline exceptions as exact exceptional errors in the `Fault` cell; `RaiseAndSetIfChanged` publishes the fault transition to bound views — the cell is the view-model's own notify surface, so the ReactiveObject property IS the transition publication and a kernel fault cell beside it would be a second holder no view binds.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm (kernel floor)
@@ -414,26 +414,22 @@ public abstract partial record ScreenFault : Fault {
         public override string Message => $"screen/duplicate: {Keys}";
     }
     [FaultCase(1)]
-    public sealed partial record StateRejected(Error Cause) : ScreenFault(), ICausedFault {
-        public override string Message => $"screen/state: {Cause.Message}";
-    }
-    [FaultCase(2)]
     public sealed partial record LaneUnreachable(string Keys) : ScreenFault() {
         public override string Message => $"screen/lane: {Keys} claims the headless lane and refuses the offscreen mount";
     }
-    [FaultCase(3)]
+    [FaultCase(2)]
     public sealed partial record Rejected(string Target, string Reason) : ScreenFault() {
         public override string Message => $"screen/rejected: {Target}: {Reason}";
     }
-    [FaultCase(4)]
+    [FaultCase(3)]
     public sealed partial record SlotClaimed(string Slot) : ScreenFault() {
         public override string Message => $"screen/slot: {Slot} already carries a rule";
     }
-    [FaultCase(5)]
+    [FaultCase(4)]
     public sealed partial record PolicyRejected(string Section, string Reason) : ScreenFault() {
         public override string Message => $"screen/policy: {Section}: {Reason}";
     }
-    [FaultCase(6)]
+    [FaultCase(5)]
     public sealed partial record QueueRejected(string Detail) : ScreenFault() {
         public override string Message => $"screen/queue: {Detail}";
     }
@@ -569,19 +565,21 @@ public static partial class ScreenOps {
 
 ## [06]-[SCREEN_STATE]
 
-- Owner: `ScreenState` snapshot record; `ScreenStatePolicy` port delegates; `ScreenOps` state extensions.
-- Entry: `public IO<Unit> Rehydrate()` — restore-on-activate; the persisted row merges with the live snapshot through `Merge`.
+- Owner: `ScreenState` snapshot record with its `Diagnostics/evidence#DURABLE_PARCEL` seal; `ScreenStatePolicy` port delegates; `ScreenOps` state extensions.
+- Entry: `public IO<Unit> Rehydrate()` — restore-on-activate; the sealed blob opens through `ScreenState.Seal` and merges with the live snapshot through `Merge`.
 - Auto: `Checkpoint` fires on deactivation, visibility suspension, and the drain row through the same `Persist` delegate; the partition key is row key plus the minted `SurfaceKey`, so panel, window, and headless sessions never collide.
-- Receipt: the `ScreenState` row is the snapshot artifact — `Instant`-stamped and `Version`-carrying, the same record the support-bundle screen-state contribution captures.
+- Receipt: the `ScreenState` row is the snapshot artifact — `Instant`-stamped, the same record the support-bundle screen-state contribution captures.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one `ScreenState` field row per new state axis with a `CurrentVersion` bump; zero new surface.
-- Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences; the surface column is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
+- Growth: one `ScreenState` field row per new state axis under one `Generation` bump on the seal; zero new surface.
+- Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences, and both legs carry the SEALED BLOB so the port moves bytes under a partition key while the shape question stays whole at the seal. Rehydrate raises NO refusal: an oversize, unreadable, foreign-generation, or unadmitted parcel seeds the live snapshot and the screen opens on what it already is, which is the first-run answer reached without a second arm — so a screen-state refusal case has no producer and no spelling. Composition binds `Admit` as the seal's admission arrow, accumulating inside the delegate and landing as one `Error.Many` the seal reads as a refusal. Encoding is the half that answers a rail, and its refusal lands on the incident cell every other screen failure reaches. Surface identity is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
 
 ```csharp signature
+// Both legs carry the SEALED BLOB, so the port moves bytes under a partition key and the shape question stays
+// whole at the seal — a port handing back a decoded row would leave the generation compare with no seat.
 public sealed record ScreenStatePolicy(
-    Func<string, SurfaceKey, IO<Option<ScreenState>>> Load,
-    Func<ScreenState, Validation<Error, ScreenState>> Admit,
-    Func<ScreenState, IO<Unit>> Persist);
+    Func<string, SurfaceKey, IO<Option<string>>> Load,
+    Func<ScreenState, Fin<ScreenState>> Admit,
+    Func<string, SurfaceKey, string, IO<Unit>> Persist);
 
 public sealed record ScreenState(
     string ScreenId,
@@ -594,9 +592,10 @@ public sealed record ScreenState(
     // `ZoomBorderState` text rather than a matrix this record would keep in step with the package's algebra;
     // a camera is PER-VIEWER, so it snapshots with the screen and never with the co-edited document.
     Option<string> Canvas,
-    Instant At,
-    int Version) {
-    public const int CurrentVersion = 2;
+    Instant At) {
+    // Screen state DISCARDS: every column it keeps — selection, scroll, filter, expansion, canvas — the live
+    // screen re-derives, so a refused parcel leaves nothing a person could recover that the screen lacks.
+    public static readonly StateSeal Seal = StateSeal.Of("shell", "screen", generation: 2, StateResidue.Discard);
 
     public static ScreenState Merge(ScreenState persisted, ScreenState live, Func<string, bool> alive) =>
         live with {
@@ -612,20 +611,26 @@ public sealed record ScreenState(
 
 public static partial class ScreenOps {
     extension(ProductScreen screen) {
+        // Refused parcels seed the LIVE snapshot, so `Merge` folds the screen onto itself and the screen opens
+        // on what it already is — the same answer a first run gives, reached without a refusal arm.
         public IO<Unit> Rehydrate() =>
             screen.Runtime.State.Load(screen.Row.Key, screen.Surface)
                 .Map(found => found
-                    .Map(persisted => screen.Runtime.State.Admit(persisted).Match(
-                        Succ: admitted => screen.Restore(ScreenState.Merge(admitted, screen.Snapshot(), screen.Alive)),
-                        Fail: errors => screen.Commit(new ScreenIncident(
-                            screen.Row.Key,
-                            new ScreenFault.StateRejected(Error.Many(errors)),
-                            screen.Runtime.Clock.GetCurrentInstant(),
-                            "rehydrate"))))
+                    .Map(blob => screen.Snapshot() switch {
+                        var live => screen.Restore(ScreenState.Merge(
+                            ScreenState.Seal.Read<ScreenState>(blob, screen.Runtime.State.Admit).Or(live),
+                            live,
+                            screen.Alive)),
+                    })
                     .IfNone(unit));
 
+        // Encoding is the ONE half that refuses, and it lands on the incident cell every other screen failure
+        // reaches rather than on a rail this call site has no reader for.
         public IO<Unit> Checkpoint() =>
-            screen.Runtime.State.Persist(screen.Snapshot());
+            ScreenState.Seal.Write(screen.Snapshot()).Match(
+                Succ: blob => screen.Runtime.State.Persist(screen.Row.Key, screen.Surface, blob),
+                Fail: cause => IO.lift(() => screen.Commit(new ScreenIncident(
+                    screen.Row.Key, cause, screen.Runtime.Clock.GetCurrentInstant(), "checkpoint"))));
     }
 }
 ```
@@ -1186,12 +1191,12 @@ public static class ProductPrograms {
 
 ## [10]-[TS_PROJECTION]
 
-- Owner: generated `Rasm.Contracts.Ui.V1.AppUiSurfaceProgram` — one reusable application-surface root carrying the stable `SurfaceKey` partition, one generated control tree, and its exact generated layout-program closure; `ScreenMap` — the sole root correspondence and layout resolver.
+- Owner: generated `Rasm.Contracts.Ui.AppUiSurfaceProgram` — one reusable application-surface root carrying the stable `SurfaceKey` partition, one generated control tree, and its exact generated layout-program closure; `ScreenMap` — the sole root correspondence and layout resolver.
 - Entry: `ScreenMap.Emit` maps the supplied root once, walks the generated tree once to prove unique control identity and collect referenced layout keys, resolves each distinct key, builds the generated surface program, and admits it through the shared descriptor-backed validator. The realized fence carries the exact `Op`, resolver, and measurement signatures.
-- Packages: Rasm.Contracts (project, generated `Ui.V1` root), Rasm.AppHost (project, shared `WireJson`), Rasm (project, `Op`), Google.Protobuf, LanguageExt.Core
+- Packages: Rasm.Contracts (project, generated `Ui` root), Rasm.AppHost (project, shared `WireJson`), Rasm (project, `Op`), Google.Protobuf, LanguageExt.Core
 - Growth: a new control arm breaks the one generated-tree graph fold; a new root member has one C# projection and one TypeScript admission site; zero sibling app payload or hand schema.
 - Law: the manifest seats `AppUiSurfaceProgram` as the `DESIGN-PIN` application payload. `ControlIntentWire` and `LayoutProgram` remain independently reusable generated support types, but neither is a separately seated app input a caller can detach from its surface identity or peer.
-- Boundary: `SurfaceKey` crosses on its three authoritative columns, never as the rendered `Value` string whose slash and instance suffix would need parsing. The wire retains the producer's signed 32-bit representation and validates the ordinal nonnegative, so no wider peer-only identity can arrive. The one generated-tree walk refuses duplicate control keys before collecting container layout references, so value binding, automation, and solved positions never address two controls through one identity. `ScreenMap` resolves layout programs from the container keys already present in the mapped root, so it cannot emit an unused program; every resolved `ConstraintProgram.Panel` must equal the key that requested it, so it cannot emit a mis-keyed program; repeated references collapse before resolution, so one layout surface crosses once. `WireAdmission.Admit` applies the generated nonblank-identity, nonnegative-instance, required-root, unique-layout, structured-variable, and numeric rules at the producer, and TypeScript applies the same descriptor rules before `Panel.surface` proves unique control identity plus reverse layout inclusion — every supplied layout is referenced and every reference supplied — before any solve. The current C# shell carries no runtime transport; a future ProtoJSON egress formats this admitted root through `WireJson.Formatter`. `@rasm\/contracts/rasm/contracts/ui/v1/surface_pb` is the peer binding, with no merged-module alias or leaf wrapper.
+- Boundary: `SurfaceKey` crosses on its three authoritative columns, never as the rendered `Value` string whose slash and instance suffix would need parsing. The wire retains the producer's signed 32-bit representation and validates the ordinal nonnegative, so no wider peer-only identity can arrive. The one generated-tree walk refuses duplicate control keys before collecting container layout references, so value binding, automation, and solved positions never address two controls through one identity. `ScreenMap` resolves layout programs from the container keys already present in the mapped root, so it cannot emit an unused program; every resolved `ConstraintProgram.Panel` must equal the key that requested it, so it cannot emit a mis-keyed program; repeated references collapse before resolution, so one layout surface crosses once. `WireAdmission.Admit` applies the generated nonblank-identity, nonnegative-instance, required-root, unique-layout, structured-variable, and numeric rules at the producer, and TypeScript applies the same descriptor rules before `Panel.surface` proves unique control identity plus reverse layout inclusion — every supplied layout is referenced and every reference supplied — before any solve. The current C# shell carries no runtime transport; a future ProtoJSON egress formats this admitted root through `WireJson.Formatter`. `@rasm\/contracts/rasm/contracts/ui/surface_pb` is the peer binding, with no merged-module alias or leaf wrapper.
 
 ```csharp signature
 // --- [COMPOSITION] --------------------------------------------------------------------------

@@ -70,7 +70,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Selected served rosters are generated subsets — the census refuses an ungenerated row without manufacturing actors for support-closure methods.
 - Every mount and dial reads one `WirePolicy` row per profile — `read_max_bytes` and the zstd-then-gzip roster; an unbounded mount is refused.
 - Outbound requests pre-encode under `SERVE_ENCODE` ahead of any retried call — the client maps an encode raise to UNAVAILABLE and re-drives it.
-- `MessageEnvelope.extensions` is the generated `event.v1.Extensions`; `EXTENSION_ROWS` derives per `local_name` — a hand roster is the mirror.
+- `MessageEnvelope.extensions` is the generated `event.Extensions`; `EXTENSION_ROWS` derives per `local_name` — a hand roster is the mirror.
 - `MessageEnvelope.payload` is the Rasm `Raw | protobuf.Message | None` seam over the generic SDK envelope — `None` is reference-only `dataref`.
 - Generated extensions re-enter CloudEvents codecs before mint — `ce_integer` is signed 32-bit even when its corpus scalar is wider.
 - Modality-polymorphic entrypoints whose return shape varies with input carry one `@overload` per shape — an unoverloaded arm type-checks nowhere.
@@ -107,7 +107,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Its payload is the decoded MessagePack bin value — `msgspec.Raw` also retains the bin header and therefore changes the payload digest.
 - `OpLogCodec` owns exact envelope arity and all-lane content-key admission; `CrdtOpCodec` opens only the generated CRDT payload.
 - Transfer includes the root content key and a unique, strictly sorted closure; descendants alone omit the payload the entry names.
-- Frozen wire slots, ORDER, and numbers survive an interior-owner migration — the derived view re-points in ONE unit, a tear stranding every peer.
+- Frozen wire slots, ORDER, and numbers survive an interior-owner re-seat — the derived view re-points in ONE unit, a tear stranding every peer.
 - Every convergence column publishes its own read on its owning shape — a write-only column converges a state no replica can project back out.
 - CRDT materialization keeps `(OperationId, CrdtOpWire)` paired — identity-free replay loses redelivery, causal-write, and maintenance authority.
 - Multi-value writes retain outer dots, observed-set tombstones key by element, and RGA compaction retains value-free routing tombstones.

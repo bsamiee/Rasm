@@ -14,4 +14,4 @@
 
 ## [03]-[SUBSTRATE]
 
-- `Rasm.AppUi` (project) — Deterministic branch producers and generated `ui.v1`/`render.v1` projections under test.
+- `Rasm.AppUi` (project) — Deterministic branch producers and generated `ui`/`render` projections under test.

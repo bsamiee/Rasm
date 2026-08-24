@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package rasm.contracts.element;
+
+import "buf/validate/validate.proto";
+import "rasm/contracts/patch/json_patch.proto";
+
+message EditTombstone {
+  bytes key = 1 [(buf.validate.field).bytes.len = 16];
+  bytes base = 2 [(buf.validate.field).bytes.len = 16];
+}
+
+message EditMembers {
+  bytes key = 1 [(buf.validate.field).bytes.len = 16];
+  bytes base = 2 [(buf.validate.field).bytes.len = 16];
+  repeated rasm.contracts.patch.PatchOp patch = 3 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message EntityEditWire {
+  oneof edit {
+    option (buf.validate.oneof).required = true;
+
+    EditTombstone tombstone = 1;
+    EditMembers members = 2;
+  }
+}

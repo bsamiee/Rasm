@@ -300,7 +300,7 @@
                     "type": "integer"
                 },
                 "factsFormat": {
-                    "enum": ["backend-generation-v1", "content-digest-v1", "hdf5-facts-v1", "hlc-value-v1", "matrix-market-facts-v1"]
+                    "enum": ["backend-generation", "content-digest", "hdf5-facts", "hlc-value", "matrix-market-facts"]
                 },
                 "fingerprint": {
                     "$ref": "#/$defs/Fingerprint"
@@ -395,19 +395,16 @@
         },
         "Manifest": {
             "additionalProperties": false,
-            "description": "The corpus registry: one entry per seam under one schema version.",
+            "description": "The corpus registry: one entry per seam.",
             "properties": {
                 "entries": {
                     "items": {
                         "$ref": "#/$defs/Entry"
                     },
                     "type": "array"
-                },
-                "version": {
-                    "enum": [2]
                 }
             },
-            "required": ["version", "entries"],
+            "required": ["entries"],
             "title": "Manifest",
             "type": "object"
         },

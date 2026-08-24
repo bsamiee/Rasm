@@ -408,14 +408,14 @@ public sealed record Spec(
 public abstract partial record CommandTxn {
     private CommandTxn() { }
     public sealed record Committed(DispatchReceipt Dispatch) : CommandTxn;
-    public sealed record RolledBack(Rasm.Contracts.Fault.V1.FaultObservation Reason) : CommandTxn;
+    public sealed record RolledBack(Rasm.Contracts.Fault.FaultObservation Reason) : CommandTxn;
     // The forward leg of a compensated transaction produced no receipt BY CONSTRUCTION — it is compensated
     // because it faulted — so the row carries the fault's own reason beside the roll-forward evidence rather
     // than a sentinel receipt standing in for a dispatch that never returned one.
     public sealed record Compensated(
-        Rasm.Contracts.Fault.V1.FaultObservation Reason,
+        Rasm.Contracts.Fault.FaultObservation Reason,
         DispatchReceipt Compensation) : CommandTxn;
-    public sealed record Refused(Rasm.Contracts.Fault.V1.FaultObservation Fault) : CommandTxn;
+    public sealed record Refused(Rasm.Contracts.Fault.FaultObservation Fault) : CommandTxn;
 
     public static CommandTxn Reverted(Error reason) => new RolledBack(FaultWire.Observe(reason));
     public static CommandTxn Recovered(Error reason, DispatchReceipt compensation) =>
@@ -972,17 +972,17 @@ public static class SdkCodegen {
 
 ## [07]-[PEER_DISCOVERY]
 
-- Owner: the host-free generated `capability.v1.DiscoverResponse` is the only live peer-discovery shape; `CapabilityDiscovery.Project` is its C# projection.
+- Owner: the host-free generated `capability.DiscoverResponse` is the only live peer-discovery shape; `CapabilityDiscovery.Project` is its C# projection.
 - Entry: `Project(CapabilityRegistry registry, DegradationLevel level, DescriptorPin pin)` returns the level-permitted catalog bound to the full SDK pin.
 - Packages: Rasm.Contracts, Google.Protobuf, LanguageExt.Core, BCL inbox
 - Growth: one proto field or enum row regenerates every real consumer; a new consumer earns one codegen target, never a mirror.
-- Boundary: the catalog reaches Python alone at `python:runtime/transport/serve#CAPABILITY_INVOKE`; TypeScript consumes only `capability.v1.DescriptorPinWire`.
+- Boundary: the catalog reaches Python alone at `python:runtime/transport/serve#CAPABILITY_INVOKE`; TypeScript consumes only `capability.DescriptorPinWire`.
 - Boundary: `DescriptorPinWire.document` is the sole static authority for surface, effect, idempotency, scope, and cost-unit semantics. An `AvailableCapability` carries only the descriptor whose presence states current availability and the fixed empty-argument estimates that exist now; a static unit with no amount emits no row.
 - Boundary: protobuf carries only dynamic estimate unit identity and amount beside descriptor availability; the full static document and its 128-bit digest cross once on the pin.
 - Auto: permitted descriptors and their present estimate rows emit ordinally, so live discovery is stable across registration order without becoming a second content identity.
 
 ```csharp signature
-using CapabilityContract = Rasm.Contracts.Capability.V1;
+using CapabilityContract = Rasm.Contracts.Capability;
 
 public static class CapabilityDiscovery {
     public static CapabilityContract.DiscoverResponse Project(

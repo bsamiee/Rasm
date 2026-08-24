@@ -44,6 +44,7 @@ from assay.rails.contracts import (
     check,
     ClientRequestActor,
     ClientResponseActor,
+    CloudEventDefinition,
     ContractsParams,
     derived_schema,
     Distribution,
@@ -106,7 +107,6 @@ COVERS: tuple[object, ...] = (
 _ROWS = {(t.name, t.mode): t for t in select(Claim.CONTRACTS, Language.PROTO)}
 _LINT = _ROWS["buf-lint", Mode.CHECK]
 _FORMAT = _ROWS["buf-format", Mode.CHECK]
-_BREAKING = _ROWS["buf-breaking", Mode.CHECK]
 _FAULTED_EXIT = RailStatus.FAULTED.exit_code
 _MODULE = "buf.build/rasm/contracts"
 _BASELINE_COMMIT = "0123456789abcdef0123456789abcdef"
@@ -125,15 +125,19 @@ _CONFIG = f"""version: v2
 modules:
   - path: tests/contracts/proto
     name: {_MODULE}
+lint:
+  use: [STANDARD]
+  except:
+    - PACKAGE_VERSION_SUFFIX
 """
 
 _CATALOG = f"""# [DEMO]
 
 ## [02]-[SYMBOL_GRAMMAR]
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY] |
-| :-----: | :---------------------------- | :------------ | :----------- |
-|  [01]   | `Rasm.Contracts.<F>.V1.<Msg>` | class         | grammar      |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY] |
+| :-----: | :------------------------- | :------------ | :----------- |
+|  [01]   | `Rasm.Contracts.<F>.<Msg>` | class         | grammar      |
 
 ## [03]-[ROSTER]
 
@@ -150,33 +154,33 @@ clean: true
 managed:
   enabled: true
   disable:
-    - path: pub/v1
+    - path: pub
 inputs:
   - directory: .
 plugins:
   - local: node_modules/.bin/protoc-gen-es
     out: libs/typescript/contracts/gen
     opt: [target=ts]
-    types: [demo.v1.Thing, demo.v1.DemoService.Do]
+    types: [demo.Thing, demo.DemoService.Do]
     include_imports: true
   - local: .venv/bin/protoc-gen-py
     out: libs/python/contracts/rasm/contracts
     opt: [init_files=false]
-    types: [demo.v1.Thing, demo.v1.DemoService.Do]
+    types: [demo.Thing, demo.DemoService.Do]
     include_imports: true
   - local: .venv/bin/protoc-gen-connectrpc
     out: libs/python/contracts/rasm/contracts
-    types: [demo.v1.DemoService.Do]
+    types: [demo.DemoService.Do]
     include_imports: true
   - remote: buf.build/protocolbuffers/csharp:v36.0
     revision: 1
     out: libs/csharp/Rasm.Contracts/Generated
-    types: [demo.v1.Thing]
+    types: [demo.Thing]
     include_imports: true
   - remote: buf.build/grpc/csharp:v1.83.0
     revision: 1
     out: libs/csharp/Rasm.Contracts/Generated
-    types: [demo.v1.DemoService.Do]
+    types: [demo.DemoService.Do]
     include_imports: true
 """
 
@@ -222,14 +226,17 @@ _HAND_SCHEMA = {
     "properties": {"key": {"$ref": "#/$defs/token"}},
     "additionalProperties": False,
 }
-_THING = "demo.v1.Thing"
-_REPLY = "demo.v1.Reply"
-_METHOD = "demo.v1.DemoService.Do"
+_THING = "demo.Thing"
+_REPLY = "demo.Reply"
+_METHOD = "demo.DemoService.Do"
 _THING_PATH = f"DEMO_SEAM/{_THING}.jsonschema.strict.bundle.json"
-_DECLARATION = "rasm.contracts.declaration.v1.DeclarationRecord"
-_FIXTURE_CONFIG = "version: v2\nmodules:\n  - path: proto\ndeps:\n  - buf.build/bufbuild/protovalidate\n"
+_DECLARATION = "rasm.contracts.declaration.DeclarationRecord"
+_FIXTURE_CONFIG = (
+    "version: v2\nmodules:\n  - path: proto\ndeps:\n  - buf.build/bufbuild/protovalidate\n"
+    "lint:\n  use: [STANDARD]\n  except:\n    - PACKAGE_VERSION_SUFFIX\n"
+)
 _FIXTURE_PROTO = (
-    'syntax = "proto3";\n\npackage fx.v1;\n\nimport "buf/validate/validate.proto";\n\n'
+    'syntax = "proto3";\n\npackage fx;\n\nimport "buf/validate/validate.proto";\n\n'
     "enum Kind {\n  KIND_UNSPECIFIED = 0;\n  KIND_ALPHA = 1;\n}\n\n"
     "message Thing {\n  Kind kind = 1 [(buf.validate.field).enum.defined_only = true];\n"
     "  uint32 count = 2 [(buf.validate.field).uint32.gte = 1];\n}\n"
@@ -240,7 +247,7 @@ _LICENSE_BYTES = b"Apache License 2.0\n"
 _DISTRIBUTION = TypeScriptJsonModule(path="libs/typescript/contracts/gen/io/publisher/v1/publisher_avro.ts", symbol="PublisherAvro")
 _PY_DISTRIBUTION = PythonPackageResource(path="libs/python/contracts/rasm/contracts/vendor/io/publisher/v1/publisher.avsc", package="rasm.contracts")
 _LINT_ROW = (
-    b'{"path":"tests/contracts/proto/rasm/contracts/scene/v1/scene.proto","start_line":9,"start_column":3,"end_line":9,"end_column":20,'
+    b'{"path":"tests/contracts/proto/rasm/contracts/scene/scene.proto","start_line":9,"start_column":3,"end_line":9,"end_column":20,'
     b'"type":"FIELD_LOWER_SNAKE_CASE","message":"Field name must be lower_snake_case."}\n'
 )
 _DIFF = (
@@ -402,7 +409,7 @@ def _descriptors(*, thing: bool = True, reply: bool = True, service: bool = True
                         number=1,
                         label=FieldDescriptorProto.Label.OPTIONAL,
                         type=FieldDescriptorProto.Type.MESSAGE,
-                        type_name=".pub.v1.Event",
+                        type_name=".pub.Event",
                     )
                 ],
                 nested_type=[DescriptorProto(name="Inner")],
@@ -414,9 +421,9 @@ def _descriptors(*, thing: bool = True, reply: bool = True, service: bool = True
     if unused:
         messages.append(DescriptorProto(name="Unused"))
     demo = FileDescriptorProto(
-        name="demo/v1/demo.proto",
-        package="demo.v1",
-        dependency=["pub/v1/pub.proto"],
+        name="demo/demo.proto",
+        package="demo",
+        dependency=["pub/pub.proto"],
         message_type=messages,
         service=(
             [ServiceDescriptorProto(name="DemoService", method=[MethodDescriptorProto(name="Do", input_type=f".{_THING}", output_type=f".{_REPLY}")])]
@@ -425,8 +432,8 @@ def _descriptors(*, thing: bool = True, reply: bool = True, service: bool = True
         ),
     )
     pub = FileDescriptorProto(
-        name="pub/v1/pub.proto",
-        package="pub.v1",
+        name="pub/pub.proto",
+        package="pub",
         message_type=[
             DescriptorProto(
                 name="Event",
@@ -501,7 +508,7 @@ def _corpus(
     Returns:
         The repo root.
     """
-    registry = Manifest(version=2, entries=entries if entries is not None else (_entry(), _BINDING, _vendored()))
+    registry = Manifest(entries=entries if entries is not None else (_entry(), _BINDING, _vendored()))
     _write(root, "buf.gen.yaml", template)
     _write(root, "libs/typescript/contracts/package.json", _json(_TS_MANIFEST))
     _write(root, "libs/typescript/contracts/README.md", "# contracts\n")  # the gate proves every non-built `files` row on disk
@@ -542,7 +549,7 @@ def _corpus(
             )
             _write(root, row.catalog, _CATALOG.replace(f"{ROSTER_BEGIN}\n{ROSTER_END}", f"{ROSTER_BEGIN}\n{block}{ROSTER_END}"))
     for out in _OUTS:
-        _write(root, f"{out}/demo/v1/demo_pb.txt", "generated\n")
+        _write(root, f"{out}/demo/demo_pb.txt", "generated\n")
     return root
 
 
@@ -605,9 +612,6 @@ def _fan(
                 played.append(override.map(partial(_applied, chk.tool)))
                 continue
             if name == "buf-build":
-                Path(chk.args.output).parent.mkdir(parents=True, exist_ok=True)
-                Path(chk.args.output).write_bytes(picture)
-            if name == "buf-constraint":
                 Path(chk.args.output).parent.mkdir(parents=True, exist_ok=True)
                 Path(chk.args.output).write_bytes(picture)
             if name == "buf-roster":
@@ -674,8 +678,8 @@ def projector(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 # --- [LANE_MATRIX]
 
 
-def test_check_resolves_immutable_baseline_and_runs_every_lane(assay_root: AssayHarness, projector: Path) -> None:
-    """A clean corpus resolves the default label once, then runs breaking against that exact immutable commit."""
+def test_check_runs_every_local_lane_without_reaching_the_registry(assay_root: AssayHarness, projector: Path) -> None:
+    """A clean corpus proves itself from the working tree alone: build, lint, format, scratch generation, the rosters, and the gates."""
     root = _corpus(assay_root.root)
     calls: list[tuple[str, ...]] = []
     report = assert_ok(_run(assay_root, _fan(root, calls=calls)))
@@ -685,13 +689,9 @@ def test_check_resolves_immutable_baseline_and_runs_every_lane(assay_root: Assay
     assert report.counts.band(Band.REFUSED) == 0 and report.results == ()
     assert [name for name, _ in detail.lanes] == [
         "plugin-probe",
-        "buf-module",
-        "buf-baseline",
         "buf-build",
         "buf-lint",
         "buf-format",
-        "buf-breaking",
-        "buf-constraint",
         "buf-generate",
         "buf-roster:typescript-01",
         "buf-roster:python-02",
@@ -699,29 +699,25 @@ def test_check_resolves_immutable_baseline_and_runs_every_lane(assay_root: Assay
         "buf-roster:csharp-04",
         "buf-roster:csharp-05",
         "corpus-gate",
-        "constraint-gate",
         "freshness-gate",
     ]
     assert all(status == "ok" for _, status in detail.lanes), detail.lanes
-    assert calls[1:9] == [
-        ("buf", "registry", "module", "info", _MODULE, "--format", "json"),
-        ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json"),
+    assert calls[1:5] == [
         ("buf", "build", "-o", str(scratch / "image.binpb"), "--as-file-descriptor-set"),
         ("buf", "lint", "--error-format", "json"),
         ("buf", "format", "--diff", "--exit-code", "tests/contracts/proto"),
-        ("buf", "breaking", "tests/contracts/proto", "--against", f"{_MODULE}:{_BASELINE_COMMIT}", "--error-format", "json"),
-        ("buf", "build", f"{_MODULE}:{_BASELINE_COMMIT}", "-o", str(scratch / "baseline.binpb"), "--as-file-descriptor-set"),
         ("buf", "generate", "--template", "buf.gen.yaml", "-o", str(scratch / "gen")),
     ]
-    assert calls[9:14] == [
+    assert not any(argv[:2] == ("buf", "registry") for argv in calls)
+    assert calls[5:10] == [
         ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/csharp-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
         ("buf", "build", "-o", str(scratch / "roster/csharp-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
     ]
-    assert detail.module == _MODULE and detail.baseline == f"{_MODULE}:{_BASELINE_COMMIT}" and not detail.published
-    assert detail.packages == ("demo.v1", "pub.v1")
+    assert detail.module == _MODULE and not detail.baseline and not detail.published
+    assert detail.packages == ("demo", "pub")
     assert dict(detail.counts) == {"files": 2, "packages": 2, "messages": 5, "services": 1, "entries": 3, "assets": 2, "findings": 0, "stale": 0}
     assert detail.seams == ("DEMO_SEAM", "DEMO_PROTO", "PUB")
     assert detail.plugins == (*((binary, str(root / binary)) for binary in _BINARIES), (JSONSCHEMA_PLUGIN, str(projector)))
@@ -738,20 +734,18 @@ def test_check_resolves_immutable_baseline_and_runs_every_lane(assay_root: Assay
     ],
     ids=("malformed-json", "invalid-commit", "auth", "network"),
 )
-def test_baseline_fault_skips_only_breaking_and_keeps_siblings(assay_root: AssayHarness, stdout: bytes, stderr: bytes) -> None:
-    """Malformed, authentication, and network resolver failures fault the resolver, skip breaking, and preserve every independent lane."""
+def test_baseline_resolver_fault_refuses_the_push_and_keeps_every_gate_lane(assay_root: AssayHarness, stdout: bytes, stderr: bytes) -> None:
+    """Malformed, authentication, and network resolver failures fault publish custody while every independent gate lane still executes."""
     root = _corpus(assay_root.root)
     rc = 0 if stdout else 1
     calls: list[tuple[str, ...]] = []
-    report = assert_ok(
-        _run(assay_root, _fan(root, outcomes={"buf-baseline": Ok(receipt(("buf", "registry"), rc, stdout=stdout, stderr=stderr))}, calls=calls))
-    )
+    outcomes = {"buf-baseline": Ok(receipt(("buf", "registry"), rc, stdout=stdout, stderr=stderr))}
+    report = assert_ok(_run(assay_root, _fan(root, outcomes=outcomes, calls=calls), "publish"))
     detail = _detail(report)
     assert report.status is RailStatus.FAULTED and dict(detail.lanes)["buf-baseline"] == "faulted"
-    assert dict(detail.lanes)["buf-breaking"] == "skip" and not detail.baseline
-    assert dict(detail.lanes)["buf-constraint"] == "skip" and dict(detail.lanes)["constraint-gate"] == "skip"
-    assert all(status == "ok" for name, status in detail.lanes if name not in {"buf-baseline", "buf-breaking", "buf-constraint", "constraint-gate"})
-    assert not any(argv[:2] == ("buf", "breaking") for argv in calls)
+    assert not detail.baseline and not detail.published
+    assert all(status == "ok" for name, status in detail.lanes if name != "buf-baseline")
+    assert not any(argv[:2] == ("buf", "push") for argv in calls)
 
 
 def test_publish_admits_only_exact_first_publish_absence_and_returns_commit(assay_root: AssayHarness) -> None:
@@ -768,7 +762,6 @@ def test_publish_admits_only_exact_first_publish_absence_and_returns_commit(assa
     push = ("buf", "push", ".", "--exclude-unnamed", "--create", "--create-visibility", "public", "--create-default-label", "main", "--label", "main")
     assert report.status is RailStatus.OK and detail.module == _MODULE
     assert dict(detail.lanes)["buf-module"] == "skip" and dict(detail.lanes)["buf-baseline"] == "skip"
-    assert dict(detail.lanes)["buf-breaking"] == "skip"
     assert dict(detail.lanes)["buf-prepush"] == "skip" and dict(detail.lanes)["buf-push"] == "ok"
     assert dict(detail.lanes)["buf-auth"] == "ok" and dict(detail.lanes)["buf-verify"] == "ok"
     assert detail.published == f"{_MODULE}:{_PUBLISHED_COMMIT}"
@@ -782,14 +775,9 @@ def test_publish_admits_only_exact_first_publish_absence_and_returns_commit(assa
     assert calls[-1] == ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json")
 
 
-def test_publish_refuses_nonbootstrap_resolver_fault_and_malformed_push(assay_root: AssayHarness) -> None:
-    """An inexact registry fault prevents push, while a successful push without one exact coordinate faults its receipt."""
+def test_publish_faults_a_push_that_returns_no_exact_coordinate(assay_root: AssayHarness) -> None:
+    """A successful push whose stdout carries no exact module commit coordinate faults its receipt and publishes nothing."""
     root = _corpus(assay_root.root)
-    calls: list[tuple[str, ...]] = []
-    fault = receipt(("buf", "registry"), 1, stderr=b"Failure: unauthenticated\n")
-    refused = assert_ok(_run(assay_root, _fan(root, outcomes={"buf-baseline": Ok(fault)}, calls=calls), "publish"))
-    assert refused.status is RailStatus.FAULTED and not any(argv[:2] == ("buf", "push") for argv in calls)
-
     malformed = Ok(receipt(("buf", "push"), 0, stdout=b"pushed\n"))
     report = assert_ok(_run(assay_root, _fan(root, outcomes={"buf-push": malformed}), "publish"))
     assert report.status is RailStatus.FAULTED and dict(_detail(report).lanes)["buf-push"] == "faulted"
@@ -804,7 +792,7 @@ def test_publish_runs_the_complete_present_module_gate_before_push(assay_root: A
     detail = _detail(report)
     lanes = dict(detail.lanes)
     assert report.status is RailStatus.OK and detail.baseline == f"{_MODULE}:{_BASELINE_COMMIT}"
-    assert all(lanes[name] == "ok" for name in ("buf-auth", "buf-breaking", "corpus-gate", "freshness-gate", "buf-prepush", "buf-push", "buf-verify"))
+    assert all(lanes[name] == "ok" for name in ("buf-auth", "buf-baseline", "corpus-gate", "freshness-gate", "buf-prepush", "buf-push", "buf-verify"))
     assert calls[0] == ("buf", "registry", "whoami", "buf.build", "--format", "json")
     assert calls[-3] == ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json")
     assert calls[-2] == ("buf", "push", ".", "--exclude-unnamed", "--label", "main")
@@ -905,7 +893,7 @@ def test_module_lookup_requires_the_exact_active_configured_module(assay_root: A
 
 
 def test_publish_refuses_a_default_label_move_at_the_prepush_resolution(assay_root: AssayHarness) -> None:
-    """A label that moves after compatibility passed faults the immediate resolver and never reaches push."""
+    """A label that moves after the gate passed faults the immediate resolver and never reaches push."""
     root = _corpus(assay_root.root)
     moved = "11111111111111111111111111111111"
     sequences = {
@@ -975,17 +963,6 @@ def test_defect_exit_converts_annotations_into_match_rows() -> None:
     assert len(rows) == 1 and rows[0].path.endswith("scene.proto") and rows[0].line == 9 and rows[0].severity == "error"
 
 
-def test_breaking_defect_exit_converts_annotations_and_preserves_baseline(assay_root: AssayHarness) -> None:
-    """Buf breaking exit 100 parses through the same annotation rail while retaining the exact baseline evidence."""
-    root = _corpus(assay_root.root)
-    breaking = Ok(receipt(("buf", "breaking"), BUF_DEFECT_EXIT, stdout=_LINT_ROW))
-    report = assert_ok(_run(assay_root, _fan(root, outcomes={"buf-breaking": breaking})))
-    detail = _detail(report)
-    assert report.status is RailStatus.FAILED and dict(detail.lanes)["buf-breaking"] == "failed"
-    assert detail.baseline == f"{_MODULE}:{_BASELINE_COMMIT}"
-    assert any(row.id == "buf:field_lower_snake_case" for row in report.results)
-
-
 def test_non_defect_exit_faults_its_lane_and_keeps_sibling_rows(assay_root: AssayHarness) -> None:
     """An executable tool failure reads FAULTED with its stderr tail while the lint lane's defect rows survive."""
     root = _corpus(assay_root.root)
@@ -996,10 +973,10 @@ def test_non_defect_exit_faults_its_lane_and_keeps_sibling_rows(assay_root: Assa
     report = assert_ok(_run(assay_root, _fan(root, outcomes=outcomes)))
     detail = _detail(report)
     assert report.status is RailStatus.FAULTED
-    assert dict(detail.lanes)["buf-breaking"] == "ok" and dict(detail.lanes)["buf-format"] == "faulted"
+    assert dict(detail.lanes)["buf-build"] == "ok" and dict(detail.lanes)["buf-format"] == "faulted"
     assert dict(detail.lanes)["buf-lint"] == "failed"
     assert detail.faults == (("buf-format", "Failure: formatter could not read the estate module"),)
-    assert detail.violations == (("field_lower_snake_case", "tests/contracts/proto/rasm/contracts/scene/v1/scene.proto", 9),)
+    assert detail.violations == (("field_lower_snake_case", "tests/contracts/proto/rasm/contracts/scene/scene.proto", 9),)
     assert any(row.id == "buf:field_lower_snake_case" for row in report.results)
 
 
@@ -1023,17 +1000,17 @@ def test_freshness_diffs_scratch_against_committed_roots(assay_root: AssayHarnes
     def regenerate(scratch: Path) -> None:
         for out in _OUTS:
             shutil.copytree(root / out, scratch / out, dirs_exist_ok=True)
-        _write(scratch, "libs/python/contracts/rasm/contracts/demo/v1/demo_pb.txt", "regenerated\n")
+        _write(scratch, "libs/python/contracts/rasm/contracts/demo/demo_pb.txt", "regenerated\n")
         _write(scratch, "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt", "new\n")
-        (scratch / "libs/csharp/Rasm.Contracts/Generated/demo/v1/demo_pb.txt").unlink()
+        (scratch / "libs/csharp/Rasm.Contracts/Generated/demo/demo_pb.txt").unlink()
 
     report = assert_ok(_run(assay_root, _fan(root, regenerate=regenerate)))
     detail = _detail(report)
     assert report.status is RailStatus.FAILED
     assert detail.stale == (
-        ("changed", "libs/python/contracts/rasm/contracts/demo/v1/demo_pb.txt"),
+        ("changed", "libs/python/contracts/rasm/contracts/demo/demo_pb.txt"),
         ("missing", "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt"),
-        ("orphan", "libs/csharp/Rasm.Contracts/Generated/demo/v1/demo_pb.txt"),
+        ("orphan", "libs/csharp/Rasm.Contracts/Generated/demo/demo_pb.txt"),
     )
     assert {row.id for row in report.results} == {"freshness:changed", "freshness:missing", "freshness:orphan"}
     diff = next(artifact for artifact in report.artifacts if artifact.id == "freshness-diff")
@@ -1068,7 +1045,7 @@ def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarnes
     assert "`Thing_KindSchema` | enum | support-closure" in blocks["typescript"]
     assert "`DemoService` | service | support-closure | `DemoService` |" in blocks["typescript"]
     assert "`DemoService.Do` | method | public-root | `DemoService.Do` |" in blocks["typescript"]
-    assert "[ROSTER_SCOPE]: `pub.v1`" in blocks["typescript"] and "support-closure | `Event`" in blocks["typescript"]
+    assert "[ROSTER_SCOPE]: `pub`" in blocks["typescript"] and "support-closure | `Event`" in blocks["typescript"]
     assert (
         "`Thing.Inner` | message | support-closure" in blocks["python"]
         and "`Thing.Kind` | enum | support-closure" in blocks["python"]
@@ -1083,34 +1060,6 @@ def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarnes
         and "support-closure | `Event`" in blocks["csharp"]
     )
     assert all("Unused" not in block for block in blocks.values()) and blocks["typescript"].endswith("|\n\n")
-
-
-def test_constraint_gate_refuses_narrowed_rules_and_passes_loosened_ones() -> None:
-    """Every provably or undecidably narrowed protovalidate axis refuses; every provable loosening passes wire-compatible."""
-    before = {
-        "string.min_len": 1,
-        "string.max_len": 8,
-        "double.lte": 5.0,
-        "enum.in": (1, 2, 3),
-        "enum.not_in": (9,),
-        "cel": (b"a",),
-        "required": False,
-    }
-    tightened = {
-        "string.min_len": 2,
-        "string.max_len": 4,
-        "double.lte": 4.0,
-        "enum.in": (1, 2),
-        "enum.not_in": (9, 10),
-        "cel": (b"a", b"b"),
-        "required": True,
-    }
-    loosened = {"string.min_len": 1, "string.max_len": 16, "double.lte": 9.0, "enum.in": (1, 2, 3, 4), "cel": (), "required": False}
-    reasons = contracts_rail._narrowed(before, tightened)
-    assert len(reasons) == 7 and all("narrowed" in reason or "added" in reason for reason in reasons)
-    assert contracts_rail._narrowed(before, loosened) == ()
-    assert contracts_rail._narrowed(before, dict(before)) == ()
-    assert contracts_rail._narrowed({}, {"string.pattern": "^x$"}) == ("string.pattern added",)
 
 
 def test_roster_blocks_render_inside_the_markdown_lane(assay_root: AssayHarness) -> None:
@@ -1131,17 +1080,17 @@ def test_publisher_message_actor_roots_select_every_direct_generated_message() -
     case = _vendored(
         definition=definition,
         consumers=(
-            _message("typescript:Demo/Page/one#CLUSTER", "PublisherProto.read", roots=("pub.v1.Event", "pub.v1.EventBatch")),
-            _message("python:Demo/Page/one#CLUSTER", "PublisherProto.read", roots=("pub.v1.Event",)),
+            _message("typescript:Demo/Page/one#CLUSTER", "PublisherProto.read", roots=("pub.Event", "pub.EventBatch")),
+            _message("python:Demo/Page/one#CLUSTER", "PublisherProto.read", roots=("pub.Event",)),
         ),
     ).cases[0]
-    manifest = Manifest(version=2, entries=(msgspec.structs.replace(_PUB, cases=(case,)),))
-    assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("message",))) == ("pub.v1.Event", "pub.v1.EventBatch")
-    assert contracts_rail._actor_roots(manifest, "python", frozenset(("message",))) == ("pub.v1.Event",)
+    manifest = Manifest(entries=(msgspec.structs.replace(_PUB, cases=(case,)),))
+    assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("message",))) == ("pub.Event", "pub.EventBatch")
+    assert contracts_rail._actor_roots(manifest, "python", frozenset(("message",))) == ("pub.Event",)
     assert contracts_rail._actor_needs(manifest) == (
-        ("typescript", "message", "pub.v1.Event"),
-        ("typescript", "message", "pub.v1.EventBatch"),
-        ("python", "message", "pub.v1.Event"),
+        ("typescript", "message", "pub.Event"),
+        ("typescript", "message", "pub.EventBatch"),
+        ("python", "message", "pub.Event"),
     )
 
 
@@ -1151,30 +1100,30 @@ def test_actor_support_roots_project_only_to_their_descriptor_plugin_kind() -> N
         "typescript:Demo/Page/one#CLUSTER",
         "DemoSchema.read",
         supports=(
-            Support(kind="message", fqn="demo.v1.Unused"),
-            Support(kind="service", fqn="demo.v1.OtherService"),
-            Support(kind="method", fqn="demo.v1.OtherService.Ping"),
+            Support(kind="message", fqn="demo.Unused"),
+            Support(kind="service", fqn="demo.OtherService"),
+            Support(kind="method", fqn="demo.OtherService.Ping"),
         ),
     )
     entry = _binding(authority=DomainAuthority(producer=actor))
-    manifest = Manifest(version=2, entries=(entry,))
-    assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("message", "enum"))) == (_THING, "demo.v1.Unused")
+    manifest = Manifest(entries=(entry,))
+    assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("message", "enum"))) == (_THING, "demo.Unused")
     assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("enum",))) == (_THING,)
-    assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("service",))) == ("demo.v1.OtherService", "demo.v1.OtherService.Ping")
-    assert ("typescript", "message", "demo.v1.Unused") in contracts_rail._actor_needs(manifest)
-    assert ("typescript", "service", "demo.v1.OtherService") in contracts_rail._actor_needs(manifest)
-    assert ("typescript", "method", "demo.v1.OtherService.Ping") in contracts_rail._actor_needs(manifest)
+    assert contracts_rail._actor_roots(manifest, "typescript", frozenset(("service",))) == ("demo.OtherService", "demo.OtherService.Ping")
+    assert ("typescript", "message", "demo.Unused") in contracts_rail._actor_needs(manifest)
+    assert ("typescript", "service", "demo.OtherService") in contracts_rail._actor_needs(manifest)
+    assert ("typescript", "method", "demo.OtherService.Ping") in contracts_rail._actor_needs(manifest)
 
 
 @pytest.mark.parametrize(
     "supports,binding,rule",
     [
         ((Support(kind="message", fqn=_THING),), "generated", "support-redundant"),
-        ((Support(kind="message", fqn="pub.v1.Event"),), "generated", "support-redundant"),
+        ((Support(kind="message", fqn="pub.Event"),), "generated", "support-redundant"),
         ((Support(kind="service", fqn=_THING),), "generated", "support-kind"),
-        ((Support(kind="message", fqn="demo.v1.Ghost"),), "generated", "support-unresolved"),
-        ((Support(kind="message", fqn="demo.v1.Unused"),), "package", "support-context"),
-        ((Support(kind="message", fqn="demo.v1.Unused"), Support(kind="message", fqn="demo.v1.Unused")), "generated", "support-duplicate"),
+        ((Support(kind="message", fqn="demo.Ghost"),), "generated", "support-unresolved"),
+        ((Support(kind="message", fqn="demo.Unused"),), "package", "support-context"),
+        ((Support(kind="message", fqn="demo.Unused"), Support(kind="message", fqn="demo.Unused")), "generated", "support-duplicate"),
     ],
     ids=("boundary", "transitive", "wrong-kind", "unresolved", "non-generated", "duplicate"),
 )
@@ -1190,7 +1139,7 @@ def test_actor_support_refuses_redundancy_aliases_and_false_custody(
 
 def test_actor_support_refuses_generated_non_protobuf_context(tmp_path: Path) -> None:
     """A generated label alone cannot turn schema or law ownership into descriptor support."""
-    producer = _message("typescript:Demo/Page/one#CLUSTER", "DemoSchema.read", supports=(Support(kind="message", fqn="demo.v1.Unused"),))
+    producer = _message("typescript:Demo/Page/one#CLUSTER", "DemoSchema.read", supports=(Support(kind="message", fqn="demo.Unused"),))
     entry = _entry(authority=DomainAuthority(producer=producer))
     rules, rows = _audit_rules(_corpus(tmp_path, (entry, _binding(), _vendored())), _image())
     assert "support-context" in rules, "\n".join(rows)
@@ -1216,10 +1165,10 @@ def test_publisher_oracle_refuses_evidence_outside_source_and_license_drift(tmp_
 @pytest.mark.parametrize(
     "types, rules",
     [
-        ("demo.v1", frozenset(("selector-drift", "selector-generic"))),
+        ("demo", frozenset(("selector-drift", "selector-generic"))),
         (_THING, frozenset(("selector-drift",))),
         (f"{_THING}, {_METHOD}, {_REPLY}", frozenset(("selector-drift",))),
-        (f"{_THING}, demo.v1.Ghost", frozenset(("selector-drift", "selector-generic"))),
+        (f"{_THING}, demo.Ghost", frozenset(("selector-drift", "selector-generic"))),
     ],
     ids=("generic", "missing", "extra", "unknown"),
 )
@@ -1362,7 +1311,7 @@ def test_semantic_roundtrip_accepts_messages_that_reach_a_map(tmp_path: Path) ->
         field=[
             FieldDescriptorProto(name="key", number=1, label=FieldDescriptorProto.Label.OPTIONAL, type=FieldDescriptorProto.Type.STRING),
             FieldDescriptorProto(
-                name="value", number=2, label=FieldDescriptorProto.Label.OPTIONAL, type=FieldDescriptorProto.Type.MESSAGE, type_name=".pub.v1.Event"
+                name="value", number=2, label=FieldDescriptorProto.Label.OPTIONAL, type=FieldDescriptorProto.Type.MESSAGE, type_name=".pub.Event"
             ),
         ],
     )
@@ -1375,23 +1324,23 @@ def test_semantic_roundtrip_accepts_messages_that_reach_a_map(tmp_path: Path) ->
                 number=1,
                 label=FieldDescriptorProto.Label.REPEATED,
                 type=FieldDescriptorProto.Type.MESSAGE,
-                type_name=".demo.v1.MapOwner.TagsEntry",
+                type_name=".demo.MapOwner.TagsEntry",
             ),
             FieldDescriptorProto(
                 name="events",
                 number=2,
                 label=FieldDescriptorProto.Label.REPEATED,
                 type=FieldDescriptorProto.Type.MESSAGE,
-                type_name=".demo.v1.MapOwner.EventsEntry",
+                type_name=".demo.MapOwner.EventsEntry",
             ),
         ],
     )
     picture = FileDescriptorSet(
         file=[
-            FileDescriptorProto(name="demo/v1/map.proto", package="demo.v1", dependency=["pub/v1/pub.proto"], message_type=[owner]),
+            FileDescriptorProto(name="demo/map.proto", package="demo", dependency=["pub/pub.proto"], message_type=[owner]),
             FileDescriptorProto(
-                name="pub/v1/pub.proto",
-                package="pub.v1",
+                name="pub/pub.proto",
+                package="pub",
                 message_type=[
                     DescriptorProto(
                         name="Event",
@@ -1409,7 +1358,7 @@ def test_semantic_roundtrip_accepts_messages_that_reach_a_map(tmp_path: Path) ->
     specimen = _specimen("MAP/map.bin", raw)
     case = Case(
         id="map",
-        definition=ProtoDefinition(message="demo.v1.MapOwner", framing="proto-binary"),
+        definition=ProtoDefinition(message="demo.MapOwner", framing="proto-binary"),
         authority=DomainAuthority(producer=_message("tests/contracts/README.md", "MapOwner.prove", "proof")),
         consumers=(_message("tests/contracts/README.md", "MapOwner.consume", "proof"),),
         readiness=VerifiedReadiness(oracle="semantic-roundtrip", vectors=(ProofVector(specimens=(specimen,)),)),
@@ -1471,7 +1420,7 @@ def _parity_case(raw: bytes, expected_raw: bytes) -> tuple[Case, tuple[MessageAc
         _specimen(f"PARITY/{language}.bin", raw, minter=contracts_rail.actor_key(actor))
         for language, actor in zip(("csharp", "python"), minters, strict=True)
     )
-    expected = _expected("PARITY/expected.json", expected_raw, "content-digest-v1")
+    expected = _expected("PARITY/expected.json", expected_raw, "content-digest")
     return (
         Case(
             id="parity",
@@ -1658,13 +1607,9 @@ def test_plugin_miss_degrades_check_and_refuses_generate(assay_root: AssayHarnes
     assert report.status is RailStatus.UNSUPPORTED
     assert dict(detail.lanes) == {
         "plugin-probe": "unsupported",
-        "buf-module": "ok",
-        "buf-baseline": "ok",
         "buf-build": "ok",
         "buf-lint": "ok",
         "buf-format": "ok",
-        "buf-breaking": "ok",
-        "buf-constraint": "ok",
         "buf-generate": "skip",
         "buf-roster:typescript-01": "ok",
         "buf-roster:python-02": "ok",
@@ -1672,7 +1617,6 @@ def test_plugin_miss_degrades_check_and_refuses_generate(assay_root: AssayHarnes
         "buf-roster:csharp-04": "ok",
         "buf-roster:csharp-05": "ok",
         "corpus-gate": "ok",
-        "constraint-gate": "ok",
         "freshness-gate": "skip",
     }
     assert not dict(detail.plugins)[".venv/bin/protoc-gen-py"]
@@ -1691,7 +1635,7 @@ def test_plugin_hint_names_the_installer_by_seat() -> None:
 
 _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
     ("manifest-missing", lambda t: _after(_corpus(t), lambda r: (r / "tests/contracts/manifest.json").unlink()), "manifest-missing"),
-    ("manifest-undecodable", lambda t: _corpus(t, manifest=b'{"version": 2, "entries": [{"id": "X"}]}'), "manifest-undecodable"),
+    ("manifest-undecodable", lambda t: _corpus(t, manifest=b'{"entries": [{"id": "X"}]}'), "manifest-undecodable"),
     ("schema-missing", lambda t: _after(_corpus(t), lambda r: (r / "tests/contracts/manifest.schema.json").unlink()), "schema-missing"),
     ("schema-stale", lambda t: _corpus(t, schema=b"{}\n"), "schema-stale"),
     ("id-duplicate", lambda t: _corpus(t, (_entry(), _entry(), _vendored())), "id-duplicate"),
@@ -1802,10 +1746,25 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
     ),
     (
         "message-unresolved",
-        lambda t: _corpus(t, (_binding(definition=ProtoDefinition(message="demo.v1.Ghost", framing="proto-binary")), _vendored())),
+        lambda t: _corpus(t, (_binding(definition=ProtoDefinition(message="demo.Ghost", framing="proto-binary")), _vendored())),
         "message-unresolved",
     ),
     ("message-empty", lambda t: _corpus(t, (_binding(definition=ProtoDefinition(message="", framing="proto-binary")), _vendored())), "message-empty"),
+    (
+        "event-type",
+        lambda t: _corpus(
+            t,
+            (
+                _binding(
+                    definition=CloudEventDefinition(
+                        message="io.cloudevents.v1.CloudEvent", framing="proto-binary", type="rasm.scene.frame.rendered.v1"
+                    )
+                ),
+                _vendored(),
+            ),
+        ),
+        "event-type",
+    ),
     (
         "method-unresolved",
         lambda t: _corpus(
@@ -1814,7 +1773,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
                 _entry(),
                 _binding(
                     authority=DomainAuthority(
-                        producer=_client_request("typescript:Demo/Page/one#CLUSTER", "DemoRequest.call", method="demo.v1.DemoService.Ghost")
+                        producer=_client_request("typescript:Demo/Page/one#CLUSTER", "DemoRequest.call", method="demo.DemoService.Ghost")
                     )
                 ),
                 _vendored(),
@@ -1987,7 +1946,7 @@ def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_or
                 number=2,
                 label=FieldDescriptorProto.Label.OPTIONAL,
                 type=FieldDescriptorProto.Type.ENUM,
-                type_name=".rasm.contracts.parity.v1.ArtifactRole",
+                type_name=".rasm.contracts.parity.ArtifactRole",
             ),
             FieldDescriptorProto(name="content", number=3, label=FieldDescriptorProto.Label.OPTIONAL, type=FieldDescriptorProto.Type.BYTES),
             FieldDescriptorProto(
@@ -1995,7 +1954,7 @@ def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_or
                 number=4,
                 label=FieldDescriptorProto.Label.REPEATED,
                 type=FieldDescriptorProto.Type.ENUM,
-                type_name=".rasm.contracts.parity.v1.Provider",
+                type_name=".rasm.contracts.parity.Provider",
             ),
             FieldDescriptorProto(name="depends_on", number=5, label=FieldDescriptorProto.Label.REPEATED, type=FieldDescriptorProto.Type.STRING),
         ],
@@ -2014,14 +1973,14 @@ def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_or
                 number=5,
                 label=FieldDescriptorProto.Label.OPTIONAL,
                 type=FieldDescriptorProto.Type.ENUM,
-                type_name=".rasm.contracts.parity.v1.FailureRank",
+                type_name=".rasm.contracts.parity.FailureRank",
             ),
             FieldDescriptorProto(
                 name="restart_class",
                 number=6,
                 label=FieldDescriptorProto.Label.OPTIONAL,
                 type=FieldDescriptorProto.Type.ENUM,
-                type_name=".rasm.contracts.parity.v1.RestartClass",
+                type_name=".rasm.contracts.parity.RestartClass",
             ),
         ],
     )
@@ -2034,22 +1993,22 @@ def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_or
                 number=2,
                 label=FieldDescriptorProto.Label.REPEATED,
                 type=FieldDescriptorProto.Type.MESSAGE,
-                type_name=".rasm.contracts.parity.v1.Artifact",
+                type_name=".rasm.contracts.parity.Artifact",
             ),
             FieldDescriptorProto(
                 name="capabilities",
                 number=3,
                 label=FieldDescriptorProto.Label.REPEATED,
                 type=FieldDescriptorProto.Type.MESSAGE,
-                type_name=".rasm.contracts.parity.v1.Capability",
+                type_name=".rasm.contracts.parity.Capability",
             ),
         ],
     )
     image = FileDescriptorSet(
         file=[
             FileDescriptorProto(
-                name="rasm/contracts/parity/v1/parity.proto",
-                package="rasm.contracts.parity.v1",
+                name="rasm/contracts/parity/parity.proto",
+                package="rasm.contracts.parity",
                 enum_type=[
                     EnumDescriptorProto(
                         name="ArtifactRole",
@@ -2112,7 +2071,7 @@ def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_or
         pack("<i", 1),
         pack("<i", 2),
     ))
-    facts = assert_ok(contracts_rail._backend_facts(image_path, "rasm.contracts.parity.v1.Backend", raw))
+    facts = assert_ok(contracts_rail._backend_facts(image_path, "rasm.contracts.parity.Backend", raw))
     assert facts == BackendGenerationFacts(
         contract="v1",
         artifact_keys=("a",),
@@ -2122,16 +2081,16 @@ def test_backend_generation_facts_rebuild_exact_canonical_preimage_and_reject_or
         preimage_hex=preimage.hex(),
     )
     unordered = raw.replace(b'"artifacts":[', b'"artifacts":[{"key":"b","role":1,"content":"","providers":[],"dependsOn":[]},')
-    refused = contracts_rail._backend_facts(image_path, "rasm.contracts.parity.v1.Backend", unordered)
+    refused = contracts_rail._backend_facts(image_path, "rasm.contracts.parity.Backend", unordered)
     assert refused.is_error() and "artifact keys must be strictly ascending and unique" in refused.error
-    invalid_role = contracts_rail._backend_facts(image_path, "rasm.contracts.parity.v1.Backend", raw.replace(b'"role":1', b'"role":99'))
+    invalid_role = contracts_rail._backend_facts(image_path, "rasm.contracts.parity.Backend", raw.replace(b'"role":1', b'"role":99'))
     assert invalid_role.is_error() and "Invalid enum value 99" in invalid_role.error
     self_dependency = contracts_rail._backend_facts(
-        image_path, "rasm.contracts.parity.v1.Backend", raw.replace(b'"dependsOn":["z"]', b'"dependsOn":["a"]')
+        image_path, "rasm.contracts.parity.Backend", raw.replace(b'"dependsOn":["z"]', b'"dependsOn":["a"]')
     )
     assert self_dependency.is_error() and "cannot depend on itself" in self_dependency.error
     nonprintable = contracts_rail._backend_facts(
-        image_path, "rasm.contracts.parity.v1.Backend", raw.replace(b'"contract":"v1"', b'"contract":"\\u0001"')
+        image_path, "rasm.contracts.parity.Backend", raw.replace(b'"contract":"v1"', b'"contract":"\\u0001"')
     )
     assert nonprintable.is_error() and "contract must contain printable ASCII only" in nonprintable.error
 
@@ -2149,9 +2108,6 @@ def test_manifest_decode_partition(tmp_path: Path) -> None:
     root = _corpus(tmp_path)
     corpus = root / "tests/contracts"
     assert assert_ok(load_manifest(corpus)).entries[0].id == "DEMO_SEAM"
-    (corpus / "manifest.json").write_bytes(b'{"version": 1, "entries": []}')
-    fault = assert_error_status(load_manifest(corpus), RailStatus.FAILED)
-    assert "$.version" in fault.message
     (corpus / "manifest.json").unlink()
     assert assert_error_status(load_manifest(corpus), RailStatus.FAILED).message.endswith("missing")
     (corpus / "manifest.json").mkdir()
@@ -2170,7 +2126,7 @@ def test_derived_schema_is_the_one_authority(tmp_path: Path) -> None:
     root = _corpus(tmp_path)
     document = msgspec.json.decode((root / "tests/contracts/manifest.json").read_bytes())
     assert list(validator.iter_errors(document)) == []
-    assert list(validator.iter_errors({"version": 2, "entries": [msgspec.to_builtins(_entry()) | {"seam": "legacy"}]}))
+    assert list(validator.iter_errors({"entries": [msgspec.to_builtins(_entry()) | {"seam": "legacy"}]}))
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert (REPO_ROOT / "tests/contracts/manifest.schema.json").read_bytes() == derived_schema()
     (root / "tests/contracts/manifest.schema.json").write_bytes(derived_schema() + b"\n")
@@ -2187,7 +2143,7 @@ def test_generate_derives_manifest_schema_and_invalid_manifest_blocks_every_writ
     assert "schema: tests/contracts/manifest.schema.json written" in landed.notes
     assert any(argv[:2] == ("buf", "generate") and "-o" in argv for argv in calls)
 
-    (root / "tests/contracts/manifest.json").write_bytes(b'{"version": 2, "entries": [{"id": "torn"}]}')
+    (root / "tests/contracts/manifest.json").write_bytes(b'{"entries": [{"id": "torn"}]}')
     broken_calls: list[tuple[str, ...]] = []
     blocked = assert_ok(_run(assay_root, _fan(root, calls=broken_calls), "generate"))
     assert blocked.status is RailStatus.FAILED
@@ -2242,7 +2198,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
     detail = _detail(stale)
     scratch = Path(detail.scratch)
     assert stale.status is RailStatus.FAILED and _rules(stale) == {"schema-stale"}
-    assert calls[9] == (
+    assert calls[5] == (
         "buf",
         "generate",
         "tests/contracts/proto",
@@ -2254,8 +2210,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
         _THING,
     )
     assert dict(detail.lanes)[f"buf-jsonschema:{_THING}"] == "ok" and dict(detail.plugins)[JSONSCHEMA_PLUGIN] == str(projector)
-    assert [name for name, _ in detail.lanes][7:] == [
-        "buf-constraint",
+    assert [name for name, _ in detail.lanes][4:] == [
         "buf-generate",
         f"buf-jsonschema:{_THING}",
         "buf-roster:typescript-01",
@@ -2264,7 +2219,6 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
         "buf-roster:csharp-04",
         "buf-roster:csharp-05",
         "corpus-gate",
-        "constraint-gate",
         "freshness-gate",
     ]
     landed = assert_ok(_run(assay_root, _fan(root), "generate"))
@@ -2338,11 +2292,11 @@ def test_live_projection_folds_validate_rules_into_the_bundle(assay_root: AssayH
     module = assay_root.root / "fixture"
     _write(module, "buf.yaml", _FIXTURE_CONFIG)
     _write(module, "buf.lock", (REPO_ROOT / "buf.lock").read_bytes())
-    _write(module, "proto/fx/v1/fx.proto", _FIXTURE_PROTO)
-    _, bundle = _live(assay_root, str(module), "fx.v1.Thing")
+    _write(module, "proto/fx/fx.proto", _FIXTURE_PROTO)
+    _, bundle = _live(assay_root, str(module), "fx.Thing")
     document = msgspec.json.decode(bundle.read_bytes())
-    thing = document["$defs"]["fx.v1.Thing.jsonschema.strict.json"]
-    assert document["$id"] == bundle.name and document["$ref"] == "#/$defs/fx.v1.Thing.jsonschema.strict.json"
+    thing = document["$defs"]["fx.Thing.jsonschema.strict.json"]
+    assert document["$id"] == bundle.name and document["$ref"] == "#/$defs/fx.Thing.jsonschema.strict.json"
     assert thing["properties"]["count"]["minimum"] == 1 and thing["properties"]["kind"]["enum"] == ["KIND_UNSPECIFIED", "KIND_ALPHA"]
     assert thing["additionalProperties"] is False and thing["required"] == ["kind", "count"]
 
@@ -2421,7 +2375,7 @@ def test_generate_emits_the_roster_block_between_markers_and_check_byte_checks_i
     text = catalog.read_text(encoding="utf-8")
     span = contracts_rail._roster_span(text)
     assert second.status is RailStatus.OK and all(note.endswith("written") for note in rosters) and len(rosters) == 3
-    assert span is not None and "[ROSTER_SCOPE]: `demo.v1`" in text[span[0] : span[1]]
+    assert span is not None and "[ROSTER_SCOPE]: `demo`" in text[span[0] : span[1]]
     assert f"schema: tests/contracts/{_SEAM_PATH} unchanged" in second.notes
     assert "roster-stale" not in _audit_rules(root, _image())[0] and "roster-missing" not in _audit_rules(root, _image())[0]
 
@@ -2505,26 +2459,24 @@ def test_params_reject_positionals_and_flags(cli: VerbRunner) -> None:
 
 
 def test_catalog_rows_pin_lane_contract() -> None:
-    """Every Buf capability is a catalog-owned executable row, including immutable resolution, breaking, and guarded publication."""
+    """Every Buf capability is a catalog-owned executable row, including immutable resolution and guarded publication."""
     rows = select(Claim.CONTRACTS)
     assert {t.language for t in rows} == {Language.PROTO} and all(t.input.value == "owned" for t in rows)
     assert {t.name for t in rows if t.runner is Runner.PNPM} == {
         "buf-baseline",
         "buf-module",
-        "buf-breaking",
         "buf-build",
-        "buf-constraint",
         "buf-lint",
         "buf-format",
         "buf-generate",
         "buf-jsonschema",
         "buf-push",
     }
-    assert {t.name for t in rows if t.runner is Runner.INPROC} == {"plugin-probe", "corpus-gate", "constraint-gate", "freshness-gate", "corpus-emit"}
+    assert {t.name for t in rows if t.runner is Runner.INPROC} == {"plugin-probe", "corpus-gate", "freshness-gate", "corpus-emit"}
     assert _ROWS["buf-jsonschema", Mode.STAGE].command[1:4] == ("generate", "{input}", "--template") and JSONSCHEMA_PLUGIN in JSONSCHEMA_TEMPLATE
-    assert {t.name for t in rows if t.defect_exit == BUF_DEFECT_EXIT} == {"buf-lint", "buf-format", "buf-breaking"}
-    assert {t.name for t in rows if t.parser is Parser.BUF} == {"buf-lint", "buf-breaking"}
-    assert _BREAKING.command == ("buf", "breaking", "tests/contracts/proto", "--against", "{input}", "--error-format", "json")
+    assert {t.name for t in rows if t.defect_exit == BUF_DEFECT_EXIT} == {"buf-lint", "buf-format"}
+    assert {t.name for t in rows if t.parser is Parser.BUF} == {"buf-lint"}
+    assert _ROWS["buf-baseline", Mode.QUERY].command == ("buf", "registry", "module", "commit", "resolve", "{input}", "--format", "json")
     assert _ROWS["buf-push", Mode.PUBLISH].command == ("buf", "push", ".", "--exclude-unnamed", "{flags*}", "--label", "{target}")
     assert all(t.command[0] == "buf" for t in rows if t.runner is Runner.PNPM)
     assert all(dict(t.env).get("BUF_CACHE_DIR") == ".cache/buf" for t in rows if t.runner is Runner.PNPM)

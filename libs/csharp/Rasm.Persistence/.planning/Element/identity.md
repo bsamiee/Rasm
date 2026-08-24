@@ -1,6 +1,6 @@
 # [PERSISTENCE_ELEMENT_IDENTITY]
 
-Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity and event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. `ConverterRail.Compose` GENERATES the whole EF surface rather than hand-mapping it, mounting `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. MODEL IDENTITY IS PROFILE-SCOPED: each `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` row carries its own compiled `Model` that `UseModel` mounts, `IdentityShapeRow` carries the provider-divergent column decisions as row data keyed alongside that profile, and `IdentityDesignFactory` builds the model per profile at design time — so `OnModelCreating` never executes at runtime, the framework model cache never arbitrates between two engines, and no interior provider probe survives. Every relational interaction is a value in the closed `IdentityOp` family that ONE `IdentityRail.Run` bracket folds — pooled acquisition, the profile's execution strategy, transaction posture, the tracking codec, `TagWith` provenance, and provider-fault conversion — beneath the three-altitude `IdentitySpine` whose save gate turns the placement's `Writes` authority into a refusal the store enforces and whose interception tap carries each statement's owning slot to `Store/observability#PLAN_PROFILE`. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key, a derivation flip, and a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this DEK envelope mints out-of-band. `SchemaGate` folds the boot posture — Marten startup, the EF migration state, and the MEASURED `ModelFingerprint` over the mounted model against the migrations-assembly snapshot — into one typed `SchemaVerdict`, and the migration owner (`IdentityDdl` with the EF.Design emission lanes) emits each profile's DDL through that profile's own model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.StoreIdentity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `StoreProfile` with its `Model`/`Capabilities`/`Ef`/`Admits` columns and `ServerExtension` from `Store/provisioning#SERVER_EXTENSIONS`; `StoreSlot` from `Store/observability#SLOT_REGISTRY`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
+Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity and event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. `ConverterRail.Compose` GENERATES the whole EF surface rather than hand-mapping it, mounting `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. MODEL IDENTITY IS PROFILE-SCOPED: each `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` row carries its own compiled `Model` that `UseModel` mounts, `IdentityShapeRow` carries the provider-divergent column decisions as row data keyed alongside that profile, and `IdentityDesignFactory` builds the model per profile at design time — so `OnModelCreating` never executes at runtime, the framework model cache never arbitrates between two engines, and no interior provider probe survives. Every relational interaction is a value in the closed `IdentityOp` family that ONE `IdentityRail.Run` bracket folds — pooled acquisition, the profile's execution strategy, transaction posture, the tracking codec, `TagWith` provenance, and provider-fault conversion — beneath the three-altitude `IdentitySpine` whose save gate turns the placement's `Writes` authority into a refusal the store enforces and whose interception tap carries each statement's owning slot to `Store/observability#PLAN_PROFILE`. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key, a derivation flip, and a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this DEK envelope mints out-of-band. `SchemaGate` folds the boot posture — Marten startup, the store's published generation digest, and the MEASURED `ModelFingerprint` over the mounted compiled model — into one typed `SchemaVerdict`, and the generation owner (`IdentityDdl` with the EF.Design emission lanes) emits each profile's DDL through that profile's own model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.StoreIdentity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `StoreProfile` with its `Model`/`Capabilities`/`Ef`/`Admits` columns and `ServerExtension` from `Store/provisioning#SERVER_EXTENSIONS`; `StoreSlot` from `Store/observability#SLOT_REGISTRY`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
 
 ## [01]-[INDEX]
 
@@ -9,7 +9,7 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 - [04]-[STORE_OPERATION_BRACKET]: closed `IdentityOp` request family, one bracket owning acquisition/strategy/transaction/tracking/provenance/fault, and the keyset page.
 - [05]-[SAVE_INTERCEPTOR_SPINE]: three interceptor altitudes as declared rows, the write-authority gate and its tracker disposition, and the interception-altitude provenance tap.
 - [06]-[KMS_CUSTODY]: KMS-signed authorship, DEK-envelope `EnvelopeKeyring` (`Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe`), and one `Custody` attestation-and-DEK-envelope fold over `CustodyVerdict`.
-- [07]-[SCHEMA_VERDICT]: boot fold over the Marten startup-assertion posture and the EF migration state, the measured compiled-model fingerprint gate, and the `IdentityDdl` migration owner.
+- [07]-[SCHEMA_VERDICT]: boot fold over the Marten startup-assertion posture and the published generation digest, the measured compiled-model fingerprint gate, and the `IdentityDdl` generation owner.
 
 ## [02]-[ELEMENT_IDENTITY]
 
@@ -20,7 +20,7 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 - Receipt: an identity stamp rides `store.element.identity` carrying the `Roots` count; every relational read and lane rides its own `#STORE_OPERATION_BRACKET` arity slot.
 - Packages: Marten (`IDocumentSession.QueueSqlCommand`), Npgsql.EntityFrameworkCore.PostgreSQL (`UseNpgsql`), Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite (`UseNetTopologySuite` + `IsWithinDistance`/`DistanceKnn`), Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime (`Instant`), Thinktecture.Runtime.Extensions.EntityFrameworkCore10 (`UseThinktectureValueConverters`), EFCore.NamingConventions (`UseSnakeCaseNamingConvention`), Microsoft.EntityFrameworkCore.Sqlite (`UseSqlite`), Microsoft.EntityFrameworkCore (`DbContextOptionsBuilder.UseModel`, `PooledDbContextFactory<TContext>`, `IDbContextFactory<TContext>`), Microsoft.EntityFrameworkCore.Design (`IDesignTimeDbContextFactory<TContext>.CreateDbContext(string[])`), Pgvector.EntityFrameworkCore (`UseVector`), pocketken.H3 (`H3Index.FromPoint`), NetTopologySuite, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new identity join column is one field on `ElementIdentity` — the conventions derive its mapping unless it is a LanguageExt carrier or a geometry, in which case ONE `IdentityShape` clause joins the residual set; a new spatial resolution is one H3 cell policy; a new engine is one `StoreBinding` case, one `IdentityShapeRow` row under the matching profile key, and one compiled model; a new provider divergence is one COLUMN on `IdentityShapeRow`; zero new surface — a separate identity transaction, a second identity ORM committing apart from the event, a parallel `NodeId`-keyed identity table, a hand ADO mapping beside the generated rail, an `IModelCacheKeyFactory` replacement, a per-profile context TYPE, a boolean shape argument deciding three unrelated columns, or an EF-versus-Marten atomicity dance is the deleted form.
-- Boundary: the ONE transaction owner for identity beside event is the `IDocumentSession` — `IdentityStore.Stamp` is the lone stamp primitive the `GraphStore` rail composes (a queued model-derived upsert, never a Marten document: a document is an id+jsonb row structurally incapable of being the EF-shaped relation, and a `session.Store(identity)` claiming otherwise was the split-brain the queued statement deletes); EF/Npgsql is the READ projection and the DDL owner over the ONE declared `element_identity` relation, never a second write authority (a `DbContext.SaveChanges` over the identity table beside the Marten append is the deleted two-ORM gap); the rooted `NodeId` is the neutral kernel-minted DURABLE key and the IFC GlobalId is each node's seam `Node.Object.ExternalId` projection the `GlobalIds` map mirrors — a re-import mints fresh neutral `NodeId`s and the `Version/merge#STRUCTURAL_DIFF` `Reconcile` aligns them back on the stable GlobalId, so the durable key and every foreign reference survive re-import unchanged; THREE spatial planes live on the one tier and never duplicate — the H3 CELL plane (`Cell` per-model + `NodeCell.Cell` per-element, both `bigint` reinterpretations matching the `h3-pg` convention, bucket-equality joins the GiST/BRIN index answers), the GEOMETRY plane (`Bounds` `geometry(Polygon, 4326)` + GiST, exact XY predicates riding the `EF.Functions` translators SERVER-side — `IsWithinDistance` → `ST_DWithin`, `DistanceKnn` → the `<->` KNN order, `.Intersects`/`.Distance` instance translators, `ST_Union`/`ST_Extent` aggregates — never a client scan), and the VERTICAL plane (`ZMin`/`ZMax` per-model span + `NodeCell.Z` per-element elevation, plain indexed range predicates, so stacked elements sharing a footprint discriminate server-side and a storey band is one clause on the `Within` and `Route` op shapes, never a client elevation scan); `Rasm.Element` projects the seam-stable representation-bounds the `Bounds` producer contract names (Persistence is the recorded demanding consumer); `Bounds` is a nullable CLR `Polygon?` because the PostGIS translators bind the CLR geometry type directly in LINQ predicates — an `Option` wrapper here forfeits server-side translation, so null IS the absent-bounds state at this EF boundary; MODEL IDENTITY resolves per PROFILE and never per process: the framework's model cache keys on context type and design-time flag alone, so one context type against two engines serves the first-built model to the second, and the escape landed here is ONE COMPILED MODEL PER PROFILE — `StoreProfile.Model()` mounts through `UseModel`, which bypasses the model cache whole, so the cache-key hazard ceases to exist rather than getting keyed correctly, the profile row IS the model identity, and the two rejected escapes stay rejected because per-profile context types duplicate the declaration against this folder's ONE-`IdentityContext` ruling while `IModelCacheKeyFactory` forecloses compiled models whole, deleting the `#SCHEMA_VERDICT` `Optimize` deploy row outright; the EMBEDDED floor is provider-divergent model DATA on the one context, never a second mapping and never an interior probe — `IdentityShapeRow` carries the divergence as COLUMNS (`Bounds` degrades to a WKB `byte[]` column beside the H3 `bigint` cell where the geometry slot is absent, the JSON columns store as `text` rather than `jsonb`, and an absent vector slot ignores `Embedding` entirely, the embedded charter being the relational identity floor and `EngineOps` checkpoint tier, never SoR and never ANN), so a `Database.IsSqlite()` call inside model construction is the deleted form and a fourth divergence lands as a fourth column rather than a fourth predicate; `OnModelCreating` executes at DESIGN TIME alone under `IdentityDesignFactory`, which reads the profile key off the `dotnet ef` arguments so the scaffold, the `Optimize` compiled model, and the idempotent script each emit ONCE PER PROFILE off the one context type, and each profile's emission lands in its own migrations assembly the runtime options bind; the per-ELEMENT `NodeCell` grain stays element-distinct so the `pgrouting` cell-mesh route lands back on real element ids; the `Tenant` RLS column is the coarse partition and the `Element/authority` `ObjectAcl` the fine within-tenant grant, two altitudes never duplicated.
+- Boundary: the ONE transaction owner for identity beside event is the `IDocumentSession` — `IdentityStore.Stamp` is the lone stamp primitive the `GraphStore` rail composes (a queued model-derived upsert, never a Marten document: a document is an id+jsonb row structurally incapable of being the EF-shaped relation, and a `session.Store(identity)` claiming otherwise was the split-brain the queued statement deletes); EF/Npgsql is the READ projection and the DDL owner over the ONE declared `element_identity` relation, never a second write authority (a `DbContext.SaveChanges` over the identity table beside the Marten append is the deleted two-ORM gap); the rooted `NodeId` is the neutral kernel-minted DURABLE key and the IFC GlobalId is each node's seam `Node.Object.ExternalId` projection the `GlobalIds` map mirrors — a re-import mints fresh neutral `NodeId`s and the `Version/merge#STRUCTURAL_DIFF` `Reconcile` aligns them back on the stable GlobalId, so the durable key and every foreign reference survive re-import unchanged; THREE spatial planes live on the one tier and never duplicate — the H3 CELL plane (`Cell` per-model + `NodeCell.Cell` per-element, both `bigint` reinterpretations matching the `h3-pg` convention, bucket-equality joins the GiST/BRIN index answers), the GEOMETRY plane (`Bounds` `geometry(Polygon, 4326)` + GiST, exact XY predicates riding the `EF.Functions` translators SERVER-side — `IsWithinDistance` → `ST_DWithin`, `DistanceKnn` → the `<->` KNN order, `.Intersects`/`.Distance` instance translators, `ST_Union`/`ST_Extent` aggregates — never a client scan), and the VERTICAL plane (`ZMin`/`ZMax` per-model span + `NodeCell.Z` per-element elevation, plain indexed range predicates, so stacked elements sharing a footprint discriminate server-side and a storey band is one clause on the `Within` and `Route` op shapes, never a client elevation scan); `Rasm.Element` projects the seam-stable representation-bounds the `Bounds` producer contract names (Persistence is the recorded demanding consumer); `Bounds` is a nullable CLR `Polygon?` because the PostGIS translators bind the CLR geometry type directly in LINQ predicates — an `Option` wrapper here forfeits server-side translation, so null IS the absent-bounds state at this EF boundary; MODEL IDENTITY resolves per PROFILE and never per process: the framework's model cache keys on context type and design-time flag alone, so one context type against two engines serves the first-built model to the second, and the escape landed here is ONE COMPILED MODEL PER PROFILE — `StoreProfile.Model()` mounts through `UseModel`, which bypasses the model cache whole, so the cache-key hazard ceases to exist rather than getting keyed correctly, the profile row IS the model identity, and the two rejected escapes stay rejected because per-profile context types duplicate the declaration against this folder's ONE-`IdentityContext` ruling while `IModelCacheKeyFactory` forecloses compiled models whole, deleting the `#SCHEMA_VERDICT` `Optimize` deploy row outright; the EMBEDDED floor is provider-divergent model DATA on the one context, never a second mapping and never an interior probe — `IdentityShapeRow` carries the divergence as COLUMNS (`Bounds` degrades to a WKB `byte[]` column beside the H3 `bigint` cell where the geometry slot is absent, the JSON columns store as `text` rather than `jsonb`, and an absent vector slot ignores `Embedding` entirely, the embedded charter being the relational identity floor and `EngineOps` checkpoint tier, never SoR and never ANN), so a `Database.IsSqlite()` call inside model construction is the deleted form and a fourth divergence lands as a fourth column rather than a fourth predicate; `OnModelCreating` executes at DESIGN TIME alone under `IdentityDesignFactory`, which reads the profile key off the `dotnet ef` arguments so the scaffold, the `Optimize` compiled model, and the idempotent script each emit ONCE PER PROFILE off the one context type, and each profile's emission lands in its own generation namespace the runtime options bind; the per-ELEMENT `NodeCell` grain stays element-distinct so the `pgrouting` cell-mesh route lands back on real element ids; the `Tenant` RLS column is the coarse partition and the `Element/authority` `ObjectAcl` the fine within-tenant grant, two altitudes never duplicated.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -72,42 +72,41 @@ public abstract partial record StoreBinding {
 // `StoreProfile` uses, so `Of` joins the two axes through one generated lookup and a profile row landed without
 // its shape row fails that lookup loudly at composition. Absent slots are the divergence: no geometry slot drops
 // both the WKB `byte[]` conversion and the GiST index, and no vector slot leaves `Embedding` unmapped.
-// `Design` binds the provider WITHOUT a connection because a scaffold reaches no server, and `Migrations` names the
-// per-profile migrations assembly both the design emission and the runtime options bind.
+// `Design` binds the provider WITHOUT a connection because a scaffold reaches no server, and `Emission` names the
+// per-profile generation namespace both the design emission and the runtime options bind.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IdentityShapeRow {
     public static readonly IdentityShapeRow Server = new("server", json: "jsonb",
         geometry: Some(("geometry(Polygon,4326)", "gist")), vector: Some("vector(1536)"),
-        migrations: "Rasm.Persistence.Migrations.Server",
+        emission: "Rasm.Persistence.Generations.Server",
         design: static builder => builder.UseNpgsql(static npgsql => npgsql
-            .UseNetTopologySuite().UseNodaTime().UseVector().MigrationsAssembly("Rasm.Persistence.Migrations.Server")));
+            .UseNetTopologySuite().UseNodaTime().UseVector()));
     public static readonly IdentityShapeRow Embedded = new("embedded", json: "text",
         geometry: None, vector: None,
-        migrations: "Rasm.Persistence.Migrations.Embedded",
-        design: static builder => builder.UseSqlite(static sqlite => sqlite
-            .MigrationsAssembly("Rasm.Persistence.Migrations.Embedded")));
+        emission: "Rasm.Persistence.Generations.Embedded",
+        design: static builder => builder.UseSqlite());
 
     public string Json { get; }
     public Option<(string Column, string Index)> Geometry { get; }
     public Option<string> Vector { get; }
-    public string Migrations { get; }
+    public string Emission { get; }
     public Func<DbContextOptionsBuilder<IdentityContext>, DbContextOptionsBuilder> Design { get; }
 
     private IdentityShapeRow(string key, string json, Option<(string Column, string Index)> geometry, Option<string> vector,
-        string migrations, Func<DbContextOptionsBuilder<IdentityContext>, DbContextOptionsBuilder> design) : this(key) =>
-        (Json, Geometry, Vector, Migrations, Design) = (json, geometry, vector, migrations, design);
+        string emission, Func<DbContextOptionsBuilder<IdentityContext>, DbContextOptionsBuilder> design) : this(key) =>
+        (Json, Geometry, Vector, Emission, Design) = (json, geometry, vector, emission, design);
 
     public static IdentityShapeRow Of(StoreProfile profile) => Get(profile.Key);
 }
 
 // `CompiledModels` holds what `Optimize` emits, one run per profile under `IdentityDesignFactory`. `StoreProfile.Model`
 // reads these slots, so the profile row IS the model identity and `UseModel` never consults the framework cache.
-// Generated type names fix off the context, so each profile emits into its OWN migrations namespace (the
-// `Migrations` column above) — a shared namespace collides two engines on one `IdentityContextModel`.
+// Generated type names fix off the context, so each profile emits into its OWN generation namespace (the
+// `Emission` column above) — a shared namespace collides two engines on one `IdentityContextModel`.
 public static class CompiledModels {
-    public static IModel Server => Rasm.Persistence.Migrations.Server.Compiled.IdentityContextModel.Instance;
-    public static IModel Embedded => Rasm.Persistence.Migrations.Embedded.Compiled.IdentityContextModel.Instance;
+    public static IModel Server => Rasm.Persistence.Generations.Server.Compiled.IdentityContextModel.Instance;
+    public static IModel Embedded => Rasm.Persistence.Generations.Embedded.Compiled.IdentityContextModel.Instance;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -202,8 +201,8 @@ public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<Identity
         IdentityShapeRow row = args is [string key, ..]
             ? IdentityShapeRow.Get(key)
             // Exemption: `IDesignTimeDbContextFactory` returns the context bare, so the design-time tooling entry
-            // carries no rail. Defaulting a profile here would scaffold one engine's migration into another's
-            // assembly, so the absent argument refuses at the tool.
+            // carries no rail. Defaulting a profile here would emit one engine's generation into another's
+            // namespace, so the absent argument refuses at the tool.
             : throw new InvalidOperationException("<identity-design-profile:absent>");
         return new IdentityContext(
             (DbContextOptions<IdentityContext>)row.Design(new DbContextOptionsBuilder<IdentityContext>())
@@ -385,7 +384,7 @@ public static class IdentityStore {
 |  [03]   | spatial planes   | H3 `bigint` cells + PostGIS `Bounds` + z-span           | bucket joins; exact XY predicates; storey banding        |
 |  [04]   | embedded floor   | `IdentityShapeRow` option-typed column slots            | WKB bounds, text JSON, no vector column; one context     |
 |  [05]   | model identity   | one compiled model per `StoreProfile`                   | `UseModel` bypasses the cache; build is design-time only |
-|  [06]   | design emission  | `IdentityDesignFactory` keyed by profile argument       | per-profile scaffold, `Optimize`, script, migrations set |
+|  [06]   | design emission  | `IdentityDesignFactory` keyed by profile argument       | per-profile scaffold, `Optimize`, generation script      |
 |  [07]   | page index       | composite `(Tenant, At, Model)`                         | keyset tuple and its covering prefix, one declaration    |
 |  [08]   | rooted key       | neutral kernel-minted durable `NodeId`                  | `ExternalId` projection; re-ingest correlates on it      |
 |  [09]   | tenant partition | `Tenant` RLS column                                     | coarse scope; `ObjectAcl` is the fine grant              |
@@ -397,7 +396,7 @@ public static class IdentityStore {
 - Entry: `Mint(ReadOnlyMemory<byte>, Instant)` dispatches through the generated `Switch`; `Decode(ReadOnlySpan<byte>)` validates width and strict UTF-8 before returning `Fin<StoreKey>`; `StoreKey.Spelled` is the ordering-preserving big-endian transcription; `StoreKey.ObservedAt` projects a v7 key's embedded creation time.
 - Packages: Thinktecture.Runtime.Extensions, Rasm (`ContentHash.Of`), System.Security.Cryptography (`IncrementalHash`/`SHA1`), System.Buffers.Binary, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: one `IdentityPolicy` row carries text, CLR type, ordering, collision, and client-generated precedence; a new posture is one `Collision` row; zero new surface.
-- Boundary: every persisted key strategy traces to one row here — `uuid-ossp` is the deleted extension route; `StoreKey` is the one closed key carrier so a column type is a case projection, never a parallel key type per provider; ordering survives transcription only when the spelling preserves it — every case transcribes big-endian (`Guid.ToByteArray(bigEndian: true)`, the kernel `ContentHash.Wire`/`Admit` pair for the 16-byte content row, UTF-8) because the platform-default little-endian export fractures a binary-keyed index; `StoreKey.ObservedAt` makes a v7 key a free coarse creation-time axis so a composite `(low-cardinality discriminant, v7 key)` index stays append-local; identity-row change is never `AlterColumn` — it is an expand-wave second key backfilled by the `uuid-v7-backfill` row, a derivation flip, and a contract-wave drop, the only identity migration preserving foreign references and AS-OF cursor validity at once; content identity is the non-cryptographic kernel `ContentHash.Of` (no security claim, no direct `XxHash128` call site) and `namespace-key` mints the canonical RFC-4122 v5 namespace UUID (`SHA1` the spec construction, not a security claim).
+- Boundary: every persisted key strategy traces to one row here — `uuid-ossp` is the deleted extension route; `StoreKey` is the one closed key carrier so a column type is a case projection, never a parallel key type per provider; ordering survives transcription only when the spelling preserves it — every case transcribes big-endian (`Guid.ToByteArray(bigEndian: true)`, the kernel `ContentHash.Wire`/`Admit` pair for the 16-byte content row, UTF-8) because the platform-default little-endian export fractures a binary-keyed index; `StoreKey.ObservedAt` makes a v7 key a free coarse creation-time axis so a composite `(low-cardinality discriminant, v7 key)` index stays append-local; an identity-row change mints a new generation whose `Carried` relations re-mint every key through the `uuid-v7-backfill` derivation inside the cutover projection, so foreign references and AS-OF cursor validity land already consistent in the published namespace; content identity is the non-cryptographic kernel `ContentHash.Of` (no security claim, no direct `XxHash128` call site) and `namespace-key` mints the canonical RFC-4122 v5 namespace UUID (`SHA1` the spec construction, not a security claim).
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -1268,34 +1267,34 @@ public static class Custody {
 
 ## [07]-[SCHEMA_VERDICT]
 
-- Owner: `SchemaVerdict` the `[Union]` boot verdict; `Placement` the `[SmartEnum<string>]` write-authority axis carrying its authorities as one `CapabilitySet<PlacementAxis>` column under a declared `CapabilityLaw` of legal corners (the route-prescribed shape, declared here as the Persistence-Element owner); `IdentityFault` the `[Union]` identity-tier fault band deriving `Code` from its `[FaultCase]` roster on the kernel `Fault` floor (the `FaultBand.StoreIdentity` row — `Element/authority` composes this band, no band of its own); `ModelFingerprint` the MEASURED digest over a model's own metadata under a declared total order; `SchemaGate` the static surface folding the Marten startup posture, the EF migration identifier sets, and the fingerprint comparison into one typed verdict so boot is a total fold, never a best-effort open; `IdentityDdl` the migration owner — the EF.Design emission lanes beside the raw rows (RLS, extension installs) the generated model cannot express.
-- Cases: `SchemaVerdict` is `Serving` (model matches schema), `ServingBehind(Unknown)` (applied identifiers the compiled model does not know — schema newer than binary, admitted only under a declared expand-only invariant), `Provisioned(Applied)` (fresh store migrated), `Advanced(Applied)` (pending migrations applied), `AwaitBundle(Pending, Fresh)` (pending migrations a fleet member must not self-apply), `Drifted` (a model edit with neither migration nor regeneration); `IdentityFault` is `SchemaAhead(Unknown)` (EF identifiers the binary lacks), `ApplyFailed(Detail)` (an EF `Migrate` or a Marten apply throw), `MartenMismatch(Detail)` (the host-startup Marten assertion throw lifted onto the band), `CellUnresolvable(Detail)` (an H3 centroid that yields the invalid sentinel), `KeyMalformed(Detail)` (a persisted key failing width or strict UTF-8), `ModelStale(Mounted, Snapshot)` (a mounted compiled model whose fingerprint differs from the migrations-assembly snapshot's), `StoreRejected(Detail)` (a provider exception converted at the `#STORE_OPERATION_BRACKET` boundary), `CursorStale(Detail)` (a keyset cursor whose anchor row no longer exists), `WriteRefused(Detail)` (a mutating op refused at admission by placement or by an unverifiable retry).
-- Entry: `public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement)` folds the assembly and applied EF migration sets, then the fingerprint comparison, into the EF half of the verdict; `ModelFingerprint.Of(IModel)` mints the measured digest either side of that comparison; `public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement)` is the single-writer Marten apply leg over `store.Storage.ApplyAllConfiguredChangesToDatabaseAsync` followed by the `store.Advanced.ApplyRollingPartitionsAsync` roster roll, the fleet member's Marten posture being the host-registered `AssertDatabaseMatchesConfigurationOnStartup` gate whose throw lifts to `IdentityFault.MartenMismatch` — two legs, one band.
-- Packages: Marten (the host-builder `ApplyAllDatabaseChangesOnStartup`/`AssertDatabaseMatchesConfigurationOnStartup` registrations + the runtime `IDocumentStore.Storage.ApplyAllConfiguredChangesToDatabaseAsync(AutoCreate?)` and `IDocumentStore.Advanced.ApplyRollingPartitionsAsync`), Microsoft.EntityFrameworkCore (`GetMigrations`/`GetAppliedMigrations`/`Migrate`/`HasPendingModelChanges`, `DbContext.Model`, `AccessorExtensions.GetService<TService>`, `IModel.GetEntityTypes`, `IEntityType.GetProperties`/`GetKeys`/`GetIndexes`), Microsoft.EntityFrameworkCore.Relational (`IMigrationsAssembly.ModelSnapshot`, `ModelSnapshot.Model`, `StoreObjectIdentifier.Create(IReadOnlyTypeBase, StoreObjectType)`, `IProperty.GetColumnName(in StoreObjectIdentifier)`/`GetColumnType(in StoreObjectIdentifier)`, `IKey.GetName(in StoreObjectIdentifier)`, `IIndex.GetDatabaseName(in StoreObjectIdentifier)`), Microsoft.EntityFrameworkCore.Design (`PrivateAssets=all` — `MigrationsOperations.AddMigration`/`ScriptMigration` idempotent SQL, `DbContextOperations.Optimize` compiled model, `MigrationsBundle.Execute` the fleet migrator; the package earns its admission HERE), Rasm (`ContentHash.Of<TState>` + `CanonicalWriter.String`/`Bool`/`Sorted`/`Rows` — the fingerprint preimage on the one alphabet), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new boot outcome is one `SchemaVerdict` case; a new identity-tier failure is one `IdentityFault` case; a new non-modelable DDL fact is one `IdentityDdl` row the reviewed migration appends; zero new surface — a best-effort open, a per-process bootstrap branch, a bare `Error.New`, hand-authored `MigrationOperation` subclasses, or apply-time gating is the deleted form because boot is one total fold, the failures are one typed band, emission is generated, and the destructive change is gated at generation time.
-- Boundary: TWO DDL owners compose at boot — Marten owns its event/document DDL and the EF identity model owns its relational DDL — and each owner's posture is selected by the SAME `Placement` write authority: the single-writer placement APPLIES (EF `store.Database.Migrate()`, Marten `ApplyAllConfiguredChangesToDatabaseAsync` and the host `ApplyAllDatabaseChangesOnStartup` registration) while every fleet member ASSERTS and never applies — the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` roster rolls on that SAME single-writer leg because schema migration provisions a partition's leading edge yet never removes data, so the trailing-edge drop is the destructive half no assertion may carry and a fleet member rolls neither edge; the MIGRATION OWNER law: EF.Design EMITS — `dotnet ef migrations add` scaffolds the `element_identity`/`node_cell` migration off the one `IdentityContext` model under `IdentityDesignFactory` (the snake-case names, the Thinktecture-converted column types, the geometry column with its index method, and every embedded divergence all derive from the shape row, so each profile's migrations generate through the one owner into that profile's own migrations assembly), the scaffold is REVIEWED generated shape, `ScriptMigration` with the idempotent option produces the deploy-time SQL, `MigrationsBundle.Execute` the self-contained fleet migrator, and `Optimize` runs ONCE PER PROFILE so each `StoreProfile.Model` slot mounts its own compiled model; the raw rows the model CANNOT express — the RLS enable+force rows with the two-arm tenant/maintenance-plane policies off the kernel `SessionCoordinate` anchors and the frozen `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension.CreateSql` install rows (`postgis`, `h3-pg`, `vector` — the extension DDL commits through THIS rail, `ServerExtension` stays the frozen row vocabulary) — are `IdentityDdl` data the reviewed migration appends via `migrationBuilder.Sql`, never hand-authored operation subclasses; the expand/contract classification runs at GENERATION time over the emitted `MigrationOperation` rows (`AddColumnOperation` expands, `DropColumnOperation` contracts, `AlterColumnOperation` splits into the two waves per the `#IDENTITY_POLICY` expand/flip/contract law), so a destructive wave needs its explicit approval before a bundle ever ships; in the EF fold an applied-minus-assembly non-empty set is a typed `IdentityFault.SchemaAhead` (or `ServingBehind` under a read-ahead placement) carrying the unknown identifiers, never a silent open that corrupts on first write; the route-owned `docs/stacks/csharp/domain/persistence#MIGRATION_ALGEBRA` `SchemaGate`/`Placement`/`SchemaVerdict` is the general EF FORM this page realizes and extends with the Marten apply/assert leg; `EnsureCreated` bypasses the history mechanism and is admitted only for the ephemeral test row; read-ahead serving (`ServingBehind`) is legal only under a declared expand-only suite invariant, so the sound default is hard rejection; the FINGERPRINT gate closes the inverse hole `HasPendingModelChanges` leaves open — that arm catches a model edited without a migration, while a migration added against a compiled model nobody regenerated leaves the mounted model describing columns it has never seen, so the mounted model's MEASURED digest compares against the migrations-assembly snapshot's and a mismatch rails `IdentityFault.ModelStale` carrying both digests; the fingerprint is DERIVED, never asserted, and a zero standing in for an unmeasured digest spells no absence — so its preimage folds a canonical projection of entity-type names, table identity, property names, column names, column types, nullability, and key and index declarations under a declared total order through the kernel `ContentHash.Of`, length-framing every variable-width field and count-framing every collection so no separator-joined concatenation exists; key and index property lists keep DECLARED order because order is semantics for a composite prefix; the BUILD-TIME half — regenerate-and-diff, which catches a model edit carrying neither migration nor regeneration — belongs to the proof estate under `tests/README.md` and `tests/RULINGS.md` law and is this gate's counterpart, never authored here.
+- Owner: `SchemaVerdict` the `[Union]` boot verdict; `Placement` the `[SmartEnum<string>]` write-authority axis carrying its authorities as one `CapabilitySet<PlacementAxis>` column under a declared `CapabilityLaw` of legal corners (the route-prescribed shape, declared here as the Persistence-Element owner); `IdentityFault` the `[Union]` identity-tier fault band deriving `Code` from its `[FaultCase]` roster on the kernel `Fault` floor (the `FaultBand.StoreIdentity` row — `Element/authority` composes this band, no band of its own); `ModelFingerprint` the MEASURED digest over a model's own metadata under a declared total order, and the generation's whole name because the compiled model is the artifact set's one source; `SchemaGate` the static surface folding the Marten startup posture, the store's published generation digest, and the object census into one typed verdict so boot is a total fold, never a best-effort open; `IdentityDdl` the generation owner — the EF.Design emission lanes beside the raw rows (RLS, extension installs, the generation stamp) the generated model cannot express.
+- Cases: `SchemaVerdict` is `Serving` (the published generation equals the mounted model's digest), `Behind(Objects)` (declared relations the published namespace lacks, the successor generation's additions named for the operator), `Ahead(Objects)` (relations the compiled model cannot describe — the store's generation is newer than the binary, admitted only under a declared carry-forward invariant), `Absent` (no generation published, so nothing serves until one materializes); `IdentityFault` is `SchemaAhead(Unknown)` (undescribable relations the binary lacks), `ApplyFailed(Detail)` (a materialization or Marten apply throw), `MartenMismatch(Detail)` (the host-startup Marten assertion throw lifted onto the band), `CellUnresolvable(Detail)` (an H3 centroid that yields the invalid sentinel), `KeyMalformed(Detail)` (a persisted key failing width or strict UTF-8), `ModelStale(Mounted, Published)` (a mounted compiled model whose fingerprint differs from the generation the store publishes), `StoreRejected(Detail)` (a provider exception converted at the `#STORE_OPERATION_BRACKET` boundary), `CursorStale(Detail)` (a keyset cursor whose anchor row no longer exists), `WriteRefused(Detail)` (a mutating op refused at admission by placement or by an unverifiable retry).
+- Entry: `public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement, FrozenSet<string> census, Option<UInt128> published)` grades the published generation against the mounted model's own digest and carries the census purely as verdict evidence; `ModelFingerprint.Of(IModel)` mints that digest; `public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement)` is the single-writer Marten apply leg over `store.Storage.ApplyAllConfiguredChangesToDatabaseAsync` followed by the `store.Advanced.ApplyRollingPartitionsAsync` roster roll, the fleet member's Marten posture being the host-registered `AssertDatabaseMatchesConfigurationOnStartup` gate whose throw lifts to `IdentityFault.MartenMismatch` — two legs, one band.
+- Packages: Marten (the host-builder `ApplyAllDatabaseChangesOnStartup`/`AssertDatabaseMatchesConfigurationOnStartup` registrations + the runtime `IDocumentStore.Storage.ApplyAllConfiguredChangesToDatabaseAsync(AutoCreate?)`, `IDocumentStore.Advanced.ApplyRollingPartitionsAsync`, and the daemon `RebuildProjectionAsync`), Microsoft.EntityFrameworkCore (`Database.EnsureCreated`/`EnsureDeleted`, `GenerateCreateScript`, `DbContext.Model`, `AccessorExtensions.GetService<TService>`, `IModel.GetEntityTypes`, `IEntityType.GetProperties`/`GetKeys`/`GetIndexes`), Microsoft.EntityFrameworkCore.Relational (`IRelationalDatabaseCreator.CreateTables`/`HasTables`, `StoreObjectIdentifier.Create(IReadOnlyTypeBase, StoreObjectType)`, `IProperty.GetColumnName(in StoreObjectIdentifier)`/`GetColumnType(in StoreObjectIdentifier)`, `IKey.GetName(in StoreObjectIdentifier)`, `IIndex.GetDatabaseName(in StoreObjectIdentifier)`), Microsoft.EntityFrameworkCore.Design (`PrivateAssets=all` — `DbContextOperations.Optimize` compiled model; the package earns its admission HERE), Rasm (`ContentHash.Of<TState>` + `CanonicalWriter.String`/`Bool`/`Sorted`/`Rows` — the fingerprint preimage on the one alphabet), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: a new boot outcome is one `SchemaVerdict` case; a new identity-tier failure is one `IdentityFault` case; a new non-modelable DDL fact is one `IdentityDdl` row the generation script appends; zero new surface — a best-effort open, a per-process bootstrap branch, a bare `Error.New`, an assembly of hand-authored schema deltas, or apply-time gating is the deleted form because boot is one total fold, the failures are one typed band, emission is generated, and a shape change replaces the whole generation.
+- Boundary: TWO DDL owners compose at boot — Marten owns its event/document DDL and the EF identity model owns its relational DDL — and each owner's posture is selected by the SAME `Placement` write authority: the single-writer placement MATERIALIZES (`IRelationalDatabaseCreator.CreateTables` into the unpublished namespace, Marten `ApplyAllConfiguredChangesToDatabaseAsync` and the host `ApplyAllDatabaseChangesOnStartup` registration) while every fleet member ASSERTS and never materializes, `AutoCreate.None` holding on both so the runtime asserts its configuration and creates nothing implicitly — the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` roster rolls on that SAME single-writer leg because a partition's leading edge provisions purely additively yet the trailing-edge drop is the destructive half no assertion may carry, and a fleet member rolls neither edge; the GENERATION OWNER law: EF.Design EMITS — the compiled model renders the `element_identity`/`node_cell` artifacts under `IdentityDesignFactory` (the snake-case names, the Thinktecture-converted column types, the geometry column with its index method, and every embedded divergence all derive from the shape row, so each profile's generation renders through the one owner into that profile's own emission namespace), `GenerateCreateScript` yields the reviewed generation script the deploy plane runs, and `Optimize` runs ONCE PER PROFILE so each `StoreProfile.Model` slot mounts its own compiled model; the raw rows the model CANNOT express — the RLS enable+force rows with the two-arm tenant/maintenance-plane policies off the kernel `SessionCoordinate` anchors, the frozen `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension.CreateSql` install rows (`postgis`, `h3-pg`, `vector` — the extension DDL commits through THIS rail, `ServerExtension` stays the frozen row vocabulary), and the generation stamp whose value digests the model that otherwise declares it — are `IdentityDdl` data the generation script appends as raw statements; materialization runs as ONE transaction into a namespace no session's `search_path` names and publishes by renaming it over the live name, so a torn build publishes nothing and the successor re-runs whole from an empty namespace — resume from a partial build is the declared loss, priced against a half-materialized store no verdict can classify; each relation declares its rebuild posture before it ships (`Derived` rebuilt from truth inside the materialization, `Carried` lifted by its own declared `INSERT … SELECT` inside the cutover, `Resident` outside every generation), and read models are `Derived` by construction — the projection daemon's `RebuildProjectionAsync` replays the event log, so no projection carries a state-preserving upgrade path; a census carrying relations this model cannot describe is a typed `IdentityFault.SchemaAhead` (or `Ahead` under a read-ahead placement), never a silent open that corrupts on first write, and read-ahead serving is legal only under a declared carry-forward invariant so the sound default is hard rejection; the route-owned `docs/stacks/csharp/domain/persistence#GENERATION_ALGEBRA` `SchemaGate`/`Placement`/`SchemaVerdict` is the general EF FORM this page realizes and extends with the Marten apply/assert leg; `Database.EnsureCreated` paired with `EnsureDeleted` is the ephemeral test row's arm, owning its whole store; the FINGERPRINT gate is the one drift proof — a generation materialized against a compiled model nobody regenerated leaves the mounted model describing columns it has never seen, so the mounted model's MEASURED digest compares against the digest the store published at cutover and a mismatch rails `IdentityFault.ModelStale` carrying both; the fingerprint is DERIVED, never asserted, and a zero standing in for an unmeasured digest spells no absence — so its preimage folds a canonical projection of entity-type names, table identity, property names, column names, column types, nullability, and key and index declarations under a declared total order through the kernel `ContentHash.Of`, length-framing every variable-width field and count-framing every collection so no separator-joined concatenation exists; key and index property lists keep DECLARED order because order is semantics for a composite prefix; the BUILD-TIME half — regenerate-and-diff, which catches a model edit reaching neither artifacts nor compiled model — belongs to the proof estate under `tests/README.md` and `tests/RULINGS.md` law and is this gate's counterpart, never authored here.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using Microsoft.EntityFrameworkCore.Infrastructure;   // AccessorExtensions.GetService / ModelSnapshot
-using Microsoft.EntityFrameworkCore.Migrations;       // IMigrationsAssembly — the snapshot side of the fingerprint
+using Microsoft.EntityFrameworkCore.Infrastructure;   // AccessorExtensions.GetService
+using Microsoft.EntityFrameworkCore.Storage;          // IRelationalDatabaseCreator — the materialization arm
 using Rasm.Domain;                                    // SessionCoordinate — the [SESSION_GUC] policy-arm anchors
 
 // --- [TYPES] ---------------------------------------------------------------------------
 // `PlacementAxis` names the three authorities a placement holds, as the kernel capability VOCABULARY rather than
 // a bool triple: that triple spanned eight corners while exactly three are legal, and the corner law is the fact a boolean product
-// cannot state — `appliesPending` without `writes` is a member applying DDL it may not write, and `readsAhead`
-// beside `writes` is a replica admitting a schema it also mutates. Both are unspellable now.
+// cannot state — `materializes` without `writes` is a member building DDL it may not write, and `readsAhead`
+// beside `writes` is a replica admitting a generation it also mutates. Both are unspellable now.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlacementAxis : ICapability<PlacementAxis> {
     public static readonly PlacementAxis Writes = new("writes");
-    public static readonly PlacementAxis AppliesPending = new("applies-pending");
+    public static readonly PlacementAxis Materializes = new("materializes");
     public static readonly PlacementAxis ReadsAhead = new("reads-ahead");
 }
 
-// Write-authority axis the route-owned `docs/stacks/csharp/domain/persistence#MIGRATION_ALGEBRA` prescribes,
-// declared here as the Persistence-Element owner: single-writer applies both DDL owners, the fleet member
+// Write-authority axis the route-owned `docs/stacks/csharp/domain/persistence#GENERATION_ALGEBRA` prescribes,
+// declared here as the Persistence-Element owner: single-writer materializes both DDL owners, the fleet member
 // asserts-only, the reader serves-behind. NAMED LOSS: per-authority compile-time exhaustiveness — narrowing a
 // row's held set is now a data edit no consumer breaks on. WITNESS: `Law` refuses an illegal corner at
 // construction and every consuming seam states the set it needs as a VALUE, so a narrowed row fails at its own
@@ -1303,7 +1302,7 @@ public sealed partial class PlacementAxis : ICapability<PlacementAxis> {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Placement {
-    public static readonly Placement SingleWriter = new("single-writer", PlacementAxis.Writes, PlacementAxis.AppliesPending);
+    public static readonly Placement SingleWriter = new("single-writer", PlacementAxis.Writes, PlacementAxis.Materializes);
     public static readonly Placement FleetMember = new("fleet-member", PlacementAxis.Writes);
     public static readonly Placement Reader = new("reader", PlacementAxis.ReadsAhead);
     public CapabilitySet<PlacementAxis> Held { get; }
@@ -1311,13 +1310,13 @@ public sealed partial class Placement {
     // `Law` declares the three legal corners and `Admit` runs at construction, so a fourth row minting an
     // illegal combination refuses where it is written rather than at the seam that later reads it.
     public static readonly CapabilityLaw<PlacementAxis> Law = new(Seq(
-        CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes, PlacementAxis.AppliesPending),
+        CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes, PlacementAxis.Materializes),
         CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes),
         CapabilitySet<PlacementAxis>.Of(PlacementAxis.ReadsAhead)));
 
-    // Consuming seams state these two demands as VALUES: the mutating lane and the DDL-applying leg.
+    // Consuming seams state these two demands as VALUES: the mutating lane and the materializing leg.
     public static readonly CapabilitySet<PlacementAxis> Mutating = CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes);
-    public static readonly CapabilitySet<PlacementAxis> Applying = CapabilitySet<PlacementAxis>.Of(PlacementAxis.AppliesPending);
+    public static readonly CapabilitySet<PlacementAxis> Materializing = CapabilitySet<PlacementAxis>.Of(PlacementAxis.Materializes);
 
     private Placement(string key, params ReadOnlySpan<PlacementAxis> held) : this(key) =>
         Held = CapabilitySet<PlacementAxis>.Of(held);
@@ -1335,11 +1334,9 @@ public sealed partial class Placement {
 public abstract partial record SchemaVerdict {
     private SchemaVerdict() { }
     public sealed record Serving : SchemaVerdict;
-    public sealed record ServingBehind(Seq<string> Unknown) : SchemaVerdict;
-    public sealed record Provisioned(Seq<string> Applied) : SchemaVerdict;
-    public sealed record Advanced(Seq<string> Applied) : SchemaVerdict;
-    public sealed record AwaitBundle(Seq<string> Pending, bool Fresh) : SchemaVerdict;
-    public sealed record Drifted : SchemaVerdict;
+    public sealed record Behind(Seq<string> Objects) : SchemaVerdict;
+    public sealed record Ahead(Seq<string> Objects) : SchemaVerdict;
+    public sealed record Absent : SchemaVerdict;
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -1356,7 +1353,7 @@ public abstract partial record IdentityFault : Fault {
     [FaultCase(3)] public sealed partial record MartenMismatch(string Detail) : IdentityFault;
     [FaultCase(4)] public sealed partial record CellUnresolvable(string Detail) : IdentityFault;
     [FaultCase(5)] public sealed partial record KeyMalformed(string Detail) : IdentityFault;
-    [FaultCase(6)] public sealed partial record ModelStale(UInt128 Mounted, UInt128 Snapshot) : IdentityFault;
+    [FaultCase(6)] public sealed partial record ModelStale(UInt128 Mounted, UInt128 Published) : IdentityFault;
     // Each provider refusal carries its CLASS, so the execution strategy above the bracket reads a posture
     // this rail STATES rather than re-deriving one from a message. `Throttled` is unspellable here — a relational
     // refusal carries no server-stated delay — so the two-case split the driver reports is the whole vocabulary.
@@ -1374,7 +1371,7 @@ public abstract partial record IdentityFault : Fault {
         martenMismatch:   static c => $"<marten-mismatch:{c.Detail}>",
         cellUnresolvable: static c => $"<cell-unresolvable:{c.Detail}>",
         keyMalformed:     static c => $"<key-malformed:{c.Detail}>",
-        modelStale:       static c => $"<model-stale:{c.Mounted:x32}!={c.Snapshot:x32}>",
+        modelStale:       static c => $"<model-stale:{c.Mounted:x32}!={c.Published:x32}>",
         storeRejected:    static c => $"<store-rejected:{c.Slot}:{c.Cause.Message}>",
         cursorStale:      static c => $"<cursor-stale:{c.Detail}>",
         writeRefused:     static c => $"<write-refused:{c.Detail}>",
@@ -1432,11 +1429,11 @@ public static class ModelFingerprint {
         w.Rows(properties, (property, x) => { x.String(property.GetColumnName(table) ?? string.Empty); });
 }
 
-// Migration owner's non-modelable rows: EF.Design EMITS the schema (scaffold -> reviewed generated shape;
-// each profile's migrations generate off that profile's model); these are ONLY the facts the model cannot express —
-// RLS enable+force and the two-arm tenant policies, and the frozen `ServerExtension.CreateSql` install rows the
-// reviewed migration appends via `migrationBuilder.Sql`. Hand-authored `MigrationOperation` subclasses are the
-// deleted form.
+// Generation owner's non-modelable rows: EF.Design EMITS the schema (`GenerateCreateScript` off that profile's own
+// compiled model, reviewed as generated shape); these are ONLY the facts the model cannot express — RLS enable+force
+// with the two-arm tenant policies, the frozen `ServerExtension.CreateSql` install rows, and the generation stamp
+// whose value is the digest of the very model that would otherwise declare it. The script appends them as raw
+// statements inside the one materialization transaction; an assembly of hand-authored deltas is the deleted form.
 public static class IdentityDdl {
     // Two-arm `[SESSION_GUC]` policies off the kernel `SessionCoordinate` anchors: the tenant arm admits pinned
     // request work, the plane arm admits the stated maintenance posture, and FORCE keeps the table owner inside the
@@ -1452,60 +1449,66 @@ public static class IdentityDdl {
     });
 
     // `Extensions` commits extension DDL on the postgres arm only: the frozen provisioning row vocabulary
-    // supplies the SQL, the migration executes it — never a second install path.
+    // supplies the SQL, the generation script executes it — never a second install path.
     public static Seq<string> Extensions(Seq<ServerExtension> required) => required.Map(static ext => ext.CreateSql);
+
+    // `SchemaGate` reads this stamp back as the published generation: the cutover transaction writes the mounted
+    // model's own measured digest, so the store names its shape with the one value the model itself can mint.
+    public static Seq<string> Stamp(UInt128 digest) => toSeq(new[] {
+        "CREATE TABLE IF NOT EXISTS schema_generation (digest TEXT PRIMARY KEY)",
+        $"INSERT INTO schema_generation (digest) VALUES ('{digest:x32}')",
+    });
 }
 
 public static class SchemaGate {
-    // `Admit` is the EF half of the boot fold over the relational identity DDL: the assembly-vs-applied migration sets
-    // classified by the route-owned `Placement` write authority — schema-ahead is a typed rejection, the
-    // single-writer applies, the fleet member AwaitBundle. Every failure is the typed IdentityFault band.
-    public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement) {
+    // `Admit` is the EF half of the boot fold over the relational identity DDL: the PUBLISHED generation digest
+    // graded against the mounted compiled model's own measured digest, classified by the route-owned `Placement`
+    // write authority. The census carries evidence alone — an undescribable relation is a typed rejection, the
+    // single-writer materializes an absent generation, every other placement waits. One typed IdentityFault band.
+    public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement, FrozenSet<string> census, Option<UInt128> published) {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(placement);
-        Seq<string> assembly = toSeq(store.Database.GetMigrations());
-        Seq<string> applied = toSeq(store.Database.GetAppliedMigrations());
-        Seq<string> unknown = applied.Filter(id => !assembly.Exists(held => held == id));
-        Seq<string> pending = assembly.Filter(id => !applied.Exists(held => held == id));
-        return (unknown.IsEmpty, pending.IsEmpty) switch {
-            (false, _) when placement.Held.Admits(PlacementAxis.ReadsAhead) => Fin<SchemaVerdict>.Succ(new SchemaVerdict.ServingBehind(unknown)),
-            (false, _) => Fin<SchemaVerdict>.Fail(new IdentityFault.SchemaAhead(unknown)),
-            (_, false) when placement.Held.Admits(PlacementAxis.AppliesPending) => Op.Of().Catch(() => Fin.Succ(fun(() => store.Database.Migrate())))
-                .Match(
-                    Succ: _ => Fin<SchemaVerdict>.Succ(applied.IsEmpty ? new SchemaVerdict.Provisioned(pending) : new SchemaVerdict.Advanced(pending)),
-                    Fail: error => Fin<SchemaVerdict>.Fail(new IdentityFault.ApplyFailed(error))),
-            (_, false) => Fin<SchemaVerdict>.Succ(new SchemaVerdict.AwaitBundle(pending, Fresh: applied.IsEmpty)),
-            _ when store.Database.HasPendingModelChanges() => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Drifted()),
-            _ => Fingerprinted(store),
+        UInt128 compiled = ModelFingerprint.Of(store.Model);
+        Seq<string> declared = toSeq(store.Model.GetEntityTypes())
+            .Map(static type => StoreObjectIdentifier.Create(type, StoreObjectType.Table) is { } table ? table.Name : string.Empty)
+            .Filter(static name => name.Length > 0);
+        Seq<string> unknown = toSeq(census).Filter(name => !declared.Exists(held => held == name));
+        return published.Case switch {
+            null when placement.Held.Admits(PlacementAxis.Materializes) => Materialized(store),
+            null => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Absent()),
+            // Digest equality is the WHOLE grade: the fingerprint measures the mounted model itself, so a match IS
+            // serving, any other value is a difference, never a distance, and no arm ranks two generations.
+            UInt128 held when held == compiled => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving()),
+            _ when unknown.IsEmpty => Fin<SchemaVerdict>.Succ(
+                new SchemaVerdict.Behind(declared.Filter(name => !census.Contains(name)))),
+            _ when placement.Held.Admits(PlacementAxis.ReadsAhead) => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Ahead(unknown)),
+            _ => Fin<SchemaVerdict>.Fail(new IdentityFault.SchemaAhead(unknown)),
         };
     }
 
-    // Fingerprint arm: `HasPendingModelChanges` above catches a model edited without a migration; this closes the
-    // INVERSE — a migration added while the compiled model was never regenerated, which serves reads against
-    // columns the mounted model has never seen. An absent snapshot is a migrations assembly with no scaffold yet
-    // and admits; a present one compares MEASURED digests and rails both on mismatch.
-    static Fin<SchemaVerdict> Fingerprinted(DbContext store) =>
-        store.GetService<IMigrationsAssembly>().ModelSnapshot is { Model: var snapshot }
-            ? (Mounted: ModelFingerprint.Of(store.Model), Snapshot: ModelFingerprint.Of(snapshot)) switch {
-                var pair when pair.Mounted == pair.Snapshot => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving()),
-                var pair => Fin<SchemaVerdict>.Fail(new IdentityFault.ModelStale(pair.Mounted, pair.Snapshot)),
-            }
-            : Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving());
+    // Materialization arm: the creator builds every artifact into the namespace this session's `search_path` pins,
+    // which the deploy plane's rename publishes. It is ONE transaction, so a torn build publishes nothing and the
+    // successor re-runs whole — resume from a partial build is the loss this transactional shape buys out.
+    static Fin<SchemaVerdict> Materialized(DbContext store) =>
+        Op.Of().Catch(() => Fin.Succ(fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables())))
+            .Match(
+                Succ: _ => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving()),
+                Fail: error => Fin<SchemaVerdict>.Fail(new IdentityFault.ApplyFailed(error)));
 
     // Marten's DDL leg runs here: the single-writer placement APPLIES the document/event schema through the runtime
     // `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync` (the fleet member instead carries the
     // host-registered `AssertDatabaseMatchesConfigurationOnStartup` gate whose throw lifts to MartenMismatch
     // BEFORE this runs), then rolls the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` roster in the SAME
-    // leg — schema migration provisions a leading edge (purely additive, so the diff carries it) but never removes
-    // data, so retiring the trailing edge is exactly the half the migration cannot do and belongs to the write
-    // authority that just applied. `ApplyRollingPartitionsAsync` is the both-halves verb (roll forward AND drop
+    // leg — materialization provisions a leading edge (purely additive, so the generation carries it) but never
+    // removes data, so retiring the trailing edge is exactly the half a materialization cannot do and belongs
+    // to the write authority that just built. `ApplyRollingPartitionsAsync` is the both-halves verb (roll forward AND drop
     // aged), idempotent and multi-node safe, and it runs BEFORE any configuration assertion because once the clock
     // crosses a period boundary the database legitimately lacks the partition this pass is about to create. The
     // fleet member runs NEITHER half: partition rotation is a destructive DDL act and the assert-only posture owns
     // no destructive act. A reader/fleet member returns Serving without touching DDL; a throw from either half
     // lifts to ApplyFailed, the SAME band the EF leg uses.
     public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement) =>
-        placement.Held.Admits(PlacementAxis.AppliesPending)
+        placement.Held.Admits(PlacementAxis.Materializes)
             ? IO.liftAsync(async () => await Op.Of().Catch(async _ => {
                 await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync().ConfigureAwait(false);
                 await store.Advanced.ApplyRollingPartitionsAsync().ConfigureAwait(false);
@@ -1518,18 +1521,19 @@ public static class SchemaGate {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                   | [BINDING]                                                          |
-| :-----: | :---------------- | :---------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | Marten DDL        | `AutoCreate.CreateOrUpdate` (writer)      | `AssertDatabaseMatchesConfigurationOnStartup` asserts on the fleet |
-|  [02]   | EF identity DDL   | generated migrations, one set per profile | shape row emits that profile's SQL; scaffold is reviewed shape     |
-|  [03]   | non-modelable DDL | `IdentityDdl.Rls` + `Extensions` rows     | `migrationBuilder.Sql` appends the frozen `ServerExtension` SQL    |
-|  [04]   | boot verdict      | `SchemaGate.Admit` (Marten, EF, digest)   | schema-ahead and stale-model are typed faults, never a silent open |
-|  [05]   | model fingerprint | measured `ModelFingerprint` both sides    | mounted model against snapshot; framed preimage, never asserted    |
-|  [06]   | pending apply     | single-writer placement only              | fleet member `AwaitBundle`, never self-applies                     |
-|  [07]   | deploy lane       | `ScriptMigration`                         | idempotent deploy SQL                                              |
-|  [08]   | deploy lane       | `MigrationsBundle`                        | self-contained fleet migrator                                      |
-|  [09]   | deploy lane       | `Optimize`, once per profile              | each `StoreProfile.Model` slot mounts its own compiled model       |
-|  [10]   | partition roll    | `ApplyRollingPartitionsAsync` (writer)    | both edges in one pass, ahead of any assertion; fleet rolls none   |
+| [INDEX] | [POLICY]          | [VALUE]                                     | [BINDING]                                                         |
+| :-----: | :---------------- | :------------------------------------------ | :---------------------------------------------------------------- |
+|  [01]   | Marten DDL        | `AutoCreate.None` (every placement)         | writer applies explicitly; the fleet asserts configuration match  |
+|  [02]   | EF identity DDL   | one generation per profile                  | shape row renders that profile's script; the script is reviewed   |
+|  [03]   | non-modelable DDL | `Rls` + `Extensions` + `Stamp` rows         | raw statements the generation script appends inside the one txn   |
+|  [04]   | boot verdict      | `SchemaGate.Admit` (Marten, digest, census) | ahead and stale-model are typed faults, never a silent open       |
+|  [05]   | model fingerprint | measured `ModelFingerprint` both sides      | mounted model against the published stamp; framed, never asserted |
+|  [06]   | materialization   | single-writer placement only                | every other placement waits on the deploy plane                   |
+|  [07]   | deploy lane       | `GenerateCreateScript`                      | the generation script the deploy plane runs                       |
+|  [08]   | deploy lane       | fresh-namespace cutover                     | build unpublished, publish by rename, one transaction             |
+|  [09]   | deploy lane       | `Optimize`, once per profile                | each `StoreProfile.Model` slot mounts its own compiled model      |
+|  [10]   | read models       | `RebuildProjectionAsync` from the log       | projections are `Derived`; replay is their whole upgrade path     |
+|  [11]   | partition roll    | `ApplyRollingPartitionsAsync` (writer)      | both edges in one pass, ahead of any assertion; fleet rolls none  |
 
 ## [08]-[RESEARCH]
 

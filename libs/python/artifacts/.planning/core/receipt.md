@@ -43,7 +43,7 @@ from opentelemetry import context as otel_context
 
 from rasm.artifacts.core.hooks import ArtifactHook, Production, ReceiptEmitted, scoped
 from rasm.compute.graduation.handoff import GraduationReceipt, HandoffAxis
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactRef
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactRef
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Fact, MeterFact, Party, Resource, Retain, Subject

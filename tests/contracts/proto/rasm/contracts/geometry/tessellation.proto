@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package rasm.contracts.geometry;
+
+import "buf/validate/validate.proto";
+
+// One tessellation policy shared by request and evidence surfaces.
+message TessellationPolicy {
+  double deflection_m = 1 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+  double angle_tolerance_rad = 2 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+    lte: 3.141592653589793
+  }];
+  uint64 triangle_budget = 3 [(buf.validate.field).uint64 = {
+    gt: 0
+    lte: 8388608
+  }];
+}

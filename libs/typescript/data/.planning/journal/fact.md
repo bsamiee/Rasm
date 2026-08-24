@@ -237,7 +237,7 @@ const _append = (
 ## [04]-[RATING]
 
 - Owner: the rollup fold, the bound window read, and the rating evaluation — `rollup` is ONE entry whose modality is the input shape: a row array folds pure through `HashMap.modifyAt` over `(app, tenant, resource)` tuples accumulating `{ count, total }`, a `Fact.Window` value reads the meter stream through `_meters` — the one decoded windowed SELECT this page owns, so no billing consumer hand-mints SQL against `fact_journal` — then runs the same fold; `rate` folds a caller-supplied rating policy over the rolled aggregates into exact per-key cost.
-- Packages: `effect`, `SqlSchema`, `Clock.Hlc`, and `Upcast.json` supply exact folds, window reads, time, and payload decode.
+- Packages: `effect`, `SqlSchema`, `Clock.Hlc`, and `Payload.json` supply exact folds, window reads, time, and payload decode.
 - Entry: `Fact.rollup(facts)` over rows in hand, `Fact.rollup(window)` over a billing period read from the journal; `Fact.rate(rolled, rating)` at settlement; the at-scale replication of these windows into the OLAP lane is `lane/olap.md`'s ingestion row.
 - Growth: a new charge model (tiered, floor, minimum) is one field on the rating row read inside `rate` — never a second rating function.
 - Law: rates are caller-supplied policy — a `Rating` record keyed by the resource union, each row a `BigDecimal` unit price with its currency — because prices are app policy, never lib constants; the shape closes over the derived union, so a missing rate row is a compile error at the policy literal.
@@ -250,7 +250,7 @@ const _append = (
 import { Array, BigDecimal, Data, DateTime, HashMap, Option, type ParseResult } from "effect"
 import { SqlSchema } from "@effect/sql"
 import { Clock } from "@rasm/core"
-import { Upcast } from "./evolve.ts"
+import { Payload } from "./evolve.ts"
 
 declare namespace Fact {
   type Key = readonly [app: Identity.App.Key, tenant: Option.Option<Identity.Tenant.Key>, resource: Resource]
@@ -275,7 +275,7 @@ const _meters = (window: Fact.Window) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     SqlSchema.findAll({
       Request: Schema.Struct({ app: Identity.App.fields.app, from: Schema.DateTimeUtc, to: Schema.DateTimeUtc }),
-      Result: Schema.Struct({ payload: Upcast.json(MeterFact) }),
+      Result: Schema.Struct({ payload: Payload.json(MeterFact) }),
       execute: (bounds) =>
         sql`SELECT payload FROM fact_journal
             WHERE stream = 'MeterFact' AND app = ${bounds.app}

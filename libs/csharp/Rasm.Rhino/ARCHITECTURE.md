@@ -234,17 +234,17 @@ flowchart LR
     Rasm e33@-->|"[BOUNDARY]: PerceptualColor + VectorCone + UnitInterval + Lease + Context + ContentHash"| Objects
     Document e34@-->|"[WIRE]: Organization"| PyData
     Document e35@-->|"[WIRE]: Organization"| TsData
-    Objects e36@-->|"[WIRE]: rasm.contracts.scene.v1"| PyGeometry
+    Objects e36@-->|"[WIRE]: rasm.contracts.scene"| PyGeometry
 ```
 
 Every kernel contract is a frozen-name value type the host binds and never re-mints: each `[BOUNDARY]` edge names the members its consuming sub-domain spells at its own fences, so a kernel shape reached only as a case payload of an already-registered carrier rides that carrier's edge and mints none of its own. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction, and the kernel seam registry mirrors each edge from its producing side.
 
 - `AnalysisQuery` rides the Document, Commands, and Display rails — `AnalysisOverlay` drives false-colour off `Analyze.In(...).Run`.
 - `PerceptualColor` is the one colour crossing on every rail carrying it — `System.Drawing.Color` admits through `OfRgb` and leaves through `ToRgb`.
-- `Document/layers#ORGANIZATION_PROJECTION` emits the recursive `organization.v1.Organization` forest folded by Python and TypeScript data peers.
+- `Document/layers#ORGANIZATION_PROJECTION` emits the recursive `organization.Organization` forest folded by Python and TypeScript data peers.
 - Wire names state the host-free organizational concept and the layer vocabulary translates at the projection — no host `Guid` or path crosses.
 - `tests/contracts/manifest.json` `ORGANIZATION_WIRE` owns that wire's schema and its fact identity.
-- `Objects/lights#ASK_AND_COMMIT` emits the `rasm.contracts.scene.v1` capture descriptor `python:geometry` decodes for daylight and comfort recipes.
+- `Objects/lights#ASK_AND_COMMIT` emits the `rasm.contracts.scene` capture descriptor `python:geometry` decodes for daylight and comfort recipes.
 - One emitter owns the whole descriptor — Objects composes the `Render/settings#SUN_ASTRONOMY` band downward, so nothing mints half a capture.
 - Sun angles cross solved and the consumer grades declared fidelity; identity crosses RFC-4122 big-endian and spectra scene-linear on `SceneMap`.
 

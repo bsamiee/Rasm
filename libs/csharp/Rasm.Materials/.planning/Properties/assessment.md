@@ -33,7 +33,7 @@ using LanguageExt.Common;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using Rasm.AppHost.Runtime;
-using Rasm.Contracts.Declaration.V1;
+using Rasm.Contracts.Declaration;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Projection;

@@ -461,6 +461,7 @@ TOOLS: tuple[Tool, ...] = (
         timeout=_CONTRACTS_TIMEOUT_S,
         env=_BUF_ENV,
     ),
+    # Publish custody: the module's default label resolves to one immutable commit before the push and again after it.
     Tool(
         "buf-baseline",
         PNPM,
@@ -473,32 +474,9 @@ TOOLS: tuple[Tool, ...] = (
         env=_BUF_ENV,
     ),
     Tool(
-        "buf-breaking",
-        PNPM,
-        ("buf", "breaking", "tests/contracts/proto", "--against", "{input}", "--error-format", "json"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        parser=Parser.BUF,
-        defect_exit=BUF_DEFECT_EXIT,
-        env=_BUF_ENV,
-    ),
-    Tool(
         "buf-build",
         PNPM,
         ("buf", "build", "-o", "{output}", "--as-file-descriptor-set"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.QUERY,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-constraint",
-        PNPM,
-        ("buf", "build", "{input}", "-o", "{output}", "--as-file-descriptor-set"),
         OWNED,
         PROTO,
         Claim.CONTRACTS,
@@ -543,8 +521,6 @@ TOOLS: tuple[Tool, ...] = (
     # anchors, rosters, and descriptors, and the scratch-vs-committed freshness diff.
     Tool("plugin-probe", INPROC, ("plugin-probe", "resolve"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.VERIFY),
     Tool("corpus-gate", INPROC, ("corpus-gate", "check"), OWNED, PROTO, Claim.CONTRACTS),
-    # buf breaking carries rule options as opaque payload, so narrowed protovalidate rules diff against the baseline image here.
-    Tool("constraint-gate", INPROC, ("constraint-gate", "diff"), OWNED, PROTO, Claim.CONTRACTS),
     Tool("freshness-gate", INPROC, ("freshness-gate", "diff"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.QUERY),
     # The writer leg validates and transactionally commits the complete staged package/schema image.
     Tool("corpus-emit", INPROC, ("corpus-emit", "write"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.WRITE),

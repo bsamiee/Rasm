@@ -101,7 +101,7 @@ internal static class SessionKernel {
         // The cursor's Negotiating arm only needs supervisor-side handshake evidence; the wire-side
         // capabilities ride SupervisorConnection.HelloAsync, so this is the algebra's placeholder peer.
         private static readonly Handshake SupervisorHandshake = new(
-            ContractVersion: Handshake.CurrentVersion, SenderVersion: "supervisor",
+            ContractGeneration: Handshake.Generation, SenderVersion: "supervisor",
             Capabilities: [], Fingerprint: null, Endpoint: null);
 
         private readonly SupervisorVerb verb;
@@ -174,8 +174,8 @@ internal static class SessionKernel {
                     rpc: ct => connection.HelloAsync(ct: ct)).ConfigureAwait(false);
                 LiveHost negotiated = live with { Fingerprint = peer.Fingerprint ?? live.Fingerprint, Endpoint = peer.Endpoint ?? live.Endpoint };
                 machine.Track(host: negotiated);
-                if (peer.ContractVersion < Handshake.CurrentVersion) {
-                    BridgeFault fault = new BridgeFault.ShellSkew(ShellContract: peer.ContractVersion, SupervisorContract: Handshake.CurrentVersion);
+                if (peer.ContractGeneration != Handshake.Generation) {
+                    BridgeFault fault = new BridgeFault.ShellSkew(ShellContract: peer.ContractGeneration, SupervisorContract: Handshake.Generation);
                     Phase(SessionPhase.Hello, fault.Status, fault: fault);
                     return new SessionProjection(Final: Faulted(fault: fault, at: SessionPhase.Hello), SpoolTail: Evidence.SpoolTail(reportDir: reportDir));
                 }

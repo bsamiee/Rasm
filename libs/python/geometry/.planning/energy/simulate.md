@@ -68,8 +68,8 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.recipe import RECIPES, RecipeExecution, RecipeName, RecipeProduct, RecipeSpec
 from rasm.runtime.shapes import remote_fault
 from protobuf import Oneof
-from rasm.contracts.gen.rasm.contracts.geometry.v1.tessellation_pb import TessellationPolicy
-from rasm.contracts.gen.rasm.contracts.scene.v1.scene_pb import Photometry, SceneDescriptor, SceneSun, SolarAngles
+from rasm.contracts.gen.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
+from rasm.contracts.gen.rasm.contracts.scene.scene_pb import Photometry, SceneDescriptor, SceneSun, SolarAngles
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:  # AGPL band ONLY: annotations resolve here, every runtime use riding a function-local or LateBound seam; the MIT `queenbee` names bind lazily at module scope instead

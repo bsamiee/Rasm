@@ -562,7 +562,7 @@ public abstract partial record EvictionCause {
 public abstract partial record EvictionCauseWire {
     private EvictionCauseWire() { }
     public sealed record BreachedCase(Breach Breach) : EvictionCauseWire;
-    public sealed record RevokedCase(Rasm.Contracts.Fault.V1.FaultObservation Fault) : EvictionCauseWire;
+    public sealed record RevokedCase(Rasm.Contracts.Fault.FaultObservation Fault) : EvictionCauseWire;
     public sealed record CommandedCase(string Operator) : EvictionCauseWire;
 
     public static EvictionCauseWire Of(EvictionCause cause) => cause.Switch(

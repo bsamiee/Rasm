@@ -38,6 +38,7 @@
 - Journal-stratum custody crosses `RefRead` and `Preserve`, ports the object plane satisfies — a fence naming a store member inverts the strata.
 - Data hook ports answer `Tap.Verdict` whole — collapsing it to an option erases fan arity, delivery census, and the unrostered arm.
 - Digest-preimage payload columns are TEXT in EVERY dialect — JSONB respells bytes off the minted key; json survives where no digest addresses it.
+- Journal shape change RE-MINTS the log whole under a custody receipt — one generation answers every read, so no entry versions and no reader lifts.
 - Relay envelopes carry the subject-bound journal JSON as exact UTF-8 `data`; no reserialization or `dataref` twin exists.
 - `Dataref` confines claim-check references to one HTTPS root and proves subject, resident, and dual-carriage byte equality.
 - Cross-tenant planes compose the `Tenancy.sweep` maintenance posture, never a bare client — FORCE RLS answers zero rows to an unpinned session.

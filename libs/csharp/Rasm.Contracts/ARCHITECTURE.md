@@ -12,39 +12,39 @@ Rasm.Contracts/                  # Wire vocabulary at the branch floor; buf auth
 ├── README.md                    # Package readme the NuGet artifact carries verbatim
 ├── Rasm.Contracts.csproj        # Packable identity, four runtime rows, declared nullable-oblivious posture
 └── Generated/                   # `clean: true` sweeps this root each run; SDK globs it with no Compile item
-    ├── Appearance/V1/           # `Set` and `Material` roots over OpenPBR color, texture packs, HDRI environments
-    ├── Artifact/V1/             # `ArtifactRef` content handle plus the streaming fetch and put service pair
-    ├── Availability/V1/         # `CommandAvailability` verdicts keyed on the Compute degradation level
-    ├── Bcf/V1/                  # BCF topic, comment, and viewpoint wires carrying camera, clipping, visibility
-    ├── Benchmark/V1/            # `BenchmarkClaimWire` rungs and metrics beside the host fingerprint measured on
-    ├── Bim/V1/                  # `ModelDiffWire` element-change shapes over the Element aspect vocabulary
-    ├── Binding/V1/              # External-binding state with its coerced-value and write-receipt writeback pair
-    ├── Capability/V1/           # `DescriptorPinWire` cost estimates and the discovery request-response pair
-    ├── Clock/V1/                # `Hlc` hybrid logical stamp every stamped family imports
-    ├── Compute/V1/              # Tessellate request-response beside the degradation and drain control RPCs
-    ├── Crdt/V1/                 # `CrdtOpWire` register, set, counter, sequence, and presence operation arms
-    ├── Credential/V1/           # `CredentialPublicWire` public half carrying its certificate chain
-    ├── Declaration/V1/          # `DeclarationRecord` EPD registry, module, and impact-cell vocabulary
-    ├── Element/V1/              # Graph nodes, entity edits, property values, substance, evidence; heaviest family
-    ├── Event/V1/                # CloudEvents `Extensions` attribute bag
-    ├── Fabrication/V1/          # `FeatureControl` datum, segment, and zone vocabulary for machining features
-    ├── Fault/V1/                # `FaultDetail` whose `FaultRecovery` elects terminal, transient, or `RetryInfo`
-    ├── Feature/V1/              # `FlagVerdictWire` flag decision with its reason vocabulary
-    ├── Geometry/V1/             # `TessellationPolicy` shared by every request and evidence surface naming tolerance
-    ├── Organization/V1/         # `Organization` entity tree carrying per-view overrides
-    ├── Parity/V1/               # `Backend` provider capability and artifact-role rows the parity gate reads
-    ├── Patch/V1/                # `PatchOp` RFC 6902 arms the element edit stream carries
-    ├── Receipt/V1/              # `ReceiptHeaderWire` spine — correlation, tenant, package, stamp, skew; no payload
-    ├── Render/V1/               # `GeometryResidency` meshlet streams beside viewpoint and section-box wires
-    ├── Scan/V1/                 # `GaussianSplatScan` splat capture with its format vocabulary
-    ├── Scene/V1/                # `SceneDescriptor` sited-sun, photometry, and shading state for a lit scene
-    ├── Spatial/V1/              # Point, direction, frame, and curve primitives every geometric family imports
-    └── Ui/V1/                   # Command gate, control posture, layout program, evidence timeline; second heaviest
+    ├── Appearance/              # `Set` and `Material` roots over OpenPBR color, texture packs, HDRI environments
+    ├── Artifact/                # `ArtifactRef` content handle plus the streaming fetch and put service pair
+    ├── Availability/            # `CommandAvailability` verdicts keyed on the Compute degradation level
+    ├── Bcf/                     # BCF topic, comment, and viewpoint wires carrying camera, clipping, visibility
+    ├── Benchmark/               # `BenchmarkClaimWire` rungs and metrics beside the host fingerprint measured on
+    ├── Bim/                     # `ModelDiffWire` element-change shapes over the Element aspect vocabulary
+    ├── Binding/                 # External-binding state with its coerced-value and write-receipt writeback pair
+    ├── Capability/              # `DescriptorPinWire` cost estimates and the discovery request-response pair
+    ├── Clock/                   # `Hlc` hybrid logical stamp every stamped family imports
+    ├── Compute/                 # Tessellate request-response beside the degradation and drain control RPCs
+    ├── Crdt/                    # `CrdtOpWire` register, set, counter, sequence, and presence operation arms
+    ├── Credential/              # `CredentialPublicWire` public half carrying its certificate chain
+    ├── Declaration/             # `DeclarationRecord` EPD registry, module, and impact-cell vocabulary
+    ├── Element/                 # Graph nodes, entity edits, property values, substance, evidence; heaviest family
+    ├── Event/                   # CloudEvents `Extensions` attribute bag
+    ├── Fabrication/             # `FeatureControl` datum, segment, and zone vocabulary for machining features
+    ├── Fault/                   # `FaultDetail` whose `FaultRecovery` elects terminal, transient, or `RetryInfo`
+    ├── Feature/                 # `FlagVerdictWire` flag decision with its reason vocabulary
+    ├── Geometry/                # `TessellationPolicy` shared by every request and evidence surface naming tolerance
+    ├── Organization/            # `Organization` entity tree carrying per-view overrides
+    ├── Parity/                  # `Backend` provider capability and artifact-role rows the parity gate reads
+    ├── Patch/                   # `PatchOp` RFC 6902 arms the element edit stream carries
+    ├── Receipt/                 # `ReceiptHeaderWire` spine — correlation, tenant, package, stamp, skew; no payload
+    ├── Render/                  # `GeometryResidency` meshlet streams beside viewpoint and section-box wires
+    ├── Scan/                    # `GaussianSplatScan` splat capture with its format vocabulary
+    ├── Scene/                   # `SceneDescriptor` sited-sun, photometry, and shading state for a lit scene
+    ├── Spatial/                 # Point, direction, frame, and curve primitives every geometric family imports
+    └── Ui/                      # Command gate, control posture, layout program, evidence timeline; second heaviest
 ```
 
-Directory tail mirrors namespace tail. Managed mode derives `csharp_namespace` `Rasm.Contracts.<Family>.V1` from the proto package, `base_namespace=Rasm.Contracts` strips that prefix off the emitted path, and what remains becomes the directory: `rasm.contracts.patch.v1` lands `Generated/Patch/V1/JsonPatch.cs` declaring `namespace Rasm.Contracts.Patch.V1`.
+Directory tail mirrors namespace tail. Managed mode derives `csharp_namespace` `Rasm.Contracts.<Family>` from the proto package, `base_namespace=Rasm.Contracts` strips that prefix off the emitted path, and what remains becomes the directory: `rasm.contracts.patch` lands `Generated/Patch/JsonPatch.cs` declaring `namespace Rasm.Contracts.Patch`.
 
-No proto carries an explicit `csharp_namespace`, so that correspondence is generator-derived rather than authored. Directory grain is the package rather than the file, which is why `compute.proto` and `control.proto` share one `Compute/V1/`; a proto stem lands PascalCased, and the service emitter appends `Grpc` to that same stem.
+No proto carries an explicit `csharp_namespace`, so that correspondence is generator-derived rather than authored. Directory grain is the package rather than the file, which is why `compute.proto` and `control.proto` share one `Compute/`; a proto stem lands PascalCased, and the service emitter appends `Grpc` to that same stem.
 
 ## [02]-[STRATA]
 
@@ -75,29 +75,29 @@ flowchart TB
     accTitle: Rasm.Contracts corpus import strata
     accDescr: How composed families reach the imported primitives; free-standing families carry no edge and ride the strata rows instead.
     subgraph S2["S2 COMPOSED"]
-        Availability[Availability.V1]
-        Bim[Bim.V1]
-        Binding[Binding.V1]
-        Ui[Ui.V1]
+        Availability[Availability]
+        Bim[Bim]
+        Binding[Binding]
+        Ui[Ui]
     end
     subgraph S1["S1 COMPOSED"]
-        Appearance[Appearance.V1]
-        Bcf[Bcf.V1]
-        Compute[Compute.V1]
-        Crdt[Crdt.V1]
-        Element[Element.V1]
-        Fault[Fault.V1]
-        Receipt[Receipt.V1]
-        Render[Render.V1]
-        Scene[Scene.V1]
+        Appearance[Appearance]
+        Bcf[Bcf]
+        Compute[Compute]
+        Crdt[Crdt]
+        Element[Element]
+        Fault[Fault]
+        Receipt[Receipt]
+        Render[Render]
+        Scene[Scene]
     end
     subgraph S0["S0 PRIMITIVES"]
-        Artifact[Artifact.V1]
-        Clock[Clock.V1]
-        Declaration[Declaration.V1]
-        Geometry[Geometry.V1]
-        Patch[Patch.V1]
-        Spatial[Spatial.V1]
+        Artifact[Artifact]
+        Clock[Clock]
+        Declaration[Declaration]
+        Geometry[Geometry]
+        Patch[Patch]
+        Spatial[Spatial]
     end
     Availability e1@-->|"[IMPORT]: DegradationLevel"| Compute
     Bim e2@-->|"[IMPORT]: ClassificationWire + MeasureValueWire + PlacementWire"| Element
@@ -139,14 +139,14 @@ flowchart LR
     accTitle: Rasm.Contracts same-branch consumption seams
     accDescr: Which emitted family each same-branch consumer lands on, transcribed from the branch tier that owns these edges.
     subgraph contracts[RASM.CONTRACTS]
-        ElementV1[Element.V1]
-        UiV1[Ui.V1]
-        ComputeV1[Compute.V1]
-        FaultV1[Fault.V1]
-        AppearanceV1[Appearance.V1]
-        BcfV1[Bcf.V1]
-        FabricationV1[Fabrication.V1]
-        SceneV1[Scene.V1]
+        ElementV1[Element]
+        UiV1[Ui]
+        ComputeV1[Compute]
+        FaultV1[Fault]
+        AppearanceV1[Appearance]
+        BcfV1[Bcf]
+        FabricationV1[Fabrication]
+        SceneV1[Scene]
     end
     Element{{Rasm.Element}}
     Persistence[(Rasm.Persistence)]
@@ -191,7 +191,7 @@ flowchart LR
     CommonProtos([Google.Api.CommonProtos])
     PyContracts{{python:contracts}}
     TsContracts{{typescript:contracts}}
-    Corpus e1@-->|"[CONTRACT]: rasm.contracts.<family>.v1"| Messages
+    Corpus e1@-->|"[CONTRACT]: rasm.contracts.<family>"| Messages
     Corpus e2@-->|"[CONTRACT]: service method roots"| Services
     Bsr e3@-->|"[BOUNDARY]: protocolbuffers/csharp"| Messages
     Bsr e4@-->|"[BOUNDARY]: grpc/csharp"| Services
@@ -205,10 +205,10 @@ flowchart LR
 
 [ROOT_SELECTION_IDIOM]:
 - Each lane declares its own root set, so a family exists in C# only where the `protocolbuffers/csharp` plugin lists a root reaching it.
-- `cad.v1` is the standing witness: Python carries `CadService` and its operation vocabulary, and no C# directory exists for it.
+- `cad` is the standing witness: Python carries `CadService` and its operation vocabulary, and no C# directory exists for it.
 - `ControlService` runs the other way — degradation and drain are C#-only roots no peer lane declares.
 - Publisher packages ride `managed.disable` path selectors, so upstream file options survive in every embedded descriptor unchanged.
-- `buf breaking` runs `FILE` because a generated tree binds the file path as an import path, so a corpus file move breaks its consumer.
+- Generated trees bind the corpus file path as their import path, so a source move re-spells every consumer's import and lands with them in one pass.
 - Descriptors travel with the symbols, which is what lets a consumer evaluate corpus-authored rules without holding the corpus.
 
 ## [04]-[INTERNAL]
@@ -235,7 +235,7 @@ flowchart LR
     Sweep e7@--> Roster[/Catalogue roster block/]
     Emit e8@--> Build[/SDK glob compiles one assembly/]
     Roots f1@-.->|"root unlisted"| Dropped[/Family absent from C#/]
-    Image f2@-.->|"lint or breaking refusal"| Refused[/Gate refuses before emission/]
+    Image f2@-.->|"lint or format refusal"| Refused[/Gate refuses before emission/]
 ```
 
 `Directory.Build.props` elects `IsWireContractsProject` off the package id and clears the whole workspace injection behind it — workspace library references, analyzer packages, the local source generator, the CSP contract reference and its scope plumbing, and the assembly-visibility rows. Nothing but the four runtime packages and the SDK reaches the compile, which is what keeps the wire floor free of the libraries stacked above it.
@@ -246,7 +246,7 @@ Remote pins make the emitter reproducible off the machine PATH: both C# plugins 
 
 | [INDEX] | [CHANGE]                     | [OWNER_SURFACE]            | [SHAPE_OF_THE_EDIT]                                    |
 | :-----: | :--------------------------- | :------------------------- | :----------------------------------------------------- |
-|  [01]   | new wire family              | `tests/contracts/proto`    | one `rasm.contracts.<family>.v1` package directory     |
+|  [01]   | new wire family              | `tests/contracts/proto`    | one `rasm.contracts.<family>` package directory        |
 |  [02]   | new C# consumer of a family  | `buf.gen.yaml`             | one root row on the `protocolbuffers/csharp` plugin    |
 |  [03]   | new service the branch binds | `buf.gen.yaml`             | one method row on the `grpc/csharp` plugin             |
 |  [04]   | new emitter version          | `buf.gen.yaml`             | one `remote:` pin and its `revision` on the C# pair    |

@@ -48,8 +48,8 @@ from msgspec.json import Decoder
 from protovalidate import CompilationError, EvaluationError, ValidationError as ContractValidationError, validate
 
 from rasm.contracts.artifact import ArtifactTransfer
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactRef
-from rasm.contracts.gen.rasm.contracts.scan.v1.gaussian_pb import GaussianSplatScan, SplatFormat
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactRef
+from rasm.contracts.gen.rasm.contracts.scan.gaussian_pb import GaussianSplatScan, SplatFormat
 from rasm.geometry.graduation import EvidenceScope, GeometryLeg, evidence_run
 from rasm.runtime.faults import FAULT_CONF, TERMINAL, FaultRow, Posture, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey

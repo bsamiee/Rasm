@@ -1,6 +1,6 @@
 # [PY_RUNTIME_WIRE]
 
-One wire owner serves the positional MessagePack op-log envelope and the six converging state owners its CRDT prefix materializes into. The envelope admits its payload slot as `bytes`: msgspec removes the MessagePack bin token while leaving the lane payload itself opaque, so scalar, geometry, presence, commit, branch, and attest bytes cross untouched; only a `crdt` row admits those bytes as the generated `rasm.contracts.crdt.v1.CrdtOpWire` proto message. Every peer-decoded CRDT payload shape is therefore generated — protobuf-py owns binary encoding and decoding, protovalidate owns its constraints, and no msgspec op hierarchy or tag roster stands beside the descriptor. Vocabulary and binding table are `transport/shapes#BOOT_CENSUS`'s; this page imports the rows and owns only codec machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
+One wire owner serves the positional MessagePack op-log envelope and the six converging state owners its CRDT prefix materializes into. The envelope admits its payload slot as `bytes`: msgspec removes the MessagePack bin token while leaving the lane payload itself opaque, so scalar, geometry, presence, commit, branch, and attest bytes cross untouched; only a `crdt` row admits those bytes as the generated `rasm.contracts.crdt.CrdtOpWire` proto message. Every peer-decoded CRDT payload shape is therefore generated — protobuf-py owns binary encoding and decoding, protovalidate owns its constraints, and no msgspec op hierarchy or tag roster stands beside the descriptor. Vocabulary and binding table are `transport/shapes#BOOT_CENSUS`'s; this page imports the rows and owns only codec machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
 
 Every decode rides the one `Decode` aspect — a direction-parameterized OTel span with the `reliability/faults#FAULT` `boundary` fence — and a network fetch stays its transport owner's retry concern, handing this aspect only the acquired bytes. Every lift on this page names the provider classes it reaches and takes its subject from a `RuntimeLeg.WIRE` roster row, so no codec raise crosses as a bare-`Exception` funnel and no refusal spells a coordinate the roster never declared. Op-log entries cross as ordinary explicit MessagePack arrays, distinct from the generated CRDT payload and the Connect wire; compression belongs to the carrying transport, so no peer must imitate MessagePack-CSharp's private `Lz4BlockArray` wrapper.
 
@@ -86,7 +86,7 @@ class Decode:
 ## [03]-[CRDT_CODEC]
 
 - Law: MessagePack survives as the thirteen-slot `OpLogEntry` envelope ALONE. Its `payload` is the decoded bin value, never `msgspec.Raw` — `Raw` includes the bin tag and length prefix, so hashing or protobuf-decoding it changes the payload. A non-`crdt` lane's bytes remain opaque; a `crdt` row alone calls `CrdtOpWire.from_binary`, and no `Any`, string bag, MessagePack arm tag, or second payload family enters the envelope.
-- Owner: generated `crdt_pb.CrdtOpWire` is the canonical wire vocabulary. Its required `arm` oneof closes the ten cases, its root `field` carries the shared coordinate once, its nested `clock.v1.Hlc` carries the 100-ns cell, and `ElementId`/`VectorSlot` carry exact 16-byte identities and unsigned counters. The convergence fold dispatches on `Oneof.field` and reads the generated arm value directly; no local wire-vs-canonical hierarchy survives.
+- Owner: generated `crdt_pb.CrdtOpWire` is the canonical wire vocabulary. Its required `arm` oneof closes the ten cases, its root `field` carries the shared coordinate once, its nested `clock.Hlc` carries the 100-ns cell, and `ElementId`/`VectorSlot` carry exact 16-byte identities and unsigned counters. The convergence fold dispatches on `Oneof.field` and reads the generated arm value directly; no local wire-vs-canonical hierarchy survives.
 - Law: the positional envelope slot SET and ORDER stay invariant under the payload conversion. The generated proto bytes occupy only the seventh position (`Payload`, index 6) for `family == "crdt"`; every column before and after it remains at the producer's declared position, and every non-CRDT payload remains opaque.
 - Cases: LWW survives only as the `set` arm reconstructing the `LwwRegister`; `beat`/`leave` carry the `EphemeralMap` presence delta a late-joining companion reconstructs from the op-log prefix; `increment` carries the producer's `(sequence, positive, negative)` cumulative triple, so the counter absorbs by ordinal and a replayed op re-lands the same total.
 - Cases: `OpLogEntry` pins the producer's declaration order — sequence, identity, model, entity key, lane, verb, payload, content key, trace, closure, actor, then HLC halves. `msgspec` rejects short or overlong records; `_admit_entry` rejects malformed widths, non-canonical context order, or any dot whose counter is not exactly one above its own context slot before a lane opens payload. `seq` resumes a drain, `id` orders and dedups, and `content_key` names payload bytes.
@@ -108,7 +108,7 @@ from msgspec import Struct
 from protobuf import Oneof
 from protovalidate import CompilationError, EvaluationError, ValidationError, validate
 
-from rasm.contracts.gen.rasm.contracts.crdt.v1 import crdt_pb
+from rasm.contracts.gen.rasm.contracts.crdt import crdt_pb
 from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import Catch, RuntimeRail
 from rasm.runtime.identity import ContentIdentity
@@ -338,8 +338,8 @@ from msgspec import Struct
 from msgspec.structs import replace
 from protobuf import Oneof
 
-from rasm.contracts.gen.rasm.contracts.clock.v1 import hlc_pb
-from rasm.contracts.gen.rasm.contracts.crdt.v1 import crdt_pb
+from rasm.contracts.gen.rasm.contracts.clock import hlc_pb
+from rasm.contracts.gen.rasm.contracts.crdt import crdt_pb
 from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import WIRE_INSERT, WIRE_MAINTAIN, WIRE_ORDERED, Depth, RuntimeRail
 from rasm.runtime.identity import ContentIdentity

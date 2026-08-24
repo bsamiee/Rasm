@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_MERGE]
 
-`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.V1.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `ConflictReceipt` without manufacturing missing authorship.
+`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `ConflictReceipt` without manufacturing missing authorship.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@
 - Owner: `GraphNode` carries forest identity, content axes, sibling position, and Merkle subtree digest.
 - Owner: `NodeRole`, `EditOp`, and `MergeConflict` close structural roles, operations, and conflicts.
 - Owner: `EntityEdit` carries base-addressed tombstone and member-patch egress; `MemberPatch` is the mask beside its prior and successor `NodeWire`, and `Apply` is the substrate `Merge`.
-- Owner: `MemberDiff` computes the changed path set off the descriptor; `EditWire` lowers `EntityEdit` onto the generated `Rasm.Contracts.Element.V1.EntityEditWire` through the union's total `Switch`, one `PatchOp` per mask path.
+- Owner: `MemberDiff` computes the changed path set off the descriptor; `EditWire` lowers `EntityEdit` onto the generated `Rasm.Contracts.Element.EntityEditWire` through the union's total `Switch`, one `PatchOp` per mask path.
 - Owner: `PatchPolicy` admits the caller-supplied mask-path ceiling shared with the crossing.
 - Owner: `TallyFact`, `MergeOutcome`, and `StructuralMerge` own merge evidence and the full merge fold.
 - Cases: `EntityEdit` is `Tombstone | Members`; both arms carry the addressed current-node base.
@@ -27,7 +27,7 @@
 - Auto: The wire pointer re-spells each mask segment through the field's `JsonName`, and the op kind derives from which side renders the member — `Add`, `Replace`, or `Remove` — so the peer's ProtoJSON document and the binary mask name one change.
 - Auto: `Patch` collapses an over-ceiling path set to the top-level field set both sides render, so the successor replaces whole and the op count stays under the ceiling by construction.
 - Receipt: a structural diff rides `store.diff.structural` carrying the edit-op count by kind; a three-way merge rides `store.merge.threeway` carrying the conflict count folded into `MergeOutcome.Counts`, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `ConflictReceipt`; each projected receipt fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
-- Packages: Rasm.Element owns graphs, node addressing, and the railed `ElementWire.Encode(node, tolerance, key)` producing the binary `NodeWire` the mask diffs; Rasm.Contracts owns `Element.V1.EntityEditWire`/`EditTombstone`/`EditMembers` and the `Patch.V1.PatchOp` family.
+- Packages: Rasm.Element owns graphs, node addressing, and the railed `ElementWire.Encode(node, tolerance, key)` producing the binary `NodeWire` the mask diffs; Rasm.Contracts owns `Element.EntityEditWire`/`EditTombstone`/`EditMembers` and the `Patch.PatchOp` family.
 - Packages: Google.Protobuf owns `FieldMask`/`Merge`/`IsValid`, the descriptor walk (`Fields.InFieldNumberOrder`, `FieldDescriptor.Accessor`/`JsonName`/`HasPresence`/`FieldType`/`IsRepeated`, `MessageDescriptor.Parser`), and `Value.Parser.ParseJson`; Rasm.AppHost `WireJson.Formatter.WriteValue` is the one ProtoJSON leaf render.
 - Packages: Rasm `ContentHash.Of` + `CanonicalWriter` own every local digest (`GeometryDigest`, `Seal`); LanguageExt owns immutable carriers and `Fin`.
 - Packages: Thinktecture owns closed unions; NodaTime owns merge evidence time.
@@ -50,14 +50,14 @@ using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
 using Rasm.AppHost.Runtime;                        // WireJson — the ONE ProtoJSON formatter (ports#WIRE_LAW)
-using Rasm.Contracts.Element.V1;                   // NodeWire — the binary node the mask diffs
+using Rasm.Contracts.Element;                   // NodeWire — the binary node the mask diffs
 using Rasm.Domain;                                 // ContentHash/CanonicalWriter — the one digest alphabet
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Relations;
 using Thinktecture;
-using Control = Rasm.Contracts.Compute.V1;         // PatchOp family
-using Host = Rasm.Contracts.Element.V1;               // EntityEditWire / EditTombstone / EditMembers
+using Control = Rasm.Contracts.Compute;         // PatchOp family
+using Host = Rasm.Contracts.Element;               // EntityEditWire / EditTombstone / EditMembers
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Version;
@@ -611,7 +611,7 @@ public static class StructuralMerge {
 |  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                              |
 |  [07]   | subtree prune         | kernel `ContentHash.Of` over `U128`/`Ordinal`/`String`/`Rows`                 |
 |  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
-|  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.V1.EntityEditWire` by `EditWire` |
+|  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.EntityEditWire` by `EditWire` |
 |  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                  |
 |  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
 |  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |

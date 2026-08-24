@@ -173,7 +173,7 @@ class _BiomeReport(msgspec.Struct, frozen=True, gc=False):
 
 
 class _BufAnnotation(msgspec.Struct, frozen=True, gc=False):
-    """One ``buf --error-format json`` NDJSON row; the wire ``type`` is the lint rule id or the breaking change id."""
+    """One ``buf --error-format json`` NDJSON row; the wire ``type`` is the lint rule id."""
 
     path: str = ""
     start_line: int = 0

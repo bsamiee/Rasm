@@ -697,8 +697,8 @@ public sealed partial class CorpusOp {
    using MemoryStream payload = new();
    wire.WriteTo(payload);
    payload.Position = 0;
-   global::Rasm.Contracts.Element.V1.NodeWire parsed =
-    global::Rasm.Contracts.Element.V1.NodeWire.Parser.ParseFrom(payload);
+   global::Rasm.Contracts.Element.NodeWire parsed =
+    global::Rasm.Contracts.Element.NodeWire.Parser.ParseFrom(payload);
    return ElementWire.Decode(parsed, key).Bind(decoded =>
     Checked(
      model, DecodeNode, payload.Length,
@@ -753,7 +753,7 @@ public static class CorpusGate {
 
  static Fin<Unit> IntegerCanonicality(Op key) => IntegerWireCases.TraverseM(row => {
   Fin<PropertyValue> admitted = WireCodec.ToValue(
-   new global::Rasm.Contracts.Element.V1.PropertyValueWire { Integer = row.Bytes }, key);
+   new global::Rasm.Contracts.Element.PropertyValueWire { Integer = row.Bytes }, key);
   return admitted.IsSucc == row.Accepted
    ? Fin.Succ(unit)
    : Fin.Fail<Unit>(new ElementFault.ValueRejected(

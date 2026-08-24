@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_EF_DESIGN]
 
-`Microsoft.EntityFrameworkCore.Design` owns EF Core's design-time schema tooling — migration scaffolding, compiled-model generation, and idempotent SQL scripting — driven through the `OperationExecutor` reflection surface the `dotnet ef` CLI constructs. It enters as a private develop-and-build asset under `PrivateAssets=all`, never a runtime dependency. `Element/identity` consumes it to emit migrations, compiled models, and idempotent SQL as reviewed artifacts; store-to-model reverse engineering is the inverted, rejected direction.
+`Microsoft.EntityFrameworkCore.Design` owns EF Core's design-time schema tooling — migration scaffolding, compiled-model generation, and idempotent SQL scripting — driven through the `OperationExecutor` reflection surface the `dotnet ef` CLI constructs. It enters as a private develop-and-build asset under `PrivateAssets=all`, never a runtime dependency. `Element/identity` consumes it to emit compiled models and generation scripts as reviewed artifacts; store-to-model reverse engineering is the inverted, rejected direction.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -100,13 +100,13 @@ Every row is a `MigrationsOperations` instance operation. `ScriptMigration` idem
 
 [STACKING]:
 - `api-ef-naming.md`(`.api/api-ef-naming.md`): `NameRewritingConvention` rewrites table/column/key/index identifiers at model-build time, so the `CSharp*Generator` migration DDL and snapshot carry the snake_case names as schema facts without a second naming pass.
-- `Element/identity` `MigrationLaw`: composes this package as the emission and packaging substrate — `Optimize`, `ScriptMigration`, `MigrationsBundle.Execute`, and `GetMigrations` own emission, so hand-authored migration code and custom `MigrationOperation` subclasses are deleted patterns.
-- `Element/identity` `Classify`: folds at generation time over the `MigrationOperation` rows the C# generators emit (`AddColumnOperation`, `RenameColumnOperation`, `AlterColumnOperation`, `DropColumnOperation`, …), splitting each change into expand and contract waves; this package supplies the operation vocabulary, migration assembly, and per-provider SQL generators, while wave classification, lock-light `NOT VALID`/`NOT ENFORCED` emission, and destructive-approval gating stay the Persistence owner's.
+- `Element/identity#SCHEMA_VERDICT` `IdentityDdl`: composes this package as the emission substrate alone — `DbContextOperations.Optimize` freezes each profile's compiled model, which is the generation artifact's ONE source, so hand-authored schema deltas and custom `MigrationOperation` subclasses are deleted patterns; relation rebuild posture, the generation digest, and the one-transaction cutover stay the Persistence owner's.
 - `ConverterRail`: `Optimize` freezes the model into a generated compiled model that `ConverterRail.Compose(options, compiled)` mounts through `UseModel`, and the snake-case rewrites survive the freeze so compiled and fresh models emit identical column names and SQL; `CompiledModelCodeGenerationOptions` is the compiled-output policy.
 - `IMigrationsCodeGeneratorSelector`: swaps the emission generator without a hand-written generator class, `CSharpMigrationsGenerator`/`CSharpMigrationOperationGenerator`/`CSharpSnapshotGenerator` the default C# arm; `ScriptMigration` under the idempotent option produces the deploy-time SQL and `MigrationsBundle.Execute` the self-contained `efbundle` migrator that runs without the SDK.
 
 [LOCAL_ADMISSION]:
 - Admit the package as a `PrivateAssets=all` asset only; the design assembly never enters a runtime dependency closure or a published output.
+- Admit `DbContextOperations.Optimize` alone as a consumed lane; every migration-named member above is publisher surface this catalog records and no estate fence binds.
 - Admit in-process driving of the `*.Internal` `[EntityFrameworkInternal]` drivers only with the EF minor pinned to the consumed version; the `dotnet ef` CLI / `OperationExecutor` reflection surface and the `MigrationsBundle.Execute` EXE are the stable, version-tolerant path.
 - Admit reverse engineering as an implementation aid only, never a published store contract; scaffolding output is reviewed as generated shape before it enters source.
 

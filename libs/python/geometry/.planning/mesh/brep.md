@@ -22,7 +22,7 @@ from functools import partial
 
 from expression import Option
 from msgspec import Struct
-from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import ExecuteRequest, ExecuteResponse
+from rasm.contracts.gen.rasm.contracts.cad.operations_pb import ExecuteRequest, ExecuteResponse
 
 from rasm.geometry.graduation import EvidenceScope, GeometrySubject, evidence_run
 from rasm.geometry.mesh.cad import EXECUTE, CadClient

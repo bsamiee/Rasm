@@ -16,16 +16,14 @@ deps:
 
 ## [02]-[SHAPE]
 
-- Packages spell `rasm.contracts.<family>.v1` under proto3, and managed mode derives every language option, so no source carries a file option.
+- Packages spell `rasm.contracts.<family>` under proto3, and managed mode derives every language option, so no source carries a file option.
 - Field constraints are Protovalidate rules on the message; consumers evaluate them at their decode boundary, never re-spelling a scalar rule.
 - Faults cross as one numeric case under a producing domain inside `FaultDetail`, carried by `google.rpc.Status` that keeps the transport code.
 - Publisher schemata stay out: CloudEvents and gRPC health vendor as unnamed sibling modules and never enter this release unit.
 
-## [03]-[COMPATIBILITY]
+## [03]-[EVOLUTION]
 
-- `breaking: use: [FILE]` grades every commit, so a file path, message, field, enum value, RPC, and service each survive once published.
-- Retirement is `deprecated`, never deletion — `reserved` rescues no removal under FILE.
-- Families that must change shape land `rasm.contracts.<family>.v2` beside the `v1` they leave intact.
+- Families reshape in place — one live shape per package, every estate consumer updated same-change, and `main` carries the released stream.
 - Generation belongs at the consumer against its locked commit; that lock, never this module's label, is what dates every guarantee above.
-- Tightened Protovalidate rules clear every breaking category, so a locked consumer holds while one re-resolving `main` can meet narrowed admission.
+- Tightened Protovalidate rules narrow admission at the decode door — a locked consumer holds while one re-resolving `main` meets the narrowed rule.
 - Auto-served BSR SDKs carry the module whole with `opt` fixed at the plugin, so their surface and runtime pin match no branch emission here.

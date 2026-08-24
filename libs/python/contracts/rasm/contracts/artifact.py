@@ -19,7 +19,7 @@ from protobuf.wkt import Any
 
 from rasm.contracts.admission import AsyncClosable
 from rasm.contracts.gen.buf.validate.validate_pb import BytesRules, ext_field, FieldRules, UInt64Rules
-from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactFrame, ArtifactRef, FetchRequest, FetchResponse, PutRequest, PutResponse
+from rasm.contracts.gen.rasm.contracts.artifact.artifact_pb import ArtifactFrame, ArtifactRef, FetchRequest, FetchResponse, PutRequest, PutResponse
 
 
 # --- [TYPES] ----------------------------------------------------------------------------

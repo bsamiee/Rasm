@@ -1254,7 +1254,7 @@ export { Dataref, DatarefFault }
 ## [08]-[CUSTODY_CONTRACT]
 
 - Owner: the object plane's half of the branch backend generation — `_descriptor`, the declared custody document whose stable bytes derive from the settled retention and conformance tables alone; `ObjectStore.custody`, the generated `Artifact` and `Capability` messages the branch composition folds into `Backend.compose`; and `ObjectStore.observed`, the realized-state read answering the membership a `Backend.Reading` unions.
-- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`, `GetBucketEncryptionCommand`); `@rasm\/contracts/rasm/contracts/parity/v1/parity_pb` (`ArtifactRole.OBJECT_CUSTODY`, `Provider.OBJECT_STORE`, `ArtifactSchema`, `CapabilitySchema`, `FailureRank`, `RestartClass`); `@rasm/core` (`Format.proto`); `lane/capability.md` (`Backend.Artifact`, `Backend.Capability` — contract authority stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths`).
+- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`, `GetBucketEncryptionCommand`); `@rasm\/contracts/rasm/contracts/parity/parity_pb` (`ArtifactRole.OBJECT_CUSTODY`, `Provider.OBJECT_STORE`, `ArtifactSchema`, `CapabilitySchema`, `FailureRank`, `RestartClass`); `@rasm/core` (`Format.proto`); `lane/capability.md` (`Backend.Artifact`, `Backend.Capability` — contract authority stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths`).
 - Entry: the branch composition root appends `ObjectStore.custody().artifact` to `Backend.Sources.artifacts` and its capabilities to `Backend.Sources.capabilities`, then folds `ObjectStore.observed` into the one `Backend.Reading` it hands `Backend.observe` — one admission verdict covers relational and object state together.
 - Law: the descriptor is DECLARED custody, never provider state — conditional-put demand, unversioned posture, the reap floor, and one lifecycle row per retention class (transitions off the ladder, expiry off the bound) derive from `Retain.Policy`, `_STORAGE`'s ladder, and `_REAP_FLOOR`; operator coordinates — endpoint, bucket, region, credentials, and the engine row a deployment selects — never enter the preimage, so the generation moves only when the custody contract moves and a redeployment re-keys nothing.
 - Law: the descriptor rows sort by class at encode, because the artifact content preimage reads a published order, never a container's own enumeration.
@@ -1275,7 +1275,7 @@ import {
   FailureRank,
   Provider,
   RestartClass,
-} from "@rasm\/contracts/rasm/contracts/parity/v1/parity_pb"
+} from "@rasm\/contracts/rasm/contracts/parity/parity_pb"
 import { Format } from "@rasm/core"
 import type { Backend } from "../lane/capability.ts"
 

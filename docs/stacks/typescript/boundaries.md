@@ -423,11 +423,11 @@ export { Bench, BenchLive, framed, Grade, MarshalFault, RunnerLive, Sweep };
 ## [07]-[PERSISTENCE_SEAM]
 
 [SQL_STORE]:
-- Use: every relational store — statements, transactions, migrations, batched lookups.
+- Use: every relational store — statements, transactions, relation census, batched lookups.
 - Law: the store is the `SqlClient` Tag on `R`, and statements are `sql` tagged-template fragments composed as values — parameters bind at the fragment, and the helper rows (`sql.insert`, `sql.update`, `sql.in`, `sql.and`, `sql.or`) compose fragments from data — so string-built SQL has no spelling; the transaction is the bracket-shaped `sql.withTransaction`, a rail transformer that commits on success and rolls back on failure or interruption.
 - Law: decode rides the admission law — `SqlSchema.findAll`/`findOne`/`single`/`void` fuse Request and Result Schemas with the statement so every row enters as a decoded value on the one `ParseError` rail, and `SqlResolver.ordered`/`grouped`/`findById` batch keyed lookups behind the same fused contract, each resolver's `.execute` the one call surface its callers share; accessors and resolvers bind once at the owning service construction — a fused accessor or resolver rebuilt inside a call body re-mints resolver identity per call and defeats the batch window.
-- Law: migrations run at the boot edge — `Migrator.fromGlob`/`Migrator.fromRecord` rows executed by the boot module's Layer, never by a handler; the dialect binding and its migrator Layer are runtime rows at the root under `[05]`'s law.
-- Reject: a driver import in domain flow; a query string assembled by hand; a second decode after the fused accessor; a transaction opened per statement where one bracket owns the unit of work.
+- Law: the boot module's Layer verifies the relation census its own ensure rows declare and refuses construction on a gap, carrying every unensured relation beside the DDL that plants it — the deploy plane owns applying that DDL, and the dialect binding is a runtime row at the root under `[05]`'s law.
+- Reject: a driver import in domain flow; a query string assembled by hand; a second decode after the fused accessor; a transaction opened per statement where one bracket owns the unit of work; a `Migrator` row at boot.
 
 [DURABLE_AND_LIVE]:
 - Use: flat durable state, schema-keyed result bands, fleet-quota windows, reads that must follow writes.
@@ -439,8 +439,8 @@ export { Bench, BenchLive, framed, Grade, MarshalFault, RunnerLive, Sweep };
 ```typescript conceptual
 import { Reactivity } from "@effect/experimental";
 import { KeyValueStore } from "@effect/platform";
-import { Migrator, SqlClient, SqlResolver, SqlSchema } from "@effect/sql";
-import { Array, Effect, Option, Schema } from "effect";
+import { SqlClient, SqlResolver, SqlSchema } from "@effect/sql";
+import { Array, Effect, HashSet, Layer, Option, Schema } from "effect";
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
@@ -448,6 +448,10 @@ class Row extends Schema.Class<Row>("Row")({
     key: Schema.Number.pipe(Schema.int(), Schema.brand("Key")),
     label: Schema.String,
     extent: Schema.Number,
+}) {}
+
+class Unensured extends Schema.TaggedError<Unensured>()("Unensured", {
+    gaps: Schema.Array(Schema.Struct({ relation: Schema.String, ddl: Schema.String })),
 }) {}
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -493,15 +497,38 @@ class Ledger extends Effect.Service<Ledger>()("Ledger", {
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
-const migrations = Migrator.fromRecord({
-    "0001_<name>": Effect.asVoid(
-        Effect.flatMap(SqlClient.SqlClient, (sql) => sql`CREATE TABLE rows (key INTEGER PRIMARY KEY, label TEXT, extent REAL)`),
-    ),
-});
+// one row per owned relation with both dialect halves stated; the deploy plane applies the half its store speaks
+const ensures = [{
+    relation: "rows",
+    pg: "CREATE TABLE IF NOT EXISTS rows (key INTEGER PRIMARY KEY, label TEXT NOT NULL, extent DOUBLE PRECISION NOT NULL)",
+    sqlite: "CREATE TABLE IF NOT EXISTS rows (key INTEGER PRIMARY KEY, label TEXT NOT NULL, extent REAL NOT NULL)",
+}] as const satisfies ReadonlyArray<{ readonly relation: string; readonly pg: string; readonly sqlite: string }>;
+
+const censused = Layer.effectDiscard(
+    Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        const dialect = sql.onDialectOrElse({ orElse: () => "sqlite" as const, pg: () => "pg" as const });
+        const present = yield* SqlSchema.findAll({
+            Request: Schema.Array(Schema.String),
+            Result: Schema.Struct({ relation: Schema.String }),
+            execute: (wanted) =>
+                sql.onDialectOrElse({
+                    orElse: () => sql`SELECT name AS relation FROM sqlite_schema WHERE type = 'table' AND ${sql.in("name", wanted)}`,
+                    pg: () => sql`SELECT relname AS relation FROM pg_catalog.pg_class WHERE relkind IN ('r', 'p') AND ${sql.in("relname", wanted)}`,
+                }),
+        })(Array.map(ensures, (ensure) => ensure.relation));
+        const landed = HashSet.fromIterable(Array.map(present, (row) => row.relation));
+        const gaps = Array.filterMap(ensures, (ensure) =>
+            HashSet.has(landed, ensure.relation)
+                ? Option.none()
+                : Option.some({ relation: ensure.relation, ddl: ensure[dialect] })); // the gap carries the DDL the deploy plane owes, never a bare name
+        return yield* (Array.isEmptyReadonlyArray(gaps) ? Effect.void : new Unensured({ gaps }));
+    }),
+);
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Checkpoint, Ledger, migrations, Row };
+export { censused, Checkpoint, ensures, Ledger, Row, Unensured };
 ```
 
 ## [08]-[DESCRIPTOR_PLANE]

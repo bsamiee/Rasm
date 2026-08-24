@@ -767,9 +767,9 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
 @pytest.mark.parametrize(
     "path",
     [
-        "libs/python/contracts/rasm/contracts/gen/rasm/contracts/compute/v1/compute_connect.py",
-        "libs/typescript/contracts/gen/rasm/contracts/compute/v1/compute_pb.ts",
-        "libs/csharp/Rasm.Contracts/Generated/Compute/V1/ComputeGrpc.cs",
+        "libs/python/contracts/rasm/contracts/gen/rasm/contracts/compute/compute_connect.py",
+        "libs/typescript/contracts/gen/rasm/contracts/compute/compute_pb.ts",
+        "libs/csharp/Rasm.Contracts/Generated/Compute/ComputeGrpc.cs",
     ],
     ids=["python", "typescript", "csharp"],
 )
@@ -819,15 +819,12 @@ def test_envelope_projects_fault_status(fault: Fault) -> None:
 
 
 def test_envelope_decodes_pre_trace_history_artifact() -> None:
-    """Additive-compat: a pre-trace Envelope decodes with ``trace_id``/``span_id`` defaulted under ``schema_version=1``.
-
-    The decoded value still survives deterministic encode/decode identity.
-    """
+    """A pre-trace Envelope decodes with ``trace_id``/``span_id`` defaulted and survives deterministic encode/decode identity."""
     decoded = msgspec.json.decode(_PRE_TRACE_ENVELOPE, type=Envelope)
     ctx = decoded.error_context
     assert ctx is not None, "pre-trace artifact lost its Diagnostic through the new decoder"
     assert (ctx.trace_id, ctx.span_id) == ("", ""), f"additive fields not defaulted: {ctx.trace_id!r}/{ctx.span_id!r}"
-    assert (decoded.schema_version, ctx.failing_step, ctx.hint) == (1, "parse", "parse: x after 0.0ms")
+    assert (ctx.failing_step, ctx.hint) == ("parse", "parse: x after 0.0ms")
     assert msgspec.json.decode(WIRE_ENCODER.encode(decoded), type=Envelope) == decoded, "pre-trace Envelope does not round-trip"
 
 

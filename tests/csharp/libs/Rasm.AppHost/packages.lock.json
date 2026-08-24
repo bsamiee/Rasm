@@ -842,7 +842,7 @@
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",

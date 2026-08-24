@@ -512,7 +512,7 @@ function _stream(
 - Owner: `Chart.pivot(element, origin, feed, config)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread, the `Chart.Origin` case decides how the NAMED table arrives, the `<perspective-viewer>` element (`HTMLPerspectiveViewerElement`, the package's own exported type) `load`s it, the decoded `Chart.Config` lands through `restoreWorkspace`, and release runs `element.delete()`, `table.delete()`, then `client.terminate()` — every handle INCLUDING the worker engine is a scoped resource, and a bracket that frees the table while the worker thread lives on is the named leak.
 - Packages: `@perspective-dev/client` (`worker`, `init_server` over its `ServerWasmSource`/`ServerWasmRegistration` pair, `host_supports_memory64`, `Client`/`Table`/`View`, `TableInitOptions`, `JoinOptions`, `ViewConfigUpdate` with its `windows` column, `TypedArrayWindow`, `Features.window_aggregates`); `@perspective-dev/viewer` + `-datagrid` + `-charts` (`HTMLPerspectiveViewerElement`, the panel and workspace round trips, `PerspectiveConfigUpdateEventDetail`); `@effect-atom/atom-react` (`Atom.kvs` — the persisted row `system/atom#STORE_ROOT` owns); `effect` (`Data`, `HashSet`, `Match`, `Record`, `Schema`, `Stream`).
 - Law: bitness is a REGISTRATION the boot cell owns, never a probe at a call site — sources register as thunks, so SELECTION AND DOWNLOAD defer to the first `worker()` call and the losing binary is never fetched. `wasm64` wins wherever it is registered and either no `wasm32` stands beside it or `host_supports_memory64()` holds — a memoized `WebAssembly.validate` over the `(module (memory i64 1))` encoding — so a LONE `wasm64` registration is honored regardless of the probe and fails at instantiation, which is the correct error for an explicit opt-in; a selected `wasm64` that fails to load with a `wasm32` registered falls back to it behind a console warning. Memory64 rides a REAL second binary (`perspective-server.memory64.wasm`) whose memory maximum is 262144 pages against the wasm32 engine's 65536 — a 16GB heap ceiling against 4GB, at engine cost — so a feed whose frames outgrow 4GB registers both and a feed that never will registers `wasm32` alone. `/inline` embeds the wasm32 engine ONLY and boots itself on import, so a heap-ceiling surface can never ride it.
-- Law: the persisted atom holds the WORKSPACE grain — `Chart.Config` is the decoded whole-element token (`version`, `active`, the recursive `layout` tree, the `panels` map, `global_filters`, `masters`), `Chart.CONFIG` is its storage key minted through `system/atom#STORE_ROOT`'s `Store.key` on the seal-versioned posture (a config-schema bump reads the superseded token as absence), and `Chart.config(runtime, seed)` is the ONE persisted atom; `Chart.workspace` applies it through `restoreWorkspace`, which is strict by construction because every `panels` entry mints a NEW panel whose `table` is required by type. Per-panel edits flow `Chart.panel(element, feed, panel, update)` instead — `restore` under the `{panel}` selector, carrying `suppress_errors` because a programmatic patch's failure is this rail's fault value, not the viewer's visible error state. `restore` and `restoreWorkspace` NEVER substitute: `restore` handed a workspace token silently IGNORES its `panels` and `layout`, while `restoreWorkspace` handed a viewer token REJECTS, `panels` being non-defaulted.
+- Law: the persisted atom holds the WORKSPACE grain — `Chart.Config` is the decoded whole-element token (`version`, `active`, the recursive `layout` tree, the `panels` map, `global_filters`, `masters`), `Chart.CONFIG` is its storage key minted through `system/atom#STORE_ROOT`'s `Store.key` and held for the grain's life, `Store.sealed` carries the generation inside the stored bytes so a config-schema bump refuses the superseded token on content under the `discard` disposition, and `Chart.config(runtime, seed)` is the ONE persisted atom; `Chart.workspace` applies it through `restoreWorkspace`, which is strict by construction because every `panels` entry mints a NEW panel whose `table` is required by type. Per-panel edits flow `Chart.panel(element, feed, panel, update)` instead — `restore` under the `{panel}` selector, carrying `suppress_errors` because a programmatic patch's failure is this rail's fault value, not the viewer's visible error state. `restore` and `restoreWorkspace` NEVER substitute: `restore` handed a workspace token silently IGNORES its `panels` and `layout`, while `restoreWorkspace` handed a viewer token REJECTS, `panels` being non-defaulted.
 - Law: the round trip is asymmetric in exactly three places, and each is folded at its own seam — `saveWorkspace()` emits `panels` in `BTreeMap` key order so consecutive saves stay byte-stable but emits `layout: null` for an unlaid element where the restore field is absent-or-present, so the null folds away at `Chart.saved` and never crosses back as an empty tree; restoring EJECTS every pre-existing panel and REMAPS the saved layout's panel ids onto the newly minted ones, which is why a tab node's ids are never a stable handle; and `restore({ panel })` naming an absent panel UPSERTS it, a table-less upsert yielding a DEFERRED panel the next `load()` binds — it renders, and `save()` refuses it until the binding lands.
 - Law: `global_filters` and `masters` have NO JS setter — a master panel's selection contributes the clauses, `saveWorkspace`/`restoreWorkspace` carry them, and nothing else writes them. `global_filters` is a transient overlay every DETAIL panel reads and no panel config records, restored as ONE unattributed bucket the next master selection replaces; a `masters` id absent from `panels` warns and drops, and a restored master re-enters its row-tree selection edit mode. Keeping a cross-filter beside the workspace token mints the second state the overlay exists to foreclose.
 - Law: every panel-scoped read takes the SAME selector — `PanelOptions` rides `getView`, `getViewConfig`, `getSelection`, `setSelection`, `getEditPort`, `getRenderStats`, `reset`, and `toggleColumnSettings`, defaulting to the active panel, so addressing a panel is one options field and never a second element handle. `Chart.Move` closes the panel-MOVE family — `Add` a configured panel, `Drop` one by id, `Focus` one by id, dispatching through `Match.valueTags` — and every arm answers the same `Chart.Board` read, because `Drop` against the LAST remaining panel resolves as a no-op and the roster after the move is the only honest evidence of what happened.
@@ -759,7 +759,7 @@ const _Layout: Schema.Schema<Chart.Layout> = Schema.suspend(() =>
 )
 
 const _Config = Schema.Struct({
-  version: Schema.optional(Schema.String), // stamped on save and read by the engine's own migration; a caller never sets it
+  version: Schema.optional(Schema.String), // Perspective's own workspace-token field, transcribed verbatim: the engine stamps it on save and reads it back, and a caller never sets it
   active: Schema.optional(Schema.String),
   layout: Schema.optional(_Layout), // absent-or-present, never null: the save seam folds the emitted null away
   panels: Schema.mutable(Schema.Record({ key: Schema.String, value: _Panel })),
@@ -767,13 +767,15 @@ const _Config = Schema.Struct({
   masters: Schema.optional(_Strings),
 })
 
-// this grain mints through the one key member — seal-versioned, so a workspace-schema bump reads yesterday's token as absence
-const _CONFIG = Store.key({ domain: "chart", grain: "workspace", seal: { posture: "versioned", version: 1 } })
+// this grain mints through the one key member and holds; the seal's generation bumps with the workspace shape, so
+// yesterday's token refuses on content and `discard` seats the seed
+const _CONFIG = Store.key({ domain: "chart", grain: "workspace" })
+const _sealed = Store.sealed(_Config, { generation: 1, residue: "discard" })
 
 const _config = (
   runtime: Atom.AtomRuntime<KeyValueStore.KeyValueStore, never>,
   seed: Chart.Config,
-): Atom.Writable<Chart.Config> => Atom.kvs({ runtime, key: _CONFIG, schema: _Config, defaultValue: () => seed })
+): Atom.Writable<Chart.Config> => Atom.kvs({ runtime, key: _CONFIG, schema: _sealed, defaultValue: () => seed })
 
 // --- [ELEMENT_SEAM]
 
@@ -929,7 +931,7 @@ const _expressions = (
     Effect.flatMap(Schema.decodeUnknown(_Validated)),
     Effect.mapError((defect) =>
       new ChartFault({ case: { reason: "expression-refused", feed, alias: Option.none(), cause: String(defect) } })),
-    // The engine answers EVERY refused column in one verdict record, so the census carries every one of them and an
+    // One verdict record answers EVERY refused column, so the census carries every one of them and an
     // author repairing a board reads its whole damage in one round trip rather than the first alias iteration met.
     Effect.flatMap((report) => {
       const refused = Record.toEntries(report.errors)
@@ -952,7 +954,7 @@ const _framed = (spec: Chart.Window): number =>
   (spec.range === undefined || spec.range === null ? 0 : 1) +
   (spec.cumulative === true ? 1 : 0)
 
-// The alias is the issue's own column now, so this answers the refusal alone and no site re-prefixes it.
+// `alias` rides the issue's own column, so this answers the refusal alone and no site re-prefixes it.
 const _refusal = (taken: HashSet.HashSet<string>, alias: string, spec: Chart.Window): Option.Option<string> => {
   const alpha = spec.alpha === undefined || spec.alpha === null ? 1 : spec.alpha
   return HashSet.has(taken, alias)

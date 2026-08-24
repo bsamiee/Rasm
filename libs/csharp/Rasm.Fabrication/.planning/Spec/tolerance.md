@@ -45,7 +45,7 @@ using Rasm.Fabrication.Process;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
-using Contract = Rasm.Contracts.Fabrication.V1;
+using Contract = Rasm.Contracts.Fabrication;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Spec;

@@ -171,7 +171,7 @@ flowchart LR
     Transport e6@<-->|"[WIRE]: ProtoVocabulary + FaultDetail"| Compute
     Transport e7@<-->|"[WIRE]: OpLogEntry"| Persistence
     Persistence e8@<-->|"[CONTRACT]: BackendContract"| Admission
-    AppHost e9@-->|"[WIRE]: capability.v1.DiscoverResponse"| Transport
+    AppHost e9@-->|"[WIRE]: capability.DiscoverResponse"| Transport
     Observability e10@<-->|"[TRANSPORT]: TraceContext"| AppHost
     AppHost e11@<-->|"[WIRE]: HlcStampWire"| Evidence
 ```
@@ -213,7 +213,7 @@ flowchart LR
     Artifacts e14@-->|"[RECEIPT]: ArtifactReceipt"| Observability
     Execution e15@-->|"[CONTENT_KEY]: ContentKey"| Artifacts
     Execution e16@-->|"[PORT]: Kernel"| Artifacts
-    Transport e17@-->|"[SHAPE]: appearance.v1.Set"| Artifacts
+    Transport e17@-->|"[SHAPE]: appearance.Set"| Artifacts
     Artifacts e18@-->|"[PORT]: HookPoint"| Observability
     Evidence e19@-->|"[CONTENT_KEY]: ParityReceipt"| Compute
     Transport e20@-->|"[BOUNDARY]: ResourceRef"| Compute

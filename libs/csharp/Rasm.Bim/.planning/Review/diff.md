@@ -6,16 +6,16 @@ The diff is the cross-party twin of two same-lineage owners and re-derives neith
 
 ## [01]-[INDEX]
 
-- [02]-[MODEL_DIFF]: the `ModelDiff` change-set, the `ElementChange` closed `[Union]` (Added/Removed/Modified/Moved/Split/Merged), the `ChangeKind` audit token, the `ElementFingerprint` content/placement keys the join dedups on, the `Generator.Equals` `Inequalities` `AspectDelta` member-level delta the `Modified` arm carries, and the generated `Bim.V1.ModelDiffWire` `Seal`/`Admit` crossing.
+- [02]-[MODEL_DIFF]: the `ModelDiff` change-set, the `ElementChange` closed `[Union]` (Added/Removed/Modified/Moved/Split/Merged), the `ChangeKind` audit token, the `ElementFingerprint` content/placement keys the join dedups on, the `Generator.Equals` `Inequalities` `AspectDelta` member-level delta the `Modified` arm carries, and the generated `Bim.ModelDiffWire` `Seal`/`Admit` crossing.
 - [03]-[AUDIT]: the chained content-addressed `AuditEntry` log folding `ModelDiff` change-sets across a version sequence into a tamper-evident per-element mutation trail, the `AuditTrail.For(globalId)` lifecycle query, and `AuditTrail.Verify()`.
 
 ## [02]-[MODEL_DIFF]
 
 - Owner: `ModelDiff` the change-set carrying the baseline and revision graph addresses beside one change sequence and the unchanged count; `ElementChange` the closed `[Union]` over IFC `GlobalId`; `ChangeKind` the audit vocabulary projected from those arms; `ElementFingerprint` the `(GlobalId, content key, placement key)` triple; `AspectDelta` the path, `DeltaShape`, and typed `DeltaValue` evidence. A moved arm carries `Option<PlacementTransform>` directly—the seam value, not a flattened Bim mirror.
-- Entry: `ModelDiff.Between(ElementGraph baseline, ElementGraph revision, Op key)` folds the two snapshots into one diff; `ModelDiff.Seal(diff, key)` returns the generated `Rasm.Contracts.Bim.V1.ModelDiffWire`; `ModelDiff.Admit(wire, key)` dispatches generated oneof cases and re-enters shared Element conversions. Protobuf binary or ProtoJSON rendering remains the higher transport owner's concern.
+- Entry: `ModelDiff.Between(ElementGraph baseline, ElementGraph revision, Op key)` folds the two snapshots into one diff; `ModelDiff.Seal(diff, key)` returns the generated `Rasm.Contracts.Bim.ModelDiffWire`; `ModelDiff.Admit(wire, key)` dispatches generated oneof cases and re-enters shared Element conversions. Protobuf binary or ProtoJSON rendering remains the higher transport owner's concern.
 - Auto: `Between` `Federate`s each graph into a `GlobalId`-keyed map over the `ExternalId`-bearing `Object` nodes (the `Review/coordination#COORDINATION` `ExternalId` `Choose`-discard-`None` law — an authored Object with no IFC `GlobalId` sits off the federation surface, never a fault), `Fingerprint`s each through the seam `ContentAddress`, then partitions the common set: a differing `ContentKey` is `Modified`, an equal `ContentKey` with a differing `PlacementKey` is `Moved`, both equal is unchanged. The content key folds the `Object`'s semantic head (kind/classification/predefined/name/tag) with the order-independent content addresses of its bound non-`Object` nodes (`PropertySet`/`QuantitySet`/`Material`/`Assessment`/`Appearance`/`Coverage`) and its outgoing-edge structure; the placement key folds the `Object`'s geometry through the `RepresentationContentHash` map ALONE — EVERY geometry content-hashed there, the heavy display `Body` AND the lightweight analytical `Axis`/`FootPrint` the structural/energy disciplines resolve one-hop by content key — so a relocation moves the geometry bytes, the content hashes, and thus the placement key, while the semantic content key stays stable; an inline `BoundaryPolygon`/`Axis` coordinate read is the named seam violation (the seam carries no raw coordinate field — `Graph/element#NODE_MODEL` M2). The `Modified` arm carries BOTH currencies — the content-key pair AND the placement-key pair, so a content edit that also relocates the element keeps the axis the `Review/versioning#VERSION_GRAPH` merge weighs — plus `Generator.Equals` `Inequalities` over the two baked `Element`s as `AspectDelta` rows (the `Id`/`ExternalId`/`History`/`Parts` noise axes excluded at the `Rasm.Element` owner's own `[IgnoreEquality]` declarations, so the comparer composes bare and every consumer agrees by construction), each row's terminal `MemberPathSegment` projected onto the `DeltaShape` token so a downstream consumer reads the exact `Properties[Pset].FireRating` member that moved AND the shape of the move — a scalar `Replace` distinguished from an ordered-collection `Index`, a keyed-bag `Key`, or a set-membership `Added`/`Removed` — with each side's leaf kept typed, not an opaque content-key delta and not two rendered strings.
 - Receipt: the `ModelDiff` change-set is the incremental federation evidence; a `Review/issues#BCF_ARCHIVE` `BcfTopic` anchors a `BcfViewpoint.SelectedGlobalIds` on the `Modified`/`Moved` element `GlobalId`s this diff names, the `Review/coordination#COORDINATION` `Coordination.Between` folds two change-sets into the downstream-affected element/task/cost sets, and the `Review/versioning#VERSION_GRAPH` `BimCommit` keys its `Map<string, ElementFingerprint>` on the SAME `ElementFingerprint`; the generated `ModelDiffWire` is the cross-runtime artifact a future app may render or decode.
-- Packages: Rasm.Contracts (generated `Bim.V1` diff messages), Google.Protobuf, Rasm.Element (shared measure/classification/placement/key converters), Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
+- Packages: Rasm.Contracts (generated `Bim` diff messages), Google.Protobuf, Rasm.Element (shared measure/classification/placement/key converters), Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
 - Growth: a new change kind is one `ElementChange` arm, one `ChangeKind` audit row, one additive corpus oneof arm with regenerated bindings, and one `AuditTrail.Keys` arm. A new delta leaf or shape widens its domain union and generated oneof or enum together; no language-local wire type participates.
 - Boundary: federation joins on `Node.Object.ExternalId`, never the locally minted `NodeId`; content and placement keys compose the seam `ContentAddress`, never another hasher. A `Moved` arm carries the placement keys and the seam `PlacementTransform` options, then `Seal` projects them through the shared generated converter—no `PlacementPose` mirror. `Modified` keeps both content and placement currencies and typed member deltas. `Split`/`Merged` derive from content-key groups. The sole cross-runtime value is generated `ModelDiffWire`; Bim neither serializes JSON nor references AppHost, and no `Payload`, `DiffWire`, hand discriminator family, or transport option exists here.
 
@@ -28,7 +28,7 @@ using System.Linq;
 using Generator.Equals;
 using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
-using Rasm.Contracts.Bim.V1;
+using Rasm.Contracts.Bim;
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
@@ -309,9 +309,9 @@ public sealed record ModelDiff(
         After = SealDeltaValue(value.After),
     };
 
-    static Rasm.Contracts.Bim.V1.DeltaShape SealShape(DeltaShape value) =>
-        Enum.TryParse(value.Key, ignoreCase: true, out Rasm.Contracts.Bim.V1.DeltaShape wire)
-        && wire != Rasm.Contracts.Bim.V1.DeltaShape.Unspecified
+    static Rasm.Contracts.Bim.DeltaShape SealShape(DeltaShape value) =>
+        Enum.TryParse(value.Key, ignoreCase: true, out Rasm.Contracts.Bim.DeltaShape wire)
+        && wire != Rasm.Contracts.Bim.DeltaShape.Unspecified
             ? wire
             : throw new InvalidOperationException($"<diff-delta-shape:{value.Key}>");
 
@@ -378,13 +378,13 @@ public sealed record ModelDiff(
           from after in AdmitDeltaValue(wire.After, key)
           select new AspectDelta(wire.Path, shape, before, after);
 
-    static Fin<DeltaShape> AdmitShape(Rasm.Contracts.Bim.V1.DeltaShape wire, Op key) => wire switch {
-        Rasm.Contracts.Bim.V1.DeltaShape.Replace => Fin.Succ(DeltaShape.Replace),
-        Rasm.Contracts.Bim.V1.DeltaShape.Index => Fin.Succ(DeltaShape.Index),
-        Rasm.Contracts.Bim.V1.DeltaShape.Key => Fin.Succ(DeltaShape.Key),
-        Rasm.Contracts.Bim.V1.DeltaShape.Added => Fin.Succ(DeltaShape.Added),
-        Rasm.Contracts.Bim.V1.DeltaShape.Removed => Fin.Succ(DeltaShape.Removed),
-        Rasm.Contracts.Bim.V1.DeltaShape.Unknown => Fin.Succ(DeltaShape.Unknown),
+    static Fin<DeltaShape> AdmitShape(Rasm.Contracts.Bim.DeltaShape wire, Op key) => wire switch {
+        Rasm.Contracts.Bim.DeltaShape.Replace => Fin.Succ(DeltaShape.Replace),
+        Rasm.Contracts.Bim.DeltaShape.Index => Fin.Succ(DeltaShape.Index),
+        Rasm.Contracts.Bim.DeltaShape.Key => Fin.Succ(DeltaShape.Key),
+        Rasm.Contracts.Bim.DeltaShape.Added => Fin.Succ(DeltaShape.Added),
+        Rasm.Contracts.Bim.DeltaShape.Removed => Fin.Succ(DeltaShape.Removed),
+        Rasm.Contracts.Bim.DeltaShape.Unknown => Fin.Succ(DeltaShape.Unknown),
         _ => Rejected<DeltaShape>(key, "diff-delta-shape-undefined"),
     };
 

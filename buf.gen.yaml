@@ -2,7 +2,7 @@
 version: v2
 clean: true                                   # Removes each configured out directory before plugins write this run's complete tree
 managed:
-    enabled: true                             # Derives csharp_namespace Rasm.Contracts.<Family>.V1 from the package
+    enabled: true                             # Derives csharp_namespace Rasm.Contracts.<Family> from the package
     disable:
         - path: io/cloudevents/v1             # Publisher import-path selector; upstream file options survive in every embedded descriptor
         - path: grpc/health/v1
@@ -26,33 +26,33 @@ plugins:
         - valid_types=protovalidate_required  # Narrows generated value types where protovalidate marks message presence required
       include_imports: true                   # Emits dependency descriptors; WKT ride the runtime
       types:
-        - rasm.contracts.clock.v1.Hlc
-        - rasm.contracts.fault.v1.FaultDetail
-        - rasm.contracts.element.v1.EntityEditWire
-        - rasm.contracts.element.v1.NodeWire
-        - rasm.contracts.crdt.v1.CrdtOpWire
-        - rasm.contracts.event.v1.Extensions
-        - rasm.contracts.availability.v1.CommandAvailability
-        - rasm.contracts.ui.v1.CommandInvocation
-        - rasm.contracts.ui.v1.CommandGateWire
-        - rasm.contracts.ui.v1.AppUiSurfaceProgram
-        - rasm.contracts.render.v1.GeometryResidency
-        - rasm.contracts.ui.v1.EvidenceTimelineWire
-        - rasm.contracts.bcf.v1.BcfTopicWire
-        - rasm.contracts.bim.v1.ModelDiffWire
-        - rasm.contracts.credential.v1.CredentialPublicWire
-        - rasm.contracts.feature.v1.FlagVerdictWire
-        - rasm.contracts.binding.v1.BindingStatus
-        - rasm.contracts.binding.v1.CoercedValueWire
-        - rasm.contracts.binding.v1.WriteReceiptWire
-        - rasm.contracts.ui.v1.EvidenceReceiptWire
-        - rasm.contracts.bcf.v1.BcfViewpointWire
-        - rasm.contracts.appearance.v1.Set
-        - rasm.contracts.capability.v1.DescriptorPinWire
-        - rasm.contracts.appearance.v1.Material
-        - rasm.contracts.parity.v1.Backend
-        - rasm.contracts.benchmark.v1.BenchmarkClaimWire
-        - rasm.contracts.organization.v1.Organization
+        - rasm.contracts.clock.Hlc
+        - rasm.contracts.fault.FaultDetail
+        - rasm.contracts.element.EntityEditWire
+        - rasm.contracts.element.NodeWire
+        - rasm.contracts.crdt.CrdtOpWire
+        - rasm.contracts.event.Extensions
+        - rasm.contracts.availability.CommandAvailability
+        - rasm.contracts.ui.CommandInvocation
+        - rasm.contracts.ui.CommandGateWire
+        - rasm.contracts.ui.AppUiSurfaceProgram
+        - rasm.contracts.render.GeometryResidency
+        - rasm.contracts.ui.EvidenceTimelineWire
+        - rasm.contracts.bcf.BcfTopicWire
+        - rasm.contracts.bim.ModelDiffWire
+        - rasm.contracts.credential.CredentialPublicWire
+        - rasm.contracts.feature.FlagVerdictWire
+        - rasm.contracts.binding.BindingStatus
+        - rasm.contracts.binding.CoercedValueWire
+        - rasm.contracts.binding.WriteReceiptWire
+        - rasm.contracts.ui.EvidenceReceiptWire
+        - rasm.contracts.bcf.BcfViewpointWire
+        - rasm.contracts.appearance.Set
+        - rasm.contracts.capability.DescriptorPinWire
+        - rasm.contracts.appearance.Material
+        - rasm.contracts.parity.Backend
+        - rasm.contracts.benchmark.BenchmarkClaimWire
+        - rasm.contracts.organization.Organization
         - io.cloudevents.v1.CloudEvent
         - io.cloudevents.v1.CloudEventBatch
     - local: .venv/bin/protoc-gen-py                     # Buf's protobuf-py generator; uv pins it as a pair with its runtime
@@ -60,35 +60,35 @@ plugins:
       opt: [init_files=false]                            # rasm/, rasm/contracts/, and gen/ stay PEP 420 namespace directories the branch shares
       include_imports: true                              # Support modules share the estate's relative-import root
       types:
-        - rasm.contracts.clock.v1.Hlc
-        - rasm.contracts.fault.v1.FaultDetail
-        - rasm.contracts.compute.v1.TessellateRequest
-        - rasm.contracts.compute.v1.ComputeService.Tessellate
-        - rasm.contracts.compute.v1.TessellateResponse
-        - rasm.contracts.artifact.v1.FetchRequest
-        - rasm.contracts.artifact.v1.ArtifactService.Fetch
-        - rasm.contracts.artifact.v1.FetchResponse
-        - rasm.contracts.artifact.v1.PutRequest
-        - rasm.contracts.artifact.v1.ArtifactService.Put
-        - rasm.contracts.artifact.v1.PutResponse
-        - rasm.contracts.cad.v1.ExecuteRequest
-        - rasm.contracts.cad.v1.CadService.Execute
-        - rasm.contracts.cad.v1.ExecuteResponse
-        - rasm.contracts.cad.v1.TessellateRequest
-        - rasm.contracts.cad.v1.CadService.Tessellate
-        - rasm.contracts.cad.v1.TessellateResponse
-        - rasm.contracts.scan.v1.GaussianSplatScan
-        - rasm.contracts.crdt.v1.CrdtOpWire
-        - rasm.contracts.event.v1.Extensions
-        - rasm.contracts.appearance.v1.Set
-        - rasm.contracts.capability.v1.DiscoverRequest
-        - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
-        - rasm.contracts.capability.v1.DiscoverResponse
-        - rasm.contracts.parity.v1.Backend
-        - rasm.contracts.organization.v1.Organization
-        - rasm.contracts.scene.v1.SceneDescriptor
-        - rasm.contracts.fabrication.v1.FeatureControl
-        - rasm.contracts.declaration.v1.DeclarationRecord
+        - rasm.contracts.clock.Hlc
+        - rasm.contracts.fault.FaultDetail
+        - rasm.contracts.compute.TessellateRequest
+        - rasm.contracts.compute.ComputeService.Tessellate
+        - rasm.contracts.compute.TessellateResponse
+        - rasm.contracts.artifact.FetchRequest
+        - rasm.contracts.artifact.ArtifactService.Fetch
+        - rasm.contracts.artifact.FetchResponse
+        - rasm.contracts.artifact.PutRequest
+        - rasm.contracts.artifact.ArtifactService.Put
+        - rasm.contracts.artifact.PutResponse
+        - rasm.contracts.cad.ExecuteRequest
+        - rasm.contracts.cad.CadService.Execute
+        - rasm.contracts.cad.ExecuteResponse
+        - rasm.contracts.cad.TessellateRequest
+        - rasm.contracts.cad.CadService.Tessellate
+        - rasm.contracts.cad.TessellateResponse
+        - rasm.contracts.scan.GaussianSplatScan
+        - rasm.contracts.crdt.CrdtOpWire
+        - rasm.contracts.event.Extensions
+        - rasm.contracts.appearance.Set
+        - rasm.contracts.capability.DiscoverRequest
+        - rasm.contracts.capability.CapabilityDiscoveryService.Discover
+        - rasm.contracts.capability.DiscoverResponse
+        - rasm.contracts.parity.Backend
+        - rasm.contracts.organization.Organization
+        - rasm.contracts.scene.SceneDescriptor
+        - rasm.contracts.fabrication.FeatureControl
+        - rasm.contracts.declaration.DeclarationRecord
     - local: .venv/bin/protoc-gen-py                  # Publisher messages live below rasm.contracts.vendor to avoid stdlib/dist collisions
       out: libs/python/contracts/rasm/contracts/vendor
       opt: [init_files=false]
@@ -102,12 +102,12 @@ plugins:
       out: libs/python/contracts/rasm/contracts/gen
       opt: [io=async]                                 # The branch serves ASGI and dials under anyio
       types:
-        - rasm.contracts.compute.v1.ComputeService.Tessellate
-        - rasm.contracts.artifact.v1.ArtifactService.Fetch
-        - rasm.contracts.artifact.v1.ArtifactService.Put
-        - rasm.contracts.cad.v1.CadService.Execute
-        - rasm.contracts.cad.v1.CadService.Tessellate
-        - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
+        - rasm.contracts.compute.ComputeService.Tessellate
+        - rasm.contracts.artifact.ArtifactService.Fetch
+        - rasm.contracts.artifact.ArtifactService.Put
+        - rasm.contracts.cad.CadService.Execute
+        - rasm.contracts.cad.CadService.Tessellate
+        - rasm.contracts.capability.CapabilityDiscoveryService.Discover
     - local: .venv/bin/protoc-gen-connectrpc          # Publisher service stubs share the vendored message namespace
       out: libs/python/contracts/rasm/contracts/vendor
       opt: [io=async]
@@ -117,56 +117,56 @@ plugins:
       out: libs/csharp/Rasm.Contracts/Generated
       opt: [base_namespace=Rasm.Contracts]            # Namespace tail becomes the directory
       types:
-        - rasm.contracts.clock.v1.Hlc
-        - rasm.contracts.fault.v1.FaultDetail
-        - rasm.contracts.compute.v1.TessellateRequest
-        - rasm.contracts.compute.v1.TessellateResponse
-        - rasm.contracts.artifact.v1.FetchRequest
-        - rasm.contracts.artifact.v1.FetchResponse
-        - rasm.contracts.artifact.v1.PutRequest
-        - rasm.contracts.artifact.v1.PutResponse
-        - rasm.contracts.compute.v1.SetDegradationRequest
-        - rasm.contracts.compute.v1.SetDegradationResponse
-        - rasm.contracts.compute.v1.DrainRuntimeRequest
-        - rasm.contracts.compute.v1.DrainRuntimeResponse
-        - rasm.contracts.scan.v1.GaussianSplatScan
-        - rasm.contracts.element.v1.EntityEditWire
-        - rasm.contracts.element.v1.NodeWire
-        - rasm.contracts.crdt.v1.CrdtOpWire
-        - rasm.contracts.event.v1.Extensions
-        - rasm.contracts.availability.v1.CommandAvailability
-        - rasm.contracts.ui.v1.CommandGateWire
-        - rasm.contracts.ui.v1.AppUiSurfaceProgram
-        - rasm.contracts.render.v1.GeometryResidency
-        - rasm.contracts.ui.v1.EvidenceTimelineWire
-        - rasm.contracts.bcf.v1.BcfTopicWire
-        - rasm.contracts.bim.v1.ModelDiffWire
-        - rasm.contracts.credential.v1.CredentialPublicWire
-        - rasm.contracts.feature.v1.FlagVerdictWire
-        - rasm.contracts.binding.v1.BindingStatus
-        - rasm.contracts.binding.v1.CoercedValueWire
-        - rasm.contracts.binding.v1.WriteReceiptWire
-        - rasm.contracts.ui.v1.EvidenceReceiptWire
-        - rasm.contracts.bcf.v1.BcfViewpointWire
-        - rasm.contracts.appearance.v1.Set
-        - rasm.contracts.capability.v1.DescriptorPinWire
-        - rasm.contracts.capability.v1.DiscoverRequest
-        - rasm.contracts.capability.v1.DiscoverResponse
-        - rasm.contracts.appearance.v1.Material
-        - rasm.contracts.parity.v1.Backend
-        - rasm.contracts.benchmark.v1.BenchmarkClaimWire
-        - rasm.contracts.organization.v1.Organization
-        - rasm.contracts.scene.v1.SceneDescriptor
-        - rasm.contracts.fabrication.v1.FeatureControl
-        - rasm.contracts.declaration.v1.DeclarationRecord
+        - rasm.contracts.clock.Hlc
+        - rasm.contracts.fault.FaultDetail
+        - rasm.contracts.compute.TessellateRequest
+        - rasm.contracts.compute.TessellateResponse
+        - rasm.contracts.artifact.FetchRequest
+        - rasm.contracts.artifact.FetchResponse
+        - rasm.contracts.artifact.PutRequest
+        - rasm.contracts.artifact.PutResponse
+        - rasm.contracts.compute.SetDegradationRequest
+        - rasm.contracts.compute.SetDegradationResponse
+        - rasm.contracts.compute.DrainRuntimeRequest
+        - rasm.contracts.compute.DrainRuntimeResponse
+        - rasm.contracts.scan.GaussianSplatScan
+        - rasm.contracts.element.EntityEditWire
+        - rasm.contracts.element.NodeWire
+        - rasm.contracts.crdt.CrdtOpWire
+        - rasm.contracts.event.Extensions
+        - rasm.contracts.availability.CommandAvailability
+        - rasm.contracts.ui.CommandGateWire
+        - rasm.contracts.ui.AppUiSurfaceProgram
+        - rasm.contracts.render.GeometryResidency
+        - rasm.contracts.ui.EvidenceTimelineWire
+        - rasm.contracts.bcf.BcfTopicWire
+        - rasm.contracts.bim.ModelDiffWire
+        - rasm.contracts.credential.CredentialPublicWire
+        - rasm.contracts.feature.FlagVerdictWire
+        - rasm.contracts.binding.BindingStatus
+        - rasm.contracts.binding.CoercedValueWire
+        - rasm.contracts.binding.WriteReceiptWire
+        - rasm.contracts.ui.EvidenceReceiptWire
+        - rasm.contracts.bcf.BcfViewpointWire
+        - rasm.contracts.appearance.Set
+        - rasm.contracts.capability.DescriptorPinWire
+        - rasm.contracts.capability.DiscoverRequest
+        - rasm.contracts.capability.DiscoverResponse
+        - rasm.contracts.appearance.Material
+        - rasm.contracts.parity.Backend
+        - rasm.contracts.benchmark.BenchmarkClaimWire
+        - rasm.contracts.organization.Organization
+        - rasm.contracts.scene.SceneDescriptor
+        - rasm.contracts.fabrication.FeatureControl
+        - rasm.contracts.declaration.DeclarationRecord
     - remote: buf.build/grpc/csharp:v1.83.0  # Service emitter pinned independently at its official remote plugin
       revision: 1                            # Pin the exact BSR plugin build behind the semantic plugin version
       out: libs/csharp/Rasm.Contracts/Generated
       opt: [base_namespace=Rasm.Contracts]
       types:
-        - rasm.contracts.compute.v1.ComputeService.Tessellate
-        - rasm.contracts.artifact.v1.ArtifactService.Fetch
-        - rasm.contracts.artifact.v1.ArtifactService.Put
-        - rasm.contracts.compute.v1.ControlService.SetDegradation
-        - rasm.contracts.compute.v1.ControlService.DrainRuntime
-        - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
+        - rasm.contracts.compute.ComputeService.Tessellate
+        - rasm.contracts.artifact.ArtifactService.Fetch
+        - rasm.contracts.artifact.ArtifactService.Put
+        - rasm.contracts.compute.ControlService.SetDegradation
+        - rasm.contracts.compute.ControlService.DrainRuntime
+        - rasm.contracts.capability.CapabilityDiscoveryService.Discover

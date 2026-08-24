@@ -19,7 +19,7 @@ Review joins `ModelDiff` changes and BCF issues by `GlobalId`, folds each topic'
 
 ```typescript signature
 import { Wire } from "@rasm/core"
-import { BcfStatus } from "@rasm\/contracts/rasm/contracts/bcf/v1/bcf_pb"
+import { BcfStatus } from "@rasm\/contracts/rasm/contracts/bcf/bcf_pb"
 import { Record } from "effect"
 import type { LucideIcon } from "lucide-react"
 import { CircleMinus, CirclePlus, Combine, GitBranch, Move3d, PencilLine } from "lucide-react"

@@ -9,7 +9,7 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 - [04]-[WIZARD_FLOW]: Multi-step wizard over the one section roster; step gates ride the same validation rail.
 - [05]-[SELECTION_MODEL]: Checked-list selection over the one admitted collection backing; the gesture, marquee, and similarity producers; durable named selection sets and the one snapshot stream.
 - [06]-[BATCH_EDIT]: Pending-commit posture, the parameter revert lane and value sets, and the N-item batch fold to one `DeckReceipt`.
-- [07]-[STUDY_FORM]: Versioned study recipes compiled into the one schema grammar and submitted under one correlation.
+- [07]-[STUDY_FORM]: Revision-bearing study recipes compiled into the one schema grammar and submitted under one correlation.
 
 ## [02]-[FORM_SCHEMA]
 
@@ -1432,7 +1432,7 @@ public static class BatchEdit {
 
 ## [07]-[STUDY_FORM]
 
-- Owner: `RecipeInputKind` the per-input concern row family; `SectionSlot` the required/optional partition axis; `RecipeInput` the recipe's declared input row; `StudyRecipe` the revision-bearing recipe; `RecipePin` the version-pin axis; `RecipeCatalog` the revision resolve; `StudySchema` the recipe-to-schema compilation; `StudySubmission` the queued-run evidence.
+- Owner: `RecipeInputKind` the per-input concern row family; `SectionSlot` the required/optional partition axis; `RecipeInput` the recipe's declared input row; `StudyRecipe` the revision-bearing recipe; `RecipePin` the revision-pin axis; `RecipeCatalog` the revision resolve; `StudySchema` the recipe-to-schema compilation; `StudySubmission` the queued-run evidence.
 - Cases: `RecipePin` = Pinned | Tracking; `RecipeInputKind` = source | number | words | choice; `SectionSlot` = required | optional.
 - Law: a recipe row is DATA and a study form is its compilation — a per-analysis screen, a per-recipe control class, and a second input vocabulary are all deleted by one schema compile.
 - Entry: `RecipeCatalog.Resolve(Seq<StudyRecipe> revisions, RecipePin pin)` — elects the pinned revision or the highest available one, refusing an absent pin; `StudySchema.Compile(StudyRecipe recipe, string submitIntent, string commitIntent)` — projects identity, required, and optional sections onto one `FormSchema`; `StudySchema.Submit(StudyRecipe recipe, FormSchema schema, PendingForm cell, CommandDeck deck, CorrelationId correlation, Func<Fin<Unit>> admit, CancellationToken cancel = default)` — folds the composition-bound pre-solve gate, then validates the projected state whole, then runs the schema's submit intent once.

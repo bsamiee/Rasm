@@ -76,7 +76,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [55]-[SESSION](.planning/Collab/session.md): Typed session governance gating edit-intent admission by role and membership.
 
 [DIAGNOSTICS]:
-- [56]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine with viewport objectives, correlation join, wire context.
+- [56]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence union, telemetry spine, correlation join, wire context, durable-parcel seal.
 - [57]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, headless proof matrix, frame-bench lanes, and the guard registries.
 - [58]-[DEVLOOP](.planning/Diagnostics/devloop.md): Debug-profile dev surface — live inspection, profiling, and the solve scrub beside the shell.
 - [59]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution and its operator readout.
@@ -220,7 +220,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [WIRE_CODEGEN]:
 - `Google.Api.CommonProtos` — Generated `google.type.Date` calendar fields projected by the control contract boundary.
 - `Rasm.AppHost` — Shared descriptor-backed `WireJson` validation and canonical ProtoJSON; referenced by project.
-- `Rasm.Contracts` — Generated `Ui.V1` and `Render.V1` messages and enums consumed by AppUi contract projections; referenced by project.
+- `Rasm.Contracts` — Generated `Ui` and `Render` messages and enums consumed by AppUi contract projections; referenced by project.
 - `Google.Protobuf` — Generated semantic-package messages and the descriptor-backed ProtoJSON surface consumed through `WireJson`.
 - `NodaTime.Serialization.Protobuf` — Exact Noda Time conversion at generated timestamp and calendar boundaries.
 

@@ -13,7 +13,7 @@ Intl localizes the folder with zero i18n package: one ambient locale spine over 
 ## [02]-[LOCALE_SPINE]
 
 [LOCALE_SPINE]:
-- Law: the locale is one ambient value — the app root renders `I18nProvider` with the kernel `Shape.Refined.Locale` brand (a canonical BCP-47 string by construction, so it feeds the provider directly), the brand itself lives in a persisted atom (`system/atom#STORE_ROOT`'s persisted row — `Atom.kvs` with `Shape.Refined.Locale` as codec, its key minted through `Store.key` on the seal-versioned posture so a codec change falls to the default locale rather than mis-restoring), and a locale change is one atom write that re-renders every formatter consumer; a second locale source, a `navigator.language` read in a row, or a prop-drilled locale string is the named defect.
+- Law: the locale is one ambient value — the app root renders `I18nProvider` with the kernel `Shape.Refined.Locale` brand (a canonical BCP-47 string by construction, so it feeds the provider directly), the brand itself lives in a persisted atom (`system/atom#STORE_ROOT`'s persisted row — `Atom.kvs` with `Shape.Refined.Locale` as codec, its key minted through `Store.key` and its parcel sealed by `Store.sealed`, so a generation bump refuses the stored locale on content and the default locale seats rather than mis-restoring), and a locale change is one atom write that re-renders every formatter consumer; a second locale source, a `navigator.language` read in a row, or a prop-drilled locale string is the named defect.
 - Law: direction derives — RAC and the react-aria hooks resolve RTL from the provided locale; layout rows consume logical properties (`start`/`end` utilities through `cn`) so direction never branches in JS.
 - Law: hydration-sensitive reads gate through `useIsSSR` — formatter output that diverges across server/client (timezone-dependent dates) renders the server-stable form first; SSR identity rides RAC's own infra.
 - Law: react-aria's memoized hooks are the first choice — `useDateFormatter`/`useNumberFormatter`/`useListFormatter`/`useCollator` already cache per locale+options; this page constructs a native instance only where no hook exists, and that construction rides `[3]`'s one cache.
@@ -174,9 +174,9 @@ const _Plural = Schema.TaggedStruct("Plural", {
   forms: _forms,
 })
 
-// A REFINED record key is not a validated key by default: a member whose key fails `NonEmptyString` is dropped as
-// an excess property rather than refused, so an empty-string case would vanish silently and the fold would answer
-// `other` for a case the author did write. `Shape.Record` seats the refusal on the record node, so both refined-key
+// REFINED record keys admit unvalidated by default: a member whose key fails `NonEmptyString` drops as an excess
+// property rather than refusing, so an empty-string case vanishes silently and the fold answers `other` for a
+// case the author did write. `Shape.Record` seats the refusal on the record node, so both refined-key
 // records below close wherever a catalog decodes rather than depending on the ingress caller passing an option.
 const _Select = Schema.TaggedStruct("Select", {
   arg: Schema.NonEmptyString,
@@ -211,7 +211,7 @@ declare namespace Message {
 - Law: the fold is pure given its inputs — no ambient locale read; the locale arrives as a parameter (from `useLocale` at the consuming row), so the same catalog+key formats identically on server and client.
 - Law: the chain never crosses scripts silently — fallback strips subtags right-to-left (`de-CH` → `de`, re-minted through `Shape.Refined.Locale`'s own decode so an invalid truncation folds to none), the standard BCP-47 truncation; a cross-language fallback (`fr` for a missing `de`) is only the DEFAULT hop the app configured, never an inference.
 - Law: catalog assembly is app composition — this module never fetches; the app decodes catalog payloads through `Message.Catalog` at its own ingress, where `Shape.Record` already closes every refined key domain, and hands the built `Book`; hot locale swap is one atom write of the locale brand, and every message re-renders through the same fold.
-- Law: the admission option is load-bearing, not hygiene — a refined record key that fails its refinement is DROPPED as an excess property under the default posture, so a malformed message id or select case would disappear from a catalog the decode reported clean and surface later as a key rendered to a user; the erroring posture is what makes the decode the author-time police this page claims it is.
+- Law: the admission option is load-bearing, not hygiene — a refined record key that fails its refinement is DROPPED as an excess property under the default posture, so a malformed message id or select case disappears from a catalog the decode reported clean and surfaces later as a key rendered to a user; the erroring posture is what makes the decode the author-time police this page claims it is.
 
 ```typescript signature
 const _fill = (template: string, args: Message.Args): string =>

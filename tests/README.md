@@ -10,7 +10,7 @@ One folder scheme spans all languages:
 tests/
 ├── contracts/          # Cross-language registry, estate proto sources, publisher bytes, and frozen proof assets
 │   ├── .api/           # Corpus tool catalogs — the buf gate and generation surface the root buf.yaml drives
-│   ├── proto/          # Estate buf module: rasm/contracts/<family>/v1/, with ownership-sized sibling files
+│   ├── proto/          # Estate buf module: rasm/contracts/<family>/, with ownership-sized sibling files
 │   ├── vendor/         # Publisher bytes: independent modules, schemata, and conformance vectors
 │   └── <seam>/         # Materialized only for verified case assets; blocked cases create no empty directory
 ├── csharp/
@@ -118,7 +118,7 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
 |  [15]   | contract corpus asset seam  | `tests/contracts/<seam>/`, only when an atomic case carries verified frozen evidence     |
 |  [16]   | derived corpus schema       | `tests/contracts/<seam>/<fqn>.jsonschema.strict.bundle.json`, only for a real evaluator  |
-|  [17]   | corpus proto source         | `tests/contracts/proto/rasm/contracts/<family>/v1/*.proto`, then regenerate              |
+|  [17]   | corpus proto source         | `tests/contracts/proto/rasm/contracts/<family>/*.proto`, then regenerate                 |
 |  [18]   | vendored publisher source   | `tests/contracts/vendor/<publisher>/`, a proto as its own buf module under `proto/`      |
 |  [19]   | corpus tool API catalog     | `tests/contracts/.api/`, one catalog per binary gating the corpus                        |
 

@@ -65,7 +65,7 @@ Each branch is an independently adoptable library estate. Branch-local capabilit
 - C# carries the host-bound AEC domain: the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries.
 - Python carries the host-free science, compute, data, geometry, exchange, and artifact domain.
 - TypeScript carries the host-free web, edge, runtime, persistence, security, UI, and deployment domain.
-- Each branch composes, mints, verifies, and deploys its own schema state — schema, migration, recovery, evidence — with no peer branch present.
+- Each branch composes, mints, verifies, and deploys its own schema state — schema, generation, recovery, evidence — with no peer branch present.
 - Cross-language composition adds peers to a complete branch; it never supplies a branch's missing operational base.
 - Domains widen at their owning branch under `[12]-[ADMISSION]`; the rows above carry no ceiling on what a branch admits next.
 
@@ -151,7 +151,7 @@ Transcription spells the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 
 [FLEET_ESCALATION]: Every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at estate scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
 
-[PROFILE_SWAP]: Profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
+[PROFILE_SWAP]: Profiles move from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
 
 ## [09]-[SCHEMA_STATE]
 
@@ -162,7 +162,9 @@ Schema state is an infrastructure contract: every branch composes its own schema
 - Polyglot composition merges branch contributions at the application root by artifact key under one deterministic order.
 - Merged generation is the deployment unit; a single-language application deploys the generation it minted alone, with no merge step.
 - Runtime verifies the generation it observes and never mutates it; a digest change replaces the generation whole.
-- Provider adapters, migration execution, protocol evolution, journal identity, and work identity stay branch-owned.
+- Provider adapters, generation materialization, protocol evolution, journal identity, and work identity stay branch-owned.
+- Generations materialize whole and cut over atomically; each relation declares where its truth lives and rebuilds from it on replacement.
+- Superseded generations retire when no live process binds them, and the tolerated-generation span is a deployment declaration, never an inference.
 - Deployment publishes only a generation proved against the corpus schema.
 - Recovery grades one verdict on two proofs — contract identity that the store carries the composed generation, and data recency of its frontier.
 - Recovery windows derive from the observation's own stamps, so no provider hands in a lag it measured against a clock the verifier never saw.
@@ -256,7 +258,7 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 ## [13]-[APPEARANCE]
 
-Surface appearance crosses as generated `rasm.contracts.appearance.v1.Set` and `Material` messages under the estate Protobuf definition. Their two domain cases name distinct producers, exact messages, and peer consumers in `tests/contracts/manifest.json`; no hand JSON Schema or branch transcription stands beside the generated vocabulary.
+Surface appearance crosses as generated `rasm.contracts.appearance.Set` and `Material` messages under the estate Protobuf definition. Their two domain cases name distinct producers, exact messages, and peer consumers in `tests/contracts/manifest.json`; no hand JSON Schema or branch transcription stands beside the generated vocabulary.
 
 | [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
 | :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |
@@ -296,7 +298,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 
 | [INDEX] | [ATTRIBUTE]       | [CARRIES]                                 |
 | :-----: | :---------------- | :---------------------------------------- |
-|  [01]   | `type`            | `rasm.<domain>.<subject>.<fact>.v<N>`     |
+|  [01]   | `type`            | `rasm.<domain>.<subject>.<fact>`          |
 |  [02]   | `source`          | the producing capability's URI-reference  |
 |  [03]   | `subject`         | the payload's content key                 |
 |  [04]   | `id`              | the producer's operation identity         |
@@ -308,7 +310,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 
 - `<domain>` is the capability subject `[08]-[OBSERVABILITY_CONFORMANCE]` fixes for metric names, so a board and a subscription join one vocabulary.
 - That subject and the package segment a `[HOOK_PLANE]` id spells are two grammars, so a `type` derives from the roster, never the firing hook id.
-- `<fact>` reads past tense; its major versions event semantics independently of the optional payload schema URI.
+- `<fact>` reads past tense and names one live event semantic; a semantic reshape lands at every subscriber same-change.
 - `source` names the producing capability context and survives redeployment rather than naming a host, process, package, or deployment.
 - `source.capability` and `type.subject` are independent axes: one stable capability may emit several event families.
 - Producers sharing one capability source draw `id` values from one uniqueness namespace, preserving the specification's `(source, id)` invariant.
@@ -318,7 +320,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 - `subject` carries the content key in one spelling; `dataref` independently locates externalized data.
 - Peer extension names unknown or past the ceiling are ignored, never a whole-message fault.
 
-[EXTENSION_ROSTER]: `rasm.contracts.event.v1.Extensions` is the sole estate extension vocabulary, field roster, wire numbering, and validation authority. Each branch generates it, projects SDK values from the descriptor's field kinds, and hands the whole generated message through construction and decode; official SDK members hold that same authority over standard CloudEvents attributes, and a branch restates neither vocabulary.
+[EXTENSION_ROSTER]: `rasm.contracts.event.Extensions` is the sole estate extension vocabulary, field roster, wire numbering, and validation authority. Each branch generates it, projects SDK values from the descriptor's field kinds, and hands the whole generated message through construction and decode; official SDK members hold that same authority over standard CloudEvents attributes, and a branch restates neither vocabulary.
 
 [TWO_TRACE]: Distributed-tracing extension carries the CREATION-time trace and the transport carrier carries the CURRENT hop, so both ship and folding either onto the other loses the leg it alone records.
 

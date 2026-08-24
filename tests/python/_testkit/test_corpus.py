@@ -71,7 +71,7 @@ def _stage(root: Path, entry: Entry, case: Case, assets: Iterable[tuple[Asset, b
         path = root / asset.path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
-    (root / "manifest.json").write_bytes(msgspec.json.encode(Manifest(version=2, entries=(msgspec.structs.replace(entry, cases=(case,)),))))
+    (root / "manifest.json").write_bytes(msgspec.json.encode(Manifest(entries=(msgspec.structs.replace(entry, cases=(case,)),))))
 
 
 def test_live_corpus_proves_every_verified_vector_through_its_oracle() -> None:
@@ -96,7 +96,7 @@ def test_live_corpus_proves_every_verified_vector_through_its_oracle() -> None:
     )
     assert proof.python_oracles.semantic_conformance == 0
     assert proof.python_oracles.vectors == sum(
-        vector.expected is None or vector.expected.facts_format not in {"backend-generation-v1", "hdf5-facts-v1", "matrix-market-facts-v1"}
+        vector.expected is None or vector.expected.facts_format not in {"backend-generation", "hdf5-facts", "matrix-market-facts"}
         for readiness in verified
         for vector in readiness.vectors
     )
@@ -129,7 +129,7 @@ def test_rpc_direction_refuses_a_method_alias(tmp_path: Path) -> None:
     """An RPC direction resolves its exact service method before its specimen is decoded."""
     manifest = assert_ok(load_manifest(_CORPUS))
     entry, case = _case(manifest, "compute-rpc", "tessellate-request")
-    consumer = msgspec.structs.replace(case.consumers[0], method="rasm.contracts.compute.v1.ComputeService.Alias")
+    consumer = msgspec.structs.replace(case.consumers[0], method="rasm.contracts.compute.ComputeService.Alias")
     specimen = SpecimenAsset(
         path="rpc/request.bin", bytes=0, fingerprint=Fingerprint(algorithm="xxh128", value=xxhash.xxh128(b"", seed=0).hexdigest())
     )

@@ -178,7 +178,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
 
 [WIRE_CODEGEN]:
-- `Rasm.Contracts` — Generated compute RPC messages and `event.v1.Extensions` for broker admission.
+- `Rasm.Contracts` — Generated compute RPC messages and `event.Extensions` for broker admission.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore.Server`

@@ -113,7 +113,6 @@ public sealed record TelemetrySeams(
 // --- [COMPOSITION] --------------------------------------------------------------------------
 public static class TelemetryBoard {
     public const string Key = "telemetry";
-    public const int Version = 2;
 
     // The board's own re-query cadence, the ONE authored duration on this page: the staleness budget, every
     // rule's probe interval, and the staleness hold all derive from it, so a retune moves them together where a
@@ -226,7 +225,7 @@ public static class TelemetryBoard {
     // arrangement authored, and each stat band's key list is a filter over the roster rather than a hand copy of
     // it. The SLO band is the one variable-length row.
     static Fin<DashboardLayout> Layout(Seq<string> sloKeys) =>
-        PlacementFlow.Layout(Key, Version,
+        PlacementFlow.Layout(Key,
             Seq((Seq(FramePace.Key, FrameHeat.Key), 2), (sloKeys, 1))
                 + toSeq(StatBand.Items).OrderBy(static band => band.Rank).AsIterable().ToSeq()
                     .Map(band => (Stats.Filter(row => row.Band == band).Map(static row => row.Key), 1))

@@ -1,19 +1,19 @@
 # [PY_RUNTIME_EVENT]
 
-Branch-wide CloudEvents ownership seats here in two explicit layers. The strict generic capability comes first: the SDK `CloudEvent` plus concrete `EventFormat` rows admit the specification's URI domains and preserve the complete CloudEvents attribute and data model across singular structured JSON/protobuf/Avro and standardized JSON/protobuf batches. The Rasm profile composes over that capability through `MessageEnvelope` admission: `EventType`/`Source`/`OperationId`, the sealed application payload band, and the generated `rasm.contracts.event.v1.Extensions` roster. The corpus declares those extension columns and this page derives their codecs from the descriptor; it never replaces the SDK envelope with a hand-authored twin. Message envelopes ANNOUNCE a fact and gain no authority over it — the producing receipt stays the evidence truth and the message envelope projects it — so a consumer routes on attributes without opening the payload. Transport lowering, binary carrier mapping, protocol settings, and payload residence seat at `transport/binding#BINDING`.
+Branch-wide CloudEvents ownership seats here in two explicit layers. The strict generic capability comes first: the SDK `CloudEvent` plus concrete `EventFormat` rows admit the specification's URI domains and preserve the complete CloudEvents attribute and data model across singular structured JSON/protobuf/Avro and standardized JSON/protobuf batches. The Rasm profile composes over that capability through `MessageEnvelope` admission: `EventType`/`Source`/`OperationId`, the sealed application payload band, and the generated `rasm.contracts.event.Extensions` roster. The corpus declares those extension columns and this page derives their codecs from the descriptor; it never replaces the SDK envelope with a hand-authored twin. Message envelopes ANNOUNCE a fact and gain no authority over it — the producing receipt stays the evidence truth and the message envelope projects it — so a consumer routes on attributes without opening the payload. Transport lowering, binary carrier mapping, protocol settings, and payload residence seat at `transport/binding#BINDING`.
 
 Specification law owns every row and `cloudevents` accelerates it: `core.v1.event.CloudEvent` is the one admitted event class and its aggregating `CloudEventValidationError` funnels through one `boundary` fence into `BoundaryFault`, while the whole `cloudevents.v1` legacy tree — its mutable dict event, its converter stack, its marshaller pair, and its pydantic mirror — is refused by ruling. Where the package's surface is narrower than the specification the branch owns the remainder outright: URI-reference and absolute-URI admission, the extension-name ceiling, the whole batch leg, and every format past JSON. Rails, faults, and the traversal dispositions arrive settled from `reliability/faults#FAULT`; the capability-subject roster from `observability/metrics#METRIC`; the W3C `Correlation` fold from `execution/admission#CONTEXT`; `ContentKey` from `evidence/identity#IDENTITY`; `Hlc` from `evidence/clock#CLOCK`.
 
 ## [01]-[INDEX]
 
 - [02]-[GRAMMAR]: attribute grammar — `EventType` segments against the capability-subject roster, `Source`, `OperationId`, the uniqueness composite, and the extension-name ceiling the package does not carry.
-- [03]-[MESSAGE]: `MessageEnvelope` — the mint boundary, the generated `rasm.contracts.event.v1.Extensions` roster with its descriptor-derived codec table, the two-trace split, and the `dataref` join.
+- [03]-[MESSAGE]: `MessageEnvelope` — the mint boundary, the generated `rasm.contracts.event.Extensions` roster with its descriptor-derived codec table, the two-trace split, and the `dataref` join.
 - [04]-[FORMAT]: concrete `EventFormat` — instance-bound package codecs, the generated protobuf/Avro publisher assets, JSON/protobuf batch forms, and generated-profile admission.
 
 ## [02]-[GRAMMAR]
 
-- Owner: `EventType` is the parsed `rasm.<domain>.<subject>.<fact>.v<N>` value and the ONE site that spells the pattern, so a producer names a fact by constructing the value rather than formatting a string a subscription later fails to match. `Source` and `OperationId` are its siblings on the required triple, each a refinement over its own domain — `Source` a URI-reference naming the producing CAPABILITY, `OperationId` the producer's operation identity — and `Uniqueness` is the `(source, id)` composite every dedup window and idempotency key reads as one value rather than joining two fields at each consumer.
-- Cases: `<domain>` proves against `observability/metrics#METRIC` `DOMAINS` at construction, so a board and a subscription join ONE capability vocabulary and a fact under an unrostered segment refuses exactly as the metric under that segment refuses — the join is the point, and a second event-only segment roster is the fork it forecloses. `<subject>` is the capability's own noun, `<fact>` reads past tense, and `<version>` moves when the event semantics break; the optional payload-schema URI evolves independently.
+- Owner: `EventType` is the parsed `rasm.<domain>.<subject>.<fact>` value and the ONE site that spells the pattern, so a producer names a fact by constructing the value rather than formatting a string a subscription later fails to match. `Source` and `OperationId` are its siblings on the required triple, each a refinement over its own domain — `Source` a URI-reference naming the producing CAPABILITY, `OperationId` the producer's operation identity — and `Uniqueness` is the `(source, id)` composite every dedup window and idempotency key reads as one value rather than joining two fields at each consumer.
+- Cases: `<domain>` proves against `observability/metrics#METRIC` `DOMAINS` at construction, so a board and a subscription join ONE capability vocabulary and a fact under an unrostered segment refuses exactly as the metric under that segment refuses — the join is the point, and a second event-only segment roster is the fork it forecloses. `<subject>` is the capability's own noun and `<fact>` reads past tense, carrying the announced semantics whole so a semantic break mints a fresh fact spelling; the optional payload-schema URI evolves independently.
 - Law: `id` is operation identity and never a content digest — a producer replaying one operation replays one `id`, and the payload's identity rides `subject` under `evidence/identity#IDENTITY`'s `wire` render. `dataref` is instead the URI-reference of an externalized payload residence. Collapsing operation identity, content identity, and residence erases three different joins: deduplication, integrity, and acquisition.
 - Law: `source` is the official URI-reference under the Rasm profile's exact `rasm:<domain>/<capability>` spelling. The producer states both segments explicitly; neither derives from `type.subject`, because source context and event type are independent CloudEvents attributes. Profile composition proves only domain agreement between them. The capability therefore names where the occurrence happened without forcing every fact type under that source to repeat the same noun. It is a producer CLAIM verified against the trust row before any routing decision reads it, so it never reaches a filter unverified.
 - Law: extension-name ceilings are BRANCH-owned. `core.v1.event.CloudEvent._validate_extension_attributes` matches `^[a-z0-9]+$` over a one-character floor and rejects the reserved `data` name — a charset rule carrying no length bound — so `EXTENSION_FMT` states the specification's twenty-character ceiling and the mint proves it BEFORE construction. Package surfaces narrower than the specification state a fact about the package, never a ceiling on what the estate carries.
@@ -21,8 +21,8 @@ Specification law owns every row and `cloudevents` accelerates it: `core.v1.even
 - Law: `TYPE_GRAMMAR` is the ONE compiled spelling and both entries cross it — `parse` reads it and `of` renders `_spelled` into it — so a mint proves exactly what a decode proves and neither restates the other's character class. Bare-name sequence arms (`case [TYPE_STEM, domain, ...]`) CAPTURE rather than compare: such an arm rebinds the constant it appears to read and admits every five-segment spelling, so a compiled grammar is what refuses a foreign stem at all and what proves `<subject>` and `<fact>` a producer hands in loose.
 - Law: the stamp pair leaves as the MEASURED lag rather than as the two stamps a caller already holds — `stamped` is `Announced.lag`'s one producer, so a receipt never publishes a zero no observation took, under `docs/laws/scars.md` `[FORGED_ZERO]`.
 - Law: every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.EVENT` and derives its subject from that leg, so a fence spells no coordinate its package never declared and the closed `defect` token plus the row's NAMED slots replace the sentences the literal constructions carried. One `EVENT_EXTENSION` anchor serves every extension codec: the refused spelling a peer repairs on rides the caught class the fence names, so the per-codec subject bought nothing the detail did not already hold.
-- Entry: `EventType.of(domain, subject, fact, version)` is the one event-type mint and `EventType.parse(spelling)` the admission it composes, both railed, so the wire spelling round-trips through one owner. `Source.of(domain, capability)` and `Source.parse(reference)` admit the source independently; `_profiled(event_type, source)` is the one Rasm composition gate and proves domain agreement only. `Uniqueness.of(envelope)` projects the composite off a decoded message rather than taking two loose arguments a caller can transpose.
-- Growth: a new capability subject is one `DOMAINS` row at the metrics owner, reaching this grammar untouched; a new fact under a standing subject is a `<fact>` value and no declaration at all; a breaking event semantic is one `<version>` increment, independent of any payload-schema URI move.
+- Entry: `EventType.of(domain, subject, fact)` is the one event-type mint and `EventType.parse(spelling)` the admission it composes, both railed, so the wire spelling round-trips through one owner. `Source.of(domain, capability)` and `Source.parse(reference)` admit the source independently; `_profiled(event_type, source)` is the one Rasm composition gate and proves domain agreement only. `Uniqueness.of(envelope)` projects the composite off a decoded message rather than taking two loose arguments a caller can transpose.
+- Growth: a new capability subject is one `DOMAINS` row at the metrics owner, reaching this grammar untouched; a new fact under a standing subject is a `<fact>` value and no declaration at all; a broken event semantic is one fresh `<fact>` spelling, independent of any payload-schema URI move.
 - Boundary: attribute grammar only — no transport header spelling, no filter dialect, no subscription. Rejected: a literal `BoundaryFault(...)` construction beside a rostered anchor; a hand-formatted `f"rasm.{...}"` type string beside this owner; a bare-name sequence pattern standing in for a stem comparison; a segment admitted by the mint that the grammar refuses; an event-local capability-segment roster; a `subject` spelling that is not `ContentKey.project("wire")`; a content digest in `id`.
 
 ```python signature
@@ -39,11 +39,9 @@ from rasm.runtime.metrics import DOMAINS
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# aliases evaluate lazily, so each refines against the ONE grammar below rather than re-spelling its character
-# class: `Fact` reads past tense by a convention the mint cannot enforce, while `Version` is the breaking-change
-# ordinal the event's own semantic contract moves independently of the optional payload-schema URI.
+# `Segment` evaluates lazily, so it refines against the ONE grammar below rather than re-spelling its character
+# class, while `Fact` reads past tense by a convention the mint cannot enforce.
 type Segment = Annotated[str, Meta(pattern=rf"^{SEGMENT}$")]
-type Version = Annotated[int, Meta(ge=1)]
 # content key AS IT CROSSES: the bare 32-lowercase-hex `ContentKey.project("wire")` render every branch publishes.
 # It is the message envelope's own slot type because the pair must round-trip — a `ContentKey` slot needs `fmt` and
 # `byte_length`, and the pinned spelling carries neither, so a decode rebuilding one fabricates both.
@@ -51,15 +49,15 @@ type WireKey = Annotated[str, Meta(pattern=r"^[0-9a-f]{32}$")]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# ONE compiled grammar over the whole spelling — stem, three segments, and the version ordinal — that `parse`
-# reads and `of` renders against, so neither entry restates the other's rule and a segment a producer names is
-# proven by the same pattern a decode runs. A `case [TYPE_STEM, domain, ...]` sequence arm CAPTURES the bare name
-# rather than comparing it, admitting every five-segment spelling while rebinding the constant it appears to read,
-# so the compiled form is what refuses a foreign stem at all.
+# ONE compiled grammar over the whole spelling — stem and three segments — that `parse` reads and `of` renders
+# against, so neither entry restates the other's rule and a segment a producer names is proven by the same pattern
+# a decode runs. A `case [TYPE_STEM, domain, ...]` sequence arm CAPTURES the bare name rather than comparing it,
+# admitting every four-segment spelling while rebinding the constant it appears to read, so the compiled form is
+# what refuses a foreign stem at all.
 SEGMENT: Final[str] = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 TYPE_STEM: Final[str] = "rasm"
 TYPE_GRAMMAR: Final[re.Pattern[str]] = re.compile(
-    rf"{TYPE_STEM}\.(?P<domain>{SEGMENT})\.(?P<subject>{SEGMENT})\.(?P<fact>{SEGMENT})\.v(?P<version>[1-9][0-9]*)"
+    rf"{TYPE_STEM}\.(?P<domain>{SEGMENT})\.(?P<subject>{SEGMENT})\.(?P<fact>{SEGMENT})"
 )
 SOURCE_GRAMMAR: Final[re.Pattern[str]] = re.compile(rf"rasm:(?P<domain>{SEGMENT})/(?P<capability>{SEGMENT})")
 # branch law over package law: `CloudEvent` proves the CHARSET and the one-character floor, this states the
@@ -75,13 +73,12 @@ class EventType(Struct, frozen=True, order=True, gc=False):
     domain: Segment
     subject: Segment
     fact: Segment
-    version: Version
 
     @classmethod
-    def of(cls, domain: str, subject: str, fact: str, version: int, /) -> RuntimeRail[Self]:
+    def of(cls, domain: str, subject: str, fact: str, /) -> RuntimeRail[Self]:
         # `of` RENDERS through the spelling `wire` publishes and ADMITS through the grammar `parse` reads, so a
         # producer cannot construct a value the wire round-trip then refuses and no segment reaches the wire unproven.
-        return cls.parse(_spelled(domain, subject, fact, version))
+        return cls.parse(_spelled(domain, subject, fact))
 
     @classmethod
     def parse(cls, spelling: str, /) -> RuntimeRail[Self]:
@@ -92,12 +89,12 @@ class EventType(Struct, frozen=True, order=True, gc=False):
             if (found := TYPE_GRAMMAR.fullmatch(spelling)) is None
             else Error(EVENT_DOMAIN.raised(found["domain"]))
             if found["domain"] not in DOMAINS
-            else Ok(cls(domain=found["domain"], subject=found["subject"], fact=found["fact"], version=int(found["version"])))
+            else Ok(cls(domain=found["domain"], subject=found["subject"], fact=found["fact"]))
         )
 
     @property
     def wire(self) -> str:
-        return _spelled(self.domain, self.subject, self.fact, self.version)
+        return _spelled(self.domain, self.subject, self.fact)
 
 
 class Source(Struct, frozen=True, order=True, gc=False):
@@ -146,10 +143,10 @@ class Uniqueness(Struct, frozen=True, order=True, gc=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _spelled(domain: str, subject: str, fact: str, version: int, /) -> str:
+def _spelled(domain: str, subject: str, fact: str, /) -> str:
     # `_spelled` IS the ONE render the mint and the `wire` view both compose, so the grammar has one producer beside its
     # one admission and a second `f"rasm.{...}"` anywhere is the fork every filter's prefix dialect then finds.
-    return f"{TYPE_STEM}.{domain}.{subject}.{fact}.v{version}"
+    return f"{TYPE_STEM}.{domain}.{subject}.{fact}"
 
 
 def _profiled(event_type: EventType, source: Source, /) -> RuntimeRail[None]:
@@ -175,7 +172,7 @@ def stamped(produced: datetime, arrived: datetime, /) -> RuntimeRail[float]:
 
 ## [03]-[MESSAGE]
 
-- Owner: `MessageEnvelope` is the frozen Rasm-profile owner over the strict generic SDK envelope — the required triple, optional four, generated `Extensions` roster, and a sealed payload union of opaque `Raw` bytes, a generated protobuf `Message`, or absent data when `dataref` is the reference-only projection. `Extensions` is the corpus `rasm.contracts.event.v1` message: its typed columns are declared ONCE at the corpus for every branch, `protovalidate` rules carry their constraints, and `EXTENSION_ROWS` DERIVES one codec per column off `Extensions.desc().fields` — the field's `local_name` keys the row and its `DescFieldValue` kind selects the codec — so a new extension is one proto field and regeneration while neither projection is edited; a hand roster beside the generated field set is the mirror this derivation retires.
+- Owner: `MessageEnvelope` is the frozen Rasm-profile owner over the strict generic SDK envelope — the required triple, optional four, generated `Extensions` roster, and a sealed payload union of opaque `Raw` bytes, a generated protobuf `Message`, or absent data when `dataref` is the reference-only projection. `Extensions` is the corpus `rasm.contracts.event` message: its typed columns are declared ONCE at the corpus for every branch, `protovalidate` rules carry their constraints, and `EXTENSION_ROWS` DERIVES one codec per column off `Extensions.desc().fields` — the field's `local_name` keys the row and its `DescFieldValue` kind selects the codec — so a new extension is one proto field and regeneration while neither projection is edited; a hand roster beside the generated field set is the mirror this derivation retires.
 - Cases: each column carries its own domain rather than a generic string bag — `traceparent`/`tracestate`/`baggage`, `partitionkey`, D20 `sequence`, positive `uint32` `sampledrate` capped at the CloudEvents signed-32 integer ceiling, URI-reference `dataref`, producer-creation `recordedtime`, `expirytime`, and string `dataclassification`. Presence is `has_field` — explicit on every optional column — so an unset column contributes no wire key and no `Option` wrapper stands beside the generated slot. Facts outside this interoperable profile stay in typed payload bodies until a real producer/consumer pair earns a profile field. Passthrough `frozendict[str, str]` bands are the deleted form: they mint spec-invalid names at no seam and erase every value type a consumer then re-parses.
 - Law: the mint is the ONE boundary. `MessageEnvelope.event()` builds a FRESH attribute mapping per call and hands it to `core.v1.event.CloudEvent`, because that constructor WRITES its `specversion`, `id`, and `time` defaults into the mapping it is handed and then returns that same live dict from `get_attributes()` — a retained caller mapping is mutated behind its owner's back and a frozen owner holding one is unhashable and unsound. Every default the package injects is already present, so none fires and the mint is total over what the branch already proved.
 - Law: `CloudEventValidationError` funnels through ONE mint fence and spreads whole — its `.errors` map is `dict[str, list[BaseCloudEventException]]`, so each attribute/finding-class pair becomes its own `BoundaryFault` and `combine` reduces them onto the aggregate case. The package exposes no stable finding code or tag, making the exception class the only non-message discriminant. Collapsing to `str(error)` is the deleted form: the aggregating constructor exists precisely so a caller repairs every attribute in one pass rather than one raise at a time.
@@ -185,7 +182,7 @@ def stamped(produced: datetime, arrived: datetime, /) -> RuntimeRail[float]:
 - Law: the pair round-trips EXACTLY. Opaque data enters as `Raw` and leaves as the same bytes; generated protobuf data enters and leaves as the generated `Message` itself, including a decoded `Any` with its `type_url` intact; reference-only data remains absent while `dataref` locates the identical bytes. No producer-side pack, cast, wrapper, or parallel envelope intervenes. `subject` carries the `WireKey` render rather than the typed `ContentKey` a producer minted it from: the estate publishes that content key as bare 32-lowercase-hex, which carries neither `fmt` nor `byte_length`, so a `ContentKey`-typed slot would fabricate two columns on decode. `dataref` is separately a validated URI-reference naming the external residence and never masquerades as that content key.
 - Auto: a message envelope carrying `expirytime` past the receiver's own clock is MOOT and settles as a matched-drop half on the receipt rather than a fault, because a stale sample scored against a live one is worse than an unscored one; the drop is evidence, never silence.
 - Receipt: this owner mints none — `Announced` carries what the mint proved (the composite, the measured arrival lag, and the ignored inbound extension names) and the producing surface owns the receipt semantics, exactly as `transport/roots#STORE` splits transport evidence from receipt meaning.
-- Growth: a new extension is one proto field on `rasm.contracts.event.v1.Extensions` plus regeneration — its codec derives off its field kind and both projections stand untouched; a new carried kind is one `_codec` arm; a new required attribute is a specification move, not a branch one.
+- Growth: a new extension is one proto field on `rasm.contracts.event.Extensions` plus regeneration — its codec derives off its field kind and both projections stand untouched; a new carried kind is one `_codec` arm; a new required attribute is a specification move, not a branch one.
 - Boundary: attribute algebra and its generated roster only. Composes — never re-mints — the `reliability/faults#FAULT` fences, the `execution/admission#CONTEXT` `Correlation` fold, and `evidence/identity#IDENTITY`'s key render. Rejected: the whole `cloudevents.v1` tree; a `frozendict[str, str]` extension bag; a msgspec struct restating the generated `Extensions`; a local payload wrapper around generated `Message`; a hand extension-name roster beside the descriptor; a caller-retained attribute mapping handed to the constructor; `str(error)` standing in for the aggregating map; a second propagator call site beside the admission fold; a slot whose type the pinned wire spelling cannot rebuild.
 
 ```python signature
@@ -203,7 +200,7 @@ from protobuf import DescField, DescFieldValueMessage, DescFieldValueScalar, Mes
 from protobuf.wkt import Timestamp
 from protovalidate import CompilationError, EvaluationError, ValidationError as ContractValidationError, validate
 from rasm.contracts.gen.buf.validate.validate_pb import ext_field
-from rasm.contracts.gen.rasm.contracts.event.v1.event_pb import Extensions
+from rasm.contracts.gen.rasm.contracts.event.event_pb import Extensions
 
 from cloudevents.core.base import BaseCloudEvent
 from cloudevents.core.exceptions import CloudEventValidationError
@@ -619,8 +616,8 @@ def creation(extensions: Extensions) -> Correlation:
 - Law: `write_data`/`read_data` complete the upstream `Format` protocol but do not mint a second payload rail. The sealed payload union lowers directly; a binary read remains opaque because no `Any.type_url` rides that content mode. Compression belongs after the complete transport body at the binding/residence owner; the deleted `Frame` identity pair had no binding site, failure declaration, or consumer.
 - Law: framing parses the complete MIME value through the standard-library header registry before dispatch. A malformed parameter tail, duplicate/broken parameter, newline, or invalid token refuses even when the leading stem looks valid; binding raise reuses this exact parser and never strips at the first semicolon. `application/cloudevents-batch+<suffix>` then resolves the same row's optional `batch_codec`. On protobuf the body is the generated `CloudEventBatch`; on JSON it is the specification array of complete JSON-format event objects. An absent codec is the typed refusal, so Avro never mints a batch media type.
 - Law: decode returns package `BaseCloudEvent` values, retaining every standard payload arm; explicit `admit` produces `Decoded(events, ignored)` only after the sealed opaque-bytes/generated-Message profile proves each event. A protobuf `proto_data` arm remains its generated `Any` with `type_url` intact. Duplicate detection, acceptance, and settlement require journal and binding state a decoder does not possess; batch position carries no event order.
-- Law: `datacontenttype` describes event DATA and never the enclosing event format. The structured message's media type is `Encoded.media`; `dataschema` remains the optional absolute URI for the data schema; Avro's frozen event schema is neither coordinate. `Any.type_url`, payload schema URI, event type version, and contract generation remain independent.
-- Law: `dataschema` is an optional absolute URI identifying the schema `data` adheres to; event-type major, registry subject/version, protobuf package/generation, and `Any.type_url` remain independent concepts. Divergent contract generations refuse at the CONSUMER through separately configured contract and registry state, so a producer never negotiates a peer's pinned generation downward.
+- Law: `datacontenttype` describes event DATA and never the enclosing event format. The structured message's media type is `Encoded.media`; `dataschema` remains the optional absolute URI for the data schema; Avro's frozen event schema is neither coordinate. `Any.type_url`, payload schema URI, event type, and contract generation remain independent.
+- Law: `dataschema` is an optional absolute URI identifying the schema `data` adheres to; the event type, the registry subject and version, the protobuf package, and `Any.type_url` remain independent concepts. Divergent contract generations refuse at the CONSUMER through separately configured contract and registry state, so a producer never negotiates a peer's pinned generation downward.
 - Entry: `EventFormat.bound()` resolves and parses the generated AVSC once; `AvroFormat.read` is the exact publisher-Avro byte reader that `decode(body, media)` dispatches. Generic `write(event, suffix)` and `decode(body, media)` cover package CloudEvent singles and batches without narrowing their payload arm. Profile `encode(envelope, suffix)` first admits the row's sealed payload arm and mints the package event; `admit(events)` is the inverse Rasm-profile gate, and `admitted(event)` gives binary bindings the same gate.
 - Auto: version-factory fallthrough is refused. `core.bindings.common.get_event_factory_for_version` answers `SPECVERSION_V1_0` for EVERY unknown version string, so an unrecognized `specversion` decodes as the current generation rather than refusing; every row here binds `CloudEvent` explicitly and refuses a foreign `specversion` at the seam. `amqp` and `rabbitmq` hard-bind that same class, whose own required-attribute gate REFUSES every `specversion` but the current one — so those two raise where the auto-detecting `http`/`kafka` pair silently decodes a peer's unknown generation as this one.
 - Packages: `cloudevents` for the validating event/JSON format, `fastavro` for parsed-once schemaless Avro, `rasm.contracts` for the exact AVSC resource and generated protobuf envelope, `protobuf-py` for generated messages, plus `expression`/`msgspec` for rails and raw batch framing.

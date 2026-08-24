@@ -1,6 +1,6 @@
 # [APPUI_CONTROL_MATERIALIZATION]
 
-One typed `ControlIntent` family materializes every interactive control from a declarative shape: a screen body is a control-intent stream, not a per-screen XAML literal. `ControlIntent` is the closed `[Union]` over the whole professional control vocabulary where arity, provider, modality, emphasis, iconography, and pending state live in the intent shape rather than parallel control names, `ControlFactory` is the one polymorphic fold projecting each intent onto its compiled-template control, `BehaviorRail.Intent` is the single binding bridge every materialized command rides, appearance reaches every control through its `ControlTheme` and its style classes alone, and `Shell/accessibility` derives every automation name from the one intent row. The page owns the intent vocabulary, the materialize fold and its boundary capsule, the context-column and package admission law, the recycling pool, and the sole projection into the generated `Rasm.Contracts.Ui.V1` control messages; it mints no parallel binding, token, automation, template, or wire-shape path — the `[04]-[BOUNDARIES]` parallel-control-framework clause forecloses it. The spine is Avalonia compiled `ControlTemplate`/`DataTemplate`/`ControlTheme`, the `Irihi.Ursa` extended-control suite, ReactiveUI commands, `Xaml.Behaviors.Avalonia`, the kernel `CapabilitySet`/`FaultBand` owners, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+One typed `ControlIntent` family materializes every interactive control from a declarative shape: a screen body is a control-intent stream, not a per-screen XAML literal. `ControlIntent` is the closed `[Union]` over the whole professional control vocabulary where arity, provider, modality, emphasis, iconography, and pending state live in the intent shape rather than parallel control names, `ControlFactory` is the one polymorphic fold projecting each intent onto its compiled-template control, `BehaviorRail.Intent` is the single binding bridge every materialized command rides, appearance reaches every control through its `ControlTheme` and its style classes alone, and `Shell/accessibility` derives every automation name from the one intent row. The page owns the intent vocabulary, the materialize fold and its boundary capsule, the context-column and package admission law, the recycling pool, and the sole projection into the generated `Rasm.Contracts.Ui` control messages; it mints no parallel binding, token, automation, template, or wire-shape path — the `[04]-[BOUNDARIES]` parallel-control-framework clause forecloses it. The spine is Avalonia compiled `ControlTemplate`/`DataTemplate`/`ControlTheme`, the `Irihi.Ursa` extended-control suite, ReactiveUI commands, `Xaml.Behaviors.Avalonia`, the kernel `CapabilitySet`/`FaultBand` owners, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 Appearance is the page's ruling shape: the fold writes NO resolved paint, metric, or shadow onto a control. Emphasis resolves to one `ControlTheme` row of the `Theme/tokens#CONTROL_THEMES` table through `StyledElement.Theme`, the semantic `PaintRole` and the `TypographyRole` land as style classes the theme's own selectors match, and every value inside those themes binds `{DynamicResource}` — so a variant swap re-tints a materialized screen through Avalonia's own resource resolution and a `SetValue` of a resolved brush is unspellable in this fold.
 
@@ -9,7 +9,7 @@ Appearance is the page's ruling shape: the fold writes NO resolved paint, metric
 - [02]-[CONTROL_INTENT]: One closed control vocabulary; per-case typed shape with the emphasis, icon, pending, and hint columns; the four-column `ControlShape` answer.
 - [03]-[MATERIALIZE_FOLD]: The `ControlFactory` intent-to-control fold; the context-column and package admission law; one `BehaviorRail.Intent` bridge; total automation derivation.
 - [04]-[CONTROL_RECYCLING]: The recycling-aware materialization boundary the `VirtualWindow` grid/tree/panel kinds consume.
-- [05]-[TS_PROJECTION]: The design-pinned projection into the generated `Ui.V1` control-intent family.
+- [05]-[TS_PROJECTION]: The design-pinned projection into the generated `Ui` control-intent family.
 
 ## [02]-[CONTROL_INTENT]
 
@@ -86,19 +86,19 @@ public sealed partial class ControlSkin {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlEmphasis {
     public static readonly ControlEmphasis Quiet = new(
-        "quiet", Rasm.Contracts.Ui.V1.ControlEmphasis.Quiet, ControlSkin.QuietButton, iconable: true);
+        "quiet", Rasm.Contracts.Ui.ControlEmphasis.Quiet, ControlSkin.QuietButton, iconable: true);
     public static readonly ControlEmphasis Secondary = new(
-        "secondary", Rasm.Contracts.Ui.V1.ControlEmphasis.Secondary, ControlSkin.SecondaryButton, iconable: true);
+        "secondary", Rasm.Contracts.Ui.ControlEmphasis.Secondary, ControlSkin.SecondaryButton, iconable: true);
     public static readonly ControlEmphasis Primary = new(
-        "primary", Rasm.Contracts.Ui.V1.ControlEmphasis.Primary, ControlSkin.CommandButton, iconable: true);
+        "primary", Rasm.Contracts.Ui.ControlEmphasis.Primary, ControlSkin.CommandButton, iconable: true);
     public static readonly ControlEmphasis Danger = new(
-        "danger", Rasm.Contracts.Ui.V1.ControlEmphasis.Danger, ControlSkin.DangerButton, iconable: true);
+        "danger", Rasm.Contracts.Ui.ControlEmphasis.Danger, ControlSkin.DangerButton, iconable: true);
     public static readonly ControlEmphasis Inverted = new(
-        "inverted", Rasm.Contracts.Ui.V1.ControlEmphasis.Inverted, ControlSkin.InvertedButton, iconable: true);
+        "inverted", Rasm.Contracts.Ui.ControlEmphasis.Inverted, ControlSkin.InvertedButton, iconable: true);
     public static readonly ControlEmphasis Link = new(
-        "link", Rasm.Contracts.Ui.V1.ControlEmphasis.Link, ControlSkin.LinkButton, iconable: false);
+        "link", Rasm.Contracts.Ui.ControlEmphasis.Link, ControlSkin.LinkButton, iconable: false);
 
-    public Rasm.Contracts.Ui.V1.ControlEmphasis Wire { get; }
+    public Rasm.Contracts.Ui.ControlEmphasis Wire { get; }
     public ControlSkin Skin { get; }
     public bool Iconable { get; }
 }
@@ -106,11 +106,11 @@ public sealed partial class ControlEmphasis {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlTrigger {
-    public static readonly ControlTrigger Activate = new("activate", Rasm.Contracts.Ui.V1.ControlTrigger.Activate);
-    public static readonly ControlTrigger Change = new("change", Rasm.Contracts.Ui.V1.ControlTrigger.Change);
-    public static readonly ControlTrigger Commit = new("commit", Rasm.Contracts.Ui.V1.ControlTrigger.Commit);
+    public static readonly ControlTrigger Activate = new("activate", Rasm.Contracts.Ui.ControlTrigger.Activate);
+    public static readonly ControlTrigger Change = new("change", Rasm.Contracts.Ui.ControlTrigger.Change);
+    public static readonly ControlTrigger Commit = new("commit", Rasm.Contracts.Ui.ControlTrigger.Commit);
 
-    public Rasm.Contracts.Ui.V1.ControlTrigger Wire { get; }
+    public Rasm.Contracts.Ui.ControlTrigger Wire { get; }
 }
 
 // Posture rows carry host type AND value slot as columns, so the per-case slot ladder the old content-property
@@ -119,11 +119,11 @@ public sealed partial class ControlTrigger {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SelectPosture {
     public static readonly SelectPosture Closed = new(
-        "closed", Rasm.Contracts.Ui.V1.SelectPosture.Closed, nameof(ComboBox), SelectingItemsControl.SelectedValueProperty);
+        "closed", Rasm.Contracts.Ui.SelectPosture.Closed, nameof(ComboBox), SelectingItemsControl.SelectedValueProperty);
     public static readonly SelectPosture Editable = new(
-        "editable", Rasm.Contracts.Ui.V1.SelectPosture.Editable, nameof(AutoCompleteBox), AutoCompleteBox.TextProperty);
+        "editable", Rasm.Contracts.Ui.SelectPosture.Editable, nameof(AutoCompleteBox), AutoCompleteBox.TextProperty);
 
-    public Rasm.Contracts.Ui.V1.SelectPosture Wire { get; }
+    public Rasm.Contracts.Ui.SelectPosture Wire { get; }
     public string Control { get; }
     public AvaloniaProperty Slot { get; }
 }
@@ -134,11 +134,11 @@ public sealed partial class MultiPosture {
     // Bound multi-select picks from a closed option set and reads back as chips; free multi-select accepts
     // arbitrary tokens, which is the one thing a bound picker cannot express.
     public static readonly MultiPosture Bound = new(
-        "bound", Rasm.Contracts.Ui.V1.MultiPosture.Bound, nameof(MultiComboBox), MultiComboBox.SelectedItemsProperty);
+        "bound", Rasm.Contracts.Ui.MultiPosture.Bound, nameof(MultiComboBox), MultiComboBox.SelectedItemsProperty);
     public static readonly MultiPosture Free = new(
-        "free", Rasm.Contracts.Ui.V1.MultiPosture.Free, nameof(TagInput), TagInput.TagsProperty);
+        "free", Rasm.Contracts.Ui.MultiPosture.Free, nameof(TagInput), TagInput.TagsProperty);
 
-    public Rasm.Contracts.Ui.V1.MultiPosture Wire { get; }
+    public Rasm.Contracts.Ui.MultiPosture Wire { get; }
     public string Control { get; }
     public AvaloniaProperty Slot { get; }
 }
@@ -148,10 +148,10 @@ public sealed partial class MultiPosture {
 public sealed partial class SegmentPosture {
     // Select coerces to single selection and slides one indicator; Command gives every segment its own verb —
     // the postures differ in what a segment MEANS, never in how it is painted.
-    public static readonly SegmentPosture Select = new("select", Rasm.Contracts.Ui.V1.SegmentPosture.Select, nameof(SelectionList));
-    public static readonly SegmentPosture Command = new("command", Rasm.Contracts.Ui.V1.SegmentPosture.Command, nameof(ButtonGroup));
+    public static readonly SegmentPosture Select = new("select", Rasm.Contracts.Ui.SegmentPosture.Select, nameof(SelectionList));
+    public static readonly SegmentPosture Command = new("command", Rasm.Contracts.Ui.SegmentPosture.Command, nameof(ButtonGroup));
 
-    public Rasm.Contracts.Ui.V1.SegmentPosture Wire { get; }
+    public Rasm.Contracts.Ui.SegmentPosture Wire { get; }
     public string Control { get; }
 }
 
@@ -161,16 +161,16 @@ public sealed partial class SegmentPosture {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChipPosture {
     public static readonly ChipPosture Static = new(
-        "static", Rasm.Contracts.Ui.V1.ChipPosture.Static, nameof(ContentControl), Some(ControlSkin.StatusChip),
+        "static", Rasm.Contracts.Ui.ChipPosture.Static, nameof(ContentControl), Some(ControlSkin.StatusChip),
         ContentControl.ContentProperty, static label => new ContentControl { Content = label });
     public static readonly ChipPosture Toggle = new(
-        "toggle", Rasm.Contracts.Ui.V1.ChipPosture.Toggle, nameof(ToggleButton), Option<ControlSkin>.None,
+        "toggle", Rasm.Contracts.Ui.ChipPosture.Toggle, nameof(ToggleButton), Option<ControlSkin>.None,
         ToggleButton.IsCheckedProperty, static label => new ToggleButton { Content = label });
     public static readonly ChipPosture Removable = new(
-        "removable", Rasm.Contracts.Ui.V1.ChipPosture.Removable, nameof(ClosableTag), Option<ControlSkin>.None,
+        "removable", Rasm.Contracts.Ui.ChipPosture.Removable, nameof(ClosableTag), Option<ControlSkin>.None,
         ContentControl.ContentProperty, static label => new ClosableTag { Content = label });
 
-    public Rasm.Contracts.Ui.V1.ChipPosture Wire { get; }
+    public Rasm.Contracts.Ui.ChipPosture Wire { get; }
     public string Control { get; }
     public Option<ControlSkin> Skin { get; }
     public AvaloniaProperty Slot { get; }
@@ -182,10 +182,10 @@ public sealed partial class ChipPosture {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColorPosture {
-    public static readonly ColorPosture Inline = new("inline", Rasm.Contracts.Ui.V1.ColorPosture.Inline, nameof(ColorView));
-    public static readonly ColorPosture Flyout = new("flyout", Rasm.Contracts.Ui.V1.ColorPosture.Flyout, nameof(ColorPicker));
+    public static readonly ColorPosture Inline = new("inline", Rasm.Contracts.Ui.ColorPosture.Inline, nameof(ColorView));
+    public static readonly ColorPosture Flyout = new("flyout", Rasm.Contracts.Ui.ColorPosture.Flyout, nameof(ColorPicker));
 
-    public Rasm.Contracts.Ui.V1.ColorPosture Wire { get; }
+    public Rasm.Contracts.Ui.ColorPosture Wire { get; }
     public string Control { get; }
 }
 
@@ -195,15 +195,15 @@ public sealed partial class ColorPosture {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BannerSeverity {
     public static readonly BannerSeverity Information = new(
-        "information", Rasm.Contracts.Ui.V1.BannerSeverity.Information, NotificationType.Information, dismissible: true);
+        "information", Rasm.Contracts.Ui.BannerSeverity.Information, NotificationType.Information, dismissible: true);
     public static readonly BannerSeverity Success = new(
-        "success", Rasm.Contracts.Ui.V1.BannerSeverity.Success, NotificationType.Success, dismissible: true);
+        "success", Rasm.Contracts.Ui.BannerSeverity.Success, NotificationType.Success, dismissible: true);
     public static readonly BannerSeverity Warning = new(
-        "warning", Rasm.Contracts.Ui.V1.BannerSeverity.Warning, NotificationType.Warning, dismissible: true);
+        "warning", Rasm.Contracts.Ui.BannerSeverity.Warning, NotificationType.Warning, dismissible: true);
     public static readonly BannerSeverity Error = new(
-        "error", Rasm.Contracts.Ui.V1.BannerSeverity.Error, NotificationType.Error, dismissible: false);
+        "error", Rasm.Contracts.Ui.BannerSeverity.Error, NotificationType.Error, dismissible: false);
 
-    public Rasm.Contracts.Ui.V1.BannerSeverity Wire { get; }
+    public Rasm.Contracts.Ui.BannerSeverity Wire { get; }
     public NotificationType Type { get; }
     public bool Dismissible { get; }
 }
@@ -213,10 +213,10 @@ public sealed partial class BannerSeverity {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BannerPlacement {
-    public static readonly BannerPlacement Page = new("page", Rasm.Contracts.Ui.V1.BannerPlacement.Page);
-    public static readonly BannerPlacement Section = new("section", Rasm.Contracts.Ui.V1.BannerPlacement.Section);
+    public static readonly BannerPlacement Page = new("page", Rasm.Contracts.Ui.BannerPlacement.Page);
+    public static readonly BannerPlacement Section = new("section", Rasm.Contracts.Ui.BannerPlacement.Section);
 
-    public Rasm.Contracts.Ui.V1.BannerPlacement Wire { get; }
+    public Rasm.Contracts.Ui.BannerPlacement Wire { get; }
 }
 
 // Bar and Ring are ONE control under two themes; Skeleton is a different fact — a shimmer standing in for
@@ -225,13 +225,13 @@ public sealed partial class BannerPlacement {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProgressForm {
     public static readonly ProgressForm Bar = new(
-        "bar", Rasm.Contracts.Ui.V1.ProgressForm.Bar, nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
+        "bar", Rasm.Contracts.Ui.ProgressForm.Bar, nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
     public static readonly ProgressForm Ring = new(
-        "ring", Rasm.Contracts.Ui.V1.ProgressForm.Ring, nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
+        "ring", Rasm.Contracts.Ui.ProgressForm.Ring, nameof(ProgressBar), Some((AvaloniaProperty)RangeBase.ValueProperty));
     public static readonly ProgressForm Skeleton = new(
-        "skeleton", Rasm.Contracts.Ui.V1.ProgressForm.Skeleton, nameof(Skeleton), Option<AvaloniaProperty>.None);
+        "skeleton", Rasm.Contracts.Ui.ProgressForm.Skeleton, nameof(Skeleton), Option<AvaloniaProperty>.None);
 
-    public Rasm.Contracts.Ui.V1.ProgressForm Wire { get; }
+    public Rasm.Contracts.Ui.ProgressForm Wire { get; }
     public string Control { get; }
     public Option<AvaloniaProperty> Slot { get; }
 }
@@ -253,20 +253,20 @@ public sealed partial class TemporalTrait : ICapability<TemporalTrait> {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TemporalKind {
-    public static readonly TemporalKind Date = new("date", Rasm.Contracts.Ui.V1.TemporalKind.Date, nameof(DateOnlyPicker),
+    public static readonly TemporalKind Date = new("date", Rasm.Contracts.Ui.TemporalKind.Date, nameof(DateOnlyPicker),
         static () => new DateOnlyPicker(), DatePickerBase<DateOnly>.SelectedDateProperty,
         CapabilitySet<TemporalTrait>.Of(TemporalTrait.Calendar), Option<AvaloniaProperty>.None);
-    public static readonly TemporalKind Time = new("time", Rasm.Contracts.Ui.V1.TemporalKind.Time, nameof(TimeOnlyPicker),
+    public static readonly TemporalKind Time = new("time", Rasm.Contracts.Ui.TemporalKind.Time, nameof(TimeOnlyPicker),
         static () => new TimeOnlyPicker(), TimePickerBase<TimeOnly>.SelectedTimeProperty,
         CapabilitySet<TemporalTrait>.None, Option<AvaloniaProperty>.None);
-    public static readonly TemporalKind Moment = new("datetime", Rasm.Contracts.Ui.V1.TemporalKind.Datetime, nameof(DateTimePicker),
+    public static readonly TemporalKind Moment = new("datetime", Rasm.Contracts.Ui.TemporalKind.Datetime, nameof(DateTimePicker),
         static () => new DateTimePicker(), DateTimePickerBase<DateTime>.SelectedDateProperty,
         CapabilitySet<TemporalTrait>.Of(TemporalTrait.Calendar), Option<AvaloniaProperty>.None);
-    public static readonly TemporalKind Span = new("range", Rasm.Contracts.Ui.V1.TemporalKind.Range, nameof(DateOnlyRangePicker),
+    public static readonly TemporalKind Span = new("range", Rasm.Contracts.Ui.TemporalKind.Range, nameof(DateOnlyRangePicker),
         static () => new DateOnlyRangePicker(), DateRangePickerBase<DateOnly>.SelectedStartDateProperty,
         CapabilitySet<TemporalTrait>.All, Some((AvaloniaProperty)DateRangePickerBase<DateOnly>.SelectedEndDateProperty));
 
-    public Rasm.Contracts.Ui.V1.TemporalKind Wire { get; }
+    public Rasm.Contracts.Ui.TemporalKind Wire { get; }
     public string Control { get; }
     // The spinner and picker bases register their value property PER CLOSED GENERIC, so the slot is a row
     // column rather than one shared field a type probe could recover.
@@ -299,40 +299,40 @@ public abstract partial record NumericRange {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NumericKind {
     public static readonly NumericKind Byte = Row(
-        "byte", Rasm.Contracts.Ui.V1.NumericKind.Byte, nameof(NumericByteUpDown), Slot<byte>(),
+        "byte", Rasm.Contracts.Ui.NumericKind.Byte, nameof(NumericByteUpDown), Slot<byte>(),
         Spin<NumericByteUpDown, byte>, Dress<NumericByteUpDown, byte>);
     public static readonly NumericKind SByte = Row(
-        "sbyte", Rasm.Contracts.Ui.V1.NumericKind.Sbyte, nameof(NumericSByteUpDown), Slot<sbyte>(),
+        "sbyte", Rasm.Contracts.Ui.NumericKind.Sbyte, nameof(NumericSByteUpDown), Slot<sbyte>(),
         Spin<NumericSByteUpDown, sbyte>, Dress<NumericSByteUpDown, sbyte>);
     public static readonly NumericKind Short = Row(
-        "short", Rasm.Contracts.Ui.V1.NumericKind.Short, nameof(NumericShortUpDown), Slot<short>(),
+        "short", Rasm.Contracts.Ui.NumericKind.Short, nameof(NumericShortUpDown), Slot<short>(),
         Spin<NumericShortUpDown, short>, Dress<NumericShortUpDown, short>);
     public static readonly NumericKind UShort = Row(
-        "ushort", Rasm.Contracts.Ui.V1.NumericKind.Ushort, nameof(NumericUShortUpDown), Slot<ushort>(),
+        "ushort", Rasm.Contracts.Ui.NumericKind.Ushort, nameof(NumericUShortUpDown), Slot<ushort>(),
         Spin<NumericUShortUpDown, ushort>, Dress<NumericUShortUpDown, ushort>);
     public static readonly NumericKind Int = Row(
-        "int", Rasm.Contracts.Ui.V1.NumericKind.Int, nameof(NumericIntUpDown), Slot<int>(),
+        "int", Rasm.Contracts.Ui.NumericKind.Int, nameof(NumericIntUpDown), Slot<int>(),
         Spin<NumericIntUpDown, int>, Dress<NumericIntUpDown, int>);
     public static readonly NumericKind UInt = Row(
-        "uint", Rasm.Contracts.Ui.V1.NumericKind.Uint, nameof(NumericUIntUpDown), Slot<uint>(),
+        "uint", Rasm.Contracts.Ui.NumericKind.Uint, nameof(NumericUIntUpDown), Slot<uint>(),
         Spin<NumericUIntUpDown, uint>, Dress<NumericUIntUpDown, uint>);
     public static readonly NumericKind Long = Row(
-        "long", Rasm.Contracts.Ui.V1.NumericKind.Long, nameof(NumericLongUpDown), Slot<long>(),
+        "long", Rasm.Contracts.Ui.NumericKind.Long, nameof(NumericLongUpDown), Slot<long>(),
         Spin<NumericLongUpDown, long>, Dress<NumericLongUpDown, long>);
     public static readonly NumericKind ULong = Row(
-        "ulong", Rasm.Contracts.Ui.V1.NumericKind.Ulong, nameof(NumericULongUpDown), Slot<ulong>(),
+        "ulong", Rasm.Contracts.Ui.NumericKind.Ulong, nameof(NumericULongUpDown), Slot<ulong>(),
         Spin<NumericULongUpDown, ulong>, Dress<NumericULongUpDown, ulong>);
     public static readonly NumericKind Float = Row(
-        "float", Rasm.Contracts.Ui.V1.NumericKind.Float, nameof(NumericFloatUpDown), Slot<float>(),
+        "float", Rasm.Contracts.Ui.NumericKind.Float, nameof(NumericFloatUpDown), Slot<float>(),
         Spin<NumericFloatUpDown, float>, Dress<NumericFloatUpDown, float>);
     public static readonly NumericKind Double = Row(
-        "double", Rasm.Contracts.Ui.V1.NumericKind.Double, nameof(NumericDoubleUpDown), Slot<double>(),
+        "double", Rasm.Contracts.Ui.NumericKind.Double, nameof(NumericDoubleUpDown), Slot<double>(),
         Spin<NumericDoubleUpDown, double>, Dress<NumericDoubleUpDown, double>);
     public static readonly NumericKind Decimal = Row(
-        "decimal", Rasm.Contracts.Ui.V1.NumericKind.Decimal, nameof(NumericDecimalUpDown), Slot<decimal>(),
+        "decimal", Rasm.Contracts.Ui.NumericKind.Decimal, nameof(NumericDecimalUpDown), Slot<decimal>(),
         Spin<NumericDecimalUpDown, decimal>, Dress<NumericDecimalUpDown, decimal>);
 
-    public Rasm.Contracts.Ui.V1.NumericKind Wire { get; }
+    public Rasm.Contracts.Ui.NumericKind Wire { get; }
     public string Control { get; }
     // Per-closed-generic value property; the float and double rows additionally pass NaN through their own
     // coercion override, so an unset scientific field stays unset instead of snapping to a bound.
@@ -346,7 +346,7 @@ public sealed partial class NumericKind {
 
     static NumericKind Row(
         string key,
-        Rasm.Contracts.Ui.V1.NumericKind wire,
+        Rasm.Contracts.Ui.NumericKind wire,
         string control,
         AvaloniaProperty slot,
         Func<NumericRange, Fin<Control>> construct,
@@ -448,15 +448,15 @@ public sealed record ColumnRow(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MenuPosture {
     public static readonly MenuPosture Command = new(
-        "command", Rasm.Contracts.Ui.V1.MenuPosture.Command, Some(MenuItemToggleType.None));
+        "command", Rasm.Contracts.Ui.MenuPosture.Command, Some(MenuItemToggleType.None));
     public static readonly MenuPosture Check = new(
-        "check", Rasm.Contracts.Ui.V1.MenuPosture.Check, Some(MenuItemToggleType.CheckBox));
+        "check", Rasm.Contracts.Ui.MenuPosture.Check, Some(MenuItemToggleType.CheckBox));
     public static readonly MenuPosture Radio = new(
-        "radio", Rasm.Contracts.Ui.V1.MenuPosture.Radio, Some(MenuItemToggleType.Radio));
+        "radio", Rasm.Contracts.Ui.MenuPosture.Radio, Some(MenuItemToggleType.Radio));
     public static readonly MenuPosture Divider = new(
-        "separator", Rasm.Contracts.Ui.V1.MenuPosture.Separator, Option<MenuItemToggleType>.None);
+        "separator", Rasm.Contracts.Ui.MenuPosture.Separator, Option<MenuItemToggleType>.None);
 
-    public Rasm.Contracts.Ui.V1.MenuPosture Wire { get; }
+    public Rasm.Contracts.Ui.MenuPosture Wire { get; }
     // The separator row carries no toggle because it carries no item at all — the None IS the discriminant the
     // fold reads to construct a rule instead of a menu item.
     public Option<MenuItemToggleType> Toggle { get; }
@@ -1644,13 +1644,13 @@ public static partial class ControlFactory {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: the generated `Rasm.Contracts.Ui.V1` control-intent family — `ControlIntentWire` with its generated row messages and enums — and `ControlMap`, the sole interior-to-message correspondence. The schema and generated bindings own every peer-facing shape; this page owns only the behavioral AppUI model and the projection that seats it.
+- Owner: the generated `Rasm.Contracts.Ui` control-intent family — `ControlIntentWire` with its generated row messages and enums — and `ControlMap`, the sole interior-to-message correspondence. The schema and generated bindings own every peer-facing shape; this page owns only the behavioral AppUI model and the projection that seats it.
 - Law: the projection is one direction. The AppUI product-shell vocabulary is producer-owned and peers decode the generated package, so no wire-to-domain inverse, hand-written message record, TypeScript schema twin, or serializer roster exists here.
 - Law: `ControlIntent.Switch` remains the compile-time-complete interior fold, while generated `ControlIntentWire.ArmCase` is the only peer discriminant. `ControlMap.Emit` is the decision-complete support projection seated by `Shell/screens#TS_PROJECTION` inside the one manifest-rooted `AppUiSurfaceProgram`; a detached control tree is not an application payload.
 - Entry: `ControlMap.Emit(ControlIntent)` recursively fills one generated oneof arm. A future ProtoJSON egress calls `WireJson.Formatter.Format` on the generated message, so the shared descriptor registry alone controls field names, enums, well-known types, and omissions.
-- Packages: Rasm.Contracts (project, generated `Ui.V1` family), Rasm.AppHost (project, `WireJson`), Google.Protobuf, Google.Api.CommonProtos, NodaTime.Serialization.Protobuf, Riok.Mapperly, LanguageExt.Core
+- Packages: Rasm.Contracts (project, generated `Ui` family), Rasm.AppHost (project, `WireJson`), Google.Protobuf, Google.Api.CommonProtos, NodaTime.Serialization.Protobuf, Riok.Mapperly, LanguageExt.Core
 - Growth: a new required arm or mapped enum value regenerates every language binding and breaks the producer correspondence or its completeness proof until supplied; a new interior arm breaks the total `Switch`; zero hand-maintained peer shape or JSON options surface.
-- Boundary: Interior `ControlIntent`, `IntentBinding`, row values, package enums, and smart-enum policy rows remain because materialization consumes their behavior. A smart-enum row carries its generated coordinate beside its behavior; package enums cross through Mapperly's source-and-target-complete correspondence. Both project once at the design-pinned boundary without a string ladder; the AppUI contract test owns the generated-enum roster proof for smart-enum rows. `ControlReceipt` stays interior process evidence. If a future peer consumes it, it enters the existing `EvidenceReceiptWire` oneof and `EvidenceTimelineWire` rail rather than minting a standalone receipt transport. `@rasm\/contracts/rasm/contracts/ui/v1/controls_pb` is the reusable leaf binding; the current TypeScript viewer admits it only through `appui_surface_pb`, and future apps do not re-declare either transport shape. Three sibling partials separate arm seating, row projection, and package-enum correspondence without minting another public type.
+- Boundary: Interior `ControlIntent`, `IntentBinding`, row values, package enums, and smart-enum policy rows remain because materialization consumes their behavior. A smart-enum row carries its generated coordinate beside its behavior; package enums cross through Mapperly's source-and-target-complete correspondence. Both project once at the design-pinned boundary without a string ladder; the AppUI contract test owns the generated-enum roster proof for smart-enum rows. `ControlReceipt` stays interior process evidence. If a future peer consumes it, it enters the existing `EvidenceReceiptWire` oneof and `EvidenceTimelineWire` rail rather than minting a standalone receipt transport. `@rasm\/contracts/rasm/contracts/ui/controls_pb` is the reusable leaf binding; the current TypeScript viewer admits it only through `appui_surface_pb`, and future apps do not re-declare either transport shape. Three sibling partials separate arm seating, row projection, and package-enum correspondence without minting another public type.
 
 ### [05.1]-[CONTROLMAP_ARMS_CS]
 
@@ -2014,29 +2014,29 @@ public static partial class ControlMap {
 // --- [COMPOSITION] --------------------------------------------------------------------------
 [Mapper(RequiredEnumMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class ControlMap {
-    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.IconPlacement.Unspecified)]
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.IconPlacement.Unspecified)]
     [MapEnum(EnumMappingStrategy.ByName)]
-    private static partial Rasm.Contracts.Ui.V1.IconPlacement Icon(Position value);
+    private static partial Rasm.Contracts.Ui.IconPlacement Icon(Position value);
 
-    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.PickerMode.Unspecified)]
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.PickerMode.Unspecified)]
     [MapEnum(EnumMappingStrategy.ByName)]
-    private static partial Rasm.Contracts.Ui.V1.PickerMode Picker(UsePickerTypes value);
+    private static partial Rasm.Contracts.Ui.PickerMode Picker(UsePickerTypes value);
 
-    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.OverflowMode.Unspecified)]
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.OverflowMode.Unspecified)]
     [MapEnum(EnumMappingStrategy.ByName)]
-    private static partial Rasm.Contracts.Ui.V1.OverflowMode Overflow(OverflowMode value);
+    private static partial Rasm.Contracts.Ui.OverflowMode Overflow(OverflowMode value);
 
-    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.Orientation.Unspecified)]
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.Orientation.Unspecified)]
     [MapEnum(EnumMappingStrategy.ByName)]
-    private static partial Rasm.Contracts.Ui.V1.Orientation Orientation(Avalonia.Layout.Orientation value);
+    private static partial Rasm.Contracts.Ui.Orientation Orientation(Avalonia.Layout.Orientation value);
 
-    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.ExtentUnit.Unspecified)]
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.ExtentUnit.Unspecified)]
     [MapEnum(EnumMappingStrategy.ByName)]
-    private static partial Rasm.Contracts.Ui.V1.ExtentUnit ExtentUnit(DataGridLengthUnitType value);
+    private static partial Rasm.Contracts.Ui.ExtentUnit ExtentUnit(DataGridLengthUnitType value);
 
-    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.V1.ColumnAlign.Unspecified)]
+    [MapperIgnoreTargetValue(Rasm.Contracts.Ui.ColumnAlign.Unspecified)]
     [MapEnum(EnumMappingStrategy.ByName)]
-    private static partial Rasm.Contracts.Ui.V1.ColumnAlign Align(HorizontalAlignment value);
+    private static partial Rasm.Contracts.Ui.ColumnAlign Align(HorizontalAlignment value);
 
 }
 ```
