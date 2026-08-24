@@ -161,8 +161,8 @@ def test_parser_rows_key_static_diagnostic_tools() -> None:
     assert by_name["mypy", Language.PYTHON] is Parser.MYPY
     assert by_name["biome", Language.TYPESCRIPT] is Parser.BIOME
     assert by_name["tsc", Language.TYPESCRIPT] is Parser.TSC
-    assert by_name["dotnet-build", Language.CSHARP] is Parser.CS_CONSOLE
-    assert by_name["dotnet-format", Language.CSHARP] is Parser.CS_CONSOLE
+    assert by_name["dotnet-build", Language.DOTNET] is Parser.CS_CONSOLE
+    assert by_name["dotnet-format", Language.DOTNET] is Parser.CS_CONSOLE
     assert by_name["lint-imports", Language.PYTHON] is Parser.NONE
     contracts = {(t.name, t.mode): t for t in select(Claim.CONTRACTS, Language.PROTO)}
     assert contracts["buf-lint", Mode.CHECK].parser is Parser.BUF
@@ -214,10 +214,10 @@ def test_validate_pyproject_owns_its_single_input() -> None:
 
 def test_static_native_fixers_are_scoped_rows() -> None:
     """Native static fixers stay scoped, with Biome carrying the write row."""
-    csharp_format = [t for t in select(Claim.STATIC, Language.CSHARP) if t.name == "dotnet-format"]
+    dotnet_format = [t for t in select(Claim.STATIC, Language.DOTNET) if t.name == "dotnet-format"]
     biome_write = [t for t in select(Claim.STATIC, Language.TYPESCRIPT) if t.name == "biome" and t.mode is Mode.WRITE]
-    assert csharp_format
-    assert all(t.input is Input.INCLUDE for t in csharp_format)
+    assert dotnet_format
+    assert all(t.input is Input.INCLUDE for t in dotnet_format)
     assert len(biome_write) == 1
     assert biome_write[0].command[:2] == ("biome", "check")
     assert "--write" in biome_write[0].command

@@ -236,9 +236,9 @@ flowchart LR
     Runtime{{python:runtime}}
     Data{{python:data}}
     Compute([python:compute])
-    Persistence[(csharp:Rasm.Persistence)]
-    Fabrication([csharp:Rasm.Fabrication])
-    Materials([csharp:Rasm.Materials])
+    Persistence[(dotnet:Rasm.Persistence)]
+    Fabrication([dotnet:Rasm.Fabrication])
+    Materials([dotnet:Rasm.Materials])
     Interchange([typescript:core])
     Runtime e1@-->|"[CONTENT_KEY]: ContentKey"| Core
     Core e2@-->|"[RECEIPT]: ArtifactReceipt"| Runtime

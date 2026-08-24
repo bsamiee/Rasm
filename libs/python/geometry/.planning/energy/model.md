@@ -90,7 +90,7 @@ RESOLVERS: Final[Map[StandardsKind, LateBound]] = Map.of_seq([
     (StandardsKind.WINDOW_CONSTRUCTION, LateBound("honeybee_energy.lib.constructions", "window_construction_by_identifier")),
 ])
 
-# canonical HBJSON bytes — the one wire derivation the content key folds, under the PRODUCER-BYTES law the C# peer
+# canonical HBJSON bytes — the one wire derivation the content key folds, under the PRODUCER-BYTES law the .NET peer
 # legislates at its `EnergyDoc`: the key covers exactly the octets the minting end serialized and travels WITH them,
 # the peer re-hashes RECEIVED bytes, and a re-serialization mints a NEW document key — the `HoneybeeSchema` render
 # and this encoder lawfully never byte-match, so neither end ever re-derives the other's key from a re-encode.

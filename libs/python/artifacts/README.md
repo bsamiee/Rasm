@@ -179,7 +179,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `pyktx` — In-process KTX2 container with Basis/ASTC encode and block transcode.
 
 [IMAGING_TOOLS]: Host binaries the texture producers spawn.
-- `ktx` — Unified KTX-Software CLI holding the KTX2 encode floor the python and C# branches spawn; TS consumes the produced bytes.
+- `ktx` — Unified KTX-Software CLI holding the KTX2 encode floor the python and .NET branches spawn; TS consumes the produced bytes.
 
 [VECTOR_CAD]:
 - `svgelements` — Pure-Python SVG geometry and parse.

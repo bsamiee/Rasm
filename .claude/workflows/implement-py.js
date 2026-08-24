@@ -410,7 +410,7 @@ const CARD = [
         'IN-SCOPE (counterpart is another Python session target — its own pipeline realizes its card; you align your half of the seam to the ' +
         'counterpart page as it NOW stands on disk, and the later-landing side owns the final alignment), OUT-OF-SCOPE SAME-LANGUAGE (counterpart in ' +
         'a non-target libs/python folder — YOU realize the 1-hop counterpart card fence and align the seam on both ends in the same pass; the ' +
-        "ripple's scope is that counterpart card and its seam, not the foreign folder's other cards), CROSS-LANGUAGE / LIB-WIDE (`libs/csharp`, " +
+        "ripple's scope is that counterpart card and its seam, not the foreign folder's other cards), CROSS-LANGUAGE / LIB-WIDE (`libs/dotnet`, " +
         "`libs/typescript`, `libs/python/.planning`, `libs/.planning` — outside this Python-only run's language rail; land your half stating the " +
         'wire contract, and the card stays open unless it is complete on your half alone).',
     'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
@@ -936,7 +936,7 @@ const discoverPrompt = (folder) =>
             '(empty when none verify): these rows prove page-disjoint card groups; (4) order — ONE sequenced slug list, ALL tasks first in dependency ' +
             'order then the chosen ideas; (5) ripples — for EVERY card carrying a `Ripple:` field, one row {from_slug, klass, to_pkg, to_slug}: ' +
             'klass=`in_scope` if to_pkg is one of the session targets, `oos_samelang` if it is another libs/python folder, `cross_lang` if it points at ' +
-            '`libs/csharp` / `libs/typescript` / `libs/python/.planning` / `libs/.planning`; (6) gates — for any [BLOCKED] card, {blocked_slug, ' +
+            '`libs/dotnet` / `libs/typescript` / `libs/python/.planning` / `libs/.planning`; (6) gates — for any [BLOCKED] card, {blocked_slug, ' +
             'gated_by_slug, in_scope} where in_scope is true iff the gating work is itself an open card in one of the session targets; (7) map — one ' +
             'row per design page the open cards target, AND one row per ripple-counterpart page ' +
             "(the design page a `Ripple:` row's counterpart card names in its own folder — read it and anchor its seam surface, so the writers " +

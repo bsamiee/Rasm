@@ -83,7 +83,7 @@ _COMPILES: frozenset[RailStatus] = frozenset((RailStatus.OK, RailStatus.EMPTY))
 # Analyzer-free, SARIF-free compile probe row gating the format phase: dotnet-format mutates and binds against the
 # analyzer view, so a non-compiling target must gate the write before it lands. The VERIFY catalog row carries no
 # SARIF hole, so a probe never drops SARIF the report could fold.
-_PROBE_ROW: Tool = next(t for t in select(Claim.STATIC, Language.CSHARP) if t.mode is Mode.VERIFY)
+_PROBE_ROW: Tool = next(t for t in select(Claim.STATIC, Language.DOTNET) if t.mode is Mode.VERIFY)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ class StaticParams:
         bool,
         Parameter(name="--all", negative="", show_default=False, help="Fan every detected language at full scope, including the C# solution build."),
     ] = False
-    project: Annotated[str, Parameter(name="--project", show_default=False, help="Single C# project target.")] = ""
+    project: Annotated[str, Parameter(name="--project", show_default=False, help="Single .NET project target.")] = ""
     folders: Annotated[
         tuple[str, ...],
         Parameter(
@@ -144,7 +144,7 @@ def _scoped_settings(settings: AssaySettings) -> AssaySettings:
 
 
 def _workspace_route(routed: Routed) -> bool:
-    return routed.language is Language.CSHARP and routed.scope is Scope.FULL and not routed.files and not routed.projects
+    return routed.language is Language.DOTNET and routed.scope is Scope.FULL and not routed.files and not routed.projects
 
 
 def _phase(mode: Mode) -> Phase:
@@ -173,9 +173,9 @@ def _routed_tool(tool: Tool, routed: Routed) -> Tool:
     # Route-driven placement policy the row cannot carry: one catalog row serves scoped and full-workspace routes,
     # so the resolved route (not the tool) re-pins the Input axis; the command template is never edited.
     match (routed.language, routed.scope, tool.input, bool(routed.projects)):
-        case (Language.CSHARP, Scope.FULL, Input.INCLUDE | Input.PROJECT, _):
+        case (Language.DOTNET, Scope.FULL, Input.INCLUDE | Input.PROJECT, _):
             return msgspec.structs.replace(tool, input=Input.SOLUTION)
-        case (Language.CSHARP, Scope.CHANGED, Input.INCLUDE, True) if not routed.groups:
+        case (Language.DOTNET, Scope.CHANGED, Input.INCLUDE, True) if not routed.groups:
             return msgspec.structs.replace(tool, input=Input.PROJECT)
         case _:
             return tool
@@ -338,14 +338,14 @@ def _routed(targets: TargetFiles, settings: AssaySettings) -> Result[tuple[Route
             languages = tuple(dict.fromkeys(tool.language for tool in select(Claim.STATIC)))
             return sequence(
                 block.of_seq(
-                    Ok(Routed(Language.CSHARP, Scope.FULL, full_triggers=(str(settings.solution),)))
-                    if language is Language.CSHARP
+                    Ok(Routed(Language.DOTNET, Scope.FULL, full_triggers=(str(settings.solution),)))
+                    if language is Language.DOTNET
                     else route(language, (".",), settings=settings).map(lambda row: msgspec.structs.replace(row, scope=Scope.FULL))
                     for language in languages
                 )
             ).map(tuple)
         case (("project", project),):
-            return Ok((Routed(Language.CSHARP, Scope.CHANGED, projects=(project,)),))
+            return Ok((Routed(Language.DOTNET, Scope.CHANGED, projects=(project,)),))
         case _:
             pass
     match targets.files:
@@ -360,7 +360,7 @@ def _routed(targets: TargetFiles, settings: AssaySettings) -> Result[tuple[Route
 
 def _static_route(routed: Routed) -> Routed:
     match (routed.language, routed.groups):
-        case (Language.CSHARP, (first, *rest)):
+        case (Language.DOTNET, (first, *rest)):
             groups = tuple(
                 (project, csharp_files)
                 for project, files in (first, *rest)

@@ -99,7 +99,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `blackjax`
 
 [INTERCHANGE]:
-- `h5py` — HDF5 exchange containers for C#-peer sparse operators, drift envelopes, and waveform corpora.
+- `h5py` — HDF5 exchange containers for .NET-peer sparse operators, drift envelopes, and waveform corpora.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

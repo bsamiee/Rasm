@@ -13,7 +13,7 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [03]   | Tier-0 `[11]-[DESIGN_LANGUAGE]` row          | each `docs/stacks/<language>/` spelling    | one invariant carries three spellings        |
 |  [04]   | Tier-0 `[12]-[ADMISSION]` rung landing       | strata rank, manifest, `.api/`, router row | a rung is one multi-surface fact             |
 |  [05]   | Tier-0 consumption-axis roster row           | each branch admission owner + the fixture  | one roster, three branch spellings           |
-|  [06]   | `libs/csharp/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs         | strata law lands at both ends                |
+|  [06]   | `libs/dotnet/.planning/ARCHITECTURE.md` edge | `tests/dotnet/_architecture` specs         | strata law lands at both ends                |
 |  [07]   | `.claude/skills/` master trees               | sibling-repo skill copies                  | propagation is byte-identical copy           |
 |  [08]   | `CLAUDE.md` fact                             | `AGENTS.md` cross-reference                | one fact serves its acting reader            |
 |  [09]   | `.config/dotnet-tools.json` tool row         | the operator rail running that command     | a row no rail runs installs a dead dep       |

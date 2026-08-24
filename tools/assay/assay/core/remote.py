@@ -26,7 +26,7 @@ from assay.core.model import (  # beartype resolves receipt annotations at runti
     Artifact,
     ArtifactKind,
     Completed,
-    CSHARP_CONFIG_ANCHORS,
+    DOTNET_CONFIG_ANCHORS,
     ExecReceipt,
     RailStatus,
     receipt,
@@ -356,15 +356,15 @@ def _lane_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]
     # would be dropped, so the C# arm walks ProjectReference transitively rather than trusting directory containment alone.
     match plan.check.tool.runner:
         case Runner.DOTNET:
-            return _csharp_manifest(plan, universe)
+            return _dotnet_manifest(plan, universe)
         case Runner.UV | Runner.PNPM:
             return _python_manifest(universe)
         case _:
             return universe
 
 
-def _csharp_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]:
-    seeds = _csharp_seeds(plan)
+def _dotnet_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ...]:
+    seeds = _dotnet_seeds(plan)
     if not seeds:
         return universe
     local_root = Path(str(plan.settings.local_root))
@@ -372,11 +372,11 @@ def _csharp_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ..
     closure = _project_closure(seeds, projects, local_root)
     dirs = tuple(f"{rel.rpartition('/')[0]}/" if "/" in rel else "" for rel in closure)
     return tuple(
-        rel for rel in universe if rel in CSHARP_CONFIG_ANCHORS or any(prefix and rel.startswith(prefix) for prefix in dirs) or rel in closure
+        rel for rel in universe if rel in DOTNET_CONFIG_ANCHORS or any(prefix and rel.startswith(prefix) for prefix in dirs) or rel in closure
     )
 
 
-def _csharp_seeds(plan: ExecPlan) -> frozenset[str]:
+def _dotnet_seeds(plan: ExecPlan) -> frozenset[str]:
     # Seeds are the closure roots: the .csproj project tokens the composed build argv carries. The project tail is bound by
     # `place(routed, ...)` at argv composition for a `--project`/closure route, so it lands in `plan.argv`, never in
     # `tool.command` or `check.paths` (those stay empty for a project route). Reading the composed argv keeps the seed in one

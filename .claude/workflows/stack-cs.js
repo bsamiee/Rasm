@@ -357,9 +357,9 @@ const CS14 = [
 ].join('\n');
 
 const CS_SUBSTRATE = [
-    'STACK CAPABILITY, ULTRA-STACKED: enumerate BOTH `.api` tiers with a REAL ls/fd listing from disk, never memory — the central `libs/csharp/.api/` ' +
+    'STACK CAPABILITY, ULTRA-STACKED: enumerate BOTH `.api` tiers with a REAL ls/fd listing from disk, never memory — the central `libs/dotnet/.api/` ' +
         'substrate catalogs (api-thinktecture-runtime-extensions, api-quikgraph, api-mapperly, api-generator-equals, api-mathnet-numerics, api-csparse, ' +
-        'every sibling catalog the page concern touches) and, for a domain shard, the per-folder `libs/csharp/<Package>/.api/` host/NuGet catalogs ' +
+        'every sibling catalog the page concern touches) and, for a domain shard, the per-folder `libs/dotnet/<Package>/.api/` host/NuGet catalogs ' +
         'its concern composes — and MINE them to OPERATOR DEPTH (read-only material; edits stay scoped to docs/stacks/csharp). The universals are ' +
         'Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
         '(rails, effects, schedules, immutable collections; catalog-less — assay api is its evidence, and when assay is blocked or unavailable the ' +

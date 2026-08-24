@@ -22,7 +22,7 @@ from assay.composition.settings import AssaySettings  # beartype resolves rail a
 from assay.composition.store import (  # beartype resolves ArtifactScope/ArtifactStore annotations at runtime
     ArtifactScope,
     ArtifactStore,
-    CS_ARTIFACT_ROOTS,
+    DOTNET_ARTIFACT_ROOTS,
     DOTNET_BUILD_CLOSURE,
     PY_ARTIFACT_ROOTS,
     PY_COVERAGE_FILES,
@@ -125,7 +125,7 @@ class TestParams(BaseParams):
     """Parameters shared by test verbs."""
 
     # language selectors are optional; hide default so help does not advertise an unset flag
-    csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
+    dotnet: Annotated[bool, Parameter(name="--dotnet", negative="", show_default=False, help="Restrict the command to .NET targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
     typescript: Annotated[
         bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
@@ -148,7 +148,7 @@ class TestParams(BaseParams):
         Returns:
             Bound params, or a parse Fault when language flags conflict.
         """
-        match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
+        match language_choice(verb, dotnet=self.dotnet, python=self.python, typescript=self.typescript):
             case Fault() as fault:
                 return fault
             case language:
@@ -245,7 +245,7 @@ def _mutation_args(tool: Tool, params: TestParams, settings: AssaySettings, file
     # anchors cwd-independent, and Stryker.NET requires the report --output dir to pre-exist, so the rail creates it here.
     staged_dotnet = tool.runner is Runner.DOTNET and tool.mode is Mode.MUTATION
     root = Path(str(settings.root)).resolve()
-    output = str(root / CS_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
+    output = str(root / DOTNET_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
     if output:
         Path(output).mkdir(parents=True, exist_ok=True)
     return ToolArgs(
@@ -287,11 +287,11 @@ def _marker_lane(project: str, settings: AssaySettings) -> _TestProjectLane:
 def _project_lane(project: str | Path, settings: AssaySettings) -> _TestProjectLane:
     rel = _relative_project(project, settings)
     match PurePosixPath(rel).parts:
-        case ("tests", "csharp", "_testkit", *_):
+        case ("tests", "dotnet", "_testkit", *_):
             return _TestProjectLane.SUPPORT
-        case ("tests", "csharp", "_benchmarks", *_):
+        case ("tests", "dotnet", "_benchmarks", *_):
             return _TestProjectLane.BENCHMARK
-        case ("tests", "csharp", *_):
+        case ("tests", "dotnet", *_):
             return _marker_lane(rel, settings)
         case _:
             return _TestProjectLane.NON_TEST
@@ -336,7 +336,7 @@ def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: M
         if not project:
             return check
         stem = PurePosixPath(project.replace("\\", "/")).stem
-        trx_dir = Path(str(settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"] / stem
+        trx_dir = Path(str(settings.root)).resolve() / DOTNET_ARTIFACT_ROOTS["trx"] / stem
         # Every run pins the results directory under the C# artifact root, so MTP output (and any env-enabled diagnostic
         # session, which defaults its log beside the results) never lands TestResults litter at the repo root. A bare
         # --diagnostic-output-directory is refused by MTP without --diagnostic, so diagnostics route via testconfig.
@@ -357,7 +357,7 @@ def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettin
 
     def _target_status() -> tuple[Result[Completed, Fault], ...]:
         match (routed.language, params.target):
-            case (Language.CSHARP, Path() as target) if (lane := _project_lane(target, settings)) not in _RUNNABLE_LANES:
+            case (Language.DOTNET, Path() as target) if (lane := _project_lane(target, settings)) not in _RUNNABLE_LANES:
                 project = _relative_project(target, settings)
                 return (
                     Ok(
@@ -374,10 +374,10 @@ def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettin
 
     def _host_receipt() -> tuple[Result[Completed, Fault], ...]:
         match (routed.language, mode, routed.host_bound):
-            case (Language.CSHARP, Mode.RUN | Mode.LIST, (*host,)) if host:
+            case (Language.DOTNET, Mode.RUN | Mode.LIST, (*host,)) if host:
                 status = _host_status()
                 return (
-                    Ok(receipt(("assay", "test", "host-bound"), status.exit_code, status=status, notes=(f"host-bound[csharp]: {', '.join(host)}",))),
+                    Ok(receipt(("assay", "test", "host-bound"), status.exit_code, status=status, notes=(f"host-bound[dotnet]: {', '.join(host)}",))),
                 )
             case _:
                 return ()
@@ -447,7 +447,7 @@ def _dispatch(
     match checks:
         case ():
             return unsupported
-        case _ if routed.language is Language.CSHARP and mode in {Mode.RUN, Mode.LIST}:
+        case _ if routed.language is Language.DOTNET and mode in {Mode.RUN, Mode.LIST}:
             # dotnet test builds land in the one shared closure tree; a per-run tree would persist a full
             # solution build per invocation under scope retention. The exclusive lease serializes writers.
             build_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE)

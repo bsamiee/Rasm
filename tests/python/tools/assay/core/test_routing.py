@@ -126,7 +126,7 @@ class _HostGraphSource(_GraphSource):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_HOST_ROUTED = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",))
+_HOST_ROUTED = Routed(Language.DOTNET, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"), host_bound=("src/App/App.csproj",))
 
 _PY_TOOL = Tool(
     name="py-check", runner=Runner.UV, command=("ruff", "check"), input=Input.FILES, language=Language.PYTHON, claim=Claim.CODE, mode=Mode.CHECK
@@ -160,14 +160,14 @@ def test_target_files_partitions_unsupported_inputs(assay_root: AssayHarness) ->
     [
         (Language.PYTHON, ("a.py", "b.ts"), (), Scope.CHANGED, 1, ()),
         (Language.TYPESCRIPT, ("a.py", "b.ts"), (), Scope.CHANGED, 1, ()),
-        (Language.CSHARP, ("Workspace.slnx",), ("src/A.csproj",), Scope.FULL, 1, ("Workspace.slnx",)),
-        (Language.CSHARP, ("src/A.cs",), ("src/A.csproj",), Scope.CHANGED, 1, ()),
+        (Language.DOTNET, ("Workspace.slnx",), ("src/A.csproj",), Scope.FULL, 1, ("Workspace.slnx",)),
+        (Language.DOTNET, ("src/A.cs",), ("src/A.csproj",), Scope.CHANGED, 1, ()),
         (Language.BASH, ("deploy.sh", "notes.md"), (), Scope.CHANGED, 1, ()),
         (Language.SQL, ("schema.sql", "schema.py"), (), Scope.CHANGED, 1, ()),
         (Language.DOCS, ("CHANGELOG.md", "schema.py"), (), Scope.CHANGED, 1, ()),
         (Language.PROTO, ("tests/contracts/proto/a/v1/a.proto", "schema.py"), (), Scope.CHANGED, 1, ()),
     ],
-    ids=["py-glob", "ts-glob", "csharp-full-trigger", "csharp-changed", "bash-glob", "sql-glob", "docs-glob", "proto-glob"],
+    ids=["py-glob", "ts-glob", "dotnet-full-trigger", "dotnet-changed", "bash-glob", "sql-glob", "docs-glob", "proto-glob"],
 )
 def test_route_language_table(
     language: Language,
@@ -232,8 +232,8 @@ def test_resolve_languages_unrestricted_spans_claim_catalog() -> None:
     [
         (Input.FILES, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED, files=("a.py",)), (("a.py",),)),
         (Input.FILES, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED), ()),
-        (Input.INCLUDE, Mode.WRITE, Routed(Language.CSHARP, Scope.CHANGED, groups=(("A.csproj", ("a.cs",)),)), (("A.csproj", "--include", "a.cs"),)),
-        (Input.PROJECT, Mode.RUN, Routed(Language.CSHARP, Scope.CHANGED, projects=("A.csproj",)), (("A.csproj",),)),
+        (Input.INCLUDE, Mode.WRITE, Routed(Language.DOTNET, Scope.CHANGED, groups=(("A.csproj", ("a.cs",)),)), (("A.csproj", "--include", "a.cs"),)),
+        (Input.PROJECT, Mode.RUN, Routed(Language.DOTNET, Scope.CHANGED, projects=("A.csproj",)), (("A.csproj",),)),
         (Input.NONE, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED, files=("a.py",)), (("a.py",),)),
         (Input.NONE, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED), ((),)),
         (Input.OWNED, Mode.CHECK, Routed(Language.DOCS, Scope.CHANGED, files=("a.md", "b.md")), ((),)),
@@ -251,8 +251,8 @@ def test_place_input_arm_table(
 
 def test_place_solution_arm(assay_root: AssayHarness) -> None:
     """The SOLUTION arm projects the settings solution path, independent of routed inputs."""
-    tool = Tool("sln", Runner.DOTNET, ("dotnet",), Input.SOLUTION, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
-    routed = Routed(Language.CSHARP, Scope.FULL)
+    tool = Tool("sln", Runner.DOTNET, ("dotnet",), Input.SOLUTION, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD)
+    routed = Routed(Language.DOTNET, Scope.FULL)
     assert place(routed, tool, settings=assay_root.settings) == ((str(assay_root.settings.solution),),)
 
 
@@ -359,7 +359,7 @@ def test_route_closure_transitive_dependents(assay_root: AssayHarness) -> None:
     App -> Lib -> Core means a Core change must rebuild Core, Lib, and App through the reverse closure; the
     backslash-style Include edges prove _refs parsing end-to-end.
     """
-    routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
+    routed = assert_ok(route(Language.DOTNET, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert routed.scope is Scope.CHANGED
     assert routed.projects == ("src/App/App.csproj", "src/Core/Core.csproj", "src/Lib/Lib.csproj")
 
@@ -369,8 +369,8 @@ def test_route_closure_groups_pair_seed_with_owned_files(assay_root: AssayHarnes
 
     Two changed files in two seed projects pin group pairing, file normalization, and language threading.
     """
-    routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs", "src/App/a.cs")), settings=assay_root.settings))
-    assert routed.language is Language.CSHARP
+    routed = assert_ok(route(Language.DOTNET, source=_GraphSource(("src/Core/c.cs", "src/App/a.cs")), settings=assay_root.settings))
+    assert routed.language is Language.DOTNET
     assert routed.files == ("src/App/a.cs", "src/Core/c.cs")
     assert routed.groups == (("src/App/App.csproj", ("src/App/a.cs",)), ("src/Core/Core.csproj", ("src/Core/c.cs",)))
 
@@ -393,7 +393,7 @@ def test_route_escalation_honours_settings_triggers(
     Custom settings replace defaults, so omitted default triggers must not escalate.
     """
     settings = assay_root.settings.model_copy(update=update)
-    routed = assert_ok(route(Language.CSHARP, source=_GraphSource(changed), settings=settings))
+    routed = assert_ok(route(Language.DOTNET, source=_GraphSource(changed), settings=settings))
     assert routed.scope is expected_scope
 
 
@@ -405,10 +405,10 @@ def test_route_classifies_host_bound_by_marker_only(assay_root: AssayHarness) ->
 
     App alone carries the marker; ``projects`` keeps the full closure while ``host_bound`` carries only App.
     """
-    marked = assert_ok(route(Language.CSHARP, source=_HostGraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
+    marked = assert_ok(route(Language.DOTNET, source=_HostGraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert marked.projects == ("src/App/App.csproj", "src/Core/Core.csproj", "src/Lib/Lib.csproj")
     assert marked.host_bound == ("src/App/App.csproj",)
-    unmarked = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
+    unmarked = assert_ok(route(Language.DOTNET, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
     assert unmarked.host_bound == ()
 
 
@@ -428,7 +428,7 @@ def test_place_host_bound_lane_partition(mode: Mode, expected: tuple[tuple[str, 
     The lane split prevents managed test runs from executing host-bound projects while preserving build coverage.
     A dotnet ``test`` tool pins each kept project with ``--project``.
     """
-    tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=mode, input_flag=("--project",))
+    tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.DOTNET, Claim.TEST, mode=mode, input_flag=("--project",))
     assert place(_HOST_ROUTED, tool, settings=assay_root.settings) == expected
 
 
@@ -437,8 +437,8 @@ def test_host_emptied_placement_drops_check(assay_root: AssayHarness) -> None:
 
     Fallback exists for empty routes only; host-filtered routes must drop TEST checks and keep BUILD checks.
     """
-    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj",), host_bound=("src/App/App.csproj",))
-    run_tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN)
+    routed = Routed(Language.DOTNET, Scope.CHANGED, projects=("src/App/App.csproj",), host_bound=("src/App/App.csproj",))
+    run_tool = Tool("t", Runner.DOTNET, ("test",), Input.PROJECT, Language.DOTNET, Claim.TEST, mode=Mode.RUN)
     list_tool = msgspec.structs.replace(run_tool, mode=Mode.LIST)
     build_tool = msgspec.structs.replace(run_tool, mode=Mode.BUILD)
     assert place(routed, list_tool, settings=assay_root.settings) == ()
@@ -448,12 +448,12 @@ def test_host_emptied_placement_drops_check(assay_root: AssayHarness) -> None:
 def test_closure_note_names_host_routed() -> None:
     """closure_note emits a partition head row, plus a names row exactly when host-routed projects exist."""
     support_matrix(
-        ("no projects yields empty", lambda: Routed(Language.CSHARP, Scope.CHANGED).closure_note() == (), True),
+        ("no projects yields empty", lambda: Routed(Language.DOTNET, Scope.CHANGED).closure_note() == (), True),
         (
             "managed-only yields single head row",
             lambda: (
-                Routed(Language.CSHARP, Scope.CHANGED, projects=("a.csproj",)).closure_note()
-                == ("closure[csharp]: included=1 excluded=0 cached=0 host-routed=0",)
+                Routed(Language.DOTNET, Scope.CHANGED, projects=("a.csproj",)).closure_note()
+                == ("closure[dotnet]: included=1 excluded=0 cached=0 host-routed=0",)
             ),
             True,
         ),
@@ -461,7 +461,7 @@ def test_closure_note_names_host_routed() -> None:
             "host subset yields head plus names rows",
             lambda: (
                 _HOST_ROUTED.closure_note()
-                == ("closure[csharp]: included=1 excluded=0 cached=0 host-routed=1", "host-routed[csharp]: src/App/App.csproj")
+                == ("closure[dotnet]: included=1 excluded=0 cached=0 host-routed=1", "host-routed[dotnet]: src/App/App.csproj")
             ),
             True,
         ),
@@ -475,8 +475,8 @@ def test_closure_note_names_host_routed() -> None:
 )
 def test_place_project_empty_stays_empty(mode: Mode, projects: tuple[str, ...], expected_fn: str, assay_root: AssayHarness) -> None:
     """Input.PROJECT with no routed projects yields no invocations; test selection owns defaults."""
-    tool = Tool("t", Runner.DOTNET, ("dotnet",), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=mode)
-    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=projects)
+    tool = Tool("t", Runner.DOTNET, ("dotnet",), Input.PROJECT, Language.DOTNET, Claim.STATIC, mode=mode)
+    routed = Routed(Language.DOTNET, Scope.CHANGED, projects=projects)
     result = place(routed, tool, settings=assay_root.settings)
     expected = {"empty": (), "projects": tuple((p,) for p in projects)}[expected_fn]
     assert result == expected

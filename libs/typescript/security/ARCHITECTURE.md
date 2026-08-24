@@ -104,7 +104,7 @@ flowchart LR
     Data[(data)]
     Runtime{{runtime}}
     Iac([iac])
-    AppHost[/csharp:Rasm.AppHost/]
+    AppHost[/dotnet:Rasm.AppHost/]
     Core e1@-->|"[SHAPE]: Identity.Tenant"| Access
     Data e2@-->|"[PORT]: ClaimStore"| Access
     Access e3@-->|"[BOUNDARY]: TenantScope"| Data

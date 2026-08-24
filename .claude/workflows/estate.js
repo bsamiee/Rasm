@@ -22,24 +22,24 @@ export const meta = {
 const CORE_PAGES = 4;
 
 const TRACKS = {
-    csharp: {
+    dotnet: {
         docs: 'docs/stacks/csharp',
         docsNote: 'ignore the domain/ folder entirely',
         scope:
             'Directory.Packages.props organization: every row homed truthfully — a transitive-only row lives under Transitive Floors with a one-line comment ' +
             'naming what pulls it (verify via dotnet nuget why or lockfiles), a directly-consumed row lives under its consumer-domain label; alphabetical within ' +
-            'groups, aligned columns, one-line comments only. The bidirectional props<->csproj<->README<->.api audit across libs/csharp + tools + tests/csharp: ' +
+            'groups, aligned columns, one-line comments only. The bidirectional props<->csproj<->README<->.api audit across libs/dotnet + tools + tests/dotnet: ' +
             'every mismatch fixed at the truthful end; substrate truthfulness (a branch-substrate registry row needs 2+ consumers, a single-consumer package ' +
-            'relocates to the folder registry + folder .api tier, both ends). tests/csharp shared infrastructure: _testkit, _scenariokit, _architecture, ' +
-            '_benchmarks, scenarios, tools, README — world-class, discovery-driven, zero hardcoded package lists; tests/csharp/.api is a first-class test-stack ' +
+            'relocates to the folder registry + folder .api tier, both ends). tests/dotnet shared infrastructure: _testkit, _scenariokit, _architecture, ' +
+            '_benchmarks, scenarios, tools, README — world-class, discovery-driven, zero hardcoded package lists; tests/dotnet/.api is a first-class test-stack ' +
             'catalog tier (mirror tests/python/.api and tests/typescript/.api) with a member-verified catalog per testing package. tools/rhino-bridge scenarios ' +
             'and universal scenario kits; tools/cs-analyzer; .config C# tooling, NuGet.config, and global.json where improvement is justified; ' +
             'Directory.Build.props/targets and Workspace.slnx coherence chasing every csproj ' +
             'in the monorepo. LAW, not drift: Rasm.Rhino and Rasm.Grasshopper stay OUT of Workspace.slnx under the HOST_BOUNDARY_REENTRY gate in ' +
-            'tests/csharp/_architecture/AssemblyBoundaries.spec.cs.',
+            'tests/dotnet/_architecture/AssemblyBoundaries.spec.cs.',
         gates:
             'dotnet restore Workspace.slnx clean; dotnet build Workspace.slnx with zero errors AND zero warnings (analyzer findings fixed at the shape, never ' +
-            'suppressed); dotnet format Workspace.slnx --verify-no-changes conformant with .editorconfig; dotnet test tests/csharp/_architecture green; prose ' +
+            'suppressed); dotnet format Workspace.slnx --verify-no-changes conformant with .editorconfig; dotnet test tests/dotnet/_architecture green; prose ' +
             'gate zero FAILs on every touched .md; rg proof of zero stale references to relocated or deleted files.',
     },
     python: {
@@ -85,7 +85,7 @@ const FINAL_TRACK = {
         'what they missed.',
     gates:
         'dotnet restore Workspace.slnx clean; dotnet build Workspace.slnx zero errors and warnings; dotnet format Workspace.slnx --verify-no-changes clean; ' +
-        'dotnet test tests/csharp/_architecture green; uv run assay static clean across all languages; prose ' +
+        'dotnet test tests/dotnet/_architecture green; uv run assay static clean across all languages; prose ' +
         'gate zero FAILs on every touched .md. Zero-error law: fixed root/ground-up, never suppressed.',
 };
 
@@ -97,7 +97,7 @@ const LANGS = Array.isArray(args)
       ? [args]
       : Array.isArray(args?.languages)
         ? args.languages
-        : ['csharp', 'python', 'typescript'];
+        : ['dotnet', 'python', 'typescript'];
 const WANT_FINAL = args?.final !== false;
 const ACTIVE = LANGS.filter((l) => TRACKS[l]);
 
@@ -222,7 +222,7 @@ const REVIEWER_LAW =
     'proves the .greptile JSON files, and rules.md and every .macroscope/ page ride the prose gate like any touched .md.';
 
 const INFRA_LAW =
-    'SHARED-INFRA PRIMACY: the shared test infrastructure is the estate CENTER, never a side item — csharp: tests/csharp/_testkit, _scenariokit, ' +
+    'SHARED-INFRA PRIMACY: the shared test infrastructure is the estate CENTER, never a side item — dotnet: tests/dotnet/_testkit, _scenariokit, ' +
     '_architecture, _benchmarks, scenarios; python: tests/python/_testkit + the conftest topology; typescript: tests/typescript/_testkit, _architecture, ' +
     'e2e, nx.json, biome.json, tools/biome, playwright.config.ts, vite.config.ts, and vitest.config.ts as one system. FIRST explore your ' +
     'language libs/ planning corpus in depth — every package folder: domains, owners, seams, receipt families, wire shapes — to understand the extreme ' +

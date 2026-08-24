@@ -32,7 +32,7 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 3
     - class_id: host-api-misspelling-is-truth
       corpus: code
@@ -40,11 +40,11 @@ classes:
         - 'ShowSilhouttes'
         - 'TryGetUnmanged'
         - '(typo|misspell|spelling).{0,60}(host|member|api)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [02] — an apparent typo in a decompile-verified host member is the shipped spelling; a corrected-spelling demand breaks the binding and is void at every severity'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [02] — an apparent typo in a decompile-verified host member is the shipped spelling; a corrected-spelling demand breaks the binding and is void at every severity'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 1
     - class_id: stale-disk-quoted-shape-void
       corpus: code
@@ -90,22 +90,22 @@ classes:
       matchers:
         - 'ReplayHistoryResult'
         - '(detached copy|per-result dispose|compensation).{0,60}(replay|history)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [02] — history-replay result wrappers carry internal constructors and update host-owned native state; detached-copy, per-result dispose, or compensation demands contradict the decompiled lineage'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [02] — history-replay result wrappers carry internal constructors and update host-owned native state; detached-copy, per-result dispose, or compensation demands contradict the decompiled lineage'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: host-enum-zero-default
       corpus: code
       matchers:
         - '(enum|zero member).{0,60}(uninitialized|invalid|malformed).{0,40}(default|field)'
         - 'default.{0,30}enum.{0,40}(invalid|undefined|unset)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [01] — a host enum-typed field is a value type at catalog authority whose zero member is a legitimate roster default at decompile authority; undefined integral values are the one representable defect, admitted through the defined-value gate'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [01] — a host enum-typed field is a value type at catalog authority whose zero member is a legitimate roster default at decompile authority; undefined integral values are the one representable defect, admitted through the defined-value gate'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: fabricated-host-invariant
       corpus: code
@@ -114,11 +114,11 @@ classes:
         - 'Guid\.Empty.{0,60}(invariant|guard|reject|nonempty)'
         - '(maximum|ceiling|limit).{0,40}(bitmap|preview|dimension)'
         - 'host (rejects|throws).{0,50}(clamp|out of range)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [02] — an invariant the host surface does not document is never demanded: no maximum-dimension contract exists, absence sentinels collapse at the read seam and round-trip at apply, and a clamp-proven member makes pre-host refusal the corpus form'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [02] — an invariant the host surface does not document is never demanded: no maximum-dimension contract exists, absence sentinels collapse at the read seam and round-trip at apply, and a clamp-proven member makes pre-host refusal the corpus form'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: empty-finding-row
       matchers:
@@ -140,17 +140,17 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: languageext-hashset-mutable-reading
       corpus: code
       matchers:
         - 'HashSet.{0,60}(mutable|mutati|shared state|not thread|concurrent modif)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [01] — LanguageExt.HashSet is the immutable persistent carrier whose update operations return values; namespace qualification is the standing recurrence guard'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [01] — LanguageExt.HashSet is the immutable persistent carrier whose update operations return values; namespace qualification is the standing recurrence guard'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: validation-traverse-short-circuit
       corpus: code
@@ -160,7 +160,7 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: fin-catch-strictness-escape
       corpus: code
@@ -171,29 +171,29 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: smartenum-membership-guard
       corpus: code
       matchers:
         - '(smart ?enum|generated enum).{0,60}(membership|guard|invalid instance)'
         - 'guard.{0,40}undeclared enum'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [01] — a generated [SmartEnum] admits no invalid instance by construction; a membership guard against undeclared enum items is structurally void'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [01] — a generated [SmartEnum] admits no invalid instance by construction; a membership guard against undeclared enum items is structurally void'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 1
     - class_id: default-ghost-seam-removal
       corpus: code
       matchers:
         - 'default.?ghost'
         - '(redundant|unnecessary|duplicate).{0,40}(check|guard|seam).{0,60}(struct|zero-?init|default)'
-      refuting_citation: '.coderabbit.yaml csharp block — field zero-init and default mint admission-bypassing ghosts on readonly partial struct value objects, so the one mandated outer storage seam reading the key member stays; deleting it as redundant is the inverse false positive'
+      refuting_citation: '.coderabbit.yaml dotnet block — field zero-init and default mint admission-bypassing ghosts on readonly partial struct value objects, so the one mandated outer storage seam reading the key member stays; deleting it as redundant is the inverse false positive'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 2
     - class_id: full-roster-restore-bracket
       corpus: code
@@ -204,18 +204,18 @@ classes:
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 0
     - class_id: using-var-pattern-var-style
       corpus: code
       matchers:
         - 'using var.{0,60}(replace|explicit|avoid|restructure)'
         - 'var.{0,30}pattern.{0,40}(explicit type|restructure)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [01] — using var on a scoped disposable boundary carrier and var bindings inside pattern arms are doctrine-prescribed spellings; restructure or explicit-type demands are style noise at every severity'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [01] — using var on a scoped disposable boundary carrier and var bindings inside pattern arms are doctrine-prescribed spellings; restructure or explicit-type demands are style noise at every severity'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 1
     - class_id: upward-stratum-delegation-demand
       corpus: code
@@ -234,11 +234,11 @@ classes:
         - '(dispose|disposal).{0,50}(per.?site|per.?use|missing|each)'
         - 'IDisposable.{0,50}(missing|not disposed|leak)'
         - '(custody|ownership).{0,50}(lease|dispose)'
-      refuting_citation: '.macroscope/correctness/csharp/api-truths.md [02] — a host type''s decompile-proven IDisposable lineage settles lease-ownership demands: custody lands as an owned lease through total union dispatch, so a per-site dispose demand the lease rail already owns, or a custody claim contradicting the lineage, is false'
+      refuting_citation: '.macroscope/correctness/dotnet/api-truths.md [02] — a host type''s decompile-proven IDisposable lineage settles lease-ownership demands: custody lands as an owned lease through total union dispatch, so a per-site dispose demand the lease rail already owns, or a custody claim contradicting the lineage, is false'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'
-        - '.macroscope/correctness/csharp/api-truths.md'
+        - '.macroscope/correctness/dotnet/api-truths.md'
       recurrences: 1
     - class_id: forbidden-form-comment-remint
       corpus: code
@@ -634,11 +634,11 @@ classes:
         - nullable capability leak
         - SpanBand\? band = null
         - the nullable receiver hides an absent capability
-      refuting_citation: .macroscope/correctness/csharp/api-truths.md — "`Activity?` and the kin a headless shard takes carry the platform's own unlistened-observer contract"
+      refuting_citation: .macroscope/correctness/dotnet/api-truths.md — "`Activity?` and the kin a headless shard takes carry the platform's own unlistened-observer contract"
       landed_surfaces:
         - .coderabbit.yaml
         - .greptile/rules.md
-        - .macroscope/correctness/csharp/api-truths.md
+        - .macroscope/correctness/dotnet/api-truths.md
       guard_probe: unlistened-observer contract
       recurrences: 0
     - class_id: effect-array-partition-halves-inverted

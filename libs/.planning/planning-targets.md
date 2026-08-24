@@ -5,12 +5,12 @@
 - Doctrine: `libs/.planning/campaign-method.md`, `libs/.planning/planning-targets.md`
 - Root docs: the branch doc-set at `libs/.planning/` (`README`, `ARCHITECTURE`, `RULINGS`, `IDEAS`, `TASKLOG`)
 
-[CSHARP]:
-- Core dir: `libs/csharp/.planning`
-- Branch API catalogues: `libs/csharp/.api`
-- Routing: `libs/csharp/.planning/README.md`
+[DOTNET]:
+- Core dir: `libs/dotnet/.planning`
+- Branch API catalogues: `libs/dotnet/.api`
+- Routing: `libs/dotnet/.planning/README.md`
 - Language-wide docs: `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md` under the core dir
-- Planning Folders: every package folder under `libs/csharp/` — the kernel `Rasm` and its `Rasm.*` siblings, per the branch `[02]-[STRATA]` roster
+- Planning Folders: every package folder under `libs/dotnet/` — the kernel `Rasm` and its `Rasm.*` siblings, per the branch `[02]-[STRATA]` roster
 - Target Packages: `Rasm.Generation` (APP-PLATFORM layout/generation/assembly orchestration)
 
 [TYPESCRIPT]:

@@ -114,7 +114,7 @@ plugins:
       types: [grpc.health.v1.Health.Check]
     - remote: buf.build/protocolbuffers/csharp:v36.0  # Remote pin makes the emitter reproducible off the machine PATH
       revision: 1                                     # Pin the exact BSR plugin build behind the semantic plugin version
-      out: libs/csharp/Rasm.Contracts/Generated
+      out: libs/dotnet/Rasm.Contracts/Generated
       opt: [base_namespace=Rasm.Contracts]            # Namespace tail becomes the directory
       types:
         - rasm.contracts.clock.Hlc
@@ -161,7 +161,7 @@ plugins:
         - rasm.contracts.declaration.DeclarationRecord
     - remote: buf.build/grpc/csharp:v1.83.0  # Service emitter pinned independently at its official remote plugin
       revision: 1                            # Pin the exact BSR plugin build behind the semantic plugin version
-      out: libs/csharp/Rasm.Contracts/Generated
+      out: libs/dotnet/Rasm.Contracts/Generated
       opt: [base_namespace=Rasm.Contracts]
       types:
         - rasm.contracts.compute.ComputeService.Tessellate

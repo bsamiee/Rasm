@@ -1668,7 +1668,7 @@ class MeasureValue extends Schema.Class<MeasureValue>("MeasureValue")({
   uncertainty: _option(MeasureBand),
 }) {}
 
-// `PropertyValueWire` is the producer's recursive FOURTEEN-arm typed-value fold — `csharp:Rasm.Element/Graph/wirevalue`
+// `PropertyValueWire` is the producer's recursive FOURTEEN-arm typed-value fold — `dotnet:Rasm.Element/Graph/wirevalue`
 // owns the roster and `GenericWire.attributes` carries it as named rows. It lands as the generated `{ case, value }`
 // oneof face verbatim: five arms carry a SCALAR, so the oneof-hoisting lift has no record to spread and the case
 // name IS the discriminant space. Ten arms bottom out and four recurse through the same carrier, so the nesting half

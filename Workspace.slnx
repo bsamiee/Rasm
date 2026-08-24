@@ -1,99 +1,99 @@
 <Solution>
     <Folder Name="/libs/" />
-    <Folder Name="/libs/csharp/" />
-    <Folder Name="/libs/csharp/Rasm/">
-        <Project Path="libs/csharp/Rasm/Rasm.csproj" />
+    <Folder Name="/libs/dotnet/" />
+    <Folder Name="/libs/dotnet/Rasm/">
+        <Project Path="libs/dotnet/Rasm/Rasm.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.AppHost/">
-        <Project Path="libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.AppHost/">
+        <Project Path="libs/dotnet/Rasm.AppHost/Rasm.AppHost.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.AppUi/">
-        <Project Path="libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.AppUi/">
+        <Project Path="libs/dotnet/Rasm.AppUi/Rasm.AppUi.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Bim/">
-        <Project Path="libs/csharp/Rasm.Bim/Rasm.Bim.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Bim/">
+        <Project Path="libs/dotnet/Rasm.Bim/Rasm.Bim.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Compute/">
-        <Project Path="libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Compute/">
+        <Project Path="libs/dotnet/Rasm.Compute/Rasm.Compute.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Contracts/">
-        <Project Path="libs/csharp/Rasm.Contracts/Rasm.Contracts.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Contracts/">
+        <Project Path="libs/dotnet/Rasm.Contracts/Rasm.Contracts.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Element/">
-        <Project Path="libs/csharp/Rasm.Element/Rasm.Element.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Element/">
+        <Project Path="libs/dotnet/Rasm.Element/Rasm.Element.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Fabrication/">
-        <Project Path="libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Fabrication/">
+        <Project Path="libs/dotnet/Rasm.Fabrication/Rasm.Fabrication.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Grasshopper/">
-        <Project Path="libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Grasshopper/">
+        <Project Path="libs/dotnet/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Materials/">
-        <Project Path="libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Materials/">
+        <Project Path="libs/dotnet/Rasm.Materials/Rasm.Materials.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Persistence/">
-        <Project Path="libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Persistence/">
+        <Project Path="libs/dotnet/Rasm.Persistence/Rasm.Persistence.csproj" />
     </Folder>
-    <Folder Name="/libs/csharp/Rasm.Rhino/">
-        <Project Path="libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" />
+    <Folder Name="/libs/dotnet/Rasm.Rhino/">
+        <Project Path="libs/dotnet/Rasm.Rhino/Rasm.Rhino.csproj" />
     </Folder>
     <Folder Name="/tests/" />
-    <Folder Name="/tests/csharp/" />
-    <Folder Name="/tests/csharp/_architecture/">
-        <Project Path="tests/csharp/_architecture/Rasm.Architecture.Tests.csproj" />
+    <Folder Name="/tests/dotnet/" />
+    <Folder Name="/tests/dotnet/_architecture/">
+        <Project Path="tests/dotnet/_architecture/Rasm.Architecture.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/_benchmarks/">
-        <Project Path="tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" />
+    <Folder Name="/tests/dotnet/_benchmarks/">
+        <Project Path="tests/dotnet/_benchmarks/Rasm.Benchmarks.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/_scenariokit/">
-        <Project Path="tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj" />
+    <Folder Name="/tests/dotnet/_scenariokit/">
+        <Project Path="tests/dotnet/_scenariokit/Rasm.ScenarioKit.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/_testkit/">
-        <Project Path="tests/csharp/_testkit/Rasm.TestKit.csproj" />
+    <Folder Name="/tests/dotnet/_testkit/">
+        <Project Path="tests/dotnet/_testkit/Rasm.TestKit.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/" />
-    <Folder Name="/tests/csharp/libs/Rasm/">
-        <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/" />
+    <Folder Name="/tests/dotnet/libs/Rasm/">
+        <Project Path="tests/dotnet/libs/Rasm/Rasm.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.AppHost/">
-        <Project Path="tests/csharp/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.AppHost/">
+        <Project Path="tests/dotnet/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.AppUi/">
-        <Project Path="tests/csharp/libs/Rasm.AppUi/Rasm.AppUi.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.AppUi/">
+        <Project Path="tests/dotnet/libs/Rasm.AppUi/Rasm.AppUi.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Bim/">
-        <Project Path="tests/csharp/libs/Rasm.Bim/Rasm.Bim.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Bim/">
+        <Project Path="tests/dotnet/libs/Rasm.Bim/Rasm.Bim.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Compute/">
-        <Project Path="tests/csharp/libs/Rasm.Compute/Rasm.Compute.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Compute/">
+        <Project Path="tests/dotnet/libs/Rasm.Compute/Rasm.Compute.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Element/">
-        <Project Path="tests/csharp/libs/Rasm.Element/Rasm.Element.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Element/">
+        <Project Path="tests/dotnet/libs/Rasm.Element/Rasm.Element.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Fabrication/">
-        <Project Path="tests/csharp/libs/Rasm.Fabrication/Rasm.Fabrication.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Fabrication/">
+        <Project Path="tests/dotnet/libs/Rasm.Fabrication/Rasm.Fabrication.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Grasshopper/">
-        <Project Path="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Grasshopper/">
+        <Project Path="tests/dotnet/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Materials/">
-        <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Materials/">
+        <Project Path="tests/dotnet/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Persistence/">
-        <Project Path="tests/csharp/libs/Rasm.Persistence/Rasm.Persistence.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Persistence/">
+        <Project Path="tests/dotnet/libs/Rasm.Persistence/Rasm.Persistence.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/libs/Rasm.Rhino/">
-        <Project Path="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
+    <Folder Name="/tests/dotnet/libs/Rasm.Rhino/">
+        <Project Path="tests/dotnet/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/scenarios/">
-        <Project Path="tests/csharp/scenarios/Rasm.Scenarios.csproj" />
+    <Folder Name="/tests/dotnet/scenarios/">
+        <Project Path="tests/dotnet/scenarios/Rasm.Scenarios.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/tools/cs-analyzer/">
-        <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />
+    <Folder Name="/tests/dotnet/tools/cs-analyzer/">
+        <Project Path="tests/dotnet/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/csharp/tools/rhino-bridge/">
-        <Project Path="tests/csharp/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj" />
-        <Project Path="tests/csharp/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj" />
+    <Folder Name="/tests/dotnet/tools/rhino-bridge/">
+        <Project Path="tests/dotnet/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj" />
+        <Project Path="tests/dotnet/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj" />
     </Folder>
     <Folder Name="/tools/" />
     <Folder Name="/tools/cs-analyzer/">

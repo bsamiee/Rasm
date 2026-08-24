@@ -36,7 +36,7 @@ const RETRY_ATTEMPTS = 2;
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
 const langOf = (t) =>
-    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
+    t.indexOf('libs/dotnet') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
 const isObj = !!argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn);
 const rawTargets = Array.isArray(argsIn)
@@ -321,8 +321,8 @@ const LANG = {
     // LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached at source, never paraphrased here.
     cs: {
         name: 'C#',
-        root: 'libs/csharp',
-        shared: 'libs/csharp/.api',
+        root: 'libs/dotnet',
+        shared: 'libs/dotnet/.api',
         manifest: 'the package `.csproj` and the central `Directory.Packages.props` block for this package',
         verify:
             '`uv run assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
@@ -1034,13 +1034,13 @@ const doctrinePrompt = (rows, critPaths) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
+if (REJECTED.length) log('Rejected targets outside libs/{dotnet,python,typescript}: ' + REJECTED.join(', '));
 if (!TARGETS.length) {
     log('No targets — pass a package root, an array of planning sub-folders, or {targets}. Empty args is a no-op.');
     return { targets: [], units: 0 };
 }
 if (!LANG_KEY) {
-    log('Targets must live under ONE language root (libs/csharp | libs/python | libs/typescript). Got: ' + JSON.stringify(TARGETS));
+    log('Targets must live under ONE language root (libs/dotnet | libs/python | libs/typescript). Got: ' + JSON.stringify(TARGETS));
     return { targets: TARGETS, units: 0 };
 }
 

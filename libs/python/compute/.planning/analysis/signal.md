@@ -471,7 +471,7 @@ class WaveformExchange:
 
 ## [03]-[WAVEFORM_EXCHANGE]
 
-- Owner: `WaveformExchange` — the Python producer paired with `csharp:Rasm.Compute/Runtime/field#SCIENTIFIC_INGEST` `InterchangeIo.ImportWaveforms`; it emits one fixed `/waveform` dataset and no format registry or alternate carrier.
+- Owner: `WaveformExchange` — the Python producer paired with `dotnet:Rasm.Compute/Runtime/field#SCIENTIFIC_INGEST` `InterchangeIo.ImportWaveforms`; it emits one fixed `/waveform` dataset and no format registry or alternate carrier.
 - Entry: `write(ref, samples, sample_rate)` admits finiteness through `ArrayPayload`, requires a non-empty two-axis floating operand and a finite positive rate, writes create-only HDF5, and returns the flushed byte extent.
 - Wire: `/waveform` is little-endian float32 `[samples, channels]`, chunked along samples with the whole channel axis, Shuffle then gzip level 4; its only attribute is little-endian float64 `sample-rate`, and the root owns no attributes.
 - Packages: `h5py` (`File`, `create_dataset`, dataset attributes), `numpy`, and the `numerics/array#PAYLOAD` admission substrate.

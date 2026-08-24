@@ -88,7 +88,7 @@
         <Message Text="check-build: scrubbed @(_GrasshopperSpillover->Count()) Grasshopper2 resource spillover file(s) from repo root." Importance="normal" Condition="'@(_GrasshopperSpillover)' != ''" />
     </Target>
 
-    <!-- RASM0001: declared reference edges obey the role lattice — libs consume libs alone; tools add the tests kit tier (tests/csharp/_*); tests consume everything but apps; an app consumes libs and its own tree. RasmInfra edges are workspace plumbing, not declarations. -->
+    <!-- RASM0001: declared reference edges obey the role lattice — libs consume libs alone; tools add the tests kit tier (tests/dotnet/_*); tests consume everything but apps; an app consumes libs and its own tree. RasmInfra edges are workspace plumbing, not declarations. -->
     <Target Name="RasmReferenceRoleGuard" BeforeTargets="AssignProjectConfiguration" Condition="'@(ProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
         <PropertyGroup>
             <_RasmRepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</_RasmRepoRoot>
@@ -101,7 +101,7 @@
         <ItemGroup>
             <_RasmDeclaredEdge Include="@(ProjectReference->'%(FullPath)')" Condition="'%(ProjectReference.RasmInfra)' != 'true'" />
             <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/'))" />
-            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)tools/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)tests/csharp/_'))" />
+            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)tools/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)tests/dotnet/_'))" />
             <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)apps/'))" />
             <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmOwnAppRoot)'))" />
         </ItemGroup>
@@ -121,7 +121,7 @@
 
     <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
             Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)')) and '$(IsTestKitProject)' != 'true' and '$(IsScenarioKitProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(AssayTestShell)' != 'true' and '$(IsTestProject)' == 'false'">
-        <Error Text="tests/csharp projects cannot set IsTestProject=false; use IsTestKitProject, IsScenarioKitProject, IsBenchmarkProject, AssayHostBound, or AssayTestShell for routing." />
+        <Error Text="tests/dotnet projects cannot set IsTestProject=false; use IsTestKitProject, IsScenarioKitProject, IsBenchmarkProject, AssayHostBound, or AssayTestShell for routing." />
     </Target>
 
     <Target Name="GenerateXunitRunnerJson" BeforeTargets="AssignTargetPaths" Condition="'$(IsTestProject)' == 'true'">

@@ -148,9 +148,9 @@ Per-grammar `*_to_notebook`/`notebook_to_*` functions are the converters `TextNo
 - equivalence: `compare.compare_notebooks`/`test_round_trip_conversion` assert the text->node->text cycle lossless into a `NotebookDifference`, the equivalence fact a reports receipt cites.
 
 [STACKING]:
-- `expression`/runtime rail (`.api/expression`): every `read`/`reads`/`writes`/`combine_inputs_with_outputs` call is a `RuntimeRail` `Result` node mapping `JupytextFormatError`/`PairedFilesDiffer`/`NotSupportedNBFormatVersion` to a typed `Error`, `beartype`-checked at entry, spanned under `structlog`+OpenTelemetry with the resolved `format_name`/extension, folding the `ArtifactReceipt.Report` case via `core/receipt#RECEIPT`.
-- `msgspec`/`pydantic` (`.api/msgspec`): the `fmt` selector is modeled as data over `JUPYTEXT_FORMATS`, normalized once through `long_form_one_format`/`short_form_one_format` to a `NotebookFormatDescription` row.
-- `anyio` (`.api/anyio`): the sync arm runs its `read_one_file`/`write_one_file` callbacks inside the artifacts structured-concurrency boundary, fanning paired writes under one task group and cancellation scope.
+- `expression`/runtime rail (`libs/python/.api/expression.md`): every `read`/`reads`/`writes`/`combine_inputs_with_outputs` call is a `RuntimeRail` `Result` node mapping `JupytextFormatError`/`PairedFilesDiffer`/`NotSupportedNBFormatVersion` to a typed `Error`, `beartype`-checked at entry, spanned under `structlog`+OpenTelemetry with the resolved `format_name`/extension, folding the `ArtifactReceipt.Report` case via `core/receipt#RECEIPT`.
+- `msgspec`/`pydantic` (`libs/python/.api/msgspec.md`): the `fmt` selector is modeled as data over `JUPYTEXT_FORMATS`, normalized once through `long_form_one_format`/`short_form_one_format` to a `NotebookFormatDescription` row.
+- `anyio` (`libs/python/.api/anyio.md`): the sync arm runs its `read_one_file`/`write_one_file` callbacks inside the artifacts structured-concurrency boundary, fanning paired writes under one task group and cancellation scope.
 - folder reports chain (`jupytext` -> `papermill`/`nbclient` -> `nbconvert`): `read`/`reads` produces the `NotebookNode` those owners execute and export, `combine_inputs_with_outputs` re-absorbs executed outputs, and `writes` serializes the text twin — jupytext stacks below execution/export and above `nbformat`.
 
 [LOCAL_ADMISSION]:

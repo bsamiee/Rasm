@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!-- Spec-free shell during the planning phase; assay routes SHELL-lane projects out of test runs. -->
+        <AssayTestShell>true</AssayTestShell>
+    </PropertyGroup>
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../../../libs/dotnet/Rasm.AppHost/Rasm.AppHost.csproj" />
+    </ItemGroup>
+    <ItemGroup Label="Test Doubles">
+        <!-- Shell classification strips the central Test Packages rows, so this suite carries its own doubles:
+             the observation rail asserts instrument writes, ClockPolicy pairs both time planes on one advance, and
+             the pipeline descriptor reads a built LaneGuard chain so a dropped strategy arm refutes structurally. -->
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" PrivateAssets="all" />
+        <PackageReference Include="NodaTime.Testing" PrivateAssets="all" />
+        <PackageReference Include="Polly.Testing" PrivateAssets="all" />
+    </ItemGroup>
+</Project>

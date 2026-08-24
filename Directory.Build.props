@@ -2,11 +2,11 @@
     <PropertyGroup Label="Workspace Roots">
         <SolutionDir Condition="'$(SolutionDir)' == '' or '$(SolutionDir)' == '*Undefined*'">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</SolutionDir>
         <SolutionName Condition="'$(SolutionName)' == '' or '$(SolutionName)' == '*Undefined*'">Workspace</SolutionName>
-        <CSharpLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs', 'csharp'))</CSharpLibsRoot>
+        <DotnetLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs', 'dotnet'))</DotnetLibsRoot>
         <RhinoBridgeRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'rhino-bridge'))</RhinoBridgeRoot>
         <YakPackagesRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'yak'))</YakPackagesRoot>
-        <YakStageRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.artifacts', 'csharp', 'rhino'))</YakStageRoot>
-        <TestsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tests', 'csharp'))</TestsRoot>
+        <YakStageRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet', 'rhino'))</YakStageRoot>
+        <TestsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tests', 'dotnet'))</TestsRoot>
         <TestsArchitectureRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_architecture'))</TestsArchitectureRoot>
         <TestKitRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_testkit'))</TestKitRoot>
         <TestScenarioKitRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_scenariokit'))</TestScenarioKitRoot>
@@ -18,8 +18,8 @@
     <PropertyGroup Label="Project Classifiers">
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
         <!-- Classification carries three axes and no project-name literal: role reads tree position here, host surface reads the body-declared RasmHost token set in Directory.Build.targets, and layer reads the body-declared CspScope. -->
-        <IsCSharpLibraryProject Condition="'$(IsCSharpLibraryProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">true</IsCSharpLibraryProject>
-        <IsCSharpLibraryTestProject Condition="'$(IsCSharpLibraryTestProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)'))">true</IsCSharpLibraryTestProject>
+        <IsDotnetLibraryProject Condition="'$(IsDotnetLibraryProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(DotnetLibsRoot)'))">true</IsDotnetLibraryProject>
+        <IsDotnetLibraryTestProject Condition="'$(IsDotnetLibraryTestProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)'))">true</IsDotnetLibraryTestProject>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)'))">true</IsRhinoBridgeProject>
         <IsRhinoBridgeCargoProject Condition="'$(IsRhinoBridgeCargoProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)Cargo/'))">true</IsRhinoBridgeCargoProject>
         <IsRhinoBridgeContractProject Condition="'$(IsRhinoBridgeContractProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)Contract/'))">true</IsRhinoBridgeContractProject>
@@ -38,8 +38,8 @@
 
     <!-- Nested Directory.Build.props/.targets/Packages.props MUST open with the upward GetPathOfFileAbove chaining import — MSBuild stops at the first file found, omission silently erases this estate while building green, and the architecture suite refuses it. -->
     <PropertyGroup Label="Artifacts Output">
-        <!-- The SDK artifacts layout under one .artifacts/csharp root; a caller-supplied ArtifactsPath (assay) wins as a global property. NETSDK1199 requires this row to live in Directory.Build.props. -->
-        <ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(MSBuildThisFileDirectory).artifacts/csharp</ArtifactsPath>
+        <!-- The SDK artifacts layout under one .artifacts/dotnet root; a caller-supplied ArtifactsPath (assay) wins as a global property. NETSDK1199 requires this row to live in Directory.Build.props. -->
+        <ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(MSBuildThisFileDirectory).artifacts/dotnet</ArtifactsPath>
         <!-- IKVM caches the MPXJ Java closure in the machine temp dir; repo-local it survives temp eviction, so the minutes-long recompile and its vendor-closure warning wall stop recurring. -->
         <IkvmCacheDir>$(MSBuildThisFileDirectory).cache/ikvm/</IkvmCacheDir>
     </PropertyGroup>
@@ -245,7 +245,7 @@
         <Using Include="System.Runtime.InteropServices" />
     </ItemGroup>
 
-    <ItemGroup Label="Assembly Visibility" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)')) and '$(RasmGenerated)' != 'true'">
+    <ItemGroup Label="Assembly Visibility" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(DotnetLibsRoot)')) and '$(RasmGenerated)' != 'true'">
         <InternalsVisibleTo Include="$(MSBuildProjectName).Tests" />
         <InternalsVisibleTo Include="Rasm.TestKit" />
     </ItemGroup>

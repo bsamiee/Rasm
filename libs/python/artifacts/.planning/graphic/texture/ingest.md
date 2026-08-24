@@ -237,7 +237,7 @@ _ROLE_SPACE: Final[frozendict[TextureRole, RoleLaw]] = frozendict({
         channels=1, space=PlaneSpace.LINEAR, neutral=(0.3,), unit="", mip=MipPolicy.ROUGHNESS_VARIANCE, signed=False, bounded=True, mint=Mint.BAKED
     ),
     TextureRole.SPECULAR_ROUGHNESS_ANISOTROPY: RoleLaw(
-        # Vector columns shorten to `SpecularAnisotropy` on the C# side ALONE; the channel key and the `.mtlx`
+        # Vector columns shorten to `SpecularAnisotropy` on the .NET side ALONE; the channel key and the `.mtlx`
         # port stay canonical, so this is one of the two rows whose branch identifier does not derive mechanically.
         channels=1, space=PlaneSpace.LINEAR, neutral=(0.0,), unit="", mip=MipPolicy.BOX, signed=False, bounded=True, mint=Mint.BAKED
     ),

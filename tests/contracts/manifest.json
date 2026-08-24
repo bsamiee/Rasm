@@ -98,7 +98,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                            "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
                             "coordinate": "TessellationWire.ContentKey",
                             "direction": "message",
                             "binding": "proof"
@@ -114,7 +114,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                                "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
                                 "coordinate": "Plan",
                                 "direction": "message",
                                 "binding": "proof"
@@ -134,14 +134,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-source.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-source.bin",
                                         "role": "specimen",
                                         "bytes": 58,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "8cb43ec2aa376144bf4abcd22440dd2b5e242bde868ac41cd3d82b6dbf3ab7d8"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-source.bin",
@@ -168,14 +168,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/iges-source.bin",
+                                        "path": "content-identity/tessellation/dotnet/iges-source.bin",
                                         "role": "specimen",
                                         "bytes": 22,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "a86f06e7afe18e7d46769be962d71bb20404a385fe67e191c2cd176ef55f747c"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/iges-source.bin",
@@ -202,14 +202,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/step-ap203-source.bin",
+                                        "path": "content-identity/tessellation/dotnet/step-ap203-source.bin",
                                         "role": "specimen",
                                         "bytes": 39,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "1a99b2b18178f1e95d83ea20b9b5402bb0cbf0c8ee46f3dd339b3591921252b3"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/step-ap203-source.bin",
@@ -236,14 +236,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/step-ap214-source.bin",
+                                        "path": "content-identity/tessellation/dotnet/step-ap214-source.bin",
                                         "role": "specimen",
                                         "bytes": 39,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "9889cf4899f8408a0966d8db5b8c1939633ce4fb0d14693813414741b815916f"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/step-ap214-source.bin",
@@ -270,14 +270,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/step-ap242-source.bin",
+                                        "path": "content-identity/tessellation/dotnet/step-ap242-source.bin",
                                         "role": "specimen",
                                         "bytes": 39,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "c71d3c702b4a71432c75d2660e0feef0bdd7bf189f64d5eb50ff88b412c1a86e"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/step-ap242-source.bin",
@@ -313,7 +313,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                            "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
                             "coordinate": "TessellationWire.Admit",
                             "direction": "message",
                             "binding": "proof"
@@ -329,7 +329,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
+                                "anchor": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE",
                                 "coordinate": "TessellationWire.ContentKey",
                                 "direction": "message",
                                 "binding": "proof"
@@ -349,14 +349,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-all-elements.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-all-elements.bin",
                                         "role": "specimen",
                                         "bytes": 132,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "877abb4bb828b7735a5d36a4ac6fdb547c39a5b0fe7965b5f04608b5a896f3b1"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-all-elements.bin",
@@ -383,14 +383,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-all-entities.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-all-entities.bin",
                                         "role": "specimen",
                                         "bytes": 102,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "1bcf9ee342af80171efabf3c3fa5cf8e8e1b24f92ceea3e477ab12be15dfbaf8"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-all-entities.bin",
@@ -417,14 +417,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-all-exclude.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-all-exclude.bin",
                                         "role": "specimen",
                                         "bytes": 113,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "ea0b1afff310a8b1397906496679b4773959d8f4f471d1454a3f3d71474f68ea"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-all-exclude.bin",
@@ -451,14 +451,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-all-whole.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-all-whole.bin",
                                         "role": "specimen",
                                         "bytes": 76,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "50a391fee57bde5957e0b9caefc3bf1655600665dcfc0ee6d9b56cb9393a6a33"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-all-whole.bin",
@@ -485,14 +485,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-empty-elements.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-empty-elements.bin",
                                         "role": "specimen",
                                         "bytes": 108,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "696c38d437ee8035ee70773fd623b027bfe96f3ef2ad73899aaad4b8659e1c15"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-empty-elements.bin",
@@ -519,14 +519,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-empty-entities.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-empty-entities.bin",
                                         "role": "specimen",
                                         "bytes": 78,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "424c2f04c8e1844fd11444fc96bef208a6513f8abdda016b9378cdb064f0cbd5"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-empty-entities.bin",
@@ -553,14 +553,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-empty-exclude.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-empty-exclude.bin",
                                         "role": "specimen",
                                         "bytes": 89,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "6404377b850f0fe40923b78cb4d9d3513f2a5a17909415e7055790a1df5a59ce"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-empty-exclude.bin",
@@ -587,14 +587,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/ifc-empty-whole.bin",
+                                        "path": "content-identity/tessellation/dotnet/ifc-empty-whole.bin",
                                         "role": "specimen",
                                         "bytes": 52,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "34d0f8aa75899e0db2512f109b27f581f10a7930c75b7a5dd5a0c7e120e016be"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/ifc-empty-whole.bin",
@@ -621,14 +621,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/iges-content.bin",
+                                        "path": "content-identity/tessellation/dotnet/iges-content.bin",
                                         "role": "specimen",
                                         "bytes": 32,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "eed7810b22cce4a0b7e5a60e155ac9c87a64b282c4c30a4b3fa7d04c8f448265"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/iges-content.bin",
@@ -655,14 +655,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/step-ap203-content.bin",
+                                        "path": "content-identity/tessellation/dotnet/step-ap203-content.bin",
                                         "role": "specimen",
                                         "bytes": 32,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "c29fd0306990c6f61f26b95745d106e64350284ffcdabf61b4566f1dbb0b97f4"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/step-ap203-content.bin",
@@ -689,14 +689,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/step-ap214-content.bin",
+                                        "path": "content-identity/tessellation/dotnet/step-ap214-content.bin",
                                         "role": "specimen",
                                         "bytes": 32,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "db209a55f4f9f3bd56f72253e2bc2b98ff0bcf76fd0c6442da1d949baabf04f4"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/step-ap214-content.bin",
@@ -723,14 +723,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "content-identity/tessellation/csharp/step-ap242-content.bin",
+                                        "path": "content-identity/tessellation/dotnet/step-ap242-content.bin",
                                         "role": "specimen",
                                         "bytes": 32,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "980fa54235cb7676bc2ff4a06ed5327fa04fb20e112ef95677abec3930f15acd"
                                         },
-                                        "minter": "csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
+                                        "minter": "dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@TessellationWire.ContentKey"
                                     },
                                     {
                                         "path": "content-identity/tessellation/python/step-ap242-content.bin",
@@ -788,7 +788,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW",
+                                "anchor": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW",
                                 "coordinate": "HostWire.Stamp",
                                 "direction": "message",
                                 "binding": "generated"
@@ -814,14 +814,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "hlc-stamp/csharp/hlc_forward.bin",
+                                        "path": "hlc-stamp/dotnet/hlc_forward.bin",
                                         "role": "specimen",
                                         "bytes": 11,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "58d730ba4f11f5f1ceddfb9424634ac3170ac06f05a2caf095ee9727397f662d"
                                         },
-                                        "minter": "csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW@HostWire.Stamp"
+                                        "minter": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW@HostWire.Stamp"
                                     },
                                     {
                                         "path": "hlc-stamp/python/hlc_forward.bin",
@@ -858,14 +858,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "hlc-stamp/csharp/hlc_swapped.bin",
+                                        "path": "hlc-stamp/dotnet/hlc_swapped.bin",
                                         "role": "specimen",
                                         "bytes": 18,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "8cf7ecbd3366825434591491e18d89cc519f7070a2c2252114b7ae93587f9368"
                                         },
-                                        "minter": "csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW@HostWire.Stamp"
+                                        "minter": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW@HostWire.Stamp"
                                     },
                                     {
                                         "path": "hlc-stamp/python/hlc_swapped.bin",
@@ -944,7 +944,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Runtime/ports#WIRE_LAW",
+                            "anchor": "dotnet:Rasm.AppHost/Runtime/ports#WIRE_LAW",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "Pack"
@@ -1021,7 +1021,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
                             "direction": "client-request",
                             "method": "rasm.contracts.compute.ComputeService.Tessellate",
                             "binding": "generated",
@@ -1044,7 +1044,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/tiles#TWO_HOP_TESSELLATION",
                             "direction": "client-response",
                             "method": "rasm.contracts.compute.ComputeService.Tessellate",
                             "binding": "generated",
@@ -1087,7 +1087,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                             "direction": "client-request",
                             "method": "rasm.contracts.artifact.ArtifactService.Fetch",
                             "binding": "generated",
@@ -1110,7 +1110,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                             "direction": "client-response",
                             "method": "rasm.contracts.artifact.ArtifactService.Fetch",
                             "binding": "generated",
@@ -1154,7 +1154,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                                "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                                 "direction": "client-request",
                                 "method": "rasm.contracts.artifact.ArtifactService.Put",
                                 "binding": "generated",
@@ -1185,7 +1185,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#ARTIFACT_FRAMES",
                             "direction": "client-response",
                             "method": "rasm.contracts.artifact.ArtifactService.Put",
                             "binding": "generated",
@@ -1225,7 +1225,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-request",
                             "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
@@ -1235,7 +1235,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
                             "direction": "client-request",
                             "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
@@ -1258,7 +1258,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#DEGRADATION_CASCADE",
                             "direction": "client-response",
                             "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
@@ -1268,7 +1268,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-response",
                             "method": "rasm.contracts.compute.ControlService.SetDegradation",
                             "binding": "generated",
@@ -1291,7 +1291,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-request",
                             "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
@@ -1301,7 +1301,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
                             "direction": "client-request",
                             "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
@@ -1324,7 +1324,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/outbound#DISCOVERY_ATTACH",
                             "direction": "client-response",
                             "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
@@ -1334,7 +1334,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-response",
                             "method": "rasm.contracts.compute.ControlService.DrainRuntime",
                             "binding": "generated",
@@ -1501,7 +1501,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY",
                             "coordinate": "SplatMapper.Read",
                             "direction": "message",
                             "binding": "generated"
@@ -1532,7 +1532,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY",
                             "coordinate": "SplatMapper.Read",
                             "direction": "message",
                             "binding": "generated"
@@ -1584,7 +1584,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Persistence/Version/merge#STRUCTURAL_DIFF",
+                            "anchor": "dotnet:Rasm.Persistence/Version/merge#STRUCTURAL_DIFF",
                             "direction": "message",
                             "binding": "generated",
                             "supports": [
@@ -1613,12 +1613,12 @@
                     "id": "oplog-entry",
                     "definition": {
                         "kind": "law",
-                        "anchor": "libs/csharp/Rasm.Persistence/.planning/Version/ledger.md#[02]-[CHANGEFEED]",
+                        "anchor": "libs/dotnet/Rasm.Persistence/.planning/Version/ledger.md#[02]-[CHANGEFEED]",
                         "format": "binary"
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Persistence/Version/ledger#CHANGEFEED",
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#CHANGEFEED",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "OpLogWire.Decode"
@@ -1639,7 +1639,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Persistence/Version/ledger#CHANGEFEED",
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#CHANGEFEED",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "OpLogWire.Encode"
@@ -1667,7 +1667,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Persistence/Version/commits#CRDT_WIRE",
+                            "anchor": "dotnet:Rasm.Persistence/Version/commits#CRDT_WIRE",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "CrdtWire.Decode"
@@ -1688,7 +1688,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Persistence/Version/commits#CRDT_WIRE",
+                            "anchor": "dotnet:Rasm.Persistence/Version/commits#CRDT_WIRE",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "CrdtWire.Encode"
@@ -1728,7 +1728,7 @@
                             "coordinate": "_read"
                         },
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#EVENT_INGRESS",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#EVENT_INGRESS",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "WireAdmission.EventExtensions.Admit"
@@ -1782,7 +1782,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Observability/health#DEGRADATION_RAIL",
+                            "anchor": "dotnet:Rasm.AppHost/Observability/health#DEGRADATION_RAIL",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "CommandAvailability.Of"
@@ -1850,7 +1850,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppUi/Shell/commands#AVAILABILITY_ALGEBRA",
+                            "anchor": "dotnet:Rasm.AppUi/Shell/commands#AVAILABILITY_ALGEBRA",
                             "coordinate": "CommandGate.Wire",
                             "direction": "message",
                             "binding": "generated"
@@ -1881,7 +1881,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppUi/Shell/screens#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.AppUi/Shell/screens#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "ScreenMap.Emit"
@@ -1912,7 +1912,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppUi/Render/pipeline#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.AppUi/Render/pipeline#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "ResidencyMap.Mint"
@@ -1943,7 +1943,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppUi/Diagnostics/evidence#CORRELATION_JOIN",
+                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#CORRELATION_JOIN",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "TimelineWire.Lower"
@@ -1974,7 +1974,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Bim/Review/issues#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.Bim/Review/issues#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "BcfProjection.Project"
@@ -2005,7 +2005,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Bim/Review/diff#MODEL_DIFF",
+                            "anchor": "dotnet:Rasm.Bim/Review/diff#MODEL_DIFF",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "ModelDiff.Seal"
@@ -2036,7 +2036,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM",
+                            "anchor": "dotnet:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "Carrier"
@@ -2067,7 +2067,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Runtime/features#VERDICT_PROJECTION",
+                            "anchor": "dotnet:Rasm.AppHost/Runtime/features#VERDICT_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "ToWire"
@@ -2098,7 +2098,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "LiveWireContract.Status"
@@ -2129,7 +2129,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "Coerced"
@@ -2160,7 +2160,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "Receipt"
@@ -2191,7 +2191,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppUi/Diagnostics/evidence#RECEIPT_UNION",
+                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#RECEIPT_UNION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "EvidenceWire.Lower"
@@ -2222,7 +2222,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Bim/Review/issues#TS_PROJECTION",
+                            "anchor": "dotnet:Rasm.Bim/Review/issues#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "BcfProjection.Project"
@@ -2259,7 +2259,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
+                            "anchor": "dotnet:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "AppearanceEgress.Set"
@@ -2287,7 +2287,7 @@
                             "coordinate": "Asset.gate"
                         },
                         {
-                            "anchor": "csharp:Rasm.Materials/Raster/set#SET_INGEST",
+                            "anchor": "dotnet:Rasm.Materials/Raster/set#SET_INGEST",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "SetIngest.Peer"
@@ -2340,7 +2340,7 @@
                                 "coordinate": "TextureSet.assembled"
                             },
                             {
-                                "anchor": "csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
+                                "anchor": "dotnet:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
                                 "direction": "message",
                                 "binding": "generated",
                                 "coordinate": "AppearanceEgress.Ibl"
@@ -2378,7 +2378,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Agent/capability#PEER_DISCOVERY",
+                            "anchor": "dotnet:Rasm.AppHost/Agent/capability#PEER_DISCOVERY",
                             "coordinate": "CapabilityDiscovery.Project",
                             "direction": "message",
                             "binding": "generated"
@@ -2406,7 +2406,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-request",
                             "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
                             "binding": "generated",
@@ -2449,7 +2449,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "server-response",
                             "method": "rasm.contracts.capability.CapabilityDiscoveryService.Discover",
                             "binding": "generated",
@@ -2487,7 +2487,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
+                            "anchor": "dotnet:Rasm.Materials/Appearance/interchange#MATERIAL_WIRE",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "AppearanceEgress.Project"
@@ -2524,7 +2524,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Bim/Exchange/export#EXPORT_RAIL",
+                            "anchor": "dotnet:Rasm.Bim/Exchange/export#EXPORT_RAIL",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "BimExport.Export"
@@ -2555,7 +2555,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Bim/Exchange/wire#WIRE_PROJECTION",
+                            "anchor": "dotnet:Rasm.Bim/Exchange/wire#WIRE_PROJECTION",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "IfcWire.Seal"
@@ -2586,7 +2586,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Rhino/Exchange/archive#TRANSACTION_RAIL",
+                            "anchor": "dotnet:Rasm.Rhino/Exchange/archive#TRANSACTION_RAIL",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "ArchiveBytes"
@@ -2609,12 +2609,12 @@
                     "id": "sparse",
                     "definition": {
                         "kind": "law",
-                        "anchor": "libs/csharp/Rasm.Compute/.planning/Tensor/factor.md#[02]-[SPARSE_SOLVE]",
+                        "anchor": "libs/dotnet/Rasm.Compute/.planning/Tensor/factor.md#[02]-[SPARSE_SOLVE]",
                         "format": "text"
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                            "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "SparseOps.ReadMtx"
@@ -2630,7 +2630,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                                "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
                                 "direction": "message",
                                 "binding": "proof",
                                 "coordinate": "SparseOps.WriteMtx"
@@ -2650,14 +2650,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "matrix-market-exchange/sparse_csharp.mtx",
+                                        "path": "matrix-market-exchange/sparse_dotnet.mtx",
                                         "role": "specimen",
                                         "bytes": 94,
                                         "fingerprint": {
                                             "algorithm": "xxh128",
                                             "value": "a9d3dbc963e2f226a5dd10d34d9a0c9b"
                                         },
-                                        "minter": "csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE@SparseOps.WriteMtx"
+                                        "minter": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE@SparseOps.WriteMtx"
                                     },
                                     {
                                         "path": "matrix-market-exchange/sparse_python.mtx",
@@ -2694,7 +2694,7 @@
                     "id": "field",
                     "definition": {
                         "kind": "law",
-                        "anchor": "libs/csharp/Rasm.Compute/.planning/Runtime/field.md#[02]-[FIELD_RESULT_CODEC]",
+                        "anchor": "libs/dotnet/Rasm.Compute/.planning/Runtime/field.md#[02]-[FIELD_RESULT_CODEC]",
                         "format": "hdf5"
                     },
                     "consumers": [
@@ -2714,7 +2714,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Compute/Runtime/field#FIELD_RESULT_CODEC",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/field#FIELD_RESULT_CODEC",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "Hdf5Encode"
@@ -2727,7 +2727,7 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "hdf5-exchange/field_csharp.h5",
+                                        "path": "hdf5-exchange/field_dotnet.h5",
                                         "role": "specimen",
                                         "bytes": 4734,
                                         "fingerprint": {
@@ -2738,7 +2738,7 @@
                                 ],
                                 "expected": {
                                     "role": "expected",
-                                    "path": "hdf5-exchange/field_csharp.facts.json",
+                                    "path": "hdf5-exchange/field_dotnet.facts.json",
                                     "bytes": 648,
                                     "fingerprint": {
                                         "algorithm": "xxh128",
@@ -2759,7 +2759,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Model/identity#MODEL_IDENTITY",
+                            "anchor": "dotnet:Rasm.Compute/Model/identity#MODEL_IDENTITY",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "GraduationEnvelope.Admit"
@@ -2808,12 +2808,12 @@
                     "id": "sparse",
                     "definition": {
                         "kind": "law",
-                        "anchor": "libs/csharp/Rasm.Compute/.planning/Tensor/factor.md#[02]-[SPARSE_SOLVE]",
+                        "anchor": "libs/dotnet/Rasm.Compute/.planning/Tensor/factor.md#[02]-[SPARSE_SOLVE]",
                         "format": "hdf5"
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                            "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "SparseOps.ReadArchive"
@@ -2829,7 +2829,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
+                                "anchor": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE",
                                 "direction": "message",
                                 "binding": "proof",
                                 "coordinate": "SparseOps.WriteArchive"
@@ -2849,14 +2849,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "hdf5-exchange/sparse_csharp.h5",
+                                        "path": "hdf5-exchange/sparse_dotnet.h5",
                                         "role": "specimen",
                                         "bytes": 5259,
                                         "fingerprint": {
                                             "algorithm": "xxh128",
                                             "value": "b4fa7c0ed9ccbf2723e33abc17b4019b"
                                         },
-                                        "minter": "csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE@SparseOps.WriteArchive"
+                                        "minter": "dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE@SparseOps.WriteArchive"
                                     },
                                     {
                                         "path": "hdf5-exchange/sparse_python.h5",
@@ -2892,7 +2892,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/field#SCIENTIFIC_INGEST",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/field#SCIENTIFIC_INGEST",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "ImportWaveforms"
@@ -2952,7 +2952,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Persistence/Store/schema#CONFORMANCE",
+                            "anchor": "dotnet:Rasm.Persistence/Store/schema#CONFORMANCE",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "BackendConformance.Project"
@@ -2974,7 +2974,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Persistence/Store/schema#IDENTITY",
+                                "anchor": "dotnet:Rasm.Persistence/Store/schema#IDENTITY",
                                 "direction": "message",
                                 "binding": "generated",
                                 "coordinate": "ContractComposition.Compose"
@@ -3000,14 +3000,14 @@
                             {
                                 "specimens": [
                                     {
-                                        "path": "parity-document/backend-contract.csharp.json",
+                                        "path": "parity-document/backend-contract.dotnet.json",
                                         "role": "specimen",
                                         "bytes": 548,
                                         "fingerprint": {
                                             "algorithm": "sha256",
                                             "value": "1c1bea9693af89a6013b6234b0359f534504a6fd74dabf7bfd2d7630bba05b50"
                                         },
-                                        "minter": "csharp:Rasm.Persistence/Store/schema#IDENTITY@ContractComposition.Compose"
+                                        "minter": "dotnet:Rasm.Persistence/Store/schema#IDENTITY@ContractComposition.Compose"
                                     },
                                     {
                                         "path": "parity-document/backend-contract.python.json",
@@ -3069,7 +3069,7 @@
                         "kind": "infrastructure",
                         "minters": [
                             {
-                                "anchor": "csharp:Rasm.Compute/Runtime/claims#BENCHMARK_WIRE",
+                                "anchor": "dotnet:Rasm.Compute/Runtime/claims#BENCHMARK_WIRE",
                                 "direction": "message",
                                 "binding": "generated",
                                 "coordinate": "Document"
@@ -3119,7 +3119,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION",
+                            "anchor": "dotnet:Rasm.Rhino/Document/layers#ORGANIZATION_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "OrganizationCodec.Encode"
@@ -3156,7 +3156,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Rhino/Objects/lights#ASK_AND_COMMIT",
+                            "anchor": "dotnet:Rasm.Rhino/Objects/lights#ASK_AND_COMMIT",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "SceneMap.Encode"
@@ -3199,7 +3199,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Fabrication/Spec/tolerance#OWNER_FOLD",
+                            "anchor": "dotnet:Rasm.Fabrication/Spec/tolerance#OWNER_FOLD",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "Encode"
@@ -3240,7 +3240,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Materials/Properties/assessment#ASSESSMENT_RECORD",
+                            "anchor": "dotnet:Rasm.Materials/Properties/assessment#ASSESSMENT_RECORD",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "DeclarationWire.Decode"
@@ -3287,7 +3287,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Persistence/Version/egress#SUBSCRIPTION_FILTER",
+                            "anchor": "dotnet:Rasm.Persistence/Version/egress#SUBSCRIPTION_FILTER",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "CesqlExpression.Evaluate"
@@ -3520,7 +3520,7 @@
                             ]
                         },
                         {
-                            "anchor": "csharp:Rasm/Domain/event#FORMAT_CONTRACT",
+                            "anchor": "dotnet:Rasm/Domain/event#FORMAT_CONTRACT",
                             "coordinate": "FromProtobuf",
                             "direction": "message",
                             "binding": "package",
@@ -3644,7 +3644,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "csharp:Rasm.Compute/Runtime/channels#TRANSPORT_AXIS",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#TRANSPORT_AXIS",
                             "direction": "client-request",
                             "method": "grpc.health.v1.Health.Check",
                             "binding": "package",
@@ -3667,7 +3667,7 @@
                     },
                     "consumers": [
                         {
-                            "anchor": "csharp:Rasm.Compute/Runtime/channels#TRANSPORT_AXIS",
+                            "anchor": "dotnet:Rasm.Compute/Runtime/channels#TRANSPORT_AXIS",
                             "direction": "client-response",
                             "method": "grpc.health.v1.Health.Check",
                             "binding": "package",
@@ -3726,7 +3726,7 @@
                             "coordinate": "ServerHost"
                         },
                         {
-                            "anchor": "csharp:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
+                            "anchor": "dotnet:Rasm.AppHost/Wire/companion#CONTROL_SERVICE",
                             "direction": "message",
                             "binding": "package",
                             "roots": [

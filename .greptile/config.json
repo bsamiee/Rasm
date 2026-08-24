@@ -218,11 +218,11 @@
             "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "tests/**"]
         },
         {
-            "id": "substrate-composition-csharp",
+            "id": "substrate-composition-dotnet",
             "rule": "Pinned-substrate composition defects worth hunting: a lifecycle-gate read guarding an effectful entrypoint evaluated at composition time instead of inside the deferred effect body; a bounded fixpoint iteration spelled as a Schedule instead of a Range.Fold; a zone-less foreign wall-clock stamp fabricated into a UTC Instant instead of NodaTime LocalDateTime/LocalDate; an Enum.IsDefined admission gate — the non-generic overload throws ArgumentException on a boxed probe whose type mismatches the enum's underlying type, and every unnamed [Flags] combination reports undefined, so admission rides Enum.ToObject or the generic overload plus a name round-trip; a host-subclass override of a concrete virtual carrying default rendering or behavior (OnDraw, OnPaint, and kin) missing the base call before its own advice, silently erasing the native visual; a Match whose Some arm null-probes a payload Option structurally cannot make null, or a from-in-Fin.Succ query shell binding a pure value no rail step consumes — Fin.Succ inside a query legally sequences an effect or captures a pre-mutation read; a hand-rolled Validation tower beside a generated Validate/ValidateFactoryArguments bridge — the generated bridge is the one admission authority; sibling surfaces re-spelling shared-rail lifecycle machinery where the gate owner's generic members belong — a params ReadOnlySpan staged harvest congruent by construction, a Fin Rollback extension owning failure-release custody, one context-guarded entry fold — never per-page re-mints or per-site MapFail-dispose blocks; a union carrying raw scalar payloads without one generated-Switch admission fold whose per-case guard arms bind once before dispatch; a selector family lacking the one guarded live-row projector a new case inherits refusal from; a mutation receipt comparing optional slot payloads through generated record equality where slot-owned content equality decides change; a mixed lifecycle-and-value guard not split by axis — the released/live leg refuses on InvalidContext, the value leg on InvalidInput; an UndoBracket.Begin outside DocumentCommit.Sealed re-minting the shared commit envelope Sealed owns; a needs-derivation seq re-spelled per site where the one derivation row owns it; a seam host read — census and count reads included — executing outside the catch frame that owns the crossing; a case or nested record sharing a host type's simple name leaving construction unqualified — the corpus type shadows the host spelling, so the whole collision family qualifies globally; exclusive disposable custody riding a copyable record — record copy and with re-mint disposal ownership, so shared custody is reference-counted or the owner non-copyable.",
             "severity": "high",
             "enabled": true,
-            "scope": ["libs/csharp/**", "libs/csharp/.planning/**", "libs/csharp/**/.planning/**"]
+            "scope": ["libs/dotnet/**", "libs/dotnet/.planning/**", "libs/dotnet/**/.planning/**"]
         },
         {
             "id": "substrate-composition-typescript",
@@ -339,10 +339,10 @@
         },
         {
             "id": "draw-fork",
-            "rule": "In libs/csharp the kernel Deterministic is the branch's ONE splitmix64 owner. Hunt every fence for the gamma literal 0x9E3779B97F4A7C15 or a transcribed splitmix64 mixer outside Rasm/Domain/identity, and for `new Random(` outside a `Deterministic.Source(...)` crossing — each is a draw fork splitting replay across runtimes; demand the `Deterministic.Source(seed, lanes)` adapter. Carve: a frozen wire constant whose VALUES define a format (the FastCDC Gear table at Rasm.Compute/Runtime/codecs) is a recorded split, never a fork — do not flag it.",
+            "rule": "In libs/dotnet the kernel Deterministic is the branch's ONE splitmix64 owner. Hunt every fence for the gamma literal 0x9E3779B97F4A7C15 or a transcribed splitmix64 mixer outside Rasm/Domain/identity, and for `new Random(` outside a `Deterministic.Source(...)` crossing — each is a draw fork splitting replay across runtimes; demand the `Deterministic.Source(seed, lanes)` adapter. Carve: a frozen wire constant whose VALUES define a format (the FastCDC Gear table at Rasm.Compute/Runtime/codecs) is a recorded split, never a fork — do not flag it.",
             "severity": "high",
             "enabled": true,
-            "scope": ["libs/csharp/**", "libs/csharp/.planning/**", "libs/csharp/**/.planning/**", "libs/csharp/**/.api/**", "docs/stacks/csharp/**"]
+            "scope": ["libs/dotnet/**", "libs/dotnet/.planning/**", "libs/dotnet/**/.planning/**", "libs/dotnet/**/.api/**", "docs/stacks/csharp/**"]
         },
         {
             "id": "fault-reason-posture",

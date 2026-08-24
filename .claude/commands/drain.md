@@ -1,6 +1,6 @@
 ---
 description: Drain one planning corpus to zero — dispatch a single corpus-drainer coordinator, shepherd it to the consolidated receipt, audit the close on disk
-argument-hint: <folder path or branch .planning tier; e.g. libs/csharp/Rasm.Bim>
+argument-hint: <folder path or branch .planning tier; e.g. libs/dotnet/Rasm.Bim>
 ---
 
 # [DRAIN]

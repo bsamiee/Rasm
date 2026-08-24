@@ -50,7 +50,7 @@ const rawTargets = Array.isArray(argsIn)
           ? [argsIn]
           : [];
 const langOf = (t) =>
-    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
+    t.indexOf('libs/dotnet') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
 // Per-instance scratch dir (census products, verdict reports, apply fixlogs, per-folder seam ledgers): one FLAT dir under
@@ -340,17 +340,17 @@ const LANG = {
     cs: {
         key: 'cs',
         name: 'C#',
-        root: 'libs/csharp',
+        root: 'libs/dotnet',
         stack: 'docs/stacks/csharp',
         casing: 'PascalCase',
-        corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
+        corpus: 'libs/dotnet planning corpus (markdown specs of intended .NET package designs)',
         strata:
             'CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
             'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
         stackFloor:
             'docs/stacks/csharp is the FLOOR, never the ceiling — every fence meets it and pushes past it to the strongest form the doctrine admits.',
         apiTiers:
-            'the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt rails/effects/schedules/immutable ' +
+            'the SHARED substrate catalogs `libs/dotnet/.api/*.md` (Thinktecture generated owners, LanguageExt rails/effects/schedules/immutable ' +
             'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
             'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
         verify:
@@ -884,7 +884,7 @@ const readFirst = (L, pkg) =>
 
 const discoverPrompt = () =>
     [
-        'Rasm monorepo — the libs/{csharp,python,typescript} planning corpora (markdown design specs). Targets may mix ' +
+        'Rasm monorepo — the libs/{dotnet,python,typescript} planning corpora (markdown design specs). Targets may mix ' +
             'languages; each page owning package is the path before `/.planning/`.',
         'TASK: thin enumerate (read-only, do NOT edit). TARGETS (repo-relative): ' +
             JSON.stringify(TARGETS) +
@@ -931,7 +931,7 @@ const censusPrompt = (L, pages) =>
             '- catalog: grounds against a REPO `.api/api-*.md` catalog — "the branch/folder catalogue rows its spelling", an ' +
             '`.api/api-*` path. routeKey = "catalog:" + the catalog basename (e.g. "catalog:api-thinktecture-runtime-extensions").\n' +
             '- docfile: grounds against a REPO planning doc or seam anchor — `ELEMENT-REBUILD-PLAN.md §N`, a `Rasm.X/...#ANCHOR` ' +
-            'or `csharp:...#ANCHOR` reference. routeKey = "docfile:" + the doc basename or seam file (e.g. ' +
+            'or `dotnet:...#ANCHOR` reference. routeKey = "docfile:" + the doc basename or seam file (e.g. ' +
             '"docfile:ELEMENT-REBUILD-PLAN.md").\n' +
             '- extdoc: grounds against an UPSTREAM/EXTERNAL reference not yet in a repo catalog — "the extension own reference", ' +
             'upstream package docs, node_modules types. routeKey = "extdoc:" + the library (e.g. "extdoc:vchord_bm25").\n' +
@@ -1197,7 +1197,7 @@ const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
+if (REJECTED.length) log('Rejected targets outside libs/{dotnet,python,typescript}: ' + REJECTED.join(', '));
 if (!TARGETS.length) {
     log('No targets — pass a folder path, an array of paths, or {targets}. Empty args is a no-op.');
     return { targets: [], total: 0 };
@@ -1212,7 +1212,7 @@ const disc = await slot(() =>
 const RAW_PAGES = [...new Set(((disc && disc.pages) || []).filter(Boolean))];
 const PAGES = RAW_PAGES.filter((p) => langOf(p));
 const STRAY = RAW_PAGES.filter((p) => !langOf(p));
-if (STRAY.length) log('Dropped ' + STRAY.length + ' discover page(s) outside libs/{csharp,python,typescript}: ' + STRAY.join(', '));
+if (STRAY.length) log('Dropped ' + STRAY.length + ' discover page(s) outside libs/{dotnet,python,typescript}: ' + STRAY.join(', '));
 const UNRESOLVED = (disc && disc.unresolved) || [];
 if (UNRESOLVED.length) log('Unresolved targets (mis-scoped or renamed): ' + UNRESOLVED.join(', '));
 if (!PAGES.length) {

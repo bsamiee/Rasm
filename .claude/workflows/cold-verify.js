@@ -500,7 +500,7 @@ const delegates = await parallel(
                 { label: 'verify:' + tag + ':gov', phase: 'Verify', schema: FINDINGS, scope: gov, hl: { arr: 'findings', group: 'class' } },
             ),
         );
-        const BRANCHES = ['libs/csharp', 'libs/python', 'libs/typescript'];
+        const BRANCHES = ['libs/dotnet', 'libs/python', 'libs/typescript'];
         BRANCHES.forEach((branch) =>
             verifyTasks.push(() =>
                 recon(

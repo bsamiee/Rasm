@@ -25,7 +25,7 @@ Read fully, in order, before the first edit:
 
 Load MCP schemas in ONE ToolSearch call: context7 resolve/query, github releases/tags/file-contents, exa search, and the nuget context tools on a C# set.
 
-Verification rides one rail: `uv run --no-sync assay api query '<Symbol>' --key <scope>:<pkg>` — `py:` introspects installed Python dists, `nuget:` decompiles C# packages, `npm:` parses installed TypeScript declarations (GitHub tag source when unmaterialized), `host:` decompiles host assemblies; a new ecosystem rides its own scope. Installed-surface truth outranks the changelog — a claimed change the artifact lacks is noise, an installed change the notes omit is real.
+Verification rides one rail: `uv run --no-sync assay api query '<Symbol>' --key <scope>:<pkg>` — `py:` introspects installed Python dists, `nuget:` decompiles .NET packages, `npm:` parses installed TypeScript declarations (GitHub tag source when unmaterialized), `host:` decompiles host assemblies; a new ecosystem rides its own scope. Installed-surface truth outranks the changelog — a claimed change the artifact lacks is noise, an installed change the notes omit is real.
 
 Three rail blind spots never license a purge: a C# generic type resolves name-only (the backtick form returns `unsupported`) — confirm via the namespace listing and installed source; a bare Python method name owner-scans, returning `ambiguous` with exact spellings; an uninstalled or marker-gated dist verifies on the doc tier (context7 / tag source), its rows flagged for re-ground once the artifact lands. Stop once the delta is fully attributed; residual uncertainty rides a RIPPLE row, never a re-read loop.
 </context_gathering>

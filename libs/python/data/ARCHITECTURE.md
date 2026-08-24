@@ -220,8 +220,8 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Data package C#-peer seam registry
-    accDescr: Data sub-domain owners exchanging frame shapes, content keys, plan wires, and the environmental set with the C# peers.
+    accTitle: Data package .NET-peer seam registry
+    accDescr: Data sub-domain owners exchanging frame shapes, content keys, plan wires, and the environmental set with the .NET peers.
     subgraph data[DATA]
         Tabular[Tabular interchange]
         Query[Query engine]
@@ -249,7 +249,7 @@ flowchart LR
     Impact e11@-->|"[WIRE]: DeclarationRecord"| Materials
 ```
 
-Fences split by peer plane: host runtime, Python siblings, C# peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
+Fences split by peer plane: host runtime, Python siblings, .NET peers. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
 
 `[PORT]` and `[SHAPE]: Fact` run one evidence spine in opposite directions: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. Geometry's mesh census lands its `FactJournal` rows through the same ledger leg. Producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
 

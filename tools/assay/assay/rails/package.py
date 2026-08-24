@@ -275,7 +275,7 @@ def _safe_package_pattern(pattern: str) -> bool:
 
 
 def _row(name: str, mode: Mode) -> Result[Tool, Fault]:
-    match next((t for t in select(Claim.PACKAGE, Language.CSHARP) if t.name == name and t.mode is mode), None):
+    match next((t for t in select(Claim.PACKAGE, Language.DOTNET) if t.name == name and t.mode is mode), None):
         case Tool() as tool:
             return Ok(tool)
         case _:
@@ -314,7 +314,7 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
     args = ToolArgs(
         project=project, configuration=settings.configuration.value, version=version, props=tuple(f"-getProperty:{name}" for name in _META_PROPS)
     )
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
     return (
         _row("dotnet-msbuild", Mode.QUERY)
         .bind(lambda tool: executor.run(Check(tool=tool, cwd=Path(str(settings.root)), args=args), settings=settings, scope=scope, routed=routed))
@@ -462,7 +462,7 @@ def _build_outputs(  # structural staging slots; the executor rides last
                 Check(tool=tool, cwd=Path(str(settings.root)), args=args),
                 settings=settings,
                 scope=scope,
-                routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED),
+                routed=Routed(language=Language.DOTNET, scope=Scope.CHANGED),
             )
         )
 

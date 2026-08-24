@@ -555,7 +555,7 @@ def _drained(provider: Drainable, signal: Signal) -> Signal:
 # EVERY standing row, so the egress wire law holds on any row that ever binds an emitting provider and no row carries
 # a value that would silently violate it — a deployment that must drop compression injects its own geometry instead.
 # Ratio splits attended from unattended: an attended run samples every root it starts because a developer is
-# reading the trace it produced, while the unattended daemon rides the estate thinning ratio its C# peer spells.
+# reading the trace it produced, while the unattended daemon rides the estate thinning ratio its .NET peer spells.
 SIGNAL_PROFILE: Final[Map[RuntimeProfile, SignalProfile]] = Map.of_seq(
     (
         p,

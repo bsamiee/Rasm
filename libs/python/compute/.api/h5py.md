@@ -9,7 +9,7 @@
 - module: `import h5py`
 - namespaces: `h5py`
 - owner: `compute`
-- rail: exchange — the HDF5 container carrying the C#-peer sparse-operator, drift-envelope, and waveform crossings
+- rail: exchange — the HDF5 container carrying the .NET-peer sparse-operator, drift-envelope, and waveform crossings
 - capability: file IO, group namespace, typed dataset storage, attribute metadata, vlen string dtype
 
 ## [02]-[PUBLIC_TYPES]
@@ -62,6 +62,6 @@
 
 [RAIL_LAW]:
 - Package: `h5py`
-- Owns: the HDF5 exchange-container IO this folder's C#-peer crossings spell
+- Owns: the HDF5 exchange-container IO this folder's .NET-peer crossings spell
 - Accept: a context-managed `File`, create-only `x` mode, explicit dtype pins at every dataset and attribute write, `string_dtype` for vlen categories
 - Reject: a file handle leaked outside `with`, an implicit int64 index dataset where the exchange convention pins int32, and any field-store or CF use the data branch owns

@@ -70,7 +70,7 @@ class CodeParams(BaseParams):
     SLOTS: ClassVar[dict[str, str]] = {"": "PATTERN [PATHS]..."}
 
     # language selectors are optional; hide default so help does not advertise an unset flag
-    csharp: Annotated[bool, Parameter(name="--csharp", negative="", show_default=False, help="Restrict the command to C# targets.")] = False
+    dotnet: Annotated[bool, Parameter(name="--dotnet", negative="", show_default=False, help="Restrict the command to .NET targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
     typescript: Annotated[
         bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
@@ -91,7 +91,7 @@ class CodeParams(BaseParams):
         Returns:
             Bound params, or a parse fault when the required pattern is blank.
         """
-        match language_choice(verb, csharp=self.csharp, python=self.python, typescript=self.typescript):
+        match language_choice(verb, dotnet=self.dotnet, python=self.python, typescript=self.typescript):
             case Fault() as fault:
                 return fault
             case language:

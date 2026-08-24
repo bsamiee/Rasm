@@ -39,7 +39,7 @@ const PHASE_ROWS = {
                 kind: 'verify',
                 light: true,
                 pages: [
-                    'libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md',
+                    'libs/dotnet/Rasm.AppHost/.planning/Observability/telemetry.md',
                     'libs/python/runtime/.planning/observability/telemetry.md',
                     'libs/typescript/core/.planning/observe/convention.md',
                     'libs/typescript/runtime/.planning/otel/emit.md',
@@ -59,7 +59,7 @@ const PHASE_ROWS = {
                 key: 'parity',
                 kind: 'verify',
                 pages: [
-                    'libs/csharp/Rasm/.planning/Domain/telemetry.md',
+                    'libs/dotnet/Rasm/.planning/Domain/telemetry.md',
                     'libs/python/runtime/.planning/observability/metrics.md',
                     'libs/typescript/core/.planning/observe/board.md',
                 ],
@@ -81,7 +81,7 @@ const PHASE_ROWS = {
                 pages: [
                     'libs/typescript/iac/.planning/operate/observe.md',
                     'libs/typescript/data/.planning/delegate/olap.md',
-                    'libs/csharp/Rasm.Persistence/.planning/Query/columnar.md',
+                    'libs/dotnet/Rasm.Persistence/.planning/Query/columnar.md',
                     'libs/python/data/.planning/tabular/lakehouse.md',
                 ],
                 charter:
@@ -106,13 +106,13 @@ const PHASE_ROWS = {
                 key: 'strata',
                 kind: 'verify',
                 pages: [
-                    'libs/csharp/.planning/ARCHITECTURE.md',
+                    'libs/dotnet/.planning/ARCHITECTURE.md',
                     'libs/python/.planning/ARCHITECTURE.md',
                     'libs/typescript/.planning/ARCHITECTURE.md',
                 ],
                 charter:
                     'The NEVER-REINVENT-THE-WHEEL lens, run inside each branch against its own strata ladder. Every folder composes the ' +
-                    'owner ABOVE it rather than re-deriving that owner locally: C# folders reach the Rasm kernel capsule for causal ' +
+                    'owner ABOVE it rather than re-deriving that owner locally: .NET folders reach the Rasm kernel capsule for causal ' +
                     'frame, instrument spec, SLO vocabulary, receipt envelope, and board pack rather than minting twins — one such twin ' +
                     'already stood as a same-named uncompilable fork of the columnar custodian types; Python folders climb the runtime ' +
                     'ladder for workers, journal, receipts, metrics, and hooks rather than opening private delegates; TypeScript folders ' +
@@ -131,7 +131,7 @@ const PHASE_ROWS = {
                 pages: [
                     'libs/python/runtime/.planning/observability/journal.md',
                     'libs/typescript/data/.planning/journal/fact.md',
-                    'libs/csharp/Rasm.AppHost/.planning/Observability/hooks.md',
+                    'libs/dotnet/Rasm.AppHost/.planning/Observability/hooks.md',
                 ],
                 charter:
                     'The evidence and execution pdelegates across all three branches: journal, worker, job, queue, scheduler, hook, receipt, ' +
@@ -151,10 +151,10 @@ const PHASE_ROWS = {
                 key: 'seams',
                 kind: 'verify',
                 light: true,
-                pages: ['libs/csharp/Rasm/.planning/Domain/telemetry.md', 'libs/python/runtime/.planning/observability/metrics.md'],
+                pages: ['libs/dotnet/Rasm/.planning/Domain/telemetry.md', 'libs/python/runtime/.planning/observability/metrics.md'],
                 charter:
                     'The fence-seam sweep and the census gate, run corpus-wide rather than over an anchor list. Grep EVERY composing ' +
-                    'fence in libs/csharp for InstrumentRow(, InstrumentSet.Of(, ReceiptFan.Of(, InstrumentSpec, AlertSeverity, ' +
+                    'fence in libs/dotnet for InstrumentRow(, InstrumentSet.Of(, ReceiptFan.Of(, InstrumentSpec, AlertSeverity, ' +
                     'PanelKind, TraceCarrier, and ColumnType, and confirm each matches its kernel declaration on spelling, arity, and ' +
                     'rail shape — the boundary is zero occurrences of any retired form anywhere in the corpus. ' +
                     'Then the census equality probe from BOTH sides: the domain set in the Python INSTRUMENTS census equals the domain ' +
@@ -188,7 +188,7 @@ const PHASE_ROWS = {
                 key: 'truth',
                 kind: 'verify',
                 light: true,
-                pages: ['libs/csharp/.api/', 'libs/python/.api/', 'libs/typescript/runtime/.api/', 'libs/typescript/iac/.api/'],
+                pages: ['libs/dotnet/.api/', 'libs/python/.api/', 'libs/typescript/runtime/.api/', 'libs/typescript/iac/.api/'],
                 charter:
                     'Member and manifest truth, and the ULTRA-STACK audit. Every .api row this campaign added or corrected re-verifies ' +
                     'on its language rail, and every member any fence composes carries a catalog row at its owning tier. A member that ' +

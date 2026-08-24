@@ -27,7 +27,7 @@ uv run assay bridge verify blocks
 uv run assay bridge verify blocks,ui
 uv run assay bridge verify CoreRail
 uv run assay bridge verify 'blocks.*'
-uv run assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
+uv run assay bridge verify tests/dotnet/libs/Rasm.Rhino/Blocks/Scenarios
 uv run assay bridge verify --evidence author blocks
 ```
 

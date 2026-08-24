@@ -147,7 +147,7 @@ class _ReceiptEnvelope extends Schema.Class<_ReceiptEnvelope>("Evidence.ReceiptE
 ## [04]-[PROGRESS_FOLD]
 
 [PROGRESS_FOLD]:
-- Law: `Tally` counts DONE units against a total for one operation in a parent tree, so it shares no axis with the producer phase frame `csharp:Rasm.Compute/Runtime/progress#PROGRESS_CELL` streams — that frame carries a phase vocabulary and a fraction, crosses as `ProgressUpdate`, and mirrors as `ProgressUpdateWire`. Two disjoint field sets under one spelling is what the separate names foreclose.
+- Law: `Tally` counts DONE units against a total for one operation in a parent tree, so it shares no axis with the producer phase frame `dotnet:Rasm.Compute/Runtime/progress#PROGRESS_CELL` streams — that frame carries a phase vocabulary and a fraction, crosses as `ProgressUpdate`, and mirrors as `ProgressUpdateWire`. Two disjoint field sets under one spelling is what the separate names foreclose.
 - Growth: a new progress verdict is one read member; a new mark axis (weight, priority) is one field plus one product row.
 
 ```typescript signature

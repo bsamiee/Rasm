@@ -6,7 +6,7 @@
 
 Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. Its programmatic arm is `automation.engine.drive(trigger, action, settings, executor=...)`, which hosts `Watch`/`Schedule`/`Manual` fires under one AnyIO loop, writes NDJSON output, and spawns every check through the `Executor` port (the engine-bound port when absent).
 
-- Mutually-exclusive `--csharp`/`--python`/`--typescript` ride the verbs carrying them, an unset selection routing every eligible language.
+- Mutually-exclusive `--dotnet`/`--python`/`--typescript` ride the verbs carrying them, an unset selection routing every eligible language.
 - `static` diagnoses by default, mutating under `--fix` alone and never rewriting a non-compiling C# target; its diagnostics match `dotnet build`.
 - `api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
 - `rails/mutation_gate.py` scores the staged Python mutation lane against its kill-floor; mutmut runs copy-staged, so a root `mutants/` is litter.

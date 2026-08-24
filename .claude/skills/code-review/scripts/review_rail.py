@@ -2303,7 +2303,7 @@ def spawn_rows(round_dir: Path, /) -> tuple[SpawnRow, ...]:
 
 # --- [SHARD_FILL]
 
-LANGS: Final[frozenset[str]] = frozenset({"csharp", "python", "typescript"})
+LANGS: Final[frozenset[str]] = frozenset({"dotnet", "python", "typescript"})
 
 
 def tiers_of(file: str, /) -> tuple[str, str, str]:
@@ -3143,7 +3143,7 @@ def fill_proofs() -> tuple[tuple[str, bool], ...]:
     return (
         (
             "tiers-package-resolves",
-            tiers_of("libs/csharp/<package-a>/<file>.cs") == ("libs/csharp/<package-a>", "libs/csharp/.api", "docs/stacks/csharp"),
+            tiers_of("libs/dotnet/<package-a>/<file>.cs") == ("libs/dotnet/<package-a>", "libs/dotnet/.api", "docs/stacks/csharp"),
         ),
         ("tiers-substrate-only", tiers_of("libs/python/<file>.py") == ("", "libs/python/.api", "docs/stacks/python")),
         ("tiers-tests-substrate", tiers_of("tests/typescript/<file>.ts") == ("", "tests/typescript/.api", "docs/stacks/typescript")),

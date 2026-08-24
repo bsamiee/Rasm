@@ -88,7 +88,7 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript external seam registry
-    accDescr: TypeScript exchanges kinded wires and the backend contract with C# packages and the neutral Python artifact producer.
+    accDescr: TypeScript exchanges kinded wires and the backend contract with .NET packages and the neutral Python artifact producer.
     subgraph ts[LIBS/TYPESCRIPT]
         Core[core]
         Data[data]

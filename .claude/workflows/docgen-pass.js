@@ -459,7 +459,7 @@ const apiVerifyLaw =
     ROOT +
     ' && uv run assay api query --key <package> --symbol <member>` (add `--kind`, `--grep`, or `--full` to narrow; a key spelled in two ecosystems pins its kind with a scope ' +
     'prefix — `py:<dist>`, `nuget:`, `npm:`, `host:` — so a Python catalog never reads a C# decompile). It resolves the source kind by language and reports the ' +
-    'fidelity it achieved: a C# catalog (path under `libs/csharp`) decompiles the real NUGET/ASSEMBLY through ilspycmd (fidelity `decompiled`) and confirms the package exists through the ' +
+    'fidelity it achieved: a C# catalog (path under `libs/dotnet`) decompiles the real NUGET/ASSEMBLY through ilspycmd (fidelity `decompiled`) and confirms the package exists through the ' +
     '`nuget` MCP; a PYTHON catalog (`libs/python`) introspects the installed `.venv` object in-process via `inspect` (fidelity `introspected`), so the surface is the EXACT installed ' +
     'version — strictly better than any docs corpus; a TYPESCRIPT catalog (`libs/typescript`) parses the `.d.ts` declarations under `node_modules` (fidelity `declared`). context7 is the ' +
     'FALLBACK ONLY, never the primary py/ts rail: reach for it just when assay returns `unsupported`/`unknown` because the distribution is not installed in the `.venv` or its declaration is ' +

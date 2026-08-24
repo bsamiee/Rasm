@@ -40,7 +40,7 @@ FILES, INCLUDE, PROJECT, SOLUTION, NONE, OWNED = (Input.FILES, Input.INCLUDE, In
 PY, TS, CS, BASH, SQL, DOCS, PROTO = (
     Language.PYTHON,
     Language.TYPESCRIPT,
-    Language.CSHARP,
+    Language.DOTNET,
     Language.BASH,
     Language.SQL,
     Language.DOCS,
@@ -236,11 +236,11 @@ TOOLS: tuple[Tool, ...] = (
     Tool("vitest", PNPM, ("vitest", "list"), NONE, TS, Claim.TEST, mode=Mode.LIST, empty_signature=(1, b"No test files found")),
     # Root residency keeps `stryker.config.json` on auto-discovery; `{scope*}` carries the CHANGED lane's --mutate globs.
     Tool("stryker", PNPM, ("stryker", "run", "{scope*}"), OWNED, TS, Claim.TEST, mode=Mode.MUTATION, timeout=_MUTATION_TIMEOUT_S),
-    # --- [CSHARP]
+    # --- [DOTNET]
     # Nx owns the .NET graph alone: `@nx/dotnet` infers the node and edge set (its roster equals Workspace.slnx),
     # and nx.json refuses every inferred target whose job a claim below already owns. No row delegates through
     # `nx run-many`, because an inferred `nx:run-commands` target pins `--no-restore --no-dependencies`, a
-    # project-directory cwd, and fixed `.artifacts/csharp/{bin,obj}` outputs: it carries neither the leased
+    # project-directory cwd, and fixed `.artifacts/dotnet/{bin,obj}` outputs: it carries neither the leased
     # `--artifacts-path` closure (argv forwarding lands the build outside the declared outputs, so a cache hit
     # would restore a tree the scoped build never wrote) nor the locked restore, the per-check SARIF drop dir, or
     # the repo-root cwd the diagnostic fold keys anchor on. Nx keeps `build`/`watch`/`run` for the dev loop.

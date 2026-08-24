@@ -13,13 +13,13 @@ tests/
 │   ├── proto/          # Estate buf module: rasm/contracts/<family>/, with ownership-sized sibling files
 │   ├── vendor/         # Publisher bytes: independent modules, schemata, and conformance vectors
 │   └── <seam>/         # Materialized only for verified case assets; blocked cases create no empty directory
-├── csharp/
+├── dotnet/
 │   ├── .api/           # Dev-tool API catalogs the kit and suites compose
 │   ├── _architecture/  # Boundary + infra-primitive laws proving both kits
 │   ├── _benchmarks/    # BenchmarkDotNet switcher + the regression gate verb
 │   ├── _scenariokit/   # Host-aware scenario SDK (Rasm.ScenarioKit)
 │   ├── _testkit/       # Host-free adversarial law substrate (Rasm.TestKit)
-│   ├── libs/           # Per-package suite shells mirroring libs/csharp
+│   ├── libs/           # Per-package suite shells mirroring libs/dotnet
 │   ├── scenarios/      # Scenario content home (Rasm.Scenarios)
 │   └── tools/          # Infra suites: cs-analyzer, rhino-bridge Contract/Supervisor
 ├── python/
@@ -80,9 +80,9 @@ Every tool writes reports under `.artifacts/` and temp/work state under `.cache/
 | [INDEX] | [TOOL]            | [SURFACE]                            | [ROUTE_OWNER]                                                        |
 | :-----: | :---------------- | :----------------------------------- | :------------------------------------------------------------------- |
 |  [01]   | coverlet.MTP      | C# coverage                          | `Directory.Build.targets` Coverage block                             |
-|  [02]   | MTP TrxReport     | C# test results                      | invocation law in `tests/csharp/README.md`                           |
+|  [02]   | MTP TrxReport     | C# test results                      | invocation law in `tests/dotnet/README.md`                           |
 |  [03]   | Stryker.NET       | C# mutation                          | root `stryker-config.json` + assay mutation rail (staged)            |
-|  [04]   | BenchmarkDotNet   | C# benchmarks                        | `tests/csharp/_benchmarks` session config                            |
+|  [04]   | BenchmarkDotNet   | C# benchmarks                        | `tests/dotnet/_benchmarks` session config                            |
 |  [05]   | pytest + coverage | Python coverage + caches             | `pyproject.toml` tool tables                                         |
 |  [06]   | Hypothesis        | example database + observability     | `tests/python/_testkit/runtime.py`                                   |
 |  [07]   | pytest-benchmark  | Python benchmark storage             | `pyproject.toml` addopts                                             |
@@ -102,11 +102,11 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 
 | [INDEX] | [ADDITION]                  | [HOME]                                                                                   |
 | :-----: | :-------------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | C# per-package suite        | `tests/csharp/libs/<Package>/`, specs mirroring source paths as `<Source>.spec.cs`       |
-|  [02]   | C# scenario                 | `tests/csharp/scenarios`                                                                 |
-|  [03]   | C# kit capability           | `tests/csharp/_testkit` (host-free) or `tests/csharp/_scenariokit` (host-aware)          |
-|  [04]   | C# infra-tool suite         | `tests/csharp/tools/<tool>/`                                                             |
-|  [05]   | C# gated benchmark          | `tests/csharp/_benchmarks` — a gated case is a registry row beside the switcher          |
+|  [01]   | C# per-package suite        | `tests/dotnet/libs/<Package>/`, specs mirroring source paths as `<Source>.spec.cs`       |
+|  [02]   | C# scenario                 | `tests/dotnet/scenarios`                                                                 |
+|  [03]   | C# kit capability           | `tests/dotnet/_testkit` (host-free) or `tests/dotnet/_scenariokit` (host-aware)          |
+|  [04]   | C# infra-tool suite         | `tests/dotnet/tools/<tool>/`                                                             |
+|  [05]   | C# gated benchmark          | `tests/dotnet/_benchmarks` — a gated case is a registry row beside the switcher          |
 |  [06]   | Python per-package suite    | `tests/python/libs/<package>/`                                                           |
 |  [07]   | Python kit capability       | the owning module in `tests/python/_testkit`                                             |
 |  [08]   | Python tool suite           | `tests/python/tools/<tool>/`                                                             |
@@ -122,19 +122,19 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [18]   | vendored publisher source   | `tests/contracts/vendor/<publisher>/`, a proto as its own buf module under `proto/`      |
 |  [19]   | corpus tool API catalog     | `tests/contracts/.api/`, one catalog per binary gating the corpus                        |
 
-Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
+Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/dotnet/libs` mirror `libs/dotnet`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 
 ## [06]-[SCENARIO_PIPELINE]
 
 Scenario proof flows through one route, content to verdict:
-1. Content: scenarios live in `tests/csharp/scenarios` as source-only `[RhinoScenario]` statics composing the `Rasm.ScenarioKit` SDK; the project is an `AssayTestShell`, so the routing closure keeps it out of unit-test runs.
+1. Content: scenarios live in `tests/dotnet/scenarios` as source-only `[RhinoScenario]` statics composing the `Rasm.ScenarioKit` SDK; the project is an `AssayTestShell`, so the routing closure keeps it out of unit-test runs.
 2. Closure: `uv run assay bridge build` compiles the bridge plugin and stages scenario content with its dependency closure for the host.
 3. Evidence: the live RhinoWIP host executes the staged scenarios; `ScenarioContext` fact streams, manifests, and captures fold into the assay-owned artifact scopes.
 4. Verdict: `uv run assay bridge verify` folds the run into one bridge `Envelope`; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
 
-Reference lifecycle: `--evidence author` runs write candidate references under `tests/csharp/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md) carries the full lifecycle, tolerance, and admission law.
+Reference lifecycle: `--evidence author` runs write candidate references under `tests/dotnet/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md) carries the full lifecycle, tolerance, and admission law.
 
-`Contract` and `Supervisor` suites under `tests/csharp/tools/rhino-bridge` prove the wire contract and the supervisor fold that this pipeline rides; a bridge protocol change lands with its suite change or it does not land.
+`Contract` and `Supervisor` suites under `tests/dotnet/tools/rhino-bridge` prove the wire contract and the supervisor fold that this pipeline rides; a bridge protocol change lands with its suite change or it does not land.
 
 ## [07]-[GATE_OWNERSHIP]
 
@@ -166,4 +166,4 @@ Before touching any testing surface, an agent checks the owners that carry the f
 |  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, root Stryker configs, project-graph targets |
 |  [07]   | `tools/assay`                                        | gate rails and its `[tool.mutmut]` policy; the CLI `--help` is the census         |
 
-Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. Rail changes without their spec change are incomplete changes.
+Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/dotnet/tools/cs-analyzer`. Rail changes without their spec change are incomplete changes.

@@ -105,7 +105,7 @@ def test_codeparams_bound_matrix(params: CodeParams, verb: str, expected: str | 
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
 def test_codeparams_bound_explicit_pattern_stable(p: CodeParams) -> None:
     """bound() never overwrites a flag-supplied pattern and is idempotent on it."""
-    assume(sum((p.csharp, p.python, p.typescript)) <= 1)
+    assume(sum((p.dotnet, p.python, p.typescript)) <= 1)
     for verb in ("search", "query"):
         first = dc_replace(p, pattern="explicit").bound(verb)
         assert isinstance(first, CodeParams), f"flag-pattern must survive bound({verb!r}): {first!r}"
@@ -117,9 +117,9 @@ def test_codeparams_bound_explicit_pattern_stable(p: CodeParams) -> None:
 
 def test_codeparams_rejects_multiple_language_flags() -> None:
     """Code params accept one language flag at most."""
-    fault = CodeParams(pattern="alpha", csharp=True, python=True).bound("search")
+    fault = CodeParams(pattern="alpha", dotnet=True, python=True).bound("search")
     assert isinstance(fault, Fault)
-    assert "--csharp" in fault.message
+    assert "--dotnet" in fault.message
     assert "--python" in fault.message
 
 
@@ -132,7 +132,7 @@ def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatc
     code = main_mod.main(["code", "search", "--help"])
     cap = capsysbinary.readouterr()
     assert code == 0
-    assert b"--csharp" in cap.out
+    assert b"--dotnet" in cap.out
     assert b"--python" in cap.out
     assert b"--typescript" in cap.out
     assert b"--language" not in cap.out

@@ -141,7 +141,7 @@ _DIFF_LINES: Final = 400
 _STALE_CAP: Final = 200
 _TAIL: Final = 512
 _CLOSED: Final = re.compile(r"\b(DISCHARGED|resolved|closed)\b", re.IGNORECASE)
-_ANCHOR: Final = re.compile(r"^(csharp|python|typescript):([A-Za-z0-9_.]+)/([A-Za-z0-9_./-]+)#([A-Z0-9_]+)$")
+_ANCHOR: Final = re.compile(r"^(dotnet|python|typescript):([A-Za-z0-9_.]+)/([A-Za-z0-9_./-]+)#([A-Z0-9_]+)$")
 _TIER0: Final = re.compile(r"^tier0:(ARCHITECTURE|RULINGS)#\[(\d{2})\]-\[([A-Z0-9_]+)\]$")
 _LAW_ANCHOR: Final = re.compile(r"^([A-Za-z0-9_./-]+\.md)#\[(\d{2})\]-\[([A-Z0-9_]+)\]$")
 _DERIVED: Final = re.compile(r"^(proto|msgspec):([A-Za-z0-9_.]+)$")
@@ -1554,7 +1554,7 @@ _ROSTERS: Final[dict[str, _Roster]] = {
     for row in (
         _Roster("typescript", "libs/typescript/contracts/.api/rasm-ts-contracts.md", frozenset(("message", "enum", "service", "method")), _ts_name),
         _Roster("python", "libs/python/contracts/.api/rasm-contracts.md", frozenset(("message", "enum", "service", "method")), _py_name),
-        _Roster("csharp", "libs/csharp/Rasm.Contracts/.api/rasm-contracts.md", frozenset(("message", "enum", "service", "method")), _cs_name),
+        _Roster("dotnet", "libs/dotnet/Rasm.Contracts/.api/rasm-contracts.md", frozenset(("message", "enum", "service", "method")), _cs_name),
     )
 }
 _KINDS: Final[tuple[tuple[_Kind, Callable[[_File], tuple[str, ...]]], ...]] = (

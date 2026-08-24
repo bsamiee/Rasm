@@ -1204,7 +1204,7 @@ def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness) ->
     """_invoke maps an executor Error to non-zero Completed stderr."""
     # White-box: the Error→Completed mapping happens before any report fold, so no public verb can isolate it.
     executor = SeamExecutor(run_fn=lambda *_a, **_kw: RailProbe.error(("api",), "spawn boom"))
-    surface_tool = next(t for t in select(Claim.API, Language.CSHARP))
+    surface_tool = next(t for t in select(Claim.API, Language.DOTNET))
     done = oracle_mod._invoke(assay_root.settings, executor, surface_tool, ToolArgs())
     assert done.returncode == 1
     assert b"spawn boom" in done.stderr
@@ -1242,7 +1242,7 @@ def test_cs_decompile_faults_when_catalog_row_missing(assay_root: AssayHarness, 
 
     def _staged(_claim: Claim, _lang: Language) -> object:
         calls["n"] += 1
-        return iter(select(Claim.API, Language.CSHARP)) if calls["n"] == 1 else iter(())
+        return iter(select(Claim.API, Language.DOTNET)) if calls["n"] == 1 else iter(())
 
     monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
     monkeypatch.setattr(oracle_mod, "select", _staged)

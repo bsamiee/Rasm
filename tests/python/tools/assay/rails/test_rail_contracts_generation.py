@@ -105,8 +105,8 @@ def test_generation_commits_past_package_manager_and_build_artifacts_beside_its_
     farm = root / "libs/typescript/contracts/node_modules/@scope"
     farm.mkdir(parents=True)
     (farm / "dep").symlink_to("../../../../../node_modules/.pnpm/dep@1/node_modules/dep")
-    built = _file(root / "libs/csharp/Rasm.Contracts/obj/Debug/built.dll", b"built")
-    os.link(store, root / "libs/csharp/Rasm.Contracts/obj/Debug/hardlinked.dll")
+    built = _file(root / "libs/dotnet/Rasm.Contracts/obj/Debug/built.dll", b"built")
+    os.link(store, root / "libs/dotnet/Rasm.Contracts/obj/Debug/hardlinked.dll")
 
     def regenerate(scratch: Path) -> None:
         for out in corpus_kit._OUTS:

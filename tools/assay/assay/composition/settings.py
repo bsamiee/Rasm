@@ -26,7 +26,7 @@ from pydantic_settings import (  # Runtime annotations call the Pydantic source 
 from upath import UPath
 
 from assay.composition.store import ArtifactStore, safe_segment
-from assay.core.model import ArtifactKind, CSHARP_CONFIG_ANCHORS, wire_safe  # Settings/model field hooks evaluate these annotations at runtime.
+from assay.core.model import ArtifactKind, DOTNET_CONFIG_ANCHORS, wire_safe  # Settings/model field hooks evaluate these annotations at runtime.
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -462,7 +462,7 @@ class AssaySettings(BaseSettings):  # ruff:ignore[too-many-public-methods]  # As
     sftp_max_requests: Annotated[int, Field(ge=1, le=1024)] = 64
     artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
-    trigger_files: frozenset[str] = CSHARP_CONFIG_ANCHORS  # one shared anchor roster; the remote lane manifest reads the same rows
+    trigger_files: frozenset[str] = DOTNET_CONFIG_ANCHORS  # one shared anchor roster; the remote lane manifest reads the same rows
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
     mutation_python: str = "3.15"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)

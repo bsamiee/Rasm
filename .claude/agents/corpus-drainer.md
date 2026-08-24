@@ -1,6 +1,6 @@
 ---
 name: corpus-drainer
-description: Single Fable coordinator that drains one planning corpus — a package folder or a branch tier — to zero open ideas, tasks, and research at redteam grade. Dispatched with the target, its open-item census, and any concurrency carves; orchestrates its own Opus read and writer legs, probes every question to ground truth (decompile, live host, throwaway apps, two-sourced acquisitions), rebuilds weak fences root-up, lands every ripple at both ends, and returns one consolidated typed receipt. Use for "finalize this folder", "drain the cards", "close all research" on any branch — csharp, python, typescript alike.
+description: Single Fable coordinator that drains one planning corpus — a package folder or a branch tier — to zero open ideas, tasks, and research at redteam grade. Dispatched with the target, its open-item census, and any concurrency carves; orchestrates its own Opus read and writer legs, probes every question to ground truth (decompile, live host, throwaway apps, two-sourced acquisitions), rebuilds weak fences root-up, lands every ripple at both ends, and returns one consolidated typed receipt. Use for "finalize this folder", "drain the cards", "close all research" on any branch — dotnet, python, typescript alike.
 color: orange
 ---
 

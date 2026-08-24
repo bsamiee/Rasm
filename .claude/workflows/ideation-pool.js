@@ -37,9 +37,9 @@ export const meta = {
 
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CAP = 14;
-const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
+const SHORT = { dotnet: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
 const LANGS = [
-    { key: 'csharp', root: 'libs/csharp', manifest: 'Directory.Packages.props', registry: 'nuget' },
+    { key: 'dotnet', root: 'libs/dotnet', manifest: 'Directory.Packages.props', registry: 'nuget' },
     { key: 'python', root: 'libs/python', manifest: 'pyproject.toml', registry: 'pypi' },
     { key: 'typescript', root: 'libs/typescript', manifest: 'pnpm-workspace.yaml', registry: 'npm' },
 ];
@@ -100,7 +100,7 @@ const ROSTERD = {
                 required: ['path', 'language', 'openIdeas', 'openTasks'],
                 properties: {
                     path: { type: 'string' },
-                    language: { type: 'string', enum: ['csharp', 'python', 'typescript', 'cross'] },
+                    language: { type: 'string', enum: ['dotnet', 'python', 'typescript', 'cross'] },
                     openIdeas: { type: 'integer' },
                     openTasks: { type: 'integer' },
                 },
@@ -483,7 +483,7 @@ const planningRootOf = (f) => f.path + '/.planning';
 const apiTiersOf = (f) => f.path + '/.api and ' + REPO + '/libs/' + f.language + '/.api';
 const focusKeyOf = (f) => Object.keys(FOCUS).find((k) => f.path.endsWith(k)) || '';
 const memoryClause = (f) =>
-    f.language === 'csharp'
+    f.language === 'dotnet'
         ? ' plus the memory index at /Users/bardiasamiee/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md — open ' +
           'every reference_* entry naming a surface this folder composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or any other ' +
           'surface the folder pulls in) —'
@@ -570,7 +570,7 @@ const BSECTIONS = [
 const XSECTIONS = [
     ['CARDS', 'file: <absolute libs/.planning IDEAS.md or TASKLOG.md path> | id: <card id> | status: <status> | thesis: <leader text>'],
     ['ESTATE', 'concern: <cross-language concern> | endpoints: <absolute paths> | state: <wired|unwired|partial> | evidence: <anchor>'],
-    ['BALANCE', 'dimension: <coverage dimension> | csharp: <fact> | python: <fact> | typescript: <fact> | evidence: <census probe>'],
+    ['BALANCE', 'dimension: <coverage dimension> | dotnet: <fact> | python: <fact> | typescript: <fact> | evidence: <census probe>'],
     ['COVERAGE', 'status: read|skipped|unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>'],
 ];
 
@@ -578,7 +578,7 @@ const GSECTIONS = [
     ['WINDOW', 'base: <commit sha> | resolution: <how the pre-campaign base was resolved, with the git evidence>'],
     [
         'ROSTER',
-        'package: <exact id> | language: <csharp|python|typescript> | commit: <adding sha> | manifest: <absolute manifest path> | ' +
+        'package: <exact id> | language: <dotnet|python|typescript> | commit: <adding sha> | manifest: <absolute manifest path> | ' +
             'api: <absolute .api catalog path or missing>',
     ],
     ['COVERAGE', 'status: read|skipped|unverified | source: <absolute path when present> | reason: <observable evidence or failed probe>'],
@@ -782,7 +782,7 @@ const adjPrompt = (L) =>
     '/' +
     L.root +
     ' (branch tier and every folder tier) — never member-level reads. Then research LIVE: load the registry tools via ToolSearch (' +
-    (L.key === 'csharp' ? 'mcp__nuget__get_latest_package_version, ' : '') +
+    (L.key === 'dotnet' ? 'mcp__nuget__get_latest_package_version, ' : '') +
     'WebSearch, WebFetch, mcp__context7__*) and hunt namespace-adjacent packages the estate does NOT hold — the admitted ecosystem ' +
     'families this branch actually holds, extended, and the branch folder domains beyond them — and, per folder domain under this branch, ' +
     'the two or three real-world production systems that own that domain — their architecture, not their packages — feeding [REFERENCES]. ' +
@@ -812,14 +812,14 @@ const discoverPrompt = () =>
     ' (one Bash test) and read its section [01]: a missing file returns mandateFound=false, folders [], note naming the miss — nothing else ' +
     'runs. Folders: every package directory directly under ' +
     REPO +
-    '/libs/csharp, ' +
+    '/libs/dotnet, ' +
     REPO +
     '/libs/python, and ' +
     REPO +
     '/libs/typescript carrying IDEAS.md or TASKLOG.md at its root (fd over libs/, never a hardcoded list; skip node_modules and ' +
     'dot-directories); plus each branch tier ' +
     REPO +
-    '/libs/{csharp,python,typescript}/.planning where card files exist; plus the cross-libs tier ' +
+    '/libs/{dotnet,python,typescript}/.planning where card files exist; plus the cross-libs tier ' +
     REPO +
     '/libs/.planning. Per folder count open cards: lines matching ^\\[[A-Za-z0-9_-]+\\]-\\[(ACTIVE|QUEUED|BLOCKED)\\] inside the [01]-[OPEN] ' +
     'section — openIdeas from IDEAS.md, openTasks from TASKLOG.md ("(none)" is zero). Return {mandateFound, folders: [{path (absolute), ' +
@@ -1029,7 +1029,7 @@ const admitPrompt = (row, origin) =>
     ' You are the SINGLE writer on the ' +
     row.language +
     ' central manifest for this call. Execute the FULL admission chain: (1) LIVE-VERIFY the newest stable version — nuget MCP ' +
-    'get_latest_package_version for csharp, the live registry for python/typescript; rejection vocabulary is closed: reject ONLY when an ' +
+    'get_latest_package_version for dotnet, the live registry for python/typescript; rejection vocabulary is closed: reject ONLY when an ' +
     'already-admitted package supersedes the capability, when existence or installability fails verification, when the license gate ' +
     'fails — this estate is fully OSS with zero commercial intent, any license granting full free use to an OSS project admits (copyleft ' +
     'included) and only payment-required or paid-tier-gated capability rejects — or when any chain step below fails unrecoverably after ' +
@@ -1041,7 +1041,7 @@ const admitPrompt = (row, origin) =>
     'with verified members only; an isolation or app-scoped claim lands ONLY with per-instance member evidence verified on the installed ' +
     'surface, and a process-global surface states its host-wide scope honestly and the single-owner admission it demands. (5) Land the ' +
     'README registry row at the consuming folder. (6) Land the csproj reference where consumed ' +
-    '(csharp). (7) Run the docgen gate script at ' +
+    '(dotnet). (7) Run the docgen gate script at ' +
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) over the new files, repaired to zero FAIL. Any chain step ' +
     '(1)-(7) failing unrecoverably after one self-heal attempt returns admitted=false with the step named and its evidence, the manifest ' +

@@ -378,7 +378,7 @@ const FIXLOG = {
 const LANG = {
     cs: {
         key: 'cs',
-        root: 'libs/csharp',
+        root: 'libs/dotnet',
         stack: 'docs/stacks/csharp',
         manifest:
             '`Directory.Packages.props` (central pins, label-grouped, one-line maintenance comments) + `Directory.Build.props` (net10.0 floor, osx-arm64)',
@@ -417,7 +417,7 @@ const LANG = {
     },
 };
 const langOf = (t) =>
-    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
+    t.indexOf('libs/dotnet') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -757,7 +757,7 @@ if (!TARGETS.length) {
 const badLang = TARGETS.filter((t) => !langOf(t));
 
 if (badLang.length) {
-    log('Targets must live under libs/csharp | libs/python | libs/typescript. Got: ' + JSON.stringify(badLang));
+    log('Targets must live under libs/dotnet | libs/python | libs/typescript. Got: ' + JSON.stringify(badLang));
     return { targets: TARGETS, delegates: [] };
 }
 

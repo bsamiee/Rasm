@@ -51,7 +51,7 @@ Schema, failure-tag, and union proofs ride these rails; typed error tags and exh
 
 ## [06]-[GAUGES]
 
-`tests/typescript/_architecture` is the gauge home — the branch-boundary suites no single manifest can express, the analog of `tests/csharp/_architecture`. Its charter: the edge-ledger import audit, per-package entrypoint purity, the manifest-edge/tsconfig-reference/tag agreement gate, per-package isolation-completeness, the app-island audit, the external-admission and per-sub-folder package-admission audits, and the branch-wide migrator-import ban.
+`tests/typescript/_architecture` is the gauge home — the branch-boundary suites no single manifest can express, the analog of `tests/dotnet/_architecture`. Its charter: the edge-ledger import audit, per-package entrypoint purity, the manifest-edge/tsconfig-reference/tag agreement gate, per-package isolation-completeness, the app-island audit, the external-admission and per-sub-folder package-admission audits, and the branch-wide migrator-import ban.
 
 - Permitted-edge ledger parses live off the branch strata flowchart, so acyclicity, direction, and tag law prove on rows a reshaped fence fails.
 - Manifest gauges hold every spec-estate pin to `catalog:` or `workspace:`, bar the refused property engine, and cap a package at one `.api` tier.

@@ -215,7 +215,7 @@ def test_hdf_field_executes_the_registered_virtualizarr_consumer() -> None:
     assert tuple((chunk.key, chunk.offset, chunk.length) for chunk in found.virtual.chunks) == (("0.0", 76, 16), ("1.0", 92, 16))
 
 
-def test_hdf_waveform_executes_the_registered_csharp_consumer_law() -> None:
+def test_hdf_waveform_executes_the_registered_dotnet_consumer_law() -> None:
     """The Python specimen must carry the exact native HDF facts C# ImportWaveforms admits."""
     manifest = assert_ok(load_manifest(_CORPUS))
     _entry, case = _case(manifest, "hdf5-exchange", "waveform")

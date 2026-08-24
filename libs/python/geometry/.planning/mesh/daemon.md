@@ -500,7 +500,7 @@ def _field_number(message: type[Message], local_name: str) -> int:
 
 def _source_key(unit: TessellationUnit) -> ContentKey:
     # Field NUMBERS this writer emits ARE the cross-language parity contract: the peer at
-    # `csharp:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan` writes this identical ordinal chain, so a
+    # `dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan` writes this identical ordinal chain, so a
     # coordinate added, dropped, or renumbered here forks the key silently unless that peer moves in the same change.
     source = unit.source
     return (

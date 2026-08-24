@@ -36,7 +36,7 @@ Every structural mistake — a capability rebuilt over a wrong foundation, a fla
 
 | [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA]                        |
 | :-----: | :------------------------- | :----------------------------- | :------------------------------- | :------------------------------------- |
-|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/csharp` + `.cs`            | `PascalCase`                           |
+|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`                           |
 |  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`                           |
 |  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`                            |
 |  [04]   | Protobuf (`.proto`)        | Docs: `tests/contracts/proto`  | `tests/contracts/proto`          | `snake_case` files, `PascalCase` types |
@@ -70,7 +70,7 @@ Every structural mistake — a capability rebuilt over a wrong foundation, a fla
 | [INDEX] | [CLAIM]     | [CHECK]                                                                          | [WRITE]                              |
 | :-----: | :---------- | :------------------------------------------------------------------------------- | :----------------------------------- |
 |  [01]   | `static`    | `static --project <csproj>\|--folder <dir>\|--all`; bare = git-changed; BUSY = 5 | `static --fix`                       |
-|  [02]   | `test`      | `test run\|list\|coverage --python\|--typescript\|--csharp [--target <path>]`    | `test run --mutation changed\|full`  |
+|  [02]   | `test`      | `test run\|list\|coverage --python\|--typescript\|--dotnet [--target <path>]`    | `test run --mutation changed\|full`  |
 |  [03]   | `docs`      | `docs check <paths>`                                                             | `prose_gate.py fix --write`          |
 |  [04]   | `contracts` | `contracts check`                                                                | `contracts generate\|publish`        |
 |  [05]   | `init`      | `init check`                                                                     | `init python-lib\|python-app <path>` |

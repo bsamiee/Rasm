@@ -152,7 +152,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime C# platform and kernel seams
-    accDescr: Runtime sub-domain owners exchanging content keys, wire codecs, Connect transport, and clock stamps with the C# peers.
+    accDescr: Runtime sub-domain owners exchanging content keys, wire codecs, Connect transport, and clock stamps with the .NET peers.
     subgraph runtime[RUNTIME]
         Evidence[Evidence]
         Admission[Admission]
@@ -233,7 +233,7 @@ flowchart LR
     Observability e28@-->|"[PORT]: Hooks"| Geometry
 ```
 
-Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the C# peers.
+Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the .NET peers.
 
 Frozen registry names spell from the counterpart's endpoint page, so `ServerHost`/`CommandReceipt`, the generated `rasm.contracts` classes, `FaultDetail`, generated `CrdtOpWire`, and `ContentKey` are this package's interior spellings behind their counterpart wires.
 

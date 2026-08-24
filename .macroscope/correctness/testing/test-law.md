@@ -33,8 +33,8 @@ include:
 
 ## [03]-[ESTATE]
 
-- TypeScript unit specs colocate beside source — a unit spec under `tests/typescript/`, or shared harness beside source, is misfiled; C# and Python suites mirror the production tree (`tests/csharp/libs/<Package>/<Source>.spec.cs`, `tests/python/libs/<package>/`), and e2e/load specs carry the disjoint `*.pw.ts`/`*.k6.ts` suffixes so no runner sweeps another's estate.
-- Tier and grouping directories are lowercase with `_`-prefixed kit directories; PascalCase begins only at a C# project boundary, and each `tests/csharp` project carries exactly one routing classifier, adding only its own suite-owned harness packages.
+- TypeScript unit specs colocate beside source — a unit spec under `tests/typescript/`, or shared harness beside source, is misfiled; C# and Python suites mirror the production tree (`tests/dotnet/libs/<Package>/<Source>.spec.cs`, `tests/python/libs/<package>/`), and e2e/load specs carry the disjoint `*.pw.ts`/`*.k6.ts` suffixes so no runner sweeps another's estate.
+- Tier and grouping directories are lowercase with `_`-prefixed kit directories; PascalCase begins only at a C# project boundary, and each `tests/dotnet` project carries exactly one routing classifier, adding only its own suite-owned harness packages.
 - Nothing cross-language lives inside a single language's tree; `tests/contracts/`, `tests/containers.json`, the generated bindings each branch commits from it, and the assay operator are the only neutral seams, and a container image pinned anywhere but `tests/containers.json` is a finding.
 - `tests/contracts/` custody reads each atomic case live from `manifest.json` and applies `tests/contracts/README.md` `[01]-[AUTHORITY]`. Case contradiction of declared class, actors, readiness, proof, or asset custody is a finding; never copy the roster here.
 - assay is the single mutation and coverage gate authority; thresholds and kill-floors live in owning configs, never in docs or specs, and zero mutant discovery is a failed rail, never a green pass.

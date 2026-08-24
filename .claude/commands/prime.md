@@ -1,13 +1,13 @@
 ---
 description: Ground a session for planning-corpus work — topology, scaffold, planning law — then take or resume the objective
-argument-hint: [target folder path(s) or a language (csharp|python|typescript); empty = branch-level grounding]
+argument-hint: [target folder path(s) or a language (dotnet|python|typescript); empty = branch-level grounding]
 ---
 
 # [PRIME]
 
 Branch law and target-owned surfaces ground planning-corpus context before the objective. `TARGET: $ARGUMENTS` deepens each folder path or named language branch; empty input grounds branch law and leaves folder selection to the objective. Grounding is read-only and plan-mode-compatible. Without an objective, grounding stops; otherwise work continues into the objective.
 
-`libs/csharp`, `libs/python`, and `libs/typescript` are design-only foundations. Transcription-complete fences on `.planning/` pages carry every parameterized, polymorphic library capability; rebuild them root-up and leave source files untouched.
+`libs/dotnet`, `libs/python`, and `libs/typescript` are design-only foundations. Transcription-complete fences on `.planning/` pages carry every parameterized, polymorphic library capability; rebuild them root-up and leave source files untouched.
 
 Grounding stays below 100k tokens and reads only target- or objective-owned surfaces; every multi-file read runs as one `tail -n +1` batch.
 
@@ -23,7 +23,7 @@ Run in one parallel block:
 READ 100%, one batch (`==> path <==` headers delimit files):
 
 ```bash copy-safe
-fd -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning docs/laws -X tail -n +1
+fd -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/dotnet/.planning libs/python/.planning libs/typescript/.planning docs/laws -X tail -n +1
 ```
 
 - Batch grounds all Tier-0 and branch law, including every `RULINGS.md`. `IDEAS.md` and `TASKLOG.md` load only when a dispatched rail works their cards.

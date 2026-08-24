@@ -1,6 +1,6 @@
 # [CAMPAIGN_METHOD]
 
-One planning loop drives the three peer branches — `libs/csharp`, `libs/python`, `libs/typescript` — to a decision-complete, implementation-ready bar: one method, three language doctrines, aligned never coupled, run through workflows.
+One planning loop drives the three peer branches — `libs/dotnet`, `libs/python`, `libs/typescript` — to a decision-complete, implementation-ready bar: one method, three language doctrines, aligned never coupled, run through workflows.
 
 `CLAUDE.md` `[DOC_TOPOLOGY]` routes every durable question to its owning surface; a campaign resolves each owner there rather than carrying its own routing table.
 

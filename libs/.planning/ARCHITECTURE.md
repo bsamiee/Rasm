@@ -98,7 +98,7 @@ Every peer-decoded shape carries one `manifest.json` case; a convention-aligned 
 
 ## [08]-[OBSERVABILITY_CONFORMANCE]
 
-Four-signal telemetry (metrics, logs, traces, profiles) correlates across the runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
+Four-signal telemetry (metrics, logs, traces, profiles) correlates across the runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `dotnet:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/telemetry`, and `typescript:runtime/otel/emit`, the name vocabulary at `typescript:core/observe/convention`. SDK trains move on split maturity channels, so no shared library carries those rows.
 
 Transcription spells the rows per branch and `tests/contracts/` `TELEMETRY_CONVENTION` proves the branch spellings agree, so a drift surfaces at the digest and repairs at its owning branch page.
 
@@ -147,11 +147,11 @@ Transcription spells the rows per branch and `tests/contracts/` `TELEMETRY_CONVE
 
 [TENANT_COST_JOIN]: Per-tenant cost attribution is one three-pin join: the C# grant-spend instrument family off the broker's cost vectors, the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the deploy plane's cost read against the selected store row. Past a store row's tenant series cap, attribution rides exemplar-sampled traces as trace-scoped spend evidence, never a second metering pipeline.
 
-[EVIDENCE_RESIDENCE]: Telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `csharp:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
+[EVIDENCE_RESIDENCE]: Telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `dotnet:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
 
 [FLEET_ESCALATION]: Every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at estate scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
 
-[PROFILE_SWAP]: Profiles move from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `csharp:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
+[PROFILE_SWAP]: Profiles move from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `dotnet:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
 
 ## [09]-[SCHEMA_STATE]
 
@@ -262,12 +262,12 @@ Surface appearance crosses as generated `rasm.contracts.appearance.Set` and `Mat
 
 | [INDEX] | [OWNER]                             | [MINTS]                                    | [BOUNDARY]                             |
 | :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------- |
-|  [01]   | `csharp:Rasm.Materials/Raster`      | the baked set behind the appearance key    | carries no environment kind            |
-|  [02]   | `csharp:Rasm.Materials/Appearance`  | the environment light and stage vocabulary | branch-interior; takes no corpus entry |
+|  [01]   | `dotnet:Rasm.Materials/Raster`      | the baked set behind the appearance key    | carries no environment kind            |
+|  [02]   | `dotnet:Rasm.Materials/Appearance`  | the environment light and stage vocabulary | branch-interior; takes no corpus entry |
 |  [03]   | `python:artifacts/graphic/texture`  | the ingest and environment set manifest    | presses no graph, holds no bake key    |
 |  [04]   | `typescript:core/interchange`       | nothing; it lands both documents           | derives no field a producer carries    |
 |  [05]   | `typescript:data` + `typescript:ui` | the transform, serve, and bind pipeline    | reads addresses, constructs none       |
-|  [06]   | `csharp:Rasm`                       | the analytic and raster atoms both compose | holds no channel vocabulary            |
+|  [06]   | `dotnet:Rasm`                       | the analytic and raster atoms both compose | holds no channel vocabulary            |
 
 - Two documents, two producers, one vocabulary: each producer owns its own document and `domain` entry, and routes a kind it lacks to the peer entry.
 - Capability overlaps freely and documents do not — both producers derive geometric channels and both encode containers.
@@ -381,6 +381,6 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 
 | [INDEX] | [BRANCH]   | [ENVELOPE_SEAT]               | [BINDING_SEAT]             |
 | :-----: | :--------- | :---------------------------- | :------------------------- |
-|  [01]   | C#         | `csharp:Rasm/Domain`          | its consuming package      |
+|  [01]   | C#         | `dotnet:Rasm/Domain`          | its consuming package      |
 |  [02]   | Python     | `python:runtime/transport`    | `python:runtime/transport` |
 |  [03]   | TypeScript | `typescript:core/interchange` | its consuming package      |

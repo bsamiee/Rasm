@@ -1071,7 +1071,7 @@ def _api_row(language: Language, mode: Mode) -> Tool | None:
 
 def _invoke(settings: AssaySettings, executor: Executor, tool: Tool, args: ToolArgs) -> Completed:
     # scope=None preserves the real dotnet-tools.json CLI home for `dotnet tool run ilspycmd`.
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
     check = Check(tool=tool, args=args)
     match executor.run(check, settings=settings, scope=None, routed=routed):
         case Result(tag="ok", ok=done):
@@ -1086,7 +1086,7 @@ def probe_ilspy(settings: AssaySettings, executor: Executor) -> tuple[str, int]:
     Returns:
         (first stdout line or ``""``, returncode); the version gates the roster parser and rides cache entries.
     """
-    match _api_row(Language.CSHARP, Mode.CHECK):
+    match _api_row(Language.DOTNET, Mode.CHECK):
         case None:
             return ("", 1)
         case Tool() as tool:
@@ -1182,7 +1182,7 @@ def _run_decompile(settings: AssaySettings, executor: Executor, symbol: str, sur
     refs = tuple(part for parent in dict.fromkeys(str(a.parent) for a in ordered) for part in ("-r", parent))
     spellings = surface.reflection.get(base, (symbol,))
     selected = (tuple(s for s in spellings if s.endswith(f"`{arity}")) or spellings) if arity else spellings
-    match _api_row(Language.CSHARP, Mode.LIST):
+    match _api_row(Language.DOTNET, Mode.LIST):
         case None:
             return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() as tool:
@@ -1289,7 +1289,7 @@ def _cs_surface(settings: AssaySettings, source: Source, executor: Executor) -> 
 def _cs_list(
     settings: AssaySettings, source: Source, assemblies: tuple[Path, ...], cache: str, content_fingerprint: str, executor: Executor
 ) -> Result[Surface, Fault]:
-    match _api_row(Language.CSHARP, Mode.QUERY):
+    match _api_row(Language.DOTNET, Mode.QUERY):
         case None:
             return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() as tool:

@@ -14,7 +14,7 @@ from mutmut.mutation.data import SourceFileMutationData
 import pytest
 
 from assay.composition.catalog import TOOLS
-from assay.composition.store import ArtifactScope, CS_ARTIFACT_ROOTS
+from assay.composition.store import ArtifactScope, DOTNET_ARTIFACT_ROOTS
 from assay.core.exec import apply_row_status
 from assay.core.govern import exclusive_lease
 from assay.core.model import (
@@ -82,7 +82,7 @@ _NON_TEST_CSPROJ = "<Project><PropertyGroup><IsTestProject>false</IsTestProject>
 # A shell csproj that still looks like a full test project: the marker must win over its content.
 _SHELL_WITH_CONTENT_CSPROJ = (
     "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell></PropertyGroup>"
-    '<ItemGroup><ProjectReference Include="../../../../libs/csharp/Rasm/Rasm.csproj" /></ItemGroup></Project>'
+    '<ItemGroup><ProjectReference Include="../../../../libs/dotnet/Rasm/Rasm.csproj" /></ItemGroup></Project>'
 )
 _STRYKER_POLICY = ("--test-runner", "mtp", "--mutation-level", "Standard")
 
@@ -140,19 +140,19 @@ def _capture_rail(monkeypatch: pytest.MonkeyPatch) -> list[tuple[TestParams, obj
 # Seed Workspace.slnx plus the marker-bearing csproj roster; the Ghost project stays unwritten on purpose.
 def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
     markers = {
-        "libs/csharp/Rasm/Rasm.csproj": "<Project />",
-        "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj": "<Project />",
-        "tests/csharp/_benchmarks/Rasm.Benchmarks.csproj": "<Project />",
-        "tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj": _NON_TEST_CSPROJ,
-        "tests/csharp/_testkit/Rasm.TestKit.csproj": "<Project />",
-        "tests/csharp/libs/Rasm/Rasm.Tests.csproj": _SHELL_WITH_CONTENT_CSPROJ,
-        "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj": _NON_TEST_CSPROJ,
-        "tests/csharp/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj": None,
-        "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj": _HOST_CSPROJ,
-        "tests/csharp/scenarios/Rasm.Scenarios.csproj": _SHELL_CSPROJ,
-        "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj": "<Project />",
-        "tests/csharp/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj": "<Project />",
-        "tests/csharp/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj": "<Project />",
+        "libs/dotnet/Rasm/Rasm.csproj": "<Project />",
+        "tests/dotnet/_architecture/Rasm.Architecture.Tests.csproj": "<Project />",
+        "tests/dotnet/_benchmarks/Rasm.Benchmarks.csproj": "<Project />",
+        "tests/dotnet/_scenariokit/Rasm.ScenarioKit.csproj": _NON_TEST_CSPROJ,
+        "tests/dotnet/_testkit/Rasm.TestKit.csproj": "<Project />",
+        "tests/dotnet/libs/Rasm/Rasm.Tests.csproj": _SHELL_WITH_CONTENT_CSPROJ,
+        "tests/dotnet/libs/Rasm.Empty/Rasm.Empty.Tests.csproj": _NON_TEST_CSPROJ,
+        "tests/dotnet/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj": None,
+        "tests/dotnet/libs/Rasm.Host/Rasm.Host.Tests.csproj": _HOST_CSPROJ,
+        "tests/dotnet/scenarios/Rasm.Scenarios.csproj": _SHELL_CSPROJ,
+        "tests/dotnet/tools/cs-analyzer/Csp.Analyzer.Tests.csproj": "<Project />",
+        "tests/dotnet/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj": "<Project />",
+        "tests/dotnet/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj": "<Project />",
     }
     folders = "".join(f'<Folder Name="/{Path(p).parent.as_posix()}/"><Project Path="{p}" /></Folder>' for p in markers)
     assay_root.write("Workspace.slnx", f"<Solution>{folders}</Solution>")
@@ -195,9 +195,9 @@ def test_adopt_coverage_artifact_fields(assay_root: AssayHarness) -> None:
 
 def test_testparams_language_flags_and_help(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
     """Ambiguous language selectors fault; help exposes the boolean selectors and --trx, never a --language value flag."""
-    fault = TestParams(csharp=True, typescript=True).bound("run")
+    fault = TestParams(dotnet=True, typescript=True).bound("run")
     assert isinstance(fault, Fault)
-    assert "--csharp" in fault.message
+    assert "--dotnet" in fault.message
     assert "--typescript" in fault.message
 
     from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
@@ -205,7 +205,7 @@ def test_testparams_language_flags_and_help(monkeypatch: pytest.MonkeyPatch, cap
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None))
     assert main_mod.main(["test", "run", "--help"]) == 0
     out = capsysbinary.readouterr().out
-    assert all(flag in out for flag in (b"--csharp", b"--python", b"--typescript", b"--trx"))
+    assert all(flag in out for flag in (b"--dotnet", b"--python", b"--typescript", b"--trx"))
     assert b"--language" not in out
 
 
@@ -298,7 +298,7 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
     scoped = _mutation_args(stryker, TestParams(mutation=MutationLane.CHANGED), settings, ("src/Foo.cs", "src/Bar.cs"))
     assert scoped is not None
     root = Path(str(settings.root)).resolve()
-    output_dir = root / ".artifacts/csharp/stryker"
+    output_dir = root / ".artifacts/dotnet/stryker"
     config_file = root / "stryker-config.json"
     assert (scoped.config, scoped.solution, scoped.output) == (str(config_file), str(settings.solution), str(output_dir))
     assert output_dir.is_dir(), "the rail pre-creates the Stryker report --output dir"
@@ -344,14 +344,14 @@ def test_mutation_rows_confine_every_path_to_artifacts() -> None:
 def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
     """_checks routes DOTNET RUN filters into {filter*}, leaves UV/MUTATION rows unfiltered, and pins the pytest suite tail."""
     settings = assay_root.settings.model_copy(update={"mutation_max_cpu": 2})
-    csharp_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=("tests/csharp/libs/A/A.Tests.csproj",))
-    spliced = _checks(csharp_routed, TestParams(filter="test_something"), settings, Mode.RUN)
+    dotnet_routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED, projects=("tests/dotnet/libs/A/A.Tests.csproj",))
+    spliced = _checks(dotnet_routed, TestParams(filter="test_something"), settings, Mode.RUN)
     assert [c.args.filter for c in spliced] == [("--filter-method", "*test_something*")]
     run = next(c for c in spliced if c.tool.mode is Mode.RUN)
     assert run.tool.command == ("run",), "MTP options never ride dotnet's own argv; the pinned tail carries them behind --"
-    assert run.tail is not None and run.tail[:2] == ("--project", "tests/csharp/libs/A/A.Tests.csproj")
+    assert run.tail is not None and run.tail[:2] == ("--project", "tests/dotnet/libs/A/A.Tests.csproj")
     separator = run.tail.index("--")
-    target = str(Path(str(settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"] / "A.Tests")
+    target = str(Path(str(settings.root)).resolve() / DOTNET_ARTIFACT_ROOTS["trx"] / "A.Tests")
     assert run.tail[separator:] == ("--", "--minimum-expected-tests", "1", "--filter-method", "*test_something*", "--results-directory", target)
 
     py_routed = Routed(language=_PY, scope=Scope.CHANGED, files=("tools/assay/assay/a.py",))
@@ -373,10 +373,10 @@ def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
 
 def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> None:
     """Every RUN pins its results directory per project under the trx root; --trx adds the report flag alone."""
-    assert CS_ARTIFACT_ROOTS["trx"] == ".artifacts/csharp/trx", "the trx root is its own CS_ARTIFACT_ROOTS row, never derived from a sibling"
-    trx_root = Path(str(assay_root.settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"]
-    projects = ("tests/csharp/libs/A/A.Tests.csproj", "tests/csharp/libs/B/B.Tests.csproj")
-    multi = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=projects)
+    assert DOTNET_ARTIFACT_ROOTS["trx"] == ".artifacts/dotnet/trx", "the trx root is its own DOTNET_ARTIFACT_ROOTS row, never derived from a sibling"
+    trx_root = Path(str(assay_root.settings.root)).resolve() / DOTNET_ARTIFACT_ROOTS["trx"]
+    projects = ("tests/dotnet/libs/A/A.Tests.csproj", "tests/dotnet/libs/B/B.Tests.csproj")
+    multi = Routed(language=Language.DOTNET, scope=Scope.CHANGED, projects=projects)
 
     def _routes(stem: str) -> tuple[str, ...]:
         target = str(trx_root / stem)
@@ -386,7 +386,7 @@ def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> Non
     assert [(c.tail or ())[-3:] for c in fanned] == [("--report-trx", *_routes("A.Tests")), ("--report-trx", *_routes("B.Tests"))]
     assert all((c.tail or ()).index("--") < (c.tail or ()).index("--report-trx") for c in fanned), "TRX is an MTP option and rides behind --"
 
-    single = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=projects[:1])
+    single = Routed(language=Language.DOTNET, scope=Scope.CHANGED, projects=projects[:1])
     (pinned,) = _checks(single, TestParams(trx=True), assay_root.settings, Mode.RUN)
     assert (pinned.tail or ())[-3:] == ("--report-trx", *_routes("A.Tests"))
 
@@ -417,13 +417,13 @@ def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch, assay_root: Ass
         "every real catalog mutation row projects a CHANGED scope"
     )
 
-    project = "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
-    host = Routed(Language.CSHARP, Scope.CHANGED, projects=(project,), host_bound=(project,))
+    project = "tests/dotnet/libs/Rasm/Rasm.Tests.csproj"
+    host = Routed(Language.DOTNET, Scope.CHANGED, projects=(project,), host_bound=(project,))
     assert assert_ok(_unsupported_scope(host, TestParams(), assay_root.settings, Mode.RUN)[0]).status is RailStatus.UNSUPPORTED
 
-    shell = "tests/csharp/scenarios/Rasm.Scenarios.csproj"
+    shell = "tests/dotnet/scenarios/Rasm.Scenarios.csproj"
     assay_root.write(shell, _SHELL_CSPROJ)
-    (row,) = _unsupported_scope(Routed(language=Language.CSHARP, scope=Scope.CHANGED), TestParams(target=Path(shell)), assay_root.settings, Mode.RUN)
+    (row,) = _unsupported_scope(Routed(language=Language.DOTNET, scope=Scope.CHANGED), TestParams(target=Path(shell)), assay_root.settings, Mode.RUN)
     target_receipt = assert_ok(row)
     assert (target_receipt.status, target_receipt.returncode) == (RailStatus.UNSUPPORTED, RailStatus.UNSUPPORTED.exit_code)
     assert any("test-target[shell]" in n for n in target_receipt.notes)
@@ -433,10 +433,10 @@ def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
     """_select handles glob passthrough, target narrowing, and solution-backed all-selection with full lane classification."""
     settings = assay_root.settings
     _seed_solution(assay_root)
-    host = "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj"
+    host = "tests/dotnet/libs/Rasm.Host/Rasm.Host.Tests.csproj"
     py_routed = Routed(language=_PY, scope=Scope.CHANGED, projects=(host,))
-    cs_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(host,))
-    target = Path("tests/csharp/libs/Other/Other.Tests.csproj")
+    cs_routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED, projects=(host,))
+    target = Path("tests/dotnet/libs/Other/Other.Tests.csproj")
     assay_root.write(target, "<Project />")
 
     assert assert_ok(_select(py_routed, TestParams(), settings)).routed is py_routed
@@ -445,15 +445,15 @@ def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
     assert selected.routed.scope is Scope.FULL
     assert selected.routed.host_bound == (host,)
     assert set(selected.routed.projects) == {
-        "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
-        "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
-        "tests/csharp/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj",
-        "tests/csharp/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj",
+        "tests/dotnet/_architecture/Rasm.Architecture.Tests.csproj",
+        "tests/dotnet/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
+        "tests/dotnet/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj",
+        "tests/dotnet/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj",
         host,
     }
     # Shell projects never reach dispatch even when they carry real content — the marker wins; the unreadable
     # Ghost roster entry is fault-shaped NON_TEST, never silently MANAGED.
-    assert not {"tests/csharp/libs/Rasm/Rasm.Tests.csproj", "tests/csharp/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj"} & set(selected.routed.projects)
+    assert not {"tests/dotnet/libs/Rasm/Rasm.Tests.csproj", "tests/dotnet/libs/Rasm.Ghost/Rasm.Ghost.Tests.csproj"} & set(selected.routed.projects)
     counts = {lane.value: total for lane in _TestProjectLane if (total := sum(1 for _, actual in selected.lanes if actual is lane))}
     assert counts == {"managed": 4, "host_bound": 1, "shell": 2, "support": 1, "benchmark": 1, "non_test": 4}
 
@@ -461,11 +461,11 @@ def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
 def test_select_changed_arm_classifies_marker_lanes(assay_root: AssayHarness) -> None:
     """The changed-scope arm classifies the routed closure itself; a stale routed.host_bound never survives."""
     _seed_solution(assay_root)
-    shell = "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
-    host = "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj"
-    managed = "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj"
-    lib = "libs/csharp/Rasm/Rasm.csproj"
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(lib, shell, host, managed), host_bound=(managed,))
+    shell = "tests/dotnet/libs/Rasm/Rasm.Tests.csproj"
+    host = "tests/dotnet/libs/Rasm.Host/Rasm.Host.Tests.csproj"
+    managed = "tests/dotnet/_architecture/Rasm.Architecture.Tests.csproj"
+    lib = "libs/dotnet/Rasm/Rasm.csproj"
+    routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED, projects=(lib, shell, host, managed), host_bound=(managed,))
     selected = assert_ok(_select(routed, TestParams(), assay_root.settings))
     assert set(selected.routed.projects) == {host, managed}
     assert selected.routed.host_bound == (host,), "host_bound is rebuilt from the marker table, not trusted from routing"
@@ -475,7 +475,7 @@ def test_select_changed_arm_classifies_marker_lanes(assay_root: AssayHarness) ->
 
 def test_select_all_faults_on_corrupt_or_missing_solution(assay_root: AssayHarness) -> None:
     """--all over a corrupt or missing Workspace.slnx is a loud FAULTED result, never a green zero-check run."""
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
     assay_root.write("Workspace.slnx", "<Solution")
     corrupt = assert_error_status(_select(routed, TestParams(all=True), assay_root.settings), RailStatus.FAULTED)
     (assay_root.root / "Workspace.slnx").unlink()
@@ -488,15 +488,15 @@ def test_project_lane_marker_matrix(assay_root: AssayHarness) -> None:
     dual = "<Project><PropertyGroup><AssayTestShell>true</AssayTestShell><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>"
     lane = _TestProjectLane
     rows: tuple[tuple[str, str, str | None, _TestProjectLane], ...] = (
-        ("no-marker-managed", "tests/csharp/libs/A/A.Tests.csproj", "<Project />", lane.MANAGED),
-        ("shell-marker-wins-over-content", "tests/csharp/libs/A/A.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ, lane.SHELL),
-        ("shell-outranks-host-bound", "tests/csharp/libs/A/A.Tests.csproj", dual, lane.SHELL),
-        ("host-bound-marker", "tests/csharp/libs/A/A.Tests.csproj", _HOST_CSPROJ, lane.HOST_BOUND),
-        ("istestproject-false", "tests/csharp/libs/A/A.Tests.csproj", _NON_TEST_CSPROJ, lane.NON_TEST),
-        ("unreadable-fault-shaped-non-test", "tests/csharp/libs/Missing/Missing.Tests.csproj", None, lane.NON_TEST),
-        ("testkit-path-outranks-markers", "tests/csharp/_testkit/Kit.csproj", _SHELL_CSPROJ, lane.SUPPORT),
-        ("benchmarks-path", "tests/csharp/_benchmarks/Bench.csproj", "<Project />", lane.BENCHMARK),
-        ("outside-tests-csharp", "libs/csharp/Rasm/Rasm.csproj", "<Project />", lane.NON_TEST),
+        ("no-marker-managed", "tests/dotnet/libs/A/A.Tests.csproj", "<Project />", lane.MANAGED),
+        ("shell-marker-wins-over-content", "tests/dotnet/libs/A/A.Tests.csproj", _SHELL_WITH_CONTENT_CSPROJ, lane.SHELL),
+        ("shell-outranks-host-bound", "tests/dotnet/libs/A/A.Tests.csproj", dual, lane.SHELL),
+        ("host-bound-marker", "tests/dotnet/libs/A/A.Tests.csproj", _HOST_CSPROJ, lane.HOST_BOUND),
+        ("istestproject-false", "tests/dotnet/libs/A/A.Tests.csproj", _NON_TEST_CSPROJ, lane.NON_TEST),
+        ("unreadable-fault-shaped-non-test", "tests/dotnet/libs/Missing/Missing.Tests.csproj", None, lane.NON_TEST),
+        ("testkit-path-outranks-markers", "tests/dotnet/_testkit/Kit.csproj", _SHELL_CSPROJ, lane.SUPPORT),
+        ("benchmarks-path", "tests/dotnet/_benchmarks/Bench.csproj", "<Project />", lane.BENCHMARK),
+        ("outside-tests-dotnet", "libs/dotnet/Rasm/Rasm.csproj", "<Project />", lane.NON_TEST),
     )
     for label, rel, content, expected in rows:
         assay_root.write(rel, content) if content is not None else None
@@ -617,15 +617,15 @@ def test_list_report_projection_arms(assay_root: AssayHarness, monkeypatch: pyte
 
 def test_run_envelope_names_host_routed(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """Run notes name marker-classified host projects; routed.host_bound is rebuilt, never trusted."""
-    managed = "tests/csharp/libs/A/A.Tests.csproj"
-    host = "tests/csharp/libs/B/B.Tests.csproj"
+    managed = "tests/dotnet/libs/A/A.Tests.csproj"
+    host = "tests/dotnet/libs/B/B.Tests.csproj"
     assay_root.write(managed, "<Project />")
     assay_root.write(host, _HOST_CSPROJ)
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(managed, host))
+    routed = Routed(language=Language.DOTNET, scope=Scope.CHANGED, projects=(managed, host))
     _wire(monkeypatch, _ok(("dotnet", "test")), routed=routed, seam="_dispatch_all")
-    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.CSHARP), SeamExecutor()))
-    assert "closure[csharp]: included=1 excluded=0 cached=0 host-routed=1" in report.notes
-    assert f"host-routed[csharp]: {host}" in report.notes
+    report = assert_ok(test_rail.run(assay_root.settings, assay_root.scope(Claim.TEST), TestParams(language=Language.DOTNET), SeamExecutor()))
+    assert "closure[dotnet]: included=1 excluded=0 cached=0 host-routed=1" in report.notes
+    assert f"host-routed[dotnet]: {host}" in report.notes
     assert isinstance(report.detail, TestRun)
     assert {("managed", 1), ("host_bound", 1)} <= set(report.detail.project_counts)
 
@@ -684,7 +684,7 @@ def test_thin_rail_mutation_nests_sorted_language_leases(assay_root: AssayHarnes
     leased_calls: list[str] = []
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     _wire(monkeypatch, _ok(("mutmut", "run")), routed=Routed(language=_PY, scope=Scope.CHANGED, files=()), seam="_dispatch_all")
-    monkeypatch.setattr(test_rail, "resolve_languages", lambda *_a, **_k: Ok((Language.CSHARP, _PY)))
+    monkeypatch.setattr(test_rail, "resolve_languages", lambda *_a, **_k: Ok((Language.DOTNET, _PY)))
 
     def _descend(resource: str, action: Callable[[object], Result[object, object]], **_k: object) -> Result[object, object]:
         leased_calls.append(resource)
@@ -693,15 +693,15 @@ def test_thin_rail_mutation_nests_sorted_language_leases(assay_root: AssayHarnes
     monkeypatch.setattr(test_rail, "leased", _descend)
     params = TestParams(mutation=MutationLane.FULL)
     assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
-    assert leased_calls == ["mutation-csharp", "mutation-python"]
+    assert leased_calls == ["mutation-dotnet", "mutation-python"]
 
 
 def test_thin_rail_per_language_mutation_leases_do_not_contend(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Per-language mutation leases isolate csharp and python contention."""
+    """Per-language mutation leases isolate dotnet and python contention."""
     scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
     _wire(monkeypatch, _ok(("mutmut", "run")), routed=Routed(language=_PY, scope=Scope.CHANGED, files=()), seam="_dispatch_all")
     params = TestParams(mutation=MutationLane.FULL, language=Language.PYTHON)
-    with exclusive_lease("mutation-csharp", "holder", settings=assay_root.settings) as held:
+    with exclusive_lease("mutation-dotnet", "holder", settings=assay_root.settings) as held:
         assert_ok(held)
         assert_ok(_thin_rail(assay_root.settings, scope, params, SeamExecutor(), claim=Claim.TEST, verb="run", mode=Mode.RUN))
     with exclusive_lease("mutation-python", "holder", settings=assay_root.settings) as held:

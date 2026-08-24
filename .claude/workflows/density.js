@@ -30,7 +30,7 @@ const MAP_LOC = 3400; // page tonnage per mapper — the map set a single mapper
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
 const langOf = (t) =>
-    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
+    t.indexOf('libs/dotnet') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
 const isObj = !!argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn);
 const rawTargets = Array.isArray(argsIn)
@@ -193,7 +193,7 @@ const LANG = {
     cs: {
         key: 'cs',
         name: 'C#',
-        root: 'libs/csharp',
+        root: 'libs/dotnet',
         stack: 'docs/stacks/csharp',
         atlas: [
             'README.md',
@@ -206,16 +206,16 @@ const LANG = {
             'system-apis.md',
         ],
         casing: 'PascalCase',
-        corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
+        corpus: 'libs/dotnet planning corpus (markdown specs of intended .NET package designs)',
         strata:
-            '`libs/csharp/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch strata table — resolve it live, never a ' +
+            '`libs/dotnet/.planning/ARCHITECTURE.md` `[02]-[STRATA]` owns the branch strata table — resolve it live, never a ' +
             'transcribed chain; depend strictly upward, and mint a host-neutral owner only where a non-Rhino runtime consumes the contract.',
         stackFloor:
             'docs/stacks/csharp is the FLOOR, never the ceiling — every fence pushes past it to the strongest form the doctrine ' +
             'admits; the tools/cs-analyzer gate enforces it (a true positive is architecture pressure, a false positive rule ' +
             'pressure, never a suppression).',
         apiTiers:
-            'the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
+            'the SHARED substrate catalogs `libs/dotnet/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
@@ -790,7 +790,7 @@ const SOLO_LAW =
 const planPrompt = () =>
     [
         ROOT_LAW,
-        'Rasm monorepo — the libs/{csharp,python,typescript} planning corpora (markdown design specs). Targets may mix ' +
+        'Rasm monorepo — the libs/{dotnet,python,typescript} planning corpora (markdown design specs). Targets may mix ' +
             "languages; each page's owning package derives its own doctrine downstream.",
         'TASK: thin enumerate (read-only, do NOT edit). TARGETS (repo-relative): ' +
             JSON.stringify(TARGETS) +
@@ -959,7 +959,7 @@ const densityCloserPrompt = (langs, reports) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
+if (REJECTED.length) log('Rejected targets outside libs/{dotnet,python,typescript}: ' + REJECTED.join(', '));
 if (!TARGETS.length) {
     log('No targets — pass a target path, an array of paths, or {targets}. Empty args is a no-op.');
     return { targets: [], total: 0 };

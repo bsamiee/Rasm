@@ -120,7 +120,7 @@
 [ENTRYPOINT_SCOPE]: `scipy.io` Matrix Market exchange
 - `mmread(source, *, spmatrix=False)` returns a `coo_array`; the bare default returns the legacy `coo_matrix` and is never taken.
 - `mmwrite(target, a, comment, field, precision, symmetry='AUTO')` — `symmetry` accepts `general`/`symmetric`/`skew-symmetric`/`hermitian`.
-- Compute pins `symmetry="general"`: the C# peer's pinned MathNet writer and reader expose operand values but no symmetry metadata.
+- Compute pins `symmetry="general"`: the .NET peer's pinned MathNet writer and reader expose operand values but no symmetry metadata.
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RESULT]                                         |
 | :-----: | :------------------------------------- | :------------- | :----------------------------------------------- |

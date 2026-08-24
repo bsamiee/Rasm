@@ -42,7 +42,7 @@
 libs/typescript/contracts/gen/** linguist-generated=true -diff
 libs/python/contracts/rasm/contracts/gen/** linguist-generated=true -diff
 libs/python/contracts/rasm/contracts/vendor/** linguist-generated=true -diff
-libs/csharp/Rasm.Contracts/Generated/** linguist-generated=true -diff
+libs/dotnet/Rasm.Contracts/Generated/** linguist-generated=true -diff
 *.bin binary
 
 # Icons
@@ -110,4 +110,4 @@ libs/csharp/Rasm.Contracts/Generated/** linguist-generated=true -diff
 
 # Vendored lib3mf RID natives are committed as plain blobs (the build consumes
 # real files); LFS filters stay off so re-staging never converts them to pointers.
-libs/csharp/Rasm.Fabrication/vendor/runtimes/** -filter -diff -merge
+libs/dotnet/Rasm.Fabrication/vendor/runtimes/** -filter -diff -merge

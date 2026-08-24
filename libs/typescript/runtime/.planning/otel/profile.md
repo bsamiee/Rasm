@@ -203,7 +203,7 @@ const _live = (policy: Profile.Policy): Layer.Layer<never, never, Life> =>
 
 - Owner: `Profile.banded(vocabulary, labels, work)` — the one correlation member folding both work modalities off the input shape: it admits a workload's bounded channel and step values, projects them onto the single `Convention.profile.span` region label, stamps `Convention.profile.id` on the live span, and — for a synchronous thunk alone — scopes `wrapWithLabels` around the region so its samples group under the band on the backend.
 - Law: the label key set closes at the profile-store dialect — `Convention.profile.span` is the one region label and `Convention.profile.service` rides the config `tags`, so the caller's `channel`/`step` vocabulary is INPUT that projects into one dotted region value rather than two free-string label keys. Bands writing their own key mint a store dimension no board or pack can query, exactly as a free-string metric name mints an unqueryable series.
-- Law: `Convention.profile.id` takes the live span's own id, so the C# root-span stamp and this one spell one attribute.
+- Law: `Convention.profile.id` takes the live span's own id, so the .NET root-span stamp and this one spell one attribute.
 - Law: `Convention.profile.spanId` and `Convention.profile.traceId` ride the sample labels, closing the join the store queries from.
 - Law: one span read feeds both ends, so the attribute and the labels can never name different spans.
 - Law: stamping is unconditional across both modalities and silent outside a span region, so a caller never gates on span presence.

@@ -103,7 +103,7 @@ const LAW = [
         'pipelines, discriminators, async mirrors — not just the basic members), AND (b) the INTEGRATION patterns the dense design should compose — ' +
         'how this library STACKS with the other admitted libs into single rails (e.g. a decode hook feeding a discriminated model under a retry ' +
         'context with a telemetry span) — INCLUDING the SHARED/UNIVERSAL catalog tier (`libs/python/.api/` for Python; ' +
-        '`libs/typescript/.api/` for TypeScript; `libs/csharp/.api/` for C# — the Thinktecture/LanguageExt substrate), so a folder/area catalog ' +
+        '`libs/typescript/.api/` for TypeScript; `libs/dotnet/.api/` for C# — the Thinktecture/LanguageExt substrate), so a folder/area catalog ' +
         'documents stacking ONTO those universal rails, not only its sibling-folder ' +
         'libs. The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists.',
     'VERIFICATION LAW: every catalog is unverified until checked against real members — dense, confident-looking catalogs are verified against ' +

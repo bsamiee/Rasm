@@ -67,7 +67,7 @@
 - Admit as `import type` only — there is no runtime symbol; a value import of `geojson` is the named error. Reach for the named `type`s directly (`FeatureCollection`, `Feature`, `Position`, `BBox`), not the UMD `GeoJSON` global (script-tag legacy).
 - Type the render surface with the generic instantiation carrying both facts — `FeatureCollection<Polygon, MyProps>`, not a bare `FeatureCollection` re-narrowed at each accessor. Let the `<G, P>` params thread geometry and property shape to every consumer.
 - Narrow with the `type` discriminant: `switch (g.type)` over `GeoJsonGeometryTypes` for geometry, `GeoJsonTypes` for any object. For 2D-vs-3D `Position`, write a user-defined type guard — the package will not narrow the coordinate array.
-- Keep the wire boundary: consume geojson as the render/turf/maplibre-facing value derived from `wire`-decoded features; never treat it as the `WkbParser` output (that is Schema-typed `GeoFeature.Geometry`) and never re-derive a spatial relation the C# side owns as authority.
+- Keep the wire boundary: consume geojson as the render/turf/maplibre-facing value derived from `wire`-decoded features; never treat it as the `WkbParser` output (that is Schema-typed `GeoFeature.Geometry`) and never re-derive a spatial relation the .NET side owns as authority.
 
 [RAIL_LAW]:
 - Package: `@types/geojson`

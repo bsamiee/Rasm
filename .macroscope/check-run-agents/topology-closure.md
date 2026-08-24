@@ -10,7 +10,7 @@ include:
   - "libs/.planning/ARCHITECTURE.md"
   - "libs/.planning/README.md"
   - "tests/contracts/**"
-  - "tests/csharp/_architecture/**"
+  - "tests/dotnet/_architecture/**"
   - ".claude/skills/**"
   - ".claude/agents/**"
   - ".claude/commands/**"

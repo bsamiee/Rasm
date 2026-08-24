@@ -19,10 +19,10 @@ const LANG = {
             'the shared-tier weave is corpus law: expression tagged_union/Result/Option/Block/Map as the one ADT and dispatch spine, anyio at ' +
             'concurrent seams, runtime guarded/railed retry over the POLICY rows, msgspec one-shot ingress, beartype public entries',
     },
-    csharp: {
+    dotnet: {
         tag: 'CS',
         doctrine: 'docs/stacks/csharp/ and the docs/stacks/csharp/domain/ shards',
-        tiers: 'libs/csharp/.api/ (shared substrate) + the package .api/ (domain)',
+        tiers: 'libs/dotnet/.api/ (shared substrate) + the package .api/ (domain)',
         manifest: 'Directory.Packages.props (hand-edited, label-grouped; never dotnet add) + the target .csproj',
         verify:
             'uv run assay api over restored assemblies (member truth, verified-local wins) + the nuget MCP (feed truth) + two ' +
@@ -65,7 +65,7 @@ const REVIEW_OFF = !!(argsIn && typeof argsIn === 'object' && argsIn.review === 
 const GOLD =
     argsIn && typeof argsIn === 'object' && typeof argsIn.gold === 'string' && argsIn.gold.trim() ? argsIn.gold.trim() : 'RASM-PY-ARTIFACTS-BRIEF.md';
 const langOf = (t) => {
-    const m = t.match(/libs\/(python|csharp|typescript)(\/|$)/);
+    const m = t.match(/libs\/(python|dotnet|typescript)(\/|$)/);
     return m ? LANG[m[1]] : null;
 };
 const nameOf = (t) => ((t.split('/').pop() || '').replace(/^Rasm\.?/, '') || t.split('/').pop() || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -778,7 +778,7 @@ if (!TARGETS.length) {
 }
 const bad = TARGETS.filter((t) => !langOf(t));
 if (bad.length) {
-    log('brief: unrecognized language root for ' + JSON.stringify(bad) + ' — targets must live under libs/{python,csharp,typescript}.');
+    log('brief: unrecognized language root for ' + JSON.stringify(bad) + ' — targets must live under libs/{python,dotnet,typescript}.');
     return { targets: TARGETS.length, produced: [], rejected: bad };
 }
 

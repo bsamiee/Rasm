@@ -80,9 +80,9 @@ class ArtifactFileSystem(Protocol):
 _ARTIFACTS: Final[str] = ".artifacts"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _BUILD: Final[str] = "build"
-# One C# artifact root: dotnet build closures land under `.artifacts/csharp/` beside the stryker and trx roots,
+# One C# artifact root: dotnet build closures land under `.artifacts/dotnet/` beside the stryker and trx roots,
 # so raw-dotnet and assay-driven builds share one tree and the SDK pivot layout beneath it.
-_CSHARP_ROOT: Final[str] = f"{_ARTIFACTS}/csharp"
+_DOTNET_ROOT: Final[str] = f"{_ARTIFACTS}/dotnet"
 # Run history accretes one encoded Envelope (+ optional full Report) per run; the JSON-shaped payloads compress an order of
 # magnitude under zstd. The store frames history-kind writes and every byte read sniffs the frame magic and inflates lazily,
 # so the codec is one store-owned boundary no caller re-derives. Content size rides the frame header; plain decompress inflates.
@@ -109,10 +109,10 @@ PY_COVERAGE_FILES: Final[dict[str, str]] = {fmt: f"{PY_ARTIFACT_ROOTS['coverage'
 # Stryker writes a sandbox (`.stryker-tmp`, cwd-relative) plus reports; the staged work root keeps the sandbox under
 # `.artifacts` while `--output` routes reports to the sibling report root, which assay pre-creates before the run.
 # TRX evidence lands beside them; the test rail nests per-project result dirs under the trx root.
-CS_ARTIFACT_ROOTS: Final[dict[str, str]] = {
-    "stryker": f"{_ARTIFACTS}/csharp/stryker/work",
-    "stryker-output": f"{_ARTIFACTS}/csharp/stryker",
-    "trx": f"{_ARTIFACTS}/csharp/trx",
+DOTNET_ARTIFACT_ROOTS: Final[dict[str, str]] = {
+    "stryker": f"{_ARTIFACTS}/dotnet/stryker/work",
+    "stryker-output": f"{_ARTIFACTS}/dotnet/stryker",
+    "trx": f"{_ARTIFACTS}/dotnet/trx",
 }
 # One shared dotnet build closure for the static and test rails: per-claim or per-sha trees each hold a full
 # solution build (~16GB), so any second key doubles the disk for zero isolation — the exclusive build lease
@@ -591,7 +591,7 @@ class ArtifactScope:
         """
         # Build closures are local dotnet writes, so the store pins the file protocol under the one C# artifact root
         # even when run artifacts ride a shared cloud backend; the remote executor rebases the path like any scope path.
-        store = settings.store(protocol="file", root=str(settings.local_root / _CSHARP_ROOT))
+        store = settings.store(protocol="file", root=str(settings.local_root / _DOTNET_ROOT))
         path = store.ensure(_BUILD, closure, str(configuration) if configuration else settings.configuration.value)
         scope = cls(store, path, (_ARTIFACTS_PATH_FLAG, path))
         scope._preseed_dotnet_first_run(settings.dotnet_sdk_version)
@@ -663,7 +663,7 @@ __all__ = [
     "ArtifactFileSystem",
     "ArtifactScope",
     "ArtifactStore",
-    "CS_ARTIFACT_ROOTS",
+    "DOTNET_ARTIFACT_ROOTS",
     "DOTNET_BUILD_CLOSURE",
     "PY_ARTIFACT_ROOTS",
     "PY_COVERAGE_FILES",

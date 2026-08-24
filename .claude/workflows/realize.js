@@ -34,9 +34,9 @@ if (!CAMPS.length) {
     log('No campaigns — pass {doc, root} or an array of pairs.');
     return { campaigns: 0 };
 }
-const langOf = (root) => (root.indexOf('libs/csharp') === 0 ? 'cs' : root.indexOf('libs/python') === 0 ? 'py' : 'ts');
+const langOf = (root) => (root.indexOf('libs/dotnet') === 0 ? 'cs' : root.indexOf('libs/python') === 0 ? 'py' : 'ts');
 const STACK = { cs: 'docs/stacks/csharp', py: 'docs/stacks/python', ts: 'docs/stacks/typescript' };
-const TIER = { cs: 'libs/csharp/.api', py: 'libs/python/.api', ts: 'libs/typescript/.api' };
+const TIER = { cs: 'libs/dotnet/.api', py: 'libs/python/.api', ts: 'libs/typescript/.api' };
 const chunk = (a, n) => {
     const o = [];
     for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n));
@@ -524,7 +524,7 @@ const delegates = await parallel(
                 { label: 'map:' + tag + ':tier2', phase: 'Recon', schema: MAP, scope: [c.root + '/.api'] },
             ),
         );
-        const BRANCHES = ['libs/csharp', 'libs/python', 'libs/typescript'];
+        const BRANCHES = ['libs/dotnet', 'libs/python', 'libs/typescript'];
         BRANCHES.forEach((branch) =>
             mappers.push(() =>
                 recon(

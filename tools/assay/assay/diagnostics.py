@@ -88,11 +88,11 @@ _CS_DIAGNOSTIC = re.compile(
 _GENERATED_MARKERS: Final[tuple[str, ...]] = (
     "/obj/",
     "/.artifacts/assay/",
-    "/.artifacts/csharp/",
+    "/.artifacts/dotnet/",
     "libs/python/contracts/rasm/contracts/gen/",
     "libs/python/contracts/rasm/contracts/vendor/",
     "libs/typescript/contracts/gen/",
-    "libs/csharp/rasm.contracts/generated/",
+    "libs/dotnet/rasm.contracts/generated/",
 )
 _GENERATED_SUFFIX: Final[str] = ".g.cs"
 
@@ -459,7 +459,7 @@ def _sarif_results(base: Path | None, stamped: str, stem: str, *, slnx: bool) ->
     return sum(1 for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions)
 
 
-def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
+def _dotnet_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     rows = tuple(
         _code_match(
             found.group("rule").lower(),
@@ -489,7 +489,7 @@ def _csharp_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 
 def _rows_of(done: Completed) -> tuple[Match, ...]:
-    # CS_CONSOLE folds across the outcome batch in _csharp_rows; every other family converts per receipt.
+    # CS_CONSOLE folds across the outcome batch in _dotnet_rows; every other family converts per receipt.
     match _CONVERTERS.get(done.parser):
         case None:
             return ()
@@ -643,7 +643,7 @@ def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
 def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
     sarif = _sarif_rows(sarif_dir, outcomes)
     converted = tuple(row for done in outcomes for row in _rows_of(done))
-    diagnostics = (*converted, *_csharp_rows(outcomes), *sarif)
+    diagnostics = (*converted, *_dotnet_rows(outcomes), *sarif)
     if claim is not Claim.STATIC:
         # A non-static claim keeps every row its stamped parser converted (a buf lane's annotations), ranked and deduped,
         # ahead of the process defect tails; a Parser.NONE receipt converts to nothing, so those folds read as before.
@@ -756,7 +756,7 @@ _TEXT_POLICIES: tuple[_TextPolicy, ...] = (
     ),
 )
 
-# One converter per per-receipt family; CS_CONSOLE folds batch-wide in _csharp_rows for the discovered-count log.
+# One converter per per-receipt family; CS_CONSOLE folds batch-wide in _dotnet_rows for the discovered-count log.
 _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
     Parser.RUFF: lambda payload: _text_rows("ruff", payload),
     Parser.RUFF_FORMAT: lambda payload: _text_rows("ruff-format", payload),

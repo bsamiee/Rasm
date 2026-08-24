@@ -386,13 +386,13 @@ dotnet_diagnostic.CS1591.severity = none                                      # 
 dotnet_diagnostic.CS9236.severity = none                                      # Roslyn lambda binding-cost telemetry, not a defect signal.
 dotnet_diagnostic.CA2225.severity = none                                      # LanguageExt/Thinktecture operator algebra is the canonical surface; named alternates would duplicate it.
 
-[{libs/csharp/Rasm,libs/csharp/Rasm.Rhino,libs/csharp/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/csharp/scenarios,tests/csharp/_architecture}/**.cs]
+[{libs/dotnet/Rasm,libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/dotnet/scenarios,tests/dotnet/_architecture}/**.cs]
 dotnet_diagnostic.CA1416.severity = none                                      # Host-ui assemblies are macos-scoped by SupportedOSPlatform; Rhino.UI/Eto surfaces carry no platform annotations to check against.
 
-[{libs/csharp/Rasm.Rhino,libs/csharp/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/csharp/scenarios,tests/csharp/_architecture}/**.cs]
+[{libs/dotnet/Rasm.Rhino,libs/dotnet/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/dotnet/scenarios,tests/dotnet/_architecture}/**.cs]
 dotnet_diagnostic.CA1724.severity = none                                      # Microsoft.macOS exposes a Phase namespace colliding with the canonical ComponentUi.Phase enum.
 
-[libs/csharp/Rasm.AppHost/**.cs]
+[libs/dotnet/Rasm.AppHost/**.cs]
 dotnet_diagnostic.EXTEXP0002.severity = none                                  # Resource-monitoring range and calculation rows: experimental-API opt-in.
 dotnet_diagnostic.EXTEXP0008.severity = none                                  # Resource-monitoring roster rows: experimental-API opt-in.
 dotnet_diagnostic.EXTOBS0001.severity = none                                  # Telemetry refresh rows: experimental-API opt-in.
@@ -405,7 +405,7 @@ dotnet_diagnostic.StreamJsonRpc0008.severity = none                           # 
 dotnet_diagnostic.CA1008.severity = none                                      # Closed vocabularies (CspScope, rule kinds) have no valid None row.
 dotnet_diagnostic.CA1812.severity = none                                      # Inactive rule-catalog shapes instantiate through the rule table, not direct construction.
 
-[libs/csharp/Rasm.Contracts/Generated/**.cs]
+[libs/dotnet/Rasm.Contracts/Generated/**.cs]
 generated_code = true                                                         # protoc and grpc_csharp_plugin emission; style and analyzer lanes skip it, the compiler still reads it.
 
 [tests/contracts/vendor/**]

@@ -82,7 +82,7 @@ class Input(StrEnum):
 
 # Root C# build-config anchors, spelled as git tracks them: every lane manifest crossing a C# closure keeps them, and an
 # edit to any one escalates routing. One roster serves both consumers so the two ends cannot drift apart again.
-CSHARP_CONFIG_ANCHORS: frozenset[str] = frozenset((
+DOTNET_CONFIG_ANCHORS: frozenset[str] = frozenset((
     ".config/dotnet-tools.json",
     ".editorconfig",
     "Directory.Build.props",
@@ -102,11 +102,11 @@ class Language(StrEnum):
     # Root-relative configs governing the whole lane; a change to one escalates the route because every
     # verdict in the language derives from them, and no source file need change for the answer to move.
     governors: frozenset[str]
-    CSHARP = (
-        "csharp",
+    DOTNET = (
+        "dotnet",
         "closure",
         frozenset((".cs", ".csproj", ".props", ".targets", ".slnx")),
-        frozenset((*CSHARP_CONFIG_ANCHORS, "stryker-config.json")),  # anchors roster + the mutation policy file
+        frozenset((*DOTNET_CONFIG_ANCHORS, "stryker-config.json")),  # anchors roster + the mutation policy file
     )
     PYTHON = "python", "glob", frozenset((".py", ".pyi")), frozenset(("pyproject.toml", "uv.lock"))
     TYPESCRIPT = (
@@ -1007,14 +1007,14 @@ class BaseParams:
                 return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: unexpected positional(s): {clipped}")
 
 
-def language_choice(verb: str, *, csharp: bool = False, python: bool = False, typescript: bool = False) -> Language | Fault | None:
+def language_choice(verb: str, *, dotnet: bool = False, python: bool = False, typescript: bool = False) -> Language | Fault | None:
     """Project mutually-exclusive CLI language flags into the internal language axis.
 
     Returns:
         Selected language, ``None`` when unrestricted, or a parse fault when flags conflict.
     """
     selected = tuple(
-        language for language, active in ((Language.CSHARP, csharp), (Language.PYTHON, python), (Language.TYPESCRIPT, typescript)) if active
+        language for language, active in ((Language.DOTNET, dotnet), (Language.PYTHON, python), (Language.TYPESCRIPT, typescript)) if active
     )
     match selected:
         case ():

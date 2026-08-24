@@ -571,7 +571,7 @@ def test_fold_promote_empty_is_opt_in_per_claim() -> None:
         assert promoted.counts == Counts.of(RailStatus.EMPTY)
 
 
-def test_fold_csharp_process_output_parses_and_dedupes_source_diagnostics() -> None:
+def test_fold_dotnet_process_output_parses_and_dedupes_source_diagnostics() -> None:
     """Dotnet format/build output becomes source Match rows before fallback tails, with exact duplicates collapsed."""
     line = b"src/App/HostControl.cs(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock [src/App/App.csproj]"
     report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line + b"\n" + line), Parser.CS_CONSOLE),))
@@ -645,7 +645,7 @@ def test_fold_static_json_tools_emit_structured_diagnostics() -> None:
     ]
 
 
-def test_fold_csharp_same_location_distinct_messages_are_distinct() -> None:
+def test_fold_dotnet_same_location_distinct_messages_are_distinct() -> None:
     """Same-location compiler rows with different messages remain separate structured diagnostics."""
     first = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PingAsync cannot implement static member"
     second = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PrepareQuitAsync cannot implement static member"
@@ -769,9 +769,9 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
     [
         "libs/python/contracts/rasm/contracts/gen/rasm/contracts/compute/compute_connect.py",
         "libs/typescript/contracts/gen/rasm/contracts/compute/compute_pb.ts",
-        "libs/csharp/Rasm.Contracts/Generated/Compute/ComputeGrpc.cs",
+        "libs/dotnet/Rasm.Contracts/Generated/Compute/ComputeGrpc.cs",
     ],
-    ids=["python", "typescript", "csharp"],
+    ids=["python", "typescript", "dotnet"],
 )
 def test_fold_static_contracts_out_roots_census_as_generated(path: str) -> None:
     """Rows under a committed generated out root census as generated evidence, and the tool's own exit still fails the lane.
@@ -993,8 +993,8 @@ def test_sarif_status_token_qualifies_produced_only(status: SarifStatus, results
 
 @pytest.mark.parametrize(
     "flags, expected",
-    [({}, None), ({"csharp": True}, Language.CSHARP), ({"python": True}, Language.PYTHON), ({"typescript": True}, Language.TYPESCRIPT)],
-    ids=["unrestricted", "csharp", "python", "typescript"],
+    [({}, None), ({"dotnet": True}, Language.DOTNET), ({"python": True}, Language.PYTHON), ({"typescript": True}, Language.TYPESCRIPT)],
+    ids=["unrestricted", "dotnet", "python", "typescript"],
 )
 def test_language_choice_projects_single_flag(flags: dict[str, bool], expected: Language | None) -> None:
     """language_choice maps no flag to None (unrestricted) and one flag to that language."""
@@ -1003,10 +1003,10 @@ def test_language_choice_projects_single_flag(flags: dict[str, bool], expected: 
 
 def test_language_choice_conflicting_flags_fault() -> None:
     """Two or more language flags fault with a parse-step message naming every conflicting flag."""
-    fault = language_choice("check", csharp=True, python=True)
+    fault = language_choice("check", dotnet=True, python=True)
     assert isinstance(fault, Fault)
     assert fault.status is RailStatus.FAULTED
-    assert "--csharp" in fault.message
+    assert "--dotnet" in fault.message
     assert "--python" in fault.message
 
 

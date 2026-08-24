@@ -13,7 +13,7 @@ treemap-beta
 accTitle: Open planning work decomposition
 accDescr: Open card counts decomposed across the three language branches and the shared planning core, so tile area answers where the remaining work concentrates.
 "Open cards"
-    "csharp"
+    "dotnet"
         "solver": 46
         "domain": 38
         "apphost": 27

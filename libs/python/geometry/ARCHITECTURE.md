@@ -97,8 +97,8 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Geometry cross-runtime C# peer seams
-    accDescr: Which kinded contracts cross between the geometry owners and the C# peers.
+    accTitle: Geometry cross-runtime .NET peer seams
+    accDescr: Which kinded contracts cross between the geometry owners and the .NET peers.
     subgraph geometry[GEOMETRY]
         Mesh[Mesh tessellation]
         Ifc[IFC analysis]

@@ -68,7 +68,7 @@ EOF
 5. AGE-GATE CLEANUP: Delete auto-grown `minimumReleaseAgeExclude`; `minimumReleaseAge: 0` disables the gate; rerun `pnpm install`.
 6. BUMP LIST: `git diff pnpm-workspace.yaml` catalog rows.
 
-[CSHARP] — `Directory.Packages.props` + `.config/dotnet-tools.json` are the sole version owners:
+[DOTNET] — `Directory.Packages.props` + `.config/dotnet-tools.json` are the sole version owners:
 1. PROBE every `PackageVersion` and tool id at `api.nuget.org/v3-flatcontainer/<id>/index.json` (lowercase id); pick per channel law.
 2. SEMVER-INVERSION PROBE: Query `api.nuget.org/v3/registration5-gz-semver2/<id>/<ver>.json` for each major's publish date (gzip body).
 3. SEMVER-INVERSION HOLD: Hold candidates older than current pins with comments naming the trap.

@@ -54,21 +54,21 @@ _ECHO_TOOL = Tool(
     runner=Runner.DIRECT,
     command=("/bin/echo", "hello"),
     input=Input.NONE,
-    language=Language.CSHARP,
+    language=Language.DOTNET,
     claim=Claim.STATIC,
     mode=Mode.CHECK,
 )
-_REMOTE_TOOL = Tool(name="remote", runner=Runner.DOTNET, command=("test",), input=Input.NONE, language=Language.CSHARP, claim=Claim.STATIC)
+_REMOTE_TOOL = Tool(name="remote", runner=Runner.DOTNET, command=("test",), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC)
 _TOOL_RUN = Tool(
     name="ilspycmd",
     runner=Runner.DOTNET,
     command=("tool", "run", "ilspycmd", "--", "-l", "cisde"),
     input=Input.NONE,
-    language=Language.CSHARP,
+    language=Language.DOTNET,
     claim=Claim.STATIC,
     mode=Mode.QUERY,
 )
-_ROUTED_CHANGED = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+_ROUTED_CHANGED = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 _PY_CHANGED = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -264,11 +264,11 @@ def test_splice_command_separator_identity_and_project_isolation(assay_root: Ass
     double = splice_command(Runner.DOTNET, ("build", "--", "mid", "--", "tail-b"), scope, verbs, Mode.BUILD)
     assert double == ("build", *flags, "--", "mid", "--", "tail-b"), f"flags must cut at the FIRST separator: {double!r}"
     test_scope = assay_root.scope(Claim.TEST)
-    project_cmd = ("test", "--minimum-expected-tests", "1", "--project", "tests/csharp/libs/Shape/Shape.Tests.csproj")
+    project_cmd = ("test", "--minimum-expected-tests", "1", "--project", "tests/dotnet/libs/Shape/Shape.Tests.csproj")
     spliced = splice_command(Runner.DOTNET, project_cmd, test_scope, verbs, Mode.RUN)
     artifact_path = spliced[spliced.index("--artifacts-path") + 1]
     assert artifact_path != test_scope.path
-    assert artifact_path.endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
+    assert artifact_path.endswith("/dotnet/tests__dotnet__libs__Shape__Shape.Tests")
 
 
 def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exact-argv law: every runner/mode row shares the settings/scope fixture
@@ -289,7 +289,7 @@ def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exac
     direct_argv = assert_ok(argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None))
     assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"
     scope = assay_root.scope(Claim.STATIC)
-    query = Tool("query-argv-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.QUERY)
+    query = Tool("query-argv-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.DOTNET, Claim.STATIC, mode=Mode.QUERY)
     query_argv = assert_ok(argv_for(Check(tool=query), _ROUTED_CHANGED, settings=settings, scope=scope))
     assert query_argv == ("dotnet", "build", "Workspace.slnx"), f"QUERY mode must never splice scope flags: {query_argv!r}"
     files_tool = msgspec.structs.replace(_ECHO_TOOL, runner=Runner.UV, command=("ruff", "check"), input=Input.FILES)
@@ -297,11 +297,11 @@ def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:  # one exac
     tails = assert_ok(argv_for(Check(tool=files_tool), routed_files, settings=settings, scope=scope))
     assert tails[:2] == Runner.UV.prefix, f"runner prefix not leading argv: {tails!r}"
     assert {"ruff", "check", "a.py", "b.py"} <= set(tails), f"command body or routed tails lost in {tails!r}"
-    project_tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN, input_flag=("--project",))
-    routed_projects = Routed(language=Language.CSHARP, scope=Scope.FULL, projects=("tests/csharp/libs/Shape/Shape.Tests.csproj",))
+    project_tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.DOTNET, Claim.TEST, mode=Mode.RUN, input_flag=("--project",))
+    routed_projects = Routed(language=Language.DOTNET, scope=Scope.FULL, projects=("tests/dotnet/libs/Shape/Shape.Tests.csproj",))
     project_argv = assert_ok(argv_for(Check(tool=project_tool), routed_projects, settings=settings, scope=assay_root.scope(Claim.TEST)))
-    assert project_argv[project_argv.index("--artifacts-path") + 1].endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")
-    assert project_argv[project_argv.index("--project") + 1] == "tests/csharp/libs/Shape/Shape.Tests.csproj"
+    assert project_argv[project_argv.index("--artifacts-path") + 1].endswith("/dotnet/tests__dotnet__libs__Shape__Shape.Tests")
+    assert project_argv[project_argv.index("--project") + 1] == "tests/dotnet/libs/Shape/Shape.Tests.csproj"
 
 
 # --- [APPHOST_ENV]
@@ -472,7 +472,7 @@ _LOCAL_ONLY_ROWS: tuple[tuple[str, Tool, str], ...] = (
     *(
         (
             claim.value,
-            Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.CSHARP, claim, mode=Mode.VERIFY),
+            Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.DOTNET, claim, mode=Mode.VERIFY),
             "host-bound tools require local execution",
         )
         for claim in (Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION)
@@ -560,7 +560,7 @@ def test_guarded_projects_argv_scope_and_governed_limiter_into_execute(assay_roo
     monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 0)
     settings = assay_root.settings.model_copy(update={"cpu_count": 4, "max_checks": 8, "dotnet_max_cpu": 2, "mutation_max_cpu": 8})
     scope = assay_root.scope(Claim.STATIC)
-    tool = Tool("argv-proj-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
+    tool = Tool("argv-proj-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD)
     check = Check(tool=tool)
     expected = assert_ok(argv_for(check, _ROUTED_CHANGED, settings=settings, scope=scope))
     assert set(scope.dotnet_flags) <= set(expected), "law vacuous: scope flags absent from the projected argv"

@@ -133,7 +133,7 @@ _LANE_ROWS: tuple[tuple[str, bool, tuple[str, ...]], ...] = (
 
 
 @pytest.mark.parametrize("fix, phases", [row[1:] for row in _LANE_ROWS], ids=[row[0] for row in _LANE_ROWS])
-def test_csharp_project_lane_runs_ordered_lane(
+def test_dotnet_project_lane_runs_ordered_lane(
     monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, fix: bool, phases: tuple[str, ...]
 ) -> None:
     """A C# project target diagnoses, restores, and builds; ``--fix`` prepends the probe-gated fix phase."""
@@ -143,11 +143,11 @@ def test_csharp_project_lane_runs_ordered_lane(
     report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj", fix=fix), executor))
     assert isinstance(report.detail, StaticRun)
     assert report.detail.phases == phases
-    assert any(row[0] == "csharp" and row[3] == "1" for row in report.detail.routes)
+    assert any(row[0] == "dotnet" and row[3] == "1" for row in report.detail.routes)
     assert any("dotnet build" in argv and "src/App/App.csproj" in argv for _, _, argv in report.detail.planned)
 
 
-def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+def test_folder_lane_spans_python_typescript_and_dotnet(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """A mixed folder runs the admitted diagnostic + build rows for every language touched."""
     assay_root.write("src/App/App.csproj", "<Project />")
     assay_root.write("src/App/a.cs", "class A {}")
@@ -218,7 +218,7 @@ _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], 
     (
         "changed-files-bind-project-plus-include",
         Routed(
-            Language.CSHARP,
+            Language.DOTNET,
             Scope.CHANGED,
             files=("src/App/a.cs",),
             projects=("src/App/App.csproj",),
@@ -228,7 +228,7 @@ _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], 
     ),
     (
         "direct-project-binds-project-not-empty-include",
-        Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj",)),
+        Routed(Language.DOTNET, Scope.CHANGED, projects=("src/App/App.csproj",)),
         lambda planned: any(argv.endswith("src/App/App.csproj") for _, name, argv in planned if name == "dotnet-format"),
     ),
 )
@@ -250,7 +250,7 @@ def test_glob_route_survives_on_its_trigger_not_its_scope(*, routed: Routed, emp
 
 
 @pytest.mark.parametrize("routed, admitted", [row[1:] for row in _PLACEMENT_ROWS], ids=[row[0] for row in _PLACEMENT_ROWS])
-def test_csharp_format_placement_matrix(
+def test_dotnet_format_placement_matrix(
     assay_root: AssayHarness, routed: Routed, admitted: Callable[[tuple[tuple[str, str, str], ...]], bool]
 ) -> None:
     """C# format rows bind to the owner project (plus ``--include`` file tails when files route), never Workspace.slnx."""
@@ -260,9 +260,9 @@ def test_csharp_format_placement_matrix(
     assert admitted(planned)
 
 
-def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarness) -> None:
+def test_dotnet_workspace_format_uses_solution_placement(assay_root: AssayHarness) -> None:
     """Explicit all-workspace routes place dotnet format/restore/build on Workspace.slnx."""
-    routed = Routed(Language.CSHARP, Scope.FULL, full_triggers=(str(assay_root.settings.solution),))
+    routed = Routed(Language.DOTNET, Scope.FULL, full_triggers=(str(assay_root.settings.solution),))
     phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
     assert skipped == ()
@@ -271,10 +271,10 @@ def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarnes
     assert all("--disable-build-servers" not in argv for _, _, argv in planned)
 
 
-def test_csharp_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -> None:
+def test_dotnet_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -> None:
     """Expanded C# build checks write SARIF into per-invocation directories, not one shared project-name path."""
     scope = assay_root.scope(Claim.STATIC)
-    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"))
+    routed = Routed(Language.DOTNET, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"))
     phases, skipped = static_rail._phase_checks(routed, assay_root.settings, scope, static_rail._MODES)
     assert skipped == ()
     sarif_dirs = tuple(check.args.sarif_dir for phase, checks in phases if phase is static_rail.Phase.BUILD for check in checks)
@@ -291,9 +291,9 @@ def test_csharp_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -
 
 def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
     """Restore failure blocks closure build instead of racing --no-restore."""
-    routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
-    restore = Check(Tool("restore", Runner.DIRECT, ("restore",), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.RESTORE))
-    compile_check = Check(Tool("compile", Runner.DIRECT, ("compile",), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD))
+    routed = Routed(Language.DOTNET, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
+    restore = Check(Tool("restore", Runner.DIRECT, ("restore",), Input.NONE, Language.DOTNET, Claim.STATIC, mode=Mode.RESTORE))
+    compile_check = Check(Tool("compile", Runner.DIRECT, ("compile",), Input.NONE, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD))
     calls: list[tuple[Mode, ...]] = []
 
     def fake_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
@@ -316,14 +316,14 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
 # --- [PROBE_GATE_LAWS]
 
 
-def _csharp_closure_phases() -> static_rail.PhaseChecks:
+def _dotnet_closure_phases() -> static_rail.PhaseChecks:
     fmt_write = Check(
-        Tool("dotnet-format", Runner.DOTNET, ("format", "--severity", "error"), Input.INCLUDE, Language.CSHARP, Claim.STATIC, mode=Mode.WRITE)
+        Tool("dotnet-format", Runner.DOTNET, ("format", "--severity", "error"), Input.INCLUDE, Language.DOTNET, Claim.STATIC, mode=Mode.WRITE)
     )
-    fmt_check = Check(Tool("dotnet-format", Runner.DOTNET, ("format", "--verify-no-changes"), Input.INCLUDE, Language.CSHARP, Claim.STATIC))
-    restore = Check(Tool("dotnet-restore", Runner.DOTNET, ("restore",), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=Mode.RESTORE))
+    fmt_check = Check(Tool("dotnet-format", Runner.DOTNET, ("format", "--verify-no-changes"), Input.INCLUDE, Language.DOTNET, Claim.STATIC))
+    restore = Check(Tool("dotnet-restore", Runner.DOTNET, ("restore",), Input.PROJECT, Language.DOTNET, Claim.STATIC, mode=Mode.RESTORE))
     build = Check(
-        Tool("dotnet-build", Runner.DOTNET, ("build", "--no-restore"), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD),
+        Tool("dotnet-build", Runner.DOTNET, ("build", "--no-restore"), Input.PROJECT, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD),
         tail=("src/App/App.csproj",),
     )
     return (
@@ -341,7 +341,7 @@ def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assa
     The closure restore and build run either way — compiles (probe) and blocked (restore->build) stay distinct, and a
     gated format family never vanishes silently from the receipt stream.
     """
-    routed = Routed(Language.CSHARP, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
+    routed = Routed(Language.DOTNET, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
     ran: list[str] = []
 
     def recording_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
@@ -351,7 +351,7 @@ def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assa
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     executor = SeamExecutor(run_fn=_compiling_probe if compiles else _failing_probe, fan_fn=recording_fan)
     rows = static_rail._dispatch(
-        routed, phases=_csharp_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
+        routed, phases=_dotnet_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
     )
     assert ran.count("dotnet-format") == (2 if compiles else 0)
     assert {"dotnet-restore", "dotnet-build"} <= set(ran)

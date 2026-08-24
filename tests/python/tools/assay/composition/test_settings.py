@@ -38,7 +38,7 @@ from assay.composition.store import (
     ArtifactFileSystem,
     ArtifactScope,
     ArtifactStore,
-    CS_ARTIFACT_ROOTS,
+    DOTNET_ARTIFACT_ROOTS,
     DOTNET_BUILD_CLOSURE,
     mtime_from_info,
     prune_python_artifacts,
@@ -1033,9 +1033,9 @@ def test_artifact_roots_route_all_heavy_lanes() -> None:
     assert all(root.startswith(".artifacts/python/") for root in PY_ARTIFACT_ROOTS.values())
     assert set(PY_COVERAGE_FILES) == {"json", "xml", "lcov"}
     assert all(path == f"{PY_ARTIFACT_ROOTS['coverage']}/coverage.{fmt}" for fmt, path in PY_COVERAGE_FILES.items())
-    assert set(CS_ARTIFACT_ROOTS) == {"stryker", "stryker-output", "trx"}
-    assert all(root.startswith(".artifacts/csharp/") for root in CS_ARTIFACT_ROOTS.values())
-    assert CS_ARTIFACT_ROOTS["stryker"].startswith(f"{CS_ARTIFACT_ROOTS['stryker-output']}/"), "work tree nests under the report root"
+    assert set(DOTNET_ARTIFACT_ROOTS) == {"stryker", "stryker-output", "trx"}
+    assert all(root.startswith(".artifacts/dotnet/") for root in DOTNET_ARTIFACT_ROOTS.values())
+    assert DOTNET_ARTIFACT_ROOTS["stryker"].startswith(f"{DOTNET_ARTIFACT_ROOTS['stryker-output']}/"), "work tree nests under the report root"
     assert DOTNET_BUILD_CLOSURE == "dotnet"
     assert "/" not in DOTNET_BUILD_CLOSURE
 

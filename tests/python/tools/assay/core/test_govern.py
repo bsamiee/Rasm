@@ -108,12 +108,12 @@ _ECHO_TOOL = Tool(
     runner=Runner.DIRECT,
     command=("/bin/echo", "hello"),
     input=Input.NONE,
-    language=Language.CSHARP,
+    language=Language.DOTNET,
     claim=Claim.STATIC,
     mode=Mode.CHECK,
 )
-_REMOTE_TOOL = Tool(name="remote", runner=Runner.DOTNET, command=("test",), input=Input.NONE, language=Language.CSHARP, claim=Claim.STATIC)
-_ROUTED_CHANGED = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+_REMOTE_TOOL = Tool(name="remote", runner=Runner.DOTNET, command=("test",), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC)
+_ROUTED_CHANGED = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -127,7 +127,7 @@ def _run(check: Check, harness: AssayHarness, *, scope: ArtifactScope | None = N
     return run_check(check, settings=harness.settings, scope=scope, routed=_ROUTED_CHANGED)
 
 
-def _stream_tool(name: str, command: tuple[str, ...], language: Language = Language.CSHARP) -> Tool:
+def _stream_tool(name: str, command: tuple[str, ...], language: Language = Language.DOTNET) -> Tool:
     """Build a BUILD-mode DIRECT tool that exercises streaming tail and artifact paths.
 
     Returns:
@@ -441,9 +441,9 @@ def test_stream_writer_rejects_non_context_backend_handle(assay_root: AssayHarne
 # --- [STREAMING_LOCAL]
 
 _STREAM_LOCAL: tuple[tuple[str, tuple[str, ...], Language, bytes, bool], ...] = (
-    ("scoped-persists-full", ("/bin/echo", "stream-ok"), Language.CSHARP, b"stream-ok\n", True),
+    ("scoped-persists-full", ("/bin/echo", "stream-ok"), Language.DOTNET, b"stream-ok\n", True),
     ("8kib-full-payload-persists", (sys.executable, "-c", "import sys; sys.stdout.write('x' * 8192)"), Language.PYTHON, b"x" * 8192, True),
-    ("noscope-full-inline-no-artifact", ("/bin/echo", "stream-ok"), Language.CSHARP, b"stream-ok\n", False),
+    ("noscope-full-inline-no-artifact", ("/bin/echo", "stream-ok"), Language.DOTNET, b"stream-ok\n", False),
 )
 
 

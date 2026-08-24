@@ -10,6 +10,6 @@
     </PropertyGroup>
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Contract/Contract.csproj" />
-        <ProjectReference Include="../../../tests/csharp/_scenariokit/Rasm.ScenarioKit.csproj" />
+        <ProjectReference Include="../../../tests/dotnet/_scenariokit/Rasm.ScenarioKit.csproj" />
     </ItemGroup>
 </Project>

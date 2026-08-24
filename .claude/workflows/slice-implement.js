@@ -41,16 +41,16 @@ const MAP_SECTIONS = ['FACTS', 'DEFECTS', 'CAPABILITY', 'MEMBER_TRUTH', 'DECLARA
 const FIND_SECTIONS = ['FINDINGS', 'COVERAGE'];
 const TMAP_SECTIONS = ['FACTS', 'CAPABILITY', 'GAPS', 'DRIFT', 'SPINE', 'COVERAGE'];
 const CENSUS_SECTIONS = ['SURFACES', 'ORPHANS', 'DUPLICATES', 'UNEXPLOITED', 'TWINS', 'COVERAGE'];
-const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
+const SHORT = { dotnet: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
 const LANGS = [
-    { key: 'csharp', root: 'libs/csharp' },
+    { key: 'dotnet', root: 'libs/dotnet' },
     { key: 'python', root: 'libs/python' },
     { key: 'typescript', root: 'libs/typescript' },
 ];
 const DRAINS = LANGS.concat([{ key: 'cross', root: 'libs/.planning' }]); // the cross tier drains too — a row targeting it routed nowhere before
-const GATES = { csharp: 'dotnet build', python: 'pytest --collect-only', typescript: 'pnpm install then pnpm typecheck' };
+const GATES = { dotnet: 'dotnet build', python: 'pytest --collect-only', typescript: 'pnpm install then pnpm typecheck' };
 const AXES = {
-    csharp:
+    dotnet:
         'deterministic doubles; in-memory capture/collector rails and fakes for the seams this slice realized; deterministic TimeProvider ' +
         'clocks; transport/harness rails for those seams; BenchmarkDotNet corpus-gate wiring where the slice carries a bench surface',
     python:
@@ -113,7 +113,7 @@ const DISCOVERY = {
                 required: ['path', 'language', 'openCards'],
                 properties: {
                     path: { type: 'string' },
-                    language: { type: 'string', enum: ['csharp', 'python', 'typescript', 'cross'] },
+                    language: { type: 'string', enum: ['dotnet', 'python', 'typescript', 'cross'] },
                     openCards: { type: 'integer' },
                 },
             },
@@ -361,7 +361,7 @@ const ROW_LAW =
     'you and NEVER edits a central manifest (Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml) from your delegate: it lands as a ' +
     'packagesMissing row {package, language, reason} — the owning language drain executes the alignment chain for a receipt-evidenced ' +
     'composed package and re-cards a non-composed wish to the ideation pool; language names the owning manifest language ' +
-    '(csharp|python|typescript), never cross.';
+    '(dotnet|python|typescript), never cross.';
 
 const RESEARCH_LAW =
     'Research debt on unit pages and every file you touch — the map [RESEARCH] census is the queue, plus your own sweep of each unit page ' +
@@ -795,7 +795,7 @@ const packBatches = (f, units) => {
 };
 const apiTiersOf = (f) =>
     f.language === 'cross'
-        ? REPO + '/libs/csharp/.api, ' + REPO + '/libs/python/.api, and ' + REPO + '/libs/typescript/.api'
+        ? REPO + '/libs/dotnet/.api, ' + REPO + '/libs/python/.api, and ' + REPO + '/libs/typescript/.api'
         : (f.path.endsWith('/.planning') ? '' : f.path + '/.api and ') + REPO + '/libs/' + f.language + '/.api';
 const doctrineOf = (f) =>
     f.language === 'cross'
@@ -822,7 +822,7 @@ const territoryOf = (f) =>
           '; both ends of every touched seam land in the same pass, and a cross-libs card closes only when every folder ripple is on disk'
         : f.path + ' only';
 const memoryClause = (f) =>
-    f.language === 'csharp' || f.language === 'cross'
+    f.language === 'dotnet' || f.language === 'cross'
         ? ', and the memory index at /Users/bardiasamiee/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md — ' +
           'open every reference_* entry naming a surface this batch composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or any ' +
           'other surface the batch pulls in). CURATION DUTY: a consulted entry verifies against current disk before use — a drifted entry repairs in place, a dead or ' +
@@ -1005,13 +1005,13 @@ const discoverTask = (report) =>
     'Goal: resolve the card-owning folder roster from disk and write it as one JSON object.\n' +
     'Folders: every package directory directly under ' +
     REPO +
-    '/libs/csharp, ' +
+    '/libs/dotnet, ' +
     REPO +
     '/libs/python, and ' +
     REPO +
     '/libs/typescript that carries IDEAS.md or TASKLOG.md at its root (skip node_modules and dot-directories); plus each branch tier ' +
     REPO +
-    '/libs/{csharp,python,typescript}/.planning where card files exist; plus the cross-libs tier ' +
+    '/libs/{dotnet,python,typescript}/.planning where card files exist; plus the cross-libs tier ' +
     REPO +
     '/libs/.planning.\n' +
     'Per folder count OPEN cards: lines matching ^\\[[A-Za-z0-9_-]+\\]-\\[(ACTIVE|QUEUED|BLOCKED)\\] inside the [01]-[OPEN] section of ' +
@@ -1273,7 +1273,7 @@ const drainPrompt = (L, receiptPaths) =>
     (L.key === 'cross'
         ? '; never a central manifest, and never a language tree under ' +
           REPO +
-          '/libs/{csharp,python,typescript} — those are the sibling drains territory'
+          '/libs/{dotnet,python,typescript} — those are the sibling drains territory'
         : ' plus the ' +
           L.key +
           ' central manifest for admission-alignment rows only; never a sibling language tree, never ' +
@@ -1356,7 +1356,7 @@ const rtPrompt = (L, drainR, receiptPaths, residualRows, censusR, findReports) =
     ', read IN FULL from disk — verified inventory, not a lead: do not re-enumerate the catalogs, registries, or manifests it covers. Its ' +
     '[UNEXPLOITED] rows are admitted capability no owner composes, each carrying its exact transcribed declaration — close each in the ' +
     'owning fence or record the ruling that refuses it. Its [SURFACES], [ORPHANS], and [DUPLICATES] rows are the manifest <-> .api ' +
-    'catalogs (both tiers) <-> README registries <-> project manifests (csproj rows for csharp) drift set — repair each at its owning ' +
+    'catalogs (both tiers) <-> README registries <-> project manifests (csproj rows for dotnet) drift set — repair each at its owning ' +
     'surface. Its [TWINS] collision rows are owner-grain attack material: rule the folder at the lowest consumer-reachable stratum ' +
     'canonical and collapse or justify the twin at both owners. A census row you refute against current disk records refuted with its ' +
     'citation; a drift the census missed and your own pass ' +
@@ -1407,7 +1407,7 @@ const censusTask = (L) =>
     'Census the ' +
     L.key +
     ' four closure surfaces. Territory: the central manifest (' +
-    (L.key === 'csharp' ? 'Directory.Packages.props' : L.key === 'python' ? 'pyproject.toml' : 'pnpm-workspace.yaml') +
+    (L.key === 'dotnet' ? 'Directory.Packages.props' : L.key === 'python' ? 'pyproject.toml' : 'pnpm-workspace.yaml') +
     ' at ' +
     REPO +
     '), every .api catalog under the language-root tier ' +
@@ -1419,7 +1419,7 @@ const censusTask = (L) =>
     '/' +
     L.root +
     ', the README package-registry section of every package folder under that root, and the project manifests (' +
-    (L.key === 'csharp' ? 'every .csproj under the root' : L.key === 'python' ? 'the pyproject tool sections' : 'each package.json under the root') +
+    (L.key === 'dotnet' ? 'every .csproj under the root' : L.key === 'python' ? 'the pyproject tool sections' : 'each package.json under the root') +
     '). Grade [UNEXPLOITED] against the owners on the design pages under that root: an admitted member no owner composes is a row. ' +
     '[UNEXPLOITED] member-depth opens are confined to manifest-admitted package catalogs; the [SURFACES]/[ORPHANS]/[DUPLICATES] name ' +
     'census rides one aggregate ripgrep sweep per surface family, never per-file reads.';
@@ -1505,7 +1505,7 @@ const testsMapTask = (L) =>
     ' tests tree under ' +
     REPO +
     '/tests (resolve the exact directory from the README), the root test spine (' +
-    (L.key === 'csharp'
+    (L.key === 'dotnet'
         ? 'Directory.Build.props, Directory.Build.targets, global.json test rows'
         : L.key === 'python'
           ? 'pyproject.toml test tier and pytest configuration'
@@ -1552,7 +1552,7 @@ const testsImplPrompt = (L, mapR) =>
     '/tests/README.md) plus the ' +
     L.key +
     ' rows of the root test spine (' +
-    (L.key === 'csharp'
+    (L.key === 'dotnet'
         ? 'Directory.Build.props/targets test rows and tests-level project files'
         : L.key === 'python'
           ? 'pyproject.toml test tier and pytest configuration rows'
@@ -1621,9 +1621,9 @@ const auditTask = (roots, selected, residuals, receipts, report) =>
     ' — a "deferred" endpoint no drain or red-team document shows applied and current disk does not satisfy joins openCards as {file: the ' +
     'endpoint, card: "ripple: " + its source}; the drain and red-team documents are ' +
     OUT +
-    '/drain-{csharp,python,typescript,cross}.md and ' +
+    '/drain-{dotnet,python,typescript,cross}.md and ' +
     OUT +
-    '/redteam-{csharp,python,typescript}.md, read where present. UNCONSUMED DRAIN RESIDUALS (no language tree consumed them): ' +
+    '/redteam-{dotnet,python,typescript}.md, read where present. UNCONSUMED DRAIN RESIDUALS (no language tree consumed them): ' +
     JSON.stringify(residuals) +
     ' — verify each against current disk; one still unapplied joins openCards as {file: its targetFile, card: "residual: " + its change}. ' +
     'Constraints: read only; edit no file other than the product; no git command; counts only, no verdicts beyond the rosters.\n' +

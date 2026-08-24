@@ -33,7 +33,7 @@ Root config estates reach every island already, so an app invents no configurati
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position.
 - Nested estate files under an island open with the upward chaining import, whose canonical line rides a comment in `Directory.Build.props`.
-- Omitting that import erases the whole root estate while the build stays green, and `tests/csharp/_architecture` refuses the file.
+- Omitting that import erases the whole root estate while the build stays green, and `tests/dotnet/_architecture` refuses the file.
 
 [PYTHON]:
 - Root `pyproject.toml` owns resolution, dependency groups, and the one `uv.lock`; member manifests carry membership and bare-name edges.

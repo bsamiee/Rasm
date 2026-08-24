@@ -78,64 +78,64 @@
             "scope": ["libs/**"]
         },
         {
-            "path": "libs/csharp/.planning/RULINGS.md",
-            "description": "C# branch decision registry: settled re-litigation guards for the csharp corpus",
-            "scope": ["libs/csharp/**"]
+            "path": "libs/dotnet/.planning/RULINGS.md",
+            "description": ".NET branch decision registry: settled re-litigation guards for the dotnet corpus",
+            "scope": ["libs/dotnet/**"]
         },
         {
-            "path": "libs/csharp/Rasm/RULINGS.md",
+            "path": "libs/dotnet/Rasm/RULINGS.md",
             "description": "Rasm package decision registry: settled re-litigation guards for the kernel package",
-            "scope": ["libs/csharp/Rasm/**"]
+            "scope": ["libs/dotnet/Rasm/**"]
         },
         {
-            "path": "libs/csharp/Rasm.AppHost/RULINGS.md",
+            "path": "libs/dotnet/Rasm.AppHost/RULINGS.md",
             "description": "Rasm.AppHost package decision registry: settled re-litigation guards for the app-host package",
-            "scope": ["libs/csharp/Rasm.AppHost/**"]
+            "scope": ["libs/dotnet/Rasm.AppHost/**"]
         },
         {
-            "path": "libs/csharp/Rasm.AppUi/RULINGS.md",
+            "path": "libs/dotnet/Rasm.AppUi/RULINGS.md",
             "description": "Rasm.AppUi package decision registry: settled re-litigation guards for the app-ui package",
-            "scope": ["libs/csharp/Rasm.AppUi/**"]
+            "scope": ["libs/dotnet/Rasm.AppUi/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Bim/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Bim/RULINGS.md",
             "description": "Rasm.Bim package decision registry: settled re-litigation guards for the bim package",
-            "scope": ["libs/csharp/Rasm.Bim/**"]
+            "scope": ["libs/dotnet/Rasm.Bim/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Compute/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Compute/RULINGS.md",
             "description": "Rasm.Compute package decision registry: settled re-litigation guards for the compute package",
-            "scope": ["libs/csharp/Rasm.Compute/**"]
+            "scope": ["libs/dotnet/Rasm.Compute/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Element/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Element/RULINGS.md",
             "description": "Rasm.Element package decision registry: settled re-litigation guards for the element package",
-            "scope": ["libs/csharp/Rasm.Element/**"]
+            "scope": ["libs/dotnet/Rasm.Element/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Fabrication/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Fabrication/RULINGS.md",
             "description": "Rasm.Fabrication package decision registry: settled re-litigation guards for the fabrication package",
-            "scope": ["libs/csharp/Rasm.Fabrication/**"]
+            "scope": ["libs/dotnet/Rasm.Fabrication/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Grasshopper/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Grasshopper/RULINGS.md",
             "description": "Rasm.Grasshopper package decision registry: settled re-litigation guards for the grasshopper package",
-            "scope": ["libs/csharp/Rasm.Grasshopper/**"]
+            "scope": ["libs/dotnet/Rasm.Grasshopper/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Materials/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Materials/RULINGS.md",
             "description": "Rasm.Materials package decision registry: settled re-litigation guards for the materials package",
-            "scope": ["libs/csharp/Rasm.Materials/**"]
+            "scope": ["libs/dotnet/Rasm.Materials/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Persistence/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Persistence/RULINGS.md",
             "description": "Rasm.Persistence package decision registry: settled re-litigation guards for the persistence package",
-            "scope": ["libs/csharp/Rasm.Persistence/**"]
+            "scope": ["libs/dotnet/Rasm.Persistence/**"]
         },
         {
-            "path": "libs/csharp/Rasm.Rhino/RULINGS.md",
+            "path": "libs/dotnet/Rasm.Rhino/RULINGS.md",
             "description": "Rasm.Rhino package decision registry: settled re-litigation guards for the rhino host-boundary package",
-            "scope": ["libs/csharp/Rasm.Rhino/**"]
+            "scope": ["libs/dotnet/Rasm.Rhino/**"]
         },
         {
             "path": "libs/python/.planning/RULINGS.md",
@@ -213,9 +213,9 @@
             "scope": ["tests/**"]
         },
         {
-            "path": "tests/csharp/RULINGS.md",
-            "description": "C# test-tree decision registry: settled re-litigation guards for the csharp proof tree",
-            "scope": ["tests/csharp/**"]
+            "path": "tests/dotnet/RULINGS.md",
+            "description": "C# test-tree decision registry: settled re-litigation guards for the dotnet proof tree",
+            "scope": ["tests/dotnet/**"]
         },
         {
             "path": "tests/python/RULINGS.md",

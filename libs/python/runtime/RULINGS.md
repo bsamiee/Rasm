@@ -6,7 +6,7 @@
 
 Sub-modules admit or refuse on their module-scope side effects, never the distribution.
 
-- Broker client legs ADMIT here — a branch carrying the message envelope owner dials it, and Speckle and OPC-UA terminate C#-side on SDK reach alone.
+- Broker client legs ADMIT here — a branch carrying the message envelope owner dials it, and Speckle and OPC-UA terminate .NET-side on SDK reach alone.
 - `confluent-kafka` is the one Kafka client — librdkafka is the engine the C# and TypeScript legs dial, so a pure-Python client forks that floor.
 - `cloudevents.core` is the admitted family and `cloudevents.v1` refuses — `v1.http.CloudEvent` checks a required-NAME subset and mutates past it.
 - `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.

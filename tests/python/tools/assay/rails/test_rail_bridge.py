@@ -259,7 +259,7 @@ def test_scenario_closure_and_aggregate(assay_root: AssayHarness) -> None:
     assert "evidenceMode" not in payload, "argv owns the evidence mode; the closure manifest never carries it"
     (reference_root,) = payload["referenceRoots"]
     assert reference_root["assembly"] == "Rasm.Scenarios.dll"
-    assert reference_root["path"].endswith("tests/csharp/scenarios/_references")
+    assert reference_root["path"].endswith("tests/dotnet/scenarios/_references")
 
 
 def test_missing_scenario_closure_faults(assay_root: AssayHarness) -> None:
@@ -355,7 +355,7 @@ def test_build_folds_bridge_build_receipt(assay_root: AssayHarness) -> None:
 
 def test_verify_folds_session_summary(assay_root: AssayHarness) -> None:
     """Verify drives build, closure aggregation, and the supervisor session end-to-end over the executor port."""
-    assay_root.write("tests/csharp/scenarios/Blocks/CoreRail.cs", "// scenario source")
+    assay_root.write("tests/dotnet/scenarios/Blocks/CoreRail.cs", "// scenario source")
     scope = assay_root.scope(Claim.BRIDGE)
     # The verify prelude reads the closure from the bridge BUILD scope, not the claim scope.
     build_root = Path(str(ArtifactScope.build(assay_root.settings, "bridge").path))
@@ -391,7 +391,7 @@ def test_verify_empty_corpus_short_circuits_unsupported(assay_root: AssayHarness
 
 def test_verify_non_empty_corpus_proceeds_past_guard(assay_root: AssayHarness) -> None:
     """One scenario source defeats the guard: verify reaches the build stage and propagates its fault."""
-    assay_root.write("tests/csharp/scenarios/Blocks/CoreRail.cs", "// scenario source")
+    assay_root.write("tests/dotnet/scenarios/Blocks/CoreRail.cs", "// scenario source")
     stop = Error(Fault(("rasm-bridge-build",), RailStatus.FAULTED, "stop after the guard"))
     executor = SeamExecutor(run_fn=_bridge_run(_envelope(), build_outcome=stop))
     outcome = verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), executor)

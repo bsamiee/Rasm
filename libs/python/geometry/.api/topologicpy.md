@@ -161,4 +161,4 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 - Package: `topologicpy`
 - Owns: non-manifold cell/aperture topology modeling, polymorphic `Topology` analysis and boolean ops, graph construction and analytics, dictionary attributes, and vector/matrix/color algebra, gated against the C# `IfcSemanticModel`
 - Accept: non-manifold topology and graph analysis feeding the geometry-algebra owner on the opt-in Forge lane
-- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting the IFC semantic identity the C# owner holds; linking into the default server build or any network-exposed deployment off the Forge lane
+- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting the IFC semantic identity the .NET owner holds; linking into the default server build or any network-exposed deployment off the Forge lane

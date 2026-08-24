@@ -53,7 +53,7 @@ if TYPE_CHECKING:
 # recv_ssh is govern's ssh drain arm; the remote streaming round-trip is its only real driver.
 COVERS: tuple[object, ...] = (pooled_ssh, recv_ssh, remote_command, run_remote, ssh_outcome)
 
-_ROUTED_CHANGED = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+_ROUTED_CHANGED = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 
 # Scope-tree seed shared by the remote-write seeding and the landed-artifact assertions; coverage.xml lives under sarif/.
 _SEED_FILES: tuple[tuple[str, bytes], ...] = (("results.sarif", b'{"runs":[]}\n'), ("coverage.xml", b"<coverage/>\nline2\n"))
@@ -67,7 +67,7 @@ def _stream_tool(name: str, command: tuple[str, ...]) -> Tool:
     Returns:
         BUILD-mode DIRECT tool over ``command``.
     """
-    return Tool(name, Runner.DIRECT, command, Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
+    return Tool(name, Runner.DIRECT, command, Input.NONE, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD)
 
 
 def _remote_settings(root: Path | str, **overrides: object) -> AssaySettings:
@@ -158,7 +158,7 @@ def test_fold_receipt_projects_exec_facts_onto_completed() -> None:
 async def test_run_check_remote_round_trips_through_ssh_double(assay_root: AssayHarness, ssh_env: SshEnv) -> None:
     """The non-streaming remote arm shell-quotes argv and returns the ssh double reply."""
     remote = assay_root.remote(ssh_env.url)
-    check = Check(tool=Tool("remote-echo", Runner.DIRECT, ("/bin/echo", "hello"), Input.NONE, Language.CSHARP, Claim.STATIC), cwd=assay_root.root)
+    check = Check(tool=Tool("remote-echo", Runner.DIRECT, ("/bin/echo", "hello"), Input.NONE, Language.DOTNET, Claim.STATIC), cwd=assay_root.root)
     # Bridge run_check's owned event loop through a thread under anyio tests.
     outcome = await anyio.to_thread.run_sync(  # ty: ignore[unresolved-attribute]
         lambda: run_check(check, settings=remote, scope=None, routed=_ROUTED_CHANGED)
@@ -197,7 +197,7 @@ async def test_run_check_remote_streaming_round_trips(
 async def test_fan_out_remote_pools_ssh_connection(assay_root: AssayHarness, ssh_env: SshEnv) -> None:
     """``fan_out`` over a remote runner pools one ssh connection across workers and closes it on scope exit."""
     remote = assay_root.remote(ssh_env.url)
-    base = Tool("remote-fan-law", Runner.DIRECT, ("/bin/echo", "hi"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.CHECK)
+    base = Tool("remote-fan-law", Runner.DIRECT, ("/bin/echo", "hi"), Input.NONE, Language.DOTNET, Claim.STATIC, mode=Mode.CHECK)
     checks = tuple(Check(tool=msgspec.structs.replace(base, name=f"remote-fan-{i}"), cwd=assay_root.root) for i in range(2))
 
     def _sync() -> tuple[Result[Completed, Fault], ...]:
@@ -549,8 +549,8 @@ def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = (
     )
 
 
-def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: AssayHarness) -> None:
-    """The C# lane manifest is the transitive ProjectReference closure plus root build config, not the whole git tree.
+def test_lane_manifest_dotnet_scopes_to_transitive_project_closure(assay_root: AssayHarness) -> None:
+    """The .NET lane manifest is the transitive ProjectReference closure plus root build config, not the whole git tree.
 
     A naive subtree scope would drop ``libs/B`` when the build seeds ``libs/A`` that references it across directories;
     the closure walk keeps B and its files while excluding the unrelated ``libs/C`` project tree entirely.
@@ -573,7 +573,7 @@ def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: A
         "libs/C/C.csproj",  # unrelated project: excluded
         "libs/C/Other.cs",
     )
-    tool = Tool("cs-build", Runner.DOTNET, ("build", str(root / "libs/A/A.csproj")), Input.OWNED, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
+    tool = Tool("cs-build", Runner.DOTNET, ("build", str(root / "libs/A/A.csproj")), Input.OWNED, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD)
     scoped = frozenset(remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
     assert frozenset({"libs/A/Owner.cs", "libs/B/Dep.cs"}) <= scoped, f"closure dropped a transitive project file: {scoped!r}"
     assert frozenset({"Directory.Build.props", "Directory.Packages.props"}) <= scoped, f"root build config must always cross: {scoped!r}"
@@ -587,12 +587,12 @@ def test_lane_manifest_csharp_scopes_to_transitive_project_closure(assay_root: A
         (
             "python-package-tests-config",
             Tool("py-lint", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.STATIC),
-            ("pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py", "libs/csharp/Rasm/Foo.cs", "docs/x.md"),
+            ("pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py", "libs/dotnet/Rasm/Foo.cs", "docs/x.md"),
             {"pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py"},
         ),
         (
             "unknown-lane-full-universe",
-            Tool("direct", Runner.DIRECT, ("echo",), Input.NONE, Language.CSHARP, Claim.STATIC),
+            Tool("direct", Runner.DIRECT, ("echo",), Input.NONE, Language.DOTNET, Claim.STATIC),
             ("a", "b/c", "d/e/f"),
             {"a", "b/c", "d/e/f"},
         ),

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SYMPY]
 
-`sympy` owns the compute branch's offline computer-algebra rail: exact calculus, equation solving, simplification, polynomial and matrix algebra, set and assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and multi-language code generation. Every result is offline evidence a C# owner graduates as emitted source or a numeric callable, never production algebra the Python side runs.
+`sympy` owns the compute branch's offline computer-algebra rail: exact calculus, equation solving, simplification, polynomial and matrix algebra, set and assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and multi-language code generation. Every result is offline evidence a .NET owner graduates as emitted source or a numeric callable, never production algebra the Python side runs.
 
 ## [01]-[PACKAGE_SURFACE]
 

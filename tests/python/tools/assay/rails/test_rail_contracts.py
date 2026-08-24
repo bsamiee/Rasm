@@ -174,18 +174,18 @@ plugins:
     include_imports: true
   - remote: buf.build/protocolbuffers/csharp:v36.0
     revision: 1
-    out: libs/csharp/Rasm.Contracts/Generated
+    out: libs/dotnet/Rasm.Contracts/Generated
     types: [demo.Thing]
     include_imports: true
   - remote: buf.build/grpc/csharp:v1.83.0
     revision: 1
-    out: libs/csharp/Rasm.Contracts/Generated
+    out: libs/dotnet/Rasm.Contracts/Generated
     types: [demo.DemoService.Do]
     include_imports: true
 """
 
 _BINARIES = ("node_modules/.bin/protoc-gen-es", ".venv/bin/protoc-gen-py", ".venv/bin/protoc-gen-connectrpc")
-_OUTS = ("libs/typescript/contracts/gen", "libs/python/contracts/rasm/contracts", "libs/csharp/Rasm.Contracts/Generated")
+_OUTS = ("libs/typescript/contracts/gen", "libs/python/contracts/rasm/contracts", "libs/dotnet/Rasm.Contracts/Generated")
 
 # The conforming TypeScript SDK manifest: the workspace wildcard resolves committed emission and `publishConfig` overlays the compiled tarball map.
 # Every export defect derives from this one document, so a fixture and the gate never drift into two spellings of the same package.
@@ -319,7 +319,7 @@ def _bundle(fqn: str) -> bytes:
 _DEMO_CASE = Case(
     id="demo",
     definition=SchemaDefinition(path=_SEAM_PATH, framing="canonical-json", derived_from="msgspec:demo_docs.shape.Demo"),
-    authority=DomainAuthority(producer=_message("csharp:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof")),
+    authority=DomainAuthority(producer=_message("dotnet:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof")),
     readiness=VerifiedReadiness(oracle="external-digest", vectors=(ProofVector(specimens=(_specimen("DEMO_SEAM/demo.json", _ASSET_DOC),)),)),
     consumers=(
         _message("python:Demo/Page/one#CLUSTER", "DemoSchema.read", "proof"),
@@ -335,7 +335,7 @@ _BINDING_CASE = Case(
     readiness=BlockedReadiness(blockers=("No shipping application invokes the demo request through every generated binding.",)),
     consumers=(
         _server_request("python:Demo/Page/one#CLUSTER", "DemoRequest.handle"),
-        _server_request("csharp:Demo/Page/one#CLUSTER", "DemoRequest.Handle"),
+        _server_request("dotnet:Demo/Page/one#CLUSTER", "DemoRequest.Handle"),
     ),
 )
 _BINDING = Entry(
@@ -356,7 +356,7 @@ _PUB_CASE = Case(
     readiness=VerifiedReadiness(
         oracle="publisher-digest", vectors=(ProofVector(specimens=(_specimen("vendor/PUB/pub.bin", _PUB_BYTES, "sha256"),)),)
     ),
-    consumers=(_message("csharp:Demo/Page/one#CLUSTER", "PublisherBytes.read", "package"),),
+    consumers=(_message("dotnet:Demo/Page/one#CLUSTER", "PublisherBytes.read", "package"),),
 )
 _PUB: Entry = Entry(id="PUB", law="The publisher bytes are frozen under immutable upstream custody.", cases=(_PUB_CASE,))
 
@@ -529,7 +529,7 @@ def _corpus(
         f"DemoRequest.Handle PublisherBytes.read "
         f"owns schema:{_SEAM_PATH}, proto:{_THING}, Thing, DemoService, Do, do, {_METHOD}, manifest, descriptor, corpus, contract, generated.\n"
     )
-    _write(root, "libs/csharp/Demo/.planning/Page/one.md", f"# page\n\n## [01]-[CLUSTER]\n\n{cluster}")
+    _write(root, "libs/dotnet/Demo/.planning/Page/one.md", f"# page\n\n## [01]-[CLUSTER]\n\n{cluster}")
     _write(root, "libs/python/Demo/.planning/Page/one.md", f"# page\n\n## [02]-[CLUSTER]\n\n{cluster}")
     _write(root, "libs/typescript/Demo/.planning/Page/one.md", f"# page\n\n## [03]-[CLUSTER]\n\n{cluster}")
     _write(root, "libs/.planning/ARCHITECTURE.md", "# arch\n\n## [14]-[EVENT_FABRIC]\n\nbody\n")
@@ -696,8 +696,8 @@ def test_check_runs_every_local_lane_without_reaching_the_registry(assay_root: A
         "buf-roster:typescript-01",
         "buf-roster:python-02",
         "buf-roster:python-03",
-        "buf-roster:csharp-04",
-        "buf-roster:csharp-05",
+        "buf-roster:dotnet-04",
+        "buf-roster:dotnet-05",
         "corpus-gate",
         "freshness-gate",
     ]
@@ -713,8 +713,8 @@ def test_check_runs_every_local_lane_without_reaching_the_registry(assay_root: A
         ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/csharp-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
-        ("buf", "build", "-o", str(scratch / "roster/csharp-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
+        ("buf", "build", "-o", str(scratch / "roster/dotnet-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
+        ("buf", "build", "-o", str(scratch / "roster/dotnet-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
     ]
     assert detail.module == _MODULE and not detail.baseline and not detail.published
     assert detail.packages == ("demo", "pub")
@@ -1002,7 +1002,7 @@ def test_freshness_diffs_scratch_against_committed_roots(assay_root: AssayHarnes
             shutil.copytree(root / out, scratch / out, dirs_exist_ok=True)
         _write(scratch, "libs/python/contracts/rasm/contracts/demo/demo_pb.txt", "regenerated\n")
         _write(scratch, "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt", "new\n")
-        (scratch / "libs/csharp/Rasm.Contracts/Generated/demo/demo_pb.txt").unlink()
+        (scratch / "libs/dotnet/Rasm.Contracts/Generated/demo/demo_pb.txt").unlink()
 
     report = assert_ok(_run(assay_root, _fan(root, regenerate=regenerate)))
     detail = _detail(report)
@@ -1010,7 +1010,7 @@ def test_freshness_diffs_scratch_against_committed_roots(assay_root: AssayHarnes
     assert detail.stale == (
         ("changed", "libs/python/contracts/rasm/contracts/demo/demo_pb.txt"),
         ("missing", "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt"),
-        ("orphan", "libs/csharp/Rasm.Contracts/Generated/demo/demo_pb.txt"),
+        ("orphan", "libs/dotnet/Rasm.Contracts/Generated/demo/demo_pb.txt"),
     )
     assert {row.id for row in report.results} == {"freshness:changed", "freshness:missing", "freshness:orphan"}
     diff = next(artifact for artifact in report.artifacts if artifact.id == "freshness-diff")
@@ -1053,11 +1053,11 @@ def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarnes
         and "`Event` | message | support-closure | `Event` |" in blocks["python"]
     )
     assert (
-        "`Thing.Types.Inner` | message | support-closure" in blocks["csharp"]
-        and "`Thing.Types.Kind` | enum | support-closure" in blocks["csharp"]
-        and "`DemoService` | service | support-closure" in blocks["csharp"]
-        and "`DemoService.Do` | method | public-root" in blocks["csharp"]
-        and "support-closure | `Event`" in blocks["csharp"]
+        "`Thing.Types.Inner` | message | support-closure" in blocks["dotnet"]
+        and "`Thing.Types.Kind` | enum | support-closure" in blocks["dotnet"]
+        and "`DemoService` | service | support-closure" in blocks["dotnet"]
+        and "`DemoService.Do` | method | public-root" in blocks["dotnet"]
+        and "support-closure | `Event`" in blocks["dotnet"]
     )
     assert all("Unused" not in block for block in blocks.values()) and blocks["typescript"].endswith("|\n\n")
 
@@ -1182,7 +1182,7 @@ def test_selector_roots_are_exact_actor_fqns(tmp_path: Path, types: str, rules: 
 def test_generated_rpc_actor_requires_a_service_plugin(tmp_path: Path) -> None:
     """Deleting one language's service emitter leaves its generated RPC actor uncovered even though message generation still exists."""
     service = (
-        f"  - remote: buf.build/grpc/csharp:v1.83.0\n    revision: 1\n    out: libs/csharp/Rasm.Contracts/Generated\n"
+        f"  - remote: buf.build/grpc/csharp:v1.83.0\n    revision: 1\n    out: libs/dotnet/Rasm.Contracts/Generated\n"
         f"    types: [{_METHOD}]\n    include_imports: true\n"
     )
     rules, rows = _audit_rules(_corpus(tmp_path, template=_TEMPLATE.replace(service, "")), _image())
@@ -1192,7 +1192,7 @@ def test_generated_rpc_actor_requires_a_service_plugin(tmp_path: Path) -> None:
 @pytest.mark.parametrize("coordinate", ["Missing.symbol", "Either|Other"], ids=("missing-literal", "non-singular"))
 def test_actor_coordinate_is_one_literal_symbol_in_its_anchor(tmp_path: Path, coordinate: str) -> None:
     """An actor coordinate is one source symbol and appears literally inside the exact anchored cluster."""
-    producer = _message("csharp:Demo/Page/one#CLUSTER", coordinate, "proof")
+    producer = _message("dotnet:Demo/Page/one#CLUSTER", coordinate, "proof")
     rules, rows = _audit_rules(_corpus(tmp_path, (_entry(authority=DomainAuthority(producer=producer)), _BINDING, _vendored())), _image())
     assert "actor-coordinate" in rules, "\n".join(rows)
 
@@ -1214,7 +1214,7 @@ def test_domain_producer_without_a_consumer_is_not_a_contract_crossing(tmp_path:
 def test_infrastructure_minters_without_a_consumer_are_not_a_contract_crossing(tmp_path: Path) -> None:
     """Independent minters prove shared creation semantics only when one exact process reader consumes the value."""
     minters = (
-        _message("csharp:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof"),
+        _message("dotnet:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof"),
         _message("python:Demo/Page/one#CLUSTER", "DemoSchema.read", "proof"),
     )
     entry = _entry(authority=InfrastructureAuthority(minters=minters), consumers=())
@@ -1286,10 +1286,10 @@ def test_faulted_filtered_roster_blocks_generation(assay_root: AssayHarness) -> 
 
 
 def test_remote_csharp_emitter_identities_are_versioned_and_exact() -> None:
-    message = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp:v36.0", out="libs/csharp/Rasm.Contracts/Generated")
-    service = contracts_rail._Plugin(remote="buf.build/grpc/csharp:v1.83.0", out="libs/csharp/Rasm.Contracts/Generated")
-    unversioned = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp", out="libs/csharp/Rasm.Contracts/Generated")
-    lookalike = contracts_rail._Plugin(remote="buf.build/example/protocolbuffers-csharp:v36.0", out="libs/csharp/Rasm.Contracts/Generated")
+    message = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp:v36.0", out="libs/dotnet/Rasm.Contracts/Generated")
+    service = contracts_rail._Plugin(remote="buf.build/grpc/csharp:v1.83.0", out="libs/dotnet/Rasm.Contracts/Generated")
+    unversioned = contracts_rail._Plugin(remote="buf.build/protocolbuffers/csharp", out="libs/dotnet/Rasm.Contracts/Generated")
+    lookalike = contracts_rail._Plugin(remote="buf.build/example/protocolbuffers-csharp:v36.0", out="libs/dotnet/Rasm.Contracts/Generated")
 
     assert message.kinds == frozenset(("message", "enum"))
     assert service.kinds == frozenset(("service", "method"))
@@ -1402,7 +1402,7 @@ def test_semantic_roundtrip_rejects_unknown_fields_but_accepts_the_exact_descrip
 def test_semantic_roundtrip_refuses_independent_infrastructure_minters(tmp_path: Path) -> None:
     """Normalized protobuf round-trip belongs to one producer; independent minters require typed value parity."""
     specimen = _specimen("DEMO_SEAM/demo.bin", b"\x0a\x03\x0a\x01x")
-    minters = (_message("csharp:Demo/Page/one#CLUSTER", "Thing.first", "proof"), _message("python:Demo/Page/one#CLUSTER", "Thing.second", "proof"))
+    minters = (_message("dotnet:Demo/Page/one#CLUSTER", "Thing.first", "proof"), _message("python:Demo/Page/one#CLUSTER", "Thing.second", "proof"))
     case = msgspec.structs.replace(
         _DEMO_CASE,
         definition=ProtoDefinition(message=_THING, framing="proto-binary"),
@@ -1415,10 +1415,10 @@ def test_semantic_roundtrip_refuses_independent_infrastructure_minters(tmp_path:
 
 
 def _parity_case(raw: bytes, expected_raw: bytes) -> tuple[Case, tuple[MessageActor, MessageActor]]:
-    minters = (_message("csharp:Demo/Page/one#CLUSTER", "Parity.csharp", "proof"), _message("python:Demo/Page/one#CLUSTER", "Parity.python", "proof"))
+    minters = (_message("dotnet:Demo/Page/one#CLUSTER", "Parity.dotnet", "proof"), _message("python:Demo/Page/one#CLUSTER", "Parity.python", "proof"))
     specimens = tuple(
         _specimen(f"PARITY/{language}.bin", raw, minter=contracts_rail.actor_key(actor))
-        for language, actor in zip(("csharp", "python"), minters, strict=True)
+        for language, actor in zip(("dotnet", "python"), minters, strict=True)
     )
     expected = _expected("PARITY/expected.json", expected_raw, "content-digest")
     return (
@@ -1614,8 +1614,8 @@ def test_plugin_miss_degrades_check_and_refuses_generate(assay_root: AssayHarnes
         "buf-roster:typescript-01": "ok",
         "buf-roster:python-02": "ok",
         "buf-roster:python-03": "ok",
-        "buf-roster:csharp-04": "ok",
-        "buf-roster:csharp-05": "ok",
+        "buf-roster:dotnet-04": "ok",
+        "buf-roster:dotnet-05": "ok",
         "corpus-gate": "ok",
         "freshness-gate": "skip",
     }
@@ -1647,7 +1647,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
         lambda t: _corpus(
             t,
             (
-                _entry(authority=InfrastructureAuthority(minters=(_message("csharp:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof"),))),
+                _entry(authority=InfrastructureAuthority(minters=(_message("dotnet:Demo/Page/one#CLUSTER", "DemoSchema.write", "proof"),))),
                 _vendored(),
             ),
         ),
@@ -1689,7 +1689,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
                     authority=DomainAuthority(producer=_server_response("typescript:Demo/Page/one#CLUSTER", "DemoRequest.call")),
                     consumers=(
                         _client_response("python:Demo/Page/one#CLUSTER", "DemoRequest.handle"),
-                        _client_response("csharp:Demo/Page/one#CLUSTER", "DemoRequest.Handle"),
+                        _client_response("dotnet:Demo/Page/one#CLUSTER", "DemoRequest.Handle"),
                     ),
                 ),
                 _vendored(),
@@ -1886,7 +1886,7 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
     (
         "anchor-dangling",
         lambda t: _corpus(
-            t, (_entry(authority=DomainAuthority(producer=_message("csharp:Demo/Page/one#GHOST", "DemoSchema.write", "proof"))), _vendored())
+            t, (_entry(authority=DomainAuthority(producer=_message("dotnet:Demo/Page/one#GHOST", "DemoSchema.write", "proof"))), _vendored())
         ),
         "anchor-dangling",
     ),
@@ -2216,8 +2216,8 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
         "buf-roster:typescript-01",
         "buf-roster:python-02",
         "buf-roster:python-03",
-        "buf-roster:csharp-04",
-        "buf-roster:csharp-05",
+        "buf-roster:dotnet-04",
+        "buf-roster:dotnet-05",
         "corpus-gate",
         "freshness-gate",
     ]
@@ -2231,8 +2231,8 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
         "buf-roster:typescript-01",
         "buf-roster:python-02",
         "buf-roster:python-03",
-        "buf-roster:csharp-04",
-        "buf-roster:csharp-05",
+        "buf-roster:dotnet-04",
+        "buf-roster:dotnet-05",
         "corpus-gate",
         "buf-generate",
         "corpus-emit",
@@ -2329,8 +2329,8 @@ def test_generate_stages_buf_and_commits_through_the_transaction_writer_under_th
         ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/csharp-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
-        ("buf", "build", "-o", str(scratch / "roster/csharp-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
+        ("buf", "build", "-o", str(scratch / "roster/dotnet-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
+        ("buf", "build", "-o", str(scratch / "roster/dotnet-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
         ("corpus-gate", "check"),
         ("buf", "generate", "--template", "buf.gen.yaml", "-o", str(scratch / "gen")),
         ("corpus-emit", "write"),
@@ -2342,8 +2342,8 @@ def test_generate_stages_buf_and_commits_through_the_transaction_writer_under_th
         "buf-roster:typescript-01",
         "buf-roster:python-02",
         "buf-roster:python-03",
-        "buf-roster:csharp-04",
-        "buf-roster:csharp-05",
+        "buf-roster:dotnet-04",
+        "buf-roster:dotnet-05",
         "corpus-gate",
         "buf-generate",
         "corpus-emit",
@@ -2359,7 +2359,7 @@ def test_generate_emits_the_roster_block_between_markers_and_check_byte_checks_i
     """Stale blocks rewrite, fresh ones stay, a catalog without markers is a finding and never written; check then reads the block clean."""
     root = _corpus(assay_root.root, roster=False)
     catalog = root / "libs/python/contracts/.api/rasm-contracts.md"
-    bare = root / "libs/csharp/Rasm.Contracts/.api/rasm-contracts.md"
+    bare = root / "libs/dotnet/Rasm.Contracts/.api/rasm-contracts.md"
     bare.write_text("# [DEMO]\n\nno markers here\n", encoding="utf-8")
     before = catalog.read_text(encoding="utf-8")
     assert "roster-stale" in _audit_rules(root, _image())[0]

@@ -608,11 +608,11 @@ def _operator_receipt(key: ContentKey, m: LinearMap, b: np.ndarray, shape: Solve
 
 ## [03]-[EXCHANGE]
 
-- Owner: `SparseExchange` — the two-container correspondence with `csharp:Rasm.Compute/Tensor/factor#SPARSE_SOLVE` `ReadArchive`/`WriteArchive`, hand-copied as a deliberate non-import mirror per estate law: `.mtx` through `scipy.io` is the SuiteSparse interop surface, and the scipy-convention HDF5 group (`indptr`/`indices` int32, `values` float64, `permutation` int32, `shape`/`format` group attributes) carries the `kind`/`ordering`/`fill`/`frobenius`/`symmetric` reproduction metadata `.mtx` drops. Both containers read and write here because the C# lane landed both directions of each: a reproduction artifact from a failed C# factorization re-factors python-side under its recorded policy, and a python-authored operand crosses back through the same two doors.
+- Owner: `SparseExchange` — the two-container correspondence with `dotnet:Rasm.Compute/Tensor/factor#SPARSE_SOLVE` `ReadArchive`/`WriteArchive`, hand-copied as a deliberate non-import mirror per estate law: `.mtx` through `scipy.io` is the SuiteSparse interop surface, and the scipy-convention HDF5 group (`indptr`/`indices` int32, `values` float64, `permutation` int32, `shape`/`format` group attributes) carries the `kind`/`ordering`/`fill`/`frobenius`/`symmetric` reproduction metadata `.mtx` drops. Both containers read and write here because the .NET lane landed both directions of each: a reproduction artifact from a failed C# factorization re-factors python-side under its recorded policy, and a python-authored operand crosses back through the same two doors.
 - Cases: `ExchangeMeta` types the archive's metadata attributes; `ordering` carries the CSparse `ColumnOrdering` ordinal the producer wrote (`0` Natural, `1` MinimumDegreeAtPlusA, `2` MinimumDegreeStS, `3` MinimumDegreeAtA — decompile-proven declaration order) and `permc` projects it onto the `splu` `permc_spec` vocabulary, `MinimumDegreeStS` landing on `COLAMD` as the closest scipy ordering with the divergence stated here rather than hidden.
 - Law: both write legs carry the `composition` custody key and an awaitable twin — `write_mtx_async`/`write_archive_async` over the one `_written` half — because the sync bodies are pure `h5py`/`scipy.io` calls opening no loop while recording suspends. Each twin lands one `OPERATIONAL` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes written, through one `_evidence` fold so the two containers cannot drift into two vocabularies for one crossing; the container token rides the diff rather than the verb, since both legs write the same kind of thing to two encodings. `OPERATIONAL` is earned: a sparse operand is a reproduction artifact re-derivable from the factorization that produced it. The record rail BINDS into the verdict, and a refused write records nothing since there is no artifact to name. Reads land no evidence — an exchange plane recording each `read_mtx` prices the read path for rows no reconstruction ever reads.
 - Entry: `read_mtx`/`write_mtx` and `read_archive`/`write_archive` are the four legs of one owner, each write answering the container's byte extent; the HDF5 leg is pinned to `/A`, requires every dataset and metadata attribute, and gates explicit little-endian int32 indices/permutation, little-endian float64 values, little-endian int64 shape/scalars, and the PureHDF-compatible uint8 `symmetric` scalar before every inbound leg re-runs `_admit` — extent congruence, monotone pointer run, index bounds, one vectorized finiteness pass — because both routes end at admission exactly as both C# routes end at `Ingest`.
-- Auto: `.mtx` writes pin `symmetry="general"` because the pinned C# peer writer exposes no symmetry parameter and its reader exposes no header metadata; both branches exchange operand values, never a structure hint only one peer can recover. Factor structure and reproduction policy ride the HDF5 sibling.
+- Auto: `.mtx` writes pin `symmetry="general"` because the pinned .NET peer writer exposes no symmetry parameter and its reader exposes no header metadata; both branches exchange operand values, never a structure hint only one peer can recover. Factor structure and reproduction policy ride the HDF5 sibling.
 - Output: reads land a `LinearMap.SparseMat` the `[02]-[LINEAR]` routes consume directly — the exchange is solver currency, never a gridded field, so no gridded-plane page owns any of this.
 - Packages: `scipy` (`io.mmread`/`io.mmwrite`/`io.mminfo`, `sparse.csr_array`/`csc_array`, `sparse.linalg.norm`); `h5py` (module-top; `File`, `create_group`/`create_dataset`, attribute IO) under the compute-tier `.api/h5py.md` admission.
 - Growth: a new archive attribute is one `ExchangeMeta` field with its wire spelling; a new container format is one read/write leg pair with its awaitable twin over the shared `_written` half and one container token, never a sibling exchange surface; zero new knob on the solve routes.
@@ -691,7 +691,7 @@ class SparseExchange:
 
     @staticmethod
     def write_mtx(ref: "ResourceRef", m: LinearMap) -> "RuntimeRail[int]":
-        # Fixed GENERAL is cross-peer law: the C# package exposes no writer symmetry control or reader header fact.
+        # Fixed GENERAL is cross-peer law: the .NET package exposes no writer symmetry control or reader header fact.
         # The byte extent returns rather than `None`: the storage charge and any caller reconciling the artifact both
         # need what actually landed, and a writer answering nothing forces a second stat at every consumer.
         def write() -> int:
@@ -755,7 +755,7 @@ class SparseExchange:
     def write_archive(ref: "ResourceRef", m: LinearMap, meta: ExchangeMeta, permutation: np.ndarray) -> "RuntimeRail[int]":
         # the byte extent returns for the same reason `write_mtx`'s does: the storage charge reads what landed.
         def write() -> int:
-            operand = sp.csc_array(m.matrix())  # the C# lane's CSC is the archive's major axis
+            operand = sp.csc_array(m.matrix())  # the .NET lane's CSC is the archive's major axis
             applied = np.asarray(permutation)
             held_meta = (
                 meta.kind in ("spd", "ldl", "lu", "qr")

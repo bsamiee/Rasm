@@ -47,9 +47,9 @@ _SHELL_PROJECT: Final[str] = "tools/rhino-bridge/Shell/Shell.csproj"
 _CARGO_PROJECT: Final[str] = "tools/rhino-bridge/Cargo/Cargo.csproj"
 _CONTRACT_PROJECT: Final[str] = "tools/rhino-bridge/Contract/Contract.csproj"
 # Single scenario home: one project, one assembly, one reference root; the in-host shell owns per-scenario resolution.
-_SCENARIO_PROJECT: Final[str] = "tests/csharp/scenarios/Rasm.Scenarios.csproj"
+_SCENARIO_PROJECT: Final[str] = "tests/dotnet/scenarios/Rasm.Scenarios.csproj"
 _SCENARIO_ASSEMBLY: Final[str] = "Rasm.Scenarios.dll"
-_REFERENCE_ROOT: Final[str] = "tests/csharp/scenarios/_references"
+_REFERENCE_ROOT: Final[str] = "tests/dotnet/scenarios/_references"
 _BUILD_PROJECTS: Final[tuple[str, ...]] = (_CONTRACT_PROJECT, _CARGO_PROJECT, _SHELL_PROJECT, _STUB_PROJECT, _SUPERVISOR_PROJECT, _SCENARIO_PROJECT)
 _CLOSURE_FILE: Final[str] = "bridge-closure.json"
 _AGGREGATE_CLOSURE_FILE: Final[str] = "bridge-closure.assay.json"
@@ -302,7 +302,7 @@ _SUPERVISOR_BINARY: Final[str] = "Rasm.Bridge.Supervisor"
 
 
 def _bridge_row(mode: Mode) -> Result[Tool, Fault]:
-    match next((t for t in select(Claim.BRIDGE, Language.CSHARP) if t.mode is mode), None):
+    match next((t for t in select(Claim.BRIDGE, Language.DOTNET) if t.mode is mode), None):
         case Tool() as tool:
             return Ok(tool)
         case _:
@@ -310,7 +310,7 @@ def _bridge_row(mode: Mode) -> Result[Tool, Fault]:
 
 
 def _routed() -> Routed:
-    return Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    return Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 
 
 def _pivot_output(scope_path: object, project: str, configuration: str) -> Path | None:
