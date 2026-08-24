@@ -138,7 +138,6 @@
 - `Custody` owns reverse release, failure-only rollback, and settled cleanup — every cleanup error joins the primary through `Error.Many`.
 - Kernel `SparseMatrix.Transpose()` is the ONE materialized CSR transpose — an APPLIED transpose stays `Multiply` under `OperatorSense`.
 - Kernel `Ranked` at `Domain/stats` is the ONE bounded top-K selection — cost-scheduled queues and best-first frontiers keep `PriorityQueue`.
-- `TilePlan` stays plural by receiver — Compute's inference mosaic and Materials' texture tiling share no closure, the wire ceding `InferenceTiling`.
 - `WireFault` stays plural by transport — `FaultBand.LiveWire` and `FaultBand.Wire` mint local failures; remote faults remain opaque evidence.
 - ONE producer leg crosses a fault — `Rasm.AppHost` `FaultWire.Raise` over `Grpc.StatusProto`; a folder-local `Error → StatusCode` switch forks it.
 - ONE ProtoJSON edge serves the branch — `Rasm.AppHost` `WireJson` with the registry over every `<File>Reflection`; `.Default` is the deleted form.

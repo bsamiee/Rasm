@@ -30,13 +30,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Tension: a fixture that measures a format honestly is a real-world asset, and a synthetic stand-in measures the generator instead — the bet is that eleven license-clear real assets exist small enough to commit, and a format with none loses its declared slug at `BimBenchClaims` rather than taking a fabricated one.
 - Ripple: follows `[BENCH_CORPUS_LFS_SEATING]` (landed); mirrors `[BENCHMARK_CORPUS_MANIFEST]`.
 
-[TILE_POLICY_PLURALITY]-[QUEUED]: the four-formed tile policy resolves as a ruled plurality or a seated owner, and no package inherits the question.
-- Capability: one branch ruling decides whether a name four packages independently formed is a genuine plurality by receiver or a seating failure, so a fifth package resolves the question by reading rather than re-deciding it.
-- Shape: `libs/dotnet/.planning/RULINGS.md` — one row beside the standing tile-plan plurality row, naming each of the four receivers and the closure they do or do not share.
-- Unlocks: the shared-consumer test runs once at the branch, and each package's own rulings cite that verdict instead of restating a local scope the branch never granted.
-- Anchors: the four declarations — Compute's tile octree partition, Bim's vector-tile pyramid, Materials' texture-synthesis policy, AppUi's basemap fetch posture; the standing tile-plan plurality row ruling Compute against Materials on this same axis; the id-attribute column Bim's feature projection already takes as a cross-page dependency; `docs/laws/scars.md` `[STRATA_TWIN]`.
-- Atomic: one ruling row and the citation edits its verdict obligates.
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
