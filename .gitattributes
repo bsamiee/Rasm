@@ -108,6 +108,10 @@ libs/dotnet/Rasm.Contracts/Generated/** linguist-generated=true -diff
 *.parquet filter=lfs diff=lfs merge=lfs -text
 *.feather filter=lfs diff=lfs merge=lfs -text
 
+# Benchmark corpus fixtures are named for their declared slug and carry NO extension, so no
+# extension rule above can ever match one; custody binds by root to keep them pointers.
+tests/dotnet/_benchmarks/corpus/** filter=lfs diff=lfs merge=lfs -text
+
 # Vendored lib3mf RID natives are committed as plain blobs (the build consumes
 # real files); LFS filters stay off so re-staging never converts them to pointers.
 libs/dotnet/Rasm.Fabrication/vendor/runtimes/** -filter -diff -merge
