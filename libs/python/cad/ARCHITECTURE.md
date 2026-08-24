@@ -92,6 +92,7 @@ flowchart TB
 - S4 `tessellation` — discretization composing the assembly document and the emitted-file census, above both because it reads what they produce.
 - S5 `service` — served boundary, one-slot native lane, and call-spool custody; the only stratum that may spell a raise.
 - S3→S1 `brep/operation` reaches `metrology/properties` for its receipt, so measurement imports no construction owner and the graph stays acyclic.
+- `brep/operation` alone imports downward — admission at `brep/placement` (S1), sourcing at `exchange/step` (S2), so no arm back-imports the apex.
 - `contracts` seats plane-distinct beside every rank as the generated vocabulary each stratum reads, carrying the same upward law.
 
 ## [03]-[SEAMS]
@@ -160,5 +161,5 @@ flowchart LR
 
 - `cad` owns exact solid modeling and neutral CAD exchange behind one generated service, every body crossing by reference.
 - App root binds the provider address, the artifact client, credentials, process memory limits, and the call-spool filesystem quota.
-- `rasm-contracts` owns generated message and service vocabulary, body admission, and the verified artifact lifecycle this package composes.
+- `rasm.contracts` owns generated message and service vocabulary, body admission, and the verified artifact lifecycle this package composes.
 - `geometry` owns mesh semantics, IFC projection, and every consumer-side quality verdict reached across the wire.

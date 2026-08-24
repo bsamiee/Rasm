@@ -12,16 +12,16 @@ from expression import Error, Ok, Result  # Result appears in parametrize annota
 import msgspec.structs
 import pytest
 
+from assay.composition.catalog import launch, TOOLS
+from assay.core.model import Completed, Fault, RailStatus, Runner
+from assay.rails import health as health_mod
+from assay.rails.health import census, ORPHAN_MIN_AGE_S, probes, yak_ready
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.catalog import launch, TOOLS
-from tools.assay.core.model import Completed, Fault, RailStatus, Runner
-from tools.assay.rails import health as health_mod
-from tools.assay.rails.health import census, ORPHAN_MIN_AGE_S, probes, yak_ready
 
 
 if TYPE_CHECKING:
+    from assay.core.model import Check
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Check
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -201,7 +201,7 @@ def test_probe_token_uv_locked_module_uses_module_boundary(tmp_path: Path, monke
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     monkeypatch.setattr(health_mod.sys, "executable", str(python))
 
-    token = health_mod._probe_token(("uv", "run", "--locked", "python", "-m", "tools.assay", "--version"))
+    token = health_mod._probe_token(("uv", "run", "--locked", "python", "-m", "assay", "--version"))
 
     assert token is not None
     assert str(python) in token

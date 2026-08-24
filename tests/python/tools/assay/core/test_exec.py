@@ -18,16 +18,16 @@ import msgspec
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # collection-time fixture annotation
 import pytest
 
+import assay.core.exec as exec_mod
+from assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
+import assay.core.govern as govern_mod
+from assay.core.govern import fan_schedule, remaining, reset_foreign_census
+from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Stage, Tool, ToolGroup
+from assay.core.routing import discover, discover_async, Routed, Scope
 from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import AssayHarness
-import tools.assay.core.exec as exec_mod
-from tools.assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
-import tools.assay.core.govern as govern_mod
-from tools.assay.core.govern import fan_schedule, remaining, reset_foreign_census
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Stage, Tool, ToolGroup
-from tools.assay.core.routing import discover, discover_async, Routed, Scope
 
 
 if TYPE_CHECKING:
@@ -36,9 +36,9 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tools.assay.composition.settings import AssaySettings
-    from tools.assay.composition.store import ArtifactScope
-    from tools.assay.core.model import Completed
+    from assay.composition.settings import AssaySettings
+    from assay.composition.store import ArtifactScope
+    from assay.core.model import Completed
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

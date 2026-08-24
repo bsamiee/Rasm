@@ -1,9 +1,12 @@
 /// <reference types="vitest/config" />
 /**
- * Root Vitest authority: two lanes over one shared option spine. The `unit` lane runs the node
- * estate — kit falsification, architecture gauges, and colocated libs specs; the `browser` lane
- * arms real-engine browser-mode suites (*.browser.spec) through the playwright provider and
- * activates the day the first browser spec lands. Artifacts route to .artifacts/typescript.
+ * Root Vitest authority: the estate aggregate over per-package projects plus one armed browser
+ * lane. Each package with specs carries a one-call vitest.config.ts deriving from `createProject`
+ * exported here — the per-package file is what lets Nx infer a per-project `test` target, and the
+ * import back into this module is acyclic because the `projects` rows are glob strings, never
+ * imports. This file keeps the estate-level options — coverage, reporters, output routing, worker
+ * caps — and is the single entry Stryker and whole-estate runs consume. Artifacts route to
+ * .artifacts/typescript.
  */
 
 import path from 'node:path';
@@ -13,19 +16,16 @@ import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type RuntimeEnv = NodeJS.ProcessEnv & {
-    readonly CI?: string;
-};
+type ProjectTest = NonNullable<ViteUserConfig['test']>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Dirname = path.dirname(fileURLToPath(import.meta.url));
-const _ENV: RuntimeEnv = process.env;
-const _CI = _ENV.CI === 'true';
+const Root = path.dirname(fileURLToPath(import.meta.url));
+const _CI = process.env['CI'] === 'true';
 const _ARTIFACTS = {
-    bench: path.resolve(Dirname, '.artifacts/typescript/bench'),
-    coverage: path.resolve(Dirname, '.artifacts/typescript/coverage'),
-    results: path.resolve(Dirname, '.artifacts/typescript/test-results'),
+    bench: path.resolve(Root, '.artifacts/typescript/bench'),
+    coverage: path.resolve(Root, '.artifacts/typescript/coverage'),
+    results: path.resolve(Root, '.artifacts/typescript/test-results'),
 } as const;
 const _CONFIG = {
     cacheDir: '.cache/vitest',
@@ -57,22 +57,58 @@ const _CONFIG = {
             '**/__tests__/**',
             '**/dist/**',
             '**/node_modules/**',
+            '**/gen/**',
             '**/test/**',
             '**/tests/**',
         ],
-        coverageInclude: ['libs/typescript/**/src/**/*.{ts,tsx,mts,cts}'],
+        coverageInclude: ['libs/typescript/**/*.{ts,tsx,mts,cts}'],
         testExclude: ['**/node_modules/**', '**/dist/**', '**/.cache/**', '**/*.browser.{test,spec}.{ts,tsx}'],
-        testInclude: ['tests/typescript/**/*.{test,spec}.{ts,tsx,mts,cts}', 'libs/typescript/**/*.{test,spec}.{ts,tsx,mts,cts}'],
+        testInclude: ['**/*.{test,spec}.{ts,tsx,mts,cts}'],
     },
     reporters: {
         coverage: ['text', 'json', 'json-summary', 'html', 'lcov'] as const,
         test: _CI ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const) : (['tree'] as const),
     },
-    setupFiles: ['tests/typescript/_testkit/src/setup.ts'],
+    setupFiles: [path.resolve(Root, 'tests/typescript/_testkit/setup.ts')],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
     workers: { max: '50%' },
 } as const;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+/**
+ * One package project: the node lane over the package's own tree, spine options baked in. The
+ * project roots at its own package (estate anchors ride module-relative import.meta.glob, never
+ * root-slash), so discovery is package-scoped by construction.
+ */
+const createProject = (dir: string): { test: ProjectTest } => ({
+    test: {
+        benchmark: {
+            exclude: [..._CONFIG.patterns.benchExclude],
+            include: [..._CONFIG.patterns.benchInclude],
+            // autosave: every bench run feeds the sustained-regression ledger
+            outputJson: path.resolve(_ARTIFACTS.bench, `${path.basename(dir)}.json`),
+        },
+        deps: { ..._CONFIG.deps },
+        environment: 'node',
+        exclude: [..._CONFIG.patterns.testExclude],
+        fakeTimers: { ..._CONFIG.fakeTimers, toFake: [..._CONFIG.fakeTimers.toFake] },
+        hookTimeout: _CONFIG.timeouts.hook,
+        include: [..._CONFIG.patterns.testInclude],
+        isolate: true,
+        name: path.basename(dir),
+        pool: 'threads',
+        restoreMocks: true,
+        sequence: { concurrent: false, hooks: 'stack', shuffle: _CI },
+        setupFiles: [..._CONFIG.setupFiles],
+        slowTestThreshold: _CONFIG.timeouts.slow,
+        snapshotFormat: { ..._CONFIG.snapshot.format },
+        testTimeout: _CONFIG.timeouts.test,
+        unstubEnvs: true,
+        unstubGlobals: true,
+    },
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -101,9 +137,7 @@ const config: ViteUserConfig = defineConfig({
                 statements: 95,
             },
         },
-        deps: { ..._CONFIG.deps },
         diff: { ..._CONFIG.output.diff },
-        fakeTimers: { ..._CONFIG.fakeTimers, toFake: [..._CONFIG.fakeTimers.toFake] },
         fileParallelism: true,
         // Watch reruns track the gauge inputs too: container pins feed the harness lanes, grit rules feed the admission live-fire.
         forceRerunTriggers: [
@@ -114,31 +148,17 @@ const config: ViteUserConfig = defineConfig({
             '**/tools/biome/*.grit',
         ],
         hideSkippedTests: _CI,
-        hookTimeout: _CONFIG.timeouts.hook,
-        isolate: true,
         maxWorkers: _CONFIG.workers.max,
         // stderr passes through: a failing lane's diagnostics are evidence, never noise to blanket-drop.
         onConsoleLog: (log) => !log.includes('Download the React DevTools'),
         outputFile: { ..._CONFIG.output.outputFile },
         passWithNoTests: false,
-        pool: 'threads',
         printConsoleTrace: false,
         projects: [
-            {
-                extends: true,
-                test: {
-                    benchmark: {
-                        exclude: [..._CONFIG.patterns.benchExclude],
-                        include: [..._CONFIG.patterns.benchInclude],
-                        outputJson: path.resolve(_ARTIFACTS.bench, 'latest.json'), // autosave: every bench run feeds the sustained-regression ledger
-                    },
-                    environment: 'node',
-                    exclude: [..._CONFIG.patterns.testExclude],
-                    include: [..._CONFIG.patterns.testInclude],
-                    name: 'unit',
-                    setupFiles: [..._CONFIG.setupFiles],
-                },
-            },
+            'tests/typescript/*/vitest.config.ts',
+            'libs/typescript/*/vitest.config.ts',
+            'libs/typescript/ui/*/vitest.config.ts',
+            'apps/*/*/vitest.config.ts',
             {
                 extends: true,
                 test: {
@@ -161,16 +181,10 @@ const config: ViteUserConfig = defineConfig({
             },
         ],
         reporters: [..._CONFIG.reporters.test],
-        restoreMocks: true,
         retry: _CI ? 2 : 0,
-        sequence: { concurrent: false, hooks: 'stack', shuffle: _CI },
         silent: 'passed-only',
-        slowTestThreshold: _CONFIG.timeouts.slow,
-        snapshotFormat: { ..._CONFIG.snapshot.format },
-        testTimeout: _CONFIG.timeouts.test,
-        unstubEnvs: true,
-        unstubGlobals: true,
     },
 });
 
 export default config;
+export { createProject };

@@ -110,12 +110,14 @@ class CadFault(Struct, frozen=True, gc=False):
 
 class FaultStamp(Struct, frozen=True, gc=False):
     # admitted once at the app root; the serve edge reads an already-proven stamp and never re-checks the extent.
+    # `tenant` mirrors the wire's `optional string` + `min_len: 1` — absence is `None` on the presence bit, and an
+    # empty string would SET the bit then fail the length rule on every unauthenticated fault.
     correlation: bytes
     stamp: Hlc
-    tenant: str = ""
+    tenant: str | None = None
 
     @staticmethod
-    def of(correlation: bytes, stamp: Hlc, tenant: str = "", /) -> CadRail["FaultStamp"]:
+    def of(correlation: bytes, stamp: Hlc, tenant: str | None = None, /) -> CadRail["FaultStamp"]:
         return (
             Ok(FaultStamp(correlation=correlation, stamp=stamp, tenant=tenant))
             if len(correlation) == 16
@@ -133,10 +135,6 @@ STEP_SCHEMA: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.PROTOC
 STEP_WRITE: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.OUTPUT, code=Code.DATA_LOSS, recovery=TERMINAL)
 CAF_TRANSFER: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.INPUT, code=Code.INVALID_ARGUMENT, recovery=TERMINAL)
 CAF_ROOTS: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.INPUT, code=Code.INVALID_ARGUMENT, recovery=TERMINAL)
-# exchange OWNS the process regime because that leg declares which controllers and `Interface_Static` pins the
-# byte-stability contract requires; `service/lane` merely applies them once, and refuses under its own NATIVE_INIT.
-EXCHANGE_REGIME: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.KERNEL, code=Code.INTERNAL, recovery=TERMINAL)
-
 BREP_INPUT: Final[FaultRow] = FaultRow(leg=CadLeg.BREP, case=CadCase.INPUT, code=Code.INVALID_ARGUMENT, recovery=TERMINAL)
 BREP_KERNEL: Final[FaultRow] = FaultRow(leg=CadLeg.BREP, case=CadCase.KERNEL, code=Code.INTERNAL, recovery=TERMINAL)
 BREP_OUTPUT: Final[FaultRow] = FaultRow(leg=CadLeg.BREP, case=CadCase.OUTPUT, code=Code.DATA_LOSS, recovery=TERMINAL)

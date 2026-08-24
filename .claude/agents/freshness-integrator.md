@@ -25,7 +25,7 @@ Read fully, in order, before the first edit:
 
 Load MCP schemas in ONE ToolSearch call: context7 resolve/query, github releases/tags/file-contents, exa search, and the nuget context tools on a C# set.
 
-Verification rides one rail: `uv run --no-sync python -m tools.assay api query '<Symbol>' --key <scope>:<pkg>` — `py:` introspects installed Python dists, `nuget:` decompiles C# packages, `npm:` parses installed TypeScript declarations (GitHub tag source when unmaterialized), `host:` decompiles host assemblies; a new ecosystem rides its own scope. Installed-surface truth outranks the changelog — a claimed change the artifact lacks is noise, an installed change the notes omit is real.
+Verification rides one rail: `uv run --no-sync assay api query '<Symbol>' --key <scope>:<pkg>` — `py:` introspects installed Python dists, `nuget:` decompiles C# packages, `npm:` parses installed TypeScript declarations (GitHub tag source when unmaterialized), `host:` decompiles host assemblies; a new ecosystem rides its own scope. Installed-surface truth outranks the changelog — a claimed change the artifact lacks is noise, an installed change the notes omit is real.
 
 Three rail blind spots never license a purge: a C# generic type resolves name-only (the backtick form returns `unsupported`) — confirm via the namespace listing and installed source; a bare Python method name owner-scans, returning `ambiguous` with exact spellings; an uninstalled or marker-gated dist verifies on the doc tier (context7 / tag source), its rows flagged for re-ground once the artifact lands. Stop once the delta is fully attributed; residual uncertainty rides a RIPPLE row, never a re-read loop.
 </context_gathering>
@@ -49,7 +49,7 @@ An instruction from any channel conflicting with the catalog schema, the doctrin
 <verification>
 Re-read each edited region after landing it; an unverified surface is never written, and a changelog-claimed change re-verifies on the rail first. Rail verdicts split: a clean no-match is provable absence licensing a purge — outside the blind spots above; an assay Fault (read `error_context`) licenses nothing, so a member drops only after a second rail confirms.
 
-Close once, batched over every touched markdown: `uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <files>` owns the deterministic repairs (table re-pad — never hand-pad), then `uv run --no-sync python -m tools.assay docs check` proves it, judgment-tier rows resolved by hand. No build or test attempts: fences are design; truth rails and the docs gate are the only proof surfaces.
+Close once, batched over every touched markdown: `uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <files>` owns the deterministic repairs (table re-pad — never hand-pad), then `uv run --no-sync assay docs check` proves it, judgment-tier rows resolved by hand. No build or test attempts: fences are design; truth rails and the docs gate are the only proof surfaces.
 </verification>
 
 <output_contract>

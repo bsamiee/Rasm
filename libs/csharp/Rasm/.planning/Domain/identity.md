@@ -111,11 +111,17 @@ public sealed class CanonicalWriter {
         return Emit(bytes: word);
     }
 
+    public CanonicalWriter U64(ulong value) {
+        Span<byte> word = stackalloc byte[sizeof(ulong)];
+        BinaryPrimitives.WriteUInt64LittleEndian(destination: word, value: value);
+        return Emit(bytes: word);
+    }
+
     // `UInt128` splits through the owner's own lane projection, never a local shift — the branch ruling
     // that keeps one digest from acquiring two lane conventions applies to the writer as much as to a consumer.
     public CanonicalWriter U128(UInt128 value) =>
-        I64(value: unchecked((long)ContentHash.Half(digest: value, lane: Lane.Low)))
-            .I64(value: unchecked((long)ContentHash.Half(digest: value, lane: Lane.High)));
+        U64(value: ContentHash.Half(digest: value, lane: Lane.Low))
+            .U64(value: ContentHash.Half(digest: value, lane: Lane.High));
 
     public CanonicalWriter Single(float value) {
         Span<byte> word = stackalloc byte[sizeof(float)];

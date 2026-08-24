@@ -6,13 +6,12 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 
 ## [01]-[REQUIRED]
 
-All mistakes/problems/oversights that are structural are abstracted/defined and added in `docs/laws/scars.md` (Ex: identifying a rebuild of a system of capability, finding various mistakes in fundamental approach, code logic structure, etc). Nuanced mistakes or problems are also recorded to ensure no repeat of the same approach, likewise, code rebuilding/refactoring due to code quality gaps, or strata integration oversights are recorded as well. ALWAYS read the `docs/laws/scars.md` at the start of a session, to ensure mistakes are not repeated.
+Every structural mistake — a capability rebuilt over a wrong foundation, a flawed fundamental approach, a code-logic defect, a quality-gap refactor, a strata-integration oversight — is abstracted and recorded in `docs/laws/scars.md` so the same approach never repeats. ALWAYS read `docs/laws/scars.md` at the start of a session.
 
-- Design work in `libs/<language>/` requires FULL reading and adherence across ALL files in `libs/<language>/.planning/` AND `docs/stacks/<language>/`.
-- Each `libs/<language>/` and `libs/<language>/<sub-folder>/` carry a `.api/` folder; all work stacks external-lib capability from BOTH sources — REQUIRED.
-- Durable planning docs — index docs, spec-sheets, `.api` catalogs — follow `libs/.planning/README.md`; the campaign loop follows `campaign-method.md`.
-- `RULINGS.md` is settled law per tier: read before re-deciding; narrowest tier owns; a violation routes as a card at the owning tier, never inline.
-- Every homeless settled decision lands its `RULINGS.md` row at the narrowest owning tier in the same pass — never deferred to session end.
+- Design work in `libs/<language>/` requires FULL reading of `libs/<language>/.planning/` AND `docs/stacks/<language>/`, adhering to both.
+- Each `libs/<language>/` and its sub-folders carry `.api/`; all work stacks external-lib capability from BOTH tiers — REQUIRED.
+- Index docs, spec-sheets, and `.api` catalogs follow `libs/.planning/README.md`; the campaign loop follows `campaign-method.md`.
+- `RULINGS.md` is settled law: read before re-deciding; narrowest tier owns; violations route as cards there, never inline; rows land same-pass.
 - Durable lessons land at the end of session via `docs/laws/README.md` admission ladder; refute-first proves no owner already holds the fact.
 - `docs/laws/topology.md` binds counterpart obligations — consult it before any multi-surface edit.
 
@@ -35,26 +34,26 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA] |
-| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :-------------- |
-|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/csharp` + `.cs`            | `PascalCase`    |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`    |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`     |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`    |
-|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`    |
-|  [06]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                            | `kebab-case`    |
-|  [07]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages   | [N/A]           |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA]                        |
+| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :------------------------------------- |
+|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/csharp` + `.cs`            | `PascalCase`                           |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`                           |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`                            |
+|  [04]   | Protobuf (`.proto`)        | Docs: `tests/contracts/proto`  | `tests/contracts/proto`          | `snake_case` files, `PascalCase` types |
+|  [05]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`                           |
+|  [06]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`                           |
+|  [07]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                            | `kebab-case`; index docs SCREAM        |
+|  [08]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages   | [N/A]                                  |
 
 [TOOL_ROUTING]:
 - ALWAYS use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
 - ALWAYS use `exa` MCP to start open-web search with neural discovery, the right page, repo, paper, or entity; REPLACES `WebFetch` entirely.
 - ALWAYS use `search-tavily` skill on known targets — extract or crawl a site, or run a cited multi-source report.
-- ALWAYS use `search-context7` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
+- ALWAYS use `search-context7` skill on code/fences with external libraries; never guess SDK/framework/API capabilities or implementations.
 - ALWAYS use `nuget` MCP to validate the existence of a package and newest version available.
-- ALWAYS use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
-- ALWAYS use `openaiDeveloperDocs` MCP when working on Codex configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
+- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex config and harness questions; memory, skills, hooks, settings.
 
-[CLI_ESTATE]: Reach for each tool by its own contract, never the upstream one it shadows:
+[CLI_ESTATE]: Navigation and scratch iteration only — these rows are operator-box tool contracts (several ride machine config), and no verdict, gate, or CI lane may depend on one; every verdict routes through `[LANE_GATES]`:
 
 | [INDEX] | [TOOL]     | [GUIDANCE]                                                                                                                  |
 | :-----: | :--------- | :-------------------------------------------------------------------------------------------------------------------------- |
@@ -63,30 +62,25 @@ All mistakes/problems/oversights that are structural are abstracted/defined and 
 |  [03]   | `fd`       | `--hidden` is baked in `-H` is noise; pattern is regex — `*.md` errors, take `-e md` or `-g`; `-I` admits ignored.          |
 |  [04]   | `rg`       | `--smart-case --hidden`; `-s` pins case; types `docs agent config data lock`; `-U` spans `\n`; `-r`=replace, `-E`=encoding. |
 |  [05]   | `ast-grep` | Never `sg`. Wrong pattern and clean tree both read zero — control-probe it; `--kind` inventories; `--json=compact` glued.   |
-|  [06]   | `assay`    | Runs `uv run --no-sync python -m tools.assay` at repo root; bare `static` plans zero — pass `--folder\|--project\|--all`.   |
-|  [07]   | `buf`      | Runs `pnpm exec buf`: `ls-files`/`stats` alone; `assay contracts` gates; exit 100 = violations; `--path` never a module.    |
-|  [08]   | `fmt`      | Defaults to `--write` — pass `--check` first; markdown and C# hold no lane and skip silently.                               |
-|  [09]   | `gha`      | `check` folds actionlint+zizmor+ratchet, `run` passes to `act`; `act -l -W <dir>` exits 0 on zero workflows.                |
-|  [10]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
-|  [11]   | `gh`       | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                     |
+|  [06]   | `jq`/`yq`  | `yq` is mikefarah v4 — `yq '.expr' f`, never `yq r`; `jq` needs `-r` for shell values and `[]?` on optional arrays.         |
+|  [07]   | `gh`       | Non-TTY prints nothing when empty — never read the table; count through `--json <fields> \| jq length`.                     |
 
-[LANE_GATES]: Run every gate from the repo root; a wrong cwd fabricates results instead of failing:
+[LANE_GATES]: Every verdict comes from `uv run assay <claim> <verb>` at the repo root; `uv run --no-sync assay` is the interactive fast path. Raw binaries are lawful only where no exit code is read; lanes with no files carry no row — the first file mints the catalog row:
 
-| [INDEX] | [LANE]       | [CHECK_INVOCATION]                                                                                                       |
-| :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `csharp`     | `assay static --project <csproj>` — `.slnx` refuses here; a second run contending one lease exits BUSY (5)               |
-|  [02]   | `python`     | `assay static --folder <dir>` — `--folder` narrows ruff alone; ty, mypy, lint-imports sweep their own config scope       |
-|  [03]   | `typescript` | `assay static --folder <dir>` — `--folder` narrows `biome` alone; `tsc` reads the root config and sweeps the estate      |
-|  [04]   | `markdown`   | `assay docs check <paths>` · `.claude/skills/docgen/scripts/prose_gate.py fix --write` — the sole markdown formatter     |
-|  [05]   | `sql`        | `uv run sqlfluff lint <paths>` · `uv run squawk` — a bare `.` lints vendored fixtures inside `.venv`, honoring no ignore |
-|  [06]   | `shell`      | `shellcheck <files>` · `shfmt -d <files>` — pathless `shfmt` blocks on stdin until the deadline kills it                 |
-|  [07]   | `config`     | `taplo fmt --check <files>` · `yamllint <files>` — both read `~/.config`, so neither verdict reproduces off this box     |
-|  [08]   | `ci`         | `gha check [PATH...]` · `gha pin` · `gha events` — actionlint exit 3 names an empty discovery, never a lint failure      |
-|  [09]   | `oci`        | `hadolint <file>` · `dive --ci <image>` — each hangs or backtraces when handed no explicit argument                      |
-|  [10]   | `security`   | `trivy fs --scanners vuln,secret,misconfig --skip-dirs node_modules --skip-dirs .venv .` · `gitleaks detect`             |
-|  [11]   | `iac`        | `pulumi preview -C <dir>` · `pulumi about` — `pulumi whoami` mints a real ephemeral cloud account, never read-only       |
-|  [12]   | `provision`  | `assay provision <verb>` — Forge service, Postgres-extension, and DuckDB/SQLite surface evidence                         |
-|  [13]   | `contracts`  | `assay contracts check` · `assay contracts generate` · `assay contracts publish` — lint · breaking · freshness · audit   |
+| [INDEX] | [CLAIM]     | [CHECK]                                                                          | [WRITE]                              |
+| :-----: | :---------- | :------------------------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `static`    | `static --project <csproj>\|--folder <dir>\|--all`; bare = git-changed; BUSY = 5 | `static --fix`                       |
+|  [02]   | `test`      | `test run\|list\|coverage --python\|--typescript\|--csharp [--target <path>]`    | `test run --mutation changed\|full`  |
+|  [03]   | `docs`      | `docs check <paths>`                                                             | `prose_gate.py fix --write`          |
+|  [04]   | `contracts` | `contracts check`                                                                | `contracts generate\|publish`        |
+|  [05]   | `init`      | `init check`                                                                     | `init python-lib\|python-app <path>` |
+|  [06]   | `provision` | `provision check\|status\|doctor\|ports\|inventory\|plan\|env`                   | `provision up\|down\|apply`          |
+|  [07]   | `api`       | `api status\|resolve\|query\|show`                                               | read-only claim                      |
+|  [08]   | `code`      | `code search\|query`                                                             | read-only claim                      |
+|  [09]   | `bridge`    | `bridge status\|verify`                                                          | `bridge build\|quit`                 |
+|  [10]   | `package`   | `package list\|plan`                                                             | `package publish`                    |
+
+- `--folder` narrows the file-scoped tools alone; ty, mypy, tsc, and lint-imports sweep their own config scope.
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
@@ -151,8 +145,9 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS keep C# MSBuild/NuGet manifests label-grouped by owner, cluster-sorted, with one-line maintenance comments at most.
 - ALWAYS align the package touch-point set both ways: central manager row, project manifest, branch/folder README registries, owning `.api` tier.
 - ALWAYS repair an orphaned touch-point member at its owner, never by removal.
-- ALWAYS assume the newest stable release; pin only while incompatible and drop the pin when compatibility lands (verify with tools, pnpm, nuget, etc).
-- ALWAYS keep root `pyproject.toml` dependencies as lean unpinned names; remove bounds/`python_version` markers if proven stale/unnecessary.
+- ALWAYS assume the newest stable release; pin only while incompatible, dropping it when compatibility lands (verify via `nuget`/pnpm/uv).
+- ALWAYS spell Python dependency rows as bare unpinned names — workspace-root groups and member manifests alike; `uv.lock` alone fixes versions.
+- ALWAYS keep a member `pyproject.toml` to identity and bare-name edges; bounds and `python_version` markers seat at the root and drop once stale.
 - NEVER mint a folder-tier `.api` file duplicating or redirecting to a substrate catalogue; a folder composing a substrate package REGISTERS it.
 - NEVER create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 
@@ -184,9 +179,9 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - `[EXPORTS]`: named exports, `__all__`, or language-equivalent public surface declarations.
 
 [IMPORTANT]:
-- ALWAYS order as `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `kind` -> `smaller-to-larger` -> `alphabetical`.
-- ALWAYS use nested algorithm subsection labels inside large kernels to identify a real operation family, such as `[VECTOR_HEAT]` or `[NORMAL_ESTIMATION]`.
-- ALWAYS keep internal cache keys, memo tables, mutable registries, and algorithm state records with the operation/kernel/runtime owner that mutates them.
+- ALWAYS order: `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `kind` -> `smaller-to-larger` -> `alphabetical`.
+- ALWAYS label real operation families inside large kernels with nested subsection labels like `[VECTOR_HEAT]` or `[NORMAL_ESTIMATION]`.
+- ALWAYS keep cache keys, memo tables, mutable registries, and algorithm state with the operation/kernel/runtime owner that mutates them.
 - ALWAYS treat logger handles, provider handles, and dependency-backed runtime capabilities as `[SERVICES]`, not immutable anchors.
 - ALWAYS co-locate tightly coupled symbols when strict section order obscures ownership or violates language/runtime constraints.
 - ALWAYS treat one registry, catalog, table, or composition root the same; sort inside the owner, never flattened into top-level sections.
@@ -195,7 +190,7 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - ALWAYS order same-owner peers public, then internal, then private — unless static construction, generated semantics, or read-before-use wins.
 - ALWAYS hold owner-defined domain order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, public API.
 - ALWAYS insert a domain extension right after its closest core section; a precise label is earned by real ownership.
-- ALWAYS use proper extension vocabulary: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, `[ENTRY]`.
+- ALWAYS use extension vocabulary: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, `[ENTRY]`.
 - NEVER split source-generated owners, delegate-backed enum behavior, validation partials, or operation-local state for mechanical section order.
 - NEVER split resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy section order.
 - NEVER seat callable row catalogs, memo tables, or DDL-dependent objects in `[CONSTANTS]`; home each in its owning later section or extension.

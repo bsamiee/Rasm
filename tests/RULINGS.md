@@ -33,6 +33,7 @@
 - Vendored modules clearing `STANDARD` whole carry no rule block, and none carries a `breaking` block the estate lane can ever reach.
 - Gate-derived projections alone carry a schema, earned by a verified document its consumer evaluates; a hand-authored one defines no seam.
 - Estate protos carry in-situ field law and `// --- [SECTION]` banners alone — narrative, drift, or snapshot prose restates a moving owner.
+- Module documentation seats `buf.md` at the estate module root — absent it the BSR renders the repo README to every external consumer.
 
 ## [05]-[PROCESS]
 
@@ -59,3 +60,4 @@
 - Compatibility resolves the active module's `main` label once and proves FILE on the returned commit; no snapshot or alternate baseline substitutes.
 - `contracts publish` alone admits exact module absence, re-proved just before bootstrap; a missing label, auth, or network fault never bootstraps.
 - Breaking proof rides the published module's resolved commit — an unresolved baseline SKIPS the lane, and that skip supplies no verdict at all.
+- litter-guard `POLICY` censuses two-way against the `[ARTIFACT_ROUTING]` litter-guard rows, and each row's block and pass forms prove by running the hook.

@@ -142,13 +142,13 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 - Growth: one record row and one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
 - Boundary: the run and receipt are `automation.md`'s; outputs keys are `spec.md`'s contract.
 - Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary: tier admissions plus `DeployFault`. A new admitting tier widens one type alias and every arm body inherits it.
-- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/ts/data` (`Backend`).
+- Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/data` (`Backend`).
 
 ```typescript signature
 import type { PulumiFn } from "@pulumi/pulumi/automation"
-import type { Backend } from "@rasm/ts/data"
+import type { Backend } from "@rasm/data"
 import { Array, Config, Effect, Encoding, Option, Record, Redacted } from "effect"
-import type { Board, Reliability } from "@rasm/ts/core"
+import type { Board, Reliability } from "@rasm/core"
 import type { DataRefused, Postgres } from "../kube/data.ts"
 import { Traffic } from "../kube/traffic.ts"
 import type { Converge, ConvergeRefused } from "../operate/converge.ts"

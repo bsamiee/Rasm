@@ -251,7 +251,7 @@ That same root owns the `BrickGraph` leg's other half: it supplies the `BrickBin
 
 `GeoWire` produces every `GeoFeature` crossing, its `ToGeoJson` text and `ToGpkgBlob` blob the only two wire forms `Semantics/feature` publishes, so each cross-runtime geo edge carries `[PROJECTION]` and never `[WIRE]`: `tests/contracts/manifest.json` `BIM_WIRE` records `GeoFeatureWire` ABSENT because no typed family crosses, and an edge naming that family claims a decoder roster, a parity gate, and a producer row no fence on either side holds.
 
-`typescript:core` decodes that projection behind its own `interchange/codec` `WkbParser` port over raw bytes and mints a `Wire.GeoFeature` landing its family roster excludes; `typescript:ui` reaches the landing through `@rasm/ts/core` alone, so no geo edge runs from here to it. Persistence's geo-store takes the GeoPackage blob leg without a runtime crossing, and `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
+`typescript:core` decodes that projection behind its own `interchange/codec` `WkbParser` port over raw bytes and mints a `Wire.GeoFeature` landing its family roster excludes; `typescript:ui` reaches the landing through `@rasm/core` alone, so no geo edge runs from here to it. Persistence's geo-store takes the GeoPackage blob leg without a runtime crossing, and `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 
 Every `[CONTENT_KEY]` edge derives its typed `UInt128` through `ContentHash.Of` over the seam `CanonicalWriter` fold, joining the Compute content-addressing space; per-page key tuples live on the owning implementation pages.
 

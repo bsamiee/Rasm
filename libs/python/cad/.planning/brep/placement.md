@@ -21,7 +21,7 @@
 - Law: a caller wanting a different refusal row re-rows through `map_error` on the returned rail, which keeps the validity probe single-sited while the row stays the arm's own decision.
 - Law: this rail is B-rep-leg scoped, so `metrology/properties` keeps its own validity probe under `MEASURE_DEGENERATE`; that leg seats below this page and cannot reach here, and the duplication is deliberate.
 - Growth: a new builder family is one admission arm keyed on its accessor, never a second `BRepCheck_Analyzer` call standing beside the probe this cluster owns.
-- Boundary: source resolution, the arm roster, and the seal handoff stay at `brep/operation#ADMISSION`; this owner grades one builder's verdict and nothing about the request that reached it.
+- Boundary: source resolution stays at `exchange/step#CODEC`, the arm roster at `brep/operation#ARMS`, and the seal handoff at `brep/operation#SPINE`; this owner grades one builder's verdict and nothing about the request that reached it.
 
 ```python signature
 # --- [SERVICES] -------------------------------------------------------------------------

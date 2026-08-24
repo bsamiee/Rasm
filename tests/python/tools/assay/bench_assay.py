@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
+from assay.core.model import Claim, Completed, Envelope, envelope, Input, Language, Mode, RailStatus, receipt, Runner, Tool
+from assay.core.routing import place, Routed, Scope
+from assay.diagnostics import fold
 from tests.python._testkit.bench import BenchCase, run_registry
 from tests.python._testkit.strategies import resolve
 from tests.python.tools.assay.kit import WIRE_ENCODER
-from tools.assay.core.model import Claim, Completed, Envelope, envelope, Input, Language, Mode, RailStatus, receipt, Runner, Tool
-from tools.assay.core.routing import place, Routed, Scope
-from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:
@@ -53,7 +53,7 @@ def _place_subject(payload: tuple[object, ...]) -> object:
 
     from upath import UPath  # ruff:ignore[import-outside-top-level]
 
-    from tools.assay.composition.settings import AssaySettings  # ruff:ignore[import-outside-top-level]
+    from assay.composition.settings import AssaySettings  # ruff:ignore[import-outside-top-level]
 
     (routed, tool) = payload
     assert isinstance(routed, Routed)

@@ -6,6 +6,7 @@
 from collections.abc import AsyncIterator
 import hashlib
 from pathlib import Path
+from typing import get_args
 
 import anyio
 import anyio.lowlevel
@@ -13,6 +14,7 @@ from expression import Result
 from protobuf import Oneof
 from protobuf.wkt import Any, Struct, Value
 import pytest
+
 from rasm.contracts.artifact import (
     _LAW as LAW,
     ArtifactCycle,
@@ -20,24 +22,66 @@ from rasm.contracts.artifact import (
     ArtifactError,
     ArtifactExtent,
     ArtifactIdentity,
+    ArtifactLaw,
     ArtifactOpaque,
+    ArtifactOpen,
     ArtifactReference,
     ArtifactRefusal,
     ArtifactResealed,
+    ArtifactSealed,
+    ArtifactSink,
+    ArtifactStream,
     ArtifactTransfer,
     ArtifactWidth,
     confirm,
+    fetch_frames,
     fetch_responses,
     frames,
     output,
+    OwnedArtifact,
     put_frames,
+    put_requests,
     receive,
     references,
+    rendered,
     stage,
 )
 from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactFrame, ArtifactRef, FetchRequest, FetchResponse, PutRequest, PutResponse
 from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import BooleanInputs
 from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import SealedStep
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+COVERS: tuple[object, ...] = (
+    ArtifactCycle,
+    ArtifactEmpty,
+    ArtifactError,
+    ArtifactExtent,
+    ArtifactIdentity,
+    ArtifactLaw,
+    ArtifactOpaque,
+    ArtifactOpen,
+    ArtifactReference,
+    ArtifactResealed,
+    ArtifactSealed,
+    ArtifactSink,
+    ArtifactStream,
+    ArtifactTransfer,
+    ArtifactWidth,
+    confirm,
+    fetch_frames,
+    fetch_responses,
+    frames,
+    output,
+    OwnedArtifact,
+    put_frames,
+    put_requests,
+    receive,
+    references,
+    rendered,
+    stage,
+)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -126,6 +170,24 @@ async def test_stage_matches_the_standard_sha256_vector_and_cleans_its_path() ->
 async def test_stage_rails_a_claim_the_staged_octets_contradict() -> None:
     async with stage(b"abc", claim=b"z" * 32) as staged:
         _refused(staged, ArtifactIdentity)
+
+
+@pytest.mark.anyio
+async def test_stage_copies_a_caller_owned_path_before_proof(tmp_path: Path) -> None:
+    """Custody copies a caller-owned path, so a mutation landing after the seal cannot move the proved octets."""
+    origin = tmp_path / "caller.bin"
+    body = b"caller-owned" * (LAW.frame_ceiling // 4)
+    origin.write_bytes(body)
+
+    async with stage(origin) as staged:
+        assert staged.is_ok(), staged
+        artifact = staged.ok
+        assert artifact.artifact == _ref(body)
+        assert artifact.path != origin
+        origin.write_bytes(b"mutated")
+        async with await anyio.open_file(artifact.path, "rb") as stream:
+            assert await stream.read() == body
+        assert tuple(frame.artifact for frame in await _collect(frames(artifact))) == (_ref(body),) * 3
 
 
 @pytest.mark.anyio
@@ -278,6 +340,49 @@ async def test_transfer_projects_the_enclosing_deadline_and_confirms_put_publish
         assert fetched.is_ok(), fetched
         assert fetched.ok.artifact == expected
     assert client.fetch_request == FetchRequest(sha256=expected.sha256)
+
+
+# --- [REFUSALS]
+
+
+def test_every_refusal_case_renders_a_distinct_token_carrying_its_own_evidence() -> None:
+    """The closed family projects total: every case renders, renders distinctly, and keeps its evidence to the egress carrier."""
+    cases: tuple[tuple[ArtifactRefusal, tuple[str, ...]], ...] = (
+        (ArtifactEmpty(), ()),
+        (ArtifactExtent(expected=4, actual=9), ("4", "9")),
+        (ArtifactWidth(expected=8, actual=3), ("8", "3")),
+        (ArtifactIdentity(expected=b"\x01" * 32, actual=b"\x02" * 32), ("01" * 32, "02" * 32)),
+        (ArtifactReference(expected=ArtifactRef(sha256=b"a" * 32, artifact_bytes=4), actual=None), ("None",)),
+        (ArtifactOpaque(type_url="type.googleapis.com/rasm.contracts.cad.v1.SealedStep"), ("type.googleapis.com/rasm.contracts.cad.v1.SealedStep",)),
+        (ArtifactCycle(type_name="google.protobuf.Struct"), ("google.protobuf.Struct",)),
+        (ArtifactResealed(path=Path("/spool/artifact.glb")), ("/spool/artifact.glb",)),
+    )
+    assert {type(refusal) for refusal, _ in cases} == set(get_args(ArtifactRefusal.__value__)), "the refusal family grew a case no rendering proves"
+
+    tokens = tuple(rendered(refusal) for refusal, _ in cases)
+    assert len(set(tokens)) == len(cases), tokens
+    for (refusal, evidence), token in zip(cases, tokens, strict=True):
+        assert all(fragment in token for fragment in evidence), (refusal, token)
+        assert str(ArtifactError(refusal)) == token, refusal
+        assert ArtifactError(refusal).refusal is refusal
+
+
+@pytest.mark.anyio
+async def test_a_refused_stream_releases_the_caller_owned_source_it_stopped_reading() -> None:
+    """Custody closes a caller-owned async source at the refusal, never leaving it to collection."""
+    released = anyio.Event()
+
+    async def source() -> AsyncIterator[ArtifactFrame]:
+        await anyio.lowlevel.checkpoint()
+        try:
+            yield ArtifactFrame(payload=b"first", artifact=ArtifactRef(sha256=b"x" * 32, artifact_bytes=2))
+            pytest.fail("custody read past the frame that refused")
+        finally:
+            released.set()
+
+    async with receive(source()) as received:
+        _refused(received, ArtifactExtent)
+    assert released.is_set()
 
 
 # --- [REFERENCES]

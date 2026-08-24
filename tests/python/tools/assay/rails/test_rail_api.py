@@ -11,13 +11,10 @@ from hypothesis import given as hyp_given, settings as hyp_settings, strategies 
 import msgspec
 import pytest
 
-from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip
-from tests.python._testkit.strategies import resolve as st_resolve  # aliased to avoid collision with tools.assay.rails.api.resolve verb
-from tests.python.tools.assay.kit import RailProbe, SeamExecutor
-from tools.assay import oracle as oracle_mod
-from tools.assay.composition.catalog import select
-from tools.assay.core.exec import EngineExecutor
-from tools.assay.core.model import (
+from assay import oracle as oracle_mod
+from assay.composition.catalog import select
+from assay.core.exec import EngineExecutor
+from assay.core.model import (
     ApiResolution,
     ApiSource,
     ApiSurface,
@@ -35,20 +32,23 @@ from tools.assay.core.model import (
     Tool,
     ToolArgs,
 )
-from tools.assay.diagnostics import CAPTURES, ts_language
-from tools.assay.rails import api as api_rail
-from tools.assay.rails.api import ApiParams, query, resolve, shape_of, show, status
+from assay.diagnostics import CAPTURES, ts_language
+from assay.rails import api as api_rail
+from assay.rails.api import ApiParams, query, resolve, shape_of, show, status
+from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip
+from tests.python._testkit.strategies import resolve as st_resolve  # aliased to avoid collision with assay.rails.api.resolve verb
+from tests.python.tools.assay.kit import RailProbe, SeamExecutor
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from assay.composition.settings import AssaySettings
+    from assay.composition.store import ArtifactScope
+    from assay.core.exec import Executor
+    from assay.core.model import Report
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.composition.settings import AssaySettings
-    from tools.assay.composition.store import ArtifactScope
-    from tools.assay.core.exec import Executor
-    from tools.assay.core.model import Report
 
     type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams, Executor], Result[Report, Fault]]  # query/resolve/show/status share this shape
 

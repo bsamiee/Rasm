@@ -1,0 +1,30 @@
+{
+    "name": "@rasm/viewer",
+    "version": "0.1.0",
+    "description": "Spatial stratum of the ui plane: 3D scene, tiles, and geometry viewport",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/ui/viewer"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./index.ts",
+        "./package.json": "./package.json"
+    },
+    "dependencies": {
+        "@rasm/ui": "workspace:*"
+    },
+    "nx": {
+        "tags": [
+            "scope:viewer",
+            "runtime:browser",
+            "plane:runtime"
+        ],
+        "targets": {
+            "typecheck": {}
+        }
+    }
+}

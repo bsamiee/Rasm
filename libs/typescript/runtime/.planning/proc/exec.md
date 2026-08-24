@@ -225,7 +225,7 @@ const _halted = (): Promise<void> => _host.dispose();
 ```typescript signature
 import { Command, type CommandExecutor, type PlatformError } from '@effect/platform';
 import { Array, Clock, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
-import { Fault } from '@rasm/ts/core';
+import { Fault } from '@rasm/core';
 
 const _LEG = 'command';
 
@@ -413,10 +413,10 @@ const Proc = { Spec, Receipt, run, open: _opened } as const;
 - Receipt: the claim is the receipt and it widens in place — `Board.Bench.fromMitata` fills the rung ladder, the tick count, the raw samples, and the three enrichment bands off one `stats` record, and this owner supplies the mint fields the engine cannot know. `allocatedBytes` fills from the measured per-operation heap delta where the band survived the honesty strip; `warmups` stays absent because the engine spends warmup conditionally on its own threshold gate and reports no count, so the declared ceiling published there would be a figure no run took.
 - Entry: `Trial.run(host, spec, body)`.
 - Growth: a new measured case is one `Trial.Spec`; a new enrichment band is one handle on `_tuned` plus one row in the `_points` fact stream.
-- Packages: `mitata` (`mitata/src/lib.mjs`), `effect` (`Metric`, `Exit`, `Runtime`), `@rasm/ts/core` (`Board`, `Convention`), `node:v8` (`getHeapStatistics`).
+- Packages: `mitata` (`mitata/src/lib.mjs`), `effect` (`Metric`, `Exit`, `Runtime`), `@rasm/core` (`Board`, `Convention`), `node:v8` (`getHeapStatistics`).
 
 ```typescript signature
-import { Board, Convention } from '@rasm/ts/core';
+import { Board, Convention } from '@rasm/core';
 import { Array, DateTime, Effect, Exit, Metric, Option, Record, Runtime as EffectRuntime, Schema } from 'effect';
 import {
     do_not_optimize as MitataSink,

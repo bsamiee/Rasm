@@ -75,9 +75,10 @@ Couplings fanning out or carrying a proof condition land as cards, each stating 
 - Law: Silent miss is the failure mode — an unspelled dot-directory reviews under no law and no engine reports the gap.
 
 [MANIFEST_ADMISSION]:
-- Surface: Central manifest dependency rows — `Directory.Packages.props`, `pyproject.toml`, or `pnpm-workspace.yaml`.
+- Surface: Manifest dependency rows — `Directory.Packages.props`, a `pyproject.toml` workspace-root group or member, `pnpm-workspace.yaml`.
 - Obligates: Folder `README.md` and the `.api/` catalog tiers, because dependency admission is a multi-surface fact.
 - Law: `Directory.Packages.props` rows also obligate the consuming `.csproj`.
+- Law: Python member-manifest rows obligate the workspace roster and `uv.lock`, which alone fixes the version a bare name resolves to.
 - Law: `pyproject.toml` direct-URL pins obligate every sibling spelling that URL — two coordinates land two distributions in one import namespace.
 
 [CATALOG_MEMBER]:

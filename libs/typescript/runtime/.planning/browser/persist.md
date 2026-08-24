@@ -32,12 +32,12 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 - Law: `mutate` encodes inside the library's transaction callback, which rejects the transaction promise with the updater's throw, so the fault fold guards `ParseError` first — a codec failure never wears the `io` reason a class-dispatching retry re-drives forever.
 - Law: `KvBacking` satisfies `Persistence.BackingPersistence` over the `persist` row, so `PersistedCache`, `PersistedQueue`, and `RequestResolver.persisted` ride IndexedDB instead of the package's Web-Storage route; expiry is a read verdict and `clear` is prefix-scoped to one store.
 - Entry: the service's eight members are the whole surface; `R` carries nothing — the store handles are construction facts.
-- Packages: `@effect/experimental` (`Persistence`); `@rasm/ts/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Record`, `Schema`); `idb-keyval`.
+- Packages: `@effect/experimental` (`Persistence`); `@rasm/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Record`, `Schema`); `idb-keyval`.
 - Boundary: `@effect/platform`'s `KeyValueStore` Tag stays unbound here by design — its browser binding is Web-Storage-backed and carries no IndexedDB layer, so the durable lane is direct `idb-keyval` under this one owner; the EventLog journal's own IndexedDB database is `[5]`'s and never shares these stores.
 
 ```typescript signature
 import { Persistence } from "@effect/experimental"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, type Clock, Effect, Layer, Option, ParseResult, Predicate, Record, Schema } from "effect"
 import { clear, createStore, del, delMany, get, getMany, keys, promisifyRequest, set, setMany, update, type UseStore } from "idb-keyval"
 
@@ -326,7 +326,7 @@ const KvBacking: Layer.Layer<Persistence.BackingPersistence, never, Kv> = Layer.
 - Law: `lifetime` answers BOTH halves in one cell — how long a row survives AND which party ends it — since a span with no ending party and a party with no span are each half a coordinate; the user agent is that party on every row, which the cell states rather than deferring.
 - Law: `degrade` carries the residual alone — a forfeit `tenancy` or `lifetime` already expresses never rides it a second time, so per-tab scoping buys back the isolation its siblings give up and states nothing further.
 - Growth: a new pressure band is one `_BANDS` row; a new backing is one `_BACKINGS` row; a new residency fact (a bucket API, a durability probe) is one member on this owner; a new egress route is one `_ROUTES` row plus its `_LADDER` seat.
-- Packages: `effect` (`Array`, `Effect`, `Exit`, `Option`, `Predicate`, `Schema`, `Scope`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Array`, `Effect`, `Exit`, `Option`, `Predicate`, `Schema`, `Scope`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 // Bands price DURABILITY ADMISSION, never a byte threshold alone. `ceiling` spans the usage fraction, `heavyLane`

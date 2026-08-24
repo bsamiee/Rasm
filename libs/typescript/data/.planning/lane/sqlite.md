@@ -111,7 +111,7 @@ import * as BunSqlite from "@effect/sql-sqlite-bun"
 import * as WasmSqlite from "@effect/sql-sqlite-wasm"
 import { LibsqlClient } from "@effect/sql-libsql"
 import { D1Client } from "@effect/sql-d1"
-import type { Identity } from "@rasm/ts/core"
+import type { Identity } from "@rasm/core"
 
 const _PROFILES = {
   server: {
@@ -418,7 +418,7 @@ export { PgliteRuntime }
 
 ```typescript signature
 import { Data, Option, Schema } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 type SqliteIo = Data.TaggedEnum<{
   Snapshot: {}

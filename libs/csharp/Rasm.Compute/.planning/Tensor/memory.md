@@ -330,15 +330,26 @@ public sealed record StreamPoolPolicy(
     // `MaximumBufferSize` DERIVES from the channel payload cap rather than restating it, and `BlockSize` and
     // `LargeBufferMultiple` derive from that one authority, so a frame never straddles a pooled block and a
     // large-buffer step lands on a cap boundary — three literals kept in step by prose held the invariant before.
-    public static readonly StreamPoolPolicy Canonical = Derived(GrpcChannelPolicy.Canonical.MaxSendBytes);
+    // TWO authorities, one derivation each: buffer GEOMETRY strides on the channel payload cap; the per-stream
+    // CAPACITY takes the artifact ceiling — a reassembled artifact is the thing the pool exists to hold, and
+    // deriving its cap from `MaxSendBytes` collapsed the two axes to 4 MiB, refusing every artifact the frame
+    // law was written for (frames exist precisely because the artifact exceeds the channel cap).
+    public static readonly StreamPoolPolicy Canonical = Derived(GrpcChannelPolicy.Canonical.MaxSendBytes, ArtifactCeiling);
 
-    public static StreamPoolPolicy Derived(int payloadCap) => new(
+    // The reassembled-artifact ceiling `Runtime/channels#ARTIFACT_FRAMES` `WireLimits.Artifact` reads back off
+    // `MaximumStreamCapacity`: 1 GiB covers the estate's heaviest framed payload classes — an IFC SPF source
+    // crossing `TessellateRequest`, a splat-scan byte-column body, a policy-depth tileset manifest — with three
+    // orders of headroom over the 4 MiB channel cap, and stays under `int.MaxValue` so the `checked((int))`
+    // projection at the `WireLimits` row is total.
+    public const long ArtifactCeiling = 1024L * 1024 * 1024;
+
+    public static StreamPoolPolicy Derived(int payloadCap, long artifactCap) => new(
         BlockSize: payloadCap >> 5,
         LargeBufferMultiple: payloadCap >> 2,
         MaximumBufferSize: payloadCap,
         MaximumSmallPoolFreeBytes: 16777216,
         MaximumLargePoolFreeBytes: 33554432,
-        MaximumStreamCapacity: payloadCap,
+        MaximumStreamCapacity: artifactCap,
         UseExponentialLargeBuffer: false,
         AggressiveBufferReturn: true,
         ZeroOutBuffer: false,
@@ -480,7 +491,7 @@ Each entry carries one ruling:
 - [02]-[ZERO_COPY_EDGE]: `UnsafeByteOperations.UnsafeWrap` wraps sequence windows at the remote edge under the frame law the remote lane owns
 - [03]-[CODEC_WINDOW]: `TryGetBuffer` exposes a contiguous window for codecs bounded by `MaximumBufferSize`; the stream's `WriteTo(Stream)` is the array-free stream-to-stream copy and the message's `WriteTo(IBufferWriter<byte>)` the array-free encode into the rent
 - [04]-[DERIVED_GEOMETRY]: `BlockSize`, `LargeBufferMultiple`, and `MaximumBufferSize` derive from the ONE channel payload cap `Runtime/admission#DISPATCH_SPINE` `GrpcChannelPolicy.Canonical.MaxSendBytes` owns, so a frame never straddles a pooled block, every large-buffer step lands on a cap boundary, and a cap change moves one value
-- [05]-[STREAM_CAP]: `MaximumStreamCapacity` is the payload cap rather than the package's zero no-limit spelling, so an unbounded stream is refused by the manager as well as by `AllocationClass.Grant` at admission
+- [05]-[STREAM_CAP]: `MaximumStreamCapacity` is the artifact ceiling `ArtifactCeiling` rather than the package's zero no-limit spelling — a per-stream cap distinct from the channel payload cap the geometry strides on — so an unbounded stream is refused by the manager as well as by `AllocationClass.Grant` at admission
 - [06]-[POOL_RETENTION]: free-bytes caps bound RETAINED (never in-use) memory and a return past a cap releases as a `BufferDiscarded` event; the large cap applies per size class, so real retention is the floor times the touched size-class count
 - [07]-[CONTIGUOUS_VIEW]: `GetBuffer` exposes the whole stream as one array when the codec needs a contiguous backing past `MaximumBufferSize`; the call is array-free against pooled blocks and never copies, where `TryGetBuffer` caps at one block
 - [08]-[SEGMENT_HANDOFF]: `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap` so a pooled payload becomes a `ByteString` with zero copy; the owner outlives the wrap and disposes after send

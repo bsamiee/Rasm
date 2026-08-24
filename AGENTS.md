@@ -8,20 +8,23 @@
 [REQUIRED]:
 - Before authoring code or fences in a language, read the FULL root of `docs/stacks/<language>/` and follow every standard there ONCE not repeated.
 - `docs/stacks/csharp/domain/` shards load only when the work touches them; cross-language work grounds each touched language the same way.
-- `fmt <target...>` formats any file set or tree under repo law (`biome.json`, `pyproject.toml`, `.editorconfig` win); `fmt --check` is read-only.
+- Working a planning folder loads BOTH `.api/` tiers before any fence lands; `libs/.planning/README.md` `[API_TIERS]` owns that law.
 
 ## [02]-[ENGINEERING_CONTRACT]
 
+Rows below bind the session and hold no other owner; every planning-corpus rule they leave unnamed resolves at its owning surface under `[03]-[ROUTED]`.
+
 - Planning-corpus verification is READ-ONLY: never compile, build, run code analyzers, or execute tests against `.planning/` pages or any markdown.
-- Work lands ONLY on `.md` design/spec sheets inside planning folders; a source file is never created from.
-- Working in a planning folder requires a FULL listing of its `libs/<language>/<folder>/.api/` AND `libs/<language>/.api/` for external lib integration.
-- ULTRA-stack each planning folder's external packages as the source of new functionality and capability.
-- Design docs are implementation surfaces: file-grouped and decision-complete.
-- NEVER couple packages: each stands alone and usable in isolation — aligned with siblings, respect `libs/.planning/ARCHITECTURE.md`.
-- DEPTH-OVER-SURFACE governs every owner.
-- Package admission to `Directory.Packages.props`, `pyproject.toml`, or `pnpm-workspace.yaml` lands its row in the owning planning-folder `README.md`.
-- Every planning `README.md` carries a package manifest and a substrate section (shared packages from `libs/<language>/.api/`).
-- C# admission also updates the owning planning folder's `.csproj`; `.csproj` and `README.md` stay aligned.
-- Code fences in design docs are fully realized — never abstract signatures or sketches — with `docs/stacks/<language>/` as the FLOOR.
+- Work lands ONLY on `.md` design/spec sheets inside planning folders; a source file is never created from one.
 - Run each applicable check ONCE, after the work lands; a clean result is final — never re-run until all prior findings have been resolved.
-- Every repo tool routes its generated output (caches, benchmarks, coverage, snapshots, scratch) through the owning tool configuration.
+
+## [03]-[ROUTED]
+
+| [INDEX] | [QUESTION]                                                            | [OWNER]                                    |
+| :-----: | :-------------------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | Design-page grammar, fence completeness, index-doc contracts          | `libs/.planning/README.md`                 |
+|  [02]   | Package independence, strata direction, the admission ladder          | `libs/.planning/ARCHITECTURE.md`           |
+|  [03]   | Manifest admission and its README, `.api/`, and `.csproj` counterparts | `docs/laws/topology.md` `[MANIFEST_ADMISSION]` |
+|  [04]   | Generated-output routing through owned stores                         | root `README.md` `[OUTPUT_ROUTING]`        |
+|  [05]   | Density, polymorphism, parameterization, and composition law          | `CLAUDE.md` `[02]-[IMPLEMENTATION_STANDARDS]` |
+|  [06]   | Formatter, gate, and CLI invocation shape                             | `CLAUDE.md` `[CLI_ESTATE]` + `[LANE_GATES]` |

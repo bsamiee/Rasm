@@ -18,7 +18,7 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 - Law: `concurrency` and `mailbox` are the entity fence — a tenant's actor saturates to `MailboxFull` at its own row's bound without starving a sibling; `idle` prices residency; `budget` names the `core/value/fault#RETRY_BUDGET` row; `attempts` is the durable lane's park ceiling; `urgency` is the integer the claim `ORDER BY` term reads — smaller claims first.
 - Growth: a new service class is one tuple entry plus one row every fence, lane, and pacing fold inherits at compile time; a new axis (a hedge delay, a spend weight) is one `Row` field consumed by the surfaces that name it.
 - Boundary: which class an actor or job family selects is that declaration's policy field; this table prices classes and never names consumers.
-- Packages: `effect` (`Duration`, `Function`, `Schema`); `@rasm/ts/core` (`Fault.Budget`).
+- Packages: `effect` (`Duration`, `Function`, `Schema`); `@rasm/core` (`Fault.Budget`).
 
 ```typescript signature
 import { ClusterError, ClusterMetrics, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, EntityProxyServer, EntityResource, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
@@ -27,7 +27,7 @@ import type { HttpApi } from "@effect/platform"
 import { type Rpc, RpcGroup } from "@effect/rpc"
 import { SqlPersistedQueue } from "@effect/sql"
 import { Array, Duration, Effect, Function, Layer, Metric, Option, Schema, type Scope, Stream, Struct, type Types } from "effect"
-import { Convention, Fault, type Identity } from "@rasm/ts/core"
+import { Convention, Fault, type Identity } from "@rasm/core"
 import { Profile } from "../otel/profile.ts"
 import { Setting } from "../proc/config.ts"
 
@@ -82,7 +82,7 @@ const WorkClass: WorkClass.Shape = {
 - Law: `provenance` states both directions — `consumed` names the identities this settlement spent, `produced` the one identity it minted — so a receipt joins backward to its cause and forward to its output without a second index.
 - Boundary: a child-exit verdict (`proc/exec`'s `Proc.Receipt`) and a byte-parity proof (`browser/fetch`'s arrival receipt) name no produced output and carry no provenance, so neither joins this family; folding either in fabricates spine columns their producers never measure, and neither seats where this carrier does.
 - Growth: a new producer is one `extend` declaration; a new spine dimension is one field every producer's fold populates.
-- Packages: `effect` (`Array`, `Option`, `Schema`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Array`, `Option`, `Schema`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 // One warning row for every producer: the class its degradation WOULD have refused under, the producer's own family
@@ -149,7 +149,7 @@ declare namespace Settled {
 - Law: the band's channel is the actor FAMILY and its steps are the three regions one instance owns, so a family's profile series count is bounded by its lifecycle rather than by its message roster — a per-Rpc step mints one series per tag per family, which is the metric-cardinality defect wearing a profile label.
 - Entry: `Actor.make` at the owning page; `Entity.makeTestClient(entity, layer)` binds the kit-driven spec client with no runner.
 - Growth: a new actor family is one `Spec` value; a new message is one `Rpc` row on its group; a new per-Rpc posture axis is one exemption set folded at `_annotated`; a new modality (streaming reply) is `toLayerMailbox` on the same spec; a new banded region is one `_PHASES` entry.
-- Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Effect`, `Layer`, `Option`, `Scope`); `@rasm/ts/core` (`Convention` — the identity rows both span seats stamp); `../otel/profile.ts` (`Profile`).
+- Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Effect`, `Layer`, `Option`, `Scope`); `@rasm/core` (`Convention` — the identity rows both span seats stamp); `../otel/profile.ts` (`Profile`).
 
 ```typescript signature
 declare namespace Actor {

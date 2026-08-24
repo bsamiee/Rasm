@@ -54,7 +54,7 @@ declare namespace Hook {
 
 [RAIL_SEAT]:
 - Owner: `Hook.registry(app, rows, policy)` — the per-app mint: every contributed point becomes one `Tap.point` declaration off its runtime row (`modality`, `depth`), the app's rail seats on that roster, and each `source`-carrying row gets its scoped pump fiber; the seat dies with the composition scope, so channels, pumps, and seats release together and a second app mints its own value.
-- Packages: `effect` (`Array`, `Effect`, `Either`, `Option`, `Record`, `Schema`, `Stream`); `@rasm/ts/core` (`Identity`, `Tap`).
+- Packages: `effect` (`Array`, `Effect`, `Either`, `Option`, `Record`, `Schema`, `Stream`); `@rasm/core` (`Identity`, `Tap`).
 - Law: channels, arbitration, seating, isolation, and the breach account are `Tap.Rail`'s whole — this page declares points, adopts sources, and selects which facts arbitrate, and a folder-local hub table double-accounts every drop against a census nothing can add.
 - Law: the runtime row IS the point's declaration — `modality` and `depth` are exactly what `Tap.point` admits, retention follows from the modality row alone, and no policy here re-derives a replay window.
 - Law: the ui rail carries in-process facts, so a point binds `Schema.Unknown` and every payload type re-narrows at this page's own typed facades — the erased roster is what lets one rail seat eight unrelated payload families.
@@ -64,7 +64,7 @@ declare namespace Hook {
 - Boundary: registration placement is the composition root's — this module exports the mint and never calls it; per-app scoping is the direct consequence of the mint living inside the app scope.
 
 ```typescript signature
-import { type Identity, Tap } from "@rasm/ts/core"
+import { type Identity, Tap } from "@rasm/core"
 import { Array, Effect, Either, Option, Record, Schema, type Scope, Stream } from "effect"
 
 declare namespace Hook {
@@ -120,7 +120,7 @@ const _registry = (
 
 [FACT_PUBLISH]:
 - Owner: `Hook.publish` — the typed facade over `Tap.publish`, binding the point's contributed payload type and answering the closed `Tap.Verdict`.
-- Packages: `@rasm/ts/core` (`Tap`).
+- Packages: `@rasm/core` (`Tap`).
 - Law: publishers fold refusal evidence off the verdict's own `veto` — this page carries no parallel refusal channel, and a transport boolean never stands in for arbitration evidence.
 - Law: the verdict is a value with three arms every publisher breaks on — `fanned` carries delivering arity and the point's census, `vetoed` the arbiter's refusal, `unrostered` a point no rail slot names.
 
@@ -136,7 +136,7 @@ const _publish = <P extends Hook.Point>(
 
 [TAP_MOUNT]:
 - Owner: `Hook.seat` and `Hook.mount` — the typed subscription bind and the one mount answering `Tap.Mount`, whose `mounted` arm carries the release handle and whose `refused` arm carries the accumulated admission fault.
-- Packages: `effect` (`Either`, `Option`); `@rasm/ts/core` (`Tap`).
+- Packages: `effect` (`Either`, `Option`); `@rasm/core` (`Tap`).
 - Law: `consult` is this folder's one arbitration axis and it folds INTO the seated arbiter — a veto point carries pre-commit AND settled facts while `Tap` arbitrates every fact a seated arbiter sees, so the selector answers absence on a settled fact rather than standing as a second gate beside the rail.
 - Law: a mount answers its verdict and its release token — a `void` mount admits a duplicate label that double-counts every emitter and leaves the subscriber no detach.
 - Law: admission and seating refuse on ONE arm — a modality mismatch and a duplicate label both read as `refused`, so a caller reads one verdict rather than an `Either` beside an effect.

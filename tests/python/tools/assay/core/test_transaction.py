@@ -9,10 +9,13 @@ from pathlib import Path
 import msgspec
 import pytest
 
+from assay.core.model import RailStatus
+import assay.core.transaction as transaction_mod
+from assay.core.transaction import audit_image, SwapTransaction
 from tests.python._testkit.spec import assert_error_status, assert_ok
-from tools.assay.core.model import RailStatus
-import tools.assay.core.transaction as transaction_mod
-from tools.assay.core.transaction import SwapTransaction
+
+
+COVERS: tuple[object, ...] = (SwapTransaction, audit_image)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

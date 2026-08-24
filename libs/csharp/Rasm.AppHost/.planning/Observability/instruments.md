@@ -318,10 +318,14 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
                         AppHostMeasure.HopDuration.Row, measured.Elapsed.TotalSeconds, in tags))
                     : counted,
             None: static () => Fin.Succ(unit))));
+    // A suppressed leg carries NO verdict — `Outcome` is `None` — so it enters no outcome-tagged row and the
+    // availability objective reads only legs that actually dialed or refused, matching the `Hop` arm's gate.
     public static readonly ReceiptKind Delivery = new("delivery", static (set, payload) =>
-        Decoded<DeliveryReceipt>("delivery", payload).Bind(row => set.Write(
-            AppHostMeasure.DeliveryOutcomes.Row, 1d,
-            InstrumentSet.Tags((AppHostSlot.Channel, row.Channel), (AppHostSlot.Outcome, row.Outcome.Key)))));
+        Decoded<DeliveryReceipt>("delivery", payload).Bind(row => row.Outcome.Match(
+            Some: verdict => set.Write(
+                AppHostMeasure.DeliveryOutcomes.Row, 1d,
+                InstrumentSet.Tags((AppHostSlot.Channel, row.Channel), (AppHostSlot.Outcome, verdict.Key))),
+            None: static () => Fin.Succ(unit))));
     // The sweep's per-topic lane rows mount no gauge on this roster, so the kind is receipt-only BY DECLARATION.
     public static readonly ReceiptKind Sweep = new("outbox-sweep", Silent);
     // Charged slots are the `CostUnit` vocabulary's own keys, so the spend fold reads the receipt's typed vector

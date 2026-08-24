@@ -345,7 +345,7 @@ class _Capture extends Schema.Class<_Capture>("Fault.Capture")({
   }
 }
 
-class _Enricher extends Context.Tag("@rasm/ts/core/Fault.Enricher")<_Enricher, {
+class _Enricher extends Context.Tag("@rasm/core/Fault.Enricher")<_Enricher, {
   readonly enrich: (capture: _Capture) => Effect.Effect<_Capture>
 }>() {
   static readonly identity: Layer.Layer<_Enricher> = Layer.succeed(_Enricher, { enrich: Effect.succeed })

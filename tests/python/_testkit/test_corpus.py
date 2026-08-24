@@ -11,11 +11,8 @@ import msgspec
 import pytest
 import xxhash
 
-from tests.python._testkit import corpus as corpus_kit
-from tests.python._testkit.corpus import assert_corpus, load_manifest
-from tests.python._testkit.spec import assert_ok
-from tools.assay.rails import contracts as contracts_rail
-from tools.assay.rails.contracts import (
+from assay.rails import contracts as contracts_rail
+from assay.rails.contracts import (
     Asset,
     BlockedReadiness,
     Case,
@@ -34,6 +31,9 @@ from tools.assay.rails.contracts import (
     VerifiedReadiness,
     WaveformFacts,
 )
+from tests.python._testkit import corpus as corpus_kit
+from tests.python._testkit.corpus import assert_corpus, load_manifest
+from tests.python._testkit.spec import assert_ok
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -275,7 +275,7 @@ def test_python_distribution_refuses_a_non_package_path(tmp_path: Path) -> None:
     assert isinstance(readiness, VerifiedReadiness)
     specimen = readiness.vectors[0].specimens[0]
     distribution = next(row for row in specimen.distributions if isinstance(row, PythonPackageResource))
-    aliased = msgspec.structs.replace(distribution, path="libs/python/contracts/src/not-rasm/cloudevents.avsc")
+    aliased = msgspec.structs.replace(distribution, path="libs/python/contracts/not-rasm/cloudevents.avsc")
     specimen = msgspec.structs.replace(specimen, distributions=tuple(aliased if row is distribution else row for row in specimen.distributions))
     raw = (_CORPUS / specimen.path).read_bytes()
     held = msgspec.structs.replace(case, readiness=msgspec.structs.replace(readiness, vectors=(ProofVector(specimens=(specimen,)),)))

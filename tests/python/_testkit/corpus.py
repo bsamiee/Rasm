@@ -15,13 +15,9 @@ from expression import Result
 import msgspec
 from protobuf import DescFile, Message, Registry
 from protobuf.wkt import FileDescriptorSet
-import rasm.contracts.gen as generated
-from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
-import rasm.contracts.vendor as vendored
-from rasm.contracts.vendor.io.cloudevents.v1.cloudevents_pb import CloudEvent
 import xxhash
 
-from tools.assay.rails.contracts import (
+from assay.rails.contracts import (
     Actor,
     ApplicationAuthority,
     Asset,
@@ -60,6 +56,10 @@ from tools.assay.rails.contracts import (
     VerifiedReadiness,
     WaveformFacts,
 )
+import rasm.contracts.gen as generated
+from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
+import rasm.contracts.vendor as vendored
+from rasm.contracts.vendor.io.cloudevents.v1.cloudevents_pb import CloudEvent
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ def _fingerprint(asset: Asset, raw: bytes, /) -> None:
 
 def _package_bytes(distribution: PythonPackageResource, /) -> bytes:
     path = PurePosixPath(distribution.path)
-    package_root = PurePosixPath("libs/python/contracts/src").joinpath(*distribution.package.split("."))
+    package_root = PurePosixPath("libs/python/contracts").joinpath(*distribution.package.split("."))
     assert path.is_relative_to(package_root), f"{distribution.path}: path is outside the exact {distribution.package} package root"
     return files(distribution.package).joinpath(*path.relative_to(package_root).parts).read_bytes()
 

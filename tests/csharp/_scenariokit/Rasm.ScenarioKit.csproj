@@ -2,6 +2,7 @@
     <PropertyGroup>
         <!-- Assay non-test marker: the kit ships SDK surface, never runnable tests; IsScenarioKitProject owns MSBuild routing. -->
         <IsTestProject>false</IsTestProject>
+        <RasmHost>common</RasmHost>
     </PropertyGroup>
     <ItemGroup Label="Project References">
         <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" />

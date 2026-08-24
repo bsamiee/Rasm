@@ -26,7 +26,7 @@ import { Tracer as OtelBridge } from "@effect/opentelemetry"
 import type { HrTime, Span } from "@opentelemetry/api"
 import { hrTime } from "@opentelemetry/core"
 import { Vital } from "../otel/vital.ts"
-import { Digest, Fault, Frame, Shape, Wire } from "@rasm/ts/core"
+import { Digest, Fault, Frame, Shape, Wire } from "@rasm/core"
 import { Array, Chunk, Context, type Duration, Effect, Either, HashMap, HashSet, Layer, Match, Option, Order, type ParseResult, Schedule, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import { Client, type Lapse } from "../net/client.ts"
 import { Boot, Connect } from "./boot.ts"
@@ -762,7 +762,7 @@ export { Depot, Fetch, FetchFault, Pool, PoolFault, Web }
 // runtime/src/browser/fetch.worker.ts — the decode-worker terminal entry; its own thread's boot, never part of the browser module
 import { WorkerRunner } from "@effect/platform"
 import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"
-import { Digest, Frame, Wire } from "@rasm/ts/core"
+import { Digest, Frame, Wire } from "@rasm/core"
 import { Chunk, Effect, Either, Layer, Option, Schema, Stream } from "effect"
 import { Pool, PoolFault } from "./fetch.ts"
 

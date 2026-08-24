@@ -12,9 +12,9 @@ import msgspec
 import pytest
 import structlog
 
-from tools.assay import configure_logging
-from tools.assay._logging import _StderrBridgeHandler, _StderrLogger  # private factory products are the test surface
-from tools.assay.composition.settings import LogFormat
+from assay import configure_logging
+from assay._logging import _StderrBridgeHandler, _StderrLogger  # private factory products are the test surface
+from assay.composition.settings import LogFormat
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

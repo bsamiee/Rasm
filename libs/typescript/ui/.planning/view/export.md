@@ -16,12 +16,12 @@ Export owns every way rendered state leaves the browser: one source family, one 
 - Law: the content mint is a delegate; `mint` maps octets to `Digest.Key<"content">`, and this module carries no hash implementation.
 - Law: octets are the one currency — every serializer answers `Uint8Array`, text formats crossing through the encoder at the seam, so the parcel, the digest, and the port all speak one shape and no arm carries a `string | Uint8Array` union downstream.
 - Law: the trip is woven at the owner — `Effect.withSpan("rasm.ui.export.parcel")` carries the format and the source tag as span attributes and log annotations, and the two convention rows mount once (`exportParcels` fanned on the format and source axes, `exportSize` pricing parcel octets on the format axis), so parcel count, size, and encode latency reach the app bridge with zero collector import; the format key is bounded and rides the tag axis, while the parcel name is identifier-grade and stays log material.
-- Packages: `@rasm/ts/core` (`Digest`, `Convention`, `Fault.Class`); `effect` (`Schema`, `Effect`, `Data`, `Match`, `Record`).
+- Packages: `@rasm/core` (`Digest`, `Convention`, `Fault.Class`); `effect` (`Schema`, `Effect`, `Data`, `Match`, `Record`).
 - Boundary: `view/chart` owns every perspective view bracket and hands this owner a read; `viewer/scene` owns the renderer and hands this owner an element; `viewer/probe` owns capture readback and hands this owner a pixel band; `system/cache` owns OPFS residency and this owner owns egress alone — a byte that stays in the browser is the cache's, a byte that leaves is this page's.
 - Growth: a new format is one row with its column in the matrix; a new source is one case with its row of serializers — never a second export surface beside this one.
 
 ```typescript signature
-import { Convention, Digest, Fault } from "@rasm/ts/core"
+import { Convention, Digest, Fault } from "@rasm/core"
 import { Effect, Schema, type Types } from "effect"
 
 const _formats = ["arrow", "csv", "json", "svg", "png", "glb", "text"] as const

@@ -42,7 +42,7 @@ git diff -U2 uv.lock | awk '
   > ".claude/scratch/freshen-$(date +%F)/bumps-python.txt"
 ```
 
-5. PROOF — Run imports below, then `uv run --no-sync python -m tools.assay api status`; marker-gated dists skip; failures name dists for repair.
+5. PROOF — Run imports below, then `uv run --no-sync assay api status`; marker-gated dists skip; failures name dists for repair.
 
 ```bash copy-safe
 uv run --no-sync python - ".claude/scratch/freshen-$(date +%F)/bumps-python.txt" <<'EOF'
@@ -99,7 +99,7 @@ Catalog content keyed by package id resolves each bump's owning `.api` catalogs 
 
 1. Drain all dispatches; adjudicate every RIPPLE roster to done or a carded IDEAS/TASKLOG row.
 2. RESIDUE PROOF: Estate-wide `rg` finds no removed/purged member or moved-package `blocked until`/wheel-gate claim; repair each hit at its owner.
-3. DOCS GATE: Run once over touched markdown with `uv run --no-sync python -m tools.assay docs check`.
-4. STATIC GATE: Run the polyglot build proof once through `tools.assay static --all`.
+3. DOCS GATE: Run once over touched markdown with `uv run --no-sync assay docs check`.
+4. STATIC GATE: Run the polyglot build proof once through `assay static --all`.
 5. IDEMPOTENCY: Rerun `pnpm install` and `dotnet restore Workspace.slnx`; both exit clean without changes.
 6. LEDGER: `.claude/scratch/freshen-<YYYY-MM-DD>/` carries the full bump table with holds and their reasons — reasons feed the next run's hold law.

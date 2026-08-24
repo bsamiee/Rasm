@@ -1,0 +1,30 @@
+{
+    "name": "@rasm/security",
+    "version": "0.1.0",
+    "description": "Identity-and-custody authority: crypto mint, authentication ceremonies, and the access plane",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/security"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./index.ts",
+        "./package.json": "./package.json"
+    },
+    "dependencies": {
+        "@rasm/core": "workspace:*"
+    },
+    "nx": {
+        "tags": [
+            "scope:security",
+            "runtime:neutral",
+            "plane:runtime"
+        ],
+        "targets": {
+            "typecheck": {}
+        }
+    }
+}

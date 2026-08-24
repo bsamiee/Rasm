@@ -24,11 +24,9 @@ Each fact kind below routes to its owner; a fact earns a row in this corpus only
 |  [04]   | Folder-scoped operation      | the folder's `README.md`                           |
 |  [05]   | Agent constitution           | `CLAUDE.md` / `AGENTS.md`                          |
 |  [06]   | Reviewer behavior            | `.coderabbit.yaml` + `.greptile/` + `.macroscope/` |
-|  [07]   | Cross-surface edit coupling  | `topology.md`                                      |
-|  [08]   | Cross-branch pattern law     | `patterns.md`                                      |
-|  [09]   | Paid-for regression trap     | `scars.md`                                         |
-|  [10]   | Settled recurring decision   | the narrowest owning `RULINGS.md` tier             |
-|  [11]   | Test-estate law              | `tests/README.md` + the owning `tests/` tree tier  |
+|  [07]   | Repo-wide maintenance law    | this corpus, at the page `[01]-[PAGES]` names      |
+|  [08]   | Settled recurring decision   | the narrowest owning `RULINGS.md` tier             |
+|  [09]   | Test-estate law              | `tests/README.md` + the owning `tests/` tree tier  |
 
 [EXTENSION_LADDER]:
 - Law: Capability hardens a clause, then extends a page inside its owner, then mints a new page, each rung proving the prior cannot carry the fact.

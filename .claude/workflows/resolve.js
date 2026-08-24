@@ -354,7 +354,7 @@ const LANG = {
             'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
             'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for ' +
+            '`uv run assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for ' +
             'feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
@@ -380,7 +380,7 @@ const LANG = {
             'structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs `<package>/.api/*.md`, always layering the shared/universal ' +
             'rails ON TOP OF the folder-specific domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a ' +
+            '`uv run assay api resolve <pkg>` (a gated/uninstalled package, or a ' +
             'blocked/unavailable assay, falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
@@ -405,7 +405,7 @@ const LANG = {
             'against the published types in node_modules, always layering the shared Effect ecosystem end-to-end ON TOP OF the area-specific packages, ' +
             'never the folder set alone.',
         verify:
-            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where ' + 'a member is novel)',
+            'the published types in node_modules (`uv run assay api` over node_modules declarations where ' + 'a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -926,7 +926,7 @@ const censusPrompt = (L, pages) =>
             'design). `route` quotes the verification route the row states, verbatim enough to re-run. `symbols` lists every ' +
             'member spelling the row names. Classify `routeFamily` and `routeKey` by the route:\n' +
             '- assay: grounds a member/spelling against a HOST-DLL decompile — "at decompile", "the decompile confirms", ' +
-            '"census-sighted but catalog-unverified", `assay api query <Assembly>`, `tools.assay api resolve <pkg>`. routeKey = ' +
+            '"census-sighted but catalog-unverified", `assay api query <Assembly>`, `assay api resolve <pkg>`. routeKey = ' +
             '"assay:" + the assembly or package name (e.g. "assay:GeometryGymIFC_Core").\n' +
             '- catalog: grounds against a REPO `.api/api-*.md` catalog — "the branch/folder catalogue rows its spelling", an ' +
             '`.api/api-*` path. routeKey = "catalog:" + the catalog basename (e.g. "catalog:api-thinktecture-runtime-extensions").\n' +
@@ -1254,7 +1254,7 @@ const CLUSTERS = Object.values(
     }, {}),
 );
 log('Verify: ' + CLUSTERS.length + ' cluster(s) by route family');
-// The route decides the delegate: assay/build/extdoc run NATIVE (tools.assay over host DLLs, a native Context7 delegate for
+// The route decides the delegate: assay/build/extdoc run NATIVE (assay over host DLLs, a native Context7 delegate for
 // extdoc); catalog/docfile ride codex delegates reading the repo.
 const verified = (
     await Promise.all(

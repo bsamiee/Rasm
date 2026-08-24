@@ -2,7 +2,6 @@
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
     "defaultBase": "main",
     "cacheDirectory": ".cache/nx/cache",
-    "useDaemonProcess": false,
     "neverConnectToCloud": true,
     "workspaceLayout": {
         "appsDir": "apps",
@@ -27,7 +26,10 @@
             "{workspaceRoot}/tests/containers.json",
             "{workspaceRoot}/tests/contracts/**/*",
             "{workspaceRoot}/tools/biome/*.grit",
+            "{workspaceRoot}/tsconfig.base.json",
             "{workspaceRoot}/tsconfig.json",
+            "{workspaceRoot}/tsconfig.node.json",
+            "{workspaceRoot}/tsconfig.tools.json",
             "{workspaceRoot}/vite.config.ts",
             "{workspaceRoot}/vitest.config.ts"
         ]
@@ -35,27 +37,37 @@
     "targetDefaults": {
         "build": {
             "cache": true,
-            "inputs": ["production", "^production"],
-            "outputs": ["{projectRoot}/dist"]
+            "inputs": ["...", "production", "^production"]
         },
         "typecheck": {
             "cache": true,
+            "command": "tsc --build --pretty false",
+            "options": {
+                "cwd": "{projectRoot}"
+            },
+            "dependsOn": ["^typecheck"],
             "inputs": [
                 "default",
                 "^production",
                 {
                     "externalDependencies": ["typescript"]
                 }
-            ]
-        },
-        "lint": {
-            "cache": true,
-            "inputs": ["default", "^production"]
+            ],
+            "outputs": ["{projectRoot}/dist"]
         },
         "e2e": {
             "cache": true,
-            "inputs": ["default", "^production"],
-            "outputs": ["{workspaceRoot}/.artifacts/typescript/e2e"]
+            "inputs": ["...", "^production"]
+        },
+        "test": {
+            "cache": true,
+            "inputs": [
+                "...",
+                "^production",
+                {
+                    "externalDependencies": ["vitest"]
+                }
+            ]
         }
     },
     "pluginsConfig": {
@@ -72,9 +84,10 @@
             }
         },
         {
-            "plugin": "@berenddeboer/nx-biome",
+            "plugin": "@nx/vitest",
             "options": {
-                "targetName": "lint"
+                "testTargetName": "test",
+                "discoverTestFiles": "glob"
             }
         },
         {
@@ -83,8 +96,21 @@
                 "ciTargetName": "e2e-ci",
                 "targetName": "e2e"
             }
+        },
+        {
+            "plugin": "@nx/dotnet",
+            "options": {
+                "clean": false,
+                "pack": false,
+                "publish": false,
+                "restore": false,
+                "test": false
+            }
         }
     ],
+    "sync": {
+        "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
+    },
     "tui": {
         "enabled": true
     }

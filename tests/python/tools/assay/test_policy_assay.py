@@ -1,14 +1,14 @@
-"""Assay-bound policy laws that depend on concrete ``tools.assay`` owners."""
+"""Assay-bound policy laws that depend on concrete ``assay`` owners."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
 import tomllib
 
+from assay.composition.catalog import BENCHMARK_STORAGE_URI
+from assay.core.model import Language
 from tests.python._testkit.runtime import REPO_ROOT
 from tests.python._testkit.spec import validity_matrix
-from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI
-from tools.assay.core.model import Language
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

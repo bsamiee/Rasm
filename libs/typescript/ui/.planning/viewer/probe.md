@@ -18,11 +18,11 @@ Probe owns benchmark and render evidence. It derives canonical pixel identity fr
 - Law: `Vital.window`, `Vital.fold`, and `Vital.project` own bounded aggregation.
 - Law: `_METRICS` derives the accumulator keys, output rows, and aligned chart series.
 - Boundary: scene supplies samples, and runtime telemetry consumes the resulting rows.
-- Packages: `@deck.gl/core`; `three/webgpu`; `@rasm/ts/core` (`Board`); `system/vital`; `effect`.
+- Packages: `@deck.gl/core`; `three/webgpu`; `@rasm/core` (`Board`); `system/vital`; `effect`.
 
 ```typescript
 import type { DeckMetrics } from "@deck.gl/core"
-import { Board } from "@rasm/ts/core"
+import { Board } from "@rasm/core"
 import { Array, Chunk, Option, Record, pipe } from "effect"
 import type { WebGPURenderer } from "three/webgpu"
 import { Vital } from "../../src/system/vital.ts"
@@ -128,7 +128,7 @@ const _aligned = (
 
 [HOST_MIRROR]:
 - Owner: `Probe.host` mirrors `Board.Claim.Host` from app identity, browser facts, and the scene's adapter result.
-- Packages: `@rasm/ts/core` (`Board`); `effect`; `@webgpu/types`.
+- Packages: `@rasm/core` (`Board`); `effect`; `@webgpu/types`.
 - Law: `Board.Claim.matches` compares the producer host print with `Identity.App`; probe renders divergence and never gates.
 - Law: decoded support exports display beside claims without re-deriving their evidence.
 - Law: host capture runs once per session.
@@ -219,7 +219,7 @@ const _board = (
 - Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, `Wire` owns timeline decoding, and the packed receipt unpacks through `Format.proto.any` against the one registry.
 
 ```typescript
-import { Digest, Format, Wire } from "@rasm/ts/core"
+import { Digest, Format, Wire } from "@rasm/core"
 import { EvidenceReceiptWireSchema } from "@rasm\/contracts/rasm/contracts/ui/v1/evidence_pb"
 import { Array, DateTime, Effect, Equal, Option, type ParseResult, Schema } from "effect"
 

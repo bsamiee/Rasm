@@ -19,7 +19,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[STAGE_FAMILY]-[QUEUED]: the photo-to-PBR stage crossing graduates from a hand MessagePack leg to one corpus proto family, so both ends read one generated vocabulary and the roster-checksum discipline retires with the rows it guarded.
+- Capability: a branch-interior crossing whose vocabulary is corpus-owned admits new columns as generated fields under `buf breaking`, so the two-end digest agreement becomes a build fact rather than a runtime comparison.
+- Shape: a new `rasm.contracts.stage.v1` package under `tests/contracts/proto/`, retiring `Appearance/interchange` `[04]-[STAGE_CROSSING]`'s `Row`/`StageCodec`/`StageRoster` estate and Compute's reciprocal `Runtime/wire#STAGE_CROSSING` mirror whole.
+- Unlocks: `Rasm.Compute` `Runtime/wire` and `Model/stage` consume generated stage messages directly; the relaying root drops the checksum comparison and relays one proto payload.
+- Anchors: the wire-contract law's peer-decodes discriminant (a proto family is lawful once the corpus owns the vocabulary even for interior hops), `assay contracts generate`, the existing `neural#MODEL_REGISTRY` vocabularies each row projects.
+- Tension: the peer-decodes discriminant currently ADMITS MessagePack here — the family lands only when generated-vocabulary governance outweighs the no-peer-decodes carve, and that call re-reads the wire-contract law before any proto is minted.
+- Ripple: `Rasm.Compute` `Runtime/wire#STAGE_CROSSING` — mirrors; both ends retire in one change.
 
 ## [02]-[CLOSED]
 

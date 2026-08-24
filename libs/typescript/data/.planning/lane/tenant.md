@@ -12,7 +12,7 @@ Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discr
 ## [02]-[POLICY_FAMILY]
 
 - Owner: `Tenancy` — one `Data.taggedEnum` family (`Rls`, `SchemaPerApp`, `DatabasePerApp`) whose constructors, `$is`/`$match` dispatch, locus fold, and RLS ensure travel under one name.
-- Packages: `effect` (`Data`); `@rasm/ts/core` (`Identity.App` — the app-key brand the locus derives from).
+- Packages: `effect` (`Data`); `@rasm/core` (`Identity.App` — the app-key brand the locus derives from).
 - Entry: policy values are constructed by the app root and carried inside `ScopeKey`; `[4]`'s lookup dispatches Layer construction on them, and no data code branches on tenancy outside `$match`.
 - Growth: a new isolation shape is one case, its `locus` arm, and one lookup arm — every consumer breaks loudly until its arm exists.
 - Law: `locus` derives the physical coordinate from the app key — `Rls` shares the default schema and isolates by row, `SchemaPerApp` pins `app_<key>` as the schema, `DatabasePerApp` opens `app_<key>` as a dedicated database; the derivation is one fold, so a naming change is one arm edit.
@@ -21,7 +21,7 @@ Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discr
 
 ```typescript signature
 import { Data } from "effect"
-import type { Identity } from "@rasm/ts/core"
+import type { Identity } from "@rasm/core"
 
 type Tenancy = Data.TaggedEnum<{
   Rls: {}
@@ -62,8 +62,8 @@ const _locus = (app: Identity.App.Key, tenancy: Tenancy): _Locus =>
 ```typescript signature
 import { Context, Effect, Option, Record, Ref, Schema } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
-import { type Principal, SessionCoordinate, TenantScope } from "@rasm/ts/security"
-import type { Identity } from "@rasm/ts/core"
+import { type Principal, SessionCoordinate, TenantScope } from "@rasm/security"
+import type { Identity } from "@rasm/core"
 
 const _pin = (sql: SqlClient.SqlClient, principal: Principal, locus: _Locus) =>
   Effect.andThen(
@@ -305,7 +305,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 ## [05]-[PORT_SATISFACTION]
 
 - Owner: the port-satisfaction contract — every security state port is satisfied at the app root by a Layer built FROM a `Stores` scope, and `Stores.port` is the one combinator that binds a port Tag to its statement implementation over a scope's verified subgraph.
-- Packages: `effect` (`Layer`); the port Tags arrive from `@rasm/ts/security` at the composition root, never imported by the neutral rows.
+- Packages: `effect` (`Layer`); the port Tags arrive from `@rasm/security` at the composition root, never imported by the neutral rows.
 - Entry: the app root composes `Stores.port(scope, Tag, build)` per port; the builds are ordinary statement folds run through the scope's `Tenant.within`, their tables published as ensure rows in the roster.
 - Growth: a new security port is one table ensure and one `port` composition at the root — the map, the verification, and the isolation dispatch are already settled.
 - Law: the satisfaction rows are the folder's standing obligations — `SessionStore`/`IdentityJournal` (session and identity state), `ClaimStore`/`RelationStore` (entitlement and relation tuples), `ApiKeyStore` (machine credentials), `WebAuthnStore`/`ChallengeStore` (passkey material and the `SingleUse` ceremony phase), `OAuthStateStore` (the `SingleUse` redirect snapshot), `PublicKeyStore`/`JwksLedger` (verification keys), and the `@effect/experimental` `RateLimiter.RateLimiterStore` (the credential-verify throttle budgets); each is a Tag the security folder declares — the `SingleUse` ports satisfied by `crypt/sign`'s `SingleUse.persisted` row over this folder's `Persistence.ResultPersistence` — and a Layer this folder's scopes back. `RelationStore`'s satisfier is shape-bound by the declaring page's own boundary: its Layer answers the port through ONE `RequestResolver.makeBatched` over this folder's tuple store, so an N-object render's relation probes settle as one batched read with duplicate triples deduplicated — a per-call lookup Layer satisfies the type and deletes the batching the port exists to buy.

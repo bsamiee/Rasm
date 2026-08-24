@@ -19,11 +19,11 @@
 - Law: consumers read rows, never re-declare knobs — the composition root threads spec rows into layer factories, so retuning an app is editing its spec value with zero lib edits.
 - Growth: a new budget axis is one `ceilings` field; a new feed fact is one field on the feed row.
 - Boundary: what each feed DOES is the owning page's law; this owner counts and types them.
-- Packages: `@rasm/ts/core` (`Identity.App`); `effect` (`Schema`); `../net/client.ts` (type `Client`).
+- Packages: `@rasm/core` (`Identity.App`); `effect` (`Schema`); `../net/client.ts` (type `Client`).
 
 ```typescript signature
 import { BrowserRuntime, BrowserStream, Clipboard, Geolocation, Permissions } from "@effect/platform-browser"
-import { Fault, Identity } from "@rasm/ts/core"
+import { Fault, Identity } from "@rasm/core"
 import { Array, Context, Effect, Layer, ManagedRuntime, Option, Record, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { Client } from "../net/client.ts"
 
@@ -107,7 +107,7 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 - Receipt: `wake` answers `boolean` — registration accepted or capability absent — so boot stamps the wake posture without a probe, while a refused registration rides the rail because an agent that just refused is re-drivable and an absent capability never is.
 - Growth: a new ambient signal (battery, memory pressure, page freeze) is one cell and one owned fold on this service — never a sibling owner, never a consumer-side listener.
 - Boundary: `otel/vital` owns RUM measurement; this cluster owns only the runtime-state cells its flush edges read; what drains on a redial is `shell#REPLAY_DRAIN`'s law.
-- Packages: `effect` (`Effect`, `Option`, `Record`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Effect`, `Option`, `Record`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "strained" } as const

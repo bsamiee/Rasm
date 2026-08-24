@@ -469,7 +469,7 @@ const LAW_WRITE =
     'or external package treated as the semantic owner).';
 
 const LAW_MEMBER =
-    'MEMBER TRUTH: every external member you write verifies first on its language rail — uv run python -m tools.assay api query ' +
+    'MEMBER TRUTH: every external member you write verifies first on its language rail — uv run assay api query ' +
     '--key <key> --symbol <Symbol> for C# host and NuGet surfaces, live reflection against ' +
     REPO +
     '/.venv for Python distributions, node_modules inspection plus the context7 MCP for TypeScript packages, and the nuget MCP ' +
@@ -1046,7 +1046,7 @@ const verdict = await agent(
         '\n\nRun the checks in section [06]-[VERIFICATION] of ' +
         CAMPAIGN +
         ' that apply to THIS phase, on disk, with real commands — the fence-seam greps, the census equality probe, the conformance ' +
-        'table re-walk, the arm-resolution check, the endpoint-resolution check, and uv run python -m tools.assay docs check over ' +
+        'table re-walk, the arm-resolution check, the endpoint-resolution check, and uv run assay docs check over ' +
         'every touched page. Re-derive whether each claimed change was NECESSARY and prove on disk that it LANDED; a claim that does ' +
         'not reproduce is a finding. Where a check fails, REPAIR it at the root rather than reporting it — a single-point patch is ' +
         'itself the defect you repair wherever a denser reconstruction of the same files is available. Status flips against evidence ' +

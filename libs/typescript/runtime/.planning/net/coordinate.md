@@ -22,13 +22,13 @@ Distributed coordination is one engine-blind port beside the fanout plane: `Acco
 - Law: the port is engine-blind — no member names NATS or the Web Locks API; a per-app lease is a name prefix and `census(filter)` scopes the same way, so a surface change never follows a new namespace.
 - Law: `_ENGINES` answers the consumption descriptor per engine as data — `fits`, `admit`, `tenancy`, `lifetime`, `degrade` — and the cells are where the two engines part: a bucket fences tenants by name prefix under one server clock, an origin's arbiter fences nothing beyond the origin and holds no clock at all, so one value repeated across both marks a row that stopped reading its engine; where an engine cannot express a coordinate its cell records the divergence on `degrade` rather than dropping the column.
 - Entry: `yield* Accord` then the eight members; engines land as `Accord.kv(bucket, window)` / `Accord.locks()` root Layers.
-- Packages: `effect` (`Context`, `Option`, `Schema`, `Stream`), `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Context`, `Option`, `Schema`, `Stream`), `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 import { Chunk, Context, Deferred, Duration, Effect, Layer, Option, Random, Ref, Schedule, Schema, type Scope, Stream } from "effect"
 import { type KV, Kvm } from "@nats-io/kv"
 import { JetStreamApiCodes, JetStreamApiError } from "@nats-io/jetstream"
-import { Fault, type Identity } from "@rasm/ts/core"
+import { Fault, type Identity } from "@rasm/core"
 import { Broker } from "./pubsub.ts"
 
 // The coordination NAME is the whole subject on every row — a lock, a seat, a key, or a bucket, and the port is

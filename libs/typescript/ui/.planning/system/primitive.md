@@ -259,7 +259,7 @@ const Primitive: Primitive.Shape = {
 
 [CLIPBOARD_PORT]:
 - Owner: `Clipboard` — the folder-declared clipboard capability Tag: `copy(text)` and `paste` on a typed fault rail, `granted` as the live verdict stream, declared HERE and satisfied at the browser composition root from the platform clipboard and permissions layers — this folder never imports the platform package, so the capability travels the requirement channel and a test substitutes a Layer.
-- Packages: `effect` (`Context`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Context`, `Schema`, `Stream`); `@rasm/core` (`Fault.Class`).
 - Law: consumers compose the port, never the Web API — the palette copy-command (`view/overlay#PALETTE`) and the probe copy-evidence affordance (`viewer/probe`) reach the clipboard only through this Tag; a `navigator.clipboard` read in a row is the named defect.
 - Law: this port owns its own permission custody because the platform's grant axis cannot carry it — `PermissionName` closes without a clipboard member, so no generic permissions port can answer for this capability and the verdict has to travel with the capability itself; `granted` is therefore a stream rather than a read, since a mount-time verdict renders a revoked capability as available for the rest of the session.
 - Boundary: this port owns the PASTE BUFFER and nothing else — the file system and the share sheet are `view/export`'s `Egress` capability, so a save, a download, and a share are that port's rows while a copy and a paste are these; the two are one concern only from the user's side, and folding either into the other puts a permission-gated system dialog behind a synchronous clipboard call.
@@ -267,7 +267,7 @@ const Primitive: Primitive.Shape = {
 - Growth: a blob/image lane is one member row on THIS service shape — never a second clipboard port; a new refusal condition is one family row carrying its core class, leg, subject, and renderer.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Context, Schema, type Effect, type Stream } from "effect"
 
 // the port's two verbs ARE the refusal subject, so the literal is declared once and both rows render off it

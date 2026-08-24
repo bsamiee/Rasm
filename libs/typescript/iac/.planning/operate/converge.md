@@ -23,7 +23,7 @@
 ```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
-import { Backend } from "@rasm/ts/data"
+import { Backend } from "@rasm/data"
 import { Array, Data, Duration, Effect, Encoding, Record } from "effect"
 import { StackOutputs, Tier, type StackSpec } from "../program/spec.ts"
 

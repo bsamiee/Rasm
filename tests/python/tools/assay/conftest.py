@@ -38,11 +38,11 @@ if TYPE_CHECKING:
     import asyncssh
     from structlog.types import Processor
 
+    from assay.composition.settings import Ssh
+    from assay.composition.store import ArtifactStore
+    from assay.core.model import Envelope
     from tests.python._testkit.env import Provisioned
     from tests.python.tools.assay.kit import CpuDoubleInstaller, CpuSampler, VerbRunner
-    from tools.assay.composition.settings import Ssh
-    from tools.assay.composition.store import ArtifactStore
-    from tools.assay.core.model import Envelope
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 _UV = shutil.which("uv")
 
 # Law coverage walks this package's public surface.
-SUT_PACKAGE: Final = "tools.assay"
+SUT_PACKAGE: Final = "assay"
 
 # pytest-benchmark's repo-root storage fallback; the configure hook rebinds it to the canonical artifact URI.
 _BENCHMARK_ROOT_DEFAULT: Final = "file://./.benchmarks"
@@ -74,7 +74,7 @@ def pytest_configure(config: pytest.Config) -> None:
     write lands before it reads ``benchmark_storage``.
     """
     if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and config.getoption("benchmark_storage") == _BENCHMARK_ROOT_DEFAULT:
-        from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI  # ruff:ignore[import-outside-top-level]  # ad-hoc escape path only
+        from assay.composition.catalog import BENCHMARK_STORAGE_URI  # ruff:ignore[import-outside-top-level]  # ad-hoc escape path only
 
         config.option.benchmark_storage = BENCHMARK_STORAGE_URI
 
@@ -83,10 +83,10 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     """Reset SUT ContextVars and structlog context before each in-process test."""
     import structlog  # ruff:ignore[import-outside-top-level]
 
-    from tools.assay.automation.engine import _CPU_PRIMED  # ruff:ignore[import-outside-top-level]
-    from tools.assay.core.aspect import RING  # ruff:ignore[import-outside-top-level]
-    from tools.assay.core.govern import RESOURCE  # ruff:ignore[import-outside-top-level]
-    from tools.assay.core.remote import _SSH_CACHE  # ruff:ignore[import-outside-top-level]
+    from assay.automation.engine import _CPU_PRIMED  # ruff:ignore[import-outside-top-level]
+    from assay.core.aspect import RING  # ruff:ignore[import-outside-top-level]
+    from assay.core.govern import RESOURCE  # ruff:ignore[import-outside-top-level]
+    from assay.core.remote import _SSH_CACHE  # ruff:ignore[import-outside-top-level]
 
     structlog.contextvars.clear_contextvars()
     seams = ExitStack()
@@ -148,11 +148,11 @@ def cli(
         list(starmap(monkeypatch.setenv, (extra_env or {}).items()))
         match isolate:
             case False:
-                from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]  # in-proc; keeps subprocess path import-clean
+                from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]  # in-proc; keeps subprocess path import-clean
 
                 if executor is not None:
                     # The public injection channel: rebuild the app with the canned port; main() dispatches through the module global.
-                    from tools.assay.composition.registry import build_app, REGISTRY  # ruff:ignore[import-outside-top-level]
+                    from assay.composition.registry import build_app, REGISTRY  # ruff:ignore[import-outside-top-level]
 
                     monkeypatch.setattr(main_mod, "app", build_app(REGISTRY, executor=executor))
                 # Keep the session tracer provider alive while exercising main's drain path.
@@ -169,7 +169,7 @@ def cli(
                     pytest.fail("cli(isolate=True) requires @pytest.mark.subprocess; mutation lanes deselect via -m 'not subprocess'")
                 spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # ruff:ignore[banned-api]  # subprocess env clone
                 spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(REPO_ROOT), check=False)
-                result = anyio.run(spawn, ["uv", "run", "python", "-m", "tools.assay", *argv])
+                result = anyio.run(spawn, ["uv", "run", "python", "-m", "assay", *argv])
                 return CliResult(
                     envelope=read_one_envelope_from_bytes(result.stdout), exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr
                 )
@@ -184,7 +184,7 @@ def log_processors() -> tuple[Processor, ...]:
     Returns:
         Processor chain extension carrying the assay ring processor.
     """
-    from tools.assay.core.aspect import ring_processor  # ruff:ignore[import-outside-top-level]  # fixture-time import keeps collection import-clean
+    from assay.core.aspect import ring_processor  # ruff:ignore[import-outside-top-level]  # fixture-time import keeps collection import-clean
 
     return (ring_processor,)
 
@@ -220,7 +220,7 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
     Returns:
         Live list accumulating every captured emit Envelope.
     """
-    from tools.assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
+    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
 
     probe: SeamProbe[Envelope] = SeamProbe(project=operator.itemgetter(slice(1)))
     probe.install(monkeypatch, automation_engine, "_emit", Sync(None))
@@ -234,7 +234,7 @@ def ssh_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Provisioned[Awai
     Returns:
         Provisioned remote target whose factory runs the asyncssh handshake inside the awaiting loop.
     """
-    from tools.assay.core import remote as remote_mod  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
+    from assay.core import remote as remote_mod  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
 
     # The Offload always derives an sftp backend for a remote run; the chrooted SFTP subsystem lets the scope pull resolve.
     provisioned = provision(SshHost(sftp_root=tmp_path))

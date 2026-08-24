@@ -19,19 +19,19 @@ import msgspec
 import pytest
 from upath import UPath
 
+from assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
+from assay.composition.store import ArtifactScope
+from assay.core.exec import fan_out, run_check
+from assay.core.govern import ExecPlan, recv_ssh
+from assay.core.model import ArtifactKind, Check, Claim, Input, Language, Mode, receipt, Runner, Tool
+import assay.core.remote as remote_mod
+from assay.core.remote import pooled_ssh, remote_command, run_remote, ssh_outcome
+from assay.core.routing import Routed, Scope
 from tests.python._testkit.env import provision, SshHost
 from tests.python._testkit.spec import assert_ok
 
 # Hypothesis resolves fixture annotations at collection time under PEP 649.
 from tests.python.tools.assay.kit import AssayHarness
-from tools.assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
-from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.exec import fan_out, run_check
-from tools.assay.core.govern import ExecPlan, recv_ssh
-from tools.assay.core.model import ArtifactKind, Check, Claim, Input, Language, Mode, receipt, Runner, Tool
-import tools.assay.core.remote as remote_mod
-from tools.assay.core.remote import pooled_ssh, remote_command, run_remote, ssh_outcome
-from tools.assay.core.routing import Routed, Scope
 
 
 if TYPE_CHECKING:
@@ -41,9 +41,9 @@ if TYPE_CHECKING:
     from expression import Result
     from fsspec.spec import AbstractFileSystem
 
+    from assay.composition.store import ArtifactStore
+    from assay.core.model import Completed, Fault
     from tests.python._testkit.env import Provisioned
-    from tools.assay.composition.store import ArtifactStore
-    from tools.assay.core.model import Completed, Fault
 
     type SshEnv = Provisioned[Awaitable[asyncssh.SSHClientConnection]]
 

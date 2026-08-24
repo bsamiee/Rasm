@@ -1,46 +1,42 @@
 {
-    "compilerOptions": {
-        "allowImportingTsExtensions": true,
-        "allowUnreachableCode": false,
-        "allowUnusedLabels": false,
-        "erasableSyntaxOnly": true,
-        "exactOptionalPropertyTypes": true,
-        "isolatedModules": true,
-        "jsx": "react-jsx",
-        "lib": ["esnext", "dom"],
-        "libReplacement": false,
-        "module": "preserve",
-        "moduleDetection": "force",
-        "noEmit": true,
-        "noErrorTruncation": true,
-        "noFallthroughCasesInSwitch": true,
-        "noImplicitOverride": true,
-        "noImplicitReturns": true,
-        "noPropertyAccessFromIndexSignature": true,
-        "noUncheckedIndexedAccess": true,
-        "noUncheckedSideEffectImports": true,
-        "resolveJsonModule": true,
-        "rootDir": ".",
-        "skipLibCheck": true,
-        "strict": true,
-        "target": "esnext",
-        "tsBuildInfoFile": ".cache/typescript/root.tsbuildinfo",
-        "types": ["node", "vite/client"],
-        "verbatimModuleSyntax": true
-    },
-    "exclude": [
-        "**/node_modules",
-        "**/dist",
-        "**/build",
-        "**/.cache",
-        "**/.artifacts",
-        "**/.history",
-        "**/.archive",
-        "**/_archive",
-        "**/scratch",
-        "**/.scratch",
-        "**/_tmp",
-        "**/.tmp"
+    "files": [],
+    "references": [
+        {
+            "path": "./libs/typescript/contracts/tsconfig.build.json"
+        },
+        {
+            "path": "./libs/typescript/core"
+        },
+        {
+            "path": "./libs/typescript/security"
+        },
+        {
+            "path": "./libs/typescript/data"
+        },
+        {
+            "path": "./libs/typescript/runtime"
+        },
+        {
+            "path": "./libs/typescript/ui"
+        },
+        {
+            "path": "./libs/typescript/ui/viewer"
+        },
+        {
+            "path": "./libs/typescript/iac"
+        },
+        {
+            "path": "./tests/typescript/_testkit"
+        },
+        {
+            "path": "./tests/typescript/_architecture"
+        },
+        {
+            "path": "./tests/typescript/e2e"
+        },
+        {
+            "path": "./tsconfig.tools.json"
+        }
     ],
     "watchOptions": {
         "excludeDirectories": [

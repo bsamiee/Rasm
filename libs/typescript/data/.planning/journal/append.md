@@ -17,7 +17,7 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 ## [02]-[STREAM_VOCABULARY]
 
 - Owner: `StreamKey` — one `Schema.Class` whose fields are the core identity brands with the aggregate brand-in-field; the interior `_Row` model typing the persisted event row, its `sequence` column decoding through the bigint-safe `_Sequence` codec so the model authority and the `BIGINT` DDL agree; the journal ensure rows the provisioning plane applies and `lane/capability.md` proves.
-- Packages: `effect` (`Schema`); `@effect/sql` (`Model`); `@rasm/ts/core` (`Identity.App`, `Identity.Tenant`).
+- Packages: `effect` (`Schema`); `@effect/sql` (`Model`); `@rasm/core` (`Identity.App`, `Identity.Tenant`).
 - Growth: a new stream dimension is a `StreamKey` field with a column pair in the ensure rows and one operand on the identity fragment — every keyed surface in the folder re-keys with it because the class is the one spelling of stream identity.
 - Law: the COMPOSED identity is one owned fragment with two composition shapes — `StreamKey.identity` joins a held key's bound values and `StreamKey.identityColumn` joins the relation's own escaped identifiers, both through one separator and one order — so the advisory lock's hash input and the head resolver's grouping key are provably the same string; a hand-repeated `|| ':' ||` at either site desyncs the lock from the resolver on the first separator or column-order edit, and nothing about that divergence is visible until two callers disagree over which stream they hold.
 - Law: events are app-authored closed `Schema.TaggedClass` families — the journal stores their encoded form with the `(tag, eventVersion)` coordinate and never interprets payloads, so a family evolves without touching this page.
@@ -40,7 +40,7 @@ import {
   Array, Context, Data, DateTime, Effect, Either, Hash, HashMap, Option, Predicate, Record, Schedule, Schema,
   Stream, pipe, type ParseResult,
 } from "effect"
-import { Carrier, Digest, Event, Fault, Identity, Tap } from "@rasm/ts/core"
+import { Carrier, Digest, Event, Fault, Identity, Tap } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenant, Tenancy } from "../lane/tenant.ts"
 import { Live } from "../read/live.ts"
@@ -138,7 +138,7 @@ const _journalDdl: Capability.Ensure = {
 - Owner: `Journal.Fence` closes the verdict a store-validated conditional write answers; `Journal.advance` is the one monotone upsert answering it.
 - Owner: `JournalFault` closes reason rows through `Fault.Class.family`.
 - Owner: `_append` locks, admits, inserts, and returns every landed global sequence.
-- Packages: `effect`, `@effect/sql`, and `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect`, `@effect/sql`, and `@rasm/core` (`Fault.Class`).
 - Entry: `bound.append(stream, events, occ)` — ONE entry whose plural modality is the input shape (`A | NonEmptyReadonlyArray<A>`), never an `appendMany` sibling; standalone it owns its commit, inside `publish` it folds to a savepoint.
 - Receipt: `Journal.Receipt` — `{ stream, version, count, first, rows }` — the new head, the appended count, the first written version, and the encoded rows the outbox re-projects, each carrying its landed global `sequence`, its `eventVersion` generation, and the `subject` content key minted over the exact bytes this transaction wrote; the ledger stores it for replay and the publish wake announces the last sequence so drains skip empty cycles.
 - Law: `subject` mints at the write and never at the projection — `Digest.mint("content", …)` reads the encoded payload text this statement inserts, so the announced content key addresses the stored bytes rather than a re-encoding of them, and the parse-then-reserialize spelling that respells float forms, key order, and escapes has no site here.
@@ -807,7 +807,7 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Owner: `Journal.claimBatch`, `Journal.complete`, and `Journal.census` are the work-plane SQL ports.
 - Owner: `_Deliverable.envelope` and `Journal.carrier` own the announcement projection and its authenticated inverse.
 - Owner: `_overlay` binds EventLog storage onto the owning `SqlClient`.
-- Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`); `@rasm/ts/core` (`Event` — the branch's one mint entry, roster, and grammar; `Digest` — the content-key mint).
+- Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`); `@rasm/core` (`Event` — the branch's one mint entry, roster, and grammar; `Digest` — the content-key mint).
 - Entry: the work plane drains through its `SqlClient` port with these statement values — `claimBatch(sql, request)` takes the decoded `_ClaimBatch` carrier, and `complete(sql, held)` requires the non-empty `Journal.Held` roster the claim itself answered, each row's identity travelling beside the generation the claim minted for it; this page publishes the vocabulary, the drain owns fan-out policy, retry budgets, and egress quota; the async projection lane listens on the same channel.
 - Growth: a new deliverable dimension (deliver-at, shard affinity) is a column and a `claimBatch` ORDER BY term — the drain contract never widens.
 - Law: claim order is `(urgency, id)` — the urgency term ahead of insert identity, so ordering is a stamped policy value and FIFO is the degenerate case where every publisher stamps one number; the partial pending index leads on the same pair, because an ORDER BY term the index cannot serve turns each claim into a scan of the whole undelivered backlog.
@@ -1128,7 +1128,7 @@ const Journal = {
 ## [08]-[HOOK_POINTS]
 
 - Owner: the core-brand data hook vocabulary and its publisher port — `_facts`, the per-point fact schemas this page's own payloads anchor; `_points`, the four `Tap.PointRow` rows whose names spell the `rasm.data.<domain>.<point>` brand, whose modality sets carry veto legality as data, and whose `depth` reads off the `_DEPTH` band its publishing act selects; `_POINTS`, the minted `Tap.Point` values pairing each row with its fact schema through the core `Tap.point` mint; `Hook`, the publisher port — one `Context.Tag` whose `publish` member the app root satisfies from the runtime dispatch engine scoped to the owning app; `HookVeto`, the typed admission refusal carrying the core `Tap.Veto` evidence and projecting the `denied` core class; and the two optional-service combinators `Hook.gated`/`Hook.tapped` every tap seam composes, so an app that mounts no engine pays nothing and refuses nothing.
-- Packages: `effect`; `@rasm/ts/core` (`Tap`, `Fault.Class`).
+- Packages: `effect`; `@rasm/core` (`Tap`, `Fault.Class`).
 - Entry: App roots bind `Hook` to runtime dispatch under `Identity.App.Key`.
 - Growth: a new domain seam is one `_facts` schema, one `_points` row carrying its `_DEPTH` band, and the `Hook.gated`/`tapped` line at the owning seam — the mapped fact contract breaks every consumer until the row exists.
 - Law: `depth` is CAPACITY on every row here and retention on none — the core modality table's `buffered` column decides the replay window and `_retained` projects it, so a replay-carrying data point would be one modality edit at the core owner rather than a width this page re-reads; declaring the non-retaining zero is unspellable anyway, because `Tap.Depth` proves positivity at admission and this page's module-init mint turns a zero into an authoring-time throw.

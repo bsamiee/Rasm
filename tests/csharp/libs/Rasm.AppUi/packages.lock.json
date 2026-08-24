@@ -2401,7 +2401,7 @@
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
@@ -2479,7 +2479,7 @@
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
           "Rasm.Compute": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Rasm.Fabrication": "[1.0.0, )",
           "Rasm.Materials": "[1.0.0, )",
@@ -2571,7 +2571,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
           "SharpGLTF.Core": "[1.0.6, )",
@@ -2611,7 +2611,7 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "System.IO.Hashing": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -2642,7 +2642,7 @@
           "PicoGK": "[2.2.0, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "RectangleBinPack.CSharp": "[1.0.4, )",
           "Rhino3dm": "[8.32.0, )",
@@ -2674,7 +2674,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Silk.NET.WebGPU": "[2.23.0, )",
           "Silk.NET.WebGPU.Extensions.WGPU": "[2.23.0, )",
@@ -2787,7 +2787,7 @@
           "QuikGraph": "[2.5.0, )",
           "RabbitMQ.Client": "[7.2.2, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[0.1.0, )",
+          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SQLitePCLRaw.bundle_e_sqlite3mc": "[2.1.11, )",
@@ -6542,20 +6542,20 @@
       },
       "xunit.v3.common": {
         "type": "CentralTransitive",
-        "requested": "[3.2.2, )",
-        "resolved": "3.2.2",
-        "contentHash": "Hj775PEH6GTbbg0wfKRvG2hNspDCvTH9irXhH4qIWgdrOSV1sQlqPie+DOvFeigsFg2fxSM3ZAaaCDQs+KreFA==",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "cjaNGmOVA5QJxcp6uuSsDhbt0lNmxezFo226mbYOuXm9E9Owq8bYTKxa9wnAMZRnbvyCmCYhAvc/+UAzf0M2vA==",
         "dependencies": {
           "Microsoft.Bcl.AsyncInterfaces": "6.0.0"
         }
       },
       "xunit.v3.extensibility.core": {
         "type": "CentralTransitive",
-        "requested": "[3.2.2, )",
-        "resolved": "3.2.2",
-        "contentHash": "srY8z/oMPvh/t8axtO2DwrHajhFMH7tnqKildvYrVQIfICi8fOn3yIBWkVPAcrKmHMwvXRJ/XsQM3VMR6DOYfQ==",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "+tTe9VX2vwrUHGI48FE4ly956Ry084wPH4I/7g5D36AkAMGjQRZZDVz8eH2GwX/CLS9PDQRSca534WyrAYsyzw==",
         "dependencies": {
-          "xunit.v3.common": "[3.2.2]"
+          "xunit.v3.common": "[4.0.0]"
         }
       },
       "YamlDotNet": {

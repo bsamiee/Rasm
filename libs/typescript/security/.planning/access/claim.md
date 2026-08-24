@@ -19,7 +19,7 @@ One authorization owner: the entitlement vocabulary a verified token resolves in
 - Boundary: `crypt/sign` owns the `AccessClaims` the edge's verify hands in; `access/tenant` owns the `TenantScope` reference the tenancy binds; `ClaimStore` is a data-wave-satisfied port; the policy fold below consumes the `ClaimSet`.
 
 ```typescript
-import { Identity, Convention, Fault, Shape } from "@rasm/ts/core"
+import { Identity, Convention, Fault, Shape } from "@rasm/core"
 import { Array, Config, Context, Data, Effect, Either, HashMap, HashSet, Metric, Option, Request, type RequestResolver, Schema } from "effect"
 import type { ApiKeyRecord } from "../authn/credential.ts"
 import { AccessClaims } from "../crypt/sign.ts"
@@ -170,7 +170,7 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
 - Law: `FlagGate` is a consumer port — the flag verdict is the runtime wave's to own; this page declares the minimal `enabled` seam and the app root satisfies it with the runtime flag service, the `security → runtime` edge the ledger licenses.
 - Growth: a new action, delegation bundle, or relation is a row; a new denial cause is one `PolicyDecision.Deny` reason; a new read shape is a field on `RelationCheck`, never a second resolver.
 - Boundary: `[02]`'s `Role`/`ClaimSet` supply the RBAC input and the presented delegation the ceiling reads; `RelationStore` is a data-wave-satisfied port and the resolver behind it is that wave's `RequestResolver.makeBatched` over its own tuple store — this page owns the request family and its identity, never the batch body; the flag verdict is runtime-wave-owned; this cluster owns the evaluation vocabulary.
-- Packages: `effect` (`Schema`, `Context`, `Data`, `Request`, `RequestResolver`); `@rasm/ts/core` (`Fault.Class`, `Shape.posture`).
+- Packages: `effect` (`Schema`, `Context`, `Data`, `Request`, `RequestResolver`); `@rasm/core` (`Fault.Class`, `Shape.posture`).
 
 ```typescript
 const _permissions = ["read", "write", "delete", "admin", "invite"] as const
@@ -293,7 +293,7 @@ class FlagGate extends Context.Tag("security/access/FlagGate")<FlagGate, {
 - Entry: the serving edge wraps one request scope in `Effect.withRequestCaching(true)`, so a triple checked twice inside one request resolves once; batching itself needs no knob because `Effect.request` funnels into the resolver's own window.
 - Growth: a new grant source (an attribute condition) is one `Effect.all` slot; a new role's grants land in `RoleGrant` and a new bundle's cells in `ScopeGrant` at module load with zero fold edits; the receipt never changes.
 - Boundary: `RelationStore` carries ReBAC, `FlagGate` carries the runtime verdict; `access/claim`'s `Role`/`ClaimSet` supply the RBAC input; the edge maps the decision to a status and owns the caching scope.
-- Packages: `effect` (`Array`, `Effect`, `Either`, `HashMap`, `HashSet`, `Metric`, `Option`, `Effect.request`); `@rasm/ts/core` (`Convention`, `Fault.Class.spent`, `Shape.Bound`); `access/audit` (`Witness`, `SecurityFact`).
+- Packages: `effect` (`Array`, `Effect`, `Either`, `HashMap`, `HashSet`, `Metric`, `Option`, `Effect.request`); `@rasm/core` (`Convention`, `Fault.Class.spent`, `Shape.Bound`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 const _PolicyDecision = Data.taggedEnum<PolicyDecision>()

@@ -32,7 +32,7 @@ import { AmazonBedrockTool } from "@effect/ai-amazon-bedrock"
 import { GoogleTool } from "@effect/ai-google"
 import { OpenAiTool } from "@effect/ai-openai"
 import { Array, Context, Duration, Effect, FiberSet, Layer, Match, Option, PubSub, Queue, Record, Schema, type Scope, Sink, Stream } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 // Every refusal on this plane names the same two operands — the server it crossed and that server's own diagnostic —
 // because the triage keys on the SDK rejection and the arsenal renders the verdict. What the rows do not share is

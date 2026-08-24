@@ -25,12 +25,12 @@ The servicer has no ring, byte cache, frame state machine, or second store. `Tes
 ```python signature
 from collections.abc import AsyncIterator
 from functools import partial
-from typing import TYPE_CHECKING, Any, Final, override
+from typing import TYPE_CHECKING, Any, Final, assert_never, override
 
 from connectrpc.request import RequestContext
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
-from rasm.contracts.artifact import ArtifactError, fetch_responses, put_frames, receive
+from rasm.contracts.artifact import ArtifactError, ArtifactRefusal, fetch_responses, put_frames, receive, rendered
 from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_connect import ArtifactService, ArtifactServiceASGIApplication
 from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import (
     ArtifactRef,
@@ -115,8 +115,10 @@ def _receipt(result: TessellationResult) -> TessellateResponse:
     )
 
 
-def _transfer(refused: ArtifactError) -> BoundaryFault:
-    return SERVE_ARTIFACT.raised(refused.proof.value)
+def _transfer(refusal: ArtifactRefusal) -> BoundaryFault:
+    # `rendered` is the library's own law token for the refusal — the retired `.proof.value` read was a member
+    # `ArtifactError` never carried.
+    return SERVE_ARTIFACT.raised(rendered(refusal))
 
 
 class GeometryServe(ComputeService, ArtifactService):
@@ -160,7 +162,7 @@ class GeometryServe(ComputeService, ArtifactService):
             async for response in self._daemon.repository.opened(request.sha256, fetch_responses):
                 yield response
         except ArtifactError as refused:
-            ServerHost.settle(Error(_transfer(refused)))
+            ServerHost.settle(Error(_transfer(refused.refusal)))
         except BoundaryFault as refused:
             match refused:
                 case BoundaryFault(tag="domain", domain=(_, StoreFault(tag="missing"))):
@@ -222,11 +224,19 @@ class GeometryServe(ComputeService, ArtifactService):
 
     async def _put(self, request: AsyncIterator[PutRequest]) -> RuntimeRail[ArtifactRef]:
         try:
-            async with receive(put_frames(request)) as owned:
-                published = await self._daemon.repository.put(owned)
+            # `receive` yields a `Result` — the frame law's refusal rides the value, never a raise — so the seal
+            # settles onto the rail here and only the stream's own `ArtifactError` crosses as an exception.
+            async with receive(put_frames(request)) as sealed:
+                match sealed:
+                    case Result(tag="ok", ok=owned):
+                        published = await self._daemon.repository.put(owned)
+                    case Result(tag="error", error=refusal):
+                        published = Error(_transfer(refusal))
+                    case _ as unreachable:
+                        assert_never(unreachable)
                 return await _served(PUT_ROUTE, self._composition, published)
         except ArtifactError as refused:
-            return await _served(PUT_ROUTE, self._composition, Error(_transfer(refused)))
+            return await _served(PUT_ROUTE, self._composition, Error(_transfer(refused.refusal)))
         except BoundaryFault as refused:
             return await _served(PUT_ROUTE, self._composition, Error(refused))
 

@@ -28,32 +28,14 @@ from protobuf.wkt import (
 import pytest
 import xxhash
 
-from tests.python._testkit.runtime import REPO_ROOT
-from tests.python._testkit.spec import assert_error_status, assert_ok
-from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.catalog import BUF_DEFECT_EXIT, JSONSCHEMA_PLUGIN, JSONSCHEMA_TEMPLATE, select
-from tools.assay.composition.settings import ArtifactBackend
-from tools.assay.core.exec import apply_row_status, EngineExecutor
-from tools.assay.core.govern import exclusive_lease
-from tools.assay.core.model import (
-    Band,
-    Check,
-    Claim,
-    Completed,
-    ContractsRun,
-    Fault,
-    Language,
-    Mode,
-    Parser,
-    RailStatus,
-    receipt,
-    Report,
-    Runner,
-    Tool,
-)
-from tools.assay.diagnostics import fold
-from tools.assay.rails import contracts as contracts_rail
-from tools.assay.rails.contracts import (
+from assay.composition.catalog import BUF_DEFECT_EXIT, JSONSCHEMA_PLUGIN, JSONSCHEMA_TEMPLATE, select
+from assay.composition.settings import ArtifactBackend
+from assay.core.exec import apply_row_status, EngineExecutor
+from assay.core.govern import exclusive_lease
+from assay.core.model import Band, Check, Claim, Completed, ContractsRun, Fault, Language, Mode, Parser, RailStatus, receipt, Report, Runner, Tool
+from assay.diagnostics import fold
+from assay.rails import contracts as contracts_rail
+from assay.rails.contracts import (
     ActorBinding,
     ApplicationAuthority,
     BackendGenerationFacts,
@@ -95,6 +77,9 @@ from tools.assay.rails.contracts import (
     TypeScriptJsonModule,
     VerifiedReadiness,
 )
+from tests.python._testkit.runtime import REPO_ROOT
+from tests.python._testkit.spec import assert_error_status, assert_ok
+from tests.python.tools.assay.kit import SeamExecutor
 
 
 if TYPE_CHECKING:
@@ -105,7 +90,18 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-COVERS: tuple[object, ...] = (ContractsParams, check, generate, publish, load_manifest, derived_schema, read_template, out_dirs)
+COVERS: tuple[object, ...] = (
+    ContractsParams,
+    check,
+    generate,
+    publish,
+    load_manifest,
+    derived_schema,
+    read_template,
+    out_dirs,
+    contracts_rail.actor_key,
+    contracts_rail.prove_case,
+)
 
 _ROWS = {(t.name, t.mode): t for t in select(Claim.CONTRACTS, Language.PROTO)}
 _LINT = _ROWS["buf-lint", Mode.CHECK]
@@ -164,12 +160,12 @@ plugins:
     types: [demo.v1.Thing, demo.v1.DemoService.Do]
     include_imports: true
   - local: .venv/bin/protoc-gen-py
-    out: libs/python/contracts/src
+    out: libs/python/contracts/rasm/contracts
     opt: [init_files=false]
-    types: [demo.v1.Thing]
+    types: [demo.v1.Thing, demo.v1.DemoService.Do]
     include_imports: true
   - local: .venv/bin/protoc-gen-connectrpc
-    out: libs/python/contracts/src
+    out: libs/python/contracts/rasm/contracts
     types: [demo.v1.DemoService.Do]
     include_imports: true
   - remote: buf.build/protocolbuffers/csharp:v36.0
@@ -185,7 +181,7 @@ plugins:
 """
 
 _BINARIES = ("node_modules/.bin/protoc-gen-es", ".venv/bin/protoc-gen-py", ".venv/bin/protoc-gen-connectrpc")
-_OUTS = ("libs/typescript/contracts/gen", "libs/python/contracts/src", "libs/csharp/Rasm.Contracts/Generated")
+_OUTS = ("libs/typescript/contracts/gen", "libs/python/contracts/rasm/contracts", "libs/csharp/Rasm.Contracts/Generated")
 
 # The conforming TypeScript SDK manifest: the workspace wildcard resolves committed emission and `publishConfig` overlays the compiled tarball map.
 # Every export defect derives from this one document, so a fixture and the gate never drift into two spellings of the same package.
@@ -197,8 +193,8 @@ _TS_MANIFEST: dict[str, object] = {
     "sideEffects": False,
     "type": "module",
     "exports": {"./*": "./gen/*.ts"},
-    "files": ["dist", "LICENSE", "README.md"],
-    "scripts": {"build": "tsc --build tsconfig.build.json --clean && tsc --build tsconfig.build.json", "prepack": "pnpm run build"},
+    "files": ["dist", "README.md"],
+    "scripts": {"build": "tsc --build tsconfig.build.json", "prepack": "pnpm run build"},
     "dependencies": {"@bufbuild/protobuf": "catalog:"},
     "publishConfig": {"access": "public", "exports": _TS_PUBLISHED},
 }
@@ -242,9 +238,7 @@ _ASSET_DOC = b'{"key": "alpha"}\n'
 _PUB_BYTES = b'{"type":"record","name":"Publisher","fields":[]}\n'
 _LICENSE_BYTES = b"Apache License 2.0\n"
 _DISTRIBUTION = TypeScriptJsonModule(path="libs/typescript/contracts/gen/io/publisher/v1/publisher_avro.ts", symbol="PublisherAvro")
-_PY_DISTRIBUTION = PythonPackageResource(
-    path="libs/python/contracts/src/rasm/contracts/vendor/io/publisher/v1/publisher.avsc", package="rasm.contracts"
-)
+_PY_DISTRIBUTION = PythonPackageResource(path="libs/python/contracts/rasm/contracts/vendor/io/publisher/v1/publisher.avsc", package="rasm.contracts")
 _LINT_ROW = (
     b'{"path":"tests/contracts/proto/rasm/contracts/scene/v1/scene.proto","start_line":9,"start_column":3,"end_line":9,"end_column":20,'
     b'"type":"FIELD_LOWER_SNAKE_CASE","message":"Field name must be lower_snake_case."}\n'
@@ -510,6 +504,7 @@ def _corpus(
     registry = Manifest(version=2, entries=entries if entries is not None else (_entry(), _BINDING, _vendored()))
     _write(root, "buf.gen.yaml", template)
     _write(root, "libs/typescript/contracts/package.json", _json(_TS_MANIFEST))
+    _write(root, "libs/typescript/contracts/README.md", "# contracts\n")  # the gate proves every non-built `files` row on disk
     for binary in binaries:
         _write(root, binary, "#!/bin/sh\nexit 0\n", executable=True)
     corpus = root / "tests/contracts"
@@ -612,6 +607,9 @@ def _fan(
             if name == "buf-build":
                 Path(chk.args.output).parent.mkdir(parents=True, exist_ok=True)
                 Path(chk.args.output).write_bytes(picture)
+            if name == "buf-constraint":
+                Path(chk.args.output).parent.mkdir(parents=True, exist_ok=True)
+                Path(chk.args.output).write_bytes(picture)
             if name == "buf-roster":
                 Path(chk.args.output).parent.mkdir(parents=True, exist_ok=True)
                 Path(chk.args.output).write_bytes(_filtered_image(tuple(chk.args.targets[1::2])))
@@ -693,6 +691,7 @@ def test_check_resolves_immutable_baseline_and_runs_every_lane(assay_root: Assay
         "buf-lint",
         "buf-format",
         "buf-breaking",
+        "buf-constraint",
         "buf-generate",
         "buf-roster:typescript-01",
         "buf-roster:python-02",
@@ -700,21 +699,23 @@ def test_check_resolves_immutable_baseline_and_runs_every_lane(assay_root: Assay
         "buf-roster:csharp-04",
         "buf-roster:csharp-05",
         "corpus-gate",
+        "constraint-gate",
         "freshness-gate",
     ]
     assert all(status == "ok" for _, status in detail.lanes), detail.lanes
-    assert calls[1:8] == [
+    assert calls[1:9] == [
         ("buf", "registry", "module", "info", _MODULE, "--format", "json"),
         ("buf", "registry", "module", "commit", "resolve", f"{_MODULE}:main", "--format", "json"),
         ("buf", "build", "-o", str(scratch / "image.binpb"), "--as-file-descriptor-set"),
         ("buf", "lint", "--error-format", "json"),
         ("buf", "format", "--diff", "--exit-code", "tests/contracts/proto"),
         ("buf", "breaking", "tests/contracts/proto", "--against", f"{_MODULE}:{_BASELINE_COMMIT}", "--error-format", "json"),
+        ("buf", "build", f"{_MODULE}:{_BASELINE_COMMIT}", "-o", str(scratch / "baseline.binpb"), "--as-file-descriptor-set"),
         ("buf", "generate", "--template", "buf.gen.yaml", "-o", str(scratch / "gen")),
     ]
-    assert calls[8:13] == [
+    assert calls[9:14] == [
         ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING),
+        ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/csharp-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
         ("buf", "build", "-o", str(scratch / "roster/csharp-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
@@ -748,7 +749,8 @@ def test_baseline_fault_skips_only_breaking_and_keeps_siblings(assay_root: Assay
     detail = _detail(report)
     assert report.status is RailStatus.FAULTED and dict(detail.lanes)["buf-baseline"] == "faulted"
     assert dict(detail.lanes)["buf-breaking"] == "skip" and not detail.baseline
-    assert all(status == "ok" for name, status in detail.lanes if name not in {"buf-baseline", "buf-breaking"})
+    assert dict(detail.lanes)["buf-constraint"] == "skip" and dict(detail.lanes)["constraint-gate"] == "skip"
+    assert all(status == "ok" for name, status in detail.lanes if name not in {"buf-baseline", "buf-breaking", "buf-constraint", "constraint-gate"})
     assert not any(argv[:2] == ("buf", "breaking") for argv in calls)
 
 
@@ -1021,16 +1023,16 @@ def test_freshness_diffs_scratch_against_committed_roots(assay_root: AssayHarnes
     def regenerate(scratch: Path) -> None:
         for out in _OUTS:
             shutil.copytree(root / out, scratch / out, dirs_exist_ok=True)
-        _write(scratch, "libs/python/contracts/src/demo/v1/demo_pb.txt", "regenerated\n")
-        _write(scratch, "libs/python/contracts/src/rasm/contracts/vendor/pub_pb.txt", "new\n")
+        _write(scratch, "libs/python/contracts/rasm/contracts/demo/v1/demo_pb.txt", "regenerated\n")
+        _write(scratch, "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt", "new\n")
         (scratch / "libs/csharp/Rasm.Contracts/Generated/demo/v1/demo_pb.txt").unlink()
 
     report = assert_ok(_run(assay_root, _fan(root, regenerate=regenerate)))
     detail = _detail(report)
     assert report.status is RailStatus.FAILED
     assert detail.stale == (
-        ("changed", "libs/python/contracts/src/demo/v1/demo_pb.txt"),
-        ("missing", "libs/python/contracts/src/rasm/contracts/vendor/pub_pb.txt"),
+        ("changed", "libs/python/contracts/rasm/contracts/demo/v1/demo_pb.txt"),
+        ("missing", "libs/python/contracts/rasm/contracts/vendor/pub_pb.txt"),
         ("orphan", "libs/csharp/Rasm.Contracts/Generated/demo/v1/demo_pb.txt"),
     )
     assert {row.id for row in report.results} == {"freshness:changed", "freshness:missing", "freshness:orphan"}
@@ -1045,7 +1047,7 @@ def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarnes
     root = _corpus(assay_root.root)
     template = assert_ok(read_template(root))
     assert out_dirs(template) == _OUTS
-    assert [row.types for row in template.plugins] == [(_THING, _METHOD), (_THING,), (_METHOD,), (_THING,), (_METHOD,)]
+    assert [row.types for row in template.plugins] == [(_THING, _METHOD), (_THING, _METHOD), (_METHOD,), (_THING,), (_METHOD,)]
     assert all(not hasattr(row, "exclude_types") for row in template.plugins)
     assert [row.binary for row in template.plugins] == [
         "node_modules/.bin/protoc-gen-es",
@@ -1062,25 +1064,65 @@ def test_out_dirs_and_roster_blocks_derive_from_template(assay_root: AssayHarnes
         )
         for language, row in contracts_rail._ROSTERS.items()
     }
-    assert "| `Thing_InnerSchema` | message | support-closure | `demo.v1.Thing.Inner` |" in blocks["typescript"]
+    assert "| `Thing_InnerSchema` | message | support-closure | `Thing.Inner` |" in blocks["typescript"]
     assert "`Thing_KindSchema` | enum | support-closure" in blocks["typescript"]
-    assert "`DemoService` | service | support-closure | `demo.v1.DemoService`" in blocks["typescript"]
-    assert "`DemoService.Do` | method | public-root | `demo.v1.DemoService.Do`" in blocks["typescript"]
-    assert "[ROSTER_SCOPE]: `pub.v1`" in blocks["typescript"] and "support-closure | `pub.v1.Event`" in blocks["typescript"]
+    assert "`DemoService` | service | support-closure | `DemoService` |" in blocks["typescript"]
+    assert "`DemoService.Do` | method | public-root | `DemoService.Do` |" in blocks["typescript"]
+    assert "[ROSTER_SCOPE]: `pub.v1`" in blocks["typescript"] and "support-closure | `Event`" in blocks["typescript"]
     assert (
         "`Thing.Inner` | message | support-closure" in blocks["python"]
         and "`Thing.Kind` | enum | support-closure" in blocks["python"]
         and "`DemoService.Do` | method | public-root" in blocks["python"]
-        and "`Event` | message | support-closure | `pub.v1.Event`" in blocks["python"]
+        and "`Event` | message | support-closure | `Event` |" in blocks["python"]
     )
     assert (
         "`Thing.Types.Inner` | message | support-closure" in blocks["csharp"]
         and "`Thing.Types.Kind` | enum | support-closure" in blocks["csharp"]
         and "`DemoService` | service | support-closure" in blocks["csharp"]
         and "`DemoService.Do` | method | public-root" in blocks["csharp"]
-        and "support-closure | `pub.v1.Event`" in blocks["csharp"]
+        and "support-closure | `Event`" in blocks["csharp"]
     )
-    assert all("Unused" not in block for block in blocks.values()) and blocks["typescript"].endswith("|\n")
+    assert all("Unused" not in block for block in blocks.values()) and blocks["typescript"].endswith("|\n\n")
+
+
+def test_constraint_gate_refuses_narrowed_rules_and_passes_loosened_ones() -> None:
+    """Every provably or undecidably narrowed protovalidate axis refuses; every provable loosening passes wire-compatible."""
+    before = {
+        "string.min_len": 1,
+        "string.max_len": 8,
+        "double.lte": 5.0,
+        "enum.in": (1, 2, 3),
+        "enum.not_in": (9,),
+        "cel": (b"a",),
+        "required": False,
+    }
+    tightened = {
+        "string.min_len": 2,
+        "string.max_len": 4,
+        "double.lte": 4.0,
+        "enum.in": (1, 2),
+        "enum.not_in": (9, 10),
+        "cel": (b"a", b"b"),
+        "required": True,
+    }
+    loosened = {"string.min_len": 1, "string.max_len": 16, "double.lte": 9.0, "enum.in": (1, 2, 3, 4), "cel": (), "required": False}
+    reasons = contracts_rail._narrowed(before, tightened)
+    assert len(reasons) == 7 and all("narrowed" in reason or "added" in reason for reason in reasons)
+    assert contracts_rail._narrowed(before, loosened) == ()
+    assert contracts_rail._narrowed(before, dict(before)) == ()
+    assert contracts_rail._narrowed({}, {"string.pattern": "^x$"}) == ("string.pattern added",)
+
+
+def test_roster_blocks_render_inside_the_markdown_lane(assay_root: AssayHarness) -> None:
+    """Emitted spans conform to the markdown lane: every rendered line holds the 150-column cap and the span closes on a blank line."""
+    root = _corpus(assay_root.root)
+    template = assert_ok(read_template(root))
+    registry = assert_ok(load_manifest(root / "tests/contracts"))
+    filtered = _roster_files(root, template)
+    for language, row in contracts_rail._ROSTERS.items():
+        block = contracts_rail._roster_block(row, filtered[language], contracts_rail._actor_roots(registry, language, row.kinds))
+        assert all(len(line) <= 150 for line in block.splitlines()), f"{language} roster exceeds the 150-column cap"
+        assert block.endswith("\n\n"), f"{language} roster span must close on the blank line the markdown lane renders"
 
 
 def test_publisher_message_actor_roots_select_every_direct_generated_message() -> None:
@@ -1190,7 +1232,10 @@ def test_selector_roots_are_exact_actor_fqns(tmp_path: Path, types: str, rules: 
 
 def test_generated_rpc_actor_requires_a_service_plugin(tmp_path: Path) -> None:
     """Deleting one language's service emitter leaves its generated RPC actor uncovered even though message generation still exists."""
-    service = f"  - local: .venv/bin/protoc-gen-connectrpc\n    out: libs/python/contracts/src\n    types: [{_METHOD}]\n    include_imports: true\n"
+    service = (
+        f"  - remote: buf.build/grpc/csharp:v1.83.0\n    revision: 1\n    out: libs/csharp/Rasm.Contracts/Generated\n"
+        f"    types: [{_METHOD}]\n    include_imports: true\n"
+    )
     rules, rows = _audit_rules(_corpus(tmp_path, template=_TEMPLATE.replace(service, "")), _image())
     assert "selector-coverage" in rules, "\n".join(rows)
 
@@ -1298,7 +1343,7 @@ def test_remote_csharp_emitter_identities_are_versioned_and_exact() -> None:
     lookalike = contracts_rail._Plugin(remote="buf.build/example/protocolbuffers-csharp:v36.0", out="libs/csharp/Rasm.Contracts/Generated")
 
     assert message.kinds == frozenset(("message", "enum"))
-    assert service.kinds == frozenset(("service",))
+    assert service.kinds == frozenset(("service", "method"))
     assert unversioned.kinds == lookalike.kinds == frozenset()
 
 
@@ -1619,6 +1664,7 @@ def test_plugin_miss_degrades_check_and_refuses_generate(assay_root: AssayHarnes
         "buf-lint": "ok",
         "buf-format": "ok",
         "buf-breaking": "ok",
+        "buf-constraint": "ok",
         "buf-generate": "skip",
         "buf-roster:typescript-01": "ok",
         "buf-roster:python-02": "ok",
@@ -1626,6 +1672,7 @@ def test_plugin_miss_degrades_check_and_refuses_generate(assay_root: AssayHarnes
         "buf-roster:csharp-04": "ok",
         "buf-roster:csharp-05": "ok",
         "corpus-gate": "ok",
+        "constraint-gate": "ok",
         "freshness-gate": "skip",
     }
     assert not dict(detail.plugins)[".venv/bin/protoc-gen-py"]
@@ -2195,7 +2242,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
     detail = _detail(stale)
     scratch = Path(detail.scratch)
     assert stale.status is RailStatus.FAILED and _rules(stale) == {"schema-stale"}
-    assert calls[8] == (
+    assert calls[9] == (
         "buf",
         "generate",
         "tests/contracts/proto",
@@ -2208,6 +2255,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
     )
     assert dict(detail.lanes)[f"buf-jsonschema:{_THING}"] == "ok" and dict(detail.plugins)[JSONSCHEMA_PLUGIN] == str(projector)
     assert [name for name, _ in detail.lanes][7:] == [
+        "buf-constraint",
         "buf-generate",
         f"buf-jsonschema:{_THING}",
         "buf-roster:typescript-01",
@@ -2216,6 +2264,7 @@ def test_proto_derivation_projects_check_byte_checks_and_generate_lands(assay_ro
         "buf-roster:csharp-04",
         "buf-roster:csharp-05",
         "corpus-gate",
+        "constraint-gate",
         "freshness-gate",
     ]
     landed = assert_ok(_run(assay_root, _fan(root), "generate"))
@@ -2324,7 +2373,7 @@ def test_generate_stages_buf_and_commits_through_the_transaction_writer_under_th
         ("plugin-probe", "resolve"),
         ("buf", "build", "-o", str(scratch / "image.binpb"), "--as-file-descriptor-set"),
         ("buf", "build", "-o", str(scratch / "roster/typescript-01.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
-        ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING),
+        ("buf", "build", "-o", str(scratch / "roster/python-02.binpb"), "--as-file-descriptor-set", "--type", _THING, "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/python-03.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
         ("buf", "build", "-o", str(scratch / "roster/csharp-04.binpb"), "--as-file-descriptor-set", "--type", _THING),
         ("buf", "build", "-o", str(scratch / "roster/csharp-05.binpb"), "--as-file-descriptor-set", "--type", _METHOD),
@@ -2464,13 +2513,14 @@ def test_catalog_rows_pin_lane_contract() -> None:
         "buf-module",
         "buf-breaking",
         "buf-build",
+        "buf-constraint",
         "buf-lint",
         "buf-format",
         "buf-generate",
         "buf-jsonschema",
         "buf-push",
     }
-    assert {t.name for t in rows if t.runner is Runner.INPROC} == {"plugin-probe", "corpus-gate", "freshness-gate", "corpus-emit"}
+    assert {t.name for t in rows if t.runner is Runner.INPROC} == {"plugin-probe", "corpus-gate", "constraint-gate", "freshness-gate", "corpus-emit"}
     assert _ROWS["buf-jsonschema", Mode.STAGE].command[1:4] == ("generate", "{input}", "--template") and JSONSCHEMA_PLUGIN in JSONSCHEMA_TEMPLATE
     assert {t.name for t in rows if t.defect_exit == BUF_DEFECT_EXIT} == {"buf-lint", "buf-format", "buf-breaking"}
     assert {t.name for t in rows if t.parser is Parser.BUF} == {"buf-lint", "buf-breaking"}

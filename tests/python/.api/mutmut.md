@@ -7,7 +7,7 @@
 - package: `mutmut` · license `BSD-3-Clause`
 - namespace: `import mutmut` · CLI `mutmut` · cache reader `mutmut.mutation.data.SourceFileMutationData`
 - asset: pure-Python wheel; config parsed from `[tool.mutmut]` via `tomllib`; cache under `mutants/`
-- rail: mutation gate — the survivor census `tools/assay/rails/mutation_gate.py` grades
+- rail: mutation gate — the survivor census `tools/assay/assay/rails/mutation_gate.py` grades
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -51,7 +51,7 @@ STATUS = ("killed", "survived", "no tests", "timeout", "suspicious",
 
 ```python signature
 # [tool.mutmut] as the repo carries it — the covered-line map is fed an absolute-keyed coverage side-file.
-source_paths = ["tools/assay"]; do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
+source_paths = ["assay"] (package-relative; policy lives in tools/assay/pyproject.toml); do_not_mutate = ["assay/__init__.py", "assay/rails/mutation_gate.py"]
 pytest_add_cli_args_test_selection = ["tests/python/tools/assay"]; mutate_only_covered_lines = True; max_stack_depth = -1
 pytest_add_cli_args = ["--hypothesis-profile=rasm-mutation", "-o", "required_plugins=", "-m", "not benchmark and not network and not subprocess"]
 timeout_multiplier = 4.0; timeout_constant = 5.0   # per-mutant cap = (estimated suite time + timeout_constant) * timeout_multiplier
@@ -68,7 +68,7 @@ timeout_multiplier = 4.0; timeout_constant = 5.0   # per-mutant cap = (estimated
 - Concurrency has no config key — `--max-children` is CLI-only (assay-governed); a bare run defaults to `cpu_count`, and the timeout bounds cap it.
 
 [STACKING]:
-- `tools/assay/rails/mutation_gate.py`: reads `SourceFileMutationData` and folds `status_by_exit_code` into a score — only `killed` and `survived` enter the denominator; `no tests`/`timeout`/`suspicious` route to structured stderr triage. It is in `do_not_mutate` so the gate never mutates itself.
+- `tools/assay/assay/rails/mutation_gate.py`: reads `SourceFileMutationData` and folds `status_by_exit_code` into a score — only `killed` and `survived` enter the denominator; `no tests`/`timeout`/`suspicious` route to structured stderr triage. It is in `do_not_mutate` so the gate never mutates itself.
 - `runtime.py`(`../_testkit/runtime.py`): the `rasm-mutation` Hypothesis profile — derandomized and database-free with short traces — selects via `--hypothesis-profile=rasm-mutation` to preserve kill-signal budget across the mutant fan-out.
 - `pytest`(`.api/pytest.md`): mutmut disables `pytest-randomly`, so `-o required_plugins=` waives the guard the default session enforces.
 - `mutation` marker: the acceptance and survivor-triage laws that prove the gate's own grading.

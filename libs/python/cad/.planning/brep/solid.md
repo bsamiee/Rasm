@@ -2,7 +2,7 @@
 
 `solid` owns every B-rep arm that mints a fresh body from parameters and a frame, reading no source artifact: the analytic primitives, the generative sweeps over a placed profile, and the identity-guarded set folds those sweeps reduce through. Arms opening a `SealedStep` operand belong to `brep/boolean` and `brep/feature`; this owner never resolves a source and never seals a result.
 
-Spatial seats lower through `placement#PLACEMENT` and every profile enters as the oriented face run `profile#OFFSET` hands over, so no geometry is re-derived here. Builder admission composes `built` and `admitted` at `placement#ADMISSION` and set algebra composes `nary` and `subtracted` at `brep/boolean#BOOLEAN`, keeping one admission owner and one operator roster for the whole sub-domain. Refusals ride `CadRail` on `BREP_INPUT` here and on `BREP_OUTPUT` through the admission rail's own grading.
+Spatial seats lower through `placement#PLACEMENT` and every profile enters as the oriented face run `profile#OFFSET` hands over, so no geometry is re-derived here. Builder admission composes `built` and `admitted` at `placement#ADMISSION` and set algebra composes `nary` over the `BOOLEANS` roster at `brep/boolean#BOOLEAN`, keeping one admission owner and one operator roster for the whole sub-domain. Refusals ride `CadRail` on `BREP_INPUT` here and on `BREP_OUTPUT` through the admission rail's own grading.
 
 ## [01]-[INDEX]
 
@@ -63,7 +63,7 @@ from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import (
 from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import ProfileLoop, ProfileRegion
 from rasm.contracts.gen.rasm.contracts.spatial.v1.vector_pb import UnitDirection3
 
-from rasm.cad.brep.boolean import BOOLEANS, nary, subtracted
+from rasm.cad.brep.boolean import BOOLEANS, nary
 from rasm.cad.brep.placement import Basis, ShapeBuilder, admitted, axis, built, curve, direction, frame, point, seated
 from rasm.cad.brep.profile import faces, offset, wire
 from rasm.cad.faults import BREP_INPUT, CadRail
@@ -137,13 +137,13 @@ def merged(shapes: Sequence[TopoDS_Shape], /) -> CadRail[TopoDS_Shape]:
         case (lone,):
             return Ok(lone)
         case _:
-            return nary(BOOLEANS["fuse"], shapes[:1], shapes[1:], "unite")
+            return nary(shapes[:1], shapes[1:], BOOLEANS["fuse"], "unite")
 
 
 def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /) -> CadRail[TopoDS_Shape]:
     # Empty tool runs leave the body its own difference, so a hole-free region and a hole-bearing one reach the
     # same expression and no caller branches on whether its profile carried holes.
-    return Ok(body) if not tools else subtracted(body, tools, coordinate)
+    return Ok(body) if not tools else nary((body,), tools, BOOLEANS["cut"], coordinate)
 ```
 
 ## [04]-[GENERATIVE]

@@ -343,10 +343,10 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: `Profile`, its descriptor schemas, and `_profile` seat above the `Setting` region of `runtime/src/proc/config.ts` — the fences split by cluster, never by file order, so `Setting` composes them as one module's earlier declarations.
 - Entry: `Profile.admit(row)` at `Setting` construction; `yield* Setting` then reads `profile.row` everywhere else.
 - Receipt: the admitted `Profile` value itself is the local deployment receipt.
-- Packages: `effect` (`Array`, `Config`, `Duration`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/ts/core` (`Fault.Class`, `Identity`).
+- Packages: `effect` (`Array`, `Config`, `Duration`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/core` (`Fault.Class`, `Identity`).
 
 ```typescript signature
-import { Fault, Identity } from '@rasm/ts/core';
+import { Fault, Identity } from '@rasm/core';
 
 const _topologies = ['in-host', 'sidecar', 'companion', 'service', 'edge', 'cli'] as const;
 const _lifecycles = ['caller-owned', 'package-owned'] as const;

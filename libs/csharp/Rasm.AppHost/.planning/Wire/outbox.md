@@ -374,9 +374,9 @@ public static class OutboxRelay {
             ? Dialled(runtime, tenant, row)
             : Barred(runtime, tenant, row);
 
-    // `Unbound` is the receipt a refusal before the dial earns: it carries `HopVerdict.Refused` beside the fault
-    // observation, and this page's own reading of the disposition is "no hop measure was taken", which is
-    // exactly true here. `Suppressed` reports `Delivered` and would count a barred fact as relayed.
+    // `Unbound` is the receipt a refusal before the dial earns: it carries `Some(HopVerdict.Refused)` beside the
+    // fault observation, and this page's own reading of the disposition is "no hop measure was taken", which is
+    // exactly true here. `Suppressed` carries NO verdict and would erase a barred fact from the outcome rows.
     static IO<RelayResult> Barred(Runtime runtime, TenantContext tenant, RelayEntry row) =>
         IO.lift(() => (Error)new OutboxFault.ClassificationBarred(
                 $"{row.Grade.Key}@{runtime.Trust.Key}:{row.Dedup}"))

@@ -1,8 +1,15 @@
-[project]
-name = "workspace-foundation-python"
-version = "0.1.0"
-requires-python = ">=3.15"
-dependencies = [
+# Virtual workspace root: no [project], so this manifest can never build or publish. Distributions live in the member manifests; this file owns the workspace roster, the estate dependency substrate, and every gate table.
+[dependency-groups]
+# Workspace members ride the estate group so one `uv sync` seats the gate CLI and every rasm namespace package.
+estate = [
+    "assay",
+    "rasm-artifacts",
+    "rasm-cad",
+    "rasm-compute",
+    "rasm-contracts",
+    "rasm-data",
+    "rasm-geometry",
+    "rasm-runtime",
     # --- [GENERAL]
     "anyio",
     "apscheduler",                                        # [RUNTIME]: cron, interval, and date triggers
@@ -84,7 +91,7 @@ dependencies = [
     "stream-zip",                                         # [ARTIFACTS]: bounded-memory streaming zip with ZIP64/AES-256
     "universal-pathlib",                                  # [TRANSPORT]: UPath storage_options/protocol resolution over the fsspec registry; compute experiments/model UPath consumer
     "zlib-ng",                                            # [ARTIFACTS]: zlib-ng/gzip-ng accelerated compression beside zstandard/lz4/brotli
-    "zstandard",                                          # [TOOLING]: zstd compression for tools.assay logging and cache payloads
+    "zstandard",                                          # [TOOLING]: zstd compression for assay logging and cache payloads
     # --- [NUMERICS_SOLVERS]
     "array-api-compat",                                   # [COMPUTE]: array API portability shim
     "array-api-extra",                                    # [COMPUTE]: supplemental array API helpers
@@ -335,10 +342,8 @@ dependencies = [
     "segno",                                              # [ARTIFACTS]: QR and Micro-QR vector codes
     "zxing-cpp",                                          # [ARTIFACTS]: 2D matrix codes encode and decode
 ]
-
-[dependency-groups]
 dev = [
-    "annotated-types",              # typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
+    "annotated-types",                                    # Typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
     "brotli-stubs",
     "coverage",
     "dirty-equals",
@@ -349,8 +354,8 @@ dev = [
     "moto[server]",
     "mypy",
     "pandas-stubs",
-    "protoc-gen-connectrpc",        # Connect-Python stub generator; buf drives it from .venv/bin
-    "protoc-gen-py",                 # protobuf-py generator; buf drives the pair from .venv/bin
+    "protoc-gen-connectrpc",                              # Connect-Python stub generator; buf drives it from .venv/bin
+    "protoc-gen-py",                                      # protobuf-py generator; buf drives the pair from .venv/bin
     "pyarrow-stubs",
     "pytest",
     "pytest-benchmark",
@@ -360,10 +365,10 @@ dev = [
     "pytest-timeout",
     "pytest-xdist",
     "ruff>=0.16.2",
-    "s3fs",                         # object-store testkit backend over moto S3
+    "s3fs",                                               # Object-store testkit backend over moto S3
     "scipy-stubs",
-    "sniffio",                      # async-flavor detection the testkit env double imports directly
-    "sqlfluff",                     # SQL format/lint rail; squawk keeps the migration-safety lane
+    "sniffio",                                            # Async-flavor detection the testkit env double imports directly
+    "sqlfluff",                                           # SQL format/lint rail; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
     "types-geopandas",
@@ -381,24 +386,24 @@ mutation = ["mutmut"]
 
 # --- [UV] -------------------------------------------------------------------------------
 
+[tool.uv.workspace]
+members = ["libs/python/*", "tools/assay"]  # libs/python/* is a ruled tree, so a glob admits it whole; app python projects are explicit rows the `assay init` rail appends, because a glob over polyglot apps/ trees hard-fails on non-Python directories.
+
 [tool.uv.sources]
-# 0.22.9 imports typing.no_type_check_decorator (removed in 3.15); the pinned rev is current main past the fix, unreleased as of 0.22.9.
-beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79dfb7f595457a85c82398601c17b2f1" }
-# Published Connect pins protobuf-py 0.1.1; this immutable upstream source carries the runtime and generator pair on protobuf-py 0.3.
-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }
+assay = { workspace = true }
+rasm-artifacts = { workspace = true }
+rasm-cad = { workspace = true }
+rasm-compute = { workspace = true }
+rasm-contracts = { workspace = true }
+rasm-data = { workspace = true }
+rasm-geometry = { workspace = true }
+rasm-runtime = { workspace = true }
+beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79dfb7f595457a85c82398601c17b2f1" }          # 0.22.9 imports typing.no_type_check_decorator (removed in 3.15); the pinned rev is current main past the fix, unreleased as of 0.22.9.
+connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }  # Published Connect pins protobuf-py 0.1.1; this immutable upstream source carries the runtime and generator pair on protobuf-py 0.3.
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
 
-[build-system]
-requires = ["uv_build>=0.12.5,<0.13"]
-build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-root = "libs/python/contracts/src"
-module-name = "rasm.contracts"
-
 [tool.uv]
-package = true
-default-groups = ["dev", "mutation"]
+default-groups = ["estate", "dev", "mutation"]
 
 # TOML 1.0 confines an inline table to one line, so the per-package build knobs ride their own table rather than a multi-line brace `taplo` refuses to parse.
 [tool.uv.config-settings-package]
@@ -467,7 +472,7 @@ requires-dist = [
 ]
 provides-extras = ["jax", "numba"]
 
-# substrait 0.30.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
+# Substrait 0.30.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
 [[tool.uv.dependency-metadata]]
 name = "substrait"
 version = "0.30.0"
@@ -518,7 +523,7 @@ all = "error"
 
 # The generated tree stays typechecked; the two ignores are `protoc-gen-connectrpc` emission shapes (`path` overridden without `@override`, `codecs: Iterable[Codec]` unparameterized), carved path-scoped, never a tree exclude.
 [[tool.ty.overrides]]
-include = ["libs/python/contracts/src/rasm/contracts/gen/**", "libs/python/contracts/src/rasm/contracts/vendor/**"]
+include = ["libs/python/contracts/rasm/contracts/gen/**", "libs/python/contracts/rasm/contracts/vendor/**"]
 
 [tool.ty.overrides.rules]
 missing-override-decorator = "ignore"
@@ -532,7 +537,8 @@ error-on-warning = true
 # `ty` is the binding type gate; mypy checks `tools/assay`, `tests`, and the installed SDK modules those consumers import.
 # Mypy-only divergences stay in overrides because `ty` rejects inline type-ignore comments.
 [tool.mypy]
-files = ["tools/assay", "tests"]
+files = ["tools/assay/assay", "tests"]
+mypy_path = ["tools/assay"]  # flat layout: module names derive from the package root, matching the installed distribution
 python_version = "3.15"
 cache_dir = ".cache/mypy"
 strict = true
@@ -552,7 +558,7 @@ enable_error_code = [
     "truthy-iterable",
     "unused-awaitable",
 ]
-disable_error_code = ["prop-decorator"] # mypy cannot model pydantic computed_field over @property; ty checks the same surface without the gap
+disable_error_code = ["prop-decorator"]  # mypy cannot model pydantic computed_field over @property; ty checks the same surface without the gap
 exclude = [
     "(^|/)(\\.archive|_archive|scratch|\\.scratch|_tmp|\\.tmp|\\.cache|\\.history)/",
     "^\\.artifacts/",
@@ -593,21 +599,20 @@ disable_error_code = ["explicit-override", "type-arg"]
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
-# `pytest-benchmark` and `pytest-xdist` stay in separate sessions under `filterwarnings = ["error"]`.
-# Do not add `-n` to default `addopts`; parallel runs must unload benchmark config explicitly.
+# `pytest-benchmark` and `pytest-xdist` stay in separate sessions under `filterwarnings = ["error"]`. Do not add `-n` to default `addopts`; parallel runs must unload benchmark config explicitly.
 [tool.pytest]
 minversion = "9.0"
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
-pythonpath = ["."] # repository modules resolve from root; `rasm.contracts` resolves through the installed workspace distribution
+pythonpath = ["."]  # Repository modules resolve from root; `rasm.contracts` resolves through the installed workspace distribution
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]
 collect_imported_tests = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
     "-p",
-    "tests.python._testkit.runtime",                           # testkit runtime plugin: profiles register at import; OTel wiring and marker auto-application ride session fixtures and collection hooks
+    "tests.python._testkit.runtime",                            # Testkit runtime plugin: profiles register at import; OTel wiring and marker auto-application ride session fixtures and collection hooks
     "-x",
     "--tb=short",
     "--import-mode=importlib",
@@ -615,15 +620,15 @@ addopts = [
     "not benchmark",
     "--disable-socket",
     "--allow-unix-socket",
-    "--benchmark-storage=file://.artifacts/python/benchmarks", # benchmark artifacts route through the Assay catalog URI
-    "--benchmark-autosave",                                    # feeds the sustained-regression series; writes only when benchmarks ran
+    "--benchmark-storage=file://.artifacts/python/benchmarks",  # Benchmark artifacts route through the Assay catalog URI
+    "--benchmark-autosave",                                     # Feeds the sustained-regression series; writes only when benchmarks ran
     "--hypothesis-profile=rasm",
 ]
 filterwarnings = [
     "error",
-    "ignore:Not saving anything:pytest_benchmark.logger.PytestBenchmarkWarning", # autosave no-op in sessions whose benchmarks are deselected
+    "ignore:Not saving anything:pytest_benchmark.logger.PytestBenchmarkWarning",  # Autosave no-op in sessions whose benchmarks are deselected
 ]
-timeout = "30" # pytest-timeout registers this option as a string; pytest 9 TOML mode rejects a native int
+timeout = "30"  # pytest-timeout registers this option as a string; pytest 9 TOML mode rejects a native int
 required_plugins = [
     "anyio",
     "hypothesis",
@@ -646,23 +651,23 @@ markers = [
 # --- [INLINE_SNAPSHOT] ------------------------------------------------------------------
 
 [tool.inline-snapshot]
-default-flags = ["short-report"]       # reports mismatches without mutating snapshots
+default-flags = ["short-report"]  # Reports mismatches without mutating snapshots
 storage-dir = ".cache/inline-snapshot"
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage.run]
 branch = true
-relative_files = true # subprocess coverage combines through relative repo paths
-source = ["tools/assay"]
+relative_files = true  # Subprocess coverage combines through relative repo paths
+source = ["tools/assay/assay"]
 data_file = ".cache/coverage/.coverage"
-core = "sysmon" # CPython 3.15 beta lacks coverage's compiled C tracer
+core = "sysmon"        # CPython 3.15 beta lacks coverage's compiled C tracer
 patch = [
     "subprocess",
-] # children auto-measure via COVERAGE_PROCESS_CONFIG + shipped pth; forces parallel data files, so reporting requires a combine step
+]  # Children auto-measure via COVERAGE_PROCESS_CONFIG + shipped pth; forces parallel data files, so reporting requires a combine step
 
 [tool.coverage.report]
-fail_under = 90  # sysmon captures fewer arcs than the unavailable C core; 90 keeps the floor real instead of binding on precision-0 rounding
+fail_under = 90   # Sysmon captures fewer arcs than the unavailable C core; 90 keeps the floor real instead of binding on precision-0 rounding
 show_missing = true
 skip_covered = true
 exclude_also = ["if TYPE_CHECKING:", "assert_never\\(", "\\.\\.\\.$", "if __name__ == .__main__.:"]
@@ -680,39 +685,44 @@ output = ".artifacts/python/coverage/coverage.xml"
 [tool.coverage.lcov]
 output = ".artifacts/python/coverage/coverage.lcov"
 
-# --- [MUTMUT] ---------------------------------------------------------------------------
-
-[tool.mutmut]
-source_paths = ["tools/assay"] # Mutation runs through the Assay-staged workdir; retired `.cache/mut-venv` and requirements fallbacks stay retired.
-pytest_add_cli_args_test_selection = [
-    "tests/python/tools/assay",
-] # `type_check_command` stays unset: the prefilter aborts on any pre-existing checker diagnostic; tests are the kill mechanism.
-pytest_add_cli_args = [
-    "--hypothesis-profile=rasm-mutation",
-    "-o",
-    "required_plugins=",                                # mutmut disables pytest-randomly, so this invocation waives the required-plugins guard
-    "-m",
-    "not benchmark and not network and not subprocess", # subprocess tests execute the unmutated CLI outside mutmut's copied tree
-]
-do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
-mutate_only_covered_lines = true # mutation run supplies absolute-keyed coverage data for mutmut's covered-line map
-max_stack_depth = -1 # disables mutmut's strict stack walk over importlib pseudo-filenames
-# Per-mutant wall/CPU cap = (estimated suite time + timeout_constant) * timeout_multiplier, replacing the lax 15x default.
-# Concurrency has no config key: --max-children is CLI-only (assay-governed); a bare run defaults to cpu_count.
-timeout_multiplier = 4.0
-timeout_constant = 5.0
-
 # --- [IMPORT_LINTER] --------------------------------------------------------------------
 
-# Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option, and the default litters the repo root.
+# Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option and silently swallows unknown keys, so the flag is the only route; .claude/hooks/litter-guard.py refuses the bare form.
 [tool.importlinter]
-root_packages = ["tools.assay"]
-exclude_type_checking_imports = true # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
+# Every workspace member registers here; the islands contract below is the package-boundary gate over the shared venv.
+root_packages = [
+    "assay",
+    "rasm.artifacts",
+    "rasm.cad",
+    "rasm.compute",
+    "rasm.contracts",
+    "rasm.data",
+    "rasm.geometry",
+    "rasm.runtime",
+]
+exclude_type_checking_imports = true  # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
+
+# Standalone-package law: members reach each other only through declared manifest edges; the shared workspace venv
+# would otherwise let any member import any other member's dependencies silently. A declared edge earns an
+# ignore_imports carve here in the same change that lands the manifest row.
+[[tool.importlinter.contracts]]
+name = "workspace members are standalone islands"
+type = "independence"
+modules = [
+    "assay",
+    "rasm.artifacts",
+    "rasm.cad",
+    "rasm.compute",
+    "rasm.contracts",
+    "rasm.data",
+    "rasm.geometry",
+    "rasm.runtime",
+]
 
 [[tool.importlinter.contracts]]
 name = "assay strata: model -> diagnostics -> store -> settings/aspect -> _logging -> catalog -> routing -> govern -> remote -> exec -> oracle -> rails -> registry -> automation -> __main__"
 type = "layers"
-containers = ["tools.assay"]
+containers = ["assay"]
 layers = [
     "__main__",
     "automation",
@@ -735,20 +745,21 @@ layers = [
 name = "rails are peer-independent"
 type = "independence"
 modules = [
-    "tools.assay.rails.api",
-    "tools.assay.rails.bridge",
-    "tools.assay.rails.code",
-    "tools.assay.rails.contracts",
-    "tools.assay.rails.docs",
-    "tools.assay.rails.health",
-    "tools.assay.rails.mutation_gate",
-    "tools.assay.rails.package",
-    "tools.assay.rails.provision",
-    "tools.assay.rails.static",
-    "tools.assay.rails.test",
+    "assay.rails.api",
+    "assay.rails.bridge",
+    "assay.rails.code",
+    "assay.rails.contracts",
+    "assay.rails.docs",
+    "assay.rails.health",
+    "assay.rails.init",
+    "assay.rails.mutation_gate",
+    "assay.rails.package",
+    "assay.rails.provision",
+    "assay.rails.static",
+    "assay.rails.test",
 ]
 # Named debt: package rides bridge's apphost lease/client seam until a neutral client owner exists.
-ignore_imports = ["tools.assay.rails.package -> tools.assay.rails.bridge"]
+ignore_imports = ["assay.rails.package -> assay.rails.bridge"]
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -771,12 +782,12 @@ extend-exclude = [
     "**/coverage/**",
     "**/scratch/**",
     "**/test-results/**",
-    "libs/python/contracts/src/rasm/contracts/gen/**",
-    "libs/python/contracts/src/rasm/contracts/vendor/**",
+    "libs/python/contracts/rasm/contracts/gen/**",
+    "libs/python/contracts/rasm/contracts/vendor/**",
 ]
 
 [tool.ruff.format]
-exclude = ["*.md"]               # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
+exclude = ["*.md"]  # Markdown fences: the linter skips *.md natively; fence layout is design-doc law, so the formatter skips them too.
 line-ending = "lf"
 docstring-code-format = true
 skip-magic-trailing-comma = true
@@ -785,42 +796,42 @@ skip-magic-trailing-comma = true
 select = ["ALL"]
 ignore = [
     # --- [FORMATTER]
-    "missing-trailing-comma",                    # ruff format owns trailing commas
-    "single-line-implicit-string-concatenation", # ruff format owns implicit string concatenation
+    "missing-trailing-comma",                     # ruff format owns trailing commas
+    "single-line-implicit-string-concatenation",  # ruff format owns implicit string concatenation
     # --- [MATCH_DISPATCH]
-    "unnecessary-assign",                        # named intermediates keep flow pipelines readable
-    "superfluous-else-return",                   # explicit match dispatch keeps exhaustive arms visible
-    "superfluous-else-raise",                    # explicit error branches keep ROP rails visible
-    "if-else-block-instead-of-if-exp",           # match/case owns dispatch, not ternaries
-    "if-with-same-arms",                         # match/case owns dispatch, not merged if arms
+    "unnecessary-assign",                         # Named intermediates keep flow pipelines readable
+    "superfluous-else-return",                    # Explicit match dispatch keeps exhaustive arms visible
+    "superfluous-else-raise",                     # Explicit error branches keep ROP rails visible
+    "if-else-block-instead-of-if-exp",            # Match/case owns dispatch, not ternaries
+    "if-with-same-arms",                          # Match/case owns dispatch, not merged if arms
     # --- [DENSITY]
-    "too-many-return-statements",                # a total match over a closed tagged union returns per arm; a return cap pressures the doctrine's own dispatch form
-    "too-many-branches",                         # one dispatch surface owns every branch; a branch cap pressures arm extraction
-    "too-many-locals",                           # dense dispatch surfaces own their locals; a variable cap pressures fragmentation
-    "too-many-statements",                       # one surface owns every arm; a statement cap never justifies splitting a closed union
-    "too-many-boolean-expressions",              # dense dispatch predicates stay on the owning surface; a boolean-expression cap pressures fragmentation
+    "too-many-return-statements",                 # Total match over a closed tagged union returns per arm; a return cap pressures the doctrine's own dispatch form
+    "too-many-branches",                          # One dispatch surface owns every branch; a branch cap pressures arm extraction
+    "too-many-locals",                            # Dense dispatch surfaces own their locals; a variable cap pressures fragmentation
+    "too-many-statements",                        # One surface owns every arm; a statement cap never justifies splitting a closed union
+    "too-many-boolean-expressions",               # Dense dispatch predicates stay on the owning surface; a boolean-expression cap pressures fragmentation
     # --- [ERROR_RAILS]
-    "raw-string-in-exception",                   # frozen errors carry inline messages
-    "f-string-in-exception",                     # error constructors carry formatted context
-    "raise-vanilla-args",                        # domain errors carry descriptive messages
-    "raise-within-try",                          # `@safe` ROP boundaries may raise inside the guarded call
-    "error-instead-of-exception",                # structlog `.error()` is valid outside exception handlers
+    "raw-string-in-exception",                    # Frozen errors carry inline messages
+    "f-string-in-exception",                      # Error constructors carry formatted context
+    "raise-vanilla-args",                         # Domain errors carry descriptive messages
+    "raise-within-try",                           # `@safe` ROP boundaries may raise inside the guarded call
+    "error-instead-of-exception",                 # Structlog `.error()` is valid outside exception handlers
     # --- [TYPE_RESOLUTION]
     "typing-only-first-party-import",
     "typing-only-third-party-import",
     "typing-only-standard-library-import",
     # --- [DOCSTRINGS]
-    "docstring-extraneous-exception",            # Raises sections may document propagated helper exceptions; DOC501 still requires direct raises
+    "docstring-extraneous-exception",             # Raises sections may document propagated helper exceptions; DOC501 still requires direct raises
     # --- [SEMANTIC_ORDER]
-    "unsorted-dunder-all",                       # semantic public-surface order beats alphabetical `__all__`
-    "unsorted-dunder-slots",                     # semantic slot order beats alphabetical `__slots__`
+    "unsorted-dunder-all",                        # Semantic public-surface order beats alphabetical `__all__`
+    "unsorted-dunder-slots",                      # Semantic slot order beats alphabetical `__slots__`
     # --- [WORKFLOW]
-    "missing-todo-link",                         # TODO links are not required for local maintenance notes
-    "line-contains-todo",                        # TODO comments are accepted source markers
-    "implicit-namespace-package",                # monorepo packages may be implicit namespaces
-    "missing-copyright-notice",                  # top-level LICENSE owns copyright notice
+    "missing-todo-link",                          # TODO links are not required for local maintenance notes
+    "line-contains-todo",                         # TODO comments are accepted source markers
+    "implicit-namespace-package",                 # Monorepo packages may be implicit namespaces
+    "missing-copyright-notice",                   # Top-level LICENSE owns copyright notice
     # --- [SECTION_DIVIDERS]
-    "commented-out-code",                        # compact `# --- [LABEL]` subsection dividers are source structure
+    "commented-out-code",                         # Compact `# --- [LABEL]` subsection dividers are source structure
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -851,7 +862,7 @@ ignore = [
     "import-private-name",
 ] # PLC2701: specs import the private-by-design _testkit package
 "**/conftest.py" = ["module-import-not-at-top-of-file"]
-"tests/python/_testkit/runtime.py" = ["module-import-not-at-top-of-file"] # Hypothesis environment gates must precede imports
+"tests/python/_testkit/runtime.py" = ["module-import-not-at-top-of-file"]  # Hypothesis environment gates must precede imports
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = false
@@ -882,7 +893,7 @@ ignorelist = [
     "list",
     "quit",
     "type",
-] # CLI verb vocabulary: a rail handler's own name is the verb the registry dispatches on
+]  # CLI verb vocabulary: a rail handler's own name is the verb the registry dispatches on
 
 [tool.ruff.lint.flake8-import-conventions.extend-aliases]
 "dask.array" = "da"
@@ -1013,6 +1024,7 @@ ignore-variadic-names = true
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
+known-first-party = ["assay", "rasm"]  # workspace members install editable, so path heuristics read them as third-party
 lines-after-imports = 2
 order-by-type = false
 split-on-trailing-comma = false

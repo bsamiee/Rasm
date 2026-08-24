@@ -494,7 +494,7 @@ public sealed record LightShade(
 - Law: the commit rides `ObjectSpine.Commit` and the receipt is the Document spine's `FactStream` — admission precedes the grant, the spine derives mutate-plus-undo needs with redraw joining by policy, and this page supplies only its slot vocabulary, its body family, and the per-verb fold; every light verb records undo and the serial lands as a `LightBody.Record` fact through the stream's own stamp projection.
 - Law: placement stays the object rail — whole-object transform, delete-by-id, and selection of `LightObject`s ride `TableOp` through `TableTarget.Query` with `IncludeLights`; this rail owns what the object rail cannot spell — light-specific properties, index-addressed table verbs, and kind-gated modality.
 - Owner: `SceneSpectrum`, `PhotometricPower`, `PhotometricWebRef`, `ScenePhotometry`, `SceneShading`, and `SceneCapture` are the `rasm.contracts.scene.v1` descriptor's host-free rows; generated `spatial.v1.Point3`, `Displacement3`, and `UnitDirection3` carry coordinates without a local vector twin, and `SceneMap` lowers them.
-- Law: this page is the WHOLE-DESCRIPTOR emitter and the strata edge is downward — Objects (S2) composes the Render (S1) `SceneSun` band as an admitted VALUE beside its own photometric rows, so the sun's astronomy stays its owner's and no second solar derivation exists here. Shading rides as call data: the GLB body is `Rasm.Compute`'s `GLB_BY_KEY` product, so this emitter carries its artifact coordinate, counts, and declared fidelity and never tessellates.
+- Law: this page is the WHOLE-DESCRIPTOR emitter and the strata edge is downward — Objects (S2) composes the Render (S1) `SceneSun` band as an admitted VALUE beside its own photometric rows, so the sun's astronomy stays its owner's and no second solar derivation exists here. Shading rides as call data: the GLB body is the manifest's `keyed-artifact`/`glb` product — `Rasm.Bim`'s `Exchange/export#EXPORT_RAIL` emits it under `Rasm.Compute`'s content keys — so this emitter carries its artifact coordinate, counts, and declared fidelity and never tessellates.
 - Law: the descriptor emits METRES from ONE authority — the capture reads the document's `ModelUnit` inside the grant, scales every pose and extent by `MetersPerUnit`, and publishes that same regime as `source_unit`, so the factor and its provenance cannot disagree and no caller supplies a scale the descriptor then contradicts.
 - Law: spectra cross LINEAR and OPAQUE. `SceneSpectrum.Of` reads `PerceptualColor` through `RgbProfile.Srgb` under `RgbTransfer.Linear`, so the sRGB byte leg never reaches a wire declaring scene light; and because the message carries three components, a non-opaque light colour REFUSES at the producer rather than dropping its coverage silently. Both paths leave the stamp's full colour intact.
 - Law: identity crosses as RFC-4122 byte order. `Guid.ToByteArray(bigEndian: true)` is the mapper's ONE identity column, because the platform's default layout writes the first three fields little-endian and the consuming peer reads `row.id.hex()` — the two orders agree on nothing but the last eight bytes, so a byte-order slip renames every light in the descriptor without failing a decode.
@@ -749,8 +749,9 @@ public readonly record struct PhotometricWebRef(ArtifactContent Artifact, Wire.W
         select this with { Artifact = artifact };
 }
 
-// The shading band by REFERENCE: the GLB body is `Rasm.Compute`'s `GLB_BY_KEY` product and the fidelity is the
-// figure it tessellated AT, so a consumer grades rather than guesses and this emitter never meshes.
+// The shading band by REFERENCE: the GLB body is the manifest's `keyed-artifact`/`glb` product (Bim's export
+// rail, Compute's keys) and the fidelity is the figure it tessellated AT, so a consumer grades rather than
+// guesses and this emitter never meshes.
 public readonly record struct SceneShading(
     ArtifactContent Artifact,
     ulong ElementCount,

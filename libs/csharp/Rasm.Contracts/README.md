@@ -5,22 +5,29 @@
 ## [01]-[ROUTER]
 
 [GENERATED]:
-- [01]-[CATALOGUE](.api/rasm-contracts.md): Generator symbol grammar, derived descriptor roster, and package admission law.
-- [02]-[EMISSION](Generated): Clean-swept message, descriptor, service-base, and client sources.
+- [01]-[CATALOGUE](https://github.com/bsamiee/Rasm/blob/main/libs/csharp/Rasm.Contracts/.api/rasm-contracts.md): Symbol grammar and admission law.
+- [02]-[EMISSION](https://github.com/bsamiee/Rasm/tree/main/libs/csharp/Rasm.Contracts/Generated): Swept message, descriptor, and service sources.
 
 ## [02]-[DISTRIBUTION]
 
 [NUGET]:
 - package: `Rasm.Contracts`
-- version: `0.1.0`
+- version: MinVer derivation from the repository's `v*` tags; an untagged tree floors at `0.1.0-alpha` height builds
 - target: `net10.0`
-- contents: generated assembly, XML documentation, package README, and portable-symbol package with embedded generated source
+- contents: generated assembly, XML documentation, this README, and a `.snupkg` with embedded generated source
+- provenance: SourceLink stamps repository, branch, and commit from [github.com/bsamiee/Rasm](https://github.com/bsamiee/Rasm) at pack time
 - workspace: `ProjectReference` to this project
 - external: `PackageReference` to the released `Rasm.Contracts` version
 
 ```xml copy-safe
-<PackageReference Include="Rasm.Contracts" Version="0.1.0" />
+<PackageReference Include="Rasm.Contracts" Version="<tag-derived version>" />
 ```
+
+[NAMESPACES]:
+- Emitted types sit at `Rasm.Contracts.<Family>.V1`, one namespace per corpus package family, with the directory mirroring that tail.
+- `ArtifactService`, `CapabilityDiscoveryService`, `ComputeService`, and `ControlService` are the emitted service surfaces.
+- Server code derives `<Svc>.<Svc>Base` and client code binds `<Svc>.<Svc>Client` over a `CallInvoker`, both out of this one assembly.
+- Publisher CloudEvents and gRPC health types stay with their own packages, so nothing here shadows a package-shipped C# owner.
 
 Generated types are the wire vocabulary, never domain models. Consumers bound binary decoding, evaluate the embedded descriptor rules, then project the admitted message into their own domain:
 
@@ -37,13 +44,17 @@ static DeclarationRecord Decode(System.IO.Stream source) {
 
 Canonical schema source and generated-SDK coordinates live at <https://buf.build/rasm/contracts>.
 
-BSR publishes one SDK per module/plugin coordinate. This package is the branch-owned selective projection that combines message and gRPC emission in one assembly, so a BSR package pair cannot replace it.
+BSR publishes one SDK per module and plugin coordinate, and that pipeline carries no type filter while fixing `opt` at the plugin, so roots widen and emission flags vanish. This package is the branch-owned selective projection combining message and gRPC emission in one assembly, and publication opens generated SDKs to foreign consumers alone.
 
 ## [03]-[DOMAIN_PACKAGES]
 
-(none)
+Domain-specific libraries admitted by this folder; versions centralize in `Directory.Packages.props` and corroborate against this folder's `.api/`.
+
+(none) — every admitted package is shared wire substrate and registers under `[04]`.
 
 ## [04]-[SUBSTRATE_PACKAGES]
+
+Shared substrate consumed from the C# registry, whose charters own the full contracts; `libs/csharp/.api/` holds the shared API evidence.
 
 [WIRE_RUNTIME]:
 - `Celly.Protovalidate` — Supplies `Buf.Validate` option descriptors referenced by generated files and evaluates them at consumer admission.

@@ -99,9 +99,9 @@ Entries the estate's UCUM vocabulary maps onto: `NoUnit = "none"`, `Short = "sho
 
 [STACKING]:
 - `@pulumiverse/grafana`(`.api/pulumiverse-grafana.md`): `.build()` output feeds `oss.Dashboard.configJson` through `pulumi.jsonStringify`, and `storeDashboardSha256` diffs by content hash, so one builder-emitted byte change is exactly one drift row.
-- `@rasm/ts/core` `DashboardModel`: `_compiled` folds each encoded model through `DashboardBuilder` and the per-tag `PanelBuilder`s, one builder row per core panel tag, inventing no name, threshold, or layout.
+- `@rasm/core` `DashboardModel`: `_compiled` folds each encoded model through `DashboardBuilder` and the per-tag `PanelBuilder`s, one builder row per core panel tag, inventing no name, threshold, or layout.
 - `grafana-clickhouse-datasource`(`.api/clickhouse.md`): `operate/observe#BOARD_APPLY`'s `_ResidenceQuery` implements `cog.Builder<cog.Dataquery>` over that plugin's `CHSqlQuery`, so a residence tile reaches `withTarget` through the identical seam a bundled dataquery takes and the compile leg keeps one target fold.
-- `@rasm/ts/core` `Convention.grafanaUnit`: the core owner carries the UCUM-code-to-display-id correspondence as data transcribed from `./units`, so a pane names its own metric's code and the id reaching `.unit(u)` is a registry entry; the deploy plane spells no display word and the core plane imports no builder.
+- `@rasm/core` `Convention.grafanaUnit`: the core owner carries the UCUM-code-to-display-id correspondence as data transcribed from `./units`, so a pane names its own metric's code and the id reaching `.unit(u)` is a registry entry; the deploy plane spells no display word and the core plane imports no builder.
 
 [LOCAL_ADMISSION]:
 - builders resolve only inside the `_compiled` fold on the deploy plane; `.build()` is the single emission seam.

@@ -51,7 +51,7 @@ Schema, failure-tag, and union proofs ride these rails; typed error tags and exh
 
 ## [06]-[GAUGES]
 
-`tests/typescript/_architecture` is the gauge home — the branch-boundary suites the `@rasm/ts` exports map cannot express, the analog of `tests/csharp/_architecture`. Its charter: the edge-ledger import audit, per-runtime subpath purity, the external-admission and per-sub-folder package-admission audits, and the branch-wide migrator-import ban.
+`tests/typescript/_architecture` is the gauge home — the branch-boundary suites no single manifest can express, the analog of `tests/csharp/_architecture`. Its charter: the edge-ledger import audit, per-package entrypoint purity, the manifest-edge/tsconfig-reference/tag agreement gate, per-package isolation-completeness, the app-island audit, the external-admission and per-sub-folder package-admission audits, and the branch-wide migrator-import ban.
 
 - Permitted-edge ledger parses live off the branch strata flowchart, so acyclicity, direction, and tag law prove on rows a reshaped fence fails.
 - Manifest gauges hold every spec-estate pin to `catalog:` or `workspace:`, bar the refused property engine, and cap a package at one `.api` tier.
@@ -79,12 +79,14 @@ Browser-mode suites are never mutated: the mutation runner does not support them
 
 ## [08]-[GATES]
 
-- Root `vitest.config.ts` is the runner authority, the `unit` lane owning the node estate and the `browser` lane the real-engine dialect on one spine.
-- Root `package.json` scripts name every runner entrypoint, while `tsc --noEmit` is the one compiler gate and Biome `check` the sole lint rail.
+- Root `vitest.config.ts` is the runner authority: package projects derive from its `createProject` export; one `browser` lane arms the real engine.
+- `tsc --build` over the solution references is the one compiler gate, Biome `check` the sole lint rail; manifest scripts own nothing.
 - Benchmark runs autosave their report, and the kit's bench gate folds the accumulated ledger into a sustained-regression verdict.
 - `tests/containers.json` pins container images and `RASM_TESTKIT_CONTAINERS` arms the live lanes under Ryuk; an inactive lane skips loudly by name.
-- Nx target defaults in `nx.json` mirror the test and e2e outputs for the project graph; bench and mutation stay direct runner invocations outside it.
-- Mutation rides StrykerJS from root `stryker.config.json`, whose residency keeps every invocation inside auto-discovery and out of `.stryker-tmp/`.
+- `nx.json` registers `@nx/vitest`; each package's `vitest.config.ts` lands its inferred `test` target, and `nx run-many -t test` runs the estate.
+- Mutation rides StrykerJS directly, outside the Nx graph; `stryker.config.json` root residency keeps auto-discovery bounded, out of `.stryker-tmp/`.
+- Stryker runs uncheckered: the TypeScript checker's `typescript` peer resolves to the TS7 API stub and cannot boot; vitest alone carries the verdict.
+- Playwright `browsers` provisioning is an `@rasm/ts-e2e` target; root residency stands because playwright resolves config from cwd alone.
 
 ## [09]-[SNAPSHOTS]
 

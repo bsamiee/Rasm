@@ -10,6 +10,7 @@
 - `CloudNative.CloudEvents.AvroEventFormatter` never lands — the `.Avro` namespace formatter is the one Avro codec, and the shim ships obsolete.
 - `CloudNative.CloudEvents.NewtonsoftJson` rejected — the System.Text.Json formatter owns JSON, and a second formatter forks the codec identity.
 - Python Kafka is `confluent-kafka` — one librdkafka engine serves all three branches, and a pure-Python client forks semantics peers prove against.
+- Supply-chain posture rides pnpm's OWN defaults — `minimumReleaseAge` and `verifyDepsBeforeRun` delete rather than pin, a softening row refusing.
 
 ## [02]-[SHAPE]
 
@@ -116,6 +117,8 @@
 - Generated package rosters derive between gate-owned markers from the descriptor image and the configured public roots/support closure.
 - Vendored modules curate per language at the MODULE level on two grounds alone — a namespace or stdlib collision, or a publisher-shipped type.
 - Generated-bindings trees are admitted IMPORT ROOTS, never strata — TS package folder, Python source root, C# assembly; one law line per branch.
+- Python and TypeScript packages carry FLAT layouts — the importable directory at project root and entries at package root, a `src/` level refusing.
+- Import-shadow risk repairs at the `sys.path` entry, never by nesting — a `src/` level buys isolation that entry already decides.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
 - Observability backends stand per DEPLOYMENT — one branch serves unrelated app roots, so a placement card re-litigates the platform/product split.
 - BSR generated SDKs enter no branch — the pipeline carries no type filter and fixes `opt` at the plugin, so roots widen and emission flags vanish.

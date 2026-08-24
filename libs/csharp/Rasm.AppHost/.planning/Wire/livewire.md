@@ -1564,7 +1564,7 @@ public static class LiveWire {
     static IO<BindingHandle> Armed(LiveWireRuntime runtime, BindingHandle handle, SubscriptionLane lane) =>
         from _ in IO.lift(() => { runtime.Publish(handle.Spec.BindingId, lane); return unit; })
         from __ in handle.Spec.Transport.Entries(runtime, handle).TraverseM(runtime.Schedule).As()
-        from ___ in Drain(runtime, handle).ForkIO()
+        from ___ in Drain(runtime, handle).Fork(None)
         from settled in BindingHealth.Transition(runtime, handle, BindingState.Subscribed)
         select settled;
 

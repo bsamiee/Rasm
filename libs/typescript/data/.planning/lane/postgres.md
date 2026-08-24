@@ -182,7 +182,7 @@ declare namespace Pg {
 ## [05]-[DRIVER_ROWS]
 
 - Owner: the two driver Layer mints over `PgClient` — the `Config`-wrapped per-database row and the shared-pool adoption row `lane/tenant.md` fans tenant scopes across; the listener bus rides the concrete Tag, while transactional notification remains a neutral-statement operation; the assembled `Pg` export closes the page at the profile cluster.
-- Packages: `@effect/sql-pg` (`PgClient.layer`, `PgClient.layerConfig`, `PgClient.layerFromPool`, `PgClient.PgClientConfig`, `PgClient.listen`, `PgClient.notify`, `PgClient.makeCompiler`); `effect` (`Config`, `Duration`, `Predicate`, `Redacted`); `@rasm/ts/core` (`Fault.Budget`).
+- Packages: `@effect/sql-pg` (`PgClient.layer`, `PgClient.layerConfig`, `PgClient.layerFromPool`, `PgClient.PgClientConfig`, `PgClient.listen`, `PgClient.notify`, `PgClient.makeCompiler`); `effect` (`Config`, `Duration`, `Predicate`, `Redacted`); `@rasm/core` (`Fault.Budget`).
 - Entry: `lane/tenant.md` composes `Pg.client` and `Pg.fromPool` inside its `Stores` lookup; `journal/append.md` owns the optional `PgClient.listen` subscription as `Journal.wake(app)` and writes `pg_notify(channel, payload)` through its transaction-bound neutral client.
 - Growth: a pool or transport knob is one `Config` field on `_coordinate` (`maxConnections`, `minConnections`, `connectTimeout`, `connectionTTL`, `idleTimeout`, `ssl` are the standing rows); a second physical spine (a read replica) is one more mint call with its own database coordinate, keyed by the scope that owns it.
 - Law: domain rows yield the neutral `SqlClient` — the concrete Tag is reached for `listen` and for `makeCompiler`, the embedded profile's own neutral-fragment compiler, and for nothing else; `PgClient.notify` calls the pool directly and is therefore rejected for a pulse whose contract is transaction-gated. Typing a row against `PgClient` while it composes no pg-native member blocks every other lane, the named defect.
@@ -196,7 +196,7 @@ declare namespace Pg {
 import { Array, Config, type ConfigError, Duration, Layer, Option, Predicate, Record } from "effect"
 import type { SqlClient, SqlError } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 // Curve, jitter, reset, attempt bound, and elapsed ceiling are ALL the core budget row's, so this lane spells none of
 // them. Only the gate is local: a boot fault is `ConfigError` or `SqlError`, and the default class gate reads a

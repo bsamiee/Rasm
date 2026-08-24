@@ -18,7 +18,7 @@ Review joins `ModelDiff` changes and BCF issues by `GlobalId`, folds each topic'
 - Boundary: `Review.rows` is the model-diff byte-ingress seam; BCF topics arrive decoded from their owning admission path.
 
 ```typescript signature
-import { Wire } from "@rasm/ts/core"
+import { Wire } from "@rasm/core"
 import { BcfStatus } from "@rasm\/contracts/rasm/contracts/bcf/v1/bcf_pb"
 import { Record } from "effect"
 import type { LucideIcon } from "lucide-react"

@@ -26,7 +26,7 @@ import { GoogleClient } from "@effect/ai-google"
 import { type OpenAiClient, OpenAiEmbeddingModel } from "@effect/ai-openai"
 import type { Persistence } from "@effect/experimental"
 import { Array, Effect, Exit, HashSet, Layer, Match, Option, PrimaryKey, Schema } from "effect"
-import { Batch, Embedder, EmbedFault, Reranker, Search } from "@rasm/ts/data"
+import { Batch, Embedder, EmbedFault, Reranker, Search } from "@rasm/data"
 import { Guardrail } from "./model.ts"
 
 const _packed = (spans: ReadonlyArray<{ readonly start: number; readonly body: string }>, ceiling: number) => {
@@ -114,7 +114,7 @@ const Cut = { Lane: _Lane, pieces: _pieces, scrub: _scrubbed }
 - Law: `degrade` carries what a row GIVES UP against its siblings and nothing else — a coordinate a row never owned is stated as undecided with its owner named, because a forfeit and an absent claim read the same to a caller only when both are wrong.
 - Law: provider identity is the admitted `Search.Embedding` value — model, dimensions, revision, and derived fingerprint travel as one fact through every provider row, while `Search.Corpus` composes the distinct relation identity at the data owner; a parallel identity tuple cannot drift, and a revision can never hide behind a constructor-local `"1"` default.
 - Growth: a new provider row is one table entry over `custom`; a cache or window policy change is a field on the one policy union; a Google task-type posture is a row field, never a call knob.
-- Packages: `@effect/ai` (`EmbeddingModel`, `AiError`); `@effect/ai-openai` (`OpenAiEmbeddingModel`, type `OpenAiClient`); `@effect/ai-google` (`GoogleClient` — the raw `BatchEmbedContents` rail); `@rasm/ts/data` (`Batch.Engine`, `Batch.Persistence`, `Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.ResultPersistence` — the durable band's requirement); `effect` (`Exit`, `Layer`, `Option`, `PrimaryKey`, `Schema`).
+- Packages: `@effect/ai` (`EmbeddingModel`, `AiError`); `@effect/ai-openai` (`OpenAiEmbeddingModel`, type `OpenAiClient`); `@effect/ai-google` (`GoogleClient` — the raw `BatchEmbedContents` rail); `@rasm/data` (`Batch.Engine`, `Batch.Persistence`, `Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.ResultPersistence` — the durable band's requirement); `effect` (`Exit`, `Layer`, `Option`, `PrimaryKey`, `Schema`).
 
 ```typescript signature
 const _Custom = Schema.Union(
@@ -313,7 +313,7 @@ const _band = (
 - Law: batching identity is the resolver value on BOTH postures — one `_band` resolver mints inside the Layer scope for the plain and the durable overload alike (`Batch.windowed` alone, or `Batch.windowed` under `Batch.durable`), identity stable, windows grouping across the whole scope; a resolver minted per call, or a plain path that bypasses the window by dialing the provider directly, defeats the coalescing the law exists to guarantee.
 - Law: the two Tags are the whole seam — this page imports the port types and nothing else data-owned; retrieval results flow back as app-passed values through the model page's `Tokens.weave`, never through an import edge.
 - Growth: a scope-selected second model is a second `embedder(row)` Layer against the same Tag at the root; a cross-encoder reranker is a `Reranker` implementation swap.
-- Packages: `@rasm/ts/data` (`Embedder`, `EmbedFault`, `Reranker`, `Search`); `effect` (`Layer`, `Effect`, `Array`, `HashSet`, `Schema`); `./model.ts` (`Guardrail`).
+- Packages: `@rasm/data` (`Embedder`, `EmbedFault`, `Reranker`, `Search`); `effect` (`Layer`, `Effect`, `Array`, `HashSet`, `Schema`); `./model.ts` (`Guardrail`).
 
 ```typescript signature
 const _fingerprint = <R>(row: Embedding.Row<R>): Search.Fingerprint => Search.fingerprint(row.embedding)

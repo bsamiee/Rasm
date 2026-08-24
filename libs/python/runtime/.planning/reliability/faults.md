@@ -1178,18 +1178,17 @@ SCOPES: Final[Map[Scope, str]] = Map.of_seq([
 # `identity`, `clock`, `shapes`, and `wire` emit spans from below every observability owner — a coordinate seated any
 # higher leaves those pages no import that reaches it. `SCHEMA_URL` reads the semconv distribution's own `Schemas`
 # roster rather than re-spelling the url, so a semconv bump moves the pin by moving the member and can never desync
-# it silently. `DISTRIBUTION` names the ONE python distribution this estate declares — `pyproject.toml` `[project]
-# name`, the per-package manifest being foreclosed by `libs/.planning/README.md` — because installed metadata keys on
-# a DISTRIBUTION name, never a package path. The roster read is TOTAL where `version(DISTRIBUTION)` is not: that call
-# RAISES `PackageNotFoundError` whenever no metadata answers, and the workspace root declares `[tool.uv] package =
-# false`, so every source-tree run and every dev venv resolves nothing for a correctly-spelled name and a module-scope
-# raise there kills every `scoped` mint in the process — the whole signal plane and the `Resource` service version
-# with it. `SOURCE_VERSION` answers that miss with the local-version segment PEP 440 reserves for a build carrying no
+# it silently. `DISTRIBUTION` names the workspace member this tier ships in — `libs/python/runtime/pyproject.toml`
+# `[project] name` — because installed metadata keys on a DISTRIBUTION name, never a package path, and the virtual
+# workspace root declares no `[project]` to answer for one. The roster read is TOTAL where `version(DISTRIBUTION)` is
+# not: that call RAISES `PackageNotFoundError` whenever no metadata answers, so an unsynced source-tree run resolves
+# nothing for a correctly-spelled name and a module-scope raise there kills every `scoped` mint in the process — the
+# whole signal plane and the `Resource` service version with it. `SOURCE_VERSION` answers that miss with the local-version segment PEP 440 reserves for a build carrying no
 # release identity, so an uninstalled run still mints a versioned, schema-pinned coordinate a backend joins against
 # its installed siblings and the segment itself reports which was read; a plausible release number spelled as the miss
 # is the deleted form, because it forges provenance the process never had.
 SCHEMA_URL: Final[str] = Schemas.V1_43_0.value
-DISTRIBUTION: Final[str] = "workspace-foundation-python"
+DISTRIBUTION: Final[str] = "rasm-runtime"
 SOURCE_VERSION: Final[str] = "0+source"
 SCOPE_VERSION: Final[str] = next((dist.version for dist in distributions() if dist.metadata["Name"] == DISTRIBUTION), SOURCE_VERSION)
 

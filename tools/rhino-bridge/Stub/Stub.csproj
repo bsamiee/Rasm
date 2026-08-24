@@ -3,6 +3,9 @@
         <Description>Dependency-zero RhinoWIP stub with one reflective activation hop into the shell ALC.</Description>
         <AssemblyName>rasm-bridge</AssemblyName>
         <RootNamespace>Rasm.Bridge.Stub</RootNamespace>
+        <!-- The bridge's in-host .rhp: plugin-hood is declared, and dynamic loading plus the host RID ride the declaration. -->
+        <RasmPlugin>rhino</RasmPlugin>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
         <RhinoPluginAssemblyGuid>23898819-e84f-4fd3-bb2c-85b208718cba</RhinoPluginAssemblyGuid>
         <YakPackageSlug>rasm-bridge</YakPackageSlug>
         <!-- InformationalVersion identifies the loaded host build. -->

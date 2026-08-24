@@ -20,15 +20,15 @@ Dead-lettering lives here alone: a parked deliverable is typed evidence on the f
 - Law: fire-and-forget is a modality of the same family — a scoped caller may supervise `process` with `Effect.forkScoped`, while a request that must acknowledge durable admission keeps awaiting the declared success; an unscoped daemon fiber or a second "unawaited" queue declaration is unspellable.
 - Growth: a new job kind is one `DurableQueue.make` value with one worker Layer row at the composition root; a family outgrowing single-item settlement into multi-step orchestration promotes to a `flow` definition, re-homing the payload schema unchanged.
 - Boundary: the queue's item store is the `PersistedQueueFactory` arm of the `entity#MAILBOX` tier row — a distinct store from the cluster envelope `MessageStorage` beside it, which `DurableQueue.worker`'s own requirement names by type and which `MessageStorage` cannot satisfy; the tier selection at the root is what makes every worker Layer composable, and no queue table, poll loop, or storage row exists on this page.
-- Packages: `@effect/workflow` (`DurableQueue`); `effect` (`Effect`, `Function`, `Schema`); `@rasm/ts/core` (`Fault.Budget`); `./entity.ts` (`WorkClass`).
+- Packages: `@effect/workflow` (`DurableQueue`); `effect` (`Effect`, `Function`, `Schema`); `@rasm/core` (`Fault.Budget`); `./entity.ts` (`WorkClass`).
 
 ```typescript signature
 import { DurableQueue, DurableRateLimiter } from "@effect/workflow"
 import { RateLimiter as Fleet } from "@effect/experimental"
 import type { SqlClient, SqlError } from "@effect/sql"
 import { Array, Data, Duration, Effect, Function, HashMap, Match, Option, type ParseResult, Schema, Stream } from "effect"
-import { type AuditFact, Fact, Journal, Tenancy } from "@rasm/ts/data"
-import { Fault } from "@rasm/ts/core"
+import { type AuditFact, Fact, Journal, Tenancy } from "@rasm/data"
+import { Fault } from "@rasm/core"
 import { Pulse } from "../otel/meter.ts"
 import { WorkClass } from "./entity.ts"
 import { Step, StepFault } from "./flow.ts"
@@ -190,7 +190,7 @@ const Throttle = { ..._rows, pace: _pace, spend: _spend }
 - Law: a drain's `never` channel leaves the defect as its one remaining failure, so this seam is where the poison list's `defect` row is PRODUCED — the admitted drain folds through `Effect.catchAllDefect` into a `defect`-classed park carrying the residue, because an escaped defect kills the pass and strands every peer claim in the batch on a lease nothing will re-drive until it lapses. Interrupts pass through untouched: a shutdown is not a verdict.
 - Law: wake is the journal's NOTIFY pulse — the drain sleeps on the data wave's wake stream and claims on pulse or lease-width tick, whichever fires; a tight poll loop is the rejected form.
 - Growth: a new lane dimension (deliver-at scheduling, a channel filter) is a deliverable column with a claim predicate on the data statement; a new drain family is one `Lane.row` handed to the route — the verdict fold never widens.
-- Packages: `@rasm/ts/data` (`Journal` — `claimBatch`, `complete`, `Fence`, `Held`, `Settlement`; `Tenancy`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `ParseResult`, `Schema`); `@rasm/ts/core` (`Fault.Class`); `./entity.ts` (`WorkClass`).
+- Packages: `@rasm/data` (`Journal` — `claimBatch`, `complete`, `Fence`, `Held`, `Settlement`; `Tenancy`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `ParseResult`, `Schema`); `@rasm/core` (`Fault.Class`); `./entity.ts` (`WorkClass`).
 
 ```typescript signature
 // Every non-settling arm names the class AND the route back: the route is elected from the class row at the one seat
@@ -342,7 +342,7 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
 - Law: the DLQ read is maintenance-plane material — the park evidence rows carry no tenant (the target is the deliverable, so the fact stores NULL tenant, visible only under the plane posture), so the parked-evidence projection a caller hands `Lane.replay` composes `Tenancy.sweep` around its read; an unpinned projection reads an empty dead set and a replay pass reports nothing to re-offer while parked work ages silently. `Fact.record` composes no bracket for the park WRITE — it is a buffered offer whose drain owns its own plane posture at the data seam.
 - Receipt: the park evidence row carries `{ tag, deliverable, sequence, class, route, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the channel `Lane.channel` reads off the announced tag, so the OTel series and the dead-set history cannot disagree and neither fans past the channel roster. `route` is what makes the dead set actionable outside the process: a `wait` row re-offers unchanged, a `restart` row needs its handle re-established first, and a `rescope` row needs its material re-authored — three postures the class table knows and an audit reader cannot derive.
 - Growth: a replay posture (selective by class or route, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
-- Packages: `@rasm/ts/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
+- Packages: `@rasm/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript signature
 // Claim tags ARE the announced `type` — `data:journal/append#RELAY_ROWS` mints its envelope with

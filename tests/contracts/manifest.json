@@ -26,7 +26,7 @@
                             "coordinate": "test_live_corpus_proves_every_verified_vector_through_its_oracle"
                         },
                         {
-                            "anchor": "tests/typescript/_testkit/src/corpus.ts",
+                            "anchor": "tests/typescript/_testkit/corpus.ts",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "_prove"
@@ -936,7 +936,7 @@
                             "coordinate": "test_live_corpus_proves_every_verified_vector_through_its_oracle"
                         },
                         {
-                            "anchor": "tests/typescript/_testkit/src/corpus.ts",
+                            "anchor": "tests/typescript/_testkit/corpus.ts",
                             "direction": "message",
                             "binding": "proof",
                             "coordinate": "_prove"
@@ -3583,7 +3583,7 @@
                                             },
                                             {
                                                 "kind": "python-package-resource",
-                                                "path": "libs/python/contracts/src/rasm/contracts/vendor/io/cloudevents/v1/cloudevents.avsc",
+                                                "path": "libs/python/contracts/rasm/contracts/vendor/io/cloudevents/v1/cloudevents.avsc",
                                                 "package": "rasm.contracts"
                                             }
                                         ],

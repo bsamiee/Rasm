@@ -244,7 +244,7 @@ const _Window = Schema.Struct({
   onNone: () => true,
   onSome: ([from, until]) => Order.lessThanOrEqualTo(Clock.Hlc.Order)(from, until),
 })))
-const _StatePolicy: unique symbol = Symbol.for("@rasm/Feed/StatePolicy")
+const _StatePolicy: unique symbol = Symbol.for("@rasm/core/Feed/StatePolicy")
 
 declare namespace Feed {
   type Key = readonly [

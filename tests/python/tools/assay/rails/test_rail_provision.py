@@ -8,11 +8,11 @@ from expression import Ok
 import msgspec
 import pytest
 
+from assay.core.model import Band, Claim, Fault, ProvisionRun, RailStatus, receipt
+from assay.rails import provision as provision_rail
+from assay.rails.provision import ProvisionParams
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.core.model import Band, Claim, Fault, ProvisionRun, RailStatus, receipt
-from tools.assay.rails import provision as provision_rail
-from tools.assay.rails.provision import ProvisionParams
 
 
 if TYPE_CHECKING:
@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 
     from expression import Result
 
+    from assay.composition.settings import AssaySettings
+    from assay.composition.store import ArtifactScope
+    from assay.core.model import Check, Completed, Report
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.composition.settings import AssaySettings
-    from tools.assay.composition.store import ArtifactScope
-    from tools.assay.core.model import Check, Completed, Report
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -201,12 +201,7 @@ _FAULT_ROWS = (
     _frow("log-framed-stdout", b"log line\n" + _json("status"), "expected exactly one forge-provision JSON object"),
     _frow("schema-v1", {"schemaVersion": 1, "command": "status", "ok": True}, "unsupported forge-provision schema"),
     _frow("schema-v2", {"schemaVersion": 2, "command": "status", "ok": True}, "unsupported forge-provision schema"),
-    _frow(
-        "stale-schema-v3",
-        {"schemaVersion": 3, "command": "status", "ok": True, "warnings": []},
-        _STALE_V3,
-        "uv run python -m tools.assay provision status",
-    ),
+    _frow("stale-schema-v3", {"schemaVersion": 3, "command": "status", "ok": True, "warnings": []}, _STALE_V3, "uv run assay provision status"),
     _frow("ok-false-without-error", {"schemaVersion": 3, "command": "status", "ok": False}, "ok:false requires error.code", rc=1),
     _frow("missing-project", {k: v for k, v in msgspec.json.decode(_json("status")).items() if k != "project"}, "missing project object"),
     _frow("command-missing", {"schemaVersion": 3, "ok": True}, "missing command"),

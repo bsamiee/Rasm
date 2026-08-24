@@ -365,7 +365,7 @@ const ROW_LAW =
 
 const RESEARCH_LAW =
     'Research debt on unit pages and every file you touch — the map [RESEARCH] census is the queue, plus your own sweep of each unit page ' +
-    'terminal [RESEARCH] section: (a) a row PERTINENT to the theme resolves fully via its stated route — member truth through tools.assay ' +
+    'terminal [RESEARCH] section: (a) a row PERTINENT to the theme resolves fully via its stated route — member truth through assay ' +
     'api, the .api catalogs, or the named live doc; a confirmed spelling bakes into the owning fence and the row DELETES whole (no ' +
     'tombstones, no resolved notes); a refuted assumption corrects at its root; a genuinely unresolvable row SHARPENS in place with a ' +
     'better question and exact route. (b) an EASY row in ANY file you touch — answerable by one verified read (an .api catalog row, a ' +

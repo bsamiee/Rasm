@@ -3,15 +3,15 @@
     "private": true,
     "type": "module",
     "exports": {
-        "./arbitraries": "./src/arbitraries.ts",
-        "./bench": "./src/bench.ts",
-        "./corpus": "./src/corpus.ts",
-        "./e2e": "./src/e2e.ts",
-        "./gauges": "./src/gauges.ts",
-        "./harness": "./src/harness.ts",
-        "./laws": "./src/laws.ts",
-        "./setup": "./src/setup.ts",
-        "./telemetry": "./src/telemetry.ts"
+        "./arbitraries": "./arbitraries.ts",
+        "./bench": "./bench.ts",
+        "./corpus": "./corpus.ts",
+        "./e2e": "./e2e.ts",
+        "./gauges": "./gauges.ts",
+        "./harness": "./harness.ts",
+        "./laws": "./laws.ts",
+        "./setup": "./setup.ts",
+        "./telemetry": "./telemetry.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",

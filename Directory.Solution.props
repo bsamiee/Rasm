@@ -1,0 +1,6 @@
+<Project>
+    <!-- Solution-level restore evaluates the solution metaproject, which never imports Directory.Build.props; the static-graph row therefore states itself twice, once per entry surface. Project builds spawned from the solution still read Directory.Build.props normally. -->
+    <PropertyGroup Label="Restore">
+        <RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>
+    </PropertyGroup>
+</Project>

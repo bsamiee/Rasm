@@ -88,8 +88,8 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 - `@rasm\/contracts` — Generated appearance, organization, and parity contract descriptors consumed at data boundaries.
 
 [BRANCH_PEERS]:
-- `@rasm/ts/core` — Content identity, generated-message codecs, event envelopes, observation conventions, and shared value rails.
-- `@rasm/ts/security` — Lease and custody contracts consumed through data-owned boundary ports.
+- `@rasm/core` — Content identity, generated-message codecs, event envelopes, observation conventions, and shared value rails.
+- `@rasm/security` — Lease and custody contracts consumed through data-owned boundary ports.
 
 [TYPING_RAILS]:
 - `effect`

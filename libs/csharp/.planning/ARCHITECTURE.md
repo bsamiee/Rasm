@@ -46,7 +46,7 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S3 generation — `Rasm.Generation` depends up on the kernel, the seam, and the AEC peers, and nothing references it downward.
 - S3 law — the two S3 members never reference each other, and generation composes the kernel's geometry operations rather than owning primitives.
 - S4 leaf — `Rasm.AppUi` references every host-neutral package below it, `Rasm.Contracts` included, and nothing references it.
-- S5 app shell — `apps/<host>/<Plugin>/` shells seat outside `libs/csharp` and compose the app platform with the host boundary.
+- S5 app shell — `apps/<plugin>/` shells, each its own app, seat outside `libs/csharp` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
 
 ```mermaid
@@ -205,7 +205,7 @@ flowchart LR
     Bim e5@<-->|"[WIRE]: bcf.v1 BcfTopicWire"| TsUi
     Materials e6@-->|"[WIRE]: appearance.v1.Material + Set"| TsCore
     AppUi e7@-->|"[WIRE]: ui.v1 command + control + layout + evidence; render.v1 residency + view"| TsUi
-    AppHost e8@-->|"[WIRE]: receipt.v1 ReceiptEnvelopeWire"| TsCore
+    AppHost e8@-->|"[WIRE]: receipt.v1 ReceiptHeaderWire"| TsCore
     AppHost e9@-->|"[WIRE]: outbox.v1 + binding.v1"| TsUi
     Persistence e10@<-->|"[CONTRACT]: parity.v1.Backend"| TsData
     AppHost e11@-->|"[TRANSPORT]: OtelExport"| TsRuntime

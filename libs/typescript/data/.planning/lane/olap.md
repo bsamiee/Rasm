@@ -132,7 +132,7 @@ import { DuckDBInstance, DuckDBTableFunction, type DuckDBConnection, type DuckDB
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import * as wasm from "@duckdb/duckdb-wasm"
 import { RecordBatch, Table } from "apache-arrow"
-import { Convention, type Digest, Fault } from "@rasm/ts/core"
+import { Convention, type Digest, Fault } from "@rasm/core"
 import { ObjectStore } from "../object/store.ts"
 
 const _Engine = Schema.Literal(...Record.keys(_engines)) // the one engine anchor spread: no second roster to drift
@@ -874,7 +874,7 @@ import {
 } from "@duckdb/node-api"
 import { Bool, Field, Float64, List, Map_, Struct, TimestampNanosecond, Uint8, Uint32, Uint64, Utf8, type DataType } from "apache-arrow"
 import { Array, DateTime, Duration, Match, Option, pipe, Record, Redacted } from "effect"
-import { Board, Convention, type Digest, type Identity } from "@rasm/ts/core"
+import { Board, Convention, type Digest, type Identity } from "@rasm/core"
 import { ObjectStore } from "../object/store.ts"
 
 // One DuckDB `MAP` literal spelling for every attribute plane this lane writes — the identity overlay, the recorded
@@ -1665,7 +1665,7 @@ import { Clock, Config, type ConfigError, type Layer } from "effect"
 import { ClickhouseClient } from "@effect/sql-clickhouse"
 import { RateLimiter } from "@effect/experimental"
 import { SqlClient, type SqlError, type Statement } from "@effect/sql"
-import type { Identity } from "@rasm/ts/core"
+import type { Identity } from "@rasm/core"
 
 const _clickhouse: Layer.Layer<ClickhouseClient.ClickhouseClient | SqlClient.SqlClient, ConfigError.ConfigError | SqlError.SqlError> =
   ClickhouseClient.layerConfig({
@@ -1793,7 +1793,7 @@ const _ingest = (intent: Olap.Ingest) =>
 ## [06]-[FLIGHT]
 
 - Owner: the engine-blind Flight SQL wire — the scoped `FlightSqlClient` over one sealed coordinate, `Olap.flown` as the ONE call entry over a closed intent family, the `_ANSWERS` and `_STREAMS` dispatch halves, the prepared-plan and transaction brackets, `_dataset`'s server-echoed descriptor, `_fanned`'s location-checked endpoint fan, and `_faulted`'s fold of the refusal classes this pin mints onto the lane's own reasons; the server engine stays opaque behind the wire and no per-engine driver enters.
-- Packages: `@qualithm/arrow-flight-client` (`createFlightSqlClient`, `FlightClient`, `FlightSqlClient`, `AuthOptions`, `AuthProvider`, `TlsOptions`, `FlightAction`, `FlightClientOptions`, `FlightCriteria`, `FlightData`, `FlightDescriptor`, `FlightDescriptorInput`, `FlightEndpoint`, `FlightInfo`, `PollInfo`, `PreparedStatement`, `SchemaResult`, `Transaction`, `UpdateResult`, `ActionType`, `Result`, `FlightAuthError`/`FlightConnectionError`/`FlightServerError`); `apache-arrow`; `@rasm/ts/core` (`Wire.Transport`); `effect`.
+- Packages: `@qualithm/arrow-flight-client` (`createFlightSqlClient`, `FlightClient`, `FlightSqlClient`, `AuthOptions`, `AuthProvider`, `TlsOptions`, `FlightAction`, `FlightClientOptions`, `FlightCriteria`, `FlightData`, `FlightDescriptor`, `FlightDescriptorInput`, `FlightEndpoint`, `FlightInfo`, `PollInfo`, `PreparedStatement`, `SchemaResult`, `Transaction`, `UpdateResult`, `ActionType`, `Result`, `FlightAuthError`/`FlightConnectionError`/`FlightServerError`); `apache-arrow`; `@rasm/core` (`Wire.Transport`); `effect`.
 - Entry: a service composes `Olap.flight` once per remote coordinate and calls `Olap.flown(client, intent)` per unit of work; `Fetch` fans every endpoint of a published plan, `Frames` hands the wire's own messages through undecoded, `Put` uploads Arrow frames through `doPut`, `Bound` binds parameters to a server-side plan, `Act` reaches the server's own action vocabulary, and `Olap.transacted` brackets a sequence needing atomicity at the far end.
 - Receipt: reads land as `apache-arrow` `Table` or a `RecordBatch` stream — the same plane `Olap.wire` and `Olap.ingest` carry, so a Flight result reaches the viewer with no re-encoding; `Frames` lands raw `FlightData`, `Bound` and `Update` land the server's own `recordCount`, `Put` streams its upload acknowledgements, and `Plan`, `Poll`, and `Schema` land `FlightInfo`, `PollInfo`, and `SchemaResult` whole so a caller reads schema, endpoints, and progress without executing.
 - Growth: a new Flight capability is one `OlapFlown` case with its row in the matching dispatch half; a new zero-argument catalog read is one `_METADATA` row; a new writing case is one `_WRITES` entry; a refusal class the package starts minting is one `_faulted` arm; nothing here grows a second client or a second transport.
@@ -1822,7 +1822,7 @@ const _ingest = (intent: Olap.Ingest) =>
 ```typescript signature
 import { Exit, Match, Number, Redacted } from "effect"
 import type { RecordBatch, Table } from "apache-arrow"
-import { Wire } from "@rasm/ts/core"
+import { Wire } from "@rasm/core"
 import {
   createFlightSqlClient,
   FlightAuthError,

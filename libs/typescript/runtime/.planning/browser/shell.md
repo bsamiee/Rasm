@@ -18,10 +18,10 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 - Law: non-emptiness is a type fact — an installable manifest without icons is unconstructible, so the PWA install criteria fail at compile time, never at an audit.
 - Growth: a new manifest member is one field or embedded-schema field on `Manifest`; a new display or orientation posture is one literal on its existing axis.
 - Boundary: cache identity and precache emission are `[3]`'s build rows; this owner carries only the manifest contract.
-- Packages: `effect` (`Schema`, `Option`); `@rasm/ts/core` (`Fault.Class`, `Shape.Record`).
+- Packages: `effect` (`Schema`, `Option`); `@rasm/core` (`Fault.Class`, `Shape.Record`).
 
 ```typescript signature
-import { Fault, Shape } from "@rasm/ts/core"
+import { Fault, Shape } from "@rasm/core"
 import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { RuntimeCaching, StrategyName } from "workbox-build"
 import { Workbox, type WorkboxLifecycleWaitingEvent } from "workbox-window"
@@ -443,7 +443,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 - Law: the update affordance is a derivation, not a state — `fresh` maps the worker phase feed through the `Waiting` refinement AND its `update` flag, so a first-install wait renders nothing, install and update read one truth, and the ui wave binds both through its atom bridge at app composition; this module exposes no second phase cell.
 - Receipt: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
 - Boundary: the worker phase and the apply handshake are `[3]`'s; the affordance rendering is the ui wave's through the app-composed port.
-- Packages: `effect` (`Data`, `Effect`, `Option`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Data`, `Effect`, `Option`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 type InstallStance = Data.TaggedEnum<{

@@ -12,7 +12,7 @@ Schema evolution without migrations and its read accelerator in one owner: every
 ## [02]-[CHAIN_VOCABULARY]
 
 - Owner: `Upcast.Envelope` derives the persisted `(tag, eventVersion, payload)` coordinate per storage dialect and `Upcast.Raw` is its decoded type; `Upcast.Column` is the fused JSON-column codec every payload-bearing field composes; `Upcast.Chain` carries ordered lifts; `ChainIncomplete` classifies invalid rosters.
-- Packages: `effect` (`Either`, `ParseResult`, `Schema`); `@effect/experimental` (`VariantSchema`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Either`, `ParseResult`, `Schema`); `@effect/experimental` (`VariantSchema`); `@rasm/core` (`Fault.Class`).
 - Growth: a new version of one event is one step pushed onto its chain and `latest` bumped by one — old steps never change, because the versions they lift are already in the log; a new storage dialect is one variant key on the envelope family.
 - Law: the envelope coordinate is ONE declaration projected per journal storage dialect, so every persisted projection spreads `Upcast.Envelope.<variant>.fields` and declares only the columns it owns; a struct restating the triple beside this family is the parallel-shape defect, and a form diverging in meaning rather than in spelling keeps its own declaration and reuses the field alone.
 - Law: `Upcast.Column` exists because two column postures reach one decode — every digest-preimage payload column is TEXT in every dialect by the append owner's byte-truth law, while the snapshot body and frontier floor stay json columns the spine driver hands back as live objects — so one codec admits string and object arrivals alike, the miss rides `ParseError` on the one admission rail, and a malformed stored text is a projection-time `ParseError` because the column was written by `Schema.encode` and cannot lawfully hold non-JSON.
@@ -25,7 +25,7 @@ Schema evolution without migrations and its read accelerator in one owner: every
 ```typescript signature
 import { VariantSchema } from "@effect/experimental"
 import { Either, ParseResult, Schema } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 const _Column: Schema.Schema<unknown> = Schema.transformOrFail(Schema.Unknown, Schema.Unknown, {
   strict: true,

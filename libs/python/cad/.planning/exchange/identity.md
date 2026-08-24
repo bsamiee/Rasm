@@ -2,108 +2,46 @@
 
 `identity` rules the provider's byte-stability contract: two runs of one admitted operation over identical geometry emit identical STEP octets, which is what makes `CadService.Execute` idempotent at the artifact rather than merely at the reply. This owner holds the canonical header stamp, the canonical product identity every emission carries, and the `Interface_Static` policy the whole worker process runs under.
 
-`exchange/step#CODEC` composes `canonical` between transfer and write and proves `EMITTED` on readback, so this page seats beneath `step` inside the folder and imports nothing from it. `service/lane` applies `pinned` once per worker process and owns that gate alone, never the row set; `faults#ROWS` supplies `STEP_WRITE` and the exchange-leg `EXCHANGE_REGIME`, and every refusal is `Error(<ROW>.at(...))` on `CadRail`.
+`exchange/step#CODEC` composes `canonical` between transfer and write and proves `EMITTED` on readback, so this page seats beneath `step` inside the folder and imports nothing from it. `service/lane#REGIME` holds the ONE executable controller-and-pin table and fold, run once per worker process under its own `NATIVE_INIT`; this page declares the membership and the values — `UNIT`, `SCHEMA`, the three pin coordinates — and executes none of it. `faults#ROWS` supplies `STEP_WRITE`, and every refusal is `Error(<ROW>.at(...))` on `CadRail`.
 
 ## [01]-[INDEX]
 
-- [02]-[PINS]: Exchange controller init, the `Interface_Static` unit and schema rows, and the one fold that seats them.
+- [02]-[PINS]: The membership and values of the process-global exchange regime, executed at `service/lane#REGIME`.
 - [03]-[CANONICAL]: Canonical header identity rows, canonical `StepBasic_Product` identity, and the fields left unstamped.
 
 ## [02]-[PINS]
 
-- Owner: `_CONTROLLERS` and `_PINS` are the whole process-global exchange policy, and `pinned` is their one fold — no second site in the package calls `Interface_Static`.
-- Cases: `Pin` closes over `text` and `count`, one arm per `Interface_Static` accessor pair, so a new value kind stays unspellable until `_APPLIED` grows its arm.
+- Owner: `UNIT`, `SCHEMA`, and `EMITTED` are the byte-stability values, and this section's roster — both exchange controllers, `xstep.cascade.unit`, `write.step.unit`, `write.step.schema` — is the MEMBERSHIP the contract requires; `service/lane#REGIME` holds the one executable table and fold and imports these values, so the ruling and its execution cannot drift apart.
 - Law: controller init precedes every static, because a static seated before its protocol registers reverts silently and reads back its default.
-- Law: each pin sets AND reads back under one arm, so a setter reporting success without taking effect refuses instead of leaving the process silently mis-configured.
 - Law: OCCT defaults length to millimetres and keeps writer schema process-global, so leaving either implicit breaks metre receipts and idempotent artifact identity together.
 - Law: `write.step.schema` and `EMITTED` are one decision written twice — OCCT ordinal and wire enum — and `exchange/step#CODEC` proves they agree on every emitted file.
 - Law: an unpinned writer emits `AUTOMOTIVE_DESIGN` rather than AP242, so a missing `write.step.schema` silently ships a file declaring a protocol this page never chose; that is the failure `sealed`'s re-read catches.
-- Law: refusal carries `EXCHANGE_REGIME` because the exchange leg DECLARES which controllers and pins the byte-stability contract requires; `service/lane` merely applies them once and refuses under its own `NATIVE_INIT`.
-- Growth: a new process-global exchange knob is one `_PINS` row; a new accessor pair is one `Pin` case beside one `_APPLIED` arm.
-- Boundary: WHEN this fold runs — once per worker process, ahead of any reader, writer, property fold, or GLB export — is `service/lane`'s decision, not this owner's.
+- Growth: a new process-global exchange knob is one value declared here beside one `Pin` row at `service/lane#REGIME` consuming it.
+- Boundary: execution — the `Interface_Static` calls, the read-back proof, the once-per-process cache, and the `NATIVE_INIT` refusal — is `service/lane#REGIME`'s alone; no fence here touches OCCT process state.
 
 ```python signature
 from collections.abc import Callable
-from typing import Final, Literal
+from typing import Final
 
 from builtins import frozendict
-from expression import Error, Ok, case, tag, tagged_union
+from expression import Error, Ok
 from expression.collections import Block
-from expression.extra.result import traverse
 from OCP.APIHeaderSection import APIHeaderSection_MakeHeader
-from OCP.IGESControl import IGESControl_Controller
-from OCP.Interface import Interface_Static
-from OCP.STEPControl import STEPControl_Controller
 from OCP.StepBasic import StepBasic_Product
 from OCP.StepData import StepData_StepModel
 from OCP.TCollection import TCollection_HAsciiString
 from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import StepProtocol
 
-from rasm.cad.faults import EXCHANGE_REGIME, STEP_WRITE, CadRail
+from rasm.cad.faults import STEP_WRITE, CadRail
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # `write.step.schema=5` selects AP242 DIS in OCCT and `EMITTED` is the same choice on the wire; `exchange/step`
-# compares a readback against `EMITTED`, so the two spellings cannot drift apart unobserved.
+# compares a readback against `EMITTED`, so the two spellings cannot drift apart unobserved. `service/lane#REGIME`
+# imports `UNIT` and `SCHEMA` into its pin rows, so the executed values ARE these declarations.
 UNIT: Final[str] = "M"
 SCHEMA: Final[int] = 5
 EMITTED: Final[StepProtocol] = StepProtocol.AP242
-
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-@tagged_union(frozen=True)
-class Pin:
-    # arm per `Interface_Static` accessor pair, so the value kind and the setter it needs are one recoverable fact
-    tag: Literal["text", "count"] = tag()
-    text: str = case()
-    count: int = case()
-
-
-# --- [POLICIES] -------------------------------------------------------------------------
-
-# Each arm SETS and READS BACK in one expression: `SetCVal_s` answers True on a name OCCT then ignores, so the
-# readback is the only evidence the process actually runs under the pin.
-_APPLIED: Final[frozendict[str, Callable[[str, Pin], bool]]] = frozendict({
-    "text": lambda name, pin: Interface_Static.SetCVal_s(name, pin.text) and Interface_Static.CVal_s(name) == pin.text,
-    "count": lambda name, pin: Interface_Static.SetIVal_s(name, pin.count) and Interface_Static.IVal_s(name) == pin.count,
-})
-
-# Controller init registers the exchange protocols the statics key on, so it is ordered ahead of every pin.
-_CONTROLLERS: Final[frozendict[str, Callable[[], bool]]] = frozendict({
-    "STEPControl_Controller": STEPControl_Controller.Init_s,
-    "IGESControl_Controller": IGESControl_Controller.Init_s,
-})
-
-_PINS: Final[frozendict[str, Pin]] = frozendict({
-    "xstep.cascade.unit": Pin(text=UNIT),
-    "write.step.unit": Pin(text=UNIT),
-    "write.step.schema": Pin(count=SCHEMA),
-})
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _started(row: tuple[str, Callable[[], bool]], /) -> CadRail[str]:
-    name, init = row
-    return Ok(name) if init() else Error(EXCHANGE_REGIME.at(f"occt.controller.{name}"))
-
-
-def _seated(row: tuple[str, Pin], /) -> CadRail[str]:
-    name, pin = row
-    return Ok(name) if _APPLIED[pin.tag](name, pin) else Error(EXCHANGE_REGIME.at(f"interface-static.{name}"))
-
-
-def pinned() -> CadRail[None]:
-    # `traverse` short-circuits on the first refusal, which is the right disposition: a half-pinned process emits
-    # millimetre geometry under an AP242 header, and reporting every casualty would not make that state usable.
-    return (
-        traverse(_started, Block.of_seq(_CONTROLLERS.items()))
-        .bind(lambda _live: traverse(_seated, Block.of_seq(_PINS.items())))
-        .map(lambda _rows: None)
-    )
 ```
 
 ## [03]-[CANONICAL]

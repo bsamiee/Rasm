@@ -15,11 +15,11 @@ Identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPa
 - Law: a port exists exactly because the wave ledger forbids `security → data` — the data journal satisfies both at the app root (the `security/authn/session → data` [PORT] seam), so a Tag minted to dodge a legal edge is the defect.
 - Growth: a new credential kind is one `CredentialRef.kind` literal; a new session facet is one `Session` field the store persists.
 - Boundary: the authn ceremonies resolve a `CredentialRef` and call `Token.establish`; `access/claim` keys claims by `Subject["id"]`; `crypt/sign` supplies the JWT and crypto primitives.
-- Packages: `effect` (`Schema`, `Context`); `@rasm/ts/core` (`Identity.Tenant`, `Fault.Class`).
+- Packages: `effect` (`Schema`, `Context`); `@rasm/core` (`Identity.Tenant`, `Fault.Class`).
 
 ```typescript
 import { Cookies, Headers, HttpApiMiddleware, HttpApiSecurity, HttpServerRequest } from "@effect/platform"
-import { Fault, Identity } from "@rasm/ts/core"
+import { Fault, Identity } from "@rasm/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema, Struct } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { AccessClaims, Alphabet, Crypto, Jwt, Probe, type SignFault } from "../crypt/sign.ts"
@@ -157,7 +157,7 @@ class IdentityJournal extends Context.Tag("security/authn/IdentityJournal")<Iden
 - Law: the `scope` array `establish` carries is the session's delegation bound the `access/claim` ceiling reads — a `rasm:`-namespaced entry caps the session's authority to that bundle's union, an array carrying none is a first-party session at the subject's whole role grant, and the vocabulary is `access/claim`'s `Scope`, so a narrowed session mints by naming its `rasm:` scopes at `establish` and no per-mint delegation table forks the one `ScopeGrant` owns.
 - Receipt: `TokenPair` — access and refresh both `Redacted`, the `Session` embedded so the caller frames it or audits it without a second read.
 - Boundary: `authn/*` resolves a `CredentialRef` and calls `establish`; `Cookie` frames the pair; the ports carry state; `crypt/verify`'s `Curb` owns the refresh budget row; the runtime serve admission lift realizes the bearer provision; a direct HttpApi consumer mounts `BearerGuard`.
-- Packages: `crypt/sign` (`Jwt.mint`/`verify`, `Crypto.token`/`.uuid`/`.fingerprint`/`.matches`, `Alphabet.base62`, `SignFault`); `crypt/verify` (`Reject`, `Curb`); `access/audit` (`Witness`, `SecurityFact`); `@rasm/ts/core` (`Fault.Class`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`Config`, `DateTime`, `Duration`, `Effect`, `Option`, `Redacted`, `Schema`).
+- Packages: `crypt/sign` (`Jwt.mint`/`verify`, `Crypto.token`/`.uuid`/`.fingerprint`/`.matches`, `Alphabet.base62`, `SignFault`); `crypt/verify` (`Reject`, `Curb`); `access/audit` (`Witness`, `SecurityFact`); `@rasm/core` (`Fault.Class`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`Config`, `DateTime`, `Duration`, `Effect`, `Option`, `Redacted`, `Schema`).
 
 ```typescript
 type RotationStep = Data.TaggedEnum<{

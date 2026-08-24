@@ -31,7 +31,7 @@ import {
   type ClientAuth, type Configuration, type DPoPHandle, type IntrospectionResponse,
   type TokenEndpointResponse, type TokenEndpointResponseHelpers, type WWWAuthenticateChallenge,
 } from "openid-client"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Match, Option, Redacted, Schema } from "effect"
 import { AccessClaims, JwksLedger, JwksSnapshot, type SingleUse } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"

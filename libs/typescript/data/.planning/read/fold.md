@@ -15,7 +15,7 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 ## [02]-[LANE_SPEC]
 
 - Owner: `Lane.Spec` — one `Fold.Plan` bound to one keyed relation under a `Live.Band`, carrying the state codec, stamp projection, upcast plan, and batch engine; `Lane.at` realizes the per-cell `Fold.AsOf` coordinate from the relation's own position columns, and `Lane.Edit.fold` decodes each foreign `EntityEditWire` document once before folding content-addressed edits under the graph's redaction manifest.
-- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/ts/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Upcast.Plan`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
+- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Upcast.Plan`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
 - Entry: an owning lane declares one `Lane.Spec` beside its relation and hands it to `Lane.of`, which settles the coordinate read and the inline slot together.
 - Law: `Lane.Spec.name` mints through `Live.scope` at the composition, never as a bare literal — the band carries its scope discriminant by construction, so a lane declared under two scopes wakes apart and no spec author can spell an unqualified band.
 - Law: every projection row carries its own position — `sequence`, `stamp_physical`, and `stamp_logical` sit on the row, so `Fold.AsOf` reads what a caller already fetched and a staleness question costs no second relation.
@@ -29,7 +29,7 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 
 ```typescript signature
 import { Array, Duration, Effect, Encoding, HashMap, HashSet, Match, Option, ParseResult, Schema } from "effect"
-import { Clock, Fault, Fold, Format, Wire } from "@rasm/ts/core"
+import { Clock, Fault, Fold, Format, Wire } from "@rasm/core"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal } from "../journal/append.ts"
@@ -287,7 +287,7 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 ## [04]-[DRAIN_ACTOR]
 
 - Owner: `Lane.daemon` — the seconds-budget lane: the checkpoint and quarantine ledgers, the claim, the paged drain cycle, the two-road wake, and the `Machine` actor whose held state is the lag read.
-- Packages: `@effect/experimental` (`Machine.makeWith`, `Machine.procedures`, `Machine.boot`, `Machine.retry`; `Reactivity`); `@effect/sql` (`SqlClient.SafeIntegers`, `sql.withTransaction`); `effect` (`Layer`, `Metric`, `Request`, `Schedule`, `Stream`); `journal/append.md` (`Journal.wake` — the one notify road; `Journal.retryable` — the statement-fault gate); `@rasm/ts/core` (`Convention`, `Fault.Budget`, `Identity.App`).
+- Packages: `@effect/experimental` (`Machine.makeWith`, `Machine.procedures`, `Machine.boot`, `Machine.retry`; `Reactivity`); `@effect/sql` (`SqlClient.SafeIntegers`, `sql.withTransaction`); `effect` (`Layer`, `Metric`, `Request`, `Schedule`, `Stream`); `journal/append.md` (`Journal.wake` — the one notify road; `Journal.retryable` — the statement-fault gate); `@rasm/core` (`Convention`, `Fault.Budget`, `Identity.App`).
 - Entry: an owning app composes `Lane.daemon(spec, app)` once per lane; every replica composes the same Layer and the claim alone decides which one drains.
 - Receipt: `Lane.Mark` carries lane, advanced checkpoint, and drained count; the mounted gauge tags by lane name and the actor's `Lane.State` is the subscription a lag dashboard reads.
 - Law: replicas cooperate with zero coordination — the claim is `FOR UPDATE SKIP LOCKED` over the lane's checkpoint row, so a losing replica answers `Option.none()` and idles instead of blocking, and no leader election, lease table, or external lock exists.
@@ -338,7 +338,7 @@ sequenceDiagram
 import { BigInt, Function, Layer, Metric, Option, type ParseResult, Request, Schedule, Stream } from "effect"
 import { Machine, Reactivity } from "@effect/experimental"
 import { SqlClient, SqlSchema } from "@effect/sql"
-import { Convention, Fault, Identity } from "@rasm/ts/core"
+import { Convention, Fault, Identity } from "@rasm/core"
 import { Upcast } from "../journal/evolve.ts"
 
 declare namespace Lane {
@@ -711,7 +711,7 @@ export { Lane }
 - Entry: `Organization.decode(bytes)` runs generated Protovalidate through `Format.proto.frame(OrganizationSchema)`, then one bounded frontier proves only schema-inexpressible laws: globally unique entity keys, at most 65,536 entities, depth at most 64, and exact current-path resolution.
 - Law: nesting is structural and every member/view row is emitted with its owning entity. `position` derives from repeated-list position at this landing; no ordinal crosses or survives beside it.
 - Boundary: duplicate entity keys refuse before any `Map` insert; current is the resolved entity address or absence, never an unchecked key. Generated rules already own member/view uniqueness and field bounds, so this fold does not revalidate them.
-- Packages: `@rasm/contracts` (generated `organization.v1.OrganizationSchema`); `@rasm/ts/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
+- Packages: `@rasm/contracts` (generated `organization.v1.OrganizationSchema`); `@rasm/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
 
 ```typescript signature
 import { fromBinary, type MessageShape } from "@bufbuild/protobuf"

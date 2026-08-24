@@ -15,22 +15,14 @@ import msgspec.structs
 from pydantic import BaseModel, ValidationError
 import pytest
 
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python.tools.assay.kit import (  # fixture annotation resolved at collection time, not import time
-    AssayHarness,
-    assert_counts_consistent,
-    make_history_envelope,
-    pipe_history,
-    SeamExecutor,
-)
-from tools.assay.composition import registry as registry_mod
-from tools.assay.composition.catalog import TOOLS
-from tools.assay.composition.registry import build_app, delta, parse_fault, rail, REGISTRY, self_test
-from tools.assay.composition.settings import AssaySettings
-from tools.assay.composition.store import ArtifactScope, ArtifactStore
-from tools.assay.core.aspect import RING  # ring ContextVar's home module (registry imports it for _seed_parse_ring)
-from tools.assay.core.govern import RESOURCE  # ContextVar set/reset directly for per-test context isolation in test_emit_double_write_guard
-from tools.assay.core.model import (
+from assay.composition import registry as registry_mod
+from assay.composition.catalog import TOOLS
+from assay.composition.registry import build_app, delta, parse_fault, rail, REGISTRY, self_test
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope, ArtifactStore
+from assay.core.aspect import RING  # ring ContextVar's home module (registry imports it for _seed_parse_ring)
+from assay.core.govern import RESOURCE  # ContextVar set/reset directly for per-test context isolation in test_emit_double_write_guard
+from assay.core.model import (
     ArtifactKind,
     BridgeLifecycle,
     Claim,
@@ -50,15 +42,23 @@ from tools.assay.core.model import (
     TestRun,
     wire_encode,
 )
-from tools.assay.diagnostics import fold
-from tools.assay.rails import health as health_mod
-from tools.assay.rails.bridge import BridgeParams
-from tools.assay.rails.docs import FaultedPromotion
-from tools.assay.rails.static import StaticParams
+from assay.diagnostics import fold
+from assay.rails import health as health_mod
+from assay.rails.bridge import BridgeParams
+from assay.rails.docs import FaultedPromotion
+from assay.rails.static import StaticParams
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
+from tests.python.tools.assay.kit import (  # fixture annotation resolved at collection time, not import time
+    AssayHarness,
+    assert_counts_consistent,
+    make_history_envelope,
+    pipe_history,
+    SeamExecutor,
+)
 
 
 if TYPE_CHECKING:
-    from tools.assay.core.model import Bind, Check
+    from assay.core.model import Bind, Check
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -580,7 +580,7 @@ def test_delta_history_projection(mem_store: ArtifactStore, assay_root: AssayHar
 
     Mutant caught: wrong key set arithmetic in _delta_report → added/removed non-zero; wrong _prior selection.
     """
-    from tools.assay.composition.registry import _delta_report, _prior  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _delta_report, _prior  # ruff:ignore[import-outside-top-level]
 
     run_a, run_b, run_c = "2026-01-01T00-00-00.000000-9001", "2026-01-02T00-00-00.000000-9001", "2026-01-03T00-00-00.000000-9001"
     pipe_history(mem_store, (run_a, run_b, run_c))
@@ -607,7 +607,7 @@ def test_delta_report_orientation_matrix() -> None:
     Mutants caught: .status on a None side, union instead of difference, dropped removed count, nulled
     EMPTY claim/notes, and corrupted EMPTY counts.
     """
-    from tools.assay.composition.registry import _delta_report  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _delta_report  # ruff:ignore[import-outside-top-level]
 
     assert _delta_report("run-b", "run-c", make_history_envelope("run-b"), None).status is RailStatus.EMPTY
 
@@ -632,7 +632,7 @@ def test_delta_host_drift_from_bridge_facts() -> None:
 
     Mutants caught: dropping the drift field, comparing unchanged facts, or reading drift from non-bridge details.
     """
-    from tools.assay.composition.registry import _delta_report  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _delta_report  # ruff:ignore[import-outside-top-level]
 
     def bridge_env(version: str) -> Envelope:
         detail = BridgeLifecycle(verb="status", host=(("rhinoVersion", "9.0"),), capabilities=(("mcp.platform.version", "Ok", version),))
@@ -769,7 +769,7 @@ def test_ok_envelope_cap_boundary_and_defect_diagnostic(assay_root: AssayHarness
 
     Mutants caught: cap comparison drift, nulled failed-row filters, corrupted defects tally, and dropped OK status.
     """
-    from tools.assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
 
     at_cap = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(RESULT_CAP))
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=at_cap))
@@ -800,7 +800,7 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness, c
     The cap signal lives in report/envelope notes and the HISTORY artifact; stderr stays silent. Mutants caught: cap overrun, nulled artifact
     identity/metadata, dropped cap note, or restored stderr side channel.
     """
-    from tools.assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
 
     rows = tuple(Match(id=f"row-{i}", kind=ArtifactKind.PROCESS, text="x") for i in range(RESULT_CAP + 1))
     env = _ok_envelope(_STATIC_BIND, assay_root.settings, 1.0, Report(Claim.STATIC, "static", RailStatus.OK, results=rows))
@@ -828,7 +828,7 @@ def test_ok_envelope_cap_preserves_defects_over_generated_overflow(assay_root: A
     A blind ``results[:RESULT_CAP]`` slice would clip the trailing error rows that ``_result_rows`` ranks last; the
     defect-preserving cap reserves them first, so the FAILED diagnostic count and the shown error rows both survive.
     """
-    from tools.assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _ok_envelope  # ruff:ignore[import-outside-top-level]
 
     generated = tuple(Match(id=f"gen-{i}", kind=ArtifactKind.PROCESS, text="x", severity="warning") for i in range(RESULT_CAP))
     errors = (
@@ -854,7 +854,7 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
 
     Mutant caught: propagating OSError → _ok_envelope crashes instead of silently skipping the artifact.
     """
-    from tools.assay.composition.registry import _full_report_artifact  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _full_report_artifact  # ruff:ignore[import-outside-top-level]
 
     _patch_store(monkeypatch, "write_full_report")
     assert _full_report_artifact(assay_root.settings, _STATIC_BIND, Report(Claim.STATIC, "static", RailStatus.OK)) == ()
@@ -881,7 +881,7 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
     import inspect  # ruff:ignore[import-outside-top-level]
     from types import FunctionType  # ruff:ignore[import-outside-top-level]
 
-    from tools.assay.composition.registry import _leaf  # ruff:ignore[import-outside-top-level]
+    from assay.composition.registry import _leaf  # ruff:ignore[import-outside-top-level]
 
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     bind = _STATIC_BIND

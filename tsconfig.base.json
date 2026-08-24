@@ -1,0 +1,32 @@
+{
+    "compilerOptions": {
+        "allowUnreachableCode": false,
+        "allowUnusedLabels": false,
+        "composite": true,
+        "declaration": true,
+        "declarationMap": true,
+        "erasableSyntaxOnly": true,
+        "exactOptionalPropertyTypes": true,
+        "isolatedModules": true,
+        "lib": ["esnext"],
+        "libReplacement": false,
+        "module": "preserve",
+        "moduleDetection": "force",
+        "noErrorTruncation": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "noUncheckedIndexedAccess": true,
+        "noUncheckedSideEffectImports": true,
+        "outDir": "${configDir}/dist",
+        "rootDir": "${configDir}",
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "esnext",
+        "tsBuildInfoFile": "${configDir}/dist/tsconfig.tsbuildinfo",
+        "types": [],
+        "verbatimModuleSyntax": true
+    },
+    "include": ["${configDir}/*.ts"]
+}

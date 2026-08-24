@@ -13,11 +13,11 @@ Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped` adm
 [SECRET_FAULT]:
 - Law: the fold reads `statusCode` off the RFC 9457 `BaseHTTPError` carrier — every status subclass is seed data over one problem-detail shape, and an instance-of ladder over them is the rejected form; a throw without a `statusCode` is `transient`.
 - Growth: a new failure class is one `_reasonOf` status arm and one class row.
-- Packages: `@dopplerhq/node-sdk` (`BaseHTTPError` carrier); `effect` (`Schema`, `Predicate`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `@dopplerhq/node-sdk` (`BaseHTTPError` carrier); `effect` (`Schema`, `Predicate`); `@rasm/core` (`Fault.Class`).
 
 ```typescript
 import DopplerSDK from "@dopplerhq/node-sdk"
-import { Fault, Convention } from "@rasm/ts/core"
+import { Fault, Convention } from "@rasm/core"
 import { Cache, Cause, Config, DateTime, Duration, Effect, Equal, HashMap, Metric, Option, Predicate, Record, Redacted, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto, Material } from "./sign.ts"

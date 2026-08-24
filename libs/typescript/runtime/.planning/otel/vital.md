@@ -28,7 +28,7 @@ Capture belongs to the browser condition and the table does not — every platfo
 import { Array, Chunk, Context, Effect, HashMap, Layer, Metric, Number, Option, ParseResult, PubSub, Queue, Record, Schema, Stream, pipe } from "effect"
 import type { HrTime, Span } from "@opentelemetry/api"
 import { addSpanNetworkEvents, getElementXPath, getResource, normalizeUrl } from "@opentelemetry/sdk-trace-web"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 import {
   CLSThresholds,
   FCPThresholds,
@@ -412,7 +412,7 @@ const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceR
 - Law: the phase plane's one reader is that span, so a `Vital.Report.facts` consumer folding phases duplicates a landed signal.
 - Entry: `Vital.live(policy)` at the browser composition root; `Vital.Report` for the render tap and the accounted fact stream; `Vital.rows` beside `Vital.grade(kind, value)` for the deploy-feed budget fold — the table and its fold travel as one pair, because a holder of the cutoffs alone re-buckets them and that is the forked-standard defect this owner exists to foreclose.
 - Growth: an instrument axis is closed — new analysis lands as board queries over the same two instruments.
-- Packages: `effect` (`Array`, `Chunk`, `Context`, `Effect`, `HashMap`, `Layer`, `Metric`, `Number`, `Option`, `PubSub`, `Queue`, `Record`, `Schema`, `Stream`, `pipe`); `web-vitals/attribution` (the five registrars, the five cutoff pairs, the five attribution shapes through `MetricWithAttribution`, `MetricRatingThresholds`, `INPAttributionReportOpts`, and the performance-global types build); `@opentelemetry/sdk-trace-web` (`normalizeUrl`, `getResource`, `addSpanNetworkEvents`, `getElementXPath`); `@rasm/ts/core` (`Convention`).
+- Packages: `effect` (`Array`, `Chunk`, `Context`, `Effect`, `HashMap`, `Layer`, `Metric`, `Number`, `Option`, `PubSub`, `Queue`, `Record`, `Schema`, `Stream`, `pipe`); `web-vitals/attribution` (the five registrars, the five cutoff pairs, the five attribution shapes through `MetricWithAttribution`, `MetricRatingThresholds`, `INPAttributionReportOpts`, and the performance-global types build); `@opentelemetry/sdk-trace-web` (`normalizeUrl`, `getResource`, `addSpanNetworkEvents`, `getElementXPath`); `@rasm/core` (`Convention`).
 
 ```typescript signature
 class _Session extends Schema.Class<_Session>("Vital/Session")({

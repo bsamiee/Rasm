@@ -213,7 +213,7 @@ const _unserved = (lane: Dial.Lane): Wire.Fault =>
     case: { reason: "drift", divergence: { subject: "adapter", lane: _key(lane) } },
   })
 
-class Lane extends Context.Tag("@rasm/ts/core/Lane")<Lane, {
+class Lane extends Context.Tag("@rasm/core/Lane")<Lane, {
   readonly key: Dial.Key
   readonly lane: Dial.Lane
   readonly transport: ConnectTransport
@@ -224,7 +224,7 @@ const _CONTEXT = {
   tenant: createContextKey<Option.Option<Identity.Tenant>>(Option.none()),
 } as const
 
-class Ambient extends Context.Reference<Ambient>()("@rasm/ts/core/Dial/Ambient", {
+class Ambient extends Context.Reference<Ambient>()("@rasm/core/Dial/Ambient", {
   defaultValue: (): { readonly stamp: Option.Option<Clock.Hlc>; readonly tenant: Option.Option<Identity.Tenant> } =>
     ({ stamp: Option.none(), tenant: Option.none() }),
 }) {}
@@ -297,7 +297,7 @@ const _selected = (
     }),
   )
 
-class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
+class Dial extends Effect.Service<Dial>()("@rasm/core/Dial", {
   effect: (config: Dial.Config, seam: Dial.Seam) =>
     Effect.gen(function* () {
       const policy = _policy(config, seam)
@@ -658,7 +658,7 @@ interface DispatchedDefinition extends Data.TaggedEnum.WithGenerics<1> {
 }
 const _Dispatched = Data.taggedEnum<DispatchedDefinition>() // interior constructor: the annotation gate reaches the merged name, so only the type exports
 
-class AvailabilityGate extends Context.Tag("@rasm/ts/core/AvailabilityGate")<AvailabilityGate, {
+class AvailabilityGate extends Context.Tag("@rasm/core/AvailabilityGate")<AvailabilityGate, {
   readonly admits: (verb: string) => Effect.Effect<Evidence.Availability.Verdict>
 }>() {}
 
@@ -685,7 +685,7 @@ class SupportCapture extends Schema.Class<SupportCapture>("SupportCapture")({
     })
 }
 
-class SupportIntake extends Context.Tag("@rasm/ts/core/SupportIntake")<SupportIntake, {
+class SupportIntake extends Context.Tag("@rasm/core/SupportIntake")<SupportIntake, {
   readonly deliver: (report: SupportCapture) => Effect.Effect<SupportReceipt>
 }>() {}
 

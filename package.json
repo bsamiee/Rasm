@@ -3,9 +3,6 @@
     "version": "0.5.0",
     "private": true,
     "type": "module",
-    "scripts": {
-        "browsers": "playwright install chromium webkit"
-    },
     "browserslist": [
         "baseline widely available"
     ],
@@ -14,7 +11,6 @@
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-storage": "catalog:",
         "@aws-sdk/s3-request-presigner": "catalog:",
-        "@berenddeboer/nx-biome": "catalog:",
         "@biomejs/biome": "catalog:",
         "@bufbuild/buf": "catalog:",
         "@bufbuild/protobuf": "catalog:",
@@ -94,9 +90,7 @@
         "@nats-io/transport-node": "catalog:",
         "@noble/hashes": "catalog:",
         "@node-rs/argon2": "catalog:",
-        "@nx-tools/nx-container": "catalog:",
         "@nx/devkit": "catalog:",
-        "@nx/docker": "catalog:",
         "@nx/dotnet": "catalog:",
         "@nx/js": "catalog:",
         "@nx/node": "catalog:",
@@ -180,7 +174,6 @@
         "@simplewebauthn/browser": "catalog:",
         "@simplewebauthn/server": "catalog:",
         "@stryker-mutator/core": "catalog:",
-        "@stryker-mutator/typescript-checker": "catalog:",
         "@stryker-mutator/vitest-runner": "catalog:",
         "@swc-node/register": "catalog:",
         "@swc/core": "catalog:",
@@ -313,15 +306,6 @@
             "name": "pnpm",
             "version": ">=11.9.0 <12",
             "onFail": "error"
-        }
-    },
-    "nx": {
-        "namedInputs": {
-            "default": [
-                "{workspaceRoot}/libs/typescript/**/*",
-                "{workspaceRoot}/tests/typescript/**/*",
-                "sharedGlobals"
-            ]
         }
     }
 }

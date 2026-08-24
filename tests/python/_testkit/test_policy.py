@@ -7,13 +7,14 @@ from datetime import datetime, timedelta, UTC
 import enum
 import fnmatch
 import functools
+from importlib.util import find_spec
 import os
 from pathlib import Path  # module-level _PYPROJECT assignment prevents deferral
 import shutil
 import sys
 import tomllib
 from types import ModuleType, SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING
 from unittest.mock import create_autospec
 import uuid
 
@@ -174,10 +175,13 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     """Disk shape drives registration: authored folders register with derived suites; sourceless folders, loose files, and emissions never do.
 
     The generation template is the one authority on generated out roots, so a folder whose source
-    sits beneath a ``plugins[].out`` row owes no suite. The live lane proves the repo derivation:
-    every ``libs/python`` registration carries the repo-relative dotted prefix and a suite under
-    ``tests/python/libs``, and the contracts package registers exactly when authored source
-    survives the out-root carve — the emission neither earns a registration nor suppresses one.
+    sits beneath a ``plugins[].out`` row owes no suite. A registration carries the name its modules
+    import by — the package under ``src`` for a src layout, the repo-relative dotted path otherwise
+    — so the census reads the live modules instead of shadow-importing the tree a second time. The
+    live lane proves that derivation on the repo: every registration names an importable package
+    whose suite sits under ``tests/python/libs``, and the contracts package registers exactly when
+    authored source survives the out-root carve — the emission neither earns a registration nor
+    suppresses one.
     """
     source = tmp_path / "src"
     (source / "alpha").mkdir(parents=True)
@@ -187,26 +191,31 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     # A child whose every source file lies under a template out root is the generator's emission, never a stratum the census owes a suite.
     (source / "emitted" / "gen" / "pkg").mkdir(parents=True)
     (source / "emitted" / "gen" / "pkg" / "gen.py").write_text("", encoding="utf-8")
+    # A src layout installs the package beneath src, so registration names that package, never the folder path.
+    (source / "packaged" / "src" / "ns" / "pkg").mkdir(parents=True)
+    (source / "packaged" / "src" / "ns" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
     (tmp_path / "buf.gen.yaml").write_text("version: v2\nplugins:\n  - local: gen\n    out: src/emitted/gen\n", encoding="utf-8")
     suites = tmp_path / "suites"
     monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {})
     monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "buf.gen.yaml")
 
     assert generated_roots(source) == frozenset({source / "emitted" / "gen"}), "out-root derivation drifted from the template"
-    assert register_tree(source, suites) == ("alpha",), "registration drifted from disk shape"
+    assert register_tree(source, suites) == ("alpha", "ns.pkg"), "registration drifted from disk shape"
     assert laws_mod.SUT_PACKAGES["alpha"].suite == suites / "alpha", "suite derivation broke"
+    assert laws_mod.SUT_PACKAGES["ns.pkg"].suite == suites / "packaged", "a src layout must keep its folder-named suite"
     assert register_tree(tmp_path / "absent", suites) == (), "a missing source root must register nothing"
     monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "absent.yaml")
-    assert register_tree(source, suites) == ("alpha", "emitted"), "an absent template must derive zero generated roots"
+    assert register_tree(source, suites) == ("alpha", "emitted", "ns.pkg"), "an absent template must derive zero generated roots"
 
     monkeypatch.setattr(laws_mod, "_TEMPLATE", REPO_ROOT / "buf.gen.yaml")
     live = register_tree(REPO_ROOT / "libs" / "python", REPO_ROOT / "tests" / "python" / "libs")
-    assert all(name.startswith("libs.python.") for name in live), f"repo-relative dotted derivation drifted: {live}"
+    assert all(find_spec(name) is not None for name in live), f"a registration named no importable package: {live}"
     contracts = REPO_ROOT / "libs" / "python" / "contracts"
     emitted = generated_roots(REPO_ROOT / "libs" / "python")
     assert any(root.is_relative_to(contracts) for root in emitted), "template lost its Python out root"
     authored = any(not any(py.is_relative_to(root) for root in emitted) for py in contracts.rglob("*.py"))
-    assert ("libs.python.contracts" in live) is authored, f"contracts registration diverged from its authored source: {live}"
+    assert ("rasm.contracts" in live) is authored, f"contracts registration diverged from its authored source: {live}"
+    assert laws_mod.SUT_PACKAGES["rasm.contracts"].suite == REPO_ROOT / "tests" / "python" / "libs" / "contracts", "live suite derivation broke"
 
 
 def test_registered_suts_carry_their_suite_roots() -> None:
@@ -578,3 +587,64 @@ def test_package_manager_and_type_checker_caches_route_under_owned_roots() -> No
     assert "\nstoreDir: .cache/pnpm/store\n" in workspace, "native pnpm must never write .pnpm-store at repo root"
     assert "\ncacheDir: .cache/pnpm/cache\n" in workspace, "pnpm metadata cache must stay under .cache"
     assert "\nstateDir:" not in workspace, "pnpm stateDir is retired; pnpm owns no supported state-directory setting"
+
+
+class _LitterRule(Protocol):
+    """Structural shape of one litter-guard ``POLICY`` row, admitted across the hook's dynamic import."""
+
+    litters: str
+    flag: str
+    rail: str
+    waivers: tuple[str, ...]
+
+
+_LITTER_HOOK: Path = REPO_ROOT / ".claude" / "hooks" / "litter-guard.py"
+# [ARTIFACT_ROUTING] tool name -> hook command word; the ruled classification joining the README roster to POLICY keys.
+_LITTER_ROUTED_TOOLS: dict[str, str] = {"import-linter": "lint-imports"}
+
+
+def _litter_policy() -> dict[str, _LitterRule]:
+    """Import the litter-guard hook by path (its dashed filename bars a plain import) and return its ``POLICY`` roster."""
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    spec_obj = spec_from_file_location("litter_guard", _LITTER_HOOK)
+    assert spec_obj is not None and spec_obj.loader is not None, f"hook not importable: {_LITTER_HOOK}"
+    module = module_from_spec(spec_obj)
+    spec_obj.loader.exec_module(module)
+    return dict(module.POLICY)
+
+
+def test_litter_guard_policy_censuses_the_artifact_routing_roster() -> None:
+    """``POLICY`` and the litter-guard rows of ``tests/README.md`` ``[ARTIFACT_ROUTING]`` census two ways; the hook stays registered.
+
+    A README row routing a tool through litter-guard without a POLICY row, a POLICY row no README row rules, and a dropped
+    PreToolUse registration each fail here.
+    """
+    readme = (REPO_ROOT / "tests" / "README.md").read_text(encoding="utf-8")
+    routed = {line.split("|")[2].strip().strip("`") for line in readme.splitlines() if line.lstrip().startswith("|") and "litter-guard" in line}
+    assert routed == set(_LITTER_ROUTED_TOOLS), f"README litter-guard roster {routed!r} diverged from the ruled tool mapping"
+    assert set(_litter_policy()) == set(_LITTER_ROUTED_TOOLS.values()), "hook POLICY keys diverged from the routed roster"
+    settings = msgspec.json.decode((REPO_ROOT / ".claude" / "settings.json").read_bytes())
+    commands = [h.get("command", "") for row in settings.get("hooks", {}).get("PreToolUse", ()) for h in row.get("hooks", ())]
+    assert any(str(c).endswith("/.claude/hooks/litter-guard.py") for c in commands), "litter-guard is not registered PreToolUse"
+
+
+@pytest.mark.subprocess
+def test_litter_guard_blocks_bare_runs_and_passes_routed_runs() -> None:
+    """Every ``POLICY`` row blocks its bare invocation (exit 2) and passes the rerouted, waived, and foreign-tool forms (exit 0)."""
+
+    def verdict(command: str, tool: str = "Bash") -> int:
+        payload = msgspec.json.encode({"tool_name": tool, "tool_input": {"command": command}})
+        run = functools.partial(anyio.run_process, input=payload, check=False)
+        return anyio.run(run, [sys.executable, str(_LITTER_HOOK)]).returncode
+
+    for word, rule in _litter_policy().items():
+        cases: tuple[tuple[int, int, str], ...] = (
+            (verdict(word), 2, "bare run must block"),
+            (verdict(f"{word} {rule.flag} .cache/{word}"), 0, "cache-routed run must pass"),
+            (verdict(f"{word} {rule.flag} /tmp/elsewhere"), 2, "off-root reroute must block"),
+            (verdict(word, tool="Write"), 0, "a non-shell tool never consults POLICY"),
+            *((verdict(f"{word} {waived}"), 0, "waived run must pass") for waived in rule.waivers),
+        )
+        for got, want, why in cases:
+            assert got == want, f"{word}: {why} (exit {got})"

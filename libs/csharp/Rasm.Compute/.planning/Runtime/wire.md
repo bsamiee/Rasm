@@ -8,14 +8,14 @@ One compact `rasm.contracts.fault.v1.FaultDetail` — `domain`, `case`, `correla
 
 ## [01]-[INDEX]
 
-- [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, artifact, control, and scan families, rosters the surviving generated services, and seats the bounded `ParseGuard` beside `WireServices`.
+- [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, and seats the bounded `ParseGuard` beside `WireServices`.
 - [03]-[STAGE_CROSSING]: branch-interior photo-to-PBR slot mirror — `StageRoster`, `StageCrossing`, its static-init soundness proof, and the `Checksum` fold both ends compute and the relaying root compares.
 - [04]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client rail and the `RemoteFault` admission composed off AppHost `FaultWire`.
 - [05]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
 
 ## [02]-[PROTO_VOCABULARY]
 
-- Owner: generated compute/control services and every generated message family admitted at Compute ingress; `WireServices` holds the composition's raw shared channel/invoker and `WireCall` binds the generated client family once to one logical call's `CallSpine`; `ParseGuard` owns bounded parse plus one Celly validator over its closed descriptor set, including `event.v1` for broker extensions; `RuleViolations` projects accumulated rule failures.
+- Owner: generated compute/control services and every generated message family admitted at Compute ingress; `WireServices` holds the composition's raw shared channel/invoker and `WireCall` binds the generated client family once to one logical call's `CallSpine`; `ParseGuard` owns bounded parse plus one Celly validator over its closed descriptor set — compute, control, artifact, fault, clock, scan, and `event.v1` for broker extensions, each family earning its seat through a consumer at this ingress; `RuleViolations` projects accumulated rule failures.
 - Cases: `compute.v1.ComputeService`, `artifact.v1.ArtifactService`, and `compute.v1.ControlService`. `grpc.health.v1.Health` and `google.rpc.Status` are upstream standards this corpus never mints: their generated types ship in Grpc.HealthCheck and Google.Api.CommonProtos, the server binds health through `MapGrpcHealthChecksService` at `Rasm.AppHost/Observability/health#WIRE_HEALTH`, and `WireCall.Health` holds the package-shipped client.
 - Law: each semantic package under `tests/contracts/proto/rasm/contracts/<family>/v1/` is the one mint of its fully-qualified names. `compute.v1` owns tessellation and control, `artifact.v1` owns transfer, and `scan.v1` owns Gaussian scan payloads; managed mode derives `Rasm.Contracts.<Family>.V1` with no source `csharp_namespace`. `FaultDetail.domain` and `FaultDetail.case` together are the sole transported fault identity; every peer keeps the remote pair opaque instead of mirroring another branch's band ledger.
 - Law: a non-RPC payload message keeps the plain concept name — `FaultDetail`, `ArtifactFrame`, `GaussianSplatScan` — and mints a `Wire` suffix only to break a collision with a co-resident domain type; a consumer registry transcribes whichever name the descriptor declares and re-spells nothing.
@@ -69,7 +69,7 @@ public static class ParseGuard {
     private static readonly FileDescriptor[] Files = [
         ComputeReflection.Descriptor, ControlReflection.Descriptor,
         global::Rasm.Contracts.Artifact.V1.ArtifactReflection.Descriptor, FaultReflection.Descriptor,
-        GraphReflection.Descriptor, global::Rasm.Contracts.Clock.V1.HlcReflection.Descriptor,
+        global::Rasm.Contracts.Clock.V1.HlcReflection.Descriptor,
         global::Rasm.Contracts.Scan.V1.GaussianReflection.Descriptor,
         global::Rasm.Contracts.Event.V1.EventReflection.Descriptor,
     ];
@@ -192,25 +192,12 @@ public static class SplatCodec {
 ```
 
 ```proto signature
-// Headers of the two corpus-homed suite sources, spelled as on disk; managed mode derives Rasm.Contracts.Compute.V1
-// from the package, so no csharp_namespace option rides either source.
-
-// proto/rasm/contracts/compute/v1/compute.proto
+// Header law of the two corpus-homed suite sources (compute.proto and control.proto): managed mode derives
+// Rasm.Contracts.Compute.V1 from the package, so no csharp_namespace option rides either source. Import rosters
+// are the sources' own, read on disk — a hand mirror of them here forks what it transcribes.
 syntax = "proto3";
 
 package rasm.contracts.compute.v1;
-
-import "buf/validate/validate.proto";
-
-// proto/rasm/contracts/compute/v1/control.proto
-syntax = "proto3";
-
-package rasm.contracts.compute.v1;
-
-import "buf/validate/validate.proto";
-import "google/protobuf/duration.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/timestamp.proto";
 ```
 
 Each row names one rpc the semantic corpus sources declare; the generated `<Svc>.<Svc>Client` and `<Svc>Base` carry exactly these:
@@ -234,7 +221,7 @@ Each rpc carries one wire law:
 Each message carries its generated field set and wire role; enum vocabularies carry their `_UNSPECIFIED = 0` arm refused by `defined_only` + `not_in: [0]` rules:
 
 - [01]-[COMPUTE]: `Spill`, `GeomSetting`, `Dimensionality`, IFC scope, request, semantic, and response; every unspecified enum arm is refused at admission
-- [02]-[SCAN]: `scan.v1.GaussianSplatScan` carries the format and seven exact float32 byte columns; message CEL proves every byte width from `splat_count` and harmonic degree
+- [02]-[SCAN]: `scan.v1.GaussianSplatScan` carries the format and five exact float32 byte columns; message CEL proves every byte width from `splat_count` and harmonic degree
 - [03]-[TESSELLATEREQUEST]: `policy=2; tolerance_m=4; geom_settings=5; dimensionality=6; scope=7; source_artifact=8 ArtifactRef`, with `1`/`source` and `3`/`angle_tolerance_rad` reserved — every IfcOpenShell output setting crosses typed and required materials/GUID capabilities are CEL-proved; IFC is the sole source this request admits, so STEP and IGES tessellate through `cad.v1.CadService.Tessellate`
 - [04]-[TESSELLATIONSCOPE]: required `oneof kind { whole_model=1 Empty; elements=2 ElementScope; entities=3 EntityScope; exclude_entities=4 EntityScope }`; token lists retain validated carriers
 - [05]-[SEMANTIC]: `schema=1 string; project=2 string` — source-declared labels

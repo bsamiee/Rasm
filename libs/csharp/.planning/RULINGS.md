@@ -11,11 +11,12 @@
 - `Grpc.AspNetCore.Server` is the server-rail admission — the `Grpc.AspNetCore` metapackage ships no assembly and drags in `Grpc.Tools`.
 - `Rasm.Contracts` is the SOLE in-repo emitter — one committed emission reached by `ProjectReference`; a second emission forks the type.
 - `Rasm.Contracts` consumers keep a direct `Google.Protobuf` row only where their pages name that API — transitive reach is never a manifest row.
+- `libs/csharp` projects design as if PUBLISHED tomorrow — pack metadata rides the root estate behind `IsPackable=false`, one flip from a package.
 
 ## [02]-[SHAPE]
 
 - Host-neutral names an absent host flag in a package's own manifest, never freedom from the kernel bundle — all above `Rasm` links RhinoCommon.
-- Composition roots home at the `apps/<host>/<Plugin>/` shell — a package blocked on it waits, and pulling composition down is rejected.
+- Composition roots home at the `apps/<plugin>/` shell, itself an app — a package blocked on it waits; pulling composition down is rejected.
 - Hook-point rosters name `<Package>Point`, never `HookPoint` — the kernel capsule is in scope at every fence, and ids mint through `HookId`.
 - Folder hook registries beside the kernel point are earned solely by plugin-identity grant custody — re-keying `(point, scope, token)` is deleted.
 - Benchmark-grading AEC peers may reference `Rasm.AppHost` by name; Materials also reaches the branch's one `WireJson` edge.
@@ -155,6 +156,7 @@
 - `RhinoCommon` and `Eto` catalogue by namespace-and-subsystem, so the tier law binds the catalogued PARTITION and never the assembly.
 - Registry packages sit under `[SUBSTRATE_PACKAGES]` and folder-local under `[DOMAIN_PACKAGES]` — the section token, not its ordinal, is the anchor.
 - Fault-band growth follows semantic partitioning — one family and one band stay bijective; only a genuine second family earns another row.
+- Conceptual doctrine fences never bind a LIVE `FaultBand` row — an illustrative row carries the example beside the stated allocation obligation.
 - `[Union]` record roots seat a member only where every leaf DERIVES it from positional state — a universal cell rides the base column instead.
 - `[Union]`/`Switch` case-collapse projects near-zero net LOC — a LOC ceiling falls by unifying repeated helpers, never by case discrimination.
 - Projection seam rows enter an `ARCHITECTURE.md` seams map only on a live consumer fence — the row re-enters the moment a consuming page names it.
@@ -170,3 +172,4 @@
 ## [05]-[PROCESS]
 
 - Numeric-identity defects land ahead of the generator pass — moving annotations reads as repair while the collision survives in every stored row.
+- MSBuild analyzer verdicts go green by REPAIR, never suppression — severity lives in `.editorconfig` and `RASM0002` refuses project-body overrides.

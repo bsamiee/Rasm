@@ -16,8 +16,9 @@
 
 ## [04]-[STRUCTURE]
 
-- (none)
+- Results pin to module-adjacent `TestResults` via generated per-assembly `testconfig.json` — launch cwd never picks where TRX, dumps, or logs land.
+- MTP relocates a live diagnostic log once the result dir differs, disposing its writer mid-hold — the pin spells the bootstrap folder verbatim.
 
 ## [05]-[PROCESS]
 
-- (none)
+- Diagnostics open before any config loads, at the cwd `dotnet test` exports — pass an artifacts-root output dir or run from the output folder.

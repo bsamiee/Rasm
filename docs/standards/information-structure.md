@@ -105,6 +105,10 @@ Records carry independently scanned items; lists carry peer facts or true sequen
 - Entries number `[01]` onward in document order; the label is a bracketed uppercase rubric; the prose obeys the voice and stays one clause to one short sentence.
 - Additions append or renumber consciously — an indexed list another artifact cites by index renumbers only with its citers.
 
+[CROSS_REFERENCE]:
+- Notes and cross-references resolve their subject on a greppable token the target itself declares.
+- Pointers whose target already opens by naming its own subject carry no fact — delete the pointer and let the grep on the symbol answer.
+
 [FIELD_LINES]:
 - Fields use `- Field: value` bullets beneath a bracketed `[RECORD_KEY]:` label or H3 heading; keep labels in sentence case or verified field casing, one colon and one space, never bold.
 - A list-valued field uses one parent bullet, then one nested bullet tier beneath it; field content is always a bullet, never a bare indented line.

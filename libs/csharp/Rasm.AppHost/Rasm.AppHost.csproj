@@ -2,8 +2,6 @@
     <PropertyGroup>
         <Description>Runtime spine package setup and neutral composition doctrine for Rasm app packages.</Description>
         <CspScope>Composition</CspScope>
-        <!-- Resource-monitoring range, calculation, roster, and refresh rows carry these ids as their opt-in gate. -->
-        <NoWarn>$(NoWarn);EXTEXP0002;EXTEXP0008;EXTOBS0001</NoWarn>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">

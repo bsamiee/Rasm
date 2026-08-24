@@ -11,11 +11,9 @@ import msgspec.structs
 import pytest
 from upath import UPath
 
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
-from tests.python.tools.assay.kit import AssayHarness  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
-from tools.assay.composition.catalog import select
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
-from tools.assay.core.routing import (  # private probes for read/parse degradation arms
+from assay.composition.catalog import select
+from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
+from assay.core.routing import (  # private probes for read/parse degradation arms
     _LocalSource,
     _owner,
     _refs,
@@ -30,6 +28,8 @@ from tools.assay.core.routing import (  # private probes for read/parse degradat
     target_files,
     TargetFiles,
 )
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
+from tests.python.tools.assay.kit import AssayHarness  # runtime: hypothesis resolves @given fixture signatures via inspect.signature(eval_str=True)
 
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tools.assay.core.routing import ProjectIndex, RoutePaths
+    from assay.core.routing import ProjectIndex, RoutePaths
 
 
 # --- [TYPES] ----------------------------------------------------------------------------

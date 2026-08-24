@@ -33,7 +33,7 @@ import { Buffer } from "node:buffer"
 import path from "node:path"
 import { PassThrough, Transform } from "node:stream"
 import { Array, Chunk, Clock, DateTime, Deferred, Duration, Effect, Fiber, Match, Option, Redacted, Ref, Schema, Stream } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Bench, BenchFault, Drop, Render } from "../proc/worker.ts"
 import { Settled } from "./entity.ts"
 

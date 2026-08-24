@@ -53,7 +53,7 @@ VERIFY agents WRITE the improvement their proof exposes; adversarial never confi
 
 - Claims stay open only when genuinely unreachable from the files at hand, never to punt a strengthenable fix.
 - Status flips against evidence alone: a spike or gap marks finalized against a cited `.api` line or harness output.
-- `tools.assay` is that rail — `api` member truth, `docs check` fence-bearing pages, `provision` Forge toolchain facts, `bridge` live-host facts.
+- `assay` is that rail — `api` member truth, `docs check` fence-bearing pages, `provision` Forge toolchain facts, `bridge` live-host facts.
 
 INTEGRATE holds writer authority over the whole touched corpus, never the closing pass's own diff. It runs the full CRITIQUE attack and then the full RED-TEAM attack as two separate passes over every fence-bearing page the campaign touched, each grading the corpus as it now stands rather than as any pass found it; landings that graded clean alone still answer INTEGRATE for how they sit in the whole.
 

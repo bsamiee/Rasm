@@ -2,6 +2,8 @@
     <PropertyGroup>
         <Description>Grasshopper2 host boundary for Rasm: component authoring (spec, ports, Garden data transfer, attributes, native object catalog), document graph (lifecycle, connectivity, undo history, solution control), canvas (paint, wires, interaction, layout, motion), editor shell and chrome, Eto native UI construction and runtime, and the platform-gated macOS seam. References the Rasm kernel only.</Description>
         <CspScope>Boundary</CspScope>
+        <RasmHost>grasshopper;platform</RasmHost>
+        <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">

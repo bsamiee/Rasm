@@ -13,7 +13,7 @@ Cache keys durable browser-resident bands by `Digest.Key<"content">`, verifies e
 
 [BAND_LEDGER]:
 - Owner: `Cache` stores octet leaves and one `HashMap<Digest.Key<"content">, Cache.Entry>` ledger through `KeyValueStore`.
-- Packages: `@effect/platform`, `effect`, and `@rasm/ts/core` (`Digest`, `Fault.Class`).
+- Packages: `@effect/platform`, `effect`, and `@rasm/core` (`Digest`, `Fault.Class`).
 - Law: the band roster is closed and each row carries its whole policy — `keyed` states whether the addressing key must equal the content's own digest, `remintable` states whether a cold miss can reproduce the bytes, and `rank` orders eviction; a band is one row and a per-band code path is the named defect.
 - Law: `draft` is never swept because it is never remintable — an upload spill is the only copy of bytes the user cannot reproduce, so pressure reclaims every other band to the floor before it touches one, and a band added without answering `remintable` truthfully turns the cache into a data-loss surface.
 - Law: a bundle is named leaves, never a blob — a snapshot whose shape is several buffers (an acceleration tree's roots beside its index) stores one leaf per buffer under one key, exactly as a multi-file served asset rides one digest directory, so reassembly reads the leaf roster the entry carries and this module stays ignorant of what any band's bytes mean.
@@ -25,7 +25,7 @@ Cache keys durable browser-resident bands by `Digest.Key<"content">`, verifies e
 
 ```typescript signature
 import { KeyValueStore } from "@effect/platform"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 import { Array, DateTime, Effect, Layer, Schema } from "effect"
 
 const _bands = ["glb", "bvh", "frame", "draft", "media"] as const
@@ -99,7 +99,7 @@ const _store = (segment: string): Layer.Layer<KeyValueStore.KeyValueStore> =>
 - Law: each reason declares the subject it renders — a torn leaf names the slot and the leaf it promised, a key mismatch names both the address and the digest the bytes minted to, and a host refusal names the scope and the cause it carried; one shared free-string detail re-opens the axis `reason` already closed.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Effect, Schema } from "effect"
 
 // a store refusal reading or amending the index belongs to no band, so the ledger stands as its own scope beside the

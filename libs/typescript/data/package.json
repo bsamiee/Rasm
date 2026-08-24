@@ -1,0 +1,31 @@
+{
+    "name": "@rasm/data",
+    "version": "0.1.0",
+    "description": "Durable-persistence plane: guarantee lanes, append-only journal, content-addressed objects, typed reads",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/data"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./index.ts",
+        "./package.json": "./package.json"
+    },
+    "dependencies": {
+        "@rasm/core": "workspace:*",
+        "@rasm/security": "workspace:*"
+    },
+    "nx": {
+        "tags": [
+            "scope:data",
+            "runtime:neutral",
+            "plane:runtime"
+        ],
+        "targets": {
+            "typecheck": {}
+        }
+    }
+}

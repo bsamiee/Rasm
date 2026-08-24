@@ -239,7 +239,7 @@ class BuildingModel(Struct, frozen=True):
     def wire(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
         # ONE derivation, minted at the census gate and re-projected here: the wire key is SEED-ZERO over the
         # format-key-then-document chunk stream, reproducing the C# CanonicalWriter String(format.Key).Raw(bytes) fold
-        # under the CANONICAL_BYTE_IDENTITY framing law. The encoder is deterministic and `assign` re-keys its
+        # under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` law. The encoder is deterministic and `assign` re-keys its
         # successor, so re-encoding here yields exactly the bytes the held key was minted over.
         return evidence_run(
             EvidenceScope.ENERGY_MODEL, "wire", lambda: (_document(self.model), self.content_key), composition=self.composition

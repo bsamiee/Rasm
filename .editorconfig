@@ -12,6 +12,12 @@ indent_size = 4
 [*.{ts,tsx,js,jsx,mts,cts,py,yml,yaml,swift}]
 max_line_length = 150
 
+# BuildCheck severities (-check rides Directory.Build.rsp); BC0201/BC0202 cannot model the estate's deliberate cross-pass property reads.
+[*.csproj]
+build_check.BC0201.severity = none
+build_check.BC0202.severity = none
+build_check.BC0102.severity = none                                            # MPXJ.Net's ikvm runtime image reaches every closure consumer twice — transitive copy-local plus the ikvm package targets' own copy — as byte-identical writes; BC0101 still guards true output conflicts.
+
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
 csharp_style_namespace_declarations = file_scoped:error                       # Keep namespace declarations concise and modern.
@@ -373,6 +379,31 @@ dotnet_diagnostic.RMG093.severity = error                                     # 
 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
+
+# --- [ESTATE_SEVERITY_FLOOR] -------------------------------------------------
+# Rule severity lives here alone; no NoWarn exists at any MSBuild surface and the RASM0002 shape guard refuses one in a project body.
+dotnet_diagnostic.CS1591.severity = none                                      # GenerateDocumentationFile ships the XML for tooling; member-level doc prose is not estate law.
+dotnet_diagnostic.CS9236.severity = none                                      # Roslyn lambda binding-cost telemetry, not a defect signal.
+dotnet_diagnostic.CA2225.severity = none                                      # LanguageExt/Thinktecture operator algebra is the canonical surface; named alternates would duplicate it.
+
+[{libs/csharp/Rasm,libs/csharp/Rasm.Rhino,libs/csharp/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/csharp/scenarios,tests/csharp/_architecture}/**.cs]
+dotnet_diagnostic.CA1416.severity = none                                      # Host-ui assemblies are macos-scoped by SupportedOSPlatform; Rhino.UI/Eto surfaces carry no platform annotations to check against.
+
+[{libs/csharp/Rasm.Rhino,libs/csharp/Rasm.Grasshopper,tools/rhino-bridge/Cargo,tests/csharp/scenarios,tests/csharp/_architecture}/**.cs]
+dotnet_diagnostic.CA1724.severity = none                                      # Microsoft.macOS exposes a Phase namespace colliding with the canonical ComponentUi.Phase enum.
+
+[libs/csharp/Rasm.AppHost/**.cs]
+dotnet_diagnostic.EXTEXP0002.severity = none                                  # Resource-monitoring range and calculation rows: experimental-API opt-in.
+dotnet_diagnostic.EXTEXP0008.severity = none                                  # Resource-monitoring roster rows: experimental-API opt-in.
+dotnet_diagnostic.EXTOBS0001.severity = none                                  # Telemetry refresh rows: experimental-API opt-in.
+
+[tools/rhino-bridge/Contract/**.cs]
+dotnet_diagnostic.CA1819.severity = none                                      # Arrays are the wire DTO shape on this assembly alone.
+dotnet_diagnostic.StreamJsonRpc0008.severity = none                           # [GenerateShape]'s PolyType generator cannot construct Thinktecture-generated wire types (CS1729), and SystemTextJsonFormatter is the only formatter either end builds.
+
+[tools/cs-analyzer/**.cs]
+dotnet_diagnostic.CA1008.severity = none                                      # Closed vocabularies (CspScope, rule kinds) have no valid None row.
+dotnet_diagnostic.CA1812.severity = none                                      # Inactive rule-catalog shapes instantiate through the rule table, not direct construction.
 
 [libs/csharp/Rasm.Contracts/Generated/**.cs]
 generated_code = true                                                         # protoc and grpc_csharp_plugin emission; style and analyzer lanes skip it, the compiler still reads it.

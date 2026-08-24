@@ -1,7 +1,0 @@
-{
-    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-    "name": "core",
-    "projectType": "library",
-    "sourceRoot": "libs/typescript/core/src",
-    "tags": ["scope:core", "runtime:neutral", "plane:runtime"]
-}

@@ -23,11 +23,11 @@
 - Entry: `Pulse.mark("drained", channel, settled)` beside the relay's drain fact; `Pulse.mark("parked", channel)` beside the park fact.
 - Growth: a new settlement kind is one `_WORK` row and a new census level one `_GAUGES` row, each naming its Convention metric.
 - Boundary: the facts themselves are the work plane's (`work/deliver`, `work/queue`) and the journal is the data plane's; this page owns only the projection.
-- Packages: `effect` (`Metric`, `Array`, `Option`, `Record`); `@rasm/ts/core` (`Convention`, `Tap`).
+- Packages: `effect` (`Metric`, `Array`, `Option`, `Record`); `@rasm/core` (`Convention`, `Tap`).
 
 ```typescript signature
 import { AggregationType, createAllowListAttributesProcessor, createDenyListAttributesProcessor } from "@opentelemetry/sdk-metrics"
-import { type Identity, Convention, Tap } from "@rasm/ts/core"
+import { type Identity, Convention, Tap } from "@rasm/core"
 import {
   Array, Context, Duration, Effect, Layer, Logger, LogLevel, Metric, Option, Record, Ref, Schedule, Schema,
 } from "effect"
@@ -106,7 +106,7 @@ const _marked = (kind: Pulse.Work, channel: string, count = 1): Effect.Effect<vo
 - Boundary: the breach ring's own `ledger` census counts displaced BREACHES, not facts at a point, so no `tapPoint`-dimensioned row admits it; breach series ride `Convention.metric.tapBreaches` off the `Tap.breaches` stream at its own emitter.
 - Entry: `Pulse.live(policy)` merged at the composition root beside `Export.live`, after the root binds `Probe` and seats `Hooks.Dispatch`.
 - Growth: a new census dimension is one `Census` field and one `_GAUGES` row reading it; a new rail tally is one `_FEED` entry over its `_TAP` row.
-- Packages: `effect` (`Context`, `Duration`, `Layer`, `Metric`, `Option`, `Record`, `Ref`, `Schedule`); `@rasm/ts/core` (`Tap.census`); `./emit.ts` (`Hooks.Dispatch`).
+- Packages: `effect` (`Context`, `Duration`, `Layer`, `Metric`, `Option`, `Record`, `Ref`, `Schedule`); `@rasm/core` (`Tap.census`); `./emit.ts` (`Hooks.Dispatch`).
 
 ```typescript signature
 class Probe extends Context.Tag("runtime/Pulse/Probe")<Probe, {
@@ -212,7 +212,7 @@ const _verbosity: Layer.Layer<never, never, Setting> = Layer.unwrapEffect(
 - Law: each row's execution seam is the metric plane it selects — `rasm.*` rows govern Effect-minted series through the producer projection at `emit#GOVERNANCE`, `v8js.*` rows govern the raw provider through the SDK's own view engine, and the aggregation re-arm only reaches instruments the raw provider owns because a collected point cannot be re-bucketed; the row shape is one vocabulary and the seam follows the selection.
 - Entry: `Pulse.views(policy)` merged among the `Hooks.contribute` nodes, before `Export.live` drains.
 - Growth: a new governed space is one `_VIEWS` row with its policy group.
-- Packages: `@opentelemetry/sdk-metrics` (`createAllowListAttributesProcessor`, `createDenyListAttributesProcessor`, `AggregationType`); `effect` (`Record`); `@rasm/ts/core` (`Convention`); `./emit.ts` (`Hooks`).
+- Packages: `@opentelemetry/sdk-metrics` (`createAllowListAttributesProcessor`, `createDenyListAttributesProcessor`, `AggregationType`); `effect` (`Record`); `@rasm/core` (`Convention`); `./emit.ts` (`Hooks`).
 
 ```typescript signature
 const _VIEWS = {
@@ -248,7 +248,7 @@ const _views = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
 - Law: burn inputs are series names, never queries — the vital pair (total `Convention.metric.vitalObserved`, bad the same series sliced `vitalGrade=poor`) and the work pair (total `relayDrained`, bad `queueParked`) are data rows; the burn-rate algebra, objectives, and window ladders stay the core slo plane's, compiled by the iac observe fold.
 - Law: `Pulse.wire` is the provenance key this producer mints — the deploy tuple admits a pack only under a key its producing branch spells, so the constant lives beside the projection earning it and the app's deploy feed stamps it rather than re-typing a literal; a key spelled at the consuming tier alone forks the moment either end edits it.
 - Growth: a new burn family is one `_BURN` row; a new panel axis is one field on the panel struct every producer inherits.
-- Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/ts/core` (`Convention`, `Identity.App`).
+- Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/core` (`Convention`, `Identity.App`).
 
 ```typescript signature
 class _Board extends Schema.Class<_Board>("Pulse/Board")({

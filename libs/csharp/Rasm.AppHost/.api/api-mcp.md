@@ -33,7 +33,7 @@
 |  [03]   | `McpClient`                                | abstract class      | client session                                        |
 |  [04]   | `McpException`                             | exception           | typed protocol failure                                |
 |  [05]   | `McpErrorCode`                             | enum                | JSON-RPC error vocabulary                             |
-|  [06]   | `RequestOptions`                           | options class       | request timeout and cancellation                      |
+|  [06]   | `RequestOptions`                           | options class       | per-request `_meta`, progress token, serializer       |
 |  [07]   | `UnsupportedProtocolVersionException`      | exception           | negotiated-version refusal (`-32022`)                 |
 |  [08]   | `MissingRequiredClientCapabilityException` | exception           | capability refusal (`-32021`)                         |
 |  [09]   | `McpJsonUtilities`                         | static class        | serializer options and type-info                      |
@@ -235,8 +235,11 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 |  [14]   | `McpClient.AddKnownTools(IEnumerable<Tool>)`                                 | instance | pre-populate the tool cache before listing |
 |  [15]   | `McpClient.ServerInfo` / `.ServerCapabilities` / `.ServerInstructions`       | property | the discovered peer facts                  |
 |  [16]   | `McpClientOptions.DiscoverProbeTimeout`                                      | property | bounds the `server/discover` probe         |
+|  [17]   | `McpClient.ReadResourceAsync(string, ...)`                                   | instance | `-> ValueTask<ReadResourceResult>`         |
 
 - `McpClient.SubscribeToResourceAsync`: its `Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask>` handler overload returns `Task<IAsyncDisposable>` and registers a per-URI update handler.
+- `McpClient.ReadResourceAsync` serves resources AND templates as two overloads of one member: `(string uri, RequestOptions?, CancellationToken)` reads a concrete resource, and `(string uriTemplate, IReadOnlyDictionary<string, object?> arguments, RequestOptions?, CancellationToken)` evaluates the RFC 6570 template before the read — there is no separate template-read verb.
+- `RequestOptions` declares `Meta`, `ProgressToken`, `JsonSerializerOptions`, and `GetMetaForRequest()` — NO per-request timeout exists anywhere in the C# SDK: the five `Timeout` members are lifecycle-scoped (`HttpClientTransportOptions.ConnectionTimeout`, `StdioClientTransportOptions.ShutdownTimeout`, `McpClientOptions.InitializationTimeout`/`.DiscoverProbeTimeout`, `McpServerOptions.InitializationTimeout`), so a call deadline is the caller's own linked cancellation source over the trailing `CancellationToken`.
 - `ResumeClientSessionOptions` carries the detached session's `ServerCapabilities`, `ServerInfo`, `ServerInstructions`, and `NegotiatedProtocolVersion` — the version slot is load-bearing, defaulting to `2025-11-25` when null; a null option, capability set, or server info faults `ArgumentNullException`, so a resuming host persists the handshake facts beside the session id.
 
 [ENTRYPOINT_SCOPE]: server configuration on `McpServerOptions`.

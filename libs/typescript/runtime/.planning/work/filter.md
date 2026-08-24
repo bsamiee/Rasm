@@ -24,7 +24,7 @@ Subscription filtering is ONE owner: the seven specification dialects compile in
 - Entry: `Filter.compile(spec)` at subscription admission answers `Either<Compiled, CesqlFault>`; `Filter.admits(compiled, envelope)` at delivery answers the verdict beside the faults its evaluation accumulated.
 - Growth: a dialect is one union member, one row, and one compile arm; the delivery fold never widens.
 - Boundary: which subscription holds which filters, and where a subscription persists, are the consuming binding's; this page owns the dialect vocabulary and its evaluation alone.
-- Packages: `effect` (`Array`, `Either`, `Option`, `Record`, `Schema`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/ts/core` (`Event`, `Fault.Class`, `Shape.Record`).
+- Packages: `effect` (`Array`, `Either`, `Option`, `Record`, `Schema`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/core` (`Event`, `Fault.Class`, `Shape.Record`).
 
 ```typescript signature
 import {
@@ -32,7 +32,7 @@ import {
 } from "chevrotain"
 import type { CloudEventV1 } from "cloudevents"
 import { Array, Data, Effect, Either, Number, Option, Order, Predicate, Record, RegExp, Schema, String, pipe } from "effect"
-import { Event, Fault, Shape } from "@rasm/ts/core"
+import { Event, Fault, Shape } from "@rasm/core"
 
 // --- [TYPES] ----------------------------------------------------------------------------
 
@@ -183,7 +183,7 @@ const _Compile: {
 - Law: the seven reasons carry the conformance corpus's own spellings and declare alphabetically, so two branches transcribing the roster publish one sequence; each grades through the core class table rather than minting a second taxonomy.
 - Law: each reason declares its OWN subject and renders it — the crossing pair a cast refused, the operand and extent a slice fell outside, the site and value the 32-bit band rejected, whether an absent identifier is a declared extension, the offered arity beside a name, the stage a text refusal reached — so a diagnostic is columns a consumer folds rather than a hand-templated word pair only a human could read.
 - Growth: a type is one case on the value family with its own cast column; a reason is one row on the family carrying its own subject and renderer.
-- Packages: `effect` (`Array`, `Data`, `Number`, `Option`, `Record`, `Schema`, `String`, `pipe`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Array`, `Data`, `Number`, `Option`, `Record`, `Schema`, `String`, `pipe`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 type CesqlValue = Data.TaggedEnum<{
@@ -565,7 +565,7 @@ const _cesqlSubstring = (operands: ReadonlyArray<CesqlValue>): Cesql.Reading =>
 - Law: a pattern's backslash escapes the two wildcards and itself and stands literal before every other glyph, and every literal glyph splices through `RegExp.escape` OUTSIDE any character class, so an escaped hyphen cannot mint a range.
 - Law: the fold recurses natively because admission already bounded the depth — the compile refuses past the nesting ceiling, which is what converts a caller-supplied expression into the data depth this form requires.
 - Growth: an expression case is one family member with its fold arm; the missing arm is a compile error at the exhaustive dispatch.
-- Packages: `effect` (`Array`, `Data`, `Option`, `Predicate`, `Record`, `RegExp`, `String`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/ts/core` (`Event`).
+- Packages: `effect` (`Array`, `Data`, `Option`, `Predicate`, `Record`, `RegExp`, `String`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/core` (`Event`).
 
 ```typescript signature
 type CesqlExpr = Data.TaggedEnum<{

@@ -40,10 +40,10 @@
 
 - `rasm` stays a PEP 420 namespace while `rasm.contracts` is the installable typed package boundary above the clean generation sweep.
 - Estate generation carries reachable support imports under `gen`; publisher generation writes the collision-safe `vendor` root.
-- Package metadata, boundary modules, `__init__.py`, and `py.typed` stay above `gen` and `vendor`, so clean generation deletes no identity or policy.
+- Boundary modules, `__init__.py`, and `py.typed` stay above `gen` and `vendor`, so clean generation deletes no identity and no policy.
 - Assay restores manifest-distributed publisher resources after Buf's clean sweep.
 - Catalogue roster markers contain gate-emitted descriptor data; generator grammar remains the hand-maintained correspondence.
 
 ## [05]-[PROCESS]
 
-- `assay contracts generate` authors modules, publisher resources, and catalog rows; uv builds and installs the distribution.
+- `assay contracts generate` authors modules, publisher resources, and catalog rows; the `rasm-contracts` member manifest builds and installs them.

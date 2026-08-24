@@ -33,7 +33,7 @@ Suppression is evidence on the record of truth: a bounce or gone endpoint append
 - Law: a stated window rides the VALUE under one word — a receiver answering `429` with `Retry-After` is the branch's inbound producer of a measured wait, so the refusal carries `after` and `Fault.Class.statedOf` seats it on the lane verdict; every other refusal measured nothing and stays absent rather than inventing a zero that re-offers immediately.
 - Law: the payload is decoded once at the lane seam — each channel's `payload` schema rides `Lane.row`, so a decode failure parks `invalid` through the lane's poison short-circuit before any deliver code runs, and a drain-local decoder is unspellable.
 - Growth: a new channel is one `Deliver.channel` row; a new settlement dimension is one spine field at `entity#SETTLED_RECEIPT` every producer populates; a new gate axis (a per-destination rate class, an allowlist) is a column on the channel row the relay lane reads.
-- Packages: `effect` (`Array`, `Duration`, `Option`, `Schema`); `@rasm/ts/core` (`Fault.Class`); `./entity.ts` (`Settled`, `WorkClass`).
+- Packages: `effect` (`Array`, `Duration`, `Option`, `Schema`); `@rasm/core` (`Fault.Class`); `./entity.ts` (`Settled`, `WorkClass`).
 
 ```typescript signature
 import { VariantSchema } from "@effect/experimental"
@@ -49,9 +49,9 @@ import type Mail from "nodemailer/lib/mailer"
 import type SMTPConnection from "nodemailer/lib/smtp-connection"
 import { CONSTANTS, HTTP, type CloudEventV1, type Message } from "cloudevents"
 import { Buffer } from "node:buffer"
-import { Fact, Journal, Tenancy } from "@rasm/ts/data"
-import { Crypto } from "@rasm/ts/security"
-import { Event, Fault, type Identity } from "@rasm/ts/core"
+import { Fact, Journal, Tenancy } from "@rasm/data"
+import { Crypto } from "@rasm/security"
+import { Event, Fault, type Identity } from "@rasm/core"
 import { Client, Lapse, WebhookOrigin } from "../net/client.ts"
 import { Propagation } from "../otel/emit.ts"
 import { Pulse } from "../otel/meter.ts"
@@ -429,7 +429,7 @@ const _mailSettled = (
 - Law: destinations are HTTPS and every POST body is non-empty — the row's destination schema refuses every other scheme, the direct validation entry crosses the same schema, and projection refuses an SDK frame with no payload instead of emitting a Webhook request the binding specification forbids.
 - Boundary: the announcement is `data:journal/append#RELAY_ROWS`'s projection and its grammar `core:interchange/carrier#EVENT_ENVELOPE`'s; this row seals, frames, signs, and transmits it and invents no envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
-- Packages: `cloudevents` (`HTTP`, `CONSTANTS`), `@effect/experimental` (`VariantSchema.make`, `Class`, `FieldOnly`; `RateLimiter` — the store Tag the grant row spends), `@effect/platform` (`Headers`, `HttpBody`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Duration`, `Number`, `Record`), `@rasm/ts/core` (`Event`), `@rasm/ts/security` (`Crypto`), and `../net/client.ts`.
+- Packages: `cloudevents` (`HTTP`, `CONSTANTS`), `@effect/experimental` (`VariantSchema.make`, `Class`, `FieldOnly`; `RateLimiter` — the store Tag the grant row spends), `@effect/platform` (`Headers`, `HttpBody`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Duration`, `Number`, `Record`), `@rasm/core` (`Event`), `@rasm/security` (`Crypto`), and `../net/client.ts`.
 
 ```typescript signature
 // Single-sourced framing: media alone mints the content type, the signer alone mints the triple, and the abuse-
@@ -787,7 +787,7 @@ const _hookSettle = (
 - Law: suppression is append-only history — reinstatement is a `deliver.reinstated` fact, and the projection folds the pair; deleting suppression evidence is unrepresentable.
 - Law: the unsubscribe seam is one-way — the serving plane's unsubscribe endpoint appends the same fact shape; this fold never mounts a route.
 - Growth: a suppression cause (complaint feedback loop, manual block) is one action verb on the same fact shape.
-- Packages: `@rasm/ts/data` (`Fact`); `effect` (`Effect`, `Option`).
+- Packages: `@rasm/data` (`Fact`); `effect` (`Effect`, `Option`).
 
 ```typescript signature
 const _admissible = <R>(suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R>) =>
@@ -834,7 +834,7 @@ const _settled = (sent: Delivery) =>
 - Law: the pass budget grades on `Journal.retryable`, never on the class default — every fault the pass raises is a store fault the journal already projects onto the shared class table, so a connection blip re-drives inside the tick and an undecodable claim batch refuses; accepting the property grader parks the whole shard's outbox on the first blip while the compiled budget records nothing.
 - Receipt: each pass folds `Lane.settle`'s outcome roster into one `deliver.drained` meter fact — claims, settled, deferred, parked, and REFUSED, the discharges the store's own fence turned down — and marks the settled count onto the `Pulse` throughput counter in the same fold, so the OTel series and the journal fact cannot disagree on a pass. Throughput stays the decision count because a refused fence redelivers the row, which the at-least-once law already admits; a pass folding the two into one number reports a mark it never landed as delivered.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
-- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/ts/data` (`Journal`, `Fact`, `Tenancy`); `@rasm/ts/core` (`Fault.Budget`, `Fault.Class`); `./entity.ts` (`WorkClass`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/emit.ts` (`Propagation`); `../otel/meter.ts` (`Pulse`).
+- Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/data` (`Journal`, `Fact`, `Tenancy`); `@rasm/core` (`Fault.Budget`, `Fault.Class`); `./entity.ts` (`WorkClass`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/emit.ts` (`Propagation`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript signature
 // one interior field schema every list key composes: the bare URL and the annotated arm are one decoded shape,

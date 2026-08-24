@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH]
 
-`libs/typescript` is an independently adoptable host-free web, edge, and deployment platform composed as `@rasm/ts` through per-domain subpath exports carrying `server`/`browser`/`wasm` conditions. TypeScript applications originate and operate branch-owned runtime, persistence, security, UI, and deployment capability with no peer branch present; polyglot applications exchange contract-conforming artifacts through the generated `contracts/` bindings, aligned by wire bytes, the frozen corpus, and `buf breaking` at the corpus, never by import.
+`libs/typescript` is an independently adoptable host-free web, edge, and deployment platform composed as per-folder `@rasm/*` packages carrying `server`/`browser`/`wasm` conditions. TypeScript applications originate and operate branch-owned runtime, persistence, security, UI, and deployment capability with no peer branch present; polyglot applications exchange contract-conforming artifacts through the generated `contracts/` bindings, aligned by wire bytes, the frozen corpus, and `buf breaking` at the corpus, never by import.
 
 One `pnpm-workspace.yaml` catalog pins versions; test infrastructure lives under `tests/`, never the branch.
 

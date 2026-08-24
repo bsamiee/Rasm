@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING
 from expression import Error, Ok, Result  # canned executor lanes return Result instances at runtime
 import pytest
 
+from assay.core.model import Claim, Completed, Fault, RailStatus, receipt, Runner
+from assay.rails.docs import check, DocsParams, FaultedPromotion
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.core.model import Claim, Completed, Fault, RailStatus, receipt, Runner
-from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
 
 
 if TYPE_CHECKING:
+    from assay.core.model import Check, Report
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Check, Report
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

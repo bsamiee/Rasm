@@ -164,7 +164,7 @@ const _sheet = (
 
 ```typescript signature
 import { Command, CommandDialog, defaultFilter, useCommandState } from "cmdk"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Either, HashSet, Option, Record, Schema, type Effect } from "effect"
 import type { LucideIcon } from "lucide-react"
 import { useSyncExternalStore, type ComponentProps } from "react"
@@ -467,7 +467,7 @@ const _useMatched = (): number => useCommandState((state) => state.filtered.coun
 
 [PRESENCE_COHORT]:
 - Owner: `Overlay.cursors(seen, horizon, lease, project)` — the collaborative-cursor projection: the presence fold table (per-actor `Presence.State`, entering the view plane as an atom through `system/atom#LIVE_BRIDGE`) folds against `Presence.roster`'s lease verdicts into one anchored row per SIGHTED actor — the actor's `cursor` axis mapped through the caller's projection and wrapped by `Overlay.point`, the worn `face` carrying name and hue, the `idle` flag carrying the dimming a recipe styles; a `gone` verdict and an actor whose cursor axis never arrived both leave the projection entirely, so ageing is the roster's lease and never a local timer per cursor.
-- Packages: `@floating-ui/react` (`useClientPoint`, `FloatingPortal`); `@rasm/ts/core` (`Presence` — the roster read, the lease law, and the `cursor`/`face` axes arrive settled; `Clock.Hlc` and `Fold.Table` type the horizon and the table); `effect` (`Array`, `HashMap`, `Option`).
+- Packages: `@floating-ui/react` (`useClientPoint`, `FloatingPortal`); `@rasm/core` (`Presence` — the roster read, the lease law, and the `cursor`/`face` axes arrive settled; `Clock.Hlc` and `Fold.Table` type the horizon and the table); `effect` (`Array`, `HashMap`, `Option`).
 - Law: the LOCAL pointer never enters this projection — its own affordance (a cursor-attached label, a drag ghost) anchors through `useClientPoint(context)`, the shipped cursor-follow anchor, while every REMOTE actor anchors by point; a hand-built rect wrapper on either side restates one of the two.
 - Law: coordinates arrive projected, and the projection answers `Option` — `project` maps a `Presence.Point` (tagged `Sheet` or `Scene`, each carrying its own surface id) into viewport coordinates or `Option.none` for a point no registered space resolves, and the fold DROPS an unresolvable actor rather than rendering at a fabricated coordinate; `view/presence#CURSOR_PLANE`'s `Face.project` over the assembled anchor lanes is the supplying seam, so a map surface's viewer projection and a plain sheet feed the same cohort and this page holds no coordinate math and no surface branch.
 - Law: presence is render-only — cursors mount in one `FloatingPortal` at the `Theme.Scale.z` cursor rank with `Motion.panel` on the row, never intercept pointer events (`pointer-events: none` in the recipe), and carry no focus semantics; the cohort is a projection of state, not an interaction surface.
@@ -475,7 +475,7 @@ const _useMatched = (): number => useCommandState((state) => state.filtered.coun
 - Boundary: the roster fold, lease policy, and status verdicts live in the core presence plane; the horizon reads the one frame clock through the same bridge, and the projection arrives as a parameter so the cohort is surface-agnostic.
 
 ```typescript signature
-import { Presence, type Clock, type Fold } from "@rasm/ts/core"
+import { Presence, type Clock, type Fold } from "@rasm/core"
 import { Array, HashMap, Option } from "effect"
 
 declare namespace Overlay {

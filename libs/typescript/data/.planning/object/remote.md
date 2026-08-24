@@ -19,7 +19,7 @@
 
 - Owner: `Origin` fuses URI decode with ONE scheme row table carrying the addressing group (`port`, `pooled`, `local`, `tls`) beside the `flags` capability group; `RemoteFault` closes its reasons through `Fault.Class.family`.
 - Law: one scheme-keyed table owns every per-scheme fact — a second table beside it (a port map, a TLS map, a connectionless roster) is the shape that lets an arm spell `scheme === "<name>"` where a column belongs, so the dial, the pool road, the rsync argv rendering, and the TLS posture all read columns and the page holds no scheme-name test.
-- Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `ParseResult`, `Schema`); `@rasm/ts/core` (`Fault`).
+- Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `ParseResult`, `Schema`); `@rasm/core` (`Fault`).
 - Entry: every consumer addresses the plane by `Origin` value — `Origin.parse("sftp://deploy@vps.example:22/srv/artifacts")` at a config seam, never scheme-forked code; the address seeds the acquire, and `session.flags` is the dispatch datum every operation reads.
 - Growth: a new protocol is one scheme key, one flag row, one session arm, and the op arms it earns — every consumer inherits it through the flags; a flag a server refuses at runtime narrows by row override, never by fork.
 - Law: capability flags are decision data — `serverCopy: false` makes `copy` degrade to read-then-write, `serverMove: false` makes `move` degrade to copy-then-remove, `changeNotify: false` routes `watch` to the poll row, `exec: false` refuses `exec` typed, `modTime: false` makes `stat` publish absence instead of sending a command the server never advertised; the degrade paths live in the op arms once, so no caller ever probes a protocol.
@@ -32,7 +32,7 @@
 
 ```typescript signature
 import { Array, Data, Either, Option, ParseResult, Schema } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 const _SCHEME_KEYS = ["file", "sftp", "ssh", "ftp", "ftps", "webdav", "s3"] as const
 
@@ -444,7 +444,7 @@ import { FileSystem } from "@effect/platform"
 import { NodeSink, NodeStream } from "@effect/platform-node"
 import { PassThrough } from "node:stream"
 import { paginateListObjectsV2 } from "@aws-sdk/client-s3"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 import { ObjectFault, ObjectStore } from "./store.ts"
 import { Rail } from "./stream.ts"
 import type { Retain } from "../journal/retain.ts"
@@ -1570,7 +1570,7 @@ export { Origin, Remote, RemoteFault }
 ## [09]-[INSTRUMENT_ROWS]
 
 - Owner: the remote plane's Convention projections — the mounted instrument rows, `_measured`, the ONE combinator the `Remote` entry record folds every verb through, and the bounded taps the legs that own their own census carry (`_read`/`_write` octets, `_transfer` resume, `_sync`/`_watch`/`_exec` rows); the pooled-session level stays `CacheLane.lease`'s.
-- Packages: `effect` (`Metric`, `Effect`, `Duration`); `@rasm/ts/core` (`Convention` — the instrument, axis, outcome, and duration projections).
+- Packages: `effect` (`Metric`, `Effect`, `Duration`); `@rasm/core` (`Convention` — the instrument, axis, outcome, and duration projections).
 - Entry: the `Remote` record folds each verb through `_measured(op, origin, self)` at ONE site, so the surface is instrumented by the record rather than by a tap per member and a new verb inherits measurement by construction; the census taps ride inside the legs that already hold the number.
 - Growth: a new verb is one entry-record row the fold already covers; a new axis is one `Convention` row with its tap on the owning leg.
 - Law: the operation counter is the core outcome aspect, never a hand-rolled fold — `Convention.outcome(Convention.metric.remoteOps, Convention.attr.errorType, Fault.Class, …)` owns the single emission point, the interrupt-first discrimination, and the `halted`/`crashed`/reason vocabulary; the third argument is the CENSUS the words come from, so `Fault.Class` names the roster and this page supplies only its own projection onto it (`RemoteFault.class`, the core kind the family already derives) and spells no `Effect.onExit`; a page-local exit fold double-counts every retried attempt and never sees a defect.
@@ -1582,7 +1582,7 @@ export { Origin, Remote, RemoteFault }
 
 ```typescript signature
 import { Duration, Effect, Metric } from "effect"
-import { Convention, Fault } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/core"
 
 const _bytes = Convention.mount(Convention.metric.remoteBytes)
 const _exits = Convention.mount(Convention.metric.remoteExecExits)

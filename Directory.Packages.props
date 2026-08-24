@@ -7,6 +7,7 @@
 
     <ItemGroup Label="Analyzer Tooling">
         <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.138" />
+        <PackageVersion Include="MinVer"                                                  Version="7.0.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"                        Version="5.6.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"                           Version="5.6.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"                Version="5.6.0" />
@@ -388,6 +389,8 @@
         <PackageVersion Include="Avalonia.AvaloniaEdit"                                   Version="12.0.0" />
         <PackageVersion Include="Avalonia.Controls.ColorPicker"                           Version="12.1.1" />
         <PackageVersion Include="Avalonia.Controls.DataGrid"                              Version="12.1.2" />
+        <!-- Legacy pan-zoom id, aliased at its consumer beside the PanAndZoom successor. -->
+        <PackageVersion Include="Avalonia.Controls.PanAndZoom"                            Version="11.3.0" />
         <PackageVersion Include="Avalonia.Desktop"                                        Version="12.1.1" />
         <PackageVersion Include="Avalonia.Fonts.Inter"                                    Version="12.1.1" />
         <PackageVersion Include="Avalonia.Headless"                                       Version="12.1.1" />
@@ -446,6 +449,7 @@
         <PackageVersion Include="Silk.NET.SDL"                                            Version="2.23.0" />
         <PackageVersion Include="SkiaSharp"                                               Version="4.151.0" />
         <PackageVersion Include="SkiaSharp.HarfBuzz"                                      Version="4.151.0" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies"             Version="4.151.0" />
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS"                            Version="4.151.0" />
         <PackageVersion Include="Svg.Controls.Skia.Avalonia"                              Version="12.0.0.13" />
         <PackageVersion Include="Svg.Skia"                                                Version="5.1.1" />
@@ -473,15 +477,14 @@
         <PackageVersion Include="Microsoft.Testing.Extensions.Retry"                      Version="2.3.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport"                  Version="2.3.3" />
         <PackageVersion Include="NodaTime.Testing"                                        Version="3.3.3" />
-        <PackageVersion Include="OpenTelemetry.Exporter.InMemory"                         Version="1.17.0" />
         <PackageVersion Include="Polly.Testing"                                           Version="8.7.0" />
         <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3"                             Version="0.13.3" />
         <PackageVersion Include="Verify.DiffPlex"                                         Version="3.3.1" />
         <PackageVersion Include="Verify.XunitV3"                                          Version="31.28.0" />
-        <PackageVersion Include="xunit.v3.assert"                                         Version="3.2.2" />
-        <PackageVersion Include="xunit.v3.common"                                         Version="3.2.2" />
-        <PackageVersion Include="xunit.v3.extensibility.core"                             Version="3.2.2" />
-        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="3.2.2" />
+        <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.0" />
+        <PackageVersion Include="xunit.v3.common"                                         Version="4.0.0" />
+        <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.0" />
+        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="Transitive Floors">
@@ -546,7 +549,6 @@
         <PackageVersion Include="NJsonSchema.NewtonsoftJson"                              Version="11.6.1" />
         <PackageVersion Include="protobuf-net"                                            Version="3.2.56" />
         <PackageVersion Include="protobuf-net.Core"                                       Version="3.2.56" />
-        <PackageVersion Include="protobuf-net.Reflection"                                 Version="3.2.52" />
         <PackageVersion Include="RecursiveDataAnnotationsValidation"                      Version="2.2.0" />
         <PackageVersion Include="SharpZipLib"                                             Version="1.4.2" />
         <PackageVersion Include="Snappier"                                                Version="1.3.1" />
@@ -582,8 +584,7 @@
         <PackageVersion Include="VividOrange.Sections.ISectionProperties"                 Version="0.1.0" />
         <PackageVersion Include="VividOrange.Serialization"                               Version="0.1.0" />
 
-        <!-- App UI native, map, text, and model closure; the legacy pan-zoom id is aliased at its consumer. -->
-        <PackageVersion Include="Avalonia.Controls.PanAndZoom"                            Version="11.3.0" />
+        <!-- App UI native, map, text, and model closure. -->
         <PackageVersion Include="BruTile"                                                 Version="6.0.0" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux"                        Version="14.2.1.1" />
         <PackageVersion Include="Irihi.Avalonia.Shared"                                   Version="0.5.0" />
@@ -594,7 +595,6 @@
         <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.6" />
         <PackageVersion Include="NodeEditorAvalonia.Model"                                Version="12.0.0" />
         <PackageVersion Include="SkiaSharp.NativeAssets.Linux"                            Version="4.151.0" />
-        <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies"             Version="4.151.0" />
         <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly"                      Version="4.151.0" />
         <PackageVersion Include="Tmds.DBus.Protocol"                                      Version="0.94.2" />
         <PackageVersion Include="Topten.RichTextKit"                                      Version="0.4.167" />

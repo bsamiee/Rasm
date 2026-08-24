@@ -10,6 +10,6 @@ test.describe('blocked scenario classes', () => {
     test.skip('live realtime ws/sse — activation: edge/live serve over state Subscribables', () => {});
     test.skip('auth login + storageState setup project, passkeys persisted via storageState credentials — activation: security + edge + ui composition', () => {});
     test.skip('multi-client crdt sync — activation: store EventLog sync server + edge socket mount', () => {});
-    test.skip('viewer render receipts — activation: ui/viewer scene rows + GLB_BY_KEY producer pin', () => {});
+    test.skip('viewer render receipts — activation: ui/viewer scene rows + keyed-artifact/glb producer pin', () => {});
     test.skip('gpu device-loss re-init — activation: ui/viewer scene backend-lost statechart', () => {});
 });

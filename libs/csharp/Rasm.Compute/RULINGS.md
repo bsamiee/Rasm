@@ -38,6 +38,8 @@
 - Face attribution rides no `RESIDENCY` column — `Rasm.Fabrication` owns that join a stratum up; reopens on a lane ingesting a boolean product.
 - Unknown fields are ONE posture — binary `WithDiscardUnknownFields(false)` at `ParseGuard`, JSON `WithIgnoreUnknownFields(true)` at `WireJson`.
 - `WireLimits.Artifact` is the ONE ceiling over a reassembled artifact — `Drain` parses under `CreateWithLimits`; `ParseGuard` gates `Inbound` alone.
+- `Artifact` reads `StreamPoolPolicy.ArtifactCeiling` (1 GiB), never the channel cap — deriving both rows from `MaxSendBytes` voided the frame law.
+- Leaf replay keys compose (content key, `ImportedGeometry.At`, pre-order leaf ordinal) — both halves content-derived; wall-clock keys defeat replay.
 - `StatusRail` is the CLIENT fold `StatusCode → WireFault`, the inverse of AppHost's producer `FaultWire.Status` — it packs no detail.
 - Stage crossing is branch-interior MessagePack no peer runtime decodes — `StageCrossing.Checksum` is the law both ends compute, never a boot probe.
 - Closed C# vocabularies cross `compute.proto` as KEY text or a `[SmartEnum<int>]` value — a proto enum owes an `_UNSPECIFIED` arm none holds.

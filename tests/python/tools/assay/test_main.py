@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
+from assay import __main__ as _main_mod, bootstrap_error, install_tracing
+from assay.core.model import Claim, RailStatus
 from tests.python.tools.assay.kit import read_one_envelope_from_bytes
-from tools.assay import __main__ as _main_mod, bootstrap_error, install_tracing
-from tools.assay.core.model import Claim, RailStatus
 
 
 if TYPE_CHECKING:
@@ -291,7 +291,7 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]  # module-top installs OTel before monkeypatch
     import opentelemetry.trace as _ot  # ruff:ignore[import-outside-top-level]  # deferred: same session-provider contamination reason as TracerProvider
 
-    import tools.assay as assay_pkg  # ruff:ignore[import-outside-top-level]  # the binding under patch lives on the package, resolved at call time
+    import assay as assay_pkg  # ruff:ignore[import-outside-top-level]  # the binding under patch lives on the package, resolved at call time
 
     captured: list[object] = []
     monkeypatch.setattr(assay_pkg, "set_tracer_provider", captured.append)
@@ -380,7 +380,7 @@ def test_admit_exec_routes_flag_through_validated_env_path(flag_value: str, expe
     assert stripped == ("static",)
     assert _main_mod.os.environ["ASSAY_EXEC_TARGET"] == expected_env
 
-    from tools.assay.composition.settings import (  # ruff:ignore[import-outside-top-level]  # admission round-trip through the validated env path
+    from assay.composition.settings import (  # ruff:ignore[import-outside-top-level]  # admission round-trip through the validated env path
         AssaySettings,
         Local,
         Ssh,

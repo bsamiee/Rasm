@@ -17,13 +17,13 @@ External-signature ingress and the folder's admission and throttle planes: one c
 - Law: verification is result-typed — a valid signature lands the `Verified` receipt, a failed one a typed fault; there is no boolean-plus-throw and a `false` compare is `mismatch`, never a thrown value.
 - Growth: a new failure mode is one family row carrying its core kind, its leg, the subject a raise must supply, and that subject's renderer.
 - Law: legs partition the fold — header, freshness, key, compare, throttle — so a refusal names which stage of one verify refused before its subject is read.
-- Packages: `effect` (`Schema`, `Duration`); `@rasm/ts/core` (`Fault.Class`); `crypt/sign` (`SignFault`).
+- Packages: `effect` (`Schema`, `Duration`); `@rasm/core` (`Fault.Class`); `crypt/sign` (`SignFault`).
 
 ```typescript
 import { RateLimiter } from "@effect/experimental"
 import { HttpApiMiddleware } from "@effect/platform"
 import { decodeBase64, decodeHex, encodeHexLowerCase } from "@oslojs/encoding"
-import { Convention, Fault } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Either, Layer, Metric, Number, Option, Predicate, Record, Redacted, Schema, pipe } from "effect"
 import { Crypto, Probe, SignFault } from "./sign.ts"
 
@@ -459,7 +459,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
 - Law: ledger writes are evidence, never control flow — every member is total and composes through `Effect.tapError`, `Effect.tap`, or the pipeline seam beside the verdict it witnesses, so a metric failure can never alter a security verdict and `measured` never widens the fault channel it wraps.
 - Entry: `Reject.measured("verify", { dialect })` in this page's fold; the authn pages compose one `measured` line per ceremony entrypoint — `bearer` at the guard, `refresh` at rotation, `csrf` at the double-submit check, `credential` at otp/recovery/api-key/workload resolve, `state` at the oauth callback, `ceremony` at both passkey finishes — beside the `mark` line their refusal arms already carry, with `reuse` and `clone` marking alone.
 - Growth: a new ceremony kind is one `_REJECTS` row reaching the folds its `breach` column admits; a new throttled or credential surface is one `_CEREMONIES` row with its two plane flags; a new facet axis is one `_FACETS` row with its Convention tag key and its `Facet` field, the `_Facets` guard closing the two against each other.
-- Packages: `effect` (`Metric`, `Record`, `Array`, `Duration`); `@rasm/ts/core` (`Convention`).
+- Packages: `effect` (`Metric`, `Record`, `Array`, `Duration`); `@rasm/core` (`Convention`).
 
 ```typescript
 // `breach` is the column the ledger's own law demanded and never held: a breach kind is read ABSOLUTELY, its

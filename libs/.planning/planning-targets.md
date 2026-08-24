@@ -25,10 +25,11 @@
 - Branch API catalogues: `libs/python/.api`
 - Routing: `libs/python/.planning/README.md`
 - Language-wide docs: `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md` under the core dir
-- Planning Folders: every package folder under `libs/python/`, per the branch `[02]-[STRATA]` roster — the plane-distinct `contracts` and `cad` seats included
+- Planning Folders: every `libs/python/` package folder per the branch `[02]-[STRATA]` roster, plane-distinct `contracts` and `cad` seats included
 
 [CROSS_CUTTING_SURFACES]:
-- Central manifests: the root `Directory.*` build files, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config/`
+- Central manifests: root `Directory.*` build files, `global.json`, `NuGet.config`, `pyproject.toml` + `uv.lock`, `pnpm-workspace.yaml`, `.config/`
+- Member manifests: each `libs/python/*` and `tools/assay` `pyproject.toml` on the workspace roster — distribution identity and bare-name edges
 - Cross-language contracts: `tests/contracts/` defines and proves each atomic case; every executor and consumer binds its `manifest.json` case.
 - Event fabric: `libs/.planning/ARCHITECTURE.md` `[14]-[EVENT_FABRIC]` legislates the message envelope and seats its branch owners.
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set

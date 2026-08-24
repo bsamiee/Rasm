@@ -27,7 +27,7 @@ import {
   type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON, type RegistrationResponseJSON,
   type RootCertIdentifier, type VerifiedRegistrationResponse, type WebAuthnCredential,
 } from "@simplewebauthn/server"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Config, Context, DateTime, Duration, Effect, Layer, Option, Record, Redacted, Ref, Runtime, Schema } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto, type SingleUse } from "../crypt/sign.ts"
@@ -507,7 +507,7 @@ import {
   type AuthenticationResponseJSON, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON, type WebAuthnErrorCode,
 } from "@simplewebauthn/browser"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Effect, Option, Schema } from "effect"
 
 // Two legs partition this half and each reason renders its OWN subject: `ceremony` reasons carry the package's own

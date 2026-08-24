@@ -5,6 +5,7 @@
         <RootNamespace>Rasm.Bridge.Shell</RootNamespace>
         <!-- The stub owns the .rhp; ShellLoadContext loads the shell and its restored deploy set. -->
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <RasmHost>common</RasmHost>
         <InformationalVersion>0.1.0-shell</InformationalVersion>
     </PropertyGroup>
     <ItemGroup Label="Shell Packages">

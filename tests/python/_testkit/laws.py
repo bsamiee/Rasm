@@ -300,19 +300,23 @@ def register_sut(package: str, *, exempt: frozenset[str] = frozenset(), suite: P
 def _importable(folder: Path, /) -> str:
     """Name the package a source folder installs, from disk shape alone.
 
-    A ``src`` layout installs the shallowest ``__init__.py`` package beneath it, so the dotted name
-    is that package's path under ``src`` — the one name its modules already carry once installed.
-    Registering the folder path instead imports the whole tree a second time under a shadow name,
-    minting duplicate classes, descriptors, and limiters beside the live ones. A flat folder keeps
-    its repo-relative dotted path, which is what a ``sys.path``-prepended root already resolves.
+    A workspace member installs the shallowest ``__init__.py`` package beneath its module root — the
+    member folder itself under the estate's flat no-``src`` law (``module-root = ""``), or ``src`` where
+    a foreign checkout still carries one — so the dotted name is that package's path under the root, the
+    one name its modules already carry once installed. Registering the folder path instead imports the
+    whole tree a second time under a shadow name, minting duplicate classes, descriptors, and limiters
+    beside the live ones. A manifest-less flat folder keeps its repo-relative dotted path, which is what
+    a ``sys.path``-prepended root already resolves.
 
     Returns:
         The dotted name under which this folder's modules import.
     """
-    source = folder / "src"
-    installed = sorted((py.parent for py in source.rglob("__init__.py")), key=lambda root: len(root.parts)) if source.is_dir() else []
-    if installed:
-        return ".".join(installed[0].relative_to(source).parts)
+    src = folder / "src"
+    base = src if src.is_dir() else (folder if (folder / "pyproject.toml").is_file() else None)
+    if base is not None:
+        installed = sorted((py.parent for py in base.rglob("__init__.py")), key=lambda root: len(root.parts))
+        if installed:
+            return ".".join(installed[0].relative_to(base).parts)
     return ".".join(folder.relative_to(REPO_ROOT).parts) if folder.is_relative_to(REPO_ROOT) else folder.name
 
 
@@ -331,9 +335,7 @@ def register_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
     """
     children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
     roots = generated_roots(source_root.resolve())
-    authored = tuple(
-        child for child in children if any(not any(py.resolve().is_relative_to(root) for root in roots) for py in child.rglob("*.py"))
-    )
+    authored = tuple(child for child in children if any(not any(py.resolve().is_relative_to(root) for root in roots) for py in child.rglob("*.py")))
     names = tuple(_importable(child) for child in authored)
     for name, child in zip(names, authored, strict=True):
         register_sut(name, suite=suite_root / child.name)

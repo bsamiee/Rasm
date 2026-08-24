@@ -1,6 +1,6 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality operator, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Claims, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census, a bare `assay` running only where a local wrapper resolves; a claim carrying more than one verb requires it, so a bare invocation of such a claim faults at parse.
+`assay` is the Rasm polyglot quality operator, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. It is a workspace member (`tools/assay`, flat-layout package `assay` at the member root) whose console script lands in the venv, so `uv run assay` is the gate form and `uv run --no-sync assay` the interactive fast path. Claims, verbs, flags, and parameter signatures live in Cyclopts help (`uv run assay --help`, per-claim `--help`) and the `self-test` census; a claim carrying more than one verb requires it, so a bare invocation of such a claim faults at parse.
 
 ## [01]-[SCOPE]
 
@@ -22,7 +22,7 @@ Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stde
 ## [02]-[FIRST_COMMAND]
 
 ```bash copy-safe
-uv run python -m tools.assay self-test
+uv run assay self-test
 ```
 
 Verify: stdout contains one JSON `Envelope`; `Envelope.status`/`exit_code` are the only process-result source; stderr carries structlog events and tool diagnostics. `--rhino` opts the local Rhino bridge lane into the smoke.

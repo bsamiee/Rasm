@@ -17,13 +17,13 @@ Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempot
 - Law: the hedged-execution row is `Activity.raceAll` at the package surface — speculative arms run as durable steps and the first completion wins durably, so a tail-latency hedge is a declared arm set, never a hand-raced fiber pair or a local rename of the combinator.
 - Law: in-body pacing composes on the body, bounds compose on the declaration — `Activity.retry(effect, { while })` carries attempt gates the shipped surface types without a schedule; the schedule lives on `interruptRetryPolicy` and the budget row, one geometry per step.
 - Boundary: durable throttles are `queue#THROTTLE` rows composed inside a body; this mint owns geometry, never quota.
-- Packages: `@effect/workflow` (`Activity`); `effect` (`Effect`, `Duration`, `Function`); `@rasm/ts/core` (`Fault.Budget`, `Fault.Class`).
+- Packages: `@effect/workflow` (`Activity`); `effect` (`Effect`, `Duration`, `Function`); `@rasm/core` (`Fault.Budget`, `Fault.Class`).
 
 ```typescript signature
 import { Activity, DurableClock, DurableDeferred, Workflow, WorkflowProxy, WorkflowProxyServer } from "@effect/workflow"
 import type { HttpApi } from "@effect/platform"
 import { Cause, Context, Data, Duration, Effect, Exit, Function, Match, Schema } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { WorkClass } from "./entity.ts"
 
 // One row per refusal the durable altitude can raise, and each row states the WINDOW its refusal broke beside the

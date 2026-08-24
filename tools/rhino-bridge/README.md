@@ -13,8 +13,8 @@
 ## [02]-[FIRST_PATH]
 
 ```bash copy-safe
-uv run python -m tools.assay bridge build
-uv run python -m tools.assay bridge status
+uv run assay bridge build
+uv run assay bridge status
 ```
 
 Expected signal: each command returns one Assay envelope, and the status receipt carries `bridge.reportDir=<path>` when the supervisor emitted a `SessionEnvelope`.
@@ -22,13 +22,13 @@ Expected signal: each command returns one Assay envelope, and the status receipt
 ## [03]-[VERIFY]
 
 ```bash copy-safe
-uv run python -m tools.assay bridge verify
-uv run python -m tools.assay bridge verify blocks
-uv run python -m tools.assay bridge verify blocks,ui
-uv run python -m tools.assay bridge verify CoreRail
-uv run python -m tools.assay bridge verify 'blocks.*'
-uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
-uv run python -m tools.assay bridge verify --evidence author blocks
+uv run assay bridge verify
+uv run assay bridge verify blocks
+uv run assay bridge verify blocks,ui
+uv run assay bridge verify CoreRail
+uv run assay bridge verify 'blocks.*'
+uv run assay bridge verify tests/csharp/libs/Rasm.Rhino/Blocks/Scenarios
+uv run assay bridge verify --evidence author blocks
 ```
 
 Selection rules:
@@ -105,7 +105,7 @@ config:
 flowchart LR
     accTitle: Bridge session architecture
     accDescr: Assay drives the supervisor, which launches or reuses RhinoWIP, connects to the shell ALC over a named pipe, loads cargo, and folds scenario evidence into the run report directory.
-    Assay["tools.assay bridge"] --> Supervisor["Supervisor"]
+    Assay["assay bridge"] --> Supervisor["Supervisor"]
     Supervisor --> Endpoint["~/.rasm/rhino-bridge-rbx.json"]
     Supervisor --> Rhino["RhinoWIP"]
     Rhino --> Stub["Stub plugin"]

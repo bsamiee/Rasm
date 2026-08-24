@@ -477,6 +477,15 @@ public sealed partial class DegradationLevel {
     public CommandAccess Access { get; }
     public CapabilitySet<Faculty> Retains { get; }
     public Control.DegradationLevel Wire { get; }
+
+    // The INVERSE of the row's own `Wire` column, DERIVED from the roster so a new level lands both
+    // directions in one declaration; `Unspecified` and any foreign ordinal answer `None`, so `Force`
+    // re-derives rather than forcing a phantom level.
+    static readonly FrozenDictionary<Control.DegradationLevel, DegradationLevel> ByWire =
+        Items.ToFrozenDictionary(static row => row.Wire);
+
+    public static Option<DegradationLevel> OfWire(Control.DegradationLevel wire) =>
+        ByWire.TryGetValue(wire, out var row) ? Optional(row) : None;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -618,7 +627,7 @@ public sealed class DegradationCell(
 - Auto: `Register` composes `AddGrpcHealthChecks(Action<GrpcHealthChecksOptions>)` — each row lands as one `GrpcHealthChecksOptions.Services` mapping through `ServiceMappingCollection.Map(string name, Func<HealthCheckMapContext, bool> predicate)`, the predicate reading the row's tag key against `HealthCheckMapContext.Tags` — and the endpoint serves through `MapGrpcHealthChecksService()` at the wire host, so the `grpc.health.v1` protocol answers per-service off the one registry; healthy and degraded project to the serving wire state, unhealthy to not-serving — degraded keeps serving because the level, not the wire, carries usable failure.
 - Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Grpc.AspNetCore.HealthChecks, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one wire row per served service name — one `Map` mapping and zero new surface; the empty-name `Overall` row is the default service every client without a service name reads.
-- Boundary: the wire predicate is the ONE place a `ContributorTag` renders back to text, because the framework hands its map context and its registration filter raw strings; set-degradation is the service-modality inbound route — the verb admits its level key through `DegradationLevel.TryGet`, mapping an unknown key to `None` so `Force` re-derives rather than forcing a phantom level, and lands on `Force`; one override rail serves operator config, wire verbs, and release; `MapGrpcHealthChecksService` is the one wire-health endpoint — a hand-rolled `Grpc.Health.V1.Health.HealthBase` override beside it is the deleted form; `Evaluate` drives the registry live and returns a `HealthSnapshot`, so an HTTP liveness route, an operator verb, and a CLI check read the row set rather than the `DegradationCell`'s published reading — the cell stays the CADENCED truth every interior consumes and `Evaluate` is the on-demand probe path, so a caller wanting the settled level reads `DegradationCell.Read()` and never re-evaluates to derive one.
+- Boundary: the wire predicate is the ONE place a `ContributorTag` renders back to text, because the framework hands its map context and its registration filter raw strings; set-degradation is the service-modality inbound route — the verb admits the wire enum through `DegradationLevel.OfWire`, the roster-derived inverse of the row's own `Wire` column, mapping `Unspecified` and any unlisted ordinal to `None` so `Force` re-derives rather than forcing a phantom level, and lands on `Force`; one override rail serves operator config, wire verbs, and release; `MapGrpcHealthChecksService` is the one wire-health endpoint — a hand-rolled `Grpc.Health.V1.Health.HealthBase` override beside it is the deleted form; `Evaluate` drives the registry live and returns a `HealthSnapshot`, so an HTTP liveness route, an operator verb, and a CLI check read the row set rather than the `DegradationCell`'s published reading — the cell stays the CADENCED truth every interior consumes and `Evaluate` is the on-demand probe path, so a caller wanting the settled level reads `DegradationCell.Read()` and never re-evaluates to derive one.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -894,7 +903,7 @@ public static class AlertEngine {
 ## [06]-[TS_PROJECTION]
 
 - Owner: `HealthSnapshotWire`, `DegradationWire`, and `AlertReceiptWire` transcribe host-local dashboard records; generated `CommandAvailability` and `CommandVerdictWire` carry the health availability contract, including level, deviations from the level posture, and dwell anchor.
-- Packages: generated `@rasm/ts-contracts` host-v1 and compute-v1 modules, BCL inbox
+- Packages: generated `@rasm/contracts` host-v1 and compute-v1 modules, BCL inbox
 - Growth: one faculty key row or alert field extends its local record; availability fields, verdict cases, and degradation enum values extend the protobuf schema once.
 - Boundary: host-local snapshot and alert JSON keep extended-ISO instants, ISO-8601 durations, and smart-enum keys. Generated availability uses protobuf `Timestamp`, the compute degradation enum, and the command-verdict oneof; a command absent from the map takes the level's own posture at the decoder, so only deviations cross. `DegradationWire` remains the host-local state emission, with `cascade` distinct from operator `forced`; rank and retained faculties derive locally and never cross.
 

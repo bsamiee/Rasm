@@ -21,7 +21,7 @@
 - Boundary: runtime owns hauling and cache policy; UI owns decoding and GPU residency.
 
 ```typescript signature
-import { Digest, Frame, Wire } from "@rasm/ts/core"
+import { Digest, Frame, Wire } from "@rasm/core"
 import { Context, type Effect, type HashMap, type Option, type Stream, type Subscribable } from "effect"
 
 type AppearanceRow = Extract<Wire.Decoded<"NodeWire">["payload"], { readonly case: "appearance" }>["value"]
@@ -91,7 +91,7 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
 - Law: the refusal census and its error-rail fold ride ONE declaration beside the family — the mount and the tracking operator are two reads of one row, and the census is the family's own published vocabulary rather than a tuple a call site assembled.
 
 ```typescript signature
-import { Convention, Fault, Shape } from "@rasm/ts/core"
+import { Convention, Fault, Shape } from "@rasm/core"
 import { Schema } from "effect"
 
 // One row per reason: the core kind, the owning leg, and the subject that reason alone renders. Severity, retry,
@@ -199,7 +199,7 @@ const _refused = Convention.tracked(Convention.metric.sceneRefusals, _faultPolic
 
 ```typescript signature
 import { Machine } from "@effect/experimental"
-import { Convention, Shape } from "@rasm/ts/core"
+import { Convention, Shape } from "@rasm/core"
 import { Duration, Effect, Metric, Option, pipe, Schedule, Schema, type Scope, ScopedRef, type Stream, type SubscriptionRef } from "effect"
 import {
   ACESFilmicToneMapping, AgXToneMapping, AmbientLight, DirectionalLight, HemisphereLight, LightProbe,
@@ -524,7 +524,7 @@ const _booted = (plane: Glb.Plane, cool: Duration.DurationInput): Effect.Effect<
 - Law: a standard-material graft whose appearance demands a physical-only lobe upgrades in place; `<material-unphysical>` names only a material outside that pair.
 
 ```typescript signature
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 import { Context, Effect, HashMap, Option, Queue, Record, Ref, Schema, Scope, ScopedRef, Stream, SubscriptionRef } from "effect"
 import { preinit, preinitModule, preload, type PreloadOptions } from "react-dom"
 import {

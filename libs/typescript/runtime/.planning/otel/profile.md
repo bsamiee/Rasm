@@ -25,7 +25,7 @@
 ```typescript signature
 import Pyroscope, { init, wrapWithLabels, type PyroscopeConfig } from "@pyroscope/nodejs"
 import { Duration, Effect, Exit, Layer, Match, Option, type ParseResult, Record, Redacted, Runtime, Schema, Scope, type Tracer } from "effect"
-import { type Identity, Convention } from "@rasm/ts/core"
+import { type Identity, Convention } from "@rasm/core"
 import { Life } from "../proc/life.ts"
 
 // this package root re-exports its three config interfaces and nothing else, so every other type reads off the
@@ -216,7 +216,7 @@ const _live = (policy: Profile.Policy): Layer.Layer<never, never, Life> =>
 - Law: every distinct label value mints a profile series exactly as a metric tag mints a metric series, so band values decode through the caller's non-empty literal roster with excess keys rejected before the engine sees them, and an all-absent band OMITS the region key rather than writing the empty string — an empty label is a series named nothing that every unbanded region joins, which is the store's version of the zero a producer never measured.
 - Law: the vocabulary's parser is minted once per vocabulary and held weakly — a schema compiles its parser on first decode and caches it on the instance, so re-minting the struct inside the entry throws that cache away on every banded region and pays an AST compile at a workload seam; the table keys on the caller's own vocabulary value, so the entry stays one member and the parser dies with the roster that owns it.
 - Entry: `Profile.banded(vocabulary, { channel }, () => kernel())` at a synchronous workload seam; `Profile.banded(vocabulary, { channel, step }, effect)` at a long-lived scoped span.
-- Packages: `@pyroscope/nodejs` (`wrapWithLabels`), `effect` (`Effect`, `Option`, `Schema`), `@rasm/ts/core` (`Convention`).
+- Packages: `@pyroscope/nodejs` (`wrapWithLabels`), `effect` (`Effect`, `Option`, `Schema`), `@rasm/core` (`Convention`).
 
 ```typescript signature
 type _Held<A> = { readonly ok: true; readonly value: A } | { readonly ok: false; readonly cause: unknown }

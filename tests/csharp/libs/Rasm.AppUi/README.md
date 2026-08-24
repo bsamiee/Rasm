@@ -4,7 +4,7 @@
 
 ## [01]-[ROUTER]
 
-- [01]-[CONTRACT_WIRE](.planning/contract-wire.md): Generated AppUI contract output pinned through the shared ProtoJSON registry.
+- [01]-[CONTRACT_WIRE](contract-wire.md): Generated AppUI contract output pinned through the shared ProtoJSON registry.
 
 ## [02]-[TEST_PACKAGES]
 

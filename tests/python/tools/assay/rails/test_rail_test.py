@@ -13,13 +13,11 @@ from mutmut import configuration as mutmut_configuration
 from mutmut.mutation.data import SourceFileMutationData
 import pytest
 
-from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, validity_matrix
-from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.catalog import TOOLS
-from tools.assay.composition.store import ArtifactScope, CS_ARTIFACT_ROOTS
-from tools.assay.core.exec import apply_row_status
-from tools.assay.core.govern import exclusive_lease
-from tools.assay.core.model import (
+from assay.composition.catalog import TOOLS
+from assay.composition.store import ArtifactScope, CS_ARTIFACT_ROOTS
+from assay.core.exec import apply_row_status
+from assay.core.govern import exclusive_lease
+from assay.core.model import (
     ArtifactKind,
     Check,
     Claim,
@@ -35,10 +33,10 @@ from tools.assay.core.model import (
     Tool,
     ToolGroup,
 )
-from tools.assay.core.routing import Routed, Scope
-from tools.assay.rails import test as test_rail
-from tools.assay.rails.mutation_gate import _tally, gate, schema_report
-from tools.assay.rails.test import (
+from assay.core.routing import Routed, Scope
+from assay.rails import test as test_rail
+from assay.rails.mutation_gate import _tally, gate, schema_report
+from assay.rails.test import (
     _adopt_coverage,
     _checks,
     _detail,
@@ -59,6 +57,8 @@ from tools.assay.rails.test import (
     coverage_percent,
     TestParams,
 )
+from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, validity_matrix
+from tests.python.tools.assay.kit import SeamExecutor
 
 
 if TYPE_CHECKING:
@@ -66,8 +66,8 @@ if TYPE_CHECKING:
 
     from expression import Result
 
+    from assay.core.model import Completed, ToolArgs
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Completed, ToolArgs
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -200,7 +200,7 @@ def test_testparams_language_flags_and_help(monkeypatch: pytest.MonkeyPatch, cap
     assert "--csharp" in fault.message
     assert "--typescript" in fault.message
 
-    from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
+    from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None))
     assert main_mod.main(["test", "run", "--help"]) == 0
@@ -292,8 +292,8 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
 
     full = _mutation_args(mutmut, TestParams(mutation=MutationLane.FULL), settings, ("src/foo.py",))
     _filled_law(full, mutmut, ("mutmut", "run", "--max-children=2"))
-    changed = _mutation_args(mutmut, TestParams(mutation=MutationLane.CHANGED), settings, ("src/a.py", "src/b.py"))
-    _filled_law(changed, mutmut, ("mutmut", "run", "--max-children=2", "src.a.*", "src.b.*"))
+    changed = _mutation_args(mutmut, TestParams(mutation=MutationLane.CHANGED), settings, ("tools/assay/assay/a.py", "tools/assay/assay/b.py"))
+    _filled_law(changed, mutmut, ("mutmut", "run", "--max-children=2", "assay.a.*", "assay.b.*"))
 
     scoped = _mutation_args(stryker, TestParams(mutation=MutationLane.CHANGED), settings, ("src/Foo.cs", "src/Bar.cs"))
     assert scoped is not None
@@ -317,8 +317,9 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
     _filled_law(scoped, stryker, ("tool", "run", "dotnet-stryker", "--", *_STRYKER_POLICY, *anchors))
 
     # Wrong filled shapes prove the transform is non-vacuous.
-    refutes(changed, _filled_law, mutmut, ("mutmut", "run", "src/a.py", "src/b.py"))  # passthrough: no governor, no module-name glob
-    refutes(changed, _filled_law, mutmut, ("mutmut", "run", "--max-children=2", "src/a.py*", "src/b.py*"))  # path-shaped glob: zero mutant NAMES
+    # passthrough: no governor, no module-name glob
+    refutes(changed, _filled_law, mutmut, ("mutmut", "run", "tools/assay/assay/a.py", "tools/assay/assay/b.py"))
+    refutes(changed, _filled_law, mutmut, ("mutmut", "run", "--max-children=2", "assay/a.py*", "assay/b.py*"))  # path-shaped glob: zero mutant NAMES
     refutes(full, _filled_law, mutmut, ("mutmut", "run"))  # governor dropped
     refutes(scoped, _filled_law, stryker, ("tool", "run", "dotnet-stryker", "--", "src/Foo.cs", "src/Bar.cs"))  # --mutate flag dropped
 
@@ -326,7 +327,7 @@ def test_mutation_args_compose_catalog_argv(assay_root: AssayHarness) -> None:
 def test_mutation_rows_confine_every_path_to_artifacts() -> None:
     """No mutation row can write to repo root: stage roots, sandbox cwd, and report outputs all live under .artifacts/."""
     mutmut, stryker = _row("mutmut", Mode.MUTATION), _row("dotnet-stryker", Mode.MUTATION)
-    assert stryker.stage.root == ".artifacts/csharp/stryker/work", "Stryker cwd (and its .stryker-tmp sandbox) is the staged work root"
+    assert not stryker.stage.root, "Stryker runs at the repo root: cwd discovery needs the source tree, .gitignore carries .stryker-tmp"
     assert mutmut.stage.root == ".artifacts/python/mutmut/work", "mutmut cwd (and its mutants/ cache) is the staged work root"
     assert all(part in stryker.command for part in (*_STRYKER_POLICY, "--config-file")), "policy is pinned; the rail fills {config} absolutely"
     # The roster derives from the catalog: a hand-named pair leaves every later mutation row unproven. Every path is a
@@ -346,12 +347,16 @@ def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
     csharp_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=("tests/csharp/libs/A/A.Tests.csproj",))
     spliced = _checks(csharp_routed, TestParams(filter="test_something"), settings, Mode.RUN)
     assert [c.args.filter for c in spliced] == [("--filter-method", "*test_something*")]
-    assert all(c.args.fill(c.tool.command) == ("test", "--minimum-expected-tests", "1", "--filter-method", "*test_something*") for c in spliced)
-    assert all("{filter*}" in c.tool.command for c in spliced), "the row command is never edited; the hole carries the filter"
+    run = next(c for c in spliced if c.tool.mode is Mode.RUN)
+    assert run.tool.command == ("run",), "MTP options never ride dotnet's own argv; the pinned tail carries them behind --"
+    assert run.tail is not None and run.tail[:2] == ("--project", "tests/csharp/libs/A/A.Tests.csproj")
+    separator = run.tail.index("--")
+    target = str(Path(str(settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"] / "A.Tests")
+    assert run.tail[separator:] == ("--", "--minimum-expected-tests", "1", "--filter-method", "*test_something*", "--results-directory", target)
 
-    py_routed = Routed(language=_PY, scope=Scope.CHANGED, files=("src/a.py",))
+    py_routed = Routed(language=_PY, scope=Scope.CHANGED, files=("tools/assay/assay/a.py",))
     changed_checks = _checks(py_routed, TestParams(mutation=MutationLane.CHANGED, filter="MyTests"), settings, Mode.MUTATION)
-    assert [c.args.fill(c.tool.command) for c in changed_checks] == [("mutmut", "run", "--max-children=2", "src.a.*")]
+    assert [c.args.fill(c.tool.command) for c in changed_checks] == [("mutmut", "run", "--max-children=2", "assay.a.*")]
     assert all(c.args.filter == () for c in changed_checks), "MUTATION rows never receive the MTP filter splice"
 
     uv_checks = _checks(py_routed, TestParams(filter="test_something"), settings, Mode.RUN)
@@ -367,26 +372,27 @@ def test_checks_splice_and_scope_arms(assay_root: AssayHarness) -> None:
 
 
 def test_checks_trx_splice_composes_per_project(assay_root: AssayHarness) -> None:
-    """--trx splices the TRX evidence tail per project under the dedicated CS_ARTIFACT_ROOTS trx key; default off leaves the hole empty."""
+    """Every RUN pins its results directory per project under the trx root; --trx adds the report flag alone."""
     assert CS_ARTIFACT_ROOTS["trx"] == ".artifacts/csharp/trx", "the trx root is its own CS_ARTIFACT_ROOTS row, never derived from a sibling"
     trx_root = Path(str(assay_root.settings.root)).resolve() / CS_ARTIFACT_ROOTS["trx"]
     projects = ("tests/csharp/libs/A/A.Tests.csproj", "tests/csharp/libs/B/B.Tests.csproj")
     multi = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=projects)
 
+    def _routes(stem: str) -> tuple[str, ...]:
+        target = str(trx_root / stem)
+        return ("--results-directory", target)
+
     fanned = _checks(multi, TestParams(trx=True), assay_root.settings, Mode.RUN)
-    assert [c.args.flags for c in fanned] == [
-        ("--report-trx", "--results-directory", str(trx_root / "A.Tests")),
-        ("--report-trx", "--results-directory", str(trx_root / "B.Tests")),
-    ]
-    assert all(c.args.fill(c.tool.command)[-3:-1] == ("--report-trx", "--results-directory") for c in fanned)
+    assert [(c.tail or ())[-3:] for c in fanned] == [("--report-trx", *_routes("A.Tests")), ("--report-trx", *_routes("B.Tests"))]
+    assert all((c.tail or ()).index("--") < (c.tail or ()).index("--report-trx") for c in fanned), "TRX is an MTP option and rides behind --"
 
     single = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=projects[:1])
     (pinned,) = _checks(single, TestParams(trx=True), assay_root.settings, Mode.RUN)
-    assert pinned.args.flags == ("--report-trx", "--results-directory", str(trx_root / "A.Tests"))
+    assert (pinned.tail or ())[-3:] == ("--report-trx", *_routes("A.Tests"))
 
     (off,) = _checks(single, TestParams(), assay_root.settings, Mode.RUN)
-    assert off.args.flags == ()
-    assert "--report-trx" not in off.args.fill(off.tool.command), "TRX evidence is opt-in; the default argv carries no report flags"
+    assert off.tail is not None and "--report-trx" not in off.tail, "TRX evidence is opt-in; the default tail carries no report flags"
+    assert (off.tail or ())[-2:] == _routes("A.Tests"), "results routing is unconditional on every RUN"
 
     (py_check,) = _checks(Routed(language=_PY, scope=Scope.CHANGED, files=()), TestParams(trx=True), assay_root.settings, Mode.RUN)
     assert py_check.args.flags == (), "TRX is a dotnet RUN concern; UV rows never receive the splice"
@@ -756,7 +762,7 @@ def test_gate_seeded_cache_matrix(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         lines = out.splitlines()
         assert (code, len(lines)) == (rc, 1), label
         assert err.startswith("[PASS]" if rc == 0 else "[FAIL]"), label
-        done = receipt(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate"), code, stdout=lines[0].encode())
+        done = receipt(("uv", "run", "python", "-m", "assay.rails.mutation_gate"), code, stdout=lines[0].encode())
         expected = TestRun(mutation=MutationLane.FULL, killed=killed, survived=survived, selected=selected)
         assert _detail((done,), TestParams(mutation=MutationLane.FULL), tmp_path / str(index)) == expected, label
 
@@ -818,7 +824,7 @@ def test_gate_check_rides_staged_mutmut_success(assay_root: AssayHarness) -> Non
 
     def _fake_fan(checks: tuple[Check, ...], **_k: object) -> tuple[Result[Completed, object], ...]:
         seen.extend(checks)
-        return (Ok(_ok(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate"))),)
+        return (Ok(_ok(("uv", "run", "python", "-m", "assay.rails.mutation_gate"))),)
 
     done = (Ok(_ok(("uv", "run", "--group", "mutation", "mutmut", "run"))),)
     executor = SeamExecutor(fan_fn=_fake_fan)
@@ -827,7 +833,7 @@ def test_gate_check_rides_staged_mutmut_success(assay_root: AssayHarness) -> Non
     )
     assert len(out) == 1
     assert [c.tool for c in seen] == [row]
-    assert seen[0].cwd == Path(str(assay_root.settings.root)) / staged.stage.root
+    assert seen[0].cwd == Path(str(assay_root.settings.root)) / staged.stage.root / staged.stage.chdir
 
 
 def test_gate_skips_without_success_or_stage(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -850,7 +856,7 @@ def test_gate_skips_without_success_or_stage(assay_root: AssayHarness, monkeypat
 def test_dispatch_all_gate_rides_mutation_results(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_dispatch_all splices gate receipts after mutation results only."""
     mut_ok = Ok(_ok(("uv", "run", "mutmut", "run")))
-    gate_ok = Ok(_ok(("uv", "run", "python", "-m", "tools.assay.rails.mutation_gate")))
+    gate_ok = Ok(_ok(("uv", "run", "python", "-m", "assay.rails.mutation_gate")))
     handed: list[tuple[Result[Completed, object], ...]] = []
 
     def _dispatch_stub(*_a: object, mode: Mode, **_k: object) -> tuple[Result[Completed, object], ...]:

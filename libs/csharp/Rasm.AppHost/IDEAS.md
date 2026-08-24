@@ -19,7 +19,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-(none)
+[TOKEN_LEASE_CUSTODY_CELL]-[QUEUED]: every credential holder reads the live bearer, because a renewable lease is a committed cell and never a frozen value.
+- Capability: one custody regime governs every renewable credential — the renewal commits into the cell its holders dereference, so a re-acquisition reaches every reader instead of its own discarded copy and a lost race reports contention rather than publishing as success.
+- Shape: `.planning/Agent/identity.md` `[05]-[CREDENTIAL_FLOW]` — the held-lease constructor, the refresh closure that re-acquires and discards, and the expiry read that closes over the boot bundle.
+- Unlocks: outbound hops and the URI health probe carry a bearer advancing with each refresh; the ledger's idempotent-by-key re-registration already replaces its boot row, so the cell is the one missing half.
+- Anchors: `Runtime/secrets#SECRET_LEASE` custody — the cell seat, the commit publish, and the four-arm commit switch whose contended arm the identity page carries no counterpart for; `Runtime/modules#MODULE_LEDGER` boot-seed column; `docs/laws/scars.md` `[DECISION_UNDERIVABLE_FROM_STATE]`.
+- Tension: the refresh closure has to close over the cell it is minting, the assignment knot `Runtime/secrets#SECRET_LEASE` already carries a stated exemption for, so this page earns that exemption rather than routing around it.
 
 ## [02]-[CLOSED]
 

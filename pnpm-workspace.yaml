@@ -1,11 +1,15 @@
 packages:
-  - 'libs/typescript'
-  - 'libs/typescript/contracts'
+  - 'libs/typescript/*'
+  - 'libs/typescript/ui/*'
+  - 'apps/*/*'
   - 'tests/typescript/*'
 
 cacheDir: .cache/pnpm/cache
 
 storeDir: .cache/pnpm/store
+
+# supply-chain quarantine — a release younger than 24h resolves to its predecessor
+minimumReleaseAge: 1440
 
 catalog:
   # substrate — the Effect core family; moves as one peer-locked wave
@@ -264,7 +268,6 @@ catalog:
   testcontainers: 12.1.0
   '@playwright/test': 1.62.1
   '@stryker-mutator/core': 9.6.1
-  '@stryker-mutator/typescript-checker': 9.6.1
   '@stryker-mutator/vitest-runner': 9.6.1
   '@types/k6': 2.0.1
   happy-dom: 20.11.2
@@ -277,7 +280,6 @@ catalog:
   '@effect/docgen': 0.5.2
   nx: 23.1.1
   '@nx/devkit': 23.1.1
-  '@nx/docker': 23.1.1
   '@nx/dotnet': 23.1.1
   '@nx/js': 23.1.1
   '@nx/node': 23.1.1
@@ -286,8 +288,6 @@ catalog:
   '@nx/react': 23.1.1
   '@nx/vite': 23.1.1
   '@nx/vitest': 23.1.1
-  '@nx-tools/nx-container': 7.3.0
-  '@berenddeboer/nx-biome': 1.0.3
   '@biomejs/biome': 2.5.8
   '@ast-grep/cli': 0.45.1
   '@bufbuild/buf': 1.72.0
@@ -315,8 +315,6 @@ catalog:
   '@octokit/rest': 22.0.1
 
 catalogMode: strict
-
-cleanupUnusedCatalogs: false
 
 fetchRetries: 3
 
@@ -383,7 +381,3 @@ preferWorkspacePackages: true
 saveExact: true
 
 strictSsl: true
-
-verifyDepsBeforeRun: warn
-
-minimumReleaseAge: 0

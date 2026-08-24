@@ -1,4 +1,4 @@
-"""Laws for ``tools.assay.automation.model``.
+"""Laws for ``assay.automation.model``.
 
 Covers action/trigger codec round-trips, describe projections, and wire validation through the
 public encode/decode surfaces.
@@ -10,9 +10,7 @@ from hypothesis import example, given, strategies as st
 import msgspec
 import pytest
 
-from tests.python._testkit.spec import roundtrip
-from tests.python._testkit.strategies import resolve
-from tools.assay.automation.model import (
+from assay.automation.model import (
     Action,  # @given resolves parameter annotations at decoration time
     ACTION_DECODER,
     Debounce,
@@ -28,7 +26,9 @@ from tools.assay.automation.model import (
     TRIGGER_DECODER,
     Watch,
 )
-from tools.assay.core.model import Claim
+from assay.core.model import Claim
+from tests.python._testkit.spec import roundtrip
+from tests.python._testkit.strategies import resolve
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

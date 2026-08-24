@@ -264,7 +264,7 @@ public static partial class Spec {
         ArgumentNullException.ThrowIfNull(argument: corpus);
         Holds(condition: corpus.Count > 0, label: "RoundtripBytes: empty corpus proves nothing");
         string[] twins = [.. corpus.GroupBy(keySelector: static entry => entry.Key)
-            .Where(predicate: static group => group.Count() > 1)
+            .Where(predicate: static group => group.Skip(count: 1).Any())
             .Select(selector: static group => string.Join(separator: " == ", values: group.Select(selector: static entry => entry.RelativePath)))];
         Holds(condition: twins.Length == 0, label: $"corpus carries byte-identical fixtures: {string.Join(separator: "; ", values: twins)}");
         string[] drift = [.. corpus.SelectMany(selector: entry => {
@@ -329,10 +329,10 @@ public static partial class Spec {
                 .Select(selector: static row => string.Create(provider: CultureInfo.InvariantCulture, $"{row.Owner}: inverted band [{row.Start}, {row.End}]")),
             .. rows.SelectMany(selector: static row => row.Codes.Where(code => code < row.Start || code > row.End)
                 .Select(code => string.Create(provider: CultureInfo.InvariantCulture, $"{row.Owner}: code {code} outside band [{row.Start}, {row.End}]"))),
-            .. rows.Where(predicate: static row => row.Codes.Length != row.Codes.Distinct().Count())
+            .. rows.Where(predicate: static row => row.Codes.Distinct().Take(count: row.Codes.Length + 1).Count() != row.Codes.Length)
                 .Select(selector: static row => $"{row.Owner}: duplicate codes"),
             .. rows.GroupBy(keySelector: static row => row.Owner, comparer: StringComparer.Ordinal)
-                .Where(predicate: static group => group.Count() > 1)
+                .Where(predicate: static group => group.Skip(count: 1).Any())
                 .Select(selector: static group => $"owner '{group.Key}' registers more than one band"),
             .. ordered.Zip(ordered.Skip(count: 1))
                 .Where(predicate: static pair => pair.Second.Start <= pair.First.End)

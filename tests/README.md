@@ -77,24 +77,24 @@ Failing laws are evidence: investigate the production owner before weakening the
 
 Every tool writes reports under `.artifacts/` and temp/work state under `.cache/<tool>/`; the repo root stays litter-free, and exact directories live in the owning configuration:
 
-| [INDEX] | [TOOL]            | [SURFACE]                            | [ROUTE_OWNER]                                                    |
-| :-----: | :---------------- | :----------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | coverlet.MTP      | C# coverage                          | `Directory.Build.props` Coverage block                           |
-|  [02]   | MTP TrxReport     | C# test results                      | invocation law in `tests/csharp/README.md`                       |
-|  [03]   | Stryker.NET       | C# mutation                          | root `stryker-config.json` + assay mutation rail (staged)        |
-|  [04]   | BenchmarkDotNet   | C# benchmarks                        | `tests/csharp/_benchmarks` session config                        |
-|  [05]   | pytest + coverage | Python coverage + caches             | `pyproject.toml` tool tables                                     |
-|  [06]   | Hypothesis        | example database + observability     | `tests/python/_testkit/runtime.py`                               |
-|  [07]   | pytest-benchmark  | Python benchmark storage             | `pyproject.toml` addopts                                         |
-|  [08]   | mutmut            | Python mutation                      | `pyproject.toml` `[tool.mutmut]` + `.config/coverage-mutmut.ini` |
-|  [09]   | inline-snapshot   | snapshot storage                     | `pyproject.toml` `[tool.inline-snapshot]`                        |
-|  [10]   | Vitest            | TS coverage + results + bench ledger | root `vitest.config.ts`                                          |
-|  [11]   | StrykerJS         | TS mutation                          | `stryker.config.json`                                            |
-|  [12]   | Playwright        | e2e traces + results                 | root `playwright.config.ts` (auto-discovery self-defense)        |
-|  [13]   | Nx                | target outputs + cache               | `nx.json` targetDefaults                                         |
-|  [14]   | import-linter     | grimp cache                          | assay static rail invocation (`--cache-dir .cache/grimp`)        |
+| [INDEX] | [TOOL]            | [SURFACE]                            | [ROUTE_OWNER]                                                        |
+| :-----: | :---------------- | :----------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | coverlet.MTP      | C# coverage                          | `Directory.Build.targets` Coverage block                             |
+|  [02]   | MTP TrxReport     | C# test results                      | invocation law in `tests/csharp/README.md`                           |
+|  [03]   | Stryker.NET       | C# mutation                          | root `stryker-config.json` + assay mutation rail (staged)            |
+|  [04]   | BenchmarkDotNet   | C# benchmarks                        | `tests/csharp/_benchmarks` session config                            |
+|  [05]   | pytest + coverage | Python coverage + caches             | `pyproject.toml` tool tables                                         |
+|  [06]   | Hypothesis        | example database + observability     | `tests/python/_testkit/runtime.py`                                   |
+|  [07]   | pytest-benchmark  | Python benchmark storage             | `pyproject.toml` addopts                                             |
+|  [08]   | mutmut            | Python mutation                      | `tools/assay` `[tool.mutmut]` + `.config/coverage-mutmut.ini`        |
+|  [09]   | inline-snapshot   | snapshot storage                     | `pyproject.toml` `[tool.inline-snapshot]`                            |
+|  [10]   | Vitest            | TS coverage + results + bench ledger | root `vitest.config.ts`                                              |
+|  [11]   | StrykerJS         | TS mutation                          | `stryker.config.json`                                                |
+|  [12]   | Playwright        | e2e traces + results                 | root `playwright.config.ts` (auto-discovery self-defense)            |
+|  [13]   | Nx                | target outputs + cache               | `nx.json` targetDefaults                                             |
+|  [14]   | import-linter     | grimp cache                          | assay static rail (`--cache-dir .cache/grimp`) + `litter-guard` hook |
 
-Tool-admission litter rule: a change that admits or reconfigures any tool proves its caches and outputs land under `.cache/` or `.artifacts/` before it lands — routed through the tool's own documented configuration, config-file setting first, CLI flag second, never wrapper scripts or conftest shims. Gate: after the change's checks run, `git status` and a root listing show zero new root entries.
+Tool-admission litter rule: a change that admits or reconfigures any tool proves its caches and outputs land under `.cache/` or `.artifacts/` before it lands — routed through the tool's own documented configuration, config-file setting first, CLI flag second, never wrapper scripts or conftest shims. `.claude/hooks/litter-guard.py` carries a POLICY row for every tool whose cache default is hardcoded upstream, refusing an off-rail invocation at the seam rather than leaving the litter to surface later. Gate: after the change's checks run, `git status` and a root listing show zero new root entries.
 
 ## [05]-[EXTENSION_PROTOCOL]
 
@@ -128,9 +128,9 @@ Per-package mirror law: where the ecosystem separates tests from source, suite h
 
 Scenario proof flows through one route, content to verdict:
 1. Content: scenarios live in `tests/csharp/scenarios` as source-only `[RhinoScenario]` statics composing the `Rasm.ScenarioKit` SDK; the project is an `AssayTestShell`, so the routing closure keeps it out of unit-test runs.
-2. Closure: `uv run python -m tools.assay bridge build` compiles the bridge plugin and stages scenario content with its dependency closure for the host.
+2. Closure: `uv run assay bridge build` compiles the bridge plugin and stages scenario content with its dependency closure for the host.
 3. Evidence: the live RhinoWIP host executes the staged scenarios; `ScenarioContext` fact streams, manifests, and captures fold into the assay-owned artifact scopes.
-4. Verdict: `uv run python -m tools.assay bridge verify` folds the run into one bridge `Envelope`; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
+4. Verdict: `uv run assay bridge verify` folds the run into one bridge `Envelope`; `bridge status` reports host health, and `bridge quit` terminates the host cleanly.
 
 Reference lifecycle: `--evidence author` runs write candidate references under `tests/csharp/scenarios/_references/<theme>/`, human review promotes a candidate by renaming it to `<method>.reference.json`, and a verify run over an unpromoted corpus degrades rather than fails. [tools/rhino-bridge/README.md](../tools/rhino-bridge/README.md) carries the full lifecycle, tolerance, and admission law.
 
@@ -158,12 +158,12 @@ Before touching any testing surface, an agent checks the owners that carry the f
 
 | [INDEX] | [SURFACE]                                            | [CARRIES]                                                                         |
 | :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring, coverage routing            |
-|  [02]   | `Directory.Build.targets`                            | the `IsTestProject` verdict and its runtime config, after the body sets its lane  |
-|  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers    |
+|  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring                              |
+|  [02]   | `Directory.Build.targets`                            | the `IsTestProject` verdict, its runtime config, and the coverage activation seam |
+|  [03]   | root `pyproject.toml`                                | Python test dependencies, pytest/coverage/import-linter policy, markers           |
 |  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                   |
 |  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                   |
 |  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, root Stryker configs, project-graph targets |
-|  [07]   | `tools/assay`                                        | gate rails across every claim; the CLI `--help` is the census                     |
+|  [07]   | `tools/assay`                                        | gate rails and its `[tool.mutmut]` policy; the CLI `--help` is the census         |
 
 Operators are themselves tested surfaces: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. Rail changes without their spec change are incomplete changes.

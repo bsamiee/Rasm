@@ -2,13 +2,13 @@
 
 Rasm.AppHost exposes exactly seven typed port records as its only INWARD cross-package seam; siblings adapt to them and no sibling assembly enters the AppHost graph. Outward vocabularies cross the same boundary as settled row payloads, never reversing an interior dependency. Owned axes are the port-record family under its cardinality invariant, the boot tenancy mint, and the host wire edge — the one ProtoJSON registry, the one fault wire, and the envelope projection onto the generated host family. Drain bands, deadline rows, phase vocabulary, classification, and degradation arrive settled as port payloads.
 
-Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm/Domain/frame#SOURCE`, `TenantId`/`TenantContext` and `TenantMirror` from `#TENANCY`, `ReceiptEnvelope` and `ReceiptSinkPort` with its one HLC mint from `#RECEIPT_PORT`, and `TelemetryContributorPort` from `Rasm/Domain/telemetry#CONTRIBUTE`. This page seats those two kernel-declared records inside the cardinality invariant, mints the boot tenancy value from its tenant-feed configuration, and projects the stamped message envelope onto the generated `Receipt.V1.ReceiptEnvelopeWire`; `Observability/telemetry#SIGNAL_GOVERNANCE` registers the OTel `Baggage.Current` store as the composition `TenantMirror` row, so a kernel caller spells `Stamp()` bare and threads no mirror per call site.
+Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm/Domain/frame#SOURCE`, `TenantId`/`TenantContext` and `TenantMirror` from `#TENANCY`, `ReceiptEnvelope` and `ReceiptSinkPort` with its one HLC mint from `#RECEIPT_PORT`, and `TelemetryContributorPort` from `Rasm/Domain/telemetry#CONTRIBUTE`. This page seats those two kernel-declared records inside the cardinality invariant, mints the boot tenancy value from its tenant-feed configuration, and projects the stamped frame header onto the generated `Receipt.V1.ReceiptHeaderWire`; `Observability/telemetry#SIGNAL_GOVERNANCE` registers the OTel `Baggage.Current` store as the composition `TenantMirror` row, so a kernel caller spells `Stamp()` bare and threads no mirror per call site.
 
 ## [01]-[INDEX]
 
 - [02]-[PORT_RECORDS]: Seven inward port records, five declared here and two at the kernel capsule.
 - [03]-[WIRE_LAW]: `WireJson` the one ProtoJSON edge, `FaultWire` the one fault wire, the envelope mapper, and the STJ merge's two surviving surfaces.
-- [04]-[TS_PROJECTION]: The generated envelope family the TS dashboard decodes and the packed-stamp law it retires.
+- [04]-[TS_PROJECTION]: Generated header family the TS dashboard decodes, and the packed-stamp law it retires.
 
 ## [02]-[PORT_RECORDS]
 
@@ -18,7 +18,7 @@ Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm
 - Receipt: `ReceiptEnvelope` carries the one causal frame — the kernel HLC two-half stamp orders evidence and the `Tenant` field partitions it, so every receipt and every content key composes the identical `(tenant, physical, logical)` frame; receipts, support bundles, and degradation stay process-local and correlate across processes solely through that stamp.
 - Packages: Rasm, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new cross-package seam lands as one registration row on an existing port, zero new surface; a new tenant is one ambient `TenantContext` value minted at boot, never a second tenancy owner.
-- Boundary: `PortCardinality` is the conserved invariant — its two direction rows hold every admitted port name and an eighth port record is the named defect: a new aggregate store, compute, companion, or outbound-client port is the rejected form, that content decomposing into rows on these seven, and a content carrier (the `ReceiptEnvelope` value, a `TenantContext` tenancy primitive, a `SecretLease` row, a `FencingToken` value object) is never promoted to a port. Spine owners constructor-injected as settled vocabulary are never ports: `ClockPolicy` (the clock pair), `SchedulePort` (a static fold over `ScheduleEntry` rows despite the `-Port` suffix), `CancelScope` (the cancellation provenance tree), the determinism RNG, the `HopPolicy` outbound rows, and the `CacheLane` L2 cache surface — each is a record or static surface threaded through composition, not a delegate-bearing inward seam. Contributor ports carry the settled row vocabularies — instrument rows, artifact rows, probe rows — never re-spelled fields, and the semconv schema coordinate is the kernel const `TelemetryIdentity.SchemaUrl`, stamped as `MeterOptions.TelemetrySchemaUrl` inside `TelemetryIdentity.Metered` at every contributor mint, so the port carries no schema slot; no sibling assembly enters the AppHost graph. `TenantContext` is a cross-package primitive beside the HLC stamp, the content-address `Hash`, and the boot-minted `CorrelationId`, and this platform is its one minting site: AppHost mints and threads it, the Persistence tenancy owner `Element/identity` stores the canonical `TenantId.Text` render in a `text` column and compares it against `current_setting('rasm.tenant', true)` bare — a `::uuid` provider cast is the deleted form that forks one identity into two alphabets — `Query/cache#L2_CONTRIBUTION` partitions the content-address cache key by `TenantId`, and `TenantSlot` (`rasm.tenant`) is the single GUC and meter-tag spelling every consumer reads; `TenantContext.Tags` rides the one per-instrument view projection at Observability/telemetry#SIGNAL_GOVERNANCE `Views`, which admits `TenantSlot` beside each row's declared dimensions under the governed series ceiling so the per-tenant meter dimension survives the tag projection and never fans unbounded, and the root row contributes no dimension at all so an absent `rasm.tenant` reads single-tenant everywhere; `TenantId` crosses the wire as a `UInt128`-keyed Thinktecture value object whose one `Text` render the RLS predicate, the cache-key partition, and the meter tag all compare byte-identically, never a string parse beside it.
+- Boundary: `PortCardinality` is the conserved invariant — its two direction rows hold every admitted port name and an eighth port record is the named defect: a new aggregate store, compute, companion, or outbound-client port is the rejected form, that content decomposing into rows on these seven, and a content carrier (the `ReceiptEnvelope` value, a `TenantContext` tenancy primitive, a `SecretLease` row, a `FencingToken` value object) is never promoted to a port. Spine owners constructor-injected as settled vocabulary are never ports: `ClockPolicy` (the clock pair), `SchedulePort` (a static fold over `ScheduleEntry` rows despite the `-Port` suffix), `CancelScope` (the cancellation provenance tree), the determinism RNG, the `HopPolicy` outbound rows, and the `CacheLane` L2 cache surface — each is a record or static surface threaded through composition, not a delegate-bearing inward seam. Contributor ports carry the settled row vocabularies — instrument rows, artifact rows, probe rows — never re-spelled fields, and the semconv schema coordinate is the kernel const `TelemetryIdentity.SchemaUrl`, stamped as `MeterOptions.TelemetrySchemaUrl` inside `TelemetryIdentity.Metered` at every contributor mint, so the port carries no schema slot; no sibling assembly enters the AppHost graph. `TenantContext` is a cross-package primitive beside the HLC stamp, the content-address `Hash`, and the boot-minted `CorrelationId`, and this platform is its one minting site: AppHost mints and threads it, the Persistence tenancy owner `csharp:Rasm.Persistence/Element/identity` stores the canonical `TenantId.Text` render in a `text` column and compares it against `current_setting('rasm.tenant', true)` bare — a `::uuid` provider cast is the deleted form that forks one identity into two alphabets — `csharp:Rasm.Persistence/Query/cache#L2_CONTRIBUTION` partitions the content-address cache key by `TenantId`, and `TenantSlot` (`rasm.tenant`) is the single GUC and meter-tag spelling every consumer reads; `TenantContext.Tags` rides the one per-instrument view projection at Observability/telemetry#SIGNAL_GOVERNANCE `Views`, which admits `TenantSlot` beside each row's declared dimensions under the governed series ceiling so the per-tenant meter dimension survives the tag projection and never fans unbounded, and the root row contributes no dimension at all so an absent `rasm.tenant` reads single-tenant everywhere; `TenantId` crosses the wire as a `UInt128`-keyed Thinktecture value object whose one `Text` render the RLS predicate, the cache-key partition, and the meter tag all compare byte-identically, never a string parse beside it.
 
 ```csharp signature
 // ReceiptSinkPort and TelemetryContributorPort declare at the kernel signal capsule — both are string-scoped
@@ -79,18 +79,18 @@ public sealed record HealthContributorPort(
 
 ## [03]-[WIRE_LAW]
 
-- Owner: `WireAdmission` the ONE generated-message descriptor and rule edge — one root set feeds the `TypeRegistry`, warmed evaluator, violation projection, `EventExtensions`, and every binary or JSON admission; `WireJson` the ONE ProtoJSON codec over that neutral admission; `FaultWire` the ONE fault wire — in-process `Observe`, the `Retriability` ⇄ `FaultRecovery` correspondence, `Pack` onto `FaultDetail`, the one `Error` → `StatusCode` producer table, `Raise` the one `RpcException` mint, and the client pair `Decode`/`Admit` onto `RemoteFault`; `FaultContext` the producer's call evidence; `WireViolation` `[Union]` and `WireBoundary` `[SmartEnum<string>]` the typed malformed-envelope evidence and the captured-codec-site vocabulary every branch reads; `HostWire` the byte and stamp correspondences the host families share — the 16-byte correlation, the `Hlc` stamp, the `Package` bridge, and the one-arm oneof assignment; `EnvelopeMap` the one `[Mapper]` projecting the kernel `ReceiptEnvelope` onto `Receipt.V1.ReceiptEnvelopeWire`; `ProtoJsonConverterFactory` the one STJ crossing for a generated message embedded inside an in-process receipt; `SuiteContracts` the app-root STJ merge that survives for surfaces no corpus family carries.
+- Owner: `WireAdmission` the ONE generated-message descriptor and rule edge — one root set feeds the `TypeRegistry`, warmed evaluator, violation projection, `EventExtensions`, and every binary or JSON admission; `WireJson` the ONE ProtoJSON codec over that neutral admission; `FaultWire` the ONE fault wire — in-process `Observe`, the `Retriability` ⇄ `FaultRecovery` correspondence, `Pack` onto `FaultDetail`, the one `Error` → `StatusCode` producer table, `Raise` the one `RpcException` mint, and the client pair `Decode`/`Admit` onto `RemoteFault`; `FaultContext` the producer's call evidence; `WireViolation` `[Union]` and `WireBoundary` `[SmartEnum<string>]` the typed malformed-envelope evidence and the captured-codec-site vocabulary every branch reads; `HostWire` the byte and stamp correspondences the host families share — the 16-byte correlation, the `Hlc` stamp, the `Package` bridge, and the one-arm oneof assignment; `EnvelopeMap` the one `[Mapper]` projecting the kernel `ReceiptEnvelope` onto `Receipt.V1.ReceiptHeaderWire`; `ProtoJsonConverterFactory` the one STJ crossing for a generated message embedded inside an in-process receipt; `SuiteContracts` the app-root STJ merge that survives for surfaces no corpus family carries.
 - Entry: `WireAdmission.Warm()` compiles every reachable generated-message rule before readiness; `WireAdmission.EventExtensions` composes the kernel descriptor bridge over that evaluator; `WireAdmission.Validate<T>(T, Op)` preserves accumulated violations for request/response projection, while `WireAdmission.Admit<T>(T, WireBoundary, Op)` collapses the same verdict for a named generated-message edge; `WireJson.Write(IMessage, TextWriter|Stream)` and `WireJson.Read<T>(TextReader|Stream|JsonElement, Op)` are the ProtoJSON codec doors, with each read composing neutral admission after parse; `WireJson.Element(IMessage)` is the one door onto the kernel envelope's `JsonElement` payload; `FaultWire.Observe(Error)` projects the kernel `FaultObservation.Of` onto `Fault.V1.FaultObservation`; `FaultWire.Raise(Error, FaultContext)` is every failing gRPC arm's one exit; `FaultWire.Decode(RpcException)` and `FaultWire.Admit(FaultDetail, string)` are the client read; `SuiteContracts.Wire(contexts)` creates one merge per app root for the discovery manifest and the in-process receipts no peer decodes.
 - Packages: Rasm.Contracts (project — every emitted file reflection root and generated fault, host, compute, element, evidence, parity, and RPC message), Celly.Protovalidate (`Validator`, `ValidationCompileException`, `ValidationException`, generated `Buf.Validate.Violation`/`FieldPath`), Google.Protobuf (`TypeRegistry.FromFiles`, message descriptors and parsers, `JsonFormatter`, `JsonParser`, `Any.Pack`/`Is`/`Unpack<T>`, `ByteString`), Grpc.StatusProto (`Google.Rpc.Status.ToRpcException`, `RpcException.GetRpcStatus`, `Exception.ToRpcDebugInfo`), Google.Api.CommonProtos (`Google.Rpc.Status`, `RetryInfo`, `BadRequest.Types.FieldViolation`, `DebugInfo`), Grpc.Core.Api (`RpcException`, `StatusCode`), NodaTime.Serialization.Protobuf (`ToProtobufDuration`/`ToNodaDuration`), Rasm (kernel `FaultObservation`, `FaultBand`, `KernelFault`, `Retriability`, `ContentHash`), NodaTime.Serialization.SystemTextJson, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, BCL inbox
 - Law: `WireAdmission.Files` is the ONE generated file-root roster. `TypeRegistry.FromFiles` folds its dependencies transitively for `Any`; `Validator` compiles and evaluates constraints from the same roots, so codec reachability and rule reachability cannot drift. `Warm` validates one parsed default for every admitted non-map descriptor while the host is still mutable, forcing Celly's lazy CEL compilation before readiness. ProtoJSON intake tolerates unknown fields (`WithIgnoreUnknownFields(true)`) under the corpus gate's `buf breaking` FILE law and bounds recursion at the parser's configured depth; a local validator, `JsonFormatter.Default`, and `JsonParser.Default` are deleted forms.
 - Law: generated-message admission is two-railed without dual policy. Parse, unrostered-type, compile, and evaluator failures ride the outer `Fin`; authored rule refusals accumulate inside `Validation<Seq<BadRequest.FieldViolation>,T>`. `Read<T>` collapses that verdict only after parse, while the gRPC interceptor reads the same verdict directly for request `InvalidArgument` and response `Internal` projection. One field-path projector preserves scalar fields, repeated indices, and bool, signed, unsigned, or JSON-quoted string map keys; no mapper restates a rule or calls validation itself.
-- Law: `FaultWire.Status` is the ONE producer `Error` → `StatusCode` table, a closed ladder: every `KernelFault` case through its generated total `Switch`, every other `Fault` by the posture its `Retriability` already carries (`Throttled` → `ResourceExhausted`, `Transient` → `Unavailable`, `Terminal` → `FailedPrecondition`), the rail's two reserved termination codes (`Errors.Cancelled`, `Errors.TimedOut`) onto their gRPC twins, and every foreign `Error` onto `Internal`. No handler spells a status; a `new RpcException(new Status(...))` anywhere on this branch is the deleted form. The client inverse (`StatusCode` → local transport fault) stays the dialing branch's own fold — `Rasm.Compute` `Runtime/wire#FAULT_PROJECTION` `StatusRail` — so the producer fold and the client fold never merge into one dictionary read both ways.
+- Law: `FaultWire.Status` is the ONE producer `Error` → `StatusCode` table, a closed ladder: every `KernelFault` case through its generated total `Switch`, every other `Fault` by the posture its `Retriability` already carries (`Throttled` → `ResourceExhausted`, `Transient` → `Unavailable`, `Terminal` → `FailedPrecondition`), the rail's two reserved termination codes (`Errors.Cancelled`, `Errors.TimedOut`) onto their gRPC twins, and every foreign `Error` onto `Internal`. No handler spells a status; a `new RpcException(new Status(...))` anywhere on this branch is the deleted form. The client inverse (`StatusCode` → local transport fault) stays the dialing branch's own fold — `csharp:Rasm.Compute/Runtime/wire#FAULT_PROJECTION` `StatusRail` — so the producer fold and the client fold never merge into one dictionary read both ways.
 - Law: `FaultDetail.domain` names the PRODUCING FAMILY and `case` is that family's closed ordinal, never a transport status and never the absolute code. The family's one stable identity the wire can carry is its `FaultBand` row, so `domain` derives ONCE at static init as the band owner's lowercased key beside the band base (`rasm.apphost.4500`) and `case` is `fault.Code - band.Key`; `FaultBand` has no lowercase family column, and the owner key alone collapses every AppHost band onto one domain, which strips `(domain, case)` of its identity (thirty AppHost rows share `TelemetrySource.AppHost`). The pair stays OPAQUE at every peer — a remote `domain` never drives topology or failover, and the admission consults this process's own ledger only to refuse a same-estate ordinal past its band's span, which is version-skew evidence rather than taxonomy rehydration.
 - Law: `FaultObservation.(domain, case)` carries the SAME family identity `FaultDetail.(domain, case)` carries, so one field pair has one meaning across both generated messages. `Observe` derives the pair together from the kernel observation's optional numeric code; a foreign `Error` crosses with both absent, and the generated paired-presence rule refuses either field alone. The kernel `FaultId.Case` token NEVER crosses, so a leaf rename stays one compilation.
 - Law: `FaultRecovery` is the ONE recovery crossing and its arm set is the kernel `Retriability` union's — `Recovery(Retriability)` assigns exactly one arm through the generated total `Switch`, and `Recovery(FaultRecovery)` dispatches on `KindCase` so an unset message, a `None` kind, an absent `retry_delay`, and a negative delay each refuse as their own typed `WireViolation`. The throttled arm IS a `google.rpc.RetryInfo`, so `Raise` packs THAT instance a second time as a top-level `Status` detail and a foreign gRPC client reads standard back-off without decoding a rasm type; one message occupies both seats and a second construction is the deleted form that lets the two disagree. `RetryInfo` states a delay alone, which is why the estate keeps the oneof: `terminal` and `transient` are unspellable inside it.
 - Law: `Raise` packs exactly one `FaultDetail` per estate fault except a kernel contract admission, which packs one standard `BadRequest` instead of duplicating its violations into two details. Request refusal stays `InvalidArgument`, invalid server response stays `Internal`, and both preserve the same typed field coordinates without refused values. Other kernel and domain faults retain their estate detail. A captured foreign exception crosses as `google.rpc.DebugInfo` through `ToRpcDebugInfo`, and an exception-free foreign error crosses with its message alone, so a fabricated case, domain, or recovery never reaches a peer. `Decode` reads `RpcException.GetRpcStatus()` under `Op.Catch`: absent answers `None`, a malformed trailer refuses typed on `WireBoundary.RemoteStatus`, exactly one recognized `FaultDetail` admits as opaque `RemoteFault`, zero recognized details answer `None` so the caller's transport classification decides, and several refuse on `WireBoundary.DetailMultiplicity` — never a silent fallback. `Message` comes from the enclosing `google.rpc.Status`, never re-rendered.
 - Law: every cross-process family the corpus carries crosses as its generated semantic-package message — the owning page projects it once through Mapperly for structural twins or a direct producer for operational folds, then formats through `WireJson`, so a hand STJ record under a generated message's name is the deleted twin. The `SuiteContracts` STJ merge survives for the local attach manifest and in-process receipts no peer runtime decodes; the generated capability-discovery catalog is a distinct RPC reply. A generated message embedded in such a receipt crosses the merge through the one `ProtoJsonConverterFactory`, which writes `WireJson.Formatter` text and reads through `WireJson.Parser`, so the receipt fan and the dashboard read one ProtoJSON spelling of every fault observation.
-- Law: the kernel `ReceiptEnvelope` stays the in-process carrier and its `JsonElement` payload holds ProtoJSON text for every kind the corpus carries (`WireJson.Element`), so the wire projection `EnvelopeMap.ToWire(envelope, payload)` packs the typed payload as `Any` and a kind with no generated family cannot cross — `ReceiptKind.Admit` at `Observability/instruments#RECEIPT_PROJECTION` is the one decoder per kind both the instrument write and this projection read.
+- Law: kernel `ReceiptEnvelope` stays the in-process carrier and its `JsonElement` payload holds ProtoJSON text for every kind the corpus carries (`WireJson.Element`), while `EnvelopeMap.ToWire(envelope)` projects the HEADER alone — correlation, tenant, package, stamp, skew bound — so no payload and no kind key cross here. A producing package pairs that header with a oneof over its OWN closed receipt families, making the payload compiler-exhaustive at the composition site and the producer derivable from the arm; `Ui.V1.EvidenceRowWire` is the corpus's worked example, and a package with no family yet emits a header its peer reads without a payload rather than an `Any` no registry resolves. `ReceiptKind.Admit` at `Observability/instruments#RECEIPT_PROJECTION` stays the one in-process decoder per kind the instrument write reads.
 - Law: the `Hlc` stamp crosses as `Clock.V1.Hlc{physical sfixed64 Unix ticks, logical uint64}` — the ONE wire stamp every host family, the fault detail, and the receipt envelope carry — so the packed `physical<<64 | logical` `UInt128` is an in-process content-key lane (`Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING`) and never a wire layout; `HostWire.Stamp` is the one mint and the one admission of that message.
 - Growth: a new generated file is one reflection root on `WireAdmission.Files`, which feeds registry, allowed-message index, and contract evaluator together; a new host family message is one owning producer and one `ReceiptKind` row; a new fault family lands its band row at the kernel and packs with no edit here; a new malformed-envelope shape is one `WireViolation` case at the refusing admission; a surface the corpus does not carry registers one `[JsonSerializable]` row on the merge and names its carve.
 - Boundary: `WireJson` is a statement capsule at its two stream doors because `JsonFormatter.Format(IMessage, TextWriter)` and `JsonParser.Parse<T>(TextReader)` are the substrate's writer-shaped entries, and a string-returning `Format` is reached only where the consumer IS a string-shaped slot (the envelope's `JsonElement`, the raw STJ value the converter writes); a caller holding an `IBufferWriter<byte>` reaches the stream door through `CommunityToolkit.HighPerformance` `AsStream()` at its own tier, since this assembly admits no buffer-writer package row. `FaultWire.Raise` is the one `throw` on this page family and it sits INSIDE the gRPC verb edge the platform forces (`ControlServiceImpl` at `Wire/companion#CONTROL_SERVICE`): the typed receipt is sealed on the rail first and the exception is the transport's egress form, never control flow. `WireBoundary` keeps `QueryFieldNumber` and `InboundPayload` because `Rasm.Compute` `WireFault.Internal(WireBoundary, Error)` names them and one vocabulary serves both branches. The kernel envelope's `JsonElement` payload is the one place ProtoJSON becomes a string: `Element` parses the formatted text into a detached element and `Read<T>(JsonElement, Op)` re-parses its raw text, both stated as the string door rather than hidden. `HostFingerprintWire` and `BenchmarkClaimWire` ride `benchmark.v1`; `DescriptorPinWire` rides `capability.v1`; they bind at `Runtime/determinism`, `Observability/benchmarks`, and `Agent/capability`. NodaTime converters still bind at the merge through `ConfigureForNodaTime(DateTimeZoneProviders.Tzdb)` for the receipts that stay STJ, and every temporal member of a generated message crosses as `Timestamp`/`Duration` through the `NodaTime.Serialization.Protobuf` static family at the owning mapper. NAMED LOSS of the former STJ fault-observation trio and its mapper: cause stamps crossed as structured rows (`code`, `exceptionType`, `hResult`) and now cross as the corpus's rendered strings, so a peer no longer reads a cause's numeric identity or CLR type name off the observation — witness `CommandTxn.Rejected(fault)` at `Agent/capability#COMMAND_ALGEBRA`, which now carries `FaultWire.Observe(fault)` and reaches the TS dashboard as the generated `FaultObservation` schema. NAMED LOSS of the former STJ schema export: the exporter and the `schema-derived TS` tool row delete — TS consumes the generated schema (`@rasm\/contracts/...`) and grades the capability catalog through `DescriptorPinWire` alone.
@@ -131,6 +131,7 @@ using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using Thinktecture.Text.Json.Serialization;
 using Host = Rasm.Contracts.Receipt.V1;
+using Clock = Rasm.Contracts.Clock.V1;
 using Fault = Rasm.Contracts.Fault.V1;
 using static LanguageExt.Prelude;
 
@@ -172,6 +173,11 @@ public abstract partial record WireViolation {
     public sealed record UnrosteredMessage(string Type) : WireViolation;
     public sealed record UnrosteredOp(string TypeUrl) : WireViolation;
     public sealed record ReceiptDisposition(bool Committed, bool HasConflict) : WireViolation;
+    // More than one recognized detail on a trailer: the count is the refusing value.
+    public sealed record Multiplicity(int Count) : WireViolation;
+    // A decode step that RAISED rather than refused: the captured `Error` is the evidence, so a malformed
+    // trailer and a throwing unpack ride the same typed envelope-refusal family instead of a bare `Error`.
+    public sealed record Captured(Error Cause) : WireViolation;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -179,7 +185,7 @@ public abstract partial record WireViolation {
 // the tenant `PeerAdmission` admitted, and the protovalidate refusals the verb accumulated.
 public sealed record FaultContext(
     CorrelationId Correlation,
-    Fault.Hlc Stamp,
+    Clock.Hlc Stamp,
     Option<TenantId> Tenant,
     Seq<BadRequest.Types.FieldViolation> Violations) {
     public static FaultContext Of(CorrelationId correlation, (Instant Physical, ulong Logical) stamp, TenantContext tenant,
@@ -218,15 +224,15 @@ public static class WireAdmission {
         EventReflection.Descriptor,
         FabricationReflection.Descriptor,
         Fault.FaultReflection.Descriptor,
-        Host.ApphostReflection.Descriptor,
-        Host.AppuiCommandsReflection.Descriptor,
-        Host.AppuiControlsReflection.Descriptor,
-        Host.AppuiEvidenceReflection.Descriptor,
-        Host.AppuiLayoutReflection.Descriptor,
-        Host.AppuiResidencyReflection.Descriptor,
-        Host.AppuiSurfaceReflection.Descriptor,
-        Host.BimReflection.Descriptor,
-        Host.EvidenceReflection.Descriptor,
+        Clock.HlcReflection.Descriptor,
+        Host.EnvelopeReflection.Descriptor,
+        Rasm.Contracts.Ui.V1.CommandsReflection.Descriptor,
+        Rasm.Contracts.Ui.V1.ControlsReflection.Descriptor,
+        Rasm.Contracts.Ui.V1.EvidenceReflection.Descriptor,
+        Rasm.Contracts.Ui.V1.LayoutReflection.Descriptor,
+        Rasm.Contracts.Ui.V1.SurfaceReflection.Descriptor,
+        Rasm.Contracts.Render.V1.ResidencyReflection.Descriptor,
+        Rasm.Contracts.Bim.V1.DiffReflection.Descriptor,
         OrganizationReflection.Descriptor,
         ParityReflection.Descriptor,
         SceneReflection.Descriptor,
@@ -373,13 +379,13 @@ public static class HostWire {
             : Fin.Fail<CorrelationId>(key.InvalidInput(nameof(CorrelationId)));
 
     // ONE wire stamp: the NodaTime Unix tick count is the physical half the kernel HLC mint already carries.
-    public static Fault.Hlc Stamp((Instant Physical, ulong Logical) hlc) =>
+    public static Clock.Hlc Stamp((Instant Physical, ulong Logical) hlc) =>
         new() { Physical = hlc.Physical.ToUnixTimeTicks(), Logical = hlc.Logical };
 
-    public static Fin<(Instant Physical, ulong Logical)> Stamp(Fault.Hlc wire, Op key) =>
+    public static Fin<(Instant Physical, ulong Logical)> Stamp(Clock.Hlc wire, Op key) =>
         wire.Physical >= 0L
             ? Fin.Succ((Instant.FromUnixTimeTicks(wire.Physical), wire.Logical))
-            : Fin.Fail<(Instant, ulong)>(key.InvalidInput(nameof(Fault.Hlc)));
+            : Fin.Fail<(Instant, ulong)>(key.InvalidInput(nameof(Clock.Hlc)));
 
     // The kernel package roster and the wire enum are one correspondence: the generated `Map` is total, so a
     // package minted at the kernel breaks this projection until its enum value lands at the corpus.
@@ -537,21 +543,24 @@ public static partial class FaultWire {
     // refuse on `DetailMultiplicity`; zero recognized answer None so transport classification decides.
     public static Fin<Option<RemoteFault>> Decode(RpcException raised) =>
         Op.Of().Catch(() => Fin.Succ(Optional(raised.GetRpcStatus())))
-            .MapFail(captured => (Error)new HopFault.Malformed(WireBoundary.RemoteStatus, captured))
+            .MapFail(captured => (Error)new HopFault.Malformed(
+                WireBoundary.RemoteStatus, new WireViolation.Captured(captured)))
             .Bind(status => status.Match(
                 None: static () => Fin.Succ(Option<RemoteFault>.None),
                 Some: held => Recognized(held)));
 
+    // `Admit`'s fail side already accumulates `HopFault.Malformed` per refused column through `Violation`, so
+    // the admission leg passes its rail through rather than wrapping typed refusals in a second `Malformed`.
     static Fin<Option<RemoteFault>> Recognized(Google.Rpc.Status status) =>
         toSeq(status.Details).Filter(static any => any.Is(Fault.FaultDetail.Descriptor)) switch {
             { IsEmpty: true } => Fin.Succ(Option<RemoteFault>.None),
             { Count: 1 } one => Op.Of().Catch(() => Fin.Succ(one.Head.Unpack<Fault.FaultDetail>()))
-                .MapFail(captured => (Error)new HopFault.Malformed(WireBoundary.RemoteDetail, captured))
-                .Bind(detail => Admit(detail, status.Message)
-                    .MapFail(refused => (Error)new HopFault.Malformed(WireBoundary.DetailAdmission, refused)))
+                .MapFail(captured => (Error)new HopFault.Malformed(
+                    WireBoundary.RemoteDetail, new WireViolation.Captured(captured)))
+                .Bind(detail => Admit(detail, status.Message))
                 .Map(Some),
             var many => Fin.Fail<Option<RemoteFault>>(new HopFault.Malformed(
-                WireBoundary.DetailMultiplicity, Op.Of().InvalidInput($"<details:{many.Count}>"))),
+                WireBoundary.DetailMultiplicity, new WireViolation.Multiplicity(many.Count))),
         };
 
     // Every D6 field admits independently and the refusals ACCUMULATE, so one malformed detail names every
@@ -571,7 +580,7 @@ public static partial class FaultWire {
             ? Violation(new WireViolation.Case(detail.Domain, detail.Case, band.Span))
         : Validation<Error, string>.Success(detail.Domain);
 
-    static Validation<Error, (Instant Physical, ulong Logical)> Stamp(Fault.Hlc? wire) => wire switch {
+    static Validation<Error, (Instant Physical, ulong Logical)> Stamp(Clock.Hlc? wire) => wire switch {
         null => Violation(new WireViolation.MissingStamp()),
         { Physical: < 0L } => Violation(new WireViolation.Stamp(wire.Physical)),
         _ => Validation<Error, (Instant, ulong)>.Success((Instant.FromUnixTimeTicks(wire.Physical), wire.Logical)),
@@ -587,30 +596,31 @@ public static partial class FaultWire {
 }
 
 // --- [BOUNDARIES] ---------------------------------------------------------------------------
-// The envelope crossing. Payload is the typed generated message the producer minted, packed as `Any`; the
-// kernel envelope's `JsonElement` is that same message's ProtoJSON and never a second shape.
+// The header crossing. `ReceiptHeaderWire` carries what EVERY receipt has and nothing about what any one
+// carries, so no payload slot and no kind key reach it: a producing package pairs this header with a oneof
+// over its own closed families, which is what makes the payload exhaustive at the composition site and the
+// producer derivable from the arm rather than from a string key. `Kind` and the kernel `JsonElement` payload
+// stay in-process for the receipt fan and never cross.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 [UseStaticMapper(typeof(NodaExtensions))]
 [UseStaticMapper(typeof(HostWire))]
 internal static partial class EnvelopeMap {
+    [MapperIgnoreSource(nameof(ReceiptEnvelope.Kind))]
     [MapperIgnoreSource(nameof(ReceiptEnvelope.Payload))]
     [MapperIgnoreSource(nameof(ReceiptEnvelope.Physical))]
     [MapperIgnoreSource(nameof(ReceiptEnvelope.Logical))]
-    [MapProperty(nameof(ReceiptEnvelope.Correlation), nameof(Host.ReceiptEnvelopeWire.Correlation))]
-    [MapProperty(nameof(ReceiptEnvelope.Package), nameof(Host.ReceiptEnvelopeWire.Package))]
-    [MapPropertyFromSource(nameof(Host.ReceiptEnvelopeWire.Stamp), Use = nameof(Stamped))]
-    [MapPropertyFromSource(nameof(Host.ReceiptEnvelopeWire.Payload), Use = nameof(Packed))]
-    public static partial Host.ReceiptEnvelopeWire ToWire(ReceiptEnvelope envelope, IMessage payload);
+    [MapProperty(nameof(ReceiptEnvelope.Correlation), nameof(Host.ReceiptHeaderWire.Correlation))]
+    [MapProperty(nameof(ReceiptEnvelope.Package), nameof(Host.ReceiptHeaderWire.Package))]
+    [MapProperty(nameof(ReceiptEnvelope.SkewBound), nameof(Host.ReceiptHeaderWire.SkewBound))]
+    [MapPropertyFromSource(nameof(Host.ReceiptHeaderWire.Stamp), Use = nameof(Stamped))]
+    public static partial Host.ReceiptHeaderWire ToWire(ReceiptEnvelope envelope);
 
     [MapProperty(nameof(TenantContext.TenantId), nameof(Host.TenantContextWire.Tenant), Use = nameof(Key))]
     public static partial Host.TenantContextWire ToWire(TenantContext tenant);
 
     [NamedMapping(nameof(Stamped))]
-    private static Fault.Hlc Stamped(ReceiptEnvelope envelope) => HostWire.Stamp((envelope.Physical, envelope.Logical));
-
-    [NamedMapping(nameof(Packed))]
-    private static Any Packed(ReceiptEnvelope envelope, IMessage payload) => Any.Pack(payload);
+    private static Clock.Hlc Stamped(ReceiptEnvelope envelope) => HostWire.Stamp((envelope.Physical, envelope.Logical));
 
     [NamedMapping(nameof(Key))]
     private static ByteString Key(TenantId tenant) => ContentHash.Wire(tenant.Value);
@@ -746,7 +756,7 @@ Every family group riding row [01] has one generated-message producer. Mapperly 
 
 | [INDEX] | [FAMILY_GROUP]                  | [PRODUCER]            | [OWNER]                                  |
 | :-----: | :------------------------------ | :-------------------- | :--------------------------------------- |
-|  [01]   | receipt envelope, tenant        | `EnvelopeMap`         | this page                                |
+|  [01]   | receipt header, tenant          | `EnvelopeMap`         | this page                                |
 |  [02]   | hop and delivery evidence       | native receipt family | `Wire/outbound#RECEIPT_FAMILY`           |
 |  [03]   | bus loss account                | native `DropReceipt`  | `Wire/topics#LOSS_RECEIPT`               |
 |  [04]   | binding status, coercion, write | `LiveWireContract`    | `Wire/livewire#TS_PROJECTION`            |
@@ -759,10 +769,10 @@ Every family group riding row [01] has one generated-message producer. Mapperly 
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: `ReceiptEnvelopeWire`, `TenantContextWire`, and `Package` — the generated `Receipt.V1` envelope family the TS dashboard decodes from the generated schema; `EnvelopeMap` above is its one producer.
-- Entry: every wire payload crosses as the `Any` the envelope packs, resolved at the peer through the generated descriptor registry; a hand-mirrored TS interface of any envelope member is the deleted form.
+- Owner: `ReceiptHeaderWire`, `TenantContextWire`, and `Package` — the generated `Receipt.V1` header family the TS dashboard decodes from the generated schema; `EnvelopeMap` above is its one producer.
+- Entry: every receipt crosses as its producing package's own composed message — this header beside a oneof over that package's closed families — so the peer switches on a generated arm rather than resolving an `Any` through a registry; a hand-mirrored TS interface of any header member is the deleted form.
 - Packages: Rasm.Contracts (project)
-- Growth: a new envelope column lands at `apphost.proto` and regenerates through the gate; this page gains no member.
+- Growth: a new header column lands at `receipt/v1/envelope.proto` and regenerates through the gate; this page gains no member.
 - Boundary: `physical` and `logical` cross ONLY as `Clock.V1.Hlc` — the ISO text half and the `physical_ticks<<64 | logical` packed `UInt128` are gone from the wire; the packed form survives as the in-process content-key lane `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Compose` seals, so a peer that hashes the frame reads the tick count off the stamp and never an ISO string; `tenant` crosses as the 16 big-endian bytes `ContentHash.Wire` publishes beside the slug, never a decimal string; `package` crosses as the `Receipt.V1.Package` enum the kernel `TelemetrySource` roster maps onto through `HostWire.Package`, so a package minted at the kernel with no enum value breaks the projection at build; `correlation` crosses as the 16-byte RFC 4122 form `HostWire.Correlation` publishes. The TS tooling map collapses to the generated schema: `connect-es` over the service descriptors, `@rasm\/contracts/rasm/contracts/receipt/v1/envelope_pb` over every host family, `@msgpack/msgpack` over snapshot blobs, OTLP over telemetry — the `schema-derived TS` tool row and its former STJ schema exporter are deleted.
 
 ## [05]-[RESEARCH]

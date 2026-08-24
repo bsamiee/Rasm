@@ -1,11 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RasmHost>grasshopper;platform</RasmHost>
+    </PropertyGroup>
     <ItemGroup Label="Architecture Rule Tooling">
         <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" PrivateAssets="all" />
         <PackageReference Include="Verify.DiffPlex" PrivateAssets="all" />
         <PackageReference Include="Verify.XunitV3" PrivateAssets="all" />
     </ItemGroup>
-    <!-- The scenario SDK's law suite lives here; internals (FactKey, Hook, FactCount) arrive via InternalsVisibleTo.
-         The benchmark gate's tri-state and segmenter laws consume Rasm.Benchmarks' public Regression surface. -->
+    <!-- The scenario SDK's law suite lives here; internals (FactKey, Hook, FactCount) arrive via InternalsVisibleTo. The benchmark gate's tri-state and segmenter laws consume Rasm.Benchmarks' public Regression surface. -->
     <ItemGroup Label="Project References">
         <ProjectReference Include="../_benchmarks/Rasm.Benchmarks.csproj" />
         <ProjectReference Include="../_scenariokit/Rasm.ScenarioKit.csproj" />

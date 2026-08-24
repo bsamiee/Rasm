@@ -115,7 +115,7 @@ declare namespace RunReceipt {
 ```typescript
 import { InputPropertiesError, InputPropertyError, RunError } from "@pulumi/pulumi"
 import { CommandError, ConcurrentUpdateError, StackAlreadyExistsError, StackNotFoundError } from "@pulumi/pulumi/automation"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Duration, Match, Order, Schema, pipe } from "effect"
 
 // Three subjects, each elected from what the RAISE actually holds. Every engine-thrown reason carries the same
@@ -239,7 +239,7 @@ declare namespace DeployFault {
 - Law: `Automation.Options` derives from the run-option seam — `Omit<_RunOpts, "signal" | "onEvent">` plus the `budget` duration, so the caller surface cannot drift from what the arms accept; the option arrays keep the engine's mutable-array spelling because the record is a boundary mirror consumed once.
 - Law: the deploy host obeys the injection law — the automation process itself runs under `doppler run`, which is how `PULUMI_CONFIG_PASSPHRASE`, the bootstrap `DOPPLER_TOKEN`, and the provider material reads resolve; one injection mechanism spans the deploy host and every deployed process.
 - Entry: `Automation.stack(spec, program)` then `Automation.run(stack, spec.name, "up", { policyPacks })`; `Automation.reconcile(stack, spec.name)` for the standing drift read; `Automation.series(stack, spec.name)` for the regression read; `Automation.ephemeral(spec, program)` under a `Scope` for review stacks; `Automation.adopt(stack, spec.name, resources)` to absorb a pre-existing estate; `Automation.attach(stack, spec.name, envs)` after `operate/cloud.md` authors the environment.
-- Packages: `@pulumi/pulumi/automation` (the workspace, stack, and engine-event surface); `effect` (`Config`, `Duration`, `Effect`, `Schedule`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Budget`).
+- Packages: `@pulumi/pulumi/automation` (the workspace, stack, and engine-event surface); `effect` (`Config`, `Duration`, `Effect`, `Schedule`, `Schema`, `Stream`); `@rasm/core` (`Fault.Budget`).
 - Growth: a new host fact is one `_host` row; a new call-local option is one `_RunOpts` field inherited by `Options` mechanically; a new fleet verb is one member over the engine method that carries it; a new config modality is one `_config` overload line plus one ladder arm.
 - Boundary: the `PulumiFn` the stack runs is `provider.md`'s product; the drift projection over `reconcile` receipts and the `Evidence` sink vocabulary run settle delivers into are `operate/policy.md`'s; the hosted schedule/webhook twins of these verbs are `operate/cloud.md`'s rows.
 
@@ -249,7 +249,7 @@ import {
   type ConfigMap, type ConfigValue, type Deployment, type EngineEvent, type ImportResource, type PulumiFn,
   type RemoteGitProgramArgs, type RemoteStack, type Stack, type StackSummary, type UpdateSummary, type WhoAmIResult,
 } from "@pulumi/pulumi/automation"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Config, Duration, Effect, Option, Predicate, Record, Redacted, Schedule, Schema, Stream, type Scope } from "effect"
 import { StackSpec } from "./spec.ts"
 

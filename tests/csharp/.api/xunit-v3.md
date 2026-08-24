@@ -74,7 +74,7 @@ public interface ITestOutputHelper {
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RUNNER_CONFIG]: the runner json is MSBuild-emitted, never a checked-in file — `Directory.Build.props` holds the `_XunitRunnerJsonContent` literal and `Directory.Build.targets` writes it to `$(IntermediateOutputPath)/xunit.runner.json` per test project.
+[RUNNER_CONFIG]: the runner json is MSBuild-emitted, never a checked-in file — `Directory.Build.targets` holds the `_XunitRunnerJsonContent` literal and writes it to `$(IntermediateOutputPath)/xunit.runner.json` per test project.
 - `parallelAlgorithm: "conservative"` — caps concurrently scheduled threads instead of oversubscribing when tests block.
 - `preEnumerateTheories: true` — each theory row discovers as its own case.
 - `longRunningTestSeconds: 30` — diagnostic notification past the wall-clock threshold.

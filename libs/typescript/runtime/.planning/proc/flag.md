@@ -23,7 +23,7 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 ```typescript signature
 import type { UnknownEnum } from '@bufbuild/protobuf';
 import { FlagReason } from '@rasm\/contracts/rasm/contracts/feature/v1/verdict_pb';
-import { Wire } from '@rasm/ts/core';
+import { Wire } from '@rasm/core';
 import { Array, DateTime, Duration, Effect, Match, Option, Record, Schema, String, pipe } from 'effect';
 
 const _REASONS = ['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT', 'CACHED', 'DISABLED', 'STALE', 'ERROR', 'UNKNOWN'] as const;
@@ -224,7 +224,7 @@ const Sticky: Sticky.Shape = {
 - Law: the producer's reason roster is its own and crosses through one total map — it spells `targeting` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all, so `_WIRE_REASON` is the whole crossing and an arrival keeps the reason its own evaluator settled on rather than being restamped as this process's cache read.
 - Law: the document row is a flag definition — `FlagDef` carries `kind`, the targeting `rule`, and the per-variant value map whose values ride `_Json`, so an object-valued flag is one definition row and value resolution is a variant lookup; the definition's `kind` gates type agreement at resolution, a mismatch minting `TYPE_MISMATCH` evidence.
 - Law: every delta carries its source epoch — `Reset` replaces the document and `Set`/`Clear` patch one flag only when their epoch is equal to or newer than the held document; accepted rows advance `Ruleset.epoch`, stale rows are no-ops, and reset invalidation is the symmetric key difference so removed flags invalidate beside added and changed flags.
-- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@rasm/ts/core` (`Wire.decode` — direct-family first-sight admission); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
+- Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@rasm/core` (`Wire.decode` — direct-family first-sight admission); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
 
 ```typescript signature
 const _CODES = [
@@ -375,8 +375,8 @@ import {
     Cache, Cause, Data, Exit, Function, HashMap, Layer, Match, Metric, Option, Predicate, Record, Runtime, Schedule, Schema, Stream,
     SubscriptionRef,
 } from 'effect';
-import { Convention, Fault } from '@rasm/ts/core';
-import { FlagGate } from '@rasm/ts/security';
+import { Convention, Fault } from '@rasm/core';
+import { FlagGate } from '@rasm/security';
 import { Setting } from './config.ts';
 import { Feed } from '../net/channel.ts';
 

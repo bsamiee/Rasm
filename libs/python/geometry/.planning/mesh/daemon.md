@@ -40,7 +40,7 @@ from msgspec import Struct
 from msgspec import json as msgjson
 from msgspec.structs import replace
 from protobuf import Message, Oneof
-from rasm.contracts.artifact import ArtifactSink, OwnedArtifact, confirm, output, stage
+from rasm.contracts.artifact import ArtifactError, ArtifactSink, OwnedArtifact, output, rendered, stage
 from rasm.contracts.gen.rasm.contracts.artifact.v1.artifact_pb import ArtifactRef
 from rasm.contracts.gen.rasm.contracts.compute.v1.compute_pb import (
     GeomSetting,
@@ -202,8 +202,10 @@ async def _store_chunks(stream: StoreStream) -> AsyncGenerator[bytes]:
                 assert_never(unreachable)
 
 
-async def _present(_owned: OwnedArtifact, /) -> RuntimeRail[bool]:
+async def _witnessed(_owned: OwnedArtifact, /) -> RuntimeRail[bool]:
     # the custody body a presence probe needs: reaching it IS the proof, so the probe carries no second read.
+    # Named apart from the slot probe `_present` below — two concepts, two names; the shared spelling let the
+    # later module-scope definition shadow this one at call time with the wrong arity.
     return Ok(True)
 
 
@@ -233,11 +235,12 @@ class ArtifactRepository:
         return stored.map(lambda _outcome: owned.artifact)
 
     async def verified(self, artifact: ArtifactRef) -> RuntimeRail[bool]:
-        return (await self.opened(artifact, _present)).or_else_with(_absent)
+        return (await self.opened(artifact, _witnessed)).or_else_with(_absent)
 
     def opened[T](self, expected: ArtifactRef | bytes, use: Held[T] | Streamed[T], /) -> Awaitable[RuntimeRail[T]] | AsyncGenerator[T]:
         # the ONE artifact-custody entry, and the rail never leaves the rail: the resolve, the staged proof, and the
-        # reference confirmation all land inside, so no consumer re-rails a raise by hand. The deleted
+        # claim proof (`claim=expected` — identity for a bare digest, identity AND extent for a full reference) all
+        # land inside, so no consumer re-rails a raise or re-confirms a reference by hand. The deleted
         # `@asynccontextmanager` form un-railed a rail — it raised the store's own `BoundaryFault` out of a generator
         # that could not carry one — and every one of its four consumers paid the same two `except` arms to undo it.
         # Modality discriminates on the SHAPE of `use`, the branch's own `trapped` law: a rail-returning body takes
@@ -254,8 +257,17 @@ class ArtifactRepository:
                 return refused
             case Result(tag="ok", ok=StoreOutcome(payload=StoreStream() as stream)):
                 try:
-                    async with stage(_store_chunks(stream), expected_sha256=sha256) as owned:
-                        return await use(_confirmed(expected, owned))
+                    # `claim=expected` hands the WHOLE claim to the seal: a bare digest proves identity, a full
+                    # reference proves identity and extent, and the refusal rides the yielded `Result` — the
+                    # discarded hand `confirm` this replaces proved nothing.
+                    async with stage(_store_chunks(stream), claim=expected) as sealed:
+                        match sealed:
+                            case Result(tag="ok", ok=owned):
+                                return await use(owned)
+                            case Result(tag="error", error=refusal):
+                                return Error(DAEMON_ARTIFACT.raised(rendered(refusal)))
+                            case _ as unreachable:
+                                assert_never(unreachable)
                 except BoundaryFault as refused:
                     # Exemption: `_store_chunks` feeds an async-iterator protocol that carries no rail, so the store's
                     # own typed fault crosses it as a raise and is re-railed HERE, once, for every consumer.
@@ -270,19 +282,19 @@ class ArtifactRepository:
             case Result(tag="error", error=fault):
                 raise fault
             case Result(tag="ok", ok=StoreOutcome(payload=StoreStream() as stream)):
-                async with stage(_store_chunks(stream), expected_sha256=sha256) as owned:
-                    async for item in use(_confirmed(expected, owned)):
-                        yield item
+                async with stage(_store_chunks(stream), claim=expected) as sealed:
+                    match sealed:
+                        case Result(tag="ok", ok=owned):
+                            async for item in use(owned):
+                                yield item
+                        case Result(tag="error", error=refusal):
+                            # Exemption: the generator arm carries no rail, so a seal refusal crosses it as the
+                            # library's own egress carrier and the serve edge re-rails it once.
+                            raise ArtifactError(refusal)
+                        case _ as unreachable:
+                            assert_never(unreachable)
             case _ as unreachable:
                 assert_never(unreachable)
-
-
-def _confirmed(expected: ArtifactRef | bytes, owned: OwnedArtifact, /) -> OwnedArtifact:
-    # a bare digest states identity alone and the staged proof already answered it; a full reference states extent
-    # too, so only that arm owes the confirmation.
-    if isinstance(expected, ArtifactRef):
-        confirm(expected, owned.artifact)
-    return owned
 
 
 def _decoded_header(octets: bytes) -> tuple[SpillHeader, ArtifactRef, Semantic]:
@@ -656,13 +668,19 @@ class TessellationDaemon:
         self, key: ContentKey, sink: ArtifactSink, semantic: Semantic, elements: int, triangles: int, /
     ) -> RuntimeRail[TessellationResult]:
         # publication is correctness-mandatory, so the seal and the put share one arm and no unresolved reference
-        # can escape onto a receipt.
-        owned = await sink.seal()
-        match await self._repository.put(owned):
-            case Result(tag="error") as refused:
-                return refused
-            case Result(tag="ok", ok=artifact):
-                return Ok(await self._indexed(TessellationResult(key, artifact, elements, triangles, semantic)))
+        # can escape onto a receipt; the seal RAILS, so its refusal lands here as the custody row's proof token
+        # rather than crossing into `put` as a `Result` wearing an artifact's shape.
+        match await sink.seal():
+            case Result(tag="error", error=refusal):
+                return Error(DAEMON_ARTIFACT.raised(rendered(refusal)))
+            case Result(tag="ok", ok=owned):
+                match await self._repository.put(owned):
+                    case Result(tag="error") as refused:
+                        return refused
+                    case Result(tag="ok", ok=artifact):
+                        return Ok(await self._indexed(TessellationResult(key, artifact, elements, triangles, semantic)))
+                    case _ as unreachable:
+                        assert_never(unreachable)
             case _ as unreachable:
                 assert_never(unreachable)
 

@@ -1,13 +1,13 @@
 # [PY_CAD_EXCHANGE_STEP]
 
-`step` owns ISO 10303 protocol admission and the provider's one STEP codec pair: `unsealed` lowers a call-owned file into kernel topology, `sealed` raises kernel topology back onto a call-owned file, and one schema roster decides which application protocol either side is reading. Artifact transport resolves `SealedStep.artifact` onto a path before this owner runs, so no member here opens a store, reads an `ArtifactRef`, or returns STEP octets.
+`step` owns ISO 10303 protocol admission and the provider's one STEP codec pair: `unsealed` lowers a call-owned file into kernel topology, `sealed` raises kernel topology back onto a call-owned file, and one schema roster decides which application protocol either side is reading. `sourced` is the forward leg's map-resolving entry — one lookup in the call's sha256-keyed path map ahead of `unsealed` — so both native B-rep bands reach source resolution here, one stratum down, and neither imports the fold apex for it. Artifact transport resolves `SealedStep.artifact` onto a path before this owner runs, so no member here opens a store, performs transport, or returns STEP octets.
 
 `exchange/identity#PINS` seats beneath this page and rules both the process statics and the canonical header this codec stamps; `faults#ROWS` supplies `STEP_READ`, `STEP_SCHEMA`, and `STEP_WRITE`, and every refusal is `Error(<ROW>.at(...))` on `CadRail`. `gated` is this page's export of the one `IFSelect_ReturnStatus` guard, and `exchange/assembly#DOCUMENT` composes it over the CAF readers instead of re-spelling the comparison.
 
 ## [01]-[INDEX]
 
 - [02]-[PROTOCOL]: One schema roster, its derived forward and inverse maps, and file-local application-protocol admission.
-- [03]-[CODEC]: `gated`, and the `unsealed`/`sealed` pair composing every OCCT exchange status onto one rail.
+- [03]-[CODEC]: `gated`, the `unsealed`/`sealed` pair composing every OCCT exchange status onto one rail, and `sourced` the map-resolving forward entry.
 
 ## [02]-[PROTOCOL]
 
@@ -22,6 +22,7 @@
 
 ```python signature
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Final
 
@@ -37,7 +38,7 @@ from OCP.TopoDS import TopoDS_Shape
 from rasm.contracts.gen.rasm.contracts.cad.v1.types_pb import SealedStep, StepProtocol
 
 from rasm.cad.exchange.identity import EMITTED, canonical
-from rasm.cad.faults import STEP_READ, STEP_SCHEMA, STEP_WRITE, CadRail, FaultRow
+from rasm.cad.faults import BREP_INPUT, STEP_READ, STEP_SCHEMA, STEP_WRITE, CadRail, FaultRow
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -101,14 +102,14 @@ def declared(model: StepData_StepModel, /) -> CadRail[StepProtocol]:
 
 ## [03]-[CODEC]
 
-- Owner: `unsealed` and `sealed` are the forward and inverse of one correspondence, so they share this owner and neither moves without the other.
+- Owner: `unsealed` and `sealed` are the forward and inverse of one correspondence, so they share this owner and neither moves without the other; `sourced` is the forward leg over the call's path map, seated with the codec because resolving a `SealedStep` to its decoded shape IS this correspondence, and seating it at the fold apex forced set algebra to import back into it.
 - Law: `gated` is the package's sole `IFSelect_RetDone` comparison — every read, transfer, write, and probe crosses it, and its coordinate keeps the failing status rather than collapsing to a bare call name.
 - Law: `TransferRoots` answers a count and `OneShape` a possibly-null shape, so those two legs state their own predicate instead of forcing a status shape neither call produces.
 - Law: `sealed` stamps canonical identity between transfer and write, then re-reads the emitted file and proves it declares `EMITTED`, which is what makes the pinned `write.step.schema` evidence rather than intent.
 - Law: readback refusal re-spells `declared`'s `STEP_SCHEMA` onto `STEP_WRITE` through `map_error`, because a file this owner just wrote is never the caller's argument.
 - Law: exchange precision stays file-owned; no process-global healing knob reinterprets source topology inside this codec.
 - Entry: `pipeline` composes each leg kleisli at four arrows, under the six its overload ladder types before degrading to `Result[Any, Any]`.
-- Boundary: path custody, artifact publication, and `SealedStep` construction belong to `service/spool` and `brep/operation`; this owner reads and writes paths handed to it.
+- Boundary: path custody, artifact publication, and `SealedStep` construction belong to `service/spool` and `brep/operation`; this owner reads and writes paths handed to it, and `sourced` only looks a digest up in the map the serve layer already resolved — it opens no store.
 
 ```python signature
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -151,6 +152,16 @@ def _one(reader: STEPControl_Reader, /) -> CadRail[TopoDS_Shape]:
 
 def unsealed(value: SealedStep, path: Path, /) -> CadRail[TopoDS_Shape]:
     return pipeline(_opened, _matched(value.protocol), _transferred, _one)(path)
+
+
+def sourced(value: SealedStep, sources: frozendict[bytes, Path], /) -> CadRail[TopoDS_Shape]:
+    # Serve-side admission proved every reference and owns the path, so an absent digest here is a lane defect the
+    # coordinate names in full, never a `KeyError` crossing the worker seam as an unpicklable cause.
+    return (
+        Option.of_optional(sources.get(value.artifact.sha256))
+        .to_result_with(lambda: BREP_INPUT.at(f"source.absent:{value.artifact.sha256.hex()}"))
+        .bind(partial(unsealed, value))
+    )
 
 
 def _staged(shape: TopoDS_Shape, /) -> ExchangeArrow[STEPControl_Writer]:

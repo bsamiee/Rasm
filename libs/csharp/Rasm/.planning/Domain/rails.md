@@ -236,8 +236,8 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Fabrication      = new(2700,  66, BandKind.Fault, TelemetrySource.Fabrication);
     // --- [APPHOST_PLATFORM]
     public static readonly FaultBand Config           = new(4100, 5, BandKind.Fault, TelemetrySource.AppHost);
-    public static readonly FaultBand Hop              = new(4500,  13, BandKind.Fault, TelemetrySource.AppHost);
-    public static readonly FaultBand Wire             = new(4520,  14, BandKind.Fault, TelemetrySource.Compute);
+    public static readonly FaultBand Hop              = new(4500,  14, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Wire             = new(4520,  13, BandKind.Fault, TelemetrySource.Compute);
     public static readonly FaultBand HostCoordination = new(4540,  9, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand HostCommand      = new(4600,  8, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Grant            = new(4620,  6, BandKind.Fault, TelemetrySource.AppHost);
@@ -248,12 +248,12 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Solver           = new(4710,  4, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand LiveWire         = new(4720,  9, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Bus              = new(4730,  1, BandKind.Fault, TelemetrySource.AppHost);
-    public static readonly FaultBand Outbox           = new(4740,  3, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Outbox           = new(4740,  5, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand LaneGuard        = new(4750,  6, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Replay           = new(4760,  4, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Orchestration    = new(4770,  6, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Secret           = new(4780,  3, BandKind.Fault, TelemetrySource.AppHost);
-    public static readonly FaultBand Pem              = new(4790,  4, BandKind.Fault, TelemetrySource.AppHost);
+    public static readonly FaultBand Pem              = new(4790,  3, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand HostFederation   = new(4800,  5, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Support          = new(4810,  4, BandKind.Fault, TelemetrySource.AppHost);
     public static readonly FaultBand Drain            = new(4820,  2, BandKind.Fault, TelemetrySource.AppHost);
@@ -278,7 +278,7 @@ public sealed partial class FaultBand {
     // Generic `Cache` owns the complete provider-neutral cache refusal family.
     public static readonly FaultBand Cache            = new(5500,  10, BandKind.Fault, TelemetrySource.Persistence);
     public static readonly FaultBand Embedded         = new(7710,  10, BandKind.Fault, TelemetrySource.Persistence);
-    public static readonly FaultBand Sync             = new(8250,   8, BandKind.Fault, TelemetrySource.Persistence);
+    public static readonly FaultBand Sync             = new(8250,   9, BandKind.Fault, TelemetrySource.Persistence);
     public static readonly FaultBand Commit           = new(8260,   5, BandKind.Fault, TelemetrySource.Persistence);
     public static readonly FaultBand Egress           = new(8270,   6, BandKind.Fault, TelemetrySource.Persistence);
     public static readonly FaultBand Retention        = new(8280,   3, BandKind.Fault, TelemetrySource.Persistence);

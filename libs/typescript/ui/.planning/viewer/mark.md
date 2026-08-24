@@ -22,7 +22,7 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 - Growth: a new set behavior (invert, filter-to-visible) is one op case and one fold arm.
 
 ```typescript signature
-import { Wire } from "@rasm/ts/core"
+import { Wire } from "@rasm/core"
 import { Data, HashSet, Option, Schema } from "effect"
 
 // the set's own element: a 22-character IFC GlobalId under the base64 alphabet the BCF schema fixes, branded ONCE
@@ -273,7 +273,7 @@ const Selection: Selection.Shape = {
 
 [ANCHOR_PINS]:
 - Owner: `Mark.pin` — the pin projection: each open topic's primary viewpoint yields the world anchor and the pin carries it beside its identity and its two lifecycle keys; screen placement is the surface's own answer, folded in through the projector parameter. Pins render as DOM anchors — a maplibre `Marker` on map surfaces, a `@floating-ui/react` `VirtualElement` whose `getBoundingClientRect` wraps the projected point on scene surfaces, a slotted element hotspot on `<model-viewer>` surfaces — one pin mechanism per surface class, chosen by the surface row, never stacked.
-- Packages: `@rasm/ts/core` (`BcfTopic`, `BcfViewpoint`); `@google/model-viewer` (`ModelViewerElement` — the one imported type the embed payload derives from); `effect` (`Option`, `pipe`).
+- Packages: `@rasm/core` (`BcfTopic`, `BcfViewpoint`); `@google/model-viewer` (`ModelViewerElement` — the one imported type the embed payload derives from); `effect` (`Option`, `pipe`).
 - Boundary: the pin fold is pure and takes its projector as a parameter — the DOM anchor host is app composition and the projector itself is `geo#PROJECT`'s `Camera.anchor` on scene surfaces or `Mark.queried` on embed surfaces; this page mints the pin value and never the element.
 - Law: pins are projections of decoded topics — pin identity is the topic guid, a pin's screen position derives per camera settle from the anchor, and no pin holds its own position state. Look-at target anchors the pin: the eye is where the reviewer stood, never what the topic marks.
 - Law: the anchor is the viewpoint's own BCF world frame verbatim — every surface reads one frame and adaptation is the projector's, so a re-framed anchor (a lnglat crossing, a scene-space rebase) never lands on the pin; the model's own coordinates are what the GLB and every `<model-viewer>` hotspot were authored in, so the embed arm crosses nothing.
@@ -287,7 +287,7 @@ const Selection: Selection.Shape = {
 
 ```typescript signature
 import type { ModelViewerElement } from "@google/model-viewer"
-import { Wire } from "@rasm/ts/core"
+import { Wire } from "@rasm/core"
 import { Option, pipe } from "effect"
 
 // element admits on the prefix alone — a child whose slot name does not start with it is never
@@ -456,7 +456,7 @@ const _restore = (
 
 [TOPIC_BOARD]:
 - Owner: `Mark.status` and `Mark.priority` — the two lifecycle vocabularies keyed against the wire's own axes, `Mark.statuses` the defined `BcfStatus` roster and its guard, `Mark.defined` the one enum-narrowing seat every ui enum table reads: the status table carries the tone, the glyph (a `LucideIcon` per row — icon-as-identity), and the `live` column, while the priority table carries the glyph, the sort `rank`, the `escalated` column, and the emphasis class the marker recipe reads as its second variant axis; `Mark.board` admits each `BcfTopicWire` byte document through `Wire.decode` before folding the ordered rows, `Mark.census` projects the header counts, and `Mark.Intent` is the whole write surface.
-- Packages: `lucide-react` (the glyph rows); `class-variance-authority` (`cva` — the marker recipe); `@rasm/ts/core` (`Wire.BcfTopic`); `@rasm\/contracts/rasm/contracts/bcf/v1/bcf_pb` (`BcfStatus`); `@bufbuild/protobuf/wkt` (`timestampMs`); `effect` (`Array`, `Data`, `DateTime`, `Duration`, `Either`, `Option`, `Order`, `Record`); `system/token` (`Theme` — the roster the tone axis derives from); `system/intl` (`Format.instant`); `system/primitive` (`Primitive.sanitize`, the roster law).
+- Packages: `lucide-react` (the glyph rows); `class-variance-authority` (`cva` — the marker recipe); `@rasm/core` (`Wire.BcfTopic`); `@rasm\/contracts/rasm/contracts/bcf/v1/bcf_pb` (`BcfStatus`); `@bufbuild/protobuf/wkt` (`timestampMs`); `effect` (`Array`, `Data`, `DateTime`, `Duration`, `Either`, `Option`, `Order`, `Record`); `system/token` (`Theme` — the roster the tone axis derives from); `system/intl` (`Format.instant`); `system/primitive` (`Primitive.sanitize`, the roster law).
 - Law: the two axes close differently and the tables say which — `status` is the generated `BcfStatus` enum, `defined_only` at the corpus, so the status table keys its rows on the enum's own members and proves BOTH directions through `Mark.Defined`, a corpus vocabulary change breaking these rows at compile time, while `priority` crosses as an open string that no guard can close. `Mark.keys` is that asymmetry's one seam: it carries the enum narrowing the landed TYPE still lacks (`UnknownEnum` and `UNSPECIFIED` stay in the generated union the rule already refused) and folds an unlisted producer priority to `normal` on the way into a row, so every table, census column, and recipe variant downstream keys on a member the ladder carries. Widening a status locally is the named defect.
 - Law: the two axes are orthogonal by construction — status decides TONE and priority decides EMPHASIS, so `Mark.variant` is the one join both the pin and the board row read; a tone column on the priority table puts two palettes on one element and forks the roster the tone axis derives from.
 - Law: the status row's `live` column is the ONLY place liveness is decided — the overdue verdict reads it here and every surface filtering live topics reads the same column instead of re-listing which statuses count as open, so a closed topic past its date is history rather than a breach; the priority row's `escalated` column carries attention the same way, and a conditional over status or priority names re-derives a column the row already states.

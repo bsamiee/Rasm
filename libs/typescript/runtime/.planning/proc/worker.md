@@ -20,12 +20,12 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 - Law: a refusal names its own request — the fault's subject closes against the protocol's tag roster and carries the handler's diagnostic, so a caller re-keying a worker failure reads which crossing broke instead of a bare tag; `class` and `message` derive from the reason row, and neither is constructor data on either side of the seam.
 - Law: `Drop` is the memo-epoch invalidation fan — the host broadcasts the rotated epoch and every member drops the worker-held memos it stamped under an older one, so a config or ruleset flip propagates to every thread without a per-member registry; the roster carries only rows with a named branch consumer, and the streaming modality (`execute` over a `Stream`-answering handler) is documented law whose first row lands with its consumer, never a placeholder class.
 - Growth: a new off-thread capability is one request class plus one union row plus one handler row — every consumer stays untouched, the missing handler breaks loudly.
-- Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`), `@rasm/ts/core` (`Fault.Class`).
+- Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`), `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 import { Transferable, Worker, type WorkerError, WorkerRunner } from '@effect/platform';
 import { Context, Effect, Layer, type ParseResult, Schema } from 'effect';
-import { Fault } from '@rasm/ts/core';
+import { Fault } from '@rasm/core';
 
 // The off-thread roster is this protocol's own — the caller's production modality decides WHICH kind crosses, this
 // page decides which kinds exist at all, and the two meet at `work/report`'s modality table rather than through an

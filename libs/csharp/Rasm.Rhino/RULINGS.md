@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- `NodaTime` registers here; `Rasm.AppHost` and `Microsoft.Extensions.Hosting` stay at `apps/rhino/<Plugin>/` — an app stack below inverts strata.
+- `NodaTime` registers here; `Rasm.AppHost` and `Microsoft.Extensions.Hosting` stay at the `apps/<app>/` shell — an app stack below inverts strata.
 - `Microsoft.Extensions.Compliance.Abstractions` rides transitive — object-authoring attach attributes pair it with kernel `Sensitivity` rows.
 
 ## [02]-[SHAPE]

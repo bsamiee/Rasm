@@ -11,7 +11,7 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 ## [02]-[RETENTION_ROWS]
 
 - Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` and the window-row table, so wire admission and the type derive from one anchor pair — with the frontier ledger recording the causal handoff, the `_GROOMS` roster naming every relation that ages by wall clock and its two renderings, the `legal_hold` suspension ledger with its `hold`/`lift`/`held` verbs and the `Retain.holding` predicate pair both renderings and the object plane compose, and the partition rows that realize aging on the spine.
-- Packages: `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@effect/sql`; `journal/append.md` (`Journal.advance` — the folder's one monotone conditional upsert; `Journal.now` — the one dialect-now fragment); `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate — `Identity.tenancy`, the tenancy axis every sweep row states, and `Fault.Class` for the hold refusal's kind); the `partition` and `cron` grants gate execution.
+- Packages: `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@effect/sql`; `journal/append.md` (`Journal.advance` — the folder's one monotone conditional upsert; `Journal.now` — the one dialect-now fragment); `@rasm/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate — `Identity.tenancy`, the tenancy axis every sweep row states, and `Fault.Class` for the hold refusal's kind); the `partition` and `cron` grants gate execution.
 - Entry: every aging consumer reads one vocabulary — object references store a class key, `Retain.groom(key)` sweeps in process and `Retain.groomText(key, dialect)` renders the scheduled statements `read/fold#MAINTENANCE` registers, `journal/fact.md` keys its fact streams by the same classes, and the granted maintenance rows execute the partition drops; no window literal and no groom predicate exists outside this page.
 - Growth: a new class is one row — every sweep, groom, and lifecycle rule inherits it; a new aging surface reads the table, never mints a window; a new cost depth is one `_depths` entry the object plane's own storage-class map then answers.
 - Law: a class prices AGE and DEPTH in one row — `lifetime.bound` says how long the class lives and `transitions` says how its bytes get cheaper while they do, so the retention vocabulary is a cost tier rather than a delete timer and the object plane's lifecycle rules generate both halves from this one table with no window or class literal outside it.
@@ -43,7 +43,7 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 ```typescript signature
 import { Array, Duration, Effect, Option, pipe, Record, Schema } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
-import { Fault, Identity } from "@rasm/ts/core"
+import { Fault, Identity } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenancy } from "../lane/tenant.ts"
 import { Journal, StreamKey } from "./append.ts"
@@ -432,7 +432,7 @@ const _heldMatters = (key: SubjectKey) =>
 ## [03]-[SHREDDER]
 
 - Owner: `SubjectKey`, the `(app, tenant, subject)` custody identity; the `subject_key` ledger holding one `WrappedKey` per key; the `seal`/`open` folds composing the security `Shredder` envelope algebra; and `erase`, destroying the wrapped key material and marking the tombstone in one statement.
-- Packages: `@rasm/ts/security` (`Shredder`, `WrappedKey`, `SealedEnvelope` — the one direct `data → security` edge); `effect` (`Effect`, `Option`, `Schema`).
+- Packages: `@rasm/security` (`Shredder`, `WrappedKey`, `SealedEnvelope` — the one direct `data → security` edge); `effect` (`Effect`, `Option`, `Schema`).
 - Entry: an app seals subject-bearing fields at construction — `Retain.seal(key, bytes)` before the payload enters the publish transaction; reads meeting sealed fields call `Retain.open(key, envelope)` and receive `Option<bytes>` — `none` IS the erased state, folded by the consumer into its redaction marker.
 - Receipt: `erase` returns `Option<{ subject: SubjectKey, destroyedAt }>` — some is the auditable tombstone the fact stream records, none means no live key existed; the log bytes remain, provably unreadable either way. A subject under a live hold refuses with the typed `RetainHold` naming its matters, never a silent none a caller reads as already-erased — key destruction is the one closer no lift recovers.
 - Law: the hold gate is re-evaluated INSIDE the destroying statement — the `NOT EXISTS` arm rides the UPDATE's own predicate, so a hold landing after any sibling read still refuses at the write; the miss path disambiguates on key liveness, because a guard refusal over a live key is a hold verdict even when a racing lift empties the matters read, and a pre-check can only supply evidence for the fault, never the gate.
@@ -447,7 +447,7 @@ const _heldMatters = (key: SubjectKey) =>
 ```typescript signature
 import { Effect, Option } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
-import { SealedEnvelope, Shredder, WrappedKey } from "@rasm/ts/security"
+import { SealedEnvelope, Shredder, WrappedKey } from "@rasm/security"
 import { Hook, Journal } from "./append.ts"
 
 declare namespace Retain {
@@ -594,7 +594,7 @@ const _erase = (key: SubjectKey) =>
 
 ```typescript signature
 import { Array, Stream, type ParseResult } from "effect"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 import { Live } from "../read/live.ts"
 import { Upcast } from "./evolve.ts"
 

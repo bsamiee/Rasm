@@ -6,11 +6,11 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT_UNION]: The closed evidence union, its generated wire seam onto `EvidenceReceiptWire`, and the HLC sink message envelope it seals through.
+- [02]-[RECEIPT_UNION]: Closed evidence union, its generated wire seam onto `EvidenceReceiptWire`, and the HLC sink message envelope it seals through.
 - [03]-[TELEMETRY_SPINE]: AppUi scope identity, the dimension vocabulary, the contribution and meter mount, the typed receipt-kind roster the fan mounts, and the viewport reliability objectives.
 - [04]-[CORRELATION_JOIN]: Causal timeline join keyed correlation and HLC with skew bands; the report-block and tenant-usage projections.
 - [05]-[FAULT_FLOOR]: Every AppUi fault family as a direct generated union with semantic case identities.
-- [06]-[TS_PROJECTION]: The generated evidence and timeline families the dashboard decodes.
+- [06]-[TS_PROJECTION]: Generated evidence and timeline families the dashboard decodes.
 
 ## [02]-[RECEIPT_UNION]
 
@@ -44,6 +44,7 @@ using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using FaultV1 = Rasm.Contracts.Fault.V1;
+using Host = Rasm.Contracts.Receipt.V1;
 using NativeAssetFact = Rasm.AppUi.Render.NativeAssetFact;
 using PixelIdentity = Rasm.AppUi.Render.PixelIdentity;
 using RenderReceipt = Rasm.AppUi.Render.RenderReceipt;
@@ -805,14 +806,17 @@ public readonly record struct SkewBand(Instant Earliest, Instant Latest) {
         new(Earliest <= other.Earliest ? Earliest : other.Earliest, Latest >= other.Latest ? Latest : other.Latest);
 }
 
-public sealed record EvidenceRow(uint Ordinal, uint UncertaintyGroup, ReceiptEnvelope Envelope, SkewBand Band);
+public sealed record EvidenceRow(
+    uint Ordinal, uint UncertaintyGroup, ReceiptEnvelope Header, SkewBand Band, EvidenceReceipt Receipt);
 
 public sealed record EvidenceTimeline(CorrelationId Correlation, Seq<EvidenceRow> Rows);
 
-// The ONE projection onto the generated timeline family: rows and bands generate member-wise, the envelope
-// crosses through the AppHost owner of `ReceiptEnvelopeWire`, and the correlation rides the kernel's own
-// 16-byte rendering. `Both` — the domain row carries exactly the wire's columns, and the envelope's column set
-// is AppHost's to prove at its own seam.
+// The ONE projection onto the generated timeline family: rows and bands generate member-wise, the header
+// crosses through the AppHost owner of `ReceiptHeaderWire`, the receipt rides this page's own union seam, and
+// the correlation rides the kernel's own 16-byte rendering. `Both` — the domain row carries exactly the wire's
+// five columns, and the header's column set is AppHost's to prove at its own seam. Header and receipt are
+// SEPARATE columns by the corpus's own composition law: the header states what every receipt carries and the
+// arm states what this one carries, so the payload is exhaustive here rather than an `Any` a registry resolves.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -823,7 +827,8 @@ public static partial class TimelineWire {
 
     [UserMapping] private static ByteString Key(CorrelationId correlation) => correlation.Wire();
     [UserMapping] private static Timestamp Stamp(Instant at) => at.ToTimestamp();
-    [UserMapping] private static Wire.ReceiptEnvelopeWire Envelope(ReceiptEnvelope envelope) => EnvelopeWire.Lower(envelope);
+    [UserMapping] private static Host.ReceiptHeaderWire Header(ReceiptEnvelope envelope) => EnvelopeMap.ToWire(envelope);
+    [UserMapping] private static Wire.EvidenceReceiptWire Receipt(EvidenceReceipt receipt) => EvidenceWire.Lower(receipt);
 }
 
 // A correlation-free scope IS the whole-window scan the usage fold reads, so one value serves both questions.

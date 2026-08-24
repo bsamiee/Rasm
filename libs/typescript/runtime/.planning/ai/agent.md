@@ -19,7 +19,7 @@ The agent altitude, ruled and sealed: an agent session's interaction state is a 
 ```typescript signature
 import { type AiError, Chat, type LanguageModel, Prompt, type Response, Tool, Toolkit } from "@effect/ai"
 import { Array, BigDecimal, Effect, Either, Function, HashSet, Match, Option, Record, Ref, Schema } from "effect"
-import { Fault, Transition } from "@rasm/ts/core"
+import { Fault, Transition } from "@rasm/core"
 import { Guardrail, GuardrailFault, Ladder, Providers, Spend, Tokens } from "./model.ts"
 import type { Safety } from "./tool.ts"
 
@@ -333,7 +333,7 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
 ## [04]-[ACTOR]
 
 [ACTOR]:
-- Packages: `@rasm/ts/core` (`Transition`, `Fault.Budget`); `effect` (`Function`); `../work/entity.ts` (`Actor` — the escalation mint).
+- Packages: `@rasm/core` (`Transition`, `Fault.Budget`); `effect` (`Function`); `../work/entity.ts` (`Actor` — the escalation mint).
 
 ```typescript signature
 const _phaseNodes = {
@@ -386,7 +386,7 @@ const _restore = (frozen: Transition.Frozen) => Effect.flatMap(_compiled, (compi
 ## [05]-[APPROVAL]
 
 [APPROVAL]:
-- Packages: `./model.ts` (`Guardrail`); `../work/flow.ts` (`Signal` — the durable deferred); `@rasm/ts/core` (`Transition`).
+- Packages: `./model.ts` (`Guardrail`); `../work/flow.ts` (`Signal` — the durable deferred); `@rasm/core` (`Transition`).
 
 ```typescript signature
 declare namespace Agent {

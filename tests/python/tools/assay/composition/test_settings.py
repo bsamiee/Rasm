@@ -20,14 +20,8 @@ import pytest
 from upath import UPath
 import zstandard
 
-from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
-from tests.python.tools.assay.kit import (  # runtime use: instantiated in fixture bodies, not annotation-only
-    AssayHarness,
-    make_history_envelope,
-    WIRE_ENCODER,
-)
-from tools.assay.composition import settings as _settings_mod, store as _store_mod
-from tools.assay.composition.settings import (
+from assay.composition import settings as _settings_mod, store as _store_mod
+from assay.composition.settings import (
     ArtifactBackend,
     AssaySettings,
     backend_capability,
@@ -40,7 +34,7 @@ from tools.assay.composition.settings import (
     run_id_host_token,
     Ssh,
 )
-from tools.assay.composition.store import (
+from assay.composition.store import (
     ArtifactFileSystem,
     ArtifactScope,
     ArtifactStore,
@@ -54,13 +48,19 @@ from tools.assay.composition.store import (
     size_from_info,
     unframe,
 )
-from tools.assay.core.model import Artifact, ArtifactKind, Claim
+from assay.core.model import Artifact, ArtifactKind, Claim
+from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
+from tests.python.tools.assay.kit import (  # runtime use: instantiated in fixture bodies, not annotation-only
+    AssayHarness,
+    make_history_envelope,
+    WIRE_ENCODER,
+)
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from tools.assay.core.model import Envelope
+    from assay.core.model import Envelope
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

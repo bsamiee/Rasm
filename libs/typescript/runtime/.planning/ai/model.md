@@ -31,7 +31,7 @@ import { GoogleClient, GoogleLanguageModel } from "@effect/ai-google"
 import { OpenAiClient, OpenAiLanguageModel, OpenAiTelemetry, OpenAiTokenizer } from "@effect/ai-openai"
 import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter"
 import { Array, BigDecimal, Chunk, Config, Duration, Effect, ExecutionPlan, Layer, Match, Number, Option, Order, Schedule, Schema, Stream, Struct, type Tracer } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Safety } from "./tool.ts"
 
 declare namespace Providers {

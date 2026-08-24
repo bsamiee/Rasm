@@ -11,7 +11,7 @@
 
 ## [02]-[SHAPE]
 
-- Generated oneofs carry each proven operation — a verb string, float tuple, `Any`, or local request twin re-mints vocabulary `rasm-contracts` owns.
+- Generated oneofs carry each proven operation — a verb string, float tuple, `Any`, or local request twin re-mints vocabulary `rasm.contracts` owns.
 - `SealedStep` carries protocol and `ArtifactRef` alone — STEP bytes and live `TopoDS_Shape` handles never cross the process pipe.
 - `CadFault` rows hold leg and case as INDEPENDENT columns — four legs raise `INPUT` and one raises five cases, so either collapse loses a join axis.
 - `Recovery` mirrors the generated `FaultRecovery.kind` oneof arm for arm — a `transient: bool` knob makes the stated window unreachable.
@@ -35,9 +35,11 @@
 - `faults` stays one page — leg, case, code, and recovery read from ONE declaration, so splitting roster from projection forks the correspondence.
 - `metrology` seats below both native owners — measurement above either leg forces the import edge that made exchange compose brep.
 - Builder admission seats at `brep/placement` — the fold apex imports every arm, so a rail seated there closes an import cycle.
+- `sourced` seats at `exchange/step` beside its codec — resolving a `SealedStep` IS the forward correspondence; an apex seat forces arm back-imports.
+- `service/lane#REGIME` alone executes `Interface_Static`, importing membership and values from `exchange/identity#PINS` — two tables fork the regime.
 - Shape validity probes once per leg by design — `metrology` sits below `brep` and reads its own, so each grades under its own row.
 - Folder `.api/` carries only what no higher tier owns — `anyio`, `expression`, `msgspec`, `connectrpc`, and `protobuf-py` register instead.
-- `rasm-contracts` catalogues at its own package tier — a folder-tier file duplicates the generator grammar its owner maintains.
+- `rasm.contracts` catalogues at its own package tier — a folder-tier file duplicates the generator grammar its owner maintains.
 
 ## [05]-[PROCESS]
 

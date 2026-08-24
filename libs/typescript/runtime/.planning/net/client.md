@@ -22,7 +22,7 @@ Each lane is a policy row whose durations are the core budget ledger's: a row na
 - Law: `admit` names the dial modality this lane is entered through and the TYPE enforces it — the settled lanes admit `dial(lane, request, shape)`, which materializes and decodes inside the one total budget, while `feed` admits `dial(lane, request)` alone, since a shape materializes a body a streaming response never ends. `Client.Settled` derives that roster off the `body` cell, because a lane declares a body ceiling exactly where it materializes a body; Naming it in prose alone left the overload accepting `feed` and that row's ceiling a number nothing ever read.
 - Law: this table decides NO tenancy — an egress lane carries policy over a shared client and isolates nothing, so it states no tenancy cell at all; per-tenant isolation is a circuit key suffix at `[03]`, and the closed axis stays `proc/config#ADMISSION_ROWS` `Profile`'s.
 - Boundary: proxy is transport residency, not per-call policy — the lane table carries no proxy knob, the browser lane has none by construction, and the dispatcher rows in `[5]` own residency.
-- Packages: `effect` (`Duration`, `Option`), `@rasm/ts/core` (`Fault.Budget`).
+- Packages: `effect` (`Duration`, `Option`), `@rasm/core` (`Fault.Budget`).
 
 ## [03]-[BREAK_STATE]
 
@@ -33,7 +33,7 @@ Each lane is a policy row whose durations are the core budget ledger's: a row na
 - Law: rejection is `Lapse` evidence — `reason: "break"`, class `unavailable`, the policy's `cool` as the spent span — so an open circuit routes through the same budget gate as every transient and no second shed fault exists.
 - Law: the registry is a `Context.Reference` — cells key by guard key in one `MutableHashMap` default bounded by the capacity row: a mint at capacity flushes the ledger to rest, so degradation is a cold circuit, never process-lifetime memory growth; the requirement channel stays clean (`R` never grows), and a root or proof overrides the whole ledger by providing the Reference. Exemption: `_cell` is the one statement kernel — the synchronous mint-or-get, with the capacity flush, against the registry map.
 - Growth: hedging and load-shed stay owned elsewhere (`Effect.raceAll` at the caller, `Gate.shed` at the serving edge); a per-tenant circuit is a key suffix, zero new surface.
-- Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`, `Schema`), `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`, `Schema`), `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 // Every row names the lane, and each names the ONE span or number that decided it — the deadline that lapsed, the
@@ -196,7 +196,7 @@ const Breaker = { guard: _guard } as const;
 - Boundary: the client binding is the runtime row's (`proc/exec#RUNTIME_ROWS`); OTLP export composes the `batch` lane so telemetry egress inherits the same posture as every other call — an exporter with a private client is the named fork. Principal mint, rotation, introspection, and revocation are `security:authn/workload`'s; this owner mounts the projection and decides nothing about the grant.
 - Entry: `Client.dial(lane, request[, shape])` and `Client.authorized(lane, request)`; `R` carries `HttpClient` and `Scope`, and the app root overrides `Machine` where workload identity exists.
 - Receipt: the overload annotations are the whole seam contract — fault union and requirement set readable without opening the body.
-- Packages: `@effect/platform` (`HttpClient`, `HttpClientError`, `HttpClientRequest`, `HttpClientResponse`, `Headers.get`), `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Number`, `Option`, `Redacted`, `Schema`), `@rasm/ts/core` (`Fault.Budget`, `Fault.Class`), `@rasm/ts/security` (`MachinePrincipal`).
+- Packages: `@effect/platform` (`HttpClient`, `HttpClientError`, `HttpClientRequest`, `HttpClientResponse`, `Headers.get`), `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Number`, `Option`, `Redacted`, `Schema`), `@rasm/core` (`Fault.Budget`, `Fault.Class`), `@rasm/security` (`MachinePrincipal`).
 
 ```typescript signature
 import { Headers, HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse, HttpIncomingMessage } from '@effect/platform';
@@ -219,8 +219,8 @@ import {
     type Scope,
     pipe,
 } from 'effect';
-import { Fault, Invoke } from '@rasm/ts/core';
-import type { MachinePrincipal } from '@rasm/ts/security';
+import { Fault, Invoke } from '@rasm/core';
+import type { MachinePrincipal } from '@rasm/security';
 
 // `fits` is the sentence a caller selects a lane on, `admit` the dial modality that lane is entered through,
 // `present` when the credential source is read, and `degrade` what the selection costs, so all four leave prose and
@@ -569,7 +569,7 @@ const Client = { authorized: _authorized, dial, resident: _resident, residency: 
 - Boundary: circuit admission is the HTTP lanes' — `Breaker.guard` brackets `Client.dial` and nothing promise-shaped — so Connect egress sheds through the dial's execution-plan failover and the remote's own `Unavailable` class, never through this ledger.
 - Entry: `Rpc.adapter(config)` and `Rpc.credential(runtime)` at the root, handed into `Invoke.Dial`'s seam as `node` and `interceptors`.
 - Growth: a new residency posture is one `Http2SessionOptions` value; a new per-call header is one write in the interceptor over the same bag.
-- Packages: `@connectrpc/connect` (`Interceptor`), `@connectrpc/connect-node` (three public transport factories, compression rows, `Http2SessionManager`, `Http2SessionOptions`), `effect` (`Effect`, `Runtime`, `Scope`), `@rasm/ts/core` (`Fault.Class`, `Invoke.Dial`).
+- Packages: `@connectrpc/connect` (`Interceptor`), `@connectrpc/connect-node` (three public transport factories, compression rows, `Http2SessionManager`, `Http2SessionOptions`), `effect` (`Effect`, `Runtime`, `Scope`), `@rasm/core` (`Fault.Class`, `Invoke.Dial`).
 
 ```typescript signature
 import type { Interceptor } from '@connectrpc/connect';

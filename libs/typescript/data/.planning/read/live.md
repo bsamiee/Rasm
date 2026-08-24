@@ -13,7 +13,7 @@ Every modality reaches the invalidation bus directly, so a binding over a non-re
 ## [02]-[KEY_COORDINATES]
 
 - Owner: `Live.Keys` — the one admitted coordinate shape both sides of read-your-writes speak — with band, name, and cell evidence embedded as field refinements, `Live.scope` as the one band mint, and `Live.band`/`Live.cells`/`Live.merged` as its closed admission family.
-- Packages: `effect` (`Schema`, `Record`, `Array`); `@rasm/ts/core` (`Shape.Record`).
+- Packages: `effect` (`Schema`, `Record`, `Array`); `@rasm/core` (`Shape.Record`).
 - Entry: a composition binds `Live.scope(discriminant)` once from the scope key it already holds and every lane declaration mints its band through that binding; a `Journal.Slot`'s `keys` member returns the resulting shape (the publish transaction stamps it once per commit — `journal/append.md`'s slot law); every reader below subscribes the same shape; the foreign edge in `[4]` invalidates it directly.
 - Law: coordinates are scope-qualified at mint, because the bus is not — one `Reactivity` root serves every scope in the process and keys handlers on the coordinate value alone, so two scopes minting one band spelling share its wake; `Live.scope` is that qualification's one producer, folding the composition's discriminant with the lane's declared name into the band the slot carries, so cross-scope wake is unrepresentable rather than merely unlikely. Over-invalidation WITHIN a scope stays the honest degradation and costs re-runs; across scopes it leaks one tenant's write cadence to another's readers as timing evidence, which no re-run repairs.
 - Law: the bus stays ONE root and never becomes per-scope — `lane/tenant.md`'s shared spine adopts a single pool constructed ABOVE the per-scope lookup, so a bus composed inside that lookup still serves every row- and schema-isolated scope from one instance and separates the dedicated-database case alone, granting isolation exactly where the pool already grants it and withholding it everywhere the pool does not; the discriminant therefore rides the coordinate VALUE, which no composition topology undoes.
@@ -28,7 +28,7 @@ Every modality reaches the invalidation bus directly, so a binding over a non-re
 
 ```typescript signature
 import { Array, Record, Schema } from "effect"
-import { Shape } from "@rasm/ts/core"
+import { Shape } from "@rasm/core"
 
 // Both coordinate halves share one lexical class: a slot declares its lane under it, a composition projects its
 // scope key into it, and the separator below therefore cannot appear inside either segment.
@@ -80,7 +80,7 @@ const _merged = (coordinates: ReadonlyArray<Live.Keys>): Live.Keys =>
 ## [03]-[LIVE_READS]
 
 - Owner: `Live.of(spec)` — one binding over `{ keys, query, rearm, backoff, backlog, coordinate }` yielding the three read modalities — `read` (the decoded one-shot), `changes` (the reactive stream re-running on every overlapping mutation under the bound's re-arm policy), `mailbox` (the pull twin derived from that same stream) — and `coordinate`, the emission-identity projection the serving plane's SSE fold reads as its dedupe token.
-- Packages: `@effect/experimental` (`Reactivity.stream` — the keyed re-run over any effect); `effect` (`Effect`, `Stream`, `Mailbox.fromStream`, `Schedule`, `ParseResult`, `Predicate`, `Duration`, `Option`); `@rasm/ts/core` (`Fault.Class.retryable`).
+- Packages: `@effect/experimental` (`Reactivity.stream` — the keyed re-run over any effect); `effect` (`Effect`, `Stream`, `Mailbox.fromStream`, `Schedule`, `ParseResult`, `Predicate`, `Duration`, `Option`); `@rasm/core` (`Fault.Class.retryable`).
 - Entry: a projection lane publishes `Live.of` bindings beside its table (the lane's `read` composed with the lane's band); the runtime branch serves `changes` over sockets and server-sent events, and the browser's persistence lane pulls `mailbox` — both consume the bound value, never the bus.
 - Receipt: every `changes` emission is a fresh run of the same query — the stream carries decoded values only, so a subscriber holds domain shapes and re-render diffing is the consumer's fold over equal-by-construction values.
 - Growth: a new live view is one `Live.of` with its own query and coordinates; a parameterized view (per-cell, per-window) is a constructor argument closing over the query, never a second modality.
@@ -98,7 +98,7 @@ const _merged = (coordinates: ReadonlyArray<Live.Keys>): Live.Keys =>
 ```typescript signature
 import { Duration, Effect, Mailbox, Option, ParseResult, Predicate, Schedule, type Scope, Stream } from "effect"
 import { Reactivity } from "@effect/experimental"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 const _REARM = ["resume", "close"] as const
 

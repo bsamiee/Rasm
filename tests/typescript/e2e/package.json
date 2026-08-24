@@ -10,5 +10,13 @@
         "@rasm/ts-testkit": "workspace:*",
         "@types/k6": "catalog:",
         "effect": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "browsers": {
+                "cache": false,
+                "command": "playwright install chromium webkit"
+            }
+        }
     }
 }

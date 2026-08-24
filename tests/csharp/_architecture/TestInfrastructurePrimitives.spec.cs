@@ -967,7 +967,7 @@ public sealed class TestInfrastructurePrimitiveLaws {
         // Mutant pairs are equal-length and differ in exactly one byte — the separation witness.
         Spec.ForAll(gen: Gens.Mutant, property: static pair => {
             Assert.Equal(expected: pair.Original.Length, actual: pair.Mutated.Length);
-            Spec.Holds(condition: Enumerable.Range(start: 0, count: pair.Original.Length).Count(i => pair.Original[i] != pair.Mutated[i]) == 1, label: "mutant differs in exactly one byte");
+            Spec.Holds(condition: Enumerable.Range(start: 0, count: pair.Original.Length).Where(i => pair.Original[i] != pair.Mutated[i]).Take(count: 2).Count() == 1, label: "mutant differs in exactly one byte");
         });
         Spec.ForAll(gen: Gens.Hlc, property: static stamp =>
             Spec.Holds(condition: stamp.Physical >= 0L, label: "hlc physical half is a nonnegative tick"));

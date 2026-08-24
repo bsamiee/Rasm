@@ -32,8 +32,8 @@ import {
   Array, Context, DateTime, Deferred, Duration, Effect, Exit, HashMap, Layer, Metric, Number, Option, Order, Predicate,
   RateLimiter, Record, Redacted, Ref, Schedule, Schema, type Scope, pipe,
 } from "effect"
-import { Identity, Carrier, Convention, Fault, Shape } from "@rasm/ts/core"
-import { ApiKey, Claim, CookieSpec, Jwt, type Principal as Scoped, Session, TenantScope } from "@rasm/ts/security"
+import { Identity, Carrier, Convention, Fault, Shape } from "@rasm/core"
+import { ApiKey, Claim, CookieSpec, Jwt, type Principal as Scoped, Session, TenantScope } from "@rasm/security"
 import { Propagation } from "../otel/emit.ts"
 
 const _VERSIONS = ["v1"] as const
@@ -80,7 +80,7 @@ const Surface: {
 - Law: the refusal code falls out of the core class alone — 400, 401, 403, 503, 429, or 409 — so no serve-local status table can disagree with `problem#STATUS_RECORD`.
 - Law: the stated window rides `after` — the core owner's VALUE-altitude word, so `Fault.Class.statedOf` reads it back at the problem door and `Fault.Budget.schedule` takes it as its third argument; the pressure rows stamp it from their own measured window, the ladder prefers it over the class default, and a 429/503 always carries the truthful figure rather than a guessed constant. The wire's `retry_after` and the response header's `retry-after` are the other two altitudes of one window, and none renames another.
 - Law: every refusal emits before it fails — `_refuse` is the one fail seam, incrementing `Convention.metric.admitRefused` tagged by the reason the fault already carries, so the refusal fan needs zero call-site wiring and a new reason joins the series the moment its row lands; `Gate.refuse` publishes that same seam to the serving route module, so a refusal minted at the seam counts itself through the one fold rather than a second `Effect.fail`.
-- Packages: `effect` (`Schema`, `Option`, `Duration`, `Metric`); `@rasm/ts/core` (`Fault.Class`, `Convention`).
+- Packages: `effect` (`Schema`, `Option`, `Duration`, `Metric`); `@rasm/core` (`Fault.Class`, `Convention`).
 
 ```typescript signature
 // Every refusal here is raised on one surface — the admission plane — so the family carries one leg and partitions
@@ -171,7 +171,7 @@ const _refuse = (fault: GateFault): Effect.Effect<never, GateFault> =>
 - Law: the stamp mints at the door — `Current.provide(effect, mark, fallback)` provides the mark and the locale projected from it in one scoped provision, so a handler, a log annotation, and the problem fold read one coherent request identity; the `problem` page reads `Current.Stamp` for the `instance` member and the `requestId` extension.
 - Law: `Current.Admitted` is the credential lift's one seat — the global seam resolves header and cookie credentials once, while the webhook's route-scoped query carriage lands the same `Admitted` value here after `Authn.webhook` resolves it. Scheme arms project this seat instead of re-verifying.
 - Growth: a new ambient axis is one `Context.Reference` row plus its projection inside `provide`.
-- Packages: `effect` (`Context`, `Option`, `Schema`, `Array`, `Order`, `Number`); `@rasm/ts/core` (`Shape.Refined`); `../otel/emit.ts` (`Propagation`).
+- Packages: `effect` (`Context`, `Option`, `Schema`, `Array`, `Order`, `Number`); `@rasm/core` (`Shape.Refined`); `../otel/emit.ts` (`Propagation`).
 
 ```typescript signature
 const _byWeight: Order.Order<readonly [string, number]> = Order.mapInput(

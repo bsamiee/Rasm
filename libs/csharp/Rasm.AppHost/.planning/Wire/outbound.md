@@ -242,13 +242,23 @@ public abstract partial record HopFault : Fault {
             RetryAfter.Match(Some: Retriability.Throttled, None: static () => Retriability.Transient);
     }
 
+    // Envelope refusal: the wire crossing itself was unsound — a malformed trailer, an unadmitted detail, a
+    // contract violation — carrying the refusing boundary and the typed violation the boundary read.
     [FaultCase(11)]
+    public sealed partial record Malformed : HopFault {
+        public Malformed(WireBoundary boundary, WireViolation violation)
+            : base($"<malformed:{boundary.Value}>") => (Boundary, Violation) = (boundary, violation);
+        public WireBoundary Boundary { get; }
+        public WireViolation Violation { get; }
+    }
+
+    [FaultCase(12)]
     public sealed partial record Foreign : HopFault, ICausedFault {
         public Foreign(Error cause) : base(cause.Message) => Cause = cause;
         public Error Cause { get; }
     }
 
-    [FaultCase(12)]
+    [FaultCase(13)]
     public sealed partial record Empty : HopFault { public Empty() : base("<empty-outcome>") { } }
 }
 
@@ -1234,7 +1244,7 @@ public static class Discovery {
 - Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget, string)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer. The generated `DeliveryDisposition` enum owns dialed, suppressed, and unbound.
 - Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<DeliveryReceipt>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` under a bounded fork width, so one notification reaches every configured channel under one dedupe guard.
 - Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe verdict is one `DedupeWindow.Admit(key, now)` call against the `Runtime/resources#DEDUPE_WINDOW` bounded seen-key window — a `true` is the first admission and a `false` is a key still holding an unexpired deadline — so the expiry prune, the capacity ceiling, and the admit-record race are the primitive's while the instant stays this composition's own `ClockPolicy` read, and this page carries no cell and no window column; each channel mints one native receipt carrying the channel, disposition, and hop verdict so a partial fan records every channel independently; the fan SCHEDULES each window's legs through `IO.Fork` before it awaits them, so channels inside a window genuinely overlap while the width stays the composition's own budget; the evidence leg stays sequential after the join because the receipt stream is the one ordered record of what the fan did; the evidence leg fires the `Observability/hooks#HOOK_ROSTER` `Delivery` row through `rail.Fire(AppHostPoint.Delivery, new AppHostFact.Delivery(receipt), key)`, so a per-channel subscriber reads the typed receipt while the envelope carries the same local evidence.
-- Receipt: native `DeliveryReceipt` — channel, typed verdict and disposition, optional measured attempts/duration, optional fenced watermark, and optional kernel fault observation. The idempotency key governs dedupe and the envelope correlation governs joining; neither is copied into the receipt.
+- Receipt: native `DeliveryReceipt` — channel, optional typed verdict (`None` on a suppressed leg, which ran no hop and earned none) beside the disposition, optional measured attempts/duration, optional fenced watermark, and optional kernel fault observation. The idempotency key governs dedupe and the envelope correlation governs joining; neither is copied into the receipt.
 - Packages: Rasm (kernel `HookRail`/`FaultObservation`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; a new account of a leg lands on the corpus enum and producer switch; zero new surface.
 - Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded and NOT owned here — `DedupeWindow` at `Runtime/resources#DEDUPE_WINDOW` is the one TTL-and-capacity seen-key window, composed by this fan and by `Wire/topics#SUBSCRIPTION_FABRIC` alike, so a long-lived process accumulates no unbounded dedup state under either bound and a local idempotency-key map beside it is the twin that primitive deleted; the disposition is the fan's honesty axis — a suppressed leg and an unbound leg each ran NO hop, so an attempt count and an elapsed span are measurements nobody took and a receipt reporting them as zeros is indistinguishable from a dial that returned instantly; the unbound arm carries the binding `Error` beside that absence, so a fan that fails to resolve a target names why on the receipt rather than on a log line; fork width is the composition's own worker budget rather than the channel count, because `IO.Fork` spins one dedicated long-running thread per leg with no pool ceiling, so an unwindowed fan is an unbounded thread count and a bare traverse over the deliveries is the opposite deleted form that sequences them and makes the partial-fan claim prose over a serial loop; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row and one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport; the message's idempotency key threads INTO the hop case, so the fan's dedupe key, the pipeline's `OperationKey`, and the receiver's dedup key are one value rather than three mints of one intent.
@@ -1289,29 +1299,33 @@ public sealed record DeliveryMessage(
     DataClassification Classification,
     HashMap<DeliveryChannel, DeliveryTarget> Targets);
 
+// `Outcome` is `Option<HopVerdict>` because a suppressed leg ran NO hop: `None` is the honest account of a
+// verdict nobody produced, where the `Delivered` stamp made a fan whose every leg was suppressed read as a
+// healthy delivery on the availability objective. An unbound leg DID refuse — its binding failed — so it
+// carries `Some(Refused)` beside the binding fault.
 public sealed record DeliveryReceipt(
     string Channel,
-    HopVerdict Outcome,
+    Option<HopVerdict> Outcome,
     DeliveryDisposition Disposition,
     Option<HopMeasure> Measure,
     Option<ulong> Watermark,
     Option<FaultObservation> Fault) {
     public static DeliveryReceipt Dialed(string channel, HopSettled<Unit> settled, Option<ulong> watermark) => new(
         channel,
-        settled.Receipt.Outcome,
+        Some(settled.Receipt.Outcome),
         settled.Receipt.Measure.IsSome ? DeliveryDisposition.Dialed : DeliveryDisposition.Unbound,
         settled.Receipt.Measure,
         watermark,
         settled.Receipt.Fault);
 
     public static DeliveryReceipt Suppressed(string channel) => new(
-        channel, HopVerdict.Delivered, DeliveryDisposition.Suppressed, None, None, None);
+        channel, None, DeliveryDisposition.Suppressed, None, None, None);
 
     public static DeliveryReceipt Unbound(string channel, Error error) => new(
-        channel, HopVerdict.Refused, DeliveryDisposition.Unbound, None, None, Some(FaultObservation.Of(error)));
+        channel, Some(HopVerdict.Refused), DeliveryDisposition.Unbound, None, None, Some(FaultObservation.Of(error)));
 }
 
-// Watermark is the raw `ulong` on PURPOSE: `HlcOrdinal` is `Wire/outbox#RELAY_VOCABULARY`'s value object and
+// Watermark is the raw `ulong` on PURPOSE: `OutboxOrdinal` is `Wire/outbox#OUTBOX_FABRIC`'s value object and
 // that page composes this one, so naming it here would invert the page direction into a cycle. The relay hands
 // down the admitted ordinal's value and re-enters the alphabet at its own owner; the WIRE narrowing to ordinal
 // text lands at this page's mapper, so the carrier stays direction-safe without forking the wire spelling.
@@ -1332,13 +1346,17 @@ public sealed record DeliveryRuntime(
 public static class DeliveryFanout {
     public static IO<Seq<DeliveryReceipt>> Fan(
         DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels) =>
-        IO.lift(() => (Now: runtime.Clocks.Now, Correlation: Correlation.Mint())).Bind(frame =>
-            // One admission against the shared bounded window: TRUE is first sight, FALSE is a replay still
-            // holding an unexpired deadline. The prune, the ceiling, and the admit-record race are the
-            // primitive's; the instant is this composition's read, which is what lets a spec expire rows
-            // against a fake clock.
+        // ONE admission against the shared bounded window, ABOVE the fan: TRUE is first sight, FALSE is a
+        // replay still holding an unexpired deadline. The verdict is per MESSAGE, so every channel of one
+        // admission delivers — the per-channel admit let the first leg record the key and every later leg of
+        // the same fan read its own message back as a replay. The prune, the ceiling, and the admit-record
+        // race are the primitive's; the instant is this composition's read, which is what lets a spec expire
+        // rows against a fake clock.
+        IO.lift(() => (
+                Correlation: Correlation.Mint(),
+                Admitted: runtime.Dedupe.Admit(message.IdempotencyKey, runtime.Clocks.Now))).Bind(frame =>
             Windowed(
-                toSeq(channels.ToArray()).Map(channel => runtime.Dedupe.Admit(message.IdempotencyKey, frame.Now)
+                toSeq(channels.ToArray()).Map(channel => frame.Admitted
                     ? Deliver(runtime, channel, message, frame.Correlation)
                     : IO.pure(DeliveryReceipt.Suppressed(channel.Key))),
                 runtime.FanWidth)

@@ -1,4 +1,4 @@
-"""Laws for ``tools.assay.automation.engine``.
+"""Laws for ``assay.automation.engine``.
 
 Covers ContextVar CPU governance and trigger/action projection through canned executor-port, rail,
 psutil, watchfiles, and emit boundaries. ``drive(..., executor=probe.port(...))`` is the public spawn
@@ -19,19 +19,19 @@ from expression import Result  # runtime: msgspec resolves row-struct field anno
 import msgspec
 import pytest
 
+from assay.automation import engine as _eng
+from assay.automation.engine import drive, is_governed
+from assay.automation.model import Action, Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Trigger, Watch, WatchFilter
+from assay.core.model import Claim, Completed, Counts, envelope, Fault, RailStatus, receipt
+from assay.diagnostics import fold
 from tests.python.tools.assay.kit import RailProbe
-from tools.assay.automation import engine as _eng
-from tools.assay.automation.engine import drive, is_governed
-from tools.assay.automation.model import Action, Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Trigger, Watch, WatchFilter
-from tools.assay.core.model import Claim, Completed, Counts, envelope, Fault, RailStatus, receipt
-from tools.assay.diagnostics import fold
 
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from assay.core.model import Envelope
     from tests.python.tools.assay.kit import AssayHarness, CpuDoubleInstaller, CpuSampler
-    from tools.assay.core.model import Envelope
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

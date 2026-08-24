@@ -259,7 +259,7 @@ flowchart LR
     Model e15@-->|"[GRADUATION]: GraduationEvidence"| Compute
     Solver e16@-->|"[SHAPE]: DoeDataset"| Data
     Data e17@-->|"[SHAPE]: GeoArrow"| Runtime
-    Runtime e18@-->|"[WIRE]: ReceiptEnvelopeWire + BenchmarkClaimWire"| Core
+    Runtime e18@-->|"[WIRE]: ReceiptHeaderWire + BenchmarkClaimWire"| Core
     Runtime e19@-->|"[WIRE]: FieldContainer"| Data
     Compute e20@-->|"[WIRE]: GraduationEnvelope"| Model
     Tensor e21@<-->|"[WIRE]: SparseExchange"| Compute

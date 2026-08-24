@@ -21,13 +21,14 @@ from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from protovalidate import ValidationError
 import pytest
-from rasm.contracts import AdmissionError, AdmissionPhase, AdmissionSide, BodyAdmission
+
+from rasm.contracts.admission import AdmissionError, AdmissionPhase, AdmissionSide, AsyncClosable, BodyAdmission
 from rasm.contracts.gen.rasm.contracts.clock.v1.hlc_pb import Hlc
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-COVERS: tuple[object, ...] = (AdmissionError, AdmissionPhase, AdmissionSide, BodyAdmission)
+COVERS: tuple[object, ...] = (AdmissionError, AdmissionPhase, AdmissionSide, AsyncClosable, BodyAdmission)
 
 
 _METHOD = MethodInfo(name="Admit", service_name="rasm.contracts.test.Admission", input=Hlc, output=Hlc, idempotency_level=IdempotencyLevel.UNKNOWN)

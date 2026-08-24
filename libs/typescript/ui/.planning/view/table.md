@@ -151,7 +151,7 @@ const _edge = <K extends keyof Grid.Slice>(
 - Growth: a new wire kind is one `_CELL` row; a new column fact is one `Grid.ColumnMeta` field every producer of columns then states.
 
 ```typescript signature
-import { Feed } from "@rasm/ts/core"
+import { Feed } from "@rasm/core"
 import type { ColumnDef } from "@tanstack/react-table"
 import { createColumnHelper } from "@tanstack/react-table"
 import { Array, Match, Option, Order } from "effect"

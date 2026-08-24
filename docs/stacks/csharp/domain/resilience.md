@@ -113,7 +113,10 @@ public static class HopPipeline {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Rejection : Fault {
     private Rejection(string detail) => Detail = detail;
-    private static readonly FaultBand FamilyBand = FaultBand.Hop;
+    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
+    // `FaultBand.Hop` already belongs to the estate's hop family, and a second family on a live row is the
+    // deleted form the registry's disjointness proof exists to refuse.
+    private static readonly FaultBand FamilyBand = FaultBand.Rejection;
 
     public string Detail { get; }
     public sealed override string Message => Detail;

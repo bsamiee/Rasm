@@ -26,4 +26,6 @@ deps:
 - `breaking: use: [FILE]` grades every commit, so a file path, message, field, enum value, RPC, and service each survive once published.
 - Retirement is `deprecated`, never deletion — `reserved` rescues no removal under FILE.
 - Families that must change shape land `rasm.contracts.<family>.v2` beside the `v1` they leave intact.
-- Tightened Protovalidate rules clear every breaking category, so a consumer reads the rule off the message and never trusts the gate for it.
+- Generation belongs at the consumer against its locked commit; that lock, never this module's label, is what dates every guarantee above.
+- Tightened Protovalidate rules clear every breaking category, so a locked consumer holds while one re-resolving `main` can meet narrowed admission.
+- Auto-served BSR SDKs carry the module whole with `opt` fixed at the plugin, so their surface and runtime pin match no branch emission here.

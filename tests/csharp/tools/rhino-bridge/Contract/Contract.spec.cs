@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Nerdbank.Streams;
+using PolyType;
 using Rasm.TestKit;
 using StreamJsonRpc;
 using StreamJsonRpc.Protocol;
@@ -48,6 +49,7 @@ internal sealed class ShellStub : IBridgeShell {
 
 // Future contract pins JSON-RPC method-not-found behavior instead of fallback.
 [JsonRpcContract]
+[GenerateShape(IncludeMethods = MethodShapeFlags.PublicInstance)]
 internal partial interface IFutureShell {
     public Task<long> FutureProbeAsync(CancellationToken ct);
 }
@@ -116,7 +118,7 @@ public sealed class RpcProxyLaws {
 public sealed class UnionWireLaws {
     public static TheoryData<BridgeEvent> Events => [
         new BridgeEvent.FactCase(Key: "cargo.swapMs", Value: JsonSerializer.SerializeToElement(value: 412.3, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = WireGens.Stamp },
-        new BridgeEvent.CaptureCase(Path: ".artifacts/rhino/verify/gh.canvas.png", Width: 1280, Height: 720, OnFailure: true) { Stamp = WireGens.Stamp },
+        new BridgeEvent.CaptureCase(Path: ".artifacts/csharp/rhino/verify/gh.canvas.png", Width: 1280, Height: 720, OnFailure: true) { Stamp = WireGens.Stamp },
         new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: 30_000.0, Fault: new BridgeFault.ExecuteDeadline(Scenario: "gh.canvas", ElapsedMs: 30_000.0)) { Stamp = WireGens.Stamp },
         new BridgeEvent.ProgressCase(Done: 3, Total: 21) { Stamp = WireGens.Stamp },
         new BridgeEvent.HostExceptionCase(Report: "System.InvalidOperationException at Rhino.Render") { Stamp = WireGens.Stamp },

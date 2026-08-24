@@ -10,7 +10,7 @@ Content-addressed identity binds every branch that hashes, keys, or wires a valu
 - Binds: C#, Python, TypeScript, tooling.
 - Law: Derived artifacts key on the content hash of their source, so cache validity is key equality, never path or mtime.
 - Law: Content identity federates through one frozen-name entry per branch, seed-zero `XxHash128` over caller-canonical bytes.
-- Law: `tests/contracts/` `CANONICAL_BYTE_IDENTITY` proves that entry's parity, so a new hashing need composes it and re-keying spans the estate.
+- Law: `tests/contracts/` `content-identity` proves that entry's parity, so a new hashing need composes it and re-keying spans the estate.
 - Law: Keys persist and wire as 16 big-endian bytes, `:x32` their hex, while `XxHash128` fills its hash-input buffer little-endian.
 - Law: Peers normalize byte order exactly once at decode, and a parity check reversing neither side or both forks the key at the join.
 - Law: Evidence records carry the pre-run source key in their identity slot, the key a hit test compares.

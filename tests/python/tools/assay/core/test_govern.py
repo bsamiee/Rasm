@@ -29,15 +29,11 @@ import psutil
 import pytest
 from upath import UPath
 
-from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
-
-# Hypothesis resolves fixture annotations at collection time under PEP 649.
-from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness
-from tools.assay.composition.settings import AssaySettings
-from tools.assay.core.aspect import RING  # ring seam seeded directly for ring-content assertions
-from tools.assay.core.exec import run_check
-import tools.assay.core.govern as govern_mod
-from tools.assay.core.govern import (
+from assay.composition.settings import AssaySettings
+from assay.core.aspect import RING  # ring seam seeded directly for ring-content assertions
+from assay.core.exec import run_check
+import assay.core.govern as govern_mod
+from assay.core.govern import (
     Captured,
     captured_outputs,
     decode_lease_owner,
@@ -67,8 +63,12 @@ from tools.assay.core.govern import (
     touched,
     WriteSink,
 )
-from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool
-from tools.assay.core.routing import Routed, Scope
+from assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool
+from assay.core.routing import Routed, Scope
+from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
+
+# Hypothesis resolves fixture annotations at collection time under PEP 649.
+from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness
 
 
 if TYPE_CHECKING:
@@ -77,8 +77,8 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tools.assay.composition.store import ArtifactScope
-    from tools.assay.core.model import Completed
+    from assay.composition.store import ArtifactScope
+    from assay.core.model import Completed
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -820,16 +820,39 @@ def test_claim_steals_dead_holder_lock(assay_root: AssayHarness, monkeypatch: py
     assert (owner.run_id, owner.pid) == ("new-run", self_pid), f"steal did not rewrite the owner block: {owner!r}"
 
 
-def test_steal_rewrites_owner_and_yields_busy_on_lost_race(assay_root: AssayHarness) -> None:
-    """``_steal`` re-locks an uncontended fd and rewrites the owner block; a lost TOCTOU race yields ``None`` (BUSY)."""
+@pytest.mark.mutation
+def test_phantom_inherited_fd_holder_yields_busy_naming_remedy(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dead recorded owner under a still-held flock refuses BUSY with the phantom diagnosis naming the remedy.
+
+    The held sibling fd models a descendant-inherited flock (dotnet build-server) outliving the recorded owner.
+    """
+    dead_pid, self_pid = 88_888, os.getpid()
+    fake = _make_psutil_module({self_pid: _proc(pid=self_pid), dead_pid: _proc(pid=dead_pid, raise_no_such=True)})
+    monkeypatch.setattr(govern_mod, "psutil", fake)
+    stale = govern_mod._LeaseOwner(resource="phantom", run_id="old-run", pid=dead_pid, create_time=0.0)
+    lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "phantom.lock")
+    with _lock_fd(lock_path, exclusive=True, seed=msgspec.json.encode(stale)):
+        with exclusive_lease("phantom", "new-run", settings=assay_root.settings) as refused:
+            fault = assert_error_status(refused, RailStatus.BUSY)
+    assert f"pid {dead_pid}" in fault.message and "dotnet build-server shutdown" in fault.message, (
+        f"phantom holder diagnosis missing owner or remedy: {fault.message!r}"
+    )
+
+
+def test_steal_rewrites_owner_and_yields_contention_on_lost_race(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_steal`` re-locks an uncontended fd and rewrites the owner; a lost TOCTOU race discriminates revived holder from phantom fd."""
     prior = govern_mod._LeaseOwner(resource="steal-direct", run_id="dead", pid=88_888, create_time=0.0)
     with _lock_fd(assay_root.settings.artifact(ArtifactKind.LOCKS, "steal-direct.lock")) as fd:
-        won = govern_mod._steal(fd, "steal-direct", run_id="winner", target="", owner=prior)
-    assert won is not None, "_steal did not return a won owner on an uncontended lock"
+        won = govern_mod._steal(fd, "steal-direct", govern_mod._ClaimSpec(run_id="winner", tolerance=1.0, target=""), prior)
+    assert isinstance(won, govern_mod._LeaseOwner), "_steal did not return a won owner on an uncontended lock"
     assert (won.run_id, won.pid) == ("winner", os.getpid()), f"_steal did not rewrite the owner: {won!r}"
     lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "steal-lost.lock")
     with _lock_fd(lock_path, exclusive=True), _lock_fd(lock_path) as contender:
-        assert govern_mod._steal(contender, "steal-lost", run_id="loser", target="", owner=None) is None, "lost TOCTOU race did not yield BUSY"
+        lost = govern_mod._steal(contender, "steal-lost", govern_mod._ClaimSpec(run_id="loser", tolerance=1.0, target=""), None)
+        assert lost == govern_mod._Contention(owner=None, phantom=True), "corrupt-owner lost race must read as a phantom holder"
+        monkeypatch.setattr(govern_mod, "psutil", _make_psutil_module({88_888: _proc(pid=88_888, running=True, create_time=0.0)}))
+        relost = govern_mod._steal(contender, "steal-lost", govern_mod._ClaimSpec(run_id="loser", tolerance=1.0, target=""), prior)
+        assert relost == govern_mod._Contention(owner=prior, phantom=False), "revived holder must read as live contention, never phantom"
 
 
 @pytest.mark.mutation
@@ -859,7 +882,9 @@ def test_claim_contention_busy_vs_steal_decision(  # three contention scenarios 
 
     monkeypatch.setattr(govern_mod, "_FLOCK", scripted_flock)
 
-    def claim(name: str, holder_pid: int | None, *, busy: bool) -> tuple[govern_mod._LeaseOwner | None, govern_mod._LeaseOwner | None, int]:
+    def claim(
+        name: str, holder_pid: int | None, *, busy: bool
+    ) -> tuple[govern_mod._LeaseOwner | govern_mod._Contention, govern_mod._LeaseOwner | None, int]:
         flock_calls.clear()
         busy_first[0] = busy
         fd = os.open(str(assay_root.root / f"{name}.lock"), os.O_RDWR | os.O_CREAT, 0o644)
@@ -868,7 +893,11 @@ def test_claim_contention_busy_vs_steal_decision(  # three contention scenarios 
                 _ = os.write(fd, msgspec.json.encode(govern_mod._LeaseOwner(resource=name, run_id="holder", pid=holder_pid, create_time=_CT)))
                 _ = os.lseek(fd, 0, os.SEEK_SET)
             won = govern_mod._claim(
-                fd, name, run_id="claim-run", tolerance=1.0, target="ssh://probe", cwd="/work/claim", project="proj-claim", mode="shared"
+                fd,
+                name,
+                govern_mod._ClaimSpec(
+                    run_id="claim-run", tolerance=1.0, target="ssh://probe", cwd="/work/claim", project="proj-claim", mode="shared"
+                ),
             )
             _ = os.lseek(fd, 0, os.SEEK_SET)
             return won, decode_lease_owner(os.read(fd, 4096)), len(flock_calls)
@@ -894,7 +923,9 @@ def test_claim_contention_busy_vs_steal_decision(  # three contention scenarios 
     assert msgspec.structs.asdict(persisted) == IsPartialDict(stamped("claim-free")), f"free-path owner block wrong: {persisted!r}"
     won, persisted, flocks = claim("claim-busy", live_pid, busy=True)
     assert persisted is not None, "live holder block vanished under contention"
-    assert (won, flocks, persisted.run_id) == (None, 1, "holder"), "live holder must map to BUSY without a steal flock or rewrite"
+    assert (won, flocks, persisted.run_id) == (govern_mod._Contention(owner=persisted), 1, "holder"), (
+        "live holder must map to non-phantom contention without a steal flock or rewrite"
+    )
     won, persisted, flocks = claim("claim-stale", dead_pid, busy=True)
     assert persisted is not None, "steal wrote no owner block"
     assert won == persisted, f"steal return diverged from the persisted block: {won!r}"

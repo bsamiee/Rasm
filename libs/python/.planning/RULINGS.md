@@ -9,9 +9,10 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - `python_version` markers gate a REPRODUCED break alone — a gate-every-native sweep reverses resolution `forge-scientific-env` builds at the floor.
 - Overlay residency grows at `Parametric_Forge`, never a repo admission — venv path order shadows it, so the `.pth` tail overrides no manifest row.
 - Floor-unreachable distributions never hold open — a peer re-owning the arms retires the row; a sole capability states its PERMANENT typed degrade.
-- Root `pyproject.toml` and `uv.lock` are the ONE authority for the Python 3.15 platform and its workspace members.
+- Root `pyproject.toml` owns the Python 3.15 platform floor and its markers for every folder under it.
+- Root `pyproject.toml` is a VIRTUAL workspace container and `uv.lock` the sole version authority — members carry identity and bare-name edges alone.
 - Native distributions whose wheels stop below the platform floor ride the Forge python-overlay `.pth`; one root marker row states it.
-- Installed workspace distributions carry generated sources; analyzer and test search paths never substitute for package admission.
+- Root install carries generated sources through its module root; analyzer and test search paths never substitute for admission.
 - Hand-authored `.pth`, `-P`, and `sys.path` edits are refused; uv owns the development link and wheels own external installation.
 - `connectrpc` KEEP against its `asyncio` primitives — both ends run them, so the Connect rail pins asyncio and no `hypercorn.trio` host.
 

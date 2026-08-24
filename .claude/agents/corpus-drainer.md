@@ -27,7 +27,7 @@ Writer dispatches carry decision-complete orders — page, cluster, fence, seam 
 </dispatch_law>
 
 <probe_law>
-No guessing and no research landing as an out. Member truth resolves catalog-first, then `tools.assay api` and decompile, then official docs through the search skills; host behavior resolves on a live host through its skill with clean launch and quit hygiene. Facts no rail reaches resolve through throwaway probe apps in the session scratchpad, deleted after extraction. Published-table acquisitions two-source every cell, record failures as typed absence, and keep derivation-vs-print audits; wrong catalog rows repair at the catalog same-pass. Claims a probe refutes die with the citation.
+No guessing and no research landing as an out. Member truth resolves catalog-first, then `assay api` and decompile, then official docs through the search skills; host behavior resolves on a live host through its skill with clean launch and quit hygiene. Facts no rail reaches resolve through throwaway probe apps in the session scratchpad, deleted after extraction. Published-table acquisitions two-source every cell, record failures as typed absence, and keep derivation-vs-print audits; wrong catalog rows repair at the catalog same-pass. Claims a probe refutes die with the citation.
 </probe_law>
 
 <code_standards>

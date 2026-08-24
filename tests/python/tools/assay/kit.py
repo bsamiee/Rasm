@@ -15,24 +15,10 @@ import msgspec
 import psutil as _psutil
 from upath import UPath
 
-from tests.python._testkit.runtime import REPO_ROOT
-from tests.python._testkit.seams import (
-    Async as _Async,
-    autospec_proc,
-    Factory as _Factory,
-    FanOut as _FanOut,
-    install_module_attr,
-    NdjsonOracle,
-    psutil_module_double,
-    SeamProbe,
-    Sync,
-    TmpRoot,
-)
-from tests.python._testkit.strategies import resolve
-from tools.assay.composition.registry import REGISTRY
-from tools.assay.composition.settings import AssaySettings, Ssh
-from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.model import (
+from assay.composition.registry import REGISTRY
+from assay.composition.settings import AssaySettings, Ssh
+from assay.composition.store import ArtifactScope
+from assay.core.model import (
     AnyDetail,
     ApiResolution,
     ApiSource,
@@ -63,16 +49,30 @@ from tools.assay.core.model import (
     Tool,
     VerifySummary,
 )
-from tools.assay.diagnostics import fold
-from tools.assay.rails import package as package_rail
+from assay.diagnostics import fold
+from assay.rails import package as package_rail
+from tests.python._testkit.runtime import REPO_ROOT
+from tests.python._testkit.seams import (
+    Async as _Async,
+    autospec_proc,
+    Factory as _Factory,
+    FanOut as _FanOut,
+    install_module_attr,
+    NdjsonOracle,
+    psutil_module_double,
+    SeamProbe,
+    Sync,
+    TmpRoot,
+)
+from tests.python._testkit.strategies import resolve
 
 
 if TYPE_CHECKING:
     from expression import Result
     import pytest
 
+    from assay.composition.store import ArtifactStore
     from tests.python._testkit.seams import Shape as _Shape
-    from tools.assay.composition.store import ArtifactStore
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -335,12 +335,17 @@ def _yak_manifest() -> tuple[Path, str, str, str]:
         for path in sorted((REPO_ROOT / root_name).rglob("*.csproj"))
         if (found := slugged.search(text := path.read_text(encoding="utf-8"))) is not None
     )
-    tfm = re.search(r"<TargetFramework>([^<]+)</TargetFramework>", (REPO_ROOT / "Directory.Build.props").read_text(encoding="utf-8"))
+    # The workspace default is body-set, so it seats in either root MSBuild file; exactly one seat carries it and a second forks the election.
+    tfm = tuple(
+        found
+        for name in ("Directory.Build.props", "Directory.Build.targets")
+        if (found := re.search(r"<TargetFramework(?:\s[^>]*)?>([^<]+)</TargetFramework>", (REPO_ROOT / name).read_text(encoding="utf-8"))) is not None
+    )
     match (matches, tfm):
-        case ((project, slug, assembly),), re.Match() as framework:
+        case ((project, slug, assembly),), (framework,):
             return project, slug, assembly.group(1) if assembly is not None else slug, framework.group(1)
         case _:
-            msg = f"expected one yak-slugged manifest under {package_rail._PACKAGE_ROOTS} and a workspace TargetFramework, found {len(matches)}"
+            msg = f"expected one {package_rail._PACKAGE_ROOTS} yak manifest and one workspace TargetFramework, found {len(matches)} and {len(tfm)}"
             raise RuntimeError(msg)
 
 
@@ -472,7 +477,7 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     Returns:
         The installed module double for further per-test configuration.
     """
-    from tools.assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
+    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]  # patch target re-imported here
 
     fake = _make_psutil_module({}, cpu_count=cpu_count)
     fake.cpu_percent = cpu_percent

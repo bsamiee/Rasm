@@ -2,6 +2,8 @@
     <PropertyGroup>
         <Description>Measured execution package setup and lane doctrine for vector, tensor, model, and remote compute work.</Description>
         <CspScope>Application</CspScope>
+        <!-- Microsoft.ML.OnnxRuntime.Extensions ships version-specific OSX RID assets; the full RID graph is the resolution regime that actually finds them. -->
+        <UseRidGraph>true</UseRidGraph>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">

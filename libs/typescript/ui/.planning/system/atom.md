@@ -128,7 +128,7 @@ const _commit = Rpc.mutation("commit")
 
 ```typescript signature
 import { AtomRef } from "@effect-atom/atom-react"
-import type { Digest } from "@rasm/ts/core"
+import type { Digest } from "@rasm/core"
 import { Array, Duration, Number } from "effect"
 
 declare const _rows: Atom.Atom<ReadonlyArray<{ readonly key: Digest.Key<"content">; readonly rank: number }>>

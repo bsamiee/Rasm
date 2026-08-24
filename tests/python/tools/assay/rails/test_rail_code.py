@@ -17,18 +17,15 @@ import msgspec.structs
 import pytest
 from upath import UPath
 
-from tests.python._testkit.spec import assert_error, assert_ok
-from tests.python._testkit.strategies import resolve
-from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import AssaySettings
-from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.exec import apply_row_status, EngineExecutor
-from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
-from tools.assay.core.routing import resolve_languages, Routed, Scope
-from tools.assay.diagnostics import AstMatch, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_query
-import tools.assay.rails.code as code_rail
-from tools.assay.rails.code import (
+from assay.composition.catalog import select
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.exec import apply_row_status, EngineExecutor
+from assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
+from assay.core.routing import resolve_languages, Routed, Scope
+from assay.diagnostics import AstMatch, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_query
+import assay.rails.code as code_rail
+from assay.rails.code import (
     _AG_SPEC,
     _artifact,
     _checks,
@@ -49,13 +46,16 @@ from tools.assay.rails.code import (
     search,
     ts_language,
 )
+from tests.python._testkit.spec import assert_error, assert_ok
+from tests.python._testkit.strategies import resolve
+from tests.python.tools.assay.kit import SeamExecutor
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from assay.core.model import Completed, Report
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Completed, Report
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -125,7 +125,7 @@ def test_codeparams_rejects_multiple_language_flags() -> None:
 
 def test_code_help_exposes_boolean_language_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
     """Code help exposes selector flags and never the removed --language value flag."""
-    from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
+    from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
     neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
@@ -293,7 +293,7 @@ def test_targets(
 
 def test_ts_language_tsx_key_resolves_tsx_grammar() -> None:
     """Tsx and typescript resolve to distinct tree-sitter languages."""
-    from tree_sitter import (  # ruff:ignore[import-outside-top-level]  # local import avoids aliasing `Language` from tools.assay.core.model at module scope
+    from tree_sitter import (  # ruff:ignore[import-outside-top-level]  # local import avoids aliasing `Language` from assay.core.model at module scope
         Language as TSLanguage,
     )
 

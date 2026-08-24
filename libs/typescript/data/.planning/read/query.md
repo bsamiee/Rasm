@@ -35,7 +35,7 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 ```typescript signature
 import { Schema } from "effect"
 import { Model } from "@effect/sql"
-import { Identity } from "@rasm/ts/core"
+import { Identity } from "@rasm/core"
 
 const _BoardState = Schema.Struct({
   // payload columns carry their own authority: consumers reach board.state.lanes typed, no second decode anywhere
@@ -456,7 +456,7 @@ const _mysqlIngress = MysqlClient.layerConfig({
 ## [07]-[ORGANIZATION_ROWS]
 
 - Owner: model organization as read-side relations — `Organization.Entity` carries label, list-derived sibling position, resolved visibility and locking, and its container address; `organization_member` and `organization_view` are the nested one-to-many projections; `Organization.Walk` is the containment adjacency's ONE reach owner.
-- Packages: `@effect/sql` (`Model.Class`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`, `sql.in`, `sql.or`); `effect` (`Array`, `Effect`, `Option`, `Order`, `Schema`, `Struct`, `Duration`); `@rasm/ts/core` (`Shape.Bound` — the walk budget and its exhaustion evidence; `Fault.Class.spent` — the estate's one bound-exhaustion family); `lane/capability.md` (`Capability.Ensure`).
+- Packages: `@effect/sql` (`Model.Class`, `Model.FieldOption`, `Model.BooleanFromNumber`, `Model.DateTimeInsert`, `SqlResolver.grouped`, `SqlSchema.findAll`, `sql.in`, `sql.or`); `effect` (`Array`, `Effect`, `Option`, `Order`, `Schema`, `Struct`, `Duration`); `@rasm/core` (`Shape.Bound` — the walk budget and its exhaustion evidence; `Fault.Class.spent` — the estate's one bound-exhaustion family); `lane/capability.md` (`Capability.Ensure`).
 - Entry: `Organization.rows(window)` inside the owning service build; `binding.reads.reach(walk)` answers a whole bounded subtree in one statement and `binding.resolvers.children` answers one level with the per-fiber window a resolver collapses, both off the same walk statement.
 - Law: `address` is the ENTITY key and `member` a FEDERATION key the producing authority issued, so the two never share a column. Nesting rides `container` on the entity row because an entity has exactly one container, while membership and view overrides are the genuine one-to-many axes and earn their own relations.
 - Law: a reach answers the DISTANCE it computed and membership DERIVES from it — every reach row is the entity row plus `seed` and `hops`, the level the engine counted on its own recursive term, so a consumer wanting the bare set maps one column away while a membership-only answer would force every consumer to re-walk a level per question; the level read and the whole-subtree read compose ONE statement builder under two call geometries, never two SQL forms.
@@ -475,7 +475,7 @@ const _mysqlIngress = MysqlClient.layerConfig({
 ```typescript signature
 import { Array, Duration, Effect, Option, Order, Schema, Struct } from "effect"
 import { Model, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"
-import { Digest, Fault, Shape } from "@rasm/ts/core"
+import { Digest, Fault, Shape } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Query } from "./query.ts"
 

@@ -141,7 +141,7 @@ flowchart LR
     TsRuntime([typescript:runtime])
     PyRuntime{{python:runtime}}
     Agent e1@-->|"[WIRE]: DescriptorPinWire"| Core
-    Runtime e2@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
+    Runtime e2@-->|"[WIRE]: ReceiptHeaderWire"| Core
     Observability e3@-->|"[WIRE]: CommandAvailabilityWire"| Core
     Wire e4@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Core
     Runtime e5@-->|"[WIRE]: HostFingerprintWire"| Core

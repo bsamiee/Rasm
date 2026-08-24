@@ -45,7 +45,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; admission rows ride the workspace manifests as bare names, `uv.lock` fixes every version, and this folder's `.api/` corroborates.
 
 [ARRAY_AND_JIT]:
 - `array-api-compat`

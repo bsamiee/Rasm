@@ -29,7 +29,7 @@
 - Law: access is the `_ACCESS` handler record — `machine` mints the durable `ServiceAccount`/`ServiceAccountToken` identity (the workplace-RBAC upgrade over the config-scoped token), `group` binds a workplace group onto the project at a role with optional environment scoping, `member` binds a service account the same way; tenant secret isolation is rows of this record against the one store, never a second store per tenant.
 - Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row; a new custody-cell variable is one `carries` entry with its stamping row at the consuming tier; a new lease coordinate is a field at the `LeaseSpec` owner, which the composed struct carries into this decode with no edit here.
 - Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`; the `LeaseSpec` shape, its ttl grammar, and every renewal and revocation semantic are `crypt/secret#LEASED_CUSTODY`'s, which also owns the app-root composition reading the cell this mint lands.
-- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/kubernetes` (`core.v1.Secret`); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `interpolate`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `@rasm/ts/security` (`LeaseSpec` — the struct composed as data, no custodian member reached); `../program/spec.ts` (`StackSpec`, `StackOutputs`, `Tier`).
+- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/kubernetes` (`core.v1.Secret`); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `interpolate`); `effect` (`Array`, `Data`, `Effect`, `Hash`, `Option`, `Predicate`, `Record`, `Schema`); `@rasm/security` (`LeaseSpec` — the struct composed as data, no custodian member reached); `../program/spec.ts` (`StackSpec`, `StackOutputs`, `Tier`).
 
 ```typescript
 import * as k8s from "@pulumi/kubernetes"
@@ -40,7 +40,7 @@ import * as integration from "@pulumiverse/doppler/integration"
 import * as projectmember from "@pulumiverse/doppler/projectmember"
 import * as secretssync from "@pulumiverse/doppler/secretssync"
 import { Array, Data, Effect, Hash, Option, Predicate, Record, Schema } from "effect"
-import { LeaseSpec } from "@rasm/ts/security"
+import { LeaseSpec } from "@rasm/security"
 import { StackOutputs, Tier, type StackSpec } from "../program/spec.ts"
 
 // --- [ERRORS] ----------------------------------------------------------------------------

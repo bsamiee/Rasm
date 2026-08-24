@@ -136,7 +136,7 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
 - Boundary: scroll restoration rides the intercept's own `scroll` option; view transitions are the ui wave's composition over the commit, never authored here.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 type _NavigateEvent = Event & {
   readonly canIntercept: boolean
@@ -301,7 +301,7 @@ const Router: {
 - Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials. Cross-tab MUTUAL EXCLUSION is not this channel's concern — a tab needing an exclusive claim (one refresher elected structurally, one exporter per origin) composes `net/coordinate`'s Web-Locks row; the session channel carries facts, never locks.
 
 ```typescript signature
-import { CookieSpec } from "@rasm/ts/security"
+import { CookieSpec } from "@rasm/security"
 import { DateTime, Duration, Encoding, FiberHandle } from "effect"
 
 const _CHANNEL = "rasm-session"
@@ -545,10 +545,10 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
 - Entry: the app's composition maps the router's endpoint pair onto its rows — `(from, to) => guard.resolve(Option.some(rows[from.key].policy), rows[to.key].policy)` — one line in `main.ts`, zero lib coupling between the two clusters.
 - Growth: a tenant gate, a capability gate, or a quota gate is one `Option` field plus one chain arm.
 - Boundary: what a flag verdict means is its serving surface's law; what availability means is `core/state/evidence`'s lattice; the confirm ceremony renders behind the ui-satisfied `Confirm` Tag; this cluster owns only the fold order.
-- Packages: `effect` (`Context`, `Duration`, `Effect`, `HashSet`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Evidence.Availability`); `./boot.ts` (`Boot`).
+- Packages: `effect` (`Context`, `Duration`, `Effect`, `HashSet`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/core` (`Evidence.Availability`); `./boot.ts` (`Boot`).
 
 ```typescript signature
-import { Evidence } from "@rasm/ts/core"
+import { Evidence } from "@rasm/core"
 import { HashSet, type Scope } from "effect"
 
 declare namespace Guard {

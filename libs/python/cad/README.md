@@ -35,7 +35,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain-specific libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
+Domain-specific libraries admitted by this folder; admission rows ride the workspace manifests as bare names, `uv.lock` fixes every version, and this folder's `.api/` corroborates.
 
 [CAD_KERNEL]:
 - `cadquery-ocp` — OVERLAY; flat `OCP.*` topology, construction, STEP and IGES exchange, and meshing behind `service/lane#LANE`.

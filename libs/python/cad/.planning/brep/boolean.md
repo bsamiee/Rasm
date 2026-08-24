@@ -2,7 +2,7 @@
 
 `boolean` runs the provider's n-ary set algebra: five operators over one operand partition, one tolerance knob, and one parallelism verdict. This owner is the only B-rep family where operand ORDER carries meaning and the only one that reads a correspondence off the finished operator, so the argument-and-tool split, the fuzzy value, and the run-parallel decision all settle here.
 
-Operands resolve through `sourced` and every verdict through `built`, both at `brep/operation#OPERATION`; refusal rows come from `faults#ROWS`; the correspondence a finished operator carries is read by `brep/provenance#READING` and rides home on its `Outcome`. `BOOLEANS` is the roster `brep/operation#ARMS` folds into its five wire rows, and `nary` is the in-process form `brep/solid#FOLD` composes for region union and hole carving.
+Operands resolve through `sourced` at `exchange/step#CODEC` and every verdict through `built` at `brep/placement#ADMISSION`; refusal rows come from `faults#ROWS`; the correspondence a finished operator carries is read by `brep/provenance#READING` and rides home on its `Outcome`. `BOOLEANS` is the roster `brep/operation#ARMS` folds into its five wire rows, and `nary` is the in-process form `brep/solid#FOLD` composes for region union and hole carving.
 
 ## [01]-[INDEX]
 
@@ -43,8 +43,9 @@ from expression.collections import Block
 from expression.extra.result import traverse
 from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import BooleanInputs
 
-from rasm.cad.brep.operation import ShapeBuilder, built, sourced
+from rasm.cad.brep.placement import ShapeBuilder, built
 from rasm.cad.brep.provenance import Outcome, ShapeHistory, read
+from rasm.cad.exchange.step import sourced
 from rasm.cad.faults import CadRail
 
 # --- [SERVICES] -------------------------------------------------------------------------

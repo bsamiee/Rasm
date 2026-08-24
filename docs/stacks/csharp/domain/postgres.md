@@ -112,6 +112,9 @@ public static class StoreProfile {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StoreFault : Fault {
     private StoreFault(string detail) => Detail = detail;
+    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
+    // no `Store` row exists until that allocation lands, and binding an unallocated name in landed code is the
+    // deleted form the registry's disjointness proof exists to refuse.
     private static readonly FaultBand FamilyBand = FaultBand.Store;
 
     public string Detail { get; }

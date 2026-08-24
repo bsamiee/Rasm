@@ -103,7 +103,7 @@ class CorpusFixture(Struct, frozen=True):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
-    # CANONICAL_BYTE_IDENTITY — the framing and seed law itself, minted here from this branch's own canonical writer.
+    # `content-identity` — the framing and seed law itself, minted here from this branch's own canonical writer.
     # The MINTER now exists: `IdentitySource.parts` folds the count frame plus a per-field little-endian u64 length,
     # so a payload-agnostic framed preimage is derivable rather than hypothetical. What still withholds the freeze is
     # the CROSS-BRANCH half an infrastructure row means — every branch reproduces this vector from its own inputs, so
@@ -192,13 +192,14 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         reference=Nothing,
         rows=Block.empty(),
     ),
-    # GLB_BY_KEY — one content-keyed GLB sample graduating with digest, memory, and hex rows, the hex row proving the
-    # `InterchangeIdentity.Key` render; `geometry/mesh/daemon` is the branch consumer that graduates the graded sample.
+    # keyed-artifact/glb — one content-keyed GLB sample graduating with digest, memory, and hex rows, the hex row
+    # proving the `InterchangeIdentity.Key` render; `geometry/mesh/daemon` is the branch consumer that graduates
+    # the graded sample. The producer is the manifest's own: Bim's export rail, keyed by Compute's partition.
     CorpusFixture(
         name="glb-by-key",
         kind="domain",
         state="design_pin",
-        source="csharp:Rasm.Compute/Runtime/tiles#TILE_PARTITION",
+        source="csharp:Rasm.Bim/Exchange/export#EXPORT_RAIL",
         fmt="glb",
         reference=Nothing,
         rows=Block.empty(),

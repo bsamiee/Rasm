@@ -91,7 +91,7 @@ const LAW = [
         'capability into canonical owners; treat dependencies as first-class implementation surfaces. House .api format: header (package / version / ' +
         'license / build-floor / marker or target), then member sections grouped by concern, backticked symbols + signatures + a consumer/boundary ' +
         'note. NO provenance/process narration, NO freshness tails. Cite REAL members only — verify via `uv run ' +
-        'python -m tools.assay api resolve <pkg>` (assay api owns external-artifact reflection over host DLLs, NuGet, installed Python distributions, ' +
+        'python -m assay api resolve <pkg>` (assay api owns external-artifact reflection over host DLLs, NuGet, installed Python distributions, ' +
         'and node_modules declarations per CLAUDE.md OWNER_ROUTING); when reflection is blocked or assay is unavailable, verify through the fallback tier instead ' +
         '— the nuget MCP for NuGet feed truth, Context7 for official API docs, exa/tavily for the package source/official surface — never from ' +
         'memory. Before driving assay, READ tools/assay/README.md for the api-arm contract (its resolve/decompile/reflection invocation, ' +
@@ -354,7 +354,7 @@ const rebuildPrompt = (files, tier, degraded) =>
             'dense rails; (3) HARDEN — the terminal review: check BOTH naivety axes (COVERAGE thin-slice, APPROACH ' +
             'enumerated-instances-where-one-parameterized-pattern-owns-the-space), then remove every phantom member, wrong floor/marker/target, ' +
             'surface-level framing, missing license/ABI/runtime flag, and un-stacked single-feature framing — a defect list you hunt past — and end ' +
-            'with a full cold re-read of each finished catalog. Verify members via `uv run python -m tools.assay api ' +
+            'with a full cold re-read of each finished catalog. Verify members via `uv run assay api ' +
             'resolve` (blocked: the nuget MCP / Context7 / exa-tavily source tier owns the fallback). Also close any ' +
             'gap a consuming design page genuinely needs (a specific member/signature the design composes). Return the fix-log: `files` = every ' +
             'catalog you edited, `beyondBatch` = those outside your assigned batch.',

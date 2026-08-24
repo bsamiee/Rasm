@@ -17,7 +17,7 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 - Law: `Layer.launch` remains the boot for graphs with no ordered drain; the moment one drain step exists, `parked` is the entry — two boot shapes selected by whether choreography is registered, never mixed.
 - Boundary: phase consumption is one-directional — the ready fold gates on the cell, the serving edge stops intake by it, and `iac` aligns `terminationGracePeriod` to the drain budget row rather than a second constant; browser lifecycle is the ui wave's own boot fact. When the deploy plane supplies either backend mount variable, the built-in ready row re-reads the mounted data-owned contract and generation pointer; a backendless root registers no such row.
 - Entry: `Life.register(step)` and `Life.probe(row)` from any Layer build (`accessors: true`); `life.parked` in the boot module; `life.phase` for observers.
-- Packages: `effect` (`SubscriptionRef`, `Subscribable`, `Deferred`, `Ref`, `Chunk`), `@effect/platform` (`FileSystem`, `Path`), `@rasm/ts/data` (`Backend.project`), `./config.ts` (`Setting`).
+- Packages: `effect` (`SubscriptionRef`, `Subscribable`, `Deferred`, `Ref`, `Chunk`), `@effect/platform` (`FileSystem`, `Path`), `@rasm/data` (`Backend.project`), `./config.ts` (`Setting`).
 
 ## [03]-[RANKED_FOLD]
 
@@ -50,8 +50,8 @@ import {
     pipe,
 } from 'effect';
 import { FileSystem, Path } from '@effect/platform';
-import { Fault } from '@rasm/ts/core';
-import { Backend } from '@rasm/ts/data';
+import { Fault } from '@rasm/core';
+import { Backend } from '@rasm/data';
 import { Setting } from './config.ts';
 
 const _PHASES = ['booting', 'running', 'draining', 'halted'] as const;

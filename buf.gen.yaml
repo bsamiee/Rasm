@@ -56,27 +56,33 @@ plugins:
         - io.cloudevents.v1.CloudEvent
         - io.cloudevents.v1.CloudEventBatch
     - local: .venv/bin/protoc-gen-py                     # Buf's protobuf-py generator; uv pins it as a pair with its runtime
-      out: libs/python/contracts/src/rasm/contracts/gen  # Estate and support imports share this nested root; publishers generate under vendor
+      out: libs/python/contracts/rasm/contracts/gen      # Estate and support imports share this nested root; publishers generate under vendor
       opt: [init_files=false]                            # rasm/, rasm/contracts/, and gen/ stay PEP 420 namespace directories the branch shares
       include_imports: true                              # Support modules share the estate's relative-import root
       types:
         - rasm.contracts.clock.v1.Hlc
         - rasm.contracts.fault.v1.FaultDetail
         - rasm.contracts.compute.v1.TessellateRequest
+        - rasm.contracts.compute.v1.ComputeService.Tessellate
         - rasm.contracts.compute.v1.TessellateResponse
         - rasm.contracts.artifact.v1.FetchRequest
+        - rasm.contracts.artifact.v1.ArtifactService.Fetch
         - rasm.contracts.artifact.v1.FetchResponse
         - rasm.contracts.artifact.v1.PutRequest
+        - rasm.contracts.artifact.v1.ArtifactService.Put
         - rasm.contracts.artifact.v1.PutResponse
         - rasm.contracts.cad.v1.ExecuteRequest
+        - rasm.contracts.cad.v1.CadService.Execute
         - rasm.contracts.cad.v1.ExecuteResponse
         - rasm.contracts.cad.v1.TessellateRequest
+        - rasm.contracts.cad.v1.CadService.Tessellate
         - rasm.contracts.cad.v1.TessellateResponse
         - rasm.contracts.scan.v1.GaussianSplatScan
         - rasm.contracts.crdt.v1.CrdtOpWire
         - rasm.contracts.event.v1.Extensions
         - rasm.contracts.appearance.v1.Set
         - rasm.contracts.capability.v1.DiscoverRequest
+        - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
         - rasm.contracts.capability.v1.DiscoverResponse
         - rasm.contracts.parity.v1.Backend
         - rasm.contracts.organization.v1.Organization
@@ -84,15 +90,16 @@ plugins:
         - rasm.contracts.fabrication.v1.FeatureControl
         - rasm.contracts.declaration.v1.DeclarationRecord
     - local: .venv/bin/protoc-gen-py                  # Publisher messages live below rasm.contracts.vendor to avoid stdlib/dist collisions
-      out: libs/python/contracts/src/rasm/contracts/vendor
+      out: libs/python/contracts/rasm/contracts/vendor
       opt: [init_files=false]
       types:
         - io.cloudevents.v1.CloudEvent
         - io.cloudevents.v1.CloudEventBatch
         - grpc.health.v1.HealthCheckRequest
+        - grpc.health.v1.Health.Check
         - grpc.health.v1.HealthCheckResponse
     - local: .venv/bin/protoc-gen-connectrpc          # Connect stubs for every service-bearing source the branch serves or dials
-      out: libs/python/contracts/src/rasm/contracts/gen
+      out: libs/python/contracts/rasm/contracts/gen
       opt: [io=async]                                 # The branch serves ASGI and dials under anyio
       types:
         - rasm.contracts.compute.v1.ComputeService.Tessellate
@@ -102,7 +109,7 @@ plugins:
         - rasm.contracts.cad.v1.CadService.Tessellate
         - rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover
     - local: .venv/bin/protoc-gen-connectrpc          # Publisher service stubs share the vendored message namespace
-      out: libs/python/contracts/src/rasm/contracts/vendor
+      out: libs/python/contracts/rasm/contracts/vendor
       opt: [io=async]
       types: [grpc.health.v1.Health.Check]
     - remote: buf.build/protocolbuffers/csharp:v36.0  # Remote pin makes the emitter reproducible off the machine PATH

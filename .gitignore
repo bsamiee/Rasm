@@ -86,7 +86,6 @@ htmlcov/
 
 **/bin/
 **/obj/
-**/TestResults/
 diagnostics.sarif
 *.rsuser
 *.user
@@ -162,3 +161,5 @@ _tmp/
 *.cert
 *.crt
 credentials.json
+# Stryker.NET mutation sandbox: cwd-relative with no relocation option upstream; reports route to .artifacts/csharp/stryker
+.stryker-tmp/

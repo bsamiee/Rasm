@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-`libs/python` orders the branch packages in acyclic upward-only import strata: the `runtime` floor, `data` above it, the `compute` and `geometry` peers over both, and `artifacts` beneath the app root. `contracts` seats below the floor as the installable generated SDK every package consumes, and `cad` rides plane-distinct on it alone.
+`libs/python` orders the branch packages in acyclic upward-only import strata: the `runtime` floor, `data` above it, the `compute` and `geometry` peers over both, and `artifacts` beneath the app root. `contracts` seats below the floor as the generated SDK every package consumes, and `cad` rides plane-distinct on it alone.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -20,7 +20,7 @@ libs/python/
 Cross-package coupling is a published boundary import or a content-keyed wire; no package imports another's interior.
 
 - S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
-- `contracts` — installable generated SDK beneath S0: generation authors wire modules, packaging owns distribution, and siblings only consume it.
+- `contracts` — generated SDK beneath S0: generation authors wire modules, the `rasm-contracts` manifest owns packaging, and siblings consume it.
 - S1 `cad` — plane-distinct exact-modeling provider seating above `contracts` alone; no sibling imports its owners or native handles.
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; geometry evidence enters `compute` as `GeometryHandoff` wire, never an import.
@@ -213,4 +213,4 @@ flowchart LR
 
 ## [06]-[ADMISSION_POLICY]
 
-Root manifest owns the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers, and it is the branch's only manifest. Native distributions whose wheels stop below the floor ride the Forge python-overlay `.pth` behind one marker row; `RULINGS.md` settles that rail. Native rendering homes to `artifacts`; OCCT/STEP admission homes to the `cad` provider. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+Root manifest is the virtual workspace root owning the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers; each folder carries one member manifest holding distribution identity and bare-name edges, and `uv.lock` fixes every resolved version. Native distributions whose wheels stop below the floor ride the Forge python-overlay `.pth` behind one marker row; `RULINGS.md` settles that rail. Native rendering homes to `artifacts`; OCCT/STEP admission homes to the `cad` provider. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.

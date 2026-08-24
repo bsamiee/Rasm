@@ -39,6 +39,7 @@ from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import ExecuteReques
 from rasm.contracts.gen.rasm.contracts.cad.v1.service_pb import TessellateRequest
 
 from rasm.cad.brep.operation import execute as execute_brep
+from rasm.cad.exchange.identity import SCHEMA, UNIT
 from rasm.cad.faults import LANE_SATURATED, NATIVE_INIT, NATIVE_WORKER, SOURCE_SHAPE, CadRail
 from rasm.cad.tessellation.mesh import tessellate as tessellate_cad
 
@@ -74,11 +75,12 @@ _CONTROLLERS: Final[Block[Controller]] = Block.of_seq((
     Controller(coordinate="iges", start=IGESControl_Controller.Init_s),
 ))
 
-# membership and rationale are `exchange/identity#PINS`'s ruling; this table is where that ruling executes
+# membership and rationale are `exchange/identity#PINS`'s ruling; this table is where that ruling executes, and
+# the wanted values IMPORT from that owner so the executed regime cannot drift from the declared one
 _PINS: Final[Block[Pin[str] | Pin[int]]] = Block.of_seq((
-    Pin(coordinate="xstep.cascade.unit", wanted="M", write=Interface_Static.SetCVal_s, read=Interface_Static.CVal_s),
-    Pin(coordinate="write.step.unit", wanted="M", write=Interface_Static.SetCVal_s, read=Interface_Static.CVal_s),
-    Pin(coordinate="write.step.schema", wanted=5, write=Interface_Static.SetIVal_s, read=Interface_Static.IVal_s),
+    Pin(coordinate="xstep.cascade.unit", wanted=UNIT, write=Interface_Static.SetCVal_s, read=Interface_Static.CVal_s),
+    Pin(coordinate="write.step.unit", wanted=UNIT, write=Interface_Static.SetCVal_s, read=Interface_Static.CVal_s),
+    Pin(coordinate="write.step.schema", wanted=SCHEMA, write=Interface_Static.SetIVal_s, read=Interface_Static.IVal_s),
 ))
 
 

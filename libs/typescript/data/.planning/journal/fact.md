@@ -29,8 +29,8 @@ Journal append is the system of record — a missing metric point is a dashboard
 
 ```typescript signature
 import { Schema } from "effect"
-import { Clock, Identity } from "@rasm/ts/core"
-import { SealedEnvelope } from "@rasm/ts/security"
+import { Clock, Identity } from "@rasm/core"
+import { SealedEnvelope } from "@rasm/security"
 import { Retain } from "./retain.ts"
 
 const _ACTORS = ["user", "service", "system"] as const
@@ -109,7 +109,7 @@ declare namespace Fact {
 ## [03]-[JOURNAL_ROW]
 
 - Owner: the `fact_journal` ensure — one stream-discriminated table for every fact row — `_rowed`, the encode-and-key projection, and `_append`, the idempotent batch insert the rail drains through, returning the `Landing` that accounts for every offered row; grooming rides the retain windows by class column, and the partial subject index is what makes a DSAR scan and an erasure sweep read the stream by custody coordinate.
-- Packages: `@effect/sql` (`SqlClient`, `sql.insert`, `RecordInsertHelper.returning`); `@rasm/ts/core` (`Digest` — the one content-identity mint); `../lane/tenant.ts` (`Tenancy.rls`); `effect` (`Schema`, `Array`, `HashSet`).
+- Packages: `@effect/sql` (`SqlClient`, `sql.insert`, `RecordInsertHelper.returning`); `@rasm/core` (`Digest` — the one content-identity mint); `../lane/tenant.ts` (`Tenancy.rls`); `effect` (`Schema`, `Array`, `HashSet`).
 - Entry: only the rail writes; reads are projection material — a billing period reads the meter stream through `[4]`'s bound window read, an audit search reads a projection built from this table, and neither touches the intake.
 - Growth: a new fact stream needs zero DDL — the `stream` column carries the union tag and the payload column carries the encoded member.
 - Law: the table is append-only evidence with a retention column — grooming deletes rows past `Retain.Policy[class].window` as scheduled maintenance, and `permanent` rows never groom; erasure of subject-bearing audit evidence rides the same crypto-shredding spine as the event journal.
@@ -125,7 +125,7 @@ declare namespace Fact {
 ```typescript signature
 import { Array, Effect, HashSet, Option, type ParseResult } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenancy } from "../lane/tenant.ts"
 
@@ -249,7 +249,7 @@ const _append = (
 ```typescript signature
 import { Array, BigDecimal, Data, DateTime, HashMap, Option, type ParseResult } from "effect"
 import { SqlSchema } from "@effect/sql"
-import { Clock } from "@rasm/ts/core"
+import { Clock } from "@rasm/core"
 import { Upcast } from "./evolve.ts"
 
 declare namespace Fact {
@@ -346,8 +346,8 @@ const _rate = (
 ```typescript signature
 import { Array, Chunk, DateTime, Effect, Fiber, HashMap, Layer, Mailbox, Metric, Option, Predicate, Record, Ref, Schedule, Schema, Stream } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
-import { Clock, Convention, Digest } from "@rasm/ts/core"
-import { AuditFault, AuditJournal, AuditRecord, SecurityFact, Shredder } from "@rasm/ts/security"
+import { Clock, Convention, Digest } from "@rasm/core"
+import { AuditFault, AuditJournal, AuditRecord, SecurityFact, Shredder } from "@rasm/security"
 import { Journal } from "./append.ts"
 import { Retain, SubjectKey } from "./retain.ts"
 

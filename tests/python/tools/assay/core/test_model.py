@@ -15,38 +15,7 @@ import msgspec
 import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, refutes
-from tests.python.tools.assay.kit import (
-    api_resolution_st,
-    api_source_st,
-    api_surface_st,
-    artifact_st,
-    assert_counts_consistent,
-    binds_st,
-    completed_st,
-    contracts_run_st,
-    counts_st,
-    detail_st,
-    diagnostic_st,
-    envelope_st,
-    exec_receipt_st,
-    fault_st,
-    match_st,
-    package_run_st,
-    provision_run_st,
-    rail_status_st,
-    report_st,
-    run_delta_st,
-    run_snapshot_st,
-    stage_st,
-    static_run_st,
-    test_run_st,
-    tool_st,
-    verify_summary_st,
-    WIRE_ENCODER,
-)
-from tools.assay.core.model import (
+from assay.core.model import (
     AnyDetail,
     ApiResolution,
     ApiSource,
@@ -95,7 +64,38 @@ from tools.assay.core.model import (
     wire_encode,
     wire_safe,
 )
-from tools.assay.diagnostics import fold
+from assay.diagnostics import fold
+from tests.python._testkit.laws import spec
+from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, refutes
+from tests.python.tools.assay.kit import (
+    api_resolution_st,
+    api_source_st,
+    api_surface_st,
+    artifact_st,
+    assert_counts_consistent,
+    binds_st,
+    completed_st,
+    contracts_run_st,
+    counts_st,
+    detail_st,
+    diagnostic_st,
+    envelope_st,
+    exec_receipt_st,
+    fault_st,
+    match_st,
+    package_run_st,
+    provision_run_st,
+    rail_status_st,
+    report_st,
+    run_delta_st,
+    run_snapshot_st,
+    stage_st,
+    static_run_st,
+    test_run_st,
+    tool_st,
+    verify_summary_st,
+    WIRE_ENCODER,
+)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -767,7 +767,7 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
 @pytest.mark.parametrize(
     "path",
     [
-        "libs/python/contracts/src/rasm/contracts/compute/v1/compute_connect.py",
+        "libs/python/contracts/rasm/contracts/gen/rasm/contracts/compute/v1/compute_connect.py",
         "libs/typescript/contracts/gen/rasm/contracts/compute/v1/compute_pb.ts",
         "libs/csharp/Rasm.Contracts/Generated/Compute/V1/ComputeGrpc.cs",
     ],
@@ -955,7 +955,7 @@ def test_tool_args_fill_identity_on_hole_free_commands(tokens: list[str]) -> Non
 
 def test_host_bound_claims_partition() -> None:
     """HOST_BOUND_CLAIMS pins exactly the claims that cannot run off-host; all are real Claim members."""
-    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS)) == HOST_BOUND_CLAIMS
+    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.INIT)) == HOST_BOUND_CLAIMS
     assert frozenset(Claim) > HOST_BOUND_CLAIMS
 
 

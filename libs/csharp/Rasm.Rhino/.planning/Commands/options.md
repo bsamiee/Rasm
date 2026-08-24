@@ -730,7 +730,7 @@ public sealed class OptionLease : IDisposable {
 
 ## [05]-[BOUNDARY]
 
-`OptionSet`, `OptionRow`, `OptionValue`, `OptionLease.Selected`, and `OptionSet.Seeded` are the PUBLISHED surface — a command body in `apps/rhino/<Plugin>/` authors the vocabulary and hands it to `Acquire`, so a corpus-wide caller census answers zero for them exactly as it does for `Acquisition.Get`. Every INTERNAL member is reached from `Commands/acquisition`: `Bind` and `Release` from the drive's bracket ladder, `Selected` from its option cycle, and `Snapshot` from its seal.
+`OptionSet`, `OptionRow`, `OptionValue`, `OptionLease.Selected`, and `OptionSet.Seeded` are the PUBLISHED surface — a command body in the `apps/<app>/` plugin shell authors the vocabulary and hands it to `Acquire`, so a corpus-wide caller census answers zero for them exactly as it does for `Acquisition.Get`. Every INTERNAL member is reached from `Commands/acquisition`: `Bind` and `Release` from the drive's bracket ladder, `Selected` from its option cycle, and `Snapshot` from its seal.
 
 `OptionLease` owns every `ref`-taking host carrier — `OptionToggle`, `OptionDouble`, `OptionInteger`, `OptionString`, `OptionColor` — from construction to release, and no carrier, `CommandLineOption`, or `GetBaseClass` handle leaves the getter window. `Rhino.UI.LocalizeStringPair` is a host localization carrier and stays here; the kernel interaction plane owns Eto control shapes and takes none of it.
 

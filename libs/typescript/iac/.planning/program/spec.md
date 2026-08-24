@@ -44,13 +44,13 @@
 - Entry: `StackSpec.make(...)` at the app seam; `Schema.decodeUnknown(StackSpec)` where the value arrives as data.
 - Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new separation tier is one literal with its interpreting row in the owning tier and a new governance axis one `_Governance` field the same tier reads; a new consumption axis is one roster the runtime admission owner mints with one `_Profile` field spreading it.
 - Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s; the node group `capacity` sizes is `provider.md`'s aws `cluster` row; backend publication is `operate/converge.md`'s pointer write.
-- Packages: `effect` (`Schema`); `@pulumi/aws` (`types.enums.ec2.InstanceType`); `@pulumi/eks` (`OperatingSystem`); `@rasm/ts/core` (`Identity.App`); `@rasm/ts/runtime` (`Consumption`, `Profile`).
+- Packages: `effect` (`Schema`); `@pulumi/aws` (`types.enums.ec2.InstanceType`); `@pulumi/eks` (`OperatingSystem`); `@rasm/core` (`Identity.App`); `@rasm/runtime` (`Consumption`, `Profile`).
 
 ```typescript signature
 import * as aws from "@pulumi/aws"
 import * as eks from "@pulumi/eks"
-import { Identity } from "@rasm/ts/core"
-import { type Consumption, Profile as ConsumptionProfile } from "@rasm/ts/runtime"
+import { Identity } from "@rasm/core"
+import { type Consumption, Profile as ConsumptionProfile } from "@rasm/runtime"
 import { Schema } from "effect"
 
 const _arms = ["selfhosted-k8s", "selfhosted-docker", "aws", "gcp", "cloudflare"] as const
@@ -385,12 +385,12 @@ abstract class Tier extends pulumi.ComponentResource {
 - Entry: `StackOutputs.read(stack, spec.name)` after any `up`; the plane records project by field access; `outputs.pairs` into the workload env assembly; `StackOutputs.pairsOf(record, render)` inside a program body over live `Output`s.
 - Growth: a new plane is one `Option` field, its arm return keys, and one `_CHANNELS` row per field; a custody or backend variable is one row in its sibling catalog reaching every deploy writer.
 - Boundary: which keys each arm returns is `provider.md`'s program body; how a channel row becomes a container `EnvVar` is `kube/workload.md`'s rendering; which custody variables a cell holds is `operate/secret.md`'s mint; the reading side's group nesting is the runtime `Setting` owner's; receipt evidence is `automation.md`'s — outputs and receipts never merge.
-- Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi` (`Output`); `@pulumi/pulumi/automation` (`Stack`); `@rasm/ts/core` (`Shape.Record`); `./automation.ts` (`DeployFault`).
+- Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi` (`Output`); `@pulumi/pulumi/automation` (`Stack`); `@rasm/core` (`Shape.Record`); `./automation.ts` (`DeployFault`).
 
 ```typescript signature
 import type { Stack } from "@pulumi/pulumi/automation"
 import { Array, Effect, Option, Record, Schema } from "effect"
-import { Shape } from "@rasm/ts/core"
+import { Shape } from "@rasm/core"
 import { DeployFault } from "./automation.ts"
 
 const _Port = Schema.Int.pipe(Schema.between(1, 65535))

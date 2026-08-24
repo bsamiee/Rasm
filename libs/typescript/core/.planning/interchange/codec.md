@@ -337,7 +337,7 @@ const _oldest = (slots: ReadonlyArray<bigint>): Option.Option<bigint> =>
 const _armOf = (family: Wire.FaultFamily): Format.Arm =>
   _family.is(family) ? _rows[family].arm : _faultArms[family]
 
-class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine", {
+class Quarantine extends Effect.Service<Quarantine>()("@rasm/core/Quarantine", {
   scoped: Effect.gen(function* () {
     // ONE structure carries the census. A queue beside the map held the same frames under a second bound, and a
     // BOUNDED queue's offer SUSPENDS when full — parking the decoding fiber the moment nothing drains it, so an
@@ -1583,7 +1583,7 @@ declare namespace GeoFeature {
   type Tile = typeof _Tile.Type
 }
 
-class WkbParser extends Context.Tag("@rasm/ts/core/WkbParser")<WkbParser, {
+class WkbParser extends Context.Tag("@rasm/core/WkbParser")<WkbParser, {
   readonly parse: (wkb: Uint8Array, srid: number) => Effect.Effect<GeoFeature.Geometry, WireFault>
 }>() {}
 

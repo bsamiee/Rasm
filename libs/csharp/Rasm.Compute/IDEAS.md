@@ -19,10 +19,17 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
+[POLICY_KEY_CARRIER]-[QUEUED]: every policy's key vector declares the one carrier the content-key entry admits, so a new policy cannot mint a feed that never compiles.
+- Capability: policy key vectors share one carrier shape the identity entry takes, so a policy gaining a key vector binds against the entry it feeds rather than against a signature a fence comment asserted.
+- Shape: `.planning/Runtime/payload.md` `[02]-[RESIDENCY]` — the residency policy's key-vector member and the comment above the assembling operation naming a three-parameter all-span entry; `.planning/Runtime/tiles.md` `[02]-[TWO_HOP_TESSELLATION]` carries the conforming precedent.
+- Unlocks: the residency assemble binds against a landed entry, and the next policy gaining a key vector copies a carrier that entry already admits instead of re-deriving one.
+- Anchors: `Runtime/codecs#CONTENT_ADDRESSING` — every landed key entry takes a memory-shaped policy because no closure captures a span, the exemption that page already states; `Runtime/tiles#TWO_HOP_TESSELLATION` tile-policy vector; `docs/laws/scars.md` `[ASSERTED_VALUE]`.
+- Tension: the settled rule is carrier-by-capture and never carrier-by-preference, so a span member stays right wherever no closure captures it and the ruling states that test rather than banning the span.
+
 [COMPUTE_SERVICE_GROWTH]-[BLOCKED]: the compute services carry every verb a peer fence dials, and no verb without both fences.
-- Capability: a service rpc exists exactly where a server fence and a peer client fence both name it, so progress, capability inventory, document events, and capture streaming arrive as rpc rows with their message owners rather than as declared gaps.
+- Capability: a service rpc exists exactly where a server fence and a peer client fence both name it, so progress, document events, and capture streaming arrive as rpc rows with their message owners rather than as declared gaps; the capability-inventory verb already landed as `capability.v1` `CapabilityDiscoveryService.Discover` with AppHost serving and the python runtime dialing, outside this branch's ingress roster.
 - Shape: `tests/contracts/proto/rasm/contracts/compute/v1/{compute,control}.proto` service blocks; `.planning/Runtime/wire.md` `[02]-[PROTO_VOCABULARY]` roster and law lines; the owning request/reply message rows.
-- Unlocks: `Runtime/progress#PROGRESS_CELL` marks reach a remote subscriber, a companion advertises its compute and document capabilities, and a live document stream replaces host-callback polling.
+- Unlocks: `Runtime/progress#PROGRESS_CELL` marks reach a remote subscriber, and a live document stream replaces host-callback polling.
 - Anchors: `Runtime/progress#PROGRESS_CELL` `ProgressMark`; `Rasm.AppHost/Observability/bundles#MANIFEST_RECEIPT`; `Rasm.AppUi/Editing/livedata#DATA_SOURCES`; wire-contract law — a service rpc survives only with a server fence AND a peer client fence.
 - Arms: a peer branch lands the client fence for a verb and the corpus source gains its rpc row in the same pass.
 - Ripple: corpus `[COMPUTE_SERVICE_GROWTH]` (coordinator); `python:geometry/mesh/serve` and `typescript:core` client fences.
@@ -35,12 +42,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Arms: the corpus mints the family and the TS compile leg names its consumer fence.
 - Ripple: corpus `[BOARD_PACK_FAMILY]` (coordinator); `typescript:iac` `[BOARD_APPLY]`.
 
-[COMPUTE_RECEIPT_FAMILY]-[BLOCKED]: a Compute receipt rides the generated host envelope as a packed generated message.
-- Capability: the receipt payload union gains a corpus family so `Receipt.V1.ReceiptEnvelopeWire.payload` packs one generated message per case and the spine formats Compute facts through the one ProtoJSON owner.
+[COMPUTE_RECEIPT_FAMILY]-[QUEUED]: a Compute receipt rides the generated host envelope as a packed generated message.
+- Capability: Compute mints a corpus receipt family so one composed message pairs `Receipt.V1.ReceiptHeaderWire` with a oneof over that family, one arm per case.
 - Shape: new `tests/contracts/proto/rasm/contracts/compute/v1/receipt.proto` over the `ComputeReceipt` case roster; `.planning/Runtime/receipts.md` `[02]-[RECEIPT_UNION]` gains one `[Mapper]` seam per case and `[05]-[TS_PROJECTION]` binds the generated envelope.
-- Unlocks: a peer dashboard decodes Compute receipts off the generated schema, and `ReceiptFolds.Journal` rehydrates a host envelope through `Any.Unpack` rather than the STJ `ComputeWireContext`.
-- Anchors: `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface`; `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`; `Receipt.V1.ReceiptEnvelopeWire`.
-- Arms: a peer branch names a Compute receipt consumer fence and the corpus mints the family.
+- Unlocks: `ReceiptFolds.Journal` rehydrates a host envelope through `Any.Unpack` rather than the STJ `ComputeWireContext`; `Runtime/receipts` declares the union one-ended, so no peer decode fence is owed.
+- Anchors: `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface`; `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`; `Receipt.V1.ReceiptHeaderWire`.
 - Ripple: corpus `[COMPUTE_RECEIPT_FAMILY]` (coordinator); `Rasm.AppHost` envelope producer (Writer D).
 
 ## [02]-[CLOSED]

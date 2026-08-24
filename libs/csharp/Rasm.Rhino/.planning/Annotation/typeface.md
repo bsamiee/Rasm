@@ -272,7 +272,7 @@ public abstract partial record FaceCensusAnswer {
 - Owner: `Typefaces.Resolve` answers immutable face resolution with substitute evidence, `Typefaces.Census` answers machine-state discovery, and `TypefaceOp.Bind` is the sole document mutation.
 - Law: `Bind` compares the whole `FaceInfo` projection and stops at the first seated match, projecting a candidate style only until one answers — the table read is LIVE per call, because a memo of document rows answers a style the running command has since modified.
 - Law: `FaceInfo` equality is the bind's identity: the descriptor carries two `CapabilitySet` columns whose generated unordered equality makes `==` a value comparison, so no arm re-spells a member-by-member probe.
-- Law: `FaceCensus.Names` is a PUBLIC request row and owes no in-package caller — the branch ruling seats altitude proof for public entries at the `apps/rhino/<Plugin>/` command that composes them.
+- Law: `FaceCensus.Names` is a PUBLIC request row and owes no in-package caller — the branch ruling seats altitude proof for public entries at the `apps/<app>/` plugin-shell command that composes them.
 - Packages: RhinoCommon `Font` statics and `DimStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[FONT_RESOLUTION]`; `Document/tables.md` (`ResourceRef`, `ResourceIndex`); `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op` receivers).
 - Growth: a second face mutation is one `TypefaceOp` case beside the bind; the census gains a request row and its answer row together.
 

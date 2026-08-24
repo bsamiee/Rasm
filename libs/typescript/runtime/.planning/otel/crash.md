@@ -17,11 +17,11 @@ Breadcrumb history attaches as replay evidence redacted at the moment of capture
 - Law: the ring is a `Chunk` fold — append then `takeRight(width)` — never a mutable array; a full ring drops the oldest silently because breadcrumbs are lossy context by definition.
 - Receipt: on capture the ring projects as ordered breadcrumb records under the `Convention.event.breadcrumb` name, an annotation row on the fatal emission — evidence, never a second signal.
 - Growth: a new breadcrumb source is one `note` call site; a richer scrub is a rule row.
-- Packages: `effect` (`Chunk`, `DateTime`, `Ref`), `@rasm/ts/core` (`Convention`), `./emit.ts` (`Redaction`).
+- Packages: `effect` (`Chunk`, `DateTime`, `Ref`), `@rasm/core` (`Convention`), `./emit.ts` (`Redaction`).
 
 ```typescript signature
 import { Array, Cause, Chunk, DateTime, Effect, FiberSet, Layer, Match, Metric, Option, Ref, pipe } from "effect"
-import { type Identity, Convention, Fault } from "@rasm/ts/core"
+import { type Identity, Convention, Fault } from "@rasm/core"
 import { Redaction } from "./emit.ts"
 
 declare namespace Crash {

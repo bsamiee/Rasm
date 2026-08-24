@@ -111,7 +111,7 @@ class Outcome:
 
 - Owner: `read` — one fold over the finished operator's `Generated`, `Modified`, and `IsDeleted` answers for every operand sub-shape.
 - Law: precedence is the data — `_ELECTED` is an ordered roster and the fall-through names the survivor, so a fifth answer is one row and never a branch.
-- Law: `Option` is `Iterable`, so an inapplicable probe contributes nothing to the election and the roster order alone decides, with no tag re-read.
+- Law: an inapplicable probe contributes nothing to the election through `Option.to_list()` — the one member giving `Nothing` an empty-sequence reading, since iterating `Option` directly is the effect-builder protocol and `Nothing` raises — so the roster order alone decides, with no tag re-read.
 - Law: result maps build once per read rather than once per operand, so the cost is one index pass per grain no matter how many operands the call carries.
 - Law: reading is priced per Boolean, which is why `nary` at `brep/boolean#BOOLEAN` skips it — an in-process assembly has no caller waiting to address its parts.
 - Law: `BooleanProvenance` loses which operand contributed a surviving face, so a caller cannot tell a cut's keeper from its tool.
@@ -162,7 +162,7 @@ def _nonempty(carrier: TopTools_ListOfShape, /) -> Option[Block[TopoDS_Shape]]:
 
 def _relation(history: ShapeHistory, source: TopoDS_Shape, /) -> tuple[Relation, Block[TopoDS_Shape]]:
     return next(
-        ((relation, images) for relation, probe in _ELECTED for images in probe(history, source)),
+        ((relation, images) for relation, probe in _ELECTED for images in probe(history, source).to_list()),
         (Relation.KEPT, Block.singleton(source)),
     )
 

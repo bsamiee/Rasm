@@ -28,7 +28,7 @@ Intl localizes the folder with zero i18n package: one ambient locale spine over 
 - Growth: a new hook-less formatter family (`Intl.Segmenter`, `Intl.DisplayNames`) is one constructor row — never a second cache.
 
 ```typescript signature
-import { Shape } from "@rasm/ts/core"
+import { Shape } from "@rasm/core"
 import { Array, DateTime, Duration, HashMap, Match, Number, Option, Order, Record, Schema, pipe } from "effect"
 
 type Locale = Shape.Refined.Locale
@@ -143,7 +143,7 @@ const Format: Format.Shape = {
 
 [MESSAGE_FAMILY]:
 - Owner: `Message` — the assembled owner whose `Catalog` static is the decode surface: a catalog is `Record<key, MessageSpec>` where `MessageSpec` is one `Schema.Union` of three tagged cases — `Text { value }`, `Plural { arg, forms }` (forms keyed by the closed `Intl.LDMLPluralRule` vocabulary with `other` mandatory), `Select { arg, cases, other }` — decoded ONCE at catalog admission (an app fetch, a bundled JSON module crossing `with { type: "json" }` ingress), never re-validated per format call.
-- Packages: `effect` (`Schema.TaggedStruct`, `Schema.Literal`, `HashMap`, `Match`, `Option`); `@rasm/ts/core` (`Shape.Refined.Locale` as the catalog key — the `Shape.Refined` vocabulary owner carries it, no bare `Locale` export exists; `Shape.Record` closes the refined key domains).
+- Packages: `effect` (`Schema.TaggedStruct`, `Schema.Literal`, `HashMap`, `Match`, `Option`); `@rasm/core` (`Shape.Refined.Locale` as the catalog key — the `Shape.Refined` vocabulary owner carries it, no bare `Locale` export exists; `Shape.Record` closes the refined key domains).
 - Law: the case family is closed — a new message SHAPE (a range case, an ordinal plural) is one tagged case with one fold arm here, breaking every consumer loudly; a new message INSTANCE is catalog data and touches no code.
 - Law: plural forms carry the CLDR category vocabulary (`zero`/`one`/`two`/`few`/`many`/`other`) with only `other` required — sparse forms are legal because the fold falls through to `other`, mirroring CLDR semantics instead of demanding six strings per language.
 - Law: interpolation slots are `{name}` spellings inside form strings — bounded, positional-free, and typed: the args record is `Record<string, string | number>`, and an unreferenced slot is inert rather than an error, so catalogs evolve ahead of call sites.

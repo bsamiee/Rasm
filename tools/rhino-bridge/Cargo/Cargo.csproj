@@ -5,6 +5,7 @@
         <RootNamespace>Rasm.Bridge.Cargo</RootNamespace>
         <!-- Cargo isolates workspace libraries per swap; host assemblies resolve through bridge classification. -->
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <RasmHost>grasshopper;platform</RasmHost>
         <InformationalVersion>0.1.0-cargo</InformationalVersion>
     </PropertyGroup>
     <ItemGroup Label="Project References">

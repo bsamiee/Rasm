@@ -7,7 +7,7 @@ Rasm.AppUi proof derives capture, check, variant-density, benchmark, and replay 
 - [02]-[CAPTURE_LANES]: Host-agnostic frame capture rows; render-hash regression proof with its attribution election.
 - [03]-[HEADLESS_DERIVATION]: Catalog-derived proof matrix and benchmark lanes; deterministic command-journal replay; the one index-divergence walk.
 - [04]-[PROOF_LAW]: Law-matrix fence — FrameHash equality, deterministic capture, replay determinism, the instrument fold, the frame-bench gate, the bundle-tree pin, the shipped-roster conformance fold.
-- [05]-[GUARD_REGISTRY]: The committed-golden roster and the cross-package skew guards as constructed rows with their re-prove entries.
+- [05]-[GUARD_REGISTRY]: Committed-golden roster and the cross-package skew guards as constructed rows with their re-prove entries.
 
 ## [02]-[CAPTURE_LANES]
 
@@ -249,7 +249,7 @@ public static class ProofEngine {
 - Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale, `VisualCodec.ColorPolicy`, and `RenderPosture` data, so a new screen, gamut, or surface-class text reading expands proof without a named roster edit; `FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `FrameCost` requires a baseline for every pass and ACCUMULATES every regressed pass, so a second regression never hides behind the first; `InstrumentFold` mounts contributions, resolves the named handle off the mounted roster, and brackets the collector so writes and observable-gauge reads share one cell family and a refused measurement fails the fold's own rail rather than reading as a zero sum; `FrameBench` discards the lane's warm-up frames BEFORE the allocation bracket, samples between forced ticks, hands the elapsed spans to `BenchMeasurement.Of` — whose one `Distribution<Elapsed>` reads median, interquartile spread, and the p95 quantile off a single sort — mints one Unjudged `BenchmarkReceipt` under `HostFingerprint.Current`, and composes `BenchmarkGate.Gate` over the held claim and sink; `Divergence` buckets the fresh-versus-held median ratio under `Buckets.DivergenceRatio`; `BundleShape` pins the exported support archive as two goldens that BOTH report.
 - Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, Microsoft.Extensions.Diagnostics.Testing, Rasm.AppHost (project, seam types), Rasm (kernel `Custody`/`UnitInterval`), NodaTime, LanguageExt.Core
 - Growth: one lane cell absorbs a new golden; one benchmark claim is one held `BenchmarkReceipt` value; zero new surface.
-- Law: the `RenderHashGrid` FrameHash golden bytes derive under the `tests/contracts/manifest.json` `CANONICAL_BYTE_IDENTITY` framing and seed law and stay a C#-tree snapshot no peer runtime binds — the render-hash lane is the one host golden producer; the property lanes take a DECLARED seed, so a red run replays byte-for-byte instead of reproducing by luck.
+- Law: the `RenderHashGrid` FrameHash golden bytes derive under the `tests/contracts/manifest.json` `content-identity` framing and seed law and stay a C#-tree snapshot no peer runtime binds — the render-hash lane is the one host golden producer; the property lanes take a DECLARED seed, so a red run replays byte-for-byte instead of reproducing by luck.
 - Law: the proof fence is a terminal edge — `IO<A>.Run()`/`RunAsync()` THROW the typed `Error` on failure, so a failing disposition composes BEFORE the terminal, and the `@catch` recovery on a property lane narrows to the proof band so a bug outside it surfaces instead of reading as a clean `false` verdict.
 - Law: the frame-bench lane composes the AppHost benchmark rail as settled vocabulary — `BenchMeasurement.Of`, `BenchmarkReceipt.Of`, `BenchmarkGate.Gate`, and `GatePolicy.Canonical` mint and judge over the spine's own `HostFingerprint`, the held claim arrives as a value off the Persistence reuse index, and the judged receipt fans through the sink under the AppHost benchmark kind; the allocation delta reads a PROCESS-WIDE counter, so bench lanes run serially and no parallel proof cell overlaps the bracket.
 - Boundary: `VerifyZip`/`VerifyDirectory` pin support-bundle roster and tree completeness, and the extracted `manifest.json` carries the AppHost `SupportManifest.Entry` `ContentKey` column, so content identity pins in the same golden pair rather than a re-hash of the zip.
@@ -467,7 +467,7 @@ public static class GoldenLanes {
         new GoldenLane(
             "layout-protojson-golden",
             "ordered generated LayoutProgram canonical ProtoJSON",
-            "tests/csharp/libs/Rasm.AppUi/.planning/contract-wire#LAYOUT_PROTOJSON LayoutWireGolden.Canonical"));
+            "Rasm.AppUi.Tests LayoutWireGolden.Canonical"));
 
     public static Fin<Unit> Sound() =>
         Rows.Map(static row => row.Lane).Distinct().Count == Rows.Count

@@ -85,7 +85,7 @@ const FINAL_TRACK = {
         'what they missed.',
     gates:
         'dotnet restore Workspace.slnx clean; dotnet build Workspace.slnx zero errors and warnings; dotnet format Workspace.slnx --verify-no-changes clean; ' +
-        'dotnet test tests/csharp/_architecture green; uv run python -m tools.assay static clean across all languages; prose ' +
+        'dotnet test tests/csharp/_architecture green; uv run assay static clean across all languages; prose ' +
         'gate zero FAILs on every touched .md. Zero-error law: fixed root/ground-up, never suppressed.',
 };
 
@@ -189,7 +189,7 @@ const MODEL_LAW =
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and native subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +
-    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); native legs own external lookup and uv run python -m tools.assay' +
+    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); native legs own external lookup and uv run assay' +
     '. When the Agent tool is unavailable, codex absorbs the ' +
     'repo-local legs and you gather the uv/MCP evidence in your own shell.';
 
@@ -330,7 +330,7 @@ const delegateLaw = (schema, o) =>
     (o.calls || 60) +
     ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
     'territory into one command - tool output truncates and the data is lost.\nTooling: uv-backed probes (uv run python -m ' +
-    'tools.assay ...) run prefixed - the default uv cache sits outside this workspace.\n' +
+    'assay ...) run prefixed - the default uv cache sits outside this workspace.\n' +
     'Stop as soon as the product is complete. ' +
     'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
     'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +

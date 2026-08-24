@@ -1,27 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Generated C# messages, descriptors, service bases, and clients for the Rasm contract corpus.</Description>
+        <!-- Generated-bindings distribution: no workspace library, analyzer suite, or identity substrate reaches it. -->
+        <RasmGenerated>true</RasmGenerated>
         <IsPackable>true</IsPackable>
-        <PackageId>Rasm.Contracts</PackageId>
         <Title>Rasm Contracts</Title>
-        <Version>0.1.0</Version>
-        <Authors>bsamiee</Authors>
-        <Copyright>Copyright © 2025 bsamiee</Copyright>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageProjectUrl>https://buf.build/rasm/contracts</PackageProjectUrl>
         <PackageTags>protobuf;grpc;contracts;generated-sdk;rasm</PackageTags>
-        <PackageReleaseNotes>Initial generated SDK for the versioned Rasm contract corpus.</PackageReleaseNotes>
-        <IncludeSymbols>true</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <DebugType>portable</DebugType>
+        <PackageReleaseNotes>Generated SDK for the versioned Rasm contract corpus.</PackageReleaseNotes>
         <EmbedAllSources>true</EmbedAllSources>
         <!-- Declared posture, never a build fix: Roslyn holds auto-generated files in the disabled nullable context under every setting (0/0 under enable, no NullableAttribute metadata), so enable would advertise a context the bindings never enter; consumers admit at the boundary. -->
         <Nullable>disable</Nullable>
     </PropertyGroup>
 
     <ItemGroup Label="Package">
-        <None Update="README.md" Pack="true" PackagePath="/" />
+        <None Include="README.md" Pack="true" PackagePath="/" />
     </ItemGroup>
 
     <ItemGroup Label="Wire Codegen">

@@ -18,12 +18,12 @@ One fail-closed rail carries this folder: a closed row/ensure vocabulary, one `C
 - Law: the excluded member must be a `Grant<G>` the matrix itself admits — an exclusion naming an engine no row grants is unspellable at the producer and unprobeable at the gate, because the probe reads the row roster and nothing else, so a corner against an unadmitted engine is documentation rather than law.
 - Law: `transaction` admits `SqlClient.withTransaction`; `batch` admits an engine-native atomic batch but refuses an interactive transaction. PostgreSQL, server sqlite, wasm sqlite, and libSQL seed `transaction`; D1 seeds only `batch`, so the generic journal publisher cannot compose on D1 and a D1 publisher must submit its whole write set through the batch boundary. Atomicity is a demandable grant like any other — `Demand`'s grant slot is the full `Grant<G>` vocabulary, so a flagged row may demand `transaction` or `batch` and the fixed-point fold refuses it on D1 exactly as it refuses an absent extension grant.
 - Law: `CapabilityFault` is `_family.census("CapabilityFault")` — every refusal is an `Issue` its own family row renders, the census carries a `NonEmptyArray` of them, and class, leg, and both recovery axes follow the DOMINANT issue's own class row; core class rows own retryability and blame, and a free-string `subject`/`detail` pair beside a closed `reason` re-opens the axis the reason already closed.
-- Packages: `effect` (`Array`, `HashSet`, `Order`, `Schema`, `String`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Array`, `HashSet`, `Order`, `Schema`, `String`); `@rasm/core` (`Fault.Class`).
 - Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand row and a new dependency relation is one `_RELATIONS` row — the shapes never widen per extension.
 
 ```typescript signature
 import { Array, HashSet, Order, Schema, String, pipe } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 // Every refusal on this family raises from the one probe surface, so the leg is one anchor rather than a word each
 // row re-spells; the census reads it back off whichever issue dominates. The anchor is the bare SURFACE SEGMENT — a
@@ -463,7 +463,7 @@ import {
   FailureRank,
   RestartClass,
 } from "@rasm\/contracts/rasm/contracts/parity/v1/parity_pb"
-import { CanonicalWriter, Digest, Fault, Format } from "@rasm/ts/core"
+import { CanonicalWriter, Digest, Fault, Format } from "@rasm/core"
 import { Array, DateTime, Duration, Effect, HashSet, Option, Order, Schema, String } from "effect"
 
 // --- [TYPES] ----------------------------------------------------------------------------

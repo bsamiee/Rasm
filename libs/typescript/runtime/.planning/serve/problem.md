@@ -18,12 +18,12 @@ Ladder order is evidence specificity and every rung structural: an existing `Pro
 - Law: grace resolution is a two-rung ladder — a runtime hint carried by the fault value wins, the row's `grace` default fills, absence stays absent — `_retryAfter(grace, hint)` folds the ladder to whole seconds once, so no consumer re-derives header arithmetic.
 - Law: one stated window, three altitudes, three words, and this door reads each under its own — the wire's `retry_after` decodes into the upstream fault's `retryAfter` recovery arm, a domain refusal carries `after` on the VALUE and `Fault.Class.statedOf` reads it back, and the response header is `retry-after`; a probe spelling one altitude's word at another altitude sees nothing and silently spends the row's default.
 - Growth: a new core class is one row (compile-forced); a new response axis is one `_Grade` field plus its column on ten rows.
-- Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Duration`, `Option`, `Record`, `Array`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 import { HttpServerRespondable, HttpServerResponse } from "@effect/platform"
 import { Array, Cause, Duration, Effect, Option, Predicate, Record, Schema } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Current } from "./api.ts"
 
 const _TYPE_BASE = "/problems/"

@@ -20,12 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[FETCH_COORDINATE_FOLD]-[QUEUED]: the artifact fetch seam addresses its body by the bare content coordinate the request itself carries, with no single-field envelope standing between the rpc and the digest it names.
-- Capability: an rpc binds the payload it carries, so a request naming one coordinate exposes that coordinate directly and every peer reads one spelling of it rather than an envelope name and a field name that must agree.
-- Shape: `libs/python/geometry/.planning/mesh/serve.md` `[02]-[SERVE]` — the `GeometryServe.fetch` override and the repository custody call it drives; the refusal coordinate the absent-artifact row publishes moves with it.
-- Unlocks: `IDEAS.md` `[GLB_SERVE_READTHROUGH]` — the serve edge reads the requested digest in one hop, so the streamed-frame proof and the absent-artifact refusal both key on the same value the caller sent.
-- Anchors: the corpus `rasm.contracts.artifact.v1` `FetchRequest` definition and its reserved former field names; `rasm.contracts.artifact.fetch_responses` as the one frame projection; the repository custody entry at `mesh/daemon#DAEMON`; `docs/stacks/python/transport.md` `[GENERATED_VOCABULARY]` on generated classes as the only shape.
-- Atomic: one override body, one refusal coordinate, and the card its predecessor vacated.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -60,3 +55,4 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [FRAME_PRODUCER_ROWS]-[COMPLETE]: every evidence producer carries its own frame projection.
 [TRACE_LINK_WIRE_PROBE]-[COMPLETE]: the optional W3C carrier mints on the handoff and decodes at the compute mirror; `[EVIDENCE_TRACE_LINKS]` closes against both fences.
 [PULSE_DRAIN_PROBE]-[COMPLETE]: the runtime lane owns the pulse queue and its drain custody, and delivery stays lossy; `[MID_OPERATION_PULSE]` closes against the landed pulse rows.
+[FETCH_COORDINATE_FOLD]-[COMPLETE]: `FetchRequest` exposes the bare `sha256` coordinate with the former envelope field reserved, `GeometryServe.fetch` drives custody off `request.sha256`, and the absent-artifact refusal raises on the same coordinate.

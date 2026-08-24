@@ -107,7 +107,10 @@ public static class ContractAxis {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransportFault : Fault {
     private TransportFault(string detail) => Detail = detail;
-    private static readonly FaultBand FamilyBand = FaultBand.Wire;
+    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
+    // `FaultBand.Wire` already belongs to the estate's wire family, and a second family on a live row is the
+    // deleted form the registry's disjointness proof exists to refuse.
+    private static readonly FaultBand FamilyBand = FaultBand.Transport;
 
     public string Detail { get; }
     public sealed override string Message => Detail;

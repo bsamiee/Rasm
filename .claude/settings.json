@@ -11,6 +11,13 @@
                         "args": [],
                         "timeout": 5,
                         "statusMessage": "git-guard"
+                    },
+                    {
+                        "type": "command",
+                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/litter-guard.py",
+                        "args": [],
+                        "timeout": 5,
+                        "statusMessage": "litter-guard"
                     }
                 ]
             }
@@ -44,5 +51,6 @@
         "deny": [],
         "defaultMode": "bypassPermissions"
     },
+    "outputStyle": "Concise",
     "skipDangerousModePermissionPrompt": true
 }

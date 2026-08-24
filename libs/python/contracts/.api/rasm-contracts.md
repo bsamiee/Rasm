@@ -10,7 +10,7 @@
 - namespaces: estate `rasm.contracts.gen.rasm.contracts.<family>.v1`; publisher `rasm.contracts.vendor.<publisher package>`
 - abi: pure Python wheel; PEP 420 `rasm` namespace with typed `rasm.contracts` package boundary
 - depends: `anyio`, `protobuf-py`, `connectrpc`, `protovalidate`, `expression`
-- role: installable uv workspace distribution
+- role: module root the `rasm-contracts` workspace member builds and installs
 - rail: generated messages, descriptors, service protocols, applications, clients, body admission, artifact transfer, and publisher resources
 
 ## [02]-[PUBLIC_TYPES]
@@ -33,14 +33,15 @@
 |  [12]   | `AdmissionPhase`                              | enum          | request or response refusal direction            |
 |  [13]   | `AdmissionError`                              | exception     | client refusal with phase, cause, and violations |
 |  [14]   | `BodyAdmission`                               | interceptor   | all four asynchronous Connect body shapes        |
-|  [15]   | `ArtifactLaw`                                 | policy        | descriptor-read frame, extent, identity bounds   |
-|  [16]   | `ArtifactRefusal`                             | union         | closed artifact law, each case carrying evidence |
-|  [17]   | `ArtifactError`                               | exception     | egress raise reconstructing one railed refusal   |
-|  [18]   | `OwnedArtifact`                               | value         | verified reference and helper-owned path         |
-|  [19]   | `ArtifactCustody`                             | union         | closed open-or-sealed spool lifecycle            |
-|  [20]   | `ArtifactSink`                                | lifecycle     | single-use spool and its one folding seal        |
-|  [21]   | `ArtifactStream`                              | stream        | envelope-parameterized sealed-artifact emission  |
-|  [22]   | `ArtifactTransfer`                            | client        | generated Fetch and Put lifecycle composition    |
+|  [15]   | `AsyncClosable`                               | protocol      | streamed body releasing its source on early exit |
+|  [16]   | `ArtifactLaw`                                 | policy        | descriptor-read frame, extent, identity bounds   |
+|  [17]   | `ArtifactRefusal`                             | union         | closed artifact law, each case carrying evidence |
+|  [18]   | `ArtifactError`                               | exception     | egress raise reconstructing one railed refusal   |
+|  [19]   | `OwnedArtifact`                               | value         | verified reference and helper-owned path         |
+|  [20]   | `ArtifactCustody`                             | union         | closed open-or-sealed spool lifecycle            |
+|  [21]   | `ArtifactSink`                                | lifecycle     | single-use spool and its one folding seal        |
+|  [22]   | `ArtifactStream`                              | stream        | envelope-parameterized sealed-artifact emission  |
+|  [23]   | `ArtifactTransfer`                            | client        | generated Fetch and Put lifecycle composition    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -56,6 +57,7 @@
 |  [04]   | `AdmissionError.violations`                   | evidence    | returns typed constraint findings; engine defects return empty   |
 |  [05]   | `ConnectError(INVALID_ARGUMENT, details=...)` | server rail | exposes request constraint findings as `buf.validate.Violations` |
 |  [06]   | `ConnectError(INTERNAL)`                      | server rail | withholds response findings and validation-engine defects        |
+|  [07]   | `AsyncClosable`                               | protocol    | admits any streamed body that can release its source early       |
 
 [ARTIFACT_SCOPE]: generated-client transfer and stream-wide proof
 
@@ -81,347 +83,348 @@
 <!-- roster:begin -->
 [ROSTER_SCOPE]: `buf.validate` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]             | [KIND]  | [ORIGIN]        | [FQN]                           |
-| :-----: | :----------------- | :------ | :-------------- | :------------------------------ |
-|  [01]   | `Rule`             | message | support-closure | `buf.validate.Rule`             |
-|  [02]   | `MessageRules`     | message | support-closure | `buf.validate.MessageRules`     |
-|  [03]   | `MessageOneofRule` | message | support-closure | `buf.validate.MessageOneofRule` |
-|  [04]   | `OneofRules`       | message | support-closure | `buf.validate.OneofRules`       |
-|  [05]   | `FieldRules`       | message | support-closure | `buf.validate.FieldRules`       |
-|  [06]   | `PredefinedRules`  | message | support-closure | `buf.validate.PredefinedRules`  |
-|  [07]   | `FloatRules`       | message | support-closure | `buf.validate.FloatRules`       |
-|  [08]   | `DoubleRules`      | message | support-closure | `buf.validate.DoubleRules`      |
-|  [09]   | `Int32Rules`       | message | support-closure | `buf.validate.Int32Rules`       |
-|  [10]   | `Int64Rules`       | message | support-closure | `buf.validate.Int64Rules`       |
-|  [11]   | `UInt32Rules`      | message | support-closure | `buf.validate.UInt32Rules`      |
-|  [12]   | `UInt64Rules`      | message | support-closure | `buf.validate.UInt64Rules`      |
-|  [13]   | `SInt32Rules`      | message | support-closure | `buf.validate.SInt32Rules`      |
-|  [14]   | `SInt64Rules`      | message | support-closure | `buf.validate.SInt64Rules`      |
-|  [15]   | `Fixed32Rules`     | message | support-closure | `buf.validate.Fixed32Rules`     |
-|  [16]   | `Fixed64Rules`     | message | support-closure | `buf.validate.Fixed64Rules`     |
-|  [17]   | `SFixed32Rules`    | message | support-closure | `buf.validate.SFixed32Rules`    |
-|  [18]   | `SFixed64Rules`    | message | support-closure | `buf.validate.SFixed64Rules`    |
-|  [19]   | `BoolRules`        | message | support-closure | `buf.validate.BoolRules`        |
-|  [20]   | `StringRules`      | message | support-closure | `buf.validate.StringRules`      |
-|  [21]   | `BytesRules`       | message | support-closure | `buf.validate.BytesRules`       |
-|  [22]   | `EnumRules`        | message | support-closure | `buf.validate.EnumRules`        |
-|  [23]   | `RepeatedRules`    | message | support-closure | `buf.validate.RepeatedRules`    |
-|  [24]   | `MapRules`         | message | support-closure | `buf.validate.MapRules`         |
-|  [25]   | `AnyRules`         | message | support-closure | `buf.validate.AnyRules`         |
-|  [26]   | `DurationRules`    | message | support-closure | `buf.validate.DurationRules`    |
-|  [27]   | `FieldMaskRules`   | message | support-closure | `buf.validate.FieldMaskRules`   |
-|  [28]   | `TimestampRules`   | message | support-closure | `buf.validate.TimestampRules`   |
-|  [29]   | `Ignore`           | enum    | support-closure | `buf.validate.Ignore`           |
-|  [30]   | `KnownRegex`       | enum    | support-closure | `buf.validate.KnownRegex`       |
+| [INDEX] | [NAME]             | [KIND]  | [ORIGIN]        | [SYMBOL]           |
+| :-----: | :----------------- | :------ | :-------------- | :----------------- |
+|  [01]   | `Rule`             | message | support-closure | `Rule`             |
+|  [02]   | `MessageRules`     | message | support-closure | `MessageRules`     |
+|  [03]   | `MessageOneofRule` | message | support-closure | `MessageOneofRule` |
+|  [04]   | `OneofRules`       | message | support-closure | `OneofRules`       |
+|  [05]   | `FieldRules`       | message | support-closure | `FieldRules`       |
+|  [06]   | `PredefinedRules`  | message | support-closure | `PredefinedRules`  |
+|  [07]   | `FloatRules`       | message | support-closure | `FloatRules`       |
+|  [08]   | `DoubleRules`      | message | support-closure | `DoubleRules`      |
+|  [09]   | `Int32Rules`       | message | support-closure | `Int32Rules`       |
+|  [10]   | `Int64Rules`       | message | support-closure | `Int64Rules`       |
+|  [11]   | `UInt32Rules`      | message | support-closure | `UInt32Rules`      |
+|  [12]   | `UInt64Rules`      | message | support-closure | `UInt64Rules`      |
+|  [13]   | `SInt32Rules`      | message | support-closure | `SInt32Rules`      |
+|  [14]   | `SInt64Rules`      | message | support-closure | `SInt64Rules`      |
+|  [15]   | `Fixed32Rules`     | message | support-closure | `Fixed32Rules`     |
+|  [16]   | `Fixed64Rules`     | message | support-closure | `Fixed64Rules`     |
+|  [17]   | `SFixed32Rules`    | message | support-closure | `SFixed32Rules`    |
+|  [18]   | `SFixed64Rules`    | message | support-closure | `SFixed64Rules`    |
+|  [19]   | `BoolRules`        | message | support-closure | `BoolRules`        |
+|  [20]   | `StringRules`      | message | support-closure | `StringRules`      |
+|  [21]   | `BytesRules`       | message | support-closure | `BytesRules`       |
+|  [22]   | `EnumRules`        | message | support-closure | `EnumRules`        |
+|  [23]   | `RepeatedRules`    | message | support-closure | `RepeatedRules`    |
+|  [24]   | `MapRules`         | message | support-closure | `MapRules`         |
+|  [25]   | `AnyRules`         | message | support-closure | `AnyRules`         |
+|  [26]   | `DurationRules`    | message | support-closure | `DurationRules`    |
+|  [27]   | `FieldMaskRules`   | message | support-closure | `FieldMaskRules`   |
+|  [28]   | `TimestampRules`   | message | support-closure | `TimestampRules`   |
+|  [29]   | `Ignore`           | enum    | support-closure | `Ignore`           |
+|  [30]   | `KnownRegex`       | enum    | support-closure | `KnownRegex`       |
 
 [ROSTER_SCOPE]: `rasm.contracts.artifact.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                  | [KIND]  | [ORIGIN]        | [FQN]                                              |
-| :-----: | :---------------------- | :------ | :-------------- | :------------------------------------------------- |
-|  [01]   | `ArtifactRef`           | message | support-closure | `rasm.contracts.artifact.v1.ArtifactRef`           |
-|  [02]   | `ArtifactFrame`         | message | support-closure | `rasm.contracts.artifact.v1.ArtifactFrame`         |
-|  [03]   | `FetchRequest`          | message | public-root     | `rasm.contracts.artifact.v1.FetchRequest`          |
-|  [04]   | `FetchResponse`         | message | public-root     | `rasm.contracts.artifact.v1.FetchResponse`         |
-|  [05]   | `PutRequest`            | message | public-root     | `rasm.contracts.artifact.v1.PutRequest`            |
-|  [06]   | `PutResponse`           | message | public-root     | `rasm.contracts.artifact.v1.PutResponse`           |
-|  [07]   | `ArtifactService`       | service | support-closure | `rasm.contracts.artifact.v1.ArtifactService`       |
-|  [08]   | `ArtifactService.Fetch` | method  | public-root     | `rasm.contracts.artifact.v1.ArtifactService.Fetch` |
-|  [09]   | `ArtifactService.Put`   | method  | public-root     | `rasm.contracts.artifact.v1.ArtifactService.Put`   |
+| [INDEX] | [NAME]                  | [KIND]  | [ORIGIN]        | [SYMBOL]                |
+| :-----: | :---------------------- | :------ | :-------------- | :---------------------- |
+|  [01]   | `ArtifactRef`           | message | support-closure | `ArtifactRef`           |
+|  [02]   | `ArtifactFrame`         | message | support-closure | `ArtifactFrame`         |
+|  [03]   | `FetchRequest`          | message | public-root     | `FetchRequest`          |
+|  [04]   | `FetchResponse`         | message | public-root     | `FetchResponse`         |
+|  [05]   | `PutRequest`            | message | public-root     | `PutRequest`            |
+|  [06]   | `PutResponse`           | message | public-root     | `PutResponse`           |
+|  [07]   | `ArtifactService`       | service | support-closure | `ArtifactService`       |
+|  [08]   | `ArtifactService.Fetch` | method  | public-root     | `ArtifactService.Fetch` |
+|  [09]   | `ArtifactService.Put`   | method  | public-root     | `ArtifactService.Put`   |
 
 [ROSTER_SCOPE]: `rasm.contracts.appearance.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [FQN]                                                              |
-| :-----: | :------------------------------------ | :------ | :-------------- | :----------------------------------------------------------------- |
-|  [01]   | `PlaneRef`                            | message | support-closure | `rasm.contracts.appearance.v1.PlaneRef`                            |
-|  [02]   | `Plane`                               | message | support-closure | `rasm.contracts.appearance.v1.Plane`                               |
-|  [03]   | `PackRow`                             | message | support-closure | `rasm.contracts.appearance.v1.PackRow`                             |
-|  [04]   | `Role`                                | enum    | support-closure | `rasm.contracts.appearance.v1.Role`                                |
-|  [05]   | `Transfer`                            | enum    | support-closure | `rasm.contracts.appearance.v1.Transfer`                            |
-|  [06]   | `NormalConvention`                    | enum    | support-closure | `rasm.contracts.appearance.v1.NormalConvention`                    |
-|  [07]   | `AlphaMode`                           | enum    | support-closure | `rasm.contracts.appearance.v1.AlphaMode`                           |
-|  [08]   | `Container`                           | enum    | support-closure | `rasm.contracts.appearance.v1.Container`                           |
-|  [09]   | `Pack`                                | enum    | support-closure | `rasm.contracts.appearance.v1.Pack`                                |
-|  [10]   | `PlaneFormat`                         | enum    | support-closure | `rasm.contracts.appearance.v1.PlaneFormat`                         |
-|  [11]   | `MipPolicy`                           | enum    | support-closure | `rasm.contracts.appearance.v1.MipPolicy`                           |
-|  [12]   | `KtxPayload`                          | enum    | support-closure | `rasm.contracts.appearance.v1.KtxPayload`                          |
-|  [13]   | `BlockFormat`                         | enum    | support-closure | `rasm.contracts.appearance.v1.BlockFormat`                         |
-|  [14]   | `LayerLaw`                            | enum    | support-closure | `rasm.contracts.appearance.v1.LayerLaw`                            |
-|  [15]   | `LicenseClass`                        | enum    | support-closure | `rasm.contracts.appearance.v1.LicenseClass`                        |
-|  [16]   | `Udim`                                | enum    | support-closure | `rasm.contracts.appearance.v1.Udim`                                |
-|  [17]   | `Primaries`                           | enum    | support-closure | `rasm.contracts.appearance.v1.Primaries`                           |
-|  [18]   | `Depth`                               | enum    | support-closure | `rasm.contracts.appearance.v1.Depth`                               |
-|  [19]   | `Tool`                                | enum    | support-closure | `rasm.contracts.appearance.v1.Tool`                                |
-|  [20]   | `EnvironmentPlane`                    | message | support-closure | `rasm.contracts.appearance.v1.EnvironmentPlane`                    |
-|  [21]   | `EnvironmentSource`                   | message | support-closure | `rasm.contracts.appearance.v1.EnvironmentSource`                   |
-|  [22]   | `Hdri`                                | message | support-closure | `rasm.contracts.appearance.v1.Hdri`                                |
-|  [23]   | `Ibl`                                 | message | support-closure | `rasm.contracts.appearance.v1.Ibl`                                 |
-|  [24]   | `Provenance`                          | message | support-closure | `rasm.contracts.appearance.v1.Provenance`                          |
-|  [25]   | `Provenance.Capture`                  | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Capture`                  |
-|  [26]   | `Provenance.Fit`                      | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Fit`                      |
-|  [27]   | `Provenance.Inference`                | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Inference`                |
-|  [28]   | `Provenance.Chromaticity`             | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Chromaticity`             |
-|  [29]   | `Provenance.Chromaticity.Dominance`   | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Chromaticity.Dominance`   |
-|  [30]   | `Provenance.Chromaticity.Temperature` | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Chromaticity.Temperature` |
-|  [31]   | `Provenance.Card`                     | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Card`                     |
-|  [32]   | `Provenance.Ingest`                   | message | support-closure | `rasm.contracts.appearance.v1.Provenance.Ingest`                   |
-|  [33]   | `Press`                               | message | support-closure | `rasm.contracts.appearance.v1.Press`                               |
-|  [34]   | `SurfaceSet`                          | message | support-closure | `rasm.contracts.appearance.v1.SurfaceSet`                          |
-|  [35]   | `BakedSet`                            | message | support-closure | `rasm.contracts.appearance.v1.BakedSet`                            |
-|  [36]   | `EnvironmentSet`                      | message | support-closure | `rasm.contracts.appearance.v1.EnvironmentSet`                      |
-|  [37]   | `Set`                                 | message | public-root     | `rasm.contracts.appearance.v1.Set`                                 |
+| [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [SYMBOL]                              |
+| :-----: | :------------------------------------ | :------ | :-------------- | :------------------------------------ |
+|  [01]   | `PlaneRef`                            | message | support-closure | `PlaneRef`                            |
+|  [02]   | `Plane`                               | message | support-closure | `Plane`                               |
+|  [03]   | `PackRow`                             | message | support-closure | `PackRow`                             |
+|  [04]   | `Role`                                | enum    | support-closure | `Role`                                |
+|  [05]   | `Transfer`                            | enum    | support-closure | `Transfer`                            |
+|  [06]   | `NormalConvention`                    | enum    | support-closure | `NormalConvention`                    |
+|  [07]   | `AlphaMode`                           | enum    | support-closure | `AlphaMode`                           |
+|  [08]   | `Container`                           | enum    | support-closure | `Container`                           |
+|  [09]   | `Pack`                                | enum    | support-closure | `Pack`                                |
+|  [10]   | `PlaneFormat`                         | enum    | support-closure | `PlaneFormat`                         |
+|  [11]   | `MipPolicy`                           | enum    | support-closure | `MipPolicy`                           |
+|  [12]   | `KtxPayload`                          | enum    | support-closure | `KtxPayload`                          |
+|  [13]   | `BlockFormat`                         | enum    | support-closure | `BlockFormat`                         |
+|  [14]   | `LayerLaw`                            | enum    | support-closure | `LayerLaw`                            |
+|  [15]   | `LicenseClass`                        | enum    | support-closure | `LicenseClass`                        |
+|  [16]   | `Udim`                                | enum    | support-closure | `Udim`                                |
+|  [17]   | `Primaries`                           | enum    | support-closure | `Primaries`                           |
+|  [18]   | `Depth`                               | enum    | support-closure | `Depth`                               |
+|  [19]   | `Tool`                                | enum    | support-closure | `Tool`                                |
+|  [20]   | `EnvironmentPlane`                    | message | support-closure | `EnvironmentPlane`                    |
+|  [21]   | `EnvironmentSource`                   | message | support-closure | `EnvironmentSource`                   |
+|  [22]   | `Hdri`                                | message | support-closure | `Hdri`                                |
+|  [23]   | `Ibl`                                 | message | support-closure | `Ibl`                                 |
+|  [24]   | `Provenance`                          | message | support-closure | `Provenance`                          |
+|  [25]   | `Provenance.Capture`                  | message | support-closure | `Provenance.Capture`                  |
+|  [26]   | `Provenance.Fit`                      | message | support-closure | `Provenance.Fit`                      |
+|  [27]   | `Provenance.Inference`                | message | support-closure | `Provenance.Inference`                |
+|  [28]   | `Provenance.Chromaticity`             | message | support-closure | `Provenance.Chromaticity`             |
+|  [29]   | `Provenance.Chromaticity.Dominance`   | message | support-closure | `Provenance.Chromaticity.Dominance`   |
+|  [30]   | `Provenance.Chromaticity.Temperature` | message | support-closure | `Provenance.Chromaticity.Temperature` |
+|  [31]   | `Provenance.Card`                     | message | support-closure | `Provenance.Card`                     |
+|  [32]   | `Provenance.Ingest`                   | message | support-closure | `Provenance.Ingest`                   |
+|  [33]   | `Press`                               | message | support-closure | `Press`                               |
+|  [34]   | `SurfaceSet`                          | message | support-closure | `SurfaceSet`                          |
+|  [35]   | `BakedSet`                            | message | support-closure | `BakedSet`                            |
+|  [36]   | `EnvironmentSet`                      | message | support-closure | `EnvironmentSet`                      |
+|  [37]   | `Set`                                 | message | public-root     | `Set`                                 |
 
 [ROSTER_SCOPE]: `rasm.contracts.spatial.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]           | [KIND]  | [ORIGIN]        | [FQN]                                      |
-| :-----: | :--------------- | :------ | :-------------- | :----------------------------------------- |
-|  [01]   | `Point3`         | message | support-closure | `rasm.contracts.spatial.v1.Point3`         |
-|  [02]   | `Displacement3`  | message | support-closure | `rasm.contracts.spatial.v1.Displacement3`  |
-|  [03]   | `UnitDirection3` | message | support-closure | `rasm.contracts.spatial.v1.UnitDirection3` |
-|  [04]   | `Axis3`          | message | support-closure | `rasm.contracts.spatial.v1.Axis3`          |
-|  [05]   | `Frame3`         | message | support-closure | `rasm.contracts.spatial.v1.Frame3`         |
-|  [06]   | `LineSegment3`   | message | support-closure | `rasm.contracts.spatial.v1.LineSegment3`   |
-|  [07]   | `ArcSegment3`    | message | support-closure | `rasm.contracts.spatial.v1.ArcSegment3`    |
-|  [08]   | `SplineSegment3` | message | support-closure | `rasm.contracts.spatial.v1.SplineSegment3` |
-|  [09]   | `CurveSegment3`  | message | support-closure | `rasm.contracts.spatial.v1.CurveSegment3`  |
-|  [10]   | `Curve3`         | message | support-closure | `rasm.contracts.spatial.v1.Curve3`         |
+| [INDEX] | [NAME]           | [KIND]  | [ORIGIN]        | [SYMBOL]         |
+| :-----: | :--------------- | :------ | :-------------- | :--------------- |
+|  [01]   | `Point3`         | message | support-closure | `Point3`         |
+|  [02]   | `Displacement3`  | message | support-closure | `Displacement3`  |
+|  [03]   | `UnitDirection3` | message | support-closure | `UnitDirection3` |
+|  [04]   | `Axis3`          | message | support-closure | `Axis3`          |
+|  [05]   | `Frame3`         | message | support-closure | `Frame3`         |
+|  [06]   | `LineSegment3`   | message | support-closure | `LineSegment3`   |
+|  [07]   | `ArcSegment3`    | message | support-closure | `ArcSegment3`    |
+|  [08]   | `SplineSegment3` | message | support-closure | `SplineSegment3` |
+|  [09]   | `CurveSegment3`  | message | support-closure | `CurveSegment3`  |
+|  [10]   | `Curve3`         | message | support-closure | `Curve3`         |
 
 [ROSTER_SCOPE]: `google.type` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME] | [KIND]  | [ORIGIN]        | [FQN]              |
-| :-----: | :----- | :------ | :-------------- | :----------------- |
-|  [01]   | `Date` | message | support-closure | `google.type.Date` |
+| [INDEX] | [NAME] | [KIND]  | [ORIGIN]        | [SYMBOL] |
+| :-----: | :----- | :------ | :-------------- | :------- |
+|  [01]   | `Date` | message | support-closure | `Date`   |
 
 [ROSTER_SCOPE]: `rasm.contracts.declaration.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [FQN]                                             |
-| :-----: | :------------------ | :------ | :-------------- | :------------------------------------------------ |
-|  [01]   | `ImpactCell`        | message | support-closure | `rasm.contracts.declaration.v1.ImpactCell`        |
-|  [02]   | `Source`            | message | support-closure | `rasm.contracts.declaration.v1.Source`            |
-|  [03]   | `DeclarationRecord` | message | public-root     | `rasm.contracts.declaration.v1.DeclarationRecord` |
-|  [04]   | `Registry`          | enum    | support-closure | `rasm.contracts.declaration.v1.Registry`          |
-|  [05]   | `DeclaredUnit`      | enum    | support-closure | `rasm.contracts.declaration.v1.DeclaredUnit`      |
-|  [06]   | `Standard`          | enum    | support-closure | `rasm.contracts.declaration.v1.Standard`          |
-|  [07]   | `Subtype`           | enum    | support-closure | `rasm.contracts.declaration.v1.Subtype`           |
-|  [08]   | `ImpactCategory`    | enum    | support-closure | `rasm.contracts.declaration.v1.ImpactCategory`    |
-|  [09]   | `Module`            | enum    | support-closure | `rasm.contracts.declaration.v1.Module`            |
+| [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
+| :-----: | :------------------ | :------ | :-------------- | :------------------ |
+|  [01]   | `ImpactCell`        | message | support-closure | `ImpactCell`        |
+|  [02]   | `Source`            | message | support-closure | `Source`            |
+|  [03]   | `DeclarationRecord` | message | public-root     | `DeclarationRecord` |
+|  [04]   | `Registry`          | enum    | support-closure | `Registry`          |
+|  [05]   | `DeclaredUnit`      | enum    | support-closure | `DeclaredUnit`      |
+|  [06]   | `Standard`          | enum    | support-closure | `Standard`          |
+|  [07]   | `Subtype`           | enum    | support-closure | `Subtype`           |
+|  [08]   | `ImpactCategory`    | enum    | support-closure | `ImpactCategory`    |
+|  [09]   | `Module`            | enum    | support-closure | `Module`            |
 
 [ROSTER_SCOPE]: `google.rpc` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                      | [KIND]  | [ORIGIN]        | [FQN]                                  |
-| :-----: | :-------------------------- | :------ | :-------------- | :------------------------------------- |
-|  [01]   | `RetryInfo`                 | message | support-closure | `google.rpc.RetryInfo`                 |
-|  [02]   | `BadRequest`                | message | support-closure | `google.rpc.BadRequest`                |
-|  [03]   | `BadRequest.FieldViolation` | message | support-closure | `google.rpc.BadRequest.FieldViolation` |
-|  [04]   | `LocalizedMessage`          | message | support-closure | `google.rpc.LocalizedMessage`          |
+| [INDEX] | [NAME]                      | [KIND]  | [ORIGIN]        | [SYMBOL]                    |
+| :-----: | :-------------------------- | :------ | :-------------- | :-------------------------- |
+|  [01]   | `RetryInfo`                 | message | support-closure | `RetryInfo`                 |
+|  [02]   | `BadRequest`                | message | support-closure | `BadRequest`                |
+|  [03]   | `BadRequest.FieldViolation` | message | support-closure | `BadRequest.FieldViolation` |
+|  [04]   | `LocalizedMessage`          | message | support-closure | `LocalizedMessage`          |
 
 [ROSTER_SCOPE]: `rasm.contracts.clock.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME] | [KIND]  | [ORIGIN]    | [FQN]                         |
-| :-----: | :----- | :------ | :---------- | :---------------------------- |
-|  [01]   | `Hlc`  | message | public-root | `rasm.contracts.clock.v1.Hlc` |
+| [INDEX] | [NAME] | [KIND]  | [ORIGIN]    | [SYMBOL] |
+| :-----: | :----- | :------ | :---------- | :------- |
+|  [01]   | `Hlc`  | message | public-root | `Hlc`    |
 
 [ROSTER_SCOPE]: `rasm.contracts.fault.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]          | [KIND]  | [ORIGIN]        | [FQN]                                   |
-| :-----: | :-------------- | :------ | :-------------- | :-------------------------------------- |
-|  [01]   | `FaultRecovery` | message | support-closure | `rasm.contracts.fault.v1.FaultRecovery` |
-|  [02]   | `FaultDetail`   | message | public-root     | `rasm.contracts.fault.v1.FaultDetail`   |
+| [INDEX] | [NAME]          | [KIND]  | [ORIGIN]        | [SYMBOL]        |
+| :-----: | :-------------- | :------ | :-------------- | :-------------- |
+|  [01]   | `FaultRecovery` | message | support-closure | `FaultRecovery` |
+|  [02]   | `FaultDetail`   | message | public-root     | `FaultDetail`   |
 
 [ROSTER_SCOPE]: `rasm.contracts.cad.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                  | [KIND]  | [ORIGIN]        | [FQN]                                         |
-| :-----: | :---------------------- | :------ | :-------------- | :-------------------------------------------- |
-|  [01]   | `Point2`                | message | support-closure | `rasm.contracts.cad.v1.Point2`                |
-|  [02]   | `LineSpan`              | message | support-closure | `rasm.contracts.cad.v1.LineSpan`              |
-|  [03]   | `ArcSpan`               | message | support-closure | `rasm.contracts.cad.v1.ArcSpan`               |
-|  [04]   | `SplineSpan`            | message | support-closure | `rasm.contracts.cad.v1.SplineSpan`            |
-|  [05]   | `ProfileKnot`           | message | support-closure | `rasm.contracts.cad.v1.ProfileKnot`           |
-|  [06]   | `PiecewiseLoop`         | message | support-closure | `rasm.contracts.cad.v1.PiecewiseLoop`         |
-|  [07]   | `PeriodicSplineLoop`    | message | support-closure | `rasm.contracts.cad.v1.PeriodicSplineLoop`    |
-|  [08]   | `ProfileLoop`           | message | support-closure | `rasm.contracts.cad.v1.ProfileLoop`           |
-|  [09]   | `ProfileRegion`         | message | support-closure | `rasm.contracts.cad.v1.ProfileRegion`         |
-|  [10]   | `Profile`               | message | support-closure | `rasm.contracts.cad.v1.Profile`               |
-|  [11]   | `SealedStep`            | message | support-closure | `rasm.contracts.cad.v1.SealedStep`            |
-|  [12]   | `TopologyCensus`        | message | support-closure | `rasm.contracts.cad.v1.TopologyCensus`        |
-|  [13]   | `BooleanProvenance`     | message | support-closure | `rasm.contracts.cad.v1.BooleanProvenance`     |
-|  [14]   | `BrepKernelReceipt`     | message | support-closure | `rasm.contracts.cad.v1.BrepKernelReceipt`     |
-|  [15]   | `TessellateResponse`    | message | public-root     | `rasm.contracts.cad.v1.TessellateResponse`    |
-|  [16]   | `StepProtocol`          | enum    | support-closure | `rasm.contracts.cad.v1.StepProtocol`          |
-|  [17]   | `BoxOp`                 | message | support-closure | `rasm.contracts.cad.v1.BoxOp`                 |
-|  [18]   | `SphereOp`              | message | support-closure | `rasm.contracts.cad.v1.SphereOp`              |
-|  [19]   | `CylinderOp`            | message | support-closure | `rasm.contracts.cad.v1.CylinderOp`            |
-|  [20]   | `ConeOp`                | message | support-closure | `rasm.contracts.cad.v1.ConeOp`                |
-|  [21]   | `TorusOp`               | message | support-closure | `rasm.contracts.cad.v1.TorusOp`               |
-|  [22]   | `BooleanInputs`         | message | support-closure | `rasm.contracts.cad.v1.BooleanInputs`         |
-|  [23]   | `ProfileOffset`         | message | support-closure | `rasm.contracts.cad.v1.ProfileOffset`         |
-|  [24]   | `PlacedProfile`         | message | support-closure | `rasm.contracts.cad.v1.PlacedProfile`         |
-|  [25]   | `ExtrudeOp`             | message | support-closure | `rasm.contracts.cad.v1.ExtrudeOp`             |
-|  [26]   | `RevolveOp`             | message | support-closure | `rasm.contracts.cad.v1.RevolveOp`             |
-|  [27]   | `LoftSection`           | message | support-closure | `rasm.contracts.cad.v1.LoftSection`           |
-|  [28]   | `LoftTrack`             | message | support-closure | `rasm.contracts.cad.v1.LoftTrack`             |
-|  [29]   | `LoftOp`                | message | support-closure | `rasm.contracts.cad.v1.LoftOp`                |
-|  [30]   | `ThickOp`               | message | support-closure | `rasm.contracts.cad.v1.ThickOp`               |
-|  [31]   | `SweepOp`               | message | support-closure | `rasm.contracts.cad.v1.SweepOp`               |
-|  [32]   | `TransformOp`           | message | support-closure | `rasm.contracts.cad.v1.TransformOp`           |
-|  [33]   | `EdgeIndices`           | message | support-closure | `rasm.contracts.cad.v1.EdgeIndices`           |
-|  [34]   | `EdgeSelection`         | message | support-closure | `rasm.contracts.cad.v1.EdgeSelection`         |
-|  [35]   | `FilletOp`              | message | support-closure | `rasm.contracts.cad.v1.FilletOp`              |
-|  [36]   | `ChamferOp`             | message | support-closure | `rasm.contracts.cad.v1.ChamferOp`             |
-|  [37]   | `SewOp`                 | message | support-closure | `rasm.contracts.cad.v1.SewOp`                 |
-|  [38]   | `ExecuteRequest`        | message | public-root     | `rasm.contracts.cad.v1.ExecuteRequest`        |
-|  [39]   | `ExecuteResponse`       | message | public-root     | `rasm.contracts.cad.v1.ExecuteResponse`       |
-|  [40]   | `LoftStyle`             | enum    | support-closure | `rasm.contracts.cad.v1.LoftStyle`             |
-|  [41]   | `TessellateRequest`     | message | public-root     | `rasm.contracts.cad.v1.TessellateRequest`     |
-|  [42]   | `CadService`            | service | support-closure | `rasm.contracts.cad.v1.CadService`            |
-|  [43]   | `CadService.Execute`    | method  | public-root     | `rasm.contracts.cad.v1.CadService.Execute`    |
-|  [44]   | `CadService.Tessellate` | method  | public-root     | `rasm.contracts.cad.v1.CadService.Tessellate` |
+| [INDEX] | [NAME]                  | [KIND]  | [ORIGIN]        | [SYMBOL]                |
+| :-----: | :---------------------- | :------ | :-------------- | :---------------------- |
+|  [01]   | `Point2`                | message | support-closure | `Point2`                |
+|  [02]   | `LineSpan`              | message | support-closure | `LineSpan`              |
+|  [03]   | `ArcSpan`               | message | support-closure | `ArcSpan`               |
+|  [04]   | `SplineSpan`            | message | support-closure | `SplineSpan`            |
+|  [05]   | `ProfileKnot`           | message | support-closure | `ProfileKnot`           |
+|  [06]   | `PiecewiseLoop`         | message | support-closure | `PiecewiseLoop`         |
+|  [07]   | `PeriodicSplineLoop`    | message | support-closure | `PeriodicSplineLoop`    |
+|  [08]   | `ProfileLoop`           | message | support-closure | `ProfileLoop`           |
+|  [09]   | `ProfileRegion`         | message | support-closure | `ProfileRegion`         |
+|  [10]   | `Profile`               | message | support-closure | `Profile`               |
+|  [11]   | `SealedStep`            | message | support-closure | `SealedStep`            |
+|  [12]   | `TopologyCensus`        | message | support-closure | `TopologyCensus`        |
+|  [13]   | `BooleanProvenance`     | message | support-closure | `BooleanProvenance`     |
+|  [14]   | `BrepKernelReceipt`     | message | support-closure | `BrepKernelReceipt`     |
+|  [15]   | `TessellateResponse`    | message | public-root     | `TessellateResponse`    |
+|  [16]   | `StepProtocol`          | enum    | support-closure | `StepProtocol`          |
+|  [17]   | `BoxOp`                 | message | support-closure | `BoxOp`                 |
+|  [18]   | `SphereOp`              | message | support-closure | `SphereOp`              |
+|  [19]   | `CylinderOp`            | message | support-closure | `CylinderOp`            |
+|  [20]   | `ConeOp`                | message | support-closure | `ConeOp`                |
+|  [21]   | `TorusOp`               | message | support-closure | `TorusOp`               |
+|  [22]   | `BooleanInputs`         | message | support-closure | `BooleanInputs`         |
+|  [23]   | `ProfileOffset`         | message | support-closure | `ProfileOffset`         |
+|  [24]   | `PlacedProfile`         | message | support-closure | `PlacedProfile`         |
+|  [25]   | `ExtrudeOp`             | message | support-closure | `ExtrudeOp`             |
+|  [26]   | `RevolveOp`             | message | support-closure | `RevolveOp`             |
+|  [27]   | `LoftSection`           | message | support-closure | `LoftSection`           |
+|  [28]   | `LoftTrack`             | message | support-closure | `LoftTrack`             |
+|  [29]   | `LoftOp`                | message | support-closure | `LoftOp`                |
+|  [30]   | `ThickOp`               | message | support-closure | `ThickOp`               |
+|  [31]   | `SweepOp`               | message | support-closure | `SweepOp`               |
+|  [32]   | `TransformOp`           | message | support-closure | `TransformOp`           |
+|  [33]   | `EdgeIndices`           | message | support-closure | `EdgeIndices`           |
+|  [34]   | `EdgeSelection`         | message | support-closure | `EdgeSelection`         |
+|  [35]   | `FilletOp`              | message | support-closure | `FilletOp`              |
+|  [36]   | `ChamferOp`             | message | support-closure | `ChamferOp`             |
+|  [37]   | `SewOp`                 | message | support-closure | `SewOp`                 |
+|  [38]   | `ExecuteRequest`        | message | public-root     | `ExecuteRequest`        |
+|  [39]   | `ExecuteResponse`       | message | public-root     | `ExecuteResponse`       |
+|  [40]   | `LoftStyle`             | enum    | support-closure | `LoftStyle`             |
+|  [41]   | `TessellateRequest`     | message | public-root     | `TessellateRequest`     |
+|  [42]   | `CadService`            | service | support-closure | `CadService`            |
+|  [43]   | `CadService.Execute`    | method  | public-root     | `CadService.Execute`    |
+|  [44]   | `CadService.Tessellate` | method  | public-root     | `CadService.Tessellate` |
 
 [ROSTER_SCOPE]: `rasm.contracts.geometry.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]               | [KIND]  | [ORIGIN]        | [FQN]                                           |
-| :-----: | :------------------- | :------ | :-------------- | :---------------------------------------------- |
-|  [01]   | `TessellationPolicy` | message | support-closure | `rasm.contracts.geometry.v1.TessellationPolicy` |
+| [INDEX] | [NAME]               | [KIND]  | [ORIGIN]        | [SYMBOL]             |
+| :-----: | :------------------- | :------ | :-------------- | :------------------- |
+|  [01]   | `TessellationPolicy` | message | support-closure | `TessellationPolicy` |
 
 [ROSTER_SCOPE]: `rasm.contracts.capability.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [FQN]                                                              |
-| :-----: | :------------------------------------ | :------ | :-------------- | :----------------------------------------------------------------- |
-|  [01]   | `DescriptorPinWire`                   | message | support-closure | `rasm.contracts.capability.v1.DescriptorPinWire`                   |
-|  [02]   | `CapabilityEstimate`                  | message | support-closure | `rasm.contracts.capability.v1.CapabilityEstimate`                  |
-|  [03]   | `AvailableCapability`                 | message | support-closure | `rasm.contracts.capability.v1.AvailableCapability`                 |
-|  [04]   | `DiscoverRequest`                     | message | public-root     | `rasm.contracts.capability.v1.DiscoverRequest`                     |
-|  [05]   | `DiscoverResponse`                    | message | public-root     | `rasm.contracts.capability.v1.DiscoverResponse`                    |
-|  [06]   | `CostUnit`                            | enum    | support-closure | `rasm.contracts.capability.v1.CostUnit`                            |
-|  [07]   | `CapabilityDiscoveryService`          | service | support-closure | `rasm.contracts.capability.v1.CapabilityDiscoveryService`          |
-|  [08]   | `CapabilityDiscoveryService.Discover` | method  | public-root     | `rasm.contracts.capability.v1.CapabilityDiscoveryService.Discover` |
+| [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [SYMBOL]                              |
+| :-----: | :------------------------------------ | :------ | :-------------- | :------------------------------------ |
+|  [01]   | `DescriptorPinWire`                   | message | support-closure | `DescriptorPinWire`                   |
+|  [02]   | `CapabilityEstimate`                  | message | support-closure | `CapabilityEstimate`                  |
+|  [03]   | `AvailableCapability`                 | message | support-closure | `AvailableCapability`                 |
+|  [04]   | `DiscoverRequest`                     | message | public-root     | `DiscoverRequest`                     |
+|  [05]   | `DiscoverResponse`                    | message | public-root     | `DiscoverResponse`                    |
+|  [06]   | `CostUnit`                            | enum    | support-closure | `CostUnit`                            |
+|  [07]   | `CapabilityDiscoveryService`          | service | support-closure | `CapabilityDiscoveryService`          |
+|  [08]   | `CapabilityDiscoveryService.Discover` | method  | public-root     | `CapabilityDiscoveryService.Discover` |
 
 [ROSTER_SCOPE]: `rasm.contracts.compute.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                      | [KIND]  | [ORIGIN]        | [FQN]                                                 |
-| :-----: | :-------------------------- | :------ | :-------------- | :---------------------------------------------------- |
-|  [01]   | `ElementScope`              | message | support-closure | `rasm.contracts.compute.v1.ElementScope`              |
-|  [02]   | `EntityScope`               | message | support-closure | `rasm.contracts.compute.v1.EntityScope`               |
-|  [03]   | `TessellationScope`         | message | support-closure | `rasm.contracts.compute.v1.TessellationScope`         |
-|  [04]   | `TessellateRequest`         | message | public-root     | `rasm.contracts.compute.v1.TessellateRequest`         |
-|  [05]   | `Semantic`                  | message | support-closure | `rasm.contracts.compute.v1.Semantic`                  |
-|  [06]   | `TessellateResponse`        | message | public-root     | `rasm.contracts.compute.v1.TessellateResponse`        |
-|  [07]   | `Spill`                     | enum    | support-closure | `rasm.contracts.compute.v1.Spill`                     |
-|  [08]   | `GeomSetting`               | enum    | support-closure | `rasm.contracts.compute.v1.GeomSetting`               |
-|  [09]   | `Dimensionality`            | enum    | support-closure | `rasm.contracts.compute.v1.Dimensionality`            |
-|  [10]   | `ComputeService`            | service | support-closure | `rasm.contracts.compute.v1.ComputeService`            |
-|  [11]   | `ComputeService.Tessellate` | method  | public-root     | `rasm.contracts.compute.v1.ComputeService.Tessellate` |
+| [INDEX] | [NAME]                      | [KIND]  | [ORIGIN]        | [SYMBOL]                    |
+| :-----: | :-------------------------- | :------ | :-------------- | :-------------------------- |
+|  [01]   | `ElementScope`              | message | support-closure | `ElementScope`              |
+|  [02]   | `EntityScope`               | message | support-closure | `EntityScope`               |
+|  [03]   | `TessellationScope`         | message | support-closure | `TessellationScope`         |
+|  [04]   | `TessellateRequest`         | message | public-root     | `TessellateRequest`         |
+|  [05]   | `Semantic`                  | message | support-closure | `Semantic`                  |
+|  [06]   | `TessellateResponse`        | message | public-root     | `TessellateResponse`        |
+|  [07]   | `Spill`                     | enum    | support-closure | `Spill`                     |
+|  [08]   | `GeomSetting`               | enum    | support-closure | `GeomSetting`               |
+|  [09]   | `Dimensionality`            | enum    | support-closure | `Dimensionality`            |
+|  [10]   | `ComputeService`            | service | support-closure | `ComputeService`            |
+|  [11]   | `ComputeService.Tessellate` | method  | public-root     | `ComputeService.Tessellate` |
 
 [ROSTER_SCOPE]: `rasm.contracts.crdt.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]          | [KIND]  | [ORIGIN]        | [FQN]                                  |
-| :-----: | :-------------- | :------ | :-------------- | :------------------------------------- |
-|  [01]   | `ElementId`     | message | support-closure | `rasm.contracts.crdt.v1.ElementId`     |
-|  [02]   | `VectorSlot`    | message | support-closure | `rasm.contracts.crdt.v1.VectorSlot`    |
-|  [03]   | `SetOp`         | message | support-closure | `rasm.contracts.crdt.v1.SetOp`         |
-|  [04]   | `WriteOp`       | message | support-closure | `rasm.contracts.crdt.v1.WriteOp`       |
-|  [05]   | `AddOp`         | message | support-closure | `rasm.contracts.crdt.v1.AddOp`         |
-|  [06]   | `RemoveOp`      | message | support-closure | `rasm.contracts.crdt.v1.RemoveOp`      |
-|  [07]   | `IncrementOp`   | message | support-closure | `rasm.contracts.crdt.v1.IncrementOp`   |
-|  [08]   | `InsertAfterOp` | message | support-closure | `rasm.contracts.crdt.v1.InsertAfterOp` |
-|  [09]   | `DeleteOp`      | message | support-closure | `rasm.contracts.crdt.v1.DeleteOp`      |
-|  [10]   | `MaintainOp`    | message | support-closure | `rasm.contracts.crdt.v1.MaintainOp`    |
-|  [11]   | `BeatOp`        | message | support-closure | `rasm.contracts.crdt.v1.BeatOp`        |
-|  [12]   | `LeaveOp`       | message | support-closure | `rasm.contracts.crdt.v1.LeaveOp`       |
-|  [13]   | `CrdtOpWire`    | message | public-root     | `rasm.contracts.crdt.v1.CrdtOpWire`    |
+| [INDEX] | [NAME]          | [KIND]  | [ORIGIN]        | [SYMBOL]        |
+| :-----: | :-------------- | :------ | :-------------- | :-------------- |
+|  [01]   | `ElementId`     | message | support-closure | `ElementId`     |
+|  [02]   | `VectorSlot`    | message | support-closure | `VectorSlot`    |
+|  [03]   | `SetOp`         | message | support-closure | `SetOp`         |
+|  [04]   | `WriteOp`       | message | support-closure | `WriteOp`       |
+|  [05]   | `AddOp`         | message | support-closure | `AddOp`         |
+|  [06]   | `RemoveOp`      | message | support-closure | `RemoveOp`      |
+|  [07]   | `IncrementOp`   | message | support-closure | `IncrementOp`   |
+|  [08]   | `InsertAfterOp` | message | support-closure | `InsertAfterOp` |
+|  [09]   | `DeleteOp`      | message | support-closure | `DeleteOp`      |
+|  [10]   | `MaintainOp`    | message | support-closure | `MaintainOp`    |
+|  [11]   | `BeatOp`        | message | support-closure | `BeatOp`        |
+|  [12]   | `LeaveOp`       | message | support-closure | `LeaveOp`       |
+|  [13]   | `CrdtOpWire`    | message | public-root     | `CrdtOpWire`    |
 
 [ROSTER_SCOPE]: `rasm.contracts.event.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]       | [KIND]  | [ORIGIN]    | [FQN]                                |
-| :-----: | :----------- | :------ | :---------- | :----------------------------------- |
-|  [01]   | `Extensions` | message | public-root | `rasm.contracts.event.v1.Extensions` |
+| [INDEX] | [NAME]       | [KIND]  | [ORIGIN]    | [SYMBOL]     |
+| :-----: | :----------- | :------ | :---------- | :----------- |
+|  [01]   | `Extensions` | message | public-root | `Extensions` |
 
 [ROSTER_SCOPE]: `rasm.contracts.fabrication.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]           | [KIND]  | [ORIGIN]        | [FQN]                                          |
-| :-----: | :--------------- | :------ | :-------------- | :--------------------------------------------- |
-|  [01]   | `SourceKey`      | message | support-closure | `rasm.contracts.fabrication.v1.SourceKey`      |
-|  [02]   | `Datum`          | message | support-closure | `rasm.contracts.fabrication.v1.Datum`          |
-|  [03]   | `Segment`        | message | support-closure | `rasm.contracts.fabrication.v1.Segment`        |
-|  [04]   | `FeatureControl` | message | public-root     | `rasm.contracts.fabrication.v1.FeatureControl` |
-|  [05]   | `Characteristic` | enum    | support-closure | `rasm.contracts.fabrication.v1.Characteristic` |
-|  [06]   | `Scope`          | enum    | support-closure | `rasm.contracts.fabrication.v1.Scope`          |
-|  [07]   | `ZoneKind`       | enum    | support-closure | `rasm.contracts.fabrication.v1.ZoneKind`       |
-|  [08]   | `Modifier`       | enum    | support-closure | `rasm.contracts.fabrication.v1.Modifier`       |
-|  [09]   | `Material`       | enum    | support-closure | `rasm.contracts.fabrication.v1.Material`       |
-|  [10]   | `Egress`         | enum    | support-closure | `rasm.contracts.fabrication.v1.Egress`         |
+| [INDEX] | [NAME]           | [KIND]  | [ORIGIN]        | [SYMBOL]         |
+| :-----: | :--------------- | :------ | :-------------- | :--------------- |
+|  [01]   | `SourceKey`      | message | support-closure | `SourceKey`      |
+|  [02]   | `Datum`          | message | support-closure | `Datum`          |
+|  [03]   | `Segment`        | message | support-closure | `Segment`        |
+|  [04]   | `FeatureControl` | message | public-root     | `FeatureControl` |
+|  [05]   | `Characteristic` | enum    | support-closure | `Characteristic` |
+|  [06]   | `Scope`          | enum    | support-closure | `Scope`          |
+|  [07]   | `ZoneKind`       | enum    | support-closure | `ZoneKind`       |
+|  [08]   | `Modifier`       | enum    | support-closure | `Modifier`       |
+|  [09]   | `Material`       | enum    | support-closure | `Material`       |
+|  [10]   | `Egress`         | enum    | support-closure | `Egress`         |
 
 [ROSTER_SCOPE]: `rasm.contracts.organization.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]         | [KIND]  | [ORIGIN]        | [FQN]                                         |
-| :-----: | :------------- | :------ | :-------------- | :-------------------------------------------- |
-|  [01]   | `ViewOverride` | message | support-closure | `rasm.contracts.organization.v1.ViewOverride` |
-|  [02]   | `Entity`       | message | support-closure | `rasm.contracts.organization.v1.Entity`       |
-|  [03]   | `EntityPath`   | message | support-closure | `rasm.contracts.organization.v1.EntityPath`   |
-|  [04]   | `Organization` | message | public-root     | `rasm.contracts.organization.v1.Organization` |
+| [INDEX] | [NAME]         | [KIND]  | [ORIGIN]        | [SYMBOL]       |
+| :-----: | :------------- | :------ | :-------------- | :------------- |
+|  [01]   | `ViewOverride` | message | support-closure | `ViewOverride` |
+|  [02]   | `Entity`       | message | support-closure | `Entity`       |
+|  [03]   | `EntityPath`   | message | support-closure | `EntityPath`   |
+|  [04]   | `Organization` | message | public-root     | `Organization` |
 
 [ROSTER_SCOPE]: `rasm.contracts.parity.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]         | [KIND]  | [ORIGIN]        | [FQN]                                   |
-| :-----: | :------------- | :------ | :-------------- | :-------------------------------------- |
-|  [01]   | `Artifact`     | message | support-closure | `rasm.contracts.parity.v1.Artifact`     |
-|  [02]   | `Capability`   | message | support-closure | `rasm.contracts.parity.v1.Capability`   |
-|  [03]   | `Backend`      | message | public-root     | `rasm.contracts.parity.v1.Backend`      |
-|  [04]   | `ArtifactRole` | enum    | support-closure | `rasm.contracts.parity.v1.ArtifactRole` |
-|  [05]   | `Provider`     | enum    | support-closure | `rasm.contracts.parity.v1.Provider`     |
-|  [06]   | `FailureRank`  | enum    | support-closure | `rasm.contracts.parity.v1.FailureRank`  |
-|  [07]   | `RestartClass` | enum    | support-closure | `rasm.contracts.parity.v1.RestartClass` |
+| [INDEX] | [NAME]         | [KIND]  | [ORIGIN]        | [SYMBOL]       |
+| :-----: | :------------- | :------ | :-------------- | :------------- |
+|  [01]   | `Artifact`     | message | support-closure | `Artifact`     |
+|  [02]   | `Capability`   | message | support-closure | `Capability`   |
+|  [03]   | `Backend`      | message | public-root     | `Backend`      |
+|  [04]   | `ArtifactRole` | enum    | support-closure | `ArtifactRole` |
+|  [05]   | `Provider`     | enum    | support-closure | `Provider`     |
+|  [06]   | `FailureRank`  | enum    | support-closure | `FailureRank`  |
+|  [07]   | `RestartClass` | enum    | support-closure | `RestartClass` |
 
 [ROSTER_SCOPE]: `rasm.contracts.scan.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [FQN]                                      |
-| :-----: | :------------------ | :------ | :-------------- | :----------------------------------------- |
-|  [01]   | `GaussianSplatScan` | message | public-root     | `rasm.contracts.scan.v1.GaussianSplatScan` |
-|  [02]   | `SplatFormat`       | enum    | support-closure | `rasm.contracts.scan.v1.SplatFormat`       |
+| [INDEX] | [NAME]              | [KIND]  | [ORIGIN]        | [SYMBOL]            |
+| :-----: | :------------------ | :------ | :-------------- | :------------------ |
+|  [01]   | `GaussianSplatScan` | message | public-root     | `GaussianSplatScan` |
+|  [02]   | `SplatFormat`       | enum    | support-closure | `SplatFormat`       |
 
 [ROSTER_SCOPE]: `rasm.contracts.scene.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                    | [KIND]  | [ORIGIN]        | [FQN]                                             |
-| :-----: | :------------------------ | :------ | :-------------- | :------------------------------------------------ |
-|  [01]   | `Spectrum`                | message | support-closure | `rasm.contracts.scene.v1.Spectrum`                |
-|  [02]   | `SolarFrame`              | message | support-closure | `rasm.contracts.scene.v1.SolarFrame`              |
-|  [03]   | `SolarAngles`             | message | support-closure | `rasm.contracts.scene.v1.SolarAngles`             |
-|  [04]   | `SitedSun`                | message | support-closure | `rasm.contracts.scene.v1.SitedSun`                |
-|  [05]   | `SceneSun`                | message | support-closure | `rasm.contracts.scene.v1.SceneSun`                |
-|  [06]   | `WebRef`                  | message | support-closure | `rasm.contracts.scene.v1.WebRef`                  |
-|  [07]   | `Power`                   | message | support-closure | `rasm.contracts.scene.v1.Power`                   |
-|  [08]   | `Cone`                    | message | support-closure | `rasm.contracts.scene.v1.Cone`                    |
-|  [09]   | `Extent`                  | message | support-closure | `rasm.contracts.scene.v1.Extent`                  |
-|  [10]   | `AttenuationCoefficients` | message | support-closure | `rasm.contracts.scene.v1.AttenuationCoefficients` |
-|  [11]   | `Photometry`              | message | support-closure | `rasm.contracts.scene.v1.Photometry`              |
-|  [12]   | `Shading`                 | message | support-closure | `rasm.contracts.scene.v1.Shading`                 |
-|  [13]   | `SceneDescriptor`         | message | public-root     | `rasm.contracts.scene.v1.SceneDescriptor`         |
-|  [14]   | `LightKind`               | enum    | support-closure | `rasm.contracts.scene.v1.LightKind`               |
-|  [15]   | `Falloff`                 | enum    | support-closure | `rasm.contracts.scene.v1.Falloff`                 |
-|  [16]   | `WebDialect`              | enum    | support-closure | `rasm.contracts.scene.v1.WebDialect`              |
+| [INDEX] | [NAME]                    | [KIND]  | [ORIGIN]        | [SYMBOL]                  |
+| :-----: | :------------------------ | :------ | :-------------- | :------------------------ |
+|  [01]   | `Spectrum`                | message | support-closure | `Spectrum`                |
+|  [02]   | `SolarFrame`              | message | support-closure | `SolarFrame`              |
+|  [03]   | `SolarAngles`             | message | support-closure | `SolarAngles`             |
+|  [04]   | `SitedSun`                | message | support-closure | `SitedSun`                |
+|  [05]   | `SceneSun`                | message | support-closure | `SceneSun`                |
+|  [06]   | `WebRef`                  | message | support-closure | `WebRef`                  |
+|  [07]   | `Power`                   | message | support-closure | `Power`                   |
+|  [08]   | `Cone`                    | message | support-closure | `Cone`                    |
+|  [09]   | `Extent`                  | message | support-closure | `Extent`                  |
+|  [10]   | `AttenuationCoefficients` | message | support-closure | `AttenuationCoefficients` |
+|  [11]   | `Photometry`              | message | support-closure | `Photometry`              |
+|  [12]   | `Shading`                 | message | support-closure | `Shading`                 |
+|  [13]   | `SceneDescriptor`         | message | public-root     | `SceneDescriptor`         |
+|  [14]   | `LightKind`               | enum    | support-closure | `LightKind`               |
+|  [15]   | `Falloff`                 | enum    | support-closure | `Falloff`                 |
+|  [16]   | `WebDialect`              | enum    | support-closure | `WebDialect`              |
 
 [ROSTER_SCOPE]: `grpc.health.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                              | [KIND]  | [ORIGIN]        | [FQN]                                              |
-| :-----: | :---------------------------------- | :------ | :-------------- | :------------------------------------------------- |
-|  [01]   | `HealthCheckRequest`                | message | public-root     | `grpc.health.v1.HealthCheckRequest`                |
-|  [02]   | `HealthCheckResponse`               | message | public-root     | `grpc.health.v1.HealthCheckResponse`               |
-|  [03]   | `HealthCheckResponse.ServingStatus` | enum    | support-closure | `grpc.health.v1.HealthCheckResponse.ServingStatus` |
-|  [04]   | `Health`                            | service | support-closure | `grpc.health.v1.Health`                            |
-|  [05]   | `Health.Check`                      | method  | public-root     | `grpc.health.v1.Health.Check`                      |
+| [INDEX] | [NAME]                              | [KIND]  | [ORIGIN]        | [SYMBOL]                            |
+| :-----: | :---------------------------------- | :------ | :-------------- | :---------------------------------- |
+|  [01]   | `HealthCheckRequest`                | message | public-root     | `HealthCheckRequest`                |
+|  [02]   | `HealthCheckResponse`               | message | public-root     | `HealthCheckResponse`               |
+|  [03]   | `HealthCheckResponse.ServingStatus` | enum    | support-closure | `HealthCheckResponse.ServingStatus` |
+|  [04]   | `Health`                            | service | support-closure | `Health`                            |
+|  [05]   | `Health.Check`                      | method  | public-root     | `Health.Check`                      |
 
 [ROSTER_SCOPE]: `io.cloudevents.v1` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [FQN]                                                   |
-| :-----: | :------------------------------------ | :------ | :-------------- | :------------------------------------------------------ |
-|  [01]   | `CloudEvent`                          | message | public-root     | `io.cloudevents.v1.CloudEvent`                          |
-|  [02]   | `CloudEvent.CloudEventAttributeValue` | message | support-closure | `io.cloudevents.v1.CloudEvent.CloudEventAttributeValue` |
-|  [03]   | `CloudEventBatch`                     | message | public-root     | `io.cloudevents.v1.CloudEventBatch`                     |
+| [INDEX] | [NAME]                                | [KIND]  | [ORIGIN]        | [SYMBOL]                              |
+| :-----: | :------------------------------------ | :------ | :-------------- | :------------------------------------ |
+|  [01]   | `CloudEvent`                          | message | public-root     | `CloudEvent`                          |
+|  [02]   | `CloudEvent.CloudEventAttributeValue` | message | support-closure | `CloudEvent.CloudEventAttributeValue` |
+|  [03]   | `CloudEventBatch`                     | message | public-root     | `CloudEventBatch`                     |
 
 [ASSET_SCOPE]: exact publisher projections emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]             | [KIND]           | [PATH]                                                                               |
-| :-----: | :----------------- | :--------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `cloudevents.avsc` | package-resource | `libs/python/contracts/src/rasm/contracts/vendor/io/cloudevents/v1/cloudevents.avsc` |
+| [INDEX] | [NAME]             | [KIND]           | [PATH]                                                                           |
+| :-----: | :----------------- | :--------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `cloudevents.avsc` | package-resource | `libs/python/contracts/rasm/contracts/vendor/io/cloudevents/v1/cloudevents.avsc` |
+
 <!-- roster:end -->
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -431,7 +434,7 @@
 - Separate publisher generation writes CloudEvents and health modules under `rasm.contracts.vendor`.
 - Assay restores exact manifest-distributed publisher resources after Buf's clean sweep.
 - Connect generation writes asynchronous stubs beside each selected service package without duplicating message types.
-- Workspace installation seats `rasm-contracts`; generated modules import their runtimes and no sibling library.
+- Root install seats `rasm.contracts` through its module root; generated modules import their runtimes and no sibling library.
 
 [STACKING]:
 - `protobuf-py`(`../../.api/protobuf-py.md`): generated `Message` classes own binary, ProtoJSON, oneof, WKT, and descriptor operations.
@@ -449,7 +452,7 @@
 - Authored package content stays above the clean roots and owns only package identity, typing, and generic generated-message boundary composition.
 
 [RAIL_LAW]:
-- Package: `rasm-contracts` distribution
+- Package: `rasm.contracts` module
 - Owns: generated Python bindings, generic Connect body admission, validation runtime closure, and exact publisher resources for selected packages
 - Accept: installed imports from `rasm.contracts.gen` and `rasm.contracts.vendor`
 - Reject: handwritten message twins, field-rule mirrors, respelled `buf.validate` bounds, handler validation prologues, copied publisher assets, hand-built services, and import-path mutation

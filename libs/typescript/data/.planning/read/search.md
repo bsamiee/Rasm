@@ -12,7 +12,7 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 ## [02]-[PORTS]
 
 - Owner: the `Embedder` `Context.Tag` — embed-with-fingerprint, the one cross-folder retrieval contract — and the `Reranker` tag read through `Effect.serviceOption` so rerank is presence-typed, never a knob.
-- Packages: `effect` (`Context`, `Schema`, `Array`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Context`, `Schema`, `Array`); `@rasm/core` (`Fault.Class`).
 - Entry: the runtime branch's embedding rows satisfy `Embedder` at app composition; nothing in this folder imports a provider — the port is the whole seam, and a scope without an embedder has no semantic lane, the same degradation shape as a missing grant.
 - Receipt: singular `embed(text)` answers one vector under the port's own `fingerprint` — the satisfying Layer batches calls through `Batch.Engine`, the consuming seam proves both `vector.length === corpus.embedding.dims` and `port.fingerprint === corpus.embedding.fingerprint`, and only then can the semantic lane run.
 - Growth: an embedding capability axis (dimension negotiation, batch policy) is a member on this one port; a second model in one app is a second Layer against the same tag selected per scope, never a second tag.
@@ -25,7 +25,7 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 
 ```typescript signature
 import { Array, Context, Effect, Schema } from "effect"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 // TWO ports raise this family and only one of them holds a fingerprint: `Embedder` refuses under the admitted
 // identity it embeds beneath, `Reranker` under the query it was scoring and no embedding identity at all. So the
@@ -433,7 +433,7 @@ const _admitted = (
 ## [05]-[FUSION_QUERY]
 
 - Owner: `Search.of(corpus)` — the once-per-scope effectful binding whose accessors mint at construction and whose members are the bound read family: `search` (the fused RRF statement and the rerank admission), `facets`, the snippet projection, the keyset cursor codec, and `ddl` from `[3]`; one request shape carries every modality.
-- Packages: `effect` (`Effect`, `Option`, `HashMap`, `HashSet`, `Record`, `Schema`, `Array`); `@effect/experimental` (`VariantSchema.make` — the `row`/`domain` field family behind `Search.Hit` and `Search.FacetCount`); `@effect/sql` (the fused statement, the rerank-window body fetch, the snippet fetch, and the one-statement facet census are each composed fragment values — `sql.in` set-shaped over the hit cells, `sql.and` over the filter rows, never a per-hit query and never assembled text); `lane/capability.md` (`Capability` — the grant read, taken once at bind because grants are scope-construction facts); `@rasm/ts/core` (`Shape.Record`).
+- Packages: `effect` (`Effect`, `Option`, `HashMap`, `HashSet`, `Record`, `Schema`, `Array`); `@effect/experimental` (`VariantSchema.make` — the `row`/`domain` field family behind `Search.Hit` and `Search.FacetCount`); `@effect/sql` (the fused statement, the rerank-window body fetch, the snippet fetch, and the one-statement facet census are each composed fragment values — `sql.in` set-shaped over the hit cells, `sql.and` over the filter rows, never a per-hit query and never assembled text); `lane/capability.md` (`Capability` — the grant read, taken once at bind because grants are scope-construction facts); `@rasm/core` (`Shape.Record`).
 - Entry: `const bound = yield* Search.of(corpus)` inside the owning scope's construction, then `bound.search(request)` per call; `Search.Request` admits text, lanes, policy refinements, decoded cursor, filters, facets, snippets, and rerank depth once, and the reply carries scored hits, facet counts, next cursor, lane census, and rerank disposition.
 - Receipt: `Search.Page.lanes` names each lane's disposition and `Search.Page.rerank` names the accelerator's — `applied`, `partial` (the provider omitted or repeated candidates and the seam repaired the window), `degraded` (a retryable provider fault and fusion order held), `denied` (a settled screen verdict: fusion order held and a re-request is refused by law), `off` — so a degraded scope, a misbehaving provider, and a moderation refusal are each visible in every reply and a relevance regression traces to evidence, never to guesswork.
 - Growth: rerank depth, fusion constant `k`, edit-distance ceiling, facet bound, filter rows, and snippet shape are `Search.Request` fields derived from `Search.Policy`; a new reply projection is a field on the page, never a second search.
@@ -449,7 +449,7 @@ const _admitted = (
 import { Array, Effect, Either, HashMap, HashSet, Match, Option, type ParseResult, pipe, Record, Schema } from "effect"
 import { VariantSchema } from "@effect/experimental"
 import { SqlClient, SqlSchema, type SqlError, type Statement } from "@effect/sql"
-import { Shape } from "@rasm/ts/core"
+import { Shape } from "@rasm/core"
 import { Capability } from "../lane/capability.ts"
 import type { Pg } from "../lane/postgres.ts"
 

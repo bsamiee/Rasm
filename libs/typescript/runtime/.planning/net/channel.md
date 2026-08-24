@@ -20,7 +20,7 @@ Framed stream transport is the second half of the branch net plane: where `clien
 - Law: causal context rides the protocol, never the frame — a duplex peer whose messages carry `traceparent`/`tracestate`/`baggage` declares those fields on its `take` schema, and the consumer extracts its admitted dialect through core `Carrier` before `Propagation.ingress` at the handling seam; the frame rows stay context-blind and this floor module composes no telemetry import.
 - Boundary: socket construction is capability — `Socket.makeWebSocket(url)` demands the `WebSocketConstructor` Tag, satisfied by the runtime binding at the root; session lifetime, reconnect, and the pipeline geometry above the channel are the consumer's, composed from `Stream` law.
 - Entry: `Duplex.framed(socket, { kind }, { send, take })`; the proto row takes `{ kind: "proto", descriptor }`.
-- Packages: `@effect/platform` (`Socket`, `Ndjson`, `MsgPack`, `ChannelSchema`), `@bufbuild/protobuf` (`DescMessage`), `@rasm/ts/core` (`Format.proto.framed`), `effect` (`Channel`, `Chunk`, `Schema`).
+- Packages: `@effect/platform` (`Socket`, `Ndjson`, `MsgPack`, `ChannelSchema`), `@bufbuild/protobuf` (`DescMessage`), `@rasm/core` (`Format.proto.framed`), `effect` (`Channel`, `Chunk`, `Schema`).
 
 ```typescript signature
 import { Sse } from '@effect/experimental';
@@ -61,8 +61,8 @@ import {
     type QoS,
 } from 'mqtt';
 import { Buffer } from 'node:buffer';
-import { Carrier, Event, Fault, Format } from '@rasm/ts/core';
-import type { MachinePrincipal } from '@rasm/ts/security';
+import { Carrier, Event, Fault, Format } from '@rasm/core';
+import type { MachinePrincipal } from '@rasm/security';
 import { Client, Machine } from './client.ts';
 
 // Three rows, one shape: each takes the schema seam and the frame VALUE and returns the fused duplex transform. The
@@ -123,7 +123,7 @@ const Duplex = { framed: _framed } as const;
 - Law: the feed is transport only — it emits decoded `Sse.Event` frames and owns no payload vocabulary; the consumer's own Schema decodes `event.data` and any admitted carrier at its seam, then continues through `Propagation.ingress`, never inside the feed.
 - Boundary: the serving mirror — `Sse.encoder` framing an outbound event stream over an HTTP response — is the edge wave's mount; this page owns the codec direction law so the dialect has one owner.
 - Entry: `yield* Feed` then `feed.open(origin)`; `Feed.live` is the shipped Layer over the client lane.
-- Packages: `@effect/experimental`, `@effect/platform`, `effect`, `./client.ts`, and `@rasm/ts/core` (`Fault.Budget`).
+- Packages: `@effect/experimental`, `@effect/platform`, `effect`, `./client.ts`, and `@rasm/core` (`Fault.Budget`).
 
 ```typescript signature
 // Only a GRADED response carries a status, so that column rides the `media` row alone: an `Option<number>` on the
@@ -264,7 +264,7 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 - Law: terminal events carry unequal evidence and `_MQTT_TERMINALS` keeps it — only `error` holds a cause and only `disconnect` holds a v5 reason code, so one nullary handler across all four discards the sole diagnosis the seam receives; `offline` names a client still retrying beneath an ended stream, never a dead transport. Failed subscription or grant admission ends the minted client before the fault escapes; successful acquisition transfers that client to the stream scope. Message and lifecycle listeners share the stream scope; `close`, `error`, `disconnect`, and `offline` terminate the stream once, and release ends the client before detaching the complete listener row.
 - Law: Raw frames keep opaque bytes; event callers cross through the selected official/exact codec row, and a raw or structured publish keeps the hop carrier whole because no binary binding claims its User Properties.
 - Tests: MQTT JSON/binary SDK singles, Avro asset singles, and generated Protobuf singles encode and decode through their one row under strict admission; Avro covers recursive object/record-array data, absent-data-to-null normalization, `data_base64` exclusion, and opaque-host-object refusal; every framed batch refuses, and cross-format assertions compare event semantics rather than bytes.
-- Packages: `mqtt` (`connectAsync`, `handleMessage`, `IClientOptions`, `endAsync`), `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine), `effect`, `node:buffer`, `@rasm\/contracts` (`CloudEventsAvro`), `@rasm/ts/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `@rasm/ts/core` (`Carrier`, `Event`, `Fault`, `Format`).
+- Packages: `mqtt` (`connectAsync`, `handleMessage`, `IClientOptions`, `endAsync`), `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine), `effect`, `node:buffer`, `@rasm\/contracts` (`CloudEventsAvro`), `@rasm/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `@rasm/core` (`Carrier`, `Event`, `Fault`, `Format`).
 
 ```typescript signature
 // `reason` bands the fault and the row's own subject proves it: four bands cover fourteen mint sites, so without the

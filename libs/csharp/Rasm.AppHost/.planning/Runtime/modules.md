@@ -7,8 +7,8 @@ One composition root per process folds a frozen module table into the service gr
 - [02]-[MODULE_TABLE]: Frozen contribution rows over one slot roster carrying every descriptor admission.
 - [03]-[SCAN_AND_DECORATE]: One-pass scan, slot fold, and decoration with receipted freeze.
 - [04]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
-- [05]-[COMMAND_SURFACE]: The `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
-- [06]-[MODULE_LEDGER]: The module folds, the must-bind seam roster, and the two-altitude fold that is every row's one call site.
+- [05]-[COMMAND_SURFACE]: `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
+- [06]-[MODULE_LEDGER]: Module folds, the must-bind seam roster, and the two-altitude fold that is every row's one call site.
 
 ## [02]-[MODULE_TABLE]
 
@@ -508,7 +508,7 @@ public sealed record WireSeed(
     Seq<(Topic Topic, Seq<(string Name, Func<DomainEvent, IO<Unit>> Consume)> Subscribers)> Subscriptions,
     KeyedLane.Composition Keyed,
     OutboxRelay.Runtime Outbox,
-    Func<Fin<HlcOrdinal>> Watermark,
+    Func<Fin<OutboxOrdinal>> Watermark,
     LiveWireRuntime LiveWire,
     IngressPolicy Ingress,
     Seq<ServedPlane> Planes,
@@ -774,6 +774,22 @@ public static class CompositionRoot {
                 .Services
                 .Configure<HealthCheckPublisherOptions>(static options =>
                     options.Period = DegradationPolicy.Canonical.PublishPeriod.ToTimeSpan()))),
+
+        // The ONE schedule arrow every consumer resolves — `SchedulePort` publishes no `Register` member, so
+        // the composition supplies the registration this row seats. Registration is IDEMPOTENT BY KEY: a
+        // fresh key seats the row and arms its occurrence loop once; a held key replaces the row and forks
+        // nothing, and the loop reads the CURRENT row each pass — so a renewed lease's fresh closure takes
+        // effect on the standing loop and a boot row re-registered at runtime cannot double-fire.
+        new RootBinding.Seated("schedule-arrow", static (services, inputs) =>
+            Fin.Succ(services
+                .Add(ServiceDescriptor.Describe(
+                    typeof(Atom<HashMap<string, ScheduleEntry>>),
+                    static _ => Atom(HashMap<string, ScheduleEntry>()), ServiceLifetime.Singleton))
+                .Add(ServiceDescriptor.Describe(
+                    typeof(Func<ScheduleEntry, IO<Unit>>),
+                    provider => new Func<ScheduleEntry, IO<Unit>>(entry => Armed(
+                        provider.GetRequiredService<Atom<HashMap<string, ScheduleEntry>>>(), inputs.Clocks, entry)),
+                    ServiceLifetime.Singleton)))),
 
         // The orchestration capsule and the two runtime-band participants. `Redrive` is the composition's own
         // policy unless a deployment declares one, so a step that exhausts its schedule surfaces as an
@@ -1160,8 +1176,10 @@ public static class CompositionRoot {
 
         // The registry census is the one descriptor claim the contributor-port fold cannot carry, so it mounts
         // against the instrument set after the build; the resource subscriptions bind with the spec their own
-        // live-wire channel already holds, and the token leases register their refresh cadence — without a
-        // registrar the refresh custody never runs and every lease expires silently.
+        // live-wire channel already holds, and the BOOT-DECLARED token leases register their refresh cadence
+        // here — constructed at input assembly ahead of the provider, they cannot self-register — while every
+        // runtime acquisition registers inside `Acquisition.Acquire`; the keyed arrow makes the two seats one
+        // idempotent registration, so a boot row later re-acquired replaces rather than double-arms.
         new RootBinding.Proven("agent-boot", static (provider, inputs) =>
             provider.GetRequiredService<CapabilityRegistry>()
                 .Mount(provider.GetRequiredService<InstrumentSet>())
@@ -1428,6 +1446,29 @@ public static class CompositionRoot {
             .As()
             .Map(static _ => unit)
             .ToFin();
+
+    // The arrow's registration body: first writer per key ARMS the loop, a later writer replaces the row.
+    // `Cell.Claim` is the same first-writer-wins transition the federation session seat rides, so a racing
+    // double-registration commits one loop and the ceding caller lands its row for that loop to read.
+    static IO<Unit> Armed(Atom<HashMap<string, ScheduleEntry>> roster, ClockPolicy clocks, ScheduleEntry entry) =>
+        Cell.Claim(roster, entry.Key, () => entry) switch {
+            Transition<HashMap<string, ScheduleEntry>>.Committed => Occurring(roster, clocks, entry.Key).Fork(None).Map(static _ => unit),
+            _ => IO.lift(() => ignore(roster.Swap(held => held.SetItem(entry.Key, entry)))),
+        };
+
+    // One occurrence loop per armed key, riding the composition EnvIO whose token is the lifecycle spine, so
+    // drain cancels every loop at one seat. Each pass re-reads the roster's CURRENT row — a replaced entry's
+    // fresh spec and closure take effect without a second fork, a removed key retires its loop, and a grammar
+    // answering no next occurrence retires the row; `SchedulePort.Run` carries the deadline gauge and the
+    // redrive curve, and a leased row gates inside its own `Work` through its consumer's election law.
+    static IO<Unit> Occurring(Atom<HashMap<string, ScheduleEntry>> roster, ClockPolicy clocks, string key) =>
+        roster.Value.Find(key).Match(
+            None: () => IO.pure(unit),
+            Some: entry => SchedulePort.Next(entry, clocks.Now).Match(
+                None: () => IO.lift(() => ignore(roster.Swap(held => held.Remove(key)))),
+                Some: next => IO.yieldFor((next - clocks.Now).ToTimeSpan())
+                    .Bind(_ => SchedulePort.Run(clocks, entry))
+                    .Bind(_ => Occurring(roster, clocks, key))));
 
     static ScheduleEntry Cadence(string key, Duration every, DeadlineClass deadline, Func<IO<Unit>> work) =>
         new(Key: key, Spec: new OccurrenceSpec.Every(every), Deadline: deadline,

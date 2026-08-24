@@ -109,6 +109,7 @@ Substrate vocabulary spans telemetry, storage engines, and execution: each term 
 - `structured concurrency`: Scopes every spawned task to a lexical block that cannot exit before its children settle.
 - `backpressure`: Propagates a slow consumer's limit upstream so a producer slows rather than buffering unboundedly.
 - `capacity limiter`: Caps concurrent entries into one subsystem at the boundary, making that bound explicit rather than ambient.
+- `budget governor`: Throttles one budgeted resource against its own declared ceiling, admitting work while the measured rate stays under it.
 - `deadline`: Fixes the absolute time an operation must complete by, propagating to every nested call.
 - `cancellation`: Signals that an operation's result is no longer wanted, and every cooperating body unwinds.
 - `work descriptor`: Carries a work unit's identity, inputs, cost, and admission case as data a scheduler reads without invoking it.

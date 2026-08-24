@@ -1,6 +1,6 @@
 # [PY_CAD_OPERATION]
 
-`execute` folds every `ExecuteRequest.operation` arm through one row table into one spine, then returns the measured and sealed body as `BrepEvidence`. This owner holds source resolution from the call's sha256-keyed path map and the one builder-admission question every sibling B-rep page composes, and owns no geometry of its own.
+`execute` folds every `ExecuteRequest.operation` arm through one row table into one spine, then returns the measured and sealed body as `BrepEvidence`. This owner composes source resolution from `exchange/step#CODEC` `sourced` and builder admission from `brep/placement#ADMISSION` `built` — each read at its owner, one hop, never re-exported — and owns no geometry of its own.
 
 Refusals ride `CadRail` on `BREP_INPUT`, `BREP_KERNEL`, and `BREP_OUTPUT` from `faults#ROWS`. Spatial lowering arrives from `brep/placement#PLACEMENT`, analytic bodies from `brep/solid#PRIMITIVES`, generative bodies from `brep/solid#GENERATIVE`, set algebra from `brep/boolean#BOOLEAN`, edge features from `brep/feature#FEATURE`, correspondence from `brep/provenance#CORRESPONDENCE`, measurement from `metrology/properties#RECEIPT`, and the codec pair from `exchange/step#CODEC`.
 
@@ -14,11 +14,11 @@ Refusals ride `CadRail` on `BREP_INPUT`, `BREP_KERNEL`, and `BREP_OUTPUT` from `
 ## [02]-[OPERATION]
 
 - Entry: `built` composes from `brep/placement#ADMISSION`, which seats the rail below every arm this fold imports.
-- Owner: `admitted` is the shape half alone, so a result no builder produced — sewn, lofted, offset, piped — asks the same question at the same site.
+- Law: `admitted` (the shape half alone, also placement's) serves any result no builder produced — sewn, lofted, offset, piped — so one site asks one question.
 - Law: grading splits the verdict — an unfinished builder is `BREP_KERNEL`, a finished builder yielding a null or invalid body is `BREP_OUTPUT`.
 - Law: validity means geometry as well as topology, so a null probe alone admits self-intersecting bodies and never stands in for the analyzer.
-- Law: `sourced` resolves a `SealedStep` through the call's path map and threads `exchange/step#CODEC`'s rail unchanged, so a decode refusal keeps its `exchange` leg.
-- Law: this rail exports bare names because every B-rep sibling composes it; only a page-private helper keeps its underscore.
+- Law: `sourced` lives at `exchange/step#CODEC` and threads that rail unchanged, so a decode refusal keeps its `exchange` leg and no resolution twin grows here.
+- Law: every composed name resolves at its owner — placement for admission, step for resolution — so no sibling imports this apex and the arm graph stays acyclic.
 - Law: heterogeneous compound assembly is deleted, not carried — no `ExecuteRequest.operation` field asks for it, and every arm collapses to one body before the seal.
 - Law: many-part results fold through `brep/solid#FOLD`, whose fuse merges abutting regions into one manifold body where compound assembly leaves coincident faces and a false census.
 - Boundary: source topology arrives as the file owns it; reader precision, forced maximums, `ShapeFix_ShapeTolerance`, and `BRepLib.SameParameter_s` stay outside.
@@ -57,21 +57,9 @@ from rasm.cad.brep.feature import featured
 from rasm.cad.brep.placement import admitted, built, displaced
 from rasm.cad.brep.provenance import Outcome
 from rasm.cad.brep.solid import PRIMITIVE, extruded, lofted, primitive, revolved, swept, thickened
-from rasm.cad.exchange.step import sealed, unsealed
+from rasm.cad.exchange.step import sealed, sourced
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadRail
 from rasm.cad.metrology.properties import UNMEASURED, receipt
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def sourced(value: SealedStep, sources: frozendict[bytes, Path], /) -> CadRail[TopoDS_Shape]:
-    # Serve-side admission proved every reference and owns the path, so an absent digest here is a lane defect the
-    # coordinate names in full, never a `KeyError` crossing the worker seam as an unpicklable cause.
-    return (
-        Option.of_optional(sources.get(value.artifact.sha256))
-        .to_result_with(lambda: BREP_INPUT.at(f"source.absent:{value.artifact.sha256.hex()}"))
-        .bind(partial(unsealed, value))
-    )
 ```
 
 ## [03]-[ARMS]

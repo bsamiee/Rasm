@@ -1,0 +1,31 @@
+{
+    "name": "@rasm/core",
+    "version": "0.1.0",
+    "description": "Host-free implementation floor: value admission, state folds and machines, contract codecs, observability derivation",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/core"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./index.ts",
+        "./package.json": "./package.json"
+    },
+    "dependencies": {
+        "@bufbuild/protobuf": "catalog:",
+        "@rasm/contracts": "workspace:*"
+    },
+    "nx": {
+        "tags": [
+            "scope:core",
+            "runtime:neutral",
+            "plane:runtime"
+        ],
+        "targets": {
+            "typecheck": {}
+        }
+    }
+}

@@ -584,7 +584,7 @@ const LANG = {
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api` (assay blocked: the `.api` catalogs, ' +
+            '`uv run assay api` (assay blocked: the `.api` catalogs, ' +
             'the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
@@ -642,7 +642,7 @@ const LANG = {
             'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the shared rails layered ON TOP OF the folder domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api resolve <pkg>` (a gated/uninstalled ' +
+            '`uv run assay api resolve <pkg>` (a gated/uninstalled ' +
             'package or a blocked assay falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
@@ -704,7 +704,7 @@ const LANG = {
             '`<folder>/.api/*.md`, cross-checked against the published node_modules types — the shared Effect ecosystem layered ' +
             'ON TOP OF the area packages, never the folder set alone.',
         verify:
-            'the published types in node_modules (`uv run python -m tools.assay api` over node_modules ' + 'declarations where a member is novel)',
+            'the published types in node_modules (`uv run assay api` over node_modules ' + 'declarations where a member is novel)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -1451,7 +1451,7 @@ const planPrompt = () =>
             SCRATCH +
             '/*-seams.md` — dossiers and reports are per-delegate overwritten by this run, but seam ledgers APPEND, and a stale ' +
             "row from a dead run poisons this run's cross-batch coordination. Delete nothing else.",
-        'TOOLCHAIN WARM-UP (before returning): run `uv run python -m tools.assay api --help` once — ' +
+        'TOOLCHAIN WARM-UP (before returning): run `uv run assay api --help` once — ' +
             "it builds the workspace uv cache every downstream delegate's member-verification rail rides, so no delegate pays the cold " +
             'environment latency or misreads it as a broken rail.',
     ].join('\n\n');

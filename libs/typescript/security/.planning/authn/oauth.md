@@ -28,7 +28,7 @@ import {
   discovery, modifyAssertion, PrivateKeyJwt, randomNonce, randomPKCECodeVerifier, randomState, refreshTokenGrant,
   ResponseBodyError, type ServerMetadata, type TokenEndpointResponse, tokenRevocation, WWWAuthenticateChallengeError,
 } from "openid-client"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import {
   Array, Config, Context, Data, DateTime, Duration, Effect, Match, Option, Predicate, Redacted, Schema, Struct,
 } from "effect"

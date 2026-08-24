@@ -17,7 +17,7 @@ Composition facts arrive settled: `Digest.Key<"content">` is the one byte identi
 [SOURCE_PLANE]:
 - Owner: `Media` — one assembled owner: `_classes` is the closed media-class vocabulary and `_CLASSES` its row table (element kind, whether the class streams, whether a poster stands in), `Media.Source` the Schema owner every rendered byte class admits through (content key, class, mime, declared extent, the `Option` poster key a video carries), `Serve` the one byte port, and `Media.Policy` the loading-posture value the composition root supplies.
 - Owner: `Serve` — the folder-declared byte capability Tag: `address(key, name)` answers the served URL the platform loaders fetch natively, and `pull(key)` answers verified octets for the byte lane (prefetch into the cache band, integrity-verified preview). Declared HERE and satisfied at the browser composition root from the runtime depot plane — this page opens no scheduler, holds no fetch, and mints no address; the two members are two lanes because an `<img src>` load is the platform's own pipeline while a cache warm needs octets in hand.
-- Packages: `@rasm/ts/core` (`Digest`, `Fault.Class`, `Shape.Record`); `effect` (`Context`, `Schema`, `Effect`, `Option`).
+- Packages: `@rasm/core` (`Digest`, `Fault.Class`, `Shape.Record`); `effect` (`Context`, `Schema`, `Effect`, `Option`).
 - Law: each refusal renders the subject it actually holds — a byte refusal names the address that would not decode, a host refusal names the command it denied, and a withdrawn grant names the capability by its own closed key, so no refusal writes a stand-in word into a field meant for a source address.
 - Law: the class roster is closed and each row carries its whole posture — a per-class code path beside the table is the named defect, and a new byte class (a document preview, a font specimen) is one row whose columns answer element kind, stream posture, and poster stand-in before it lands.
 - Law: loading posture is POLICY DATA from the root, never a module constant — `Media.Policy` keys the connection-grade vocabulary field-for-field (the grades are the runtime connection plane's own words, transcribed exactly as the cache spells the budget verdicts) and each grade row answers `preload`, `autoplay`, and `prefetch` depth, so a frugal or strained session narrows every media surface through one value and no component branches on a profile it never sees.
@@ -27,7 +27,7 @@ Composition facts arrive settled: `Digest.Key<"content">` is the one byte identi
 - Growth: a new media class is one `_CLASSES` row with its `Media.Source` admission; a new posture axis is one column on the policy rows — never a sibling source owner or a per-surface fetch.
 
 ```typescript signature
-import { Digest, Fault, Shape } from "@rasm/ts/core"
+import { Digest, Fault, Shape } from "@rasm/core"
 import { Context, Effect, Option, Schema } from "effect"
 
 const _classes = ["image", "video", "audio"] as const

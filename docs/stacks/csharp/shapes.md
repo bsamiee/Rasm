@@ -376,7 +376,10 @@ Every owner's admission surface is itself a closed family decision: the fault is
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LaneFault : Fault {
     private LaneFault(string detail) => Detail = detail;
-    private static readonly FaultBand FamilyBand = FaultBand.LaneGuard;
+    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
+    // `FaultBand.LaneGuard` already belongs to the estate's lane-guard family, and a second family on a live
+    // row is the deleted form the registry's disjointness proof exists to refuse.
+    private static readonly FaultBand FamilyBand = FaultBand.Lane;
 
     public string Detail { get; }
     public sealed override string Message => Detail;

@@ -14,7 +14,7 @@ include:
 
 # [DEPENDENCY_CUSTODY]
 
-Package versions live only in the central manifests — `Directory.Packages.props` (whose row also obligates the consuming `.csproj`), `pyproject.toml`, `pnpm-workspace.yaml` — hand-edited, never scripted; a per-package `pyproject.toml`, `package.json` version block, or `.csproj` version attribute is a custody breach. Admitted packages are first-class implementation material mined to full capability; a thin wrapper renaming, forwarding, or partially exposing an admitted package without domain value is a defect.
+Version authority lives only in the central manifests — `Directory.Packages.props` (whose row also obligates the consuming `.csproj`), the root `pyproject.toml` + `uv.lock`, `pnpm-workspace.yaml` catalogs — hand-edited, never scripted. Workspace member manifests (a `libs/python/*` or `apps/**` `pyproject.toml`, a per-package `package.json`) carry membership and bare-name dependency edges alone; a version bound, inline `.csproj` version attribute, or catalog-bypassing literal in a member manifest is the custody breach — the member row itself is lawful and required. Admitted packages are first-class implementation material mined to full capability; a thin wrapper renaming, forwarding, or partially exposing an admitted package without domain value is a defect.
 
 ## [01]-[MOVEMENT]
 

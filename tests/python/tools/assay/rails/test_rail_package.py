@@ -12,18 +12,15 @@ import msgspec
 import psutil
 import pytest
 
-from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, assert_roundtrip
-from tests.python.tools.assay.kit import SeamExecutor, YakShape
-from tools.assay.composition.settings import AssaySettings
-from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.govern import exclusive_lease
-from tools.assay.core.model import ArtifactKind, Band, Claim, Fault, Mode, PackageRun, RailStatus, receipt
-from tools.assay.core.routing import parse_csproj
-import tools.assay.core.transaction as transaction_mod
-from tools.assay.diagnostics import fold
-from tools.assay.rails import package as _pkg_mod
-from tools.assay.rails.package import (
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.govern import exclusive_lease
+from assay.core.model import ArtifactKind, Band, Claim, Fault, Mode, PackageRun, RailStatus, receipt
+from assay.core.routing import parse_csproj
+import assay.core.transaction as transaction_mod
+from assay.diagnostics import fold
+from assay.rails import package as _pkg_mod
+from assay.rails.package import (
     _commit_or_fail,
     _drive_steps,
     _finish,
@@ -40,6 +37,9 @@ from tools.assay.rails.package import (
     publish,
     YakMeta,
 )
+from tests.python._testkit.laws import spec
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, assert_roundtrip
+from tests.python.tools.assay.kit import SeamExecutor, YakShape
 
 
 if TYPE_CHECKING:
@@ -47,8 +47,8 @@ if TYPE_CHECKING:
 
     from expression import Result
 
+    from assay.core.model import Check, Completed, Report
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.model import Check, Completed, Report
 
 
 # --- [TYPES] ----------------------------------------------------------------------------

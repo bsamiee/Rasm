@@ -37,6 +37,8 @@
 - Served gRPC planes arrive as `ServedPlane` rows the root binds — naming a store type here is the S1-to-S2 edge the strata forbid.
 - In-process transport evidence is one native family riding `SuiteContracts.Host` — no protobuf or peer claim mirrors a same-process fact.
 - Delivery loss accounts by CONSERVATION — `DropReceipt` mints at a subscription gap and at the drain residual, never by interception.
+- Fan legs running no hop carry NO verdict — `DeliveryReceipt.Outcome` is `Option<HopVerdict>`, `None` on suppression and `Some(Refused)` on unbound.
+- Delivery dedupe seats ABOVE the fan and admits once per message — a per-channel seat re-admits one message on every leg it fans to.
 - Scope ceilings GRANT an opening balance at `GrantBroker.Open` and cross no debit — a unit the ceiling omits holds zero and refuses its first draw.
 - Spend derives `Ceiling - Remaining` and stores nowhere — `grant.spend` projects off `CommandReceipt.Charged`, and a second stored vector drifts.
 - Inherited allotments fold their `min` at `ControlInbound` alone — the root spends the budget as given, a second fold invisible at both seats.
@@ -49,8 +51,12 @@
 - Keyed limiter sets ride `PartitionedRateLimiter.Create`, not a dictionary — one heartbeat evicts idle partitions, and Polly disposes none.
 - Conditional capability corners refuse at the owner's `Fin` mint AFTER the discriminant is set — `CapabilityLaw` states unconditional corners.
 - Bim design-regime election seats ONCE at `Runtime/modules#MODULE_LEDGER` — a second election beside `SafEmit.Export` forks the national annex.
+- Schedule-port registration is ONE composition-owned keyed arrow at `Runtime/modules` — idempotent by key, first writer arming, a later replacing.
+- Consumer runtimes carry the `Func<ScheduleEntry, IO<Unit>>` column — a constructed-but-unregistered entry never escapes its acquiring fold.
 - `FaultWire.Observe` is the sole AppHost fault projection — one projection keeps every receipt on the kernel-derived bounded observation.
 - `WireAdmission` owns one warmed contract validator over its descriptor roots; binary and ProtoJSON codecs compose it after parsing.
+- Per-validation evidence is a CLOSED two-case family — refusal carries elapsed, correlation, and fault codes alone; sentinel principal slots delete.
+- Sink tenancy is never a validation-receipt column — tenancy resolves at the sink, so a mirrored column states a second answer to one question.
 - Capability discovery is generated `capability.v1` from C# to Python and bound to the SDK pin — hand DTOs and TS generation are refused.
 - Webhook delivery consumes `PolicyDescriptor.WebhookDelivery` — an endpoint-local scope check forks the identity policy vocabulary.
 - Authorization policies consume canonical claims rebuilt from `Principal.Scopes` — provider scope names and shapes terminate at issuer projection.

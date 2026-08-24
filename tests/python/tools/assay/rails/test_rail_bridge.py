@@ -1,4 +1,4 @@
-"""Law matrix for the supervisor-backed ``tools.assay.rails.bridge`` rail."""
+"""Law matrix for the supervisor-backed ``assay.rails.bridge`` rail."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -11,24 +11,10 @@ from expression import Error, Ok, Result
 import msgspec
 import pytest
 
-from tests.python._testkit.spec import assert_error_status, assert_ok
-from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.settings import AssaySettings
-from tools.assay.composition.store import ArtifactScope
-from tools.assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    BridgeLifecycle,
-    Claim,
-    Fault,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    validate_detail,
-    VerifySummary,
-)
-from tools.assay.rails.bridge import (
+from assay.composition.settings import AssaySettings
+from assay.composition.store import ArtifactScope
+from assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Fault, Mode, RailStatus, receipt, Report, validate_detail, VerifySummary
+from assay.rails.bridge import (
     _aggregate_closure,
     _completed_from_stdout,
     _decode_envelope,
@@ -56,12 +42,14 @@ from tools.assay.rails.bridge import (
     status,
     verify,
 )
+from tests.python._testkit.spec import assert_error_status, assert_ok
+from tests.python.tools.assay.kit import SeamExecutor
 
 
 if TYPE_CHECKING:
+    from assay.core.exec import Executor
+    from assay.core.model import Check, Completed
     from tests.python.tools.assay.kit import AssayHarness
-    from tools.assay.core.exec import Executor
-    from tools.assay.core.model import Check, Completed
 
 
 # --- [TYPES] ----------------------------------------------------------------------------

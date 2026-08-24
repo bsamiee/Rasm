@@ -48,7 +48,7 @@ Frozen law keys the KTX category tables against the generated `Wire.Texture` enu
 
 ```typescript signature
 import { Array, Effect, Match, Option, type ParseResult, Predicate, Record, Schema } from "effect"
-import { Digest, Fault, Wire } from "@rasm/ts/core"
+import { Digest, Fault, Wire } from "@rasm/core"
 import { enumToJson } from "@bufbuild/protobuf"
 import {
   AlphaMode, AlphaModeSchema, Container, ContainerSchema, KtxPayload, KtxPayloadSchema, LayerLaw, LayerLawSchema,
@@ -1488,7 +1488,7 @@ const _proof = Effect.gen(function* () {
 ## [04]-[ENGINE_PLANES]
 
 - Owner: the CATEGORY rows and the service over them — each category binds one `Derive.Plane` (`_container`, whose open builds the gated graph and whose emit clones the document per pipeline row, folds its steps, re-proves the emitted vocabulary, re-encodes, and reads its cluster census; `_ktx`, whose open classifies and stages the fetched plane to a scoped temp file and whose emit spawns one subcommand per row, conforms and re-gates its own product, and lands it; `Derive.raster`, the derivative plane's own row seated here unchanged; `_points`, whose open proves the graph once and whose emit clones per row and folds the branch-owned point kernels), one `_ENGINES` fold arm, and one `_GATES` admission arm; `Asset` is the service whose construction proves every category's seams once and whose `pipe`/`gate` pair is the whole entry surface.
-- Packages: `object/file.md` (`Derive.fanout`, `Derive.Plane`, `Derive.Row`, `Derive.Receipt` — the one spine); `object/store.md` (`ObjectStore` — put, get, reference, grant ride the spine); `@effect/platform` (`FileSystem.FileSystem`, `Path.Path`, `Command`); `@rasm/ts/core` (`Convention` — the `assetTransformed`/`assetTranscodeDuration` instrument rows).
+- Packages: `object/file.md` (`Derive.fanout`, `Derive.Plane`, `Derive.Row`, `Derive.Receipt` — the one spine); `object/store.md` (`ObjectStore` — put, get, reference, grant ride the spine); `@effect/platform` (`FileSystem.FileSystem`, `Path.Path`, `Command`); `@rasm/core` (`Convention` — the `assetTransformed`/`assetTranscodeDuration` instrument rows).
 - Entry: `Asset.pipe(sourceKey, rows)` after a container or plane lands; the engine table folds every kind present and each engine runs the same spine, so re-running is a proven noop end to end — every re-put lands 412 and every grant re-mints against the same keys.
 - Receipt: the spine's `Derive.Receipt` per row — container evidence carries the landed byte count beside the cluster census its row's policy asked for, `ktx` evidence carries the byte count beside the classification a container product proves and an extracted image cannot, point evidence carries the re-tallied census beside the per-primitive sphere bound its streamed order is only cullable through, and raster evidence is the derivative plane's own codec provenance and source measures — and both ride the derivative reference (`derivative:<sourceKey>`) so source release cascades. Every `meshopt` product's evidence also carries its encoder lineage as `meshoptimizer@<pin>` — the installed distribution version read once at boot from the package's own manifest, because the wasm surface exposes `ready`/`supported` and no version readout (the `version?` parameters on `encodeVertexBufferLevel`/`encodeGltfBuffer` select the ENCODING format version, never report the library's) — so the pin rides the receipt beside the byte count, and a catalog bump re-keying meshopt-encoded derivatives is a readable divergence accepted by design, never a silent one.
 - Growth: an asset category is one `_ENGINES` row over its own `Derive.Plane`, one `_GATES` arm, one `Asset.Row` kind, and one `Asset.Declared` member; the guard pairs close engines, gates, rows, and declarations against one another in BOTH directions, so any missing quarter fails at the namespace declaration while `pipe` and `gate` never change.
@@ -1509,7 +1509,7 @@ const _proof = Effect.gen(function* () {
 ```typescript signature
 import { Cause, Exit, Metric } from "effect"
 import { type CommandExecutor, FileSystem, Path } from "@effect/platform"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 import { ObjectStore } from "./store.ts"
 
 const _PIPE = { flight: 2 } as const // half the raster fan: a container fold holds a whole property graph per row

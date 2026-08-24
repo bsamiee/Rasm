@@ -18,10 +18,10 @@ Security's evidence rail in one owner: `SecurityFact` closes the folder's loud a
 - Law: the guard pair closes the plane in both directions — `_Points` proves every union tag has a registry row with a branded key, `_Keys` proves every row has a case — so a fact without a point or a point without a fact fails at this declaration.
 - Law: a veto row runs pre-commit inside the owning arm's rail and joins its `E` channel; the security plane's current rows are all observe, and the modality axis exists so an admission-gating point lands as one row flip with its arm's typed fault, never a second registry.
 - Growth: a new loud arm is one case, one `_points` row, and one publish line at its arm; a new fact field is a case field the journal inherits.
-- Packages: `effect` (`Schema`, `Option`); `@rasm/ts/core` (`Fault.Class`, `Identity.Tenant`, `Tap`).
+- Packages: `effect` (`Schema`, `Option`); `@rasm/core` (`Fault.Class`, `Identity.Tenant`, `Tap`).
 
 ```typescript signature
-import { Board, Convention, Fault, Identity, Reliability, Shape, Tap } from "@rasm/ts/core"
+import { Board, Convention, Fault, Identity, Reliability, Shape, Tap } from "@rasm/core"
 import {
   Array, Context, DateTime, Duration, Effect, Fiber, Layer, Mailbox, Match, Number, Option, Predicate, PubSub, Queue, Record, Schema, type Scope, Stream,
 } from "effect"
@@ -159,7 +159,7 @@ class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
 - Law: the registry is app-scoped — `Audit.live(identity)` stamps `identity.app` on every record and each app root binds its own `Witness`, so two apps composing this library in one process hold disjoint rails and disjoint subscriber sets with no shared mutable registry.
 - Boundary: `data:journal/fact#RAIL` satisfies this port by projecting every record onto its one fact entrypoint, so the audit retention class and per-subject crypto-shred wiring ride the rail every other fact rides; sealing subject-bearing fields under `SealedEnvelope`/`WrappedKey` is the data plane's, and this page never composes a store.
 - Packages: `effect` (`Context`, `PubSub`, `Queue`, `Mailbox`, `Fiber`, `Stream`, `DateTime`).
-- Packages: `@rasm/ts/core` (`Fault.Budget`, `Fault.Class`, `Identity.App`, `Tap`).
+- Packages: `@rasm/core` (`Fault.Budget`, `Fault.Class`, `Identity.App`, `Tap`).
 
 ```typescript signature
 class AuditRecord extends Schema.Class<AuditRecord>("AuditRecord")({

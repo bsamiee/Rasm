@@ -21,12 +21,12 @@ Composition facts arrive settled: appearance keys resolve through `system/token#
 - Law: the migration lattice is executable — a stored envelope carries the generation it was written under beside the document, decode walks each node from its stored version through the row's `ups` chain in order, and a stored version NEWER than the row refuses as `migration-gap` rather than guessing downward; the chain composes per kind, so one roster edit migrates every persisted draft and no hand-written migration exists beside the table.
 - Law: the `steps` policy gates authoring, never rendering — a `decode` row renders wherever a document carries it while the command and input-rule derivations skip it, so read-only embeds (a chart inside collaborative prose) ship as one column value and the sequencer never sees an insert step for them.
 - Law: the seed rows are data like every later row — paragraph, heading, blockquote, code block, rule, the list family through `addListNodes`, hard break, and the mark rows emphasis, strong, link, code, and `thread` — the annotation mark whose `id` attribute is the durable text anchor `view/presence`'s thread plane reads, riding PM's own position mapping so a comment anchor survives every edit with no bespoke carry rule.
-- Packages: `prosemirror-model` (`Schema`, `NodeSpec`/`MarkSpec`, `DOMParser`/`DOMSerializer`, `Node.fromJSON`/`toJSON`, `Node.check`); `prosemirror-schema-list` (`addListNodes` — list structure and the `itemContent` shape its verbs assume); `effect` (`Schema`, `Either`, `Option`, `Array`, `Record`); `@rasm/ts/core` (`Shape.vocabulary`, `Shape.Json`, `Fault.Class`).
+- Packages: `prosemirror-model` (`Schema`, `NodeSpec`/`MarkSpec`, `DOMParser`/`DOMSerializer`, `Node.fromJSON`/`toJSON`, `Node.check`); `prosemirror-schema-list` (`addListNodes` — list structure and the `itemContent` shape its verbs assume); `effect` (`Schema`, `Either`, `Option`, `Array`, `Record`); `@rasm/core` (`Shape.vocabulary`, `Shape.Json`, `Fault.Class`).
 - Boundary: the quarantine atom renders as an inert chip through its own `toDOM` and counts onto the `[06]` metric — self-healing but never silent; which rows a deployment registers is the composition root's, and this page owns the contract, the gate, and the prose-core seed alone.
 - Growth: a new block is one row (its four derivations arrive compiled); a new attribute is one field on the row's `attrs` schema with one `ups` arm; a new embeddable surface is one exported row value at its owning page — never a schema edit here, a codec fork, or a parser rule written by hand.
 
 ```typescript signature
-import { Fault, Shape } from "@rasm/ts/core"
+import { Fault, Shape } from "@rasm/core"
 import { Array, Either, Option, Record, Schema } from "effect"
 import { DOMParser, DOMSerializer, type MarkSpec, Node as PmNode, type NodeSpec, Schema as PmSchema } from "prosemirror-model"
 import { addListNodes } from "prosemirror-schema-list"
@@ -327,12 +327,12 @@ declare const _commands: (compiled: Content.Compiled) => Record.ReadonlyRecord<s
 - Law: carets are presence facts, never document steps — `Content.caret(state)` projects the selection's `{ anchor, head }` integer pair for the presence plane's caret axis (`core/state/presence`'s landed `_AXES` row), remote carets render as a plugin-field `DecorationSet` mapped through `tr.mapping`, and a cursor smuggled in as a document step is the rejected shape the collab catalogue names.
 - Law: the anchor-space row is this page's export — `Content.anchors(surface, view, transactions)` answers the structural space value the presence registry admits at the composition root: `resolve` reads `coordsAtPos` off the live view, `carry` maps a position pair through each transaction's `mapping` (raw positions go stale on every edit, so the arm is load-bearing, never optional), and `epoch` is the dispatch fold's own transaction stream; a stale-position anchor rendered without this arm is the drift the column exists to close.
 - Law: the draft persists under the `migrated` seal posture — one `Atom.kvs` row holds the `Content.Envelope` (generation beside document JSON) on a STABLE key, decode walks the migration lattice, and a schema bump upcasts the precious draft rather than vanishing it; the persisted-grain law is `system/atom#STORE_ROOT`'s, and this page owns only the envelope shape and the walk.
-- Packages: `prosemirror-collab` (`collab`, `sendableSteps`, `receiveTransaction`, `getVersion` — never the undeclared `rebaseSteps`); `prosemirror-transform` (`Step.toJSON`/`Step.fromJSON` — the wire round trip); `effect` (`Context`, `Effect`, `Stream`, `Schema`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `prosemirror-collab` (`collab`, `sendableSteps`, `receiveTransaction`, `getVersion` — never the undeclared `rebaseSteps`); `prosemirror-transform` (`Step.toJSON`/`Step.fromJSON` — the wire round trip); `effect` (`Context`, `Effect`, `Stream`, `Schema`); `@rasm/core` (`Fault.Class`).
 - Boundary: the authority's storage substrate (the step log, snapshots, its recovery) is server material behind the port; history composes with no coordination — remote steps rebase its branches and undo never reverts another client's work; presence transport, rosters, and leases are `view/presence`'s plane.
 - Growth: a new authority engine is one Layer satisfying the Tag; a new frame policy (batch width, pull cadence) is a field on the port's own row — never a second loop, a peer-to-peer arm, or a CRDT bridge beside the ordered lane.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Context, type Effect, Schema, type Stream } from "effect"
 import { collab, getVersion, receiveTransaction, sendableSteps } from "prosemirror-collab"
 import { Step } from "prosemirror-transform"
@@ -416,12 +416,12 @@ declare const _collab: (
 - Owner: the crossing members riding `Content` — `Content.field(compiled)` is the form-field commit codec: the compiled document codec IS the `Schema` the form plane's `Form.standard` validates and the wire decodes, so a document field row binds `value`/`onChange` at the controlled boundary with the committed document crossing as the codec's kernel value and the editor's interior state never mirroring into the draft atom (the same two-owner grammar the token field settled — live state widget-interior, committed value one codec); `Content.rendered(compiled, doc, document)` projects a document through the derived `DOMSerializer` into a `DocumentFragment` against an EXPLICIT document, so server rendering and export serialization share one projection; `Content.committed(write, registry, editor)` is the observed commit trip.
 - Law: the commit trip is woven at the effect — the veto-free observe point `rasm.ui.content.commit` publishes each settled outcome tagged by the bounded stage vocabulary (`committed`/`quarantined`/`migrated`), `Effect.withSpan("rasm.ui.content.commit")` carries the editor id as span attribute and log annotation, and quarantine counts feed `_QUARANTINED` tagged by the foreign kind — roster drift across deployments reads on a board before a user reports a grey chip; one stage value drives the hook fact and the metric tag, so the two cannot disagree.
 - Law: export is the landed matrix's row, not a member here — the `Document` source case, its admitted formats, and the serializer cell land at `view/export`'s matrix (`json` from the codec's encoded side, `text` from `textContent`, `svg`/`png` per embedded kind through each row's own owner), and this page supplies only the projections those cells compose.
-- Packages: `@rasm/ts/core` (`Convention` — the metric mount; the `contentQuarantine` row's convention counterpart lands at `core/observe/convention` per the instrument-admission coupling); `effect` (`Effect`, `Metric`, `Option`); `react-dom` (nothing — the form action seam is `view/form`'s).
+- Packages: `@rasm/core` (`Convention` — the metric mount; the `contentQuarantine` row's convention counterpart lands at `core/observe/convention` per the instrument-admission coupling); `effect` (`Effect`, `Metric`, `Option`); `react-dom` (nothing — the form action seam is `view/form`'s).
 - Boundary: which flows commit, and where committed documents persist, are app material; the quarantine chip's tone keys `Theme.Tone` through the status plane's vocabulary; the thread mark's anchor semantics are `view/presence`'s to read.
 - Growth: a new commit outcome is one stage value on the bounded vocabulary with its arm in the trip; a new projection is one member reading the compiled artifacts — never a parallel serializer or a second commit path.
 
 ```typescript signature
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 import { Effect, Metric } from "effect"
 import { Hook } from "../system/hook.ts"
 

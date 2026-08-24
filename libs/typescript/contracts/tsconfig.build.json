@@ -1,19 +1,13 @@
 {
-    "extends": "../../../tsconfig.json",
+    "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
-        "allowImportingTsExtensions": false,
-        "composite": true,
-        "declaration": true,
         "declarationMap": false,
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
-        "noEmit": false,
-        "outDir": "dist",
         "rootDir": "gen",
         "sourceMap": false,
         "target": "ES2022",
         "tsBuildInfoFile": "../../../.cache/typescript/contracts.tsbuildinfo",
-        "types": [],
         "lib": ["ES2022"]
     },
     "include": ["gen/**/*.ts"]

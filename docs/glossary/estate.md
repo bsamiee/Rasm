@@ -91,6 +91,12 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `transaction lane`: Separates a serialized writing path from an unwrapped analytical read path over one engine.
 - `cache lane`: Keys one cache topology a resolver resolves by lane key, so each lane reads its own second-level store.
 - `signal lane`: Carries one telemetry signal's exporter and pipeline rows through egress.
+- `governor`: Refuses bare use; a qualified `<qualifier> governor` bounds one declared budget or route, seated at the owner that declares its ceiling.
+- `lane governor`: Brackets one work lane's admitted traffic under that lane's own resilience row — admission, bulkhead, breaker, allotment.
+- `catalog`: Refuses bare use.
+- `.api catalog`: Documents one external distribution's or host SDK assembly's verified members at the tier admitting that package.
+- `pnpm catalog`: Pins one dependency version behind a workspace alias every manifest resolves through, so a bump lands at one row.
+- `assay tool catalog`: Rows every analysis, build, probe, and provisioning surface the tool spawns, each row carrying its command and parser.
 - `descriptor`: Refuses bare use.
 - `consumption descriptor`: Rows an open consumption axis — selection, admission, tenancy, lifetime, forfeit — filled by its supplying branch alone.
 - `capability descriptor`: Rows one plugin or agent command's capability — representation, channel demand, ops, request policy — at the agent axis.
@@ -106,7 +112,7 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `landing grain`: States a fact at task resolution, naming the exact file or sub-domain a card's work lands in.
 - `plane landing`: Settles an infrastructure plane's row onto its realized backend, so readers provision off the armed set.
 - `slot`: Refuses bare use.
-- `identity slot`: Holds the key an evidence record projects for grouping, and that key is the pre-run source key a hit test compares.
+- `identity slot`: Holds the key an evidence record projects for grouping.
 - `evidence run`: Names the solver-run audit — who/tool/version/when/cost — the `Rasm.Element` `EvidenceRun` owns and `PropertyEvidence.Run` links.
     - [NOT]: Material sourcing grade, capture-fit receipt, ONNX mirror, and geometry's `evidence_run` weave; the solver-run audit owns the term.
 - `carrier slot`: Names one position inside a rail or carrier where exactly one value lives — failure, variance, effect, converter.
@@ -120,4 +126,4 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `swept envelope`: Encloses the volume a moving body occupies across its whole motion, and a clearance test runs against that solid.
 - `bounding envelope`: Brackets a geometry inside the axis-aligned extent an index compares first, so an exact predicate runs on candidates alone.
 - `sealed envelope`: Carries one encryption's IV and ciphertext as opaque bytes behind a wrapped key, so a payload crosses and rests unreadable.
-- `typed envelope`: Carries an operational rail's whole outcome — value beside failure — so no sentinel rides inside a data row.
+- `typed envelope`: Pairs an operational rail's success with its failure in one returned value a consumer unwraps.

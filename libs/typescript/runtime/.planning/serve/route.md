@@ -27,7 +27,7 @@ This serving assembly: routes are Layers under `HttpLayerRouter` — the app-ass
 - Law: forwarded-header trust is a policy ROW, never a default — `fronted` selects `HttpMiddleware.xForwardedHeaders`, which rewrites `host` from `x-forwarded-host` and the caller address from the first `x-forwarded-for` hop, so a proxied deployment dispatches and audits on the PUBLIC coordinates while an unfronted origin refuses the rewrite outright. Both header names stay caller-writable: a default-on row hands any caller its own virtual host, and a default-off row collapses every multiplex predicate onto the ingress hostname behind a load balancer.
 - Law: CORS is delegated, never re-implemented — the assembly composes `HttpLayerRouter.cors()` (or `HttpApiBuilder.middlewareCors(options)` on the api mount) with the options row as its one policy value; no `Seam` member renames it, because a forwarding member is the one-hop wrapper the platform surface already owns.
 - Growth: a new cross-cutting response concern is one line in `Seam.guard`, inherited by every route Layer at once; a new CSP directive is one `_directives` row; a new priced axis is one `_AXES` entry and the `_QUOTA` row spreading it.
-- Packages: `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`, `HttpApiMiddleware`, `HttpMiddleware`, `HttpLayerRouter`, `Multipart`); `@effect/experimental` (`RateLimiter` — the store Tag the priced rows resolve); `@opentelemetry/core` (`getRPCMetadata`, `RPCType`); `@opentelemetry/api` (`context`); `effect` (`DateTime`, `Duration`, `Effect`, `Option`, `Array`, `identity`, `pipe`); `@rasm/ts/security` (`Cookie`, `CookieSpec`, `TenantScope`); `./api.ts` (`Current`, `Gate`, `GateFault`); `../otel/emit.ts` (`Export`).
+- Packages: `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`, `HttpApiMiddleware`, `HttpMiddleware`, `HttpLayerRouter`, `Multipart`); `@effect/experimental` (`RateLimiter` — the store Tag the priced rows resolve); `@opentelemetry/core` (`getRPCMetadata`, `RPCType`); `@opentelemetry/api` (`context`); `effect` (`DateTime`, `Duration`, `Effect`, `Option`, `Array`, `identity`, `pipe`); `@rasm/security` (`Cookie`, `CookieSpec`, `TenantScope`); `./api.ts` (`Current`, `Gate`, `GateFault`); `../otel/emit.ts` (`Export`).
 
 ```typescript signature
 import { Buffer } from "node:buffer"
@@ -44,9 +44,9 @@ import {
   Array, Context, Data, DateTime, Duration, Effect, Encoding, Layer, Match, Number, Option, Predicate, Record, Redacted, Schema,
   identity, pipe,
 } from "effect"
-import { Carrier, Event, Format, type Identity } from "@rasm/ts/core"
-import { Claim, Cookie, CookieSpec, Departed, Jwt, type MacKey, OAuth, TenantScope, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
-import { Dataref, Journal, Rail } from "@rasm/ts/data"
+import { Carrier, Event, Format, type Identity } from "@rasm/core"
+import { Claim, Cookie, CookieSpec, Departed, Jwt, type MacKey, OAuth, TenantScope, Token, type Verified, Verify, WebAuthn } from "@rasm/security"
+import { Dataref, Journal, Rail } from "@rasm/data"
 import { Avro } from "../net/channel.ts"
 import { WebhookOrigin } from "../net/client.ts"
 import { InboundHeaders } from "../proc/exec.ts"
@@ -375,7 +375,7 @@ const Seam = {
 - Law: this route opts into the Webhook specification's abuse-protection handshake through its application-owned DNS-origin roster, and the granted RATE derives from `[02]`'s quota rows rather than standing as a field beside them — a promise about pacing is worth exactly what the edge enforces, so the same rows that refuse a burst caller state the ceiling a sender paces to, and an unpriced pattern grants `*` because it truthfully spends nothing. Origin is required and DNS-admitted on validation and delivery; a grant always carries allowed origin and rate together. Delivery supports both mandated bearer-token methods, refuses simultaneous or repeated token carriages, and stamps `Cache-Control: private` on a successful query-token response. Every delivery also carries a non-empty payload and `Content-Type`.
 - Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; `InboundHeaders` is the selected `proc/exec#RUNTIME_ROWS` capability; the rail spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
-- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/data`, `@rasm/ts/security`, and `../net/channel.ts` (`Avro` — the lane-owned Avro codec).
+- Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/core` (`Carrier`, `Event`, `Format`), `@rasm/data`, `@rasm/security`, and `../net/channel.ts` (`Avro` — the lane-owned Avro codec).
 
 ```typescript signature
 // The platform body collector reads this fiber-local ceiling while materializing `arrayBuffer`, so the bound applies
@@ -816,7 +816,7 @@ const Inbound = {
 - Law: the oauth callback carries TWO channels onto one `_landOAuth` fold — the GET redirect reads the response off the query and the POST arm reads a `response_mode=form_post` body once into the URL search (Apple with a requested scope), so a form-post provider yields the same verified subject and cookie landing as a query provider and the exchange never re-reads a spent body; both stay CSRF-exempt because the single-use `state` round-trip is that flow's own anti-forgery evidence.
 - Law: the passkey finish bodies admit through one Schema pair mirroring the verified `@simplewebauthn/server` wire shapes — `_Enroll` decodes the POSTed registration response (`id`, `rawId`, the attestation `response` block, optional attachment, extension outputs, `type: "public-key"`) into the `RegistrationResponseJSON` parameter `WebAuthn.enrollFinish` takes, `_Assert` the assertion twin for `assertFinish` — raw JSON crosses the decode seam exactly once and the browser collection half stays the ui wave's.
 - Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair under `_AUTH` composing its security owner; a new response-mode provider is one more channel onto `_landOAuth`; a new cookie role reframes through the same fold with zero route edits.
-- Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest.schemaBodyUrlParams`/`toURL`, `HttpServerResponse`, `Cookies`); `@rasm/ts/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `CookieSpec`, `Departed` — the provider-kind decode anchor); `effect` (`Context`, `Schema`, `Option`, `Redacted`).
+- Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest.schemaBodyUrlParams`/`toURL`, `HttpServerResponse`, `Cookies`); `@rasm/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `CookieSpec`, `Departed` — the provider-kind decode anchor); `effect` (`Context`, `Schema`, `Option`, `Redacted`).
 
 ```typescript signature
 const _csrfed: Effect.Effect<void, Problem, Cookie | HttpServerRequest.HttpServerRequest> = Effect.gen(function* () {

@@ -154,9 +154,9 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 - `@rasm/contracts` — Generated backend-contract descriptors and the CloudEvents Avro publisher asset.
 
 [BRANCH_PEERS]:
-- `@rasm/ts/core` — Fault, budget, carrier, event, invocation, evidence, and content-identity rails consumed across runtime capabilities.
-- `@rasm/ts/data` — Data-owned backend generation and `dataref` residence ports consumed by readiness, event intake, and Kafka admission.
-- `@rasm/ts/security` — Authentication, credential, signature, tenancy, and secret-custody capabilities consumed at runtime boundaries.
+- `@rasm/core` — Fault, budget, carrier, event, invocation, evidence, and content-identity rails consumed across runtime capabilities.
+- `@rasm/data` — Data-owned backend generation and `dataref` residence ports consumed by readiness, event intake, and Kafka admission.
+- `@rasm/security` — Authentication, credential, signature, tenancy, and secret-custody capabilities consumed at runtime boundaries.
 
 [TYPING_RAILS]:
 - `effect`

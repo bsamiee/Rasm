@@ -218,7 +218,7 @@ const _block: Canvas.Block = {
 
 [LAYOUT_SOLVE]:
 - Owner: the solve lane — `Canvas.solver` is the scoped elk client (acquired through `elkjs/lib/elk-api` with the app-supplied `workerFactory`, released by `terminateWorker`), `Canvas.solve(cell, intent)` runs one layout as a debounced Effect whose REQUEST captures the cell's revision, and `Canvas.admit` is the proposal fold: a `Canvas.Proposal` applies only when its revision equals the cell's current revision — equality lands the solved positions as a `nodes` change batch beside an `edges` replace batch carrying the routed bends onto each edge's `data`, inequality drops the proposal as SUPERSEDED work, counted on the solve fact and never applied, never a fault. `_SOLVERS` is the solver row table: the elk algorithms ride `elk.algorithm` option rows and the d3 `tree`/`force` rows answer the same `Canvas.Proposal` shape, so the canvas stays engine-blind and a new solver is one row.
-- Packages: `elkjs` (`elkjs/lib/elk-api` — `ELK`, `ElkNode`, `ElkExtendedEdge`, `ElkEdgeSection`, `LayoutOptions`; the constructor THROWS without a worker, which makes the purity path structural — the in-process entry mutates the caller's graph and never loads); `d3` (`tree`, `stratify`, `forceSimulation` — the sibling solver rows); `effect` (`Effect`, `Layer`, `Duration`, `Option`); `@rasm/ts/core` (`Fault`, `Convention`).
+- Packages: `elkjs` (`elkjs/lib/elk-api` — `ELK`, `ElkNode`, `ElkExtendedEdge`, `ElkEdgeSection`, `LayoutOptions`; the constructor THROWS without a worker, which makes the purity path structural — the in-process entry mutates the caller's graph and never loads); `d3` (`tree`, `stratify`, `forceSimulation` — the sibling solver rows); `effect` (`Effect`, `Layer`, `Duration`, `Option`); `@rasm/core` (`Fault`, `Convention`).
 - Entry: `Canvas.solve` per layout intent; a solve mid-drag never fires — the debounce window is a `Canvas.Solving` policy row the composing panel supplies, never a module literal.
 - Law: the request is built FROM the cell at capture — each node's `measured` box (the engine's post-mount write, never the optional style `width`/`height`) and the id graph become the `ElkNode` tree (compound `children` for `group` kinds, `ports` where a kind fixes anchors), the captured revision rides the request, and a node the engine has not measured yet refuses the whole request as `solve-refused` — a zero-size stand-in solves a layout no real node fits; the worker structured-clones the request, so the cell's graph is never the solver's operand.
 - Law: solved geometry is DATA — positions land as a `position`-variant change batch through the one writer (which bumps revision, so a solve's own landing supersedes any sibling solve in flight — exactly the serialization the identity-keyed dome commit precedent buys), and `ElkEdgeSection.bendPoints` land in the SAME admission as an `edges` replace batch onto each routed edge's `data`, where the edge arm paths through `BaseEdge`; a proposal whose bends never landed routes arrows nowhere, the solver never learns React, and the canvas never learns the solver.
@@ -232,7 +232,7 @@ const _block: Canvas.Block = {
 import ELK from "elkjs/lib/elk-api"
 import type { ElkNode, LayoutOptions } from "elkjs/lib/elk-api"
 import type { NodeChange } from "@xyflow/react"
-import { Convention, Fault } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/core"
 import { Array, Context, Duration, Effect, Either, Layer, Metric, Option, Schema } from "effect"
 import { Hook } from "../system/hook.ts"
 

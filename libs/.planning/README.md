@@ -86,7 +86,7 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Every literal traces to an axis on the page or an earlier page, or becomes a RESEARCH item.
 - Every fact has one owner: a line trap in its fence comment, a cluster decision on the card, a page boundary on the lead — never two at once.
 - External members land only after the folder's `.api/` catalogue verifies the spelling; an unverified member is a RESEARCH item, never prose.
-- Forge service, server-extension, and host tool-surface facts verify through `tools.assay provision` evidence.
+- Forge service, server-extension, and host tool-surface facts verify through `assay provision` evidence.
 - Every unverified availability claim is a RESEARCH item carrying its verification route.
 
 ## [04]-[NOTATION]

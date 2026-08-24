@@ -36,7 +36,7 @@
 ```typescript signature
 import { Config, Data, Duration, Effect, Match, Redacted, Schema, Struct } from "effect"
 import { InvalidObjectState, S3Client, S3ServiceException } from "@aws-sdk/client-s3"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 
 // Three columns, each a verdict a boot reads: `conditional` is the admission gate, `posture` names who operates the
 // engine, and `archive` names the deepest storage tier it honours so the lifecycle generator filters its transition
@@ -225,7 +225,7 @@ import {
   waitUntilObjectExists,
 } from "@aws-sdk/client-s3"
 import { Upload } from "@aws-sdk/lib-storage"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 
 class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
   // encodable option fields: the batch engine's durable band persists this row through its own schema, so OptionFromSelf has no spelling here
@@ -448,7 +448,7 @@ const _settled = (client: S3Client, bucket: string, key: Digest.Key<"content">, 
 ## [04]-[REFERENCE_GC]
 
 - Owner: the `object_ref` ensure row, the reference verbs whose every ledger write re-derives the object's retention tag, the sweep, the transitive `derivative:` reach, the two-layer native GC, and the multipart reap — orphan detection walks the bucket through the shipped paginator, joins each entry against the ledger, and every delete is a per-key `If-Match`-guarded CAS against the ETag the listing just carried; `DeleteObjectsCommand` is the refused spelling here because the 1000-key batch cannot carry a per-key conditional, and the CAS law outranks the round-trip saving; `lifecycle` pushes the retention-class windows as native bucket rules.
-- Packages: `@aws-sdk/client-s3` (`DeleteObjectCommand`, `paginateListObjectsV2`, `ListMultipartUploadsCommand`, `AbortMultipartUploadCommand`, `PutBucketLifecycleConfigurationCommand`, `PutObjectTaggingCommand`, `RestoreObjectCommand`, `TransitionStorageClass`, `waitUntilObjectNotExists`); `@effect/sql` (`SqlSchema`, `sql.insert`, `sql.in`, `sql.withTransaction`); `journal/retain.md` (`Retain.Class`, `Retain.Policy`, `Retain.depths` — the one retention vocabulary with its cost ladder, and the shredded-subject law arriving as data); `@rasm/ts/core` (`Shape.Bound` — the walk budget the cascade's convergence is stated in); `effect` (`Order`, `Duration.Order` — the dominance fold; `Array`, `HashMap`, `Record`, `Option`, `pipe` — the rule fold and the reach join).
+- Packages: `@aws-sdk/client-s3` (`DeleteObjectCommand`, `paginateListObjectsV2`, `ListMultipartUploadsCommand`, `AbortMultipartUploadCommand`, `PutBucketLifecycleConfigurationCommand`, `PutObjectTaggingCommand`, `RestoreObjectCommand`, `TransitionStorageClass`, `waitUntilObjectNotExists`); `@effect/sql` (`SqlSchema`, `sql.insert`, `sql.in`, `sql.withTransaction`); `journal/retain.md` (`Retain.Class`, `Retain.Policy`, `Retain.depths` — the one retention vocabulary with its cost ladder, and the shredded-subject law arriving as data); `@rasm/core` (`Shape.Bound` — the walk budget the cascade's convergence is stated in); `effect` (`Order`, `Duration.Order` — the dominance fold; `Array`, `HashMap`, `Record`, `Option`, `pipe` — the rule fold and the reach join).
 - Entry: every producer that lands an object records `{ key, owner, retention }` through `store.refer` inside its own unit of work; `store.release(key, owner)` drops a reference; both verbs re-derive and re-stamp the object's retention tag from the surviving reference set on the post-commit drain, so no caller ever stamps a tag and the re-derivation never rides the caller's pin; the sweep and the reap run on the maintenance cadence (`read/fold.md`'s cron row where granted, the host schedule otherwise); `lifecycle` applies once at provision and on any `Retain.Policy` change.
 - Receipt: the sweep's mark — `{ probed, swept, cascaded, reclaimed, retained }` — rides the span and the fact stream, `swept` the key census, `cascaded` the reference rows the transitive reach released beneath those keys, and `reclaimed` the byte total the listing entries' own `Size` already carried at the fold, so the byte-coded reclaim instrument reads bytes and evidence reconciles against billing in the unit billing is denominated in; the reap's mark — `{ probed, reaped }` — is the same evidence over abandoned multipart uploads.
 - Growth: a new owner kind is one `_OWNERS` row carrying its grammar, its role, and its coining page; a new retention posture is a `Retain.Class` row arriving from the one vocabulary and a new cost depth one `Retain.depths` entry with its `_STORAGE` answer — the lifecycle rule set, the ladder filter, and the dominance fold regenerate from those tables, zero edits here.
@@ -482,7 +482,7 @@ import {
 } from "@aws-sdk/client-s3"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { Array, Chunk, HashMap, Option, Order, pipe, Record, Schema, Struct } from "effect"
-import { Shape } from "@rasm/ts/core"
+import { Shape } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenancy, Tenant } from "../lane/tenant.ts"
 import { Journal } from "../journal/append.ts"
@@ -948,7 +948,7 @@ const _restore = (client: S3Client, bucket: string) =>
 ## [05]-[INSTRUMENT_ROWS]
 
 - Owner: the object plane's Convention projections — `_measured`, the one receipt fold every write leg taps, and `_reclaimed`, the sweep-mark projection — instruments the runtime meter bridge exports like every other series while the receipts stay the billing and evidence truth.
-- Packages: `effect` (`Metric`); `@rasm/ts/core` (`Convention` — the instrument and tag rows).
+- Packages: `effect` (`Metric`); `@rasm/core` (`Convention` — the instrument and tag rows).
 - Entry: the service construction composes `_measured` as an `Effect.tap` on `put`, `putKeyed`, and `rekey`, and the sweep tail taps `_reclaimed` — zero call-site wiring, and no consumer can write an object the instruments miss.
 - Growth: a receipt axis is one `Convention.instrument` row and one tap on the owning leg.
 - Law: dedup rate DERIVES on the dashboard — the write counter tags each receipt's outcome (`written` versus `dedup`) from the bounded two-value vocabulary, so the rate is a ratio query over one series and no page computes it; bytes count only on `written: true` because a 412 noop moved no bytes, and reclaim counts the sweep mark's `reclaimed` BYTE total, never its key census — the convention row codes `By`, so a key count exported under that code reports objects in a series a reader spends as bytes.
@@ -956,7 +956,7 @@ const _restore = (client: S3Client, bucket: string) =>
 
 ```typescript signature
 import { Metric } from "effect"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 
 const _reclaimed = Convention.mount(Convention.metric.objectReclaimed)
 const _weight = Convention.mount(Convention.metric.objectSize)
@@ -1128,7 +1128,7 @@ export { ObjectFault, ObjectStore }
 
 ```typescript signature
 import { Context, Effect, Layer, Option, type ParseResult, Schema } from "effect"
-import { Digest, Fault } from "@rasm/ts/core"
+import { Digest, Fault } from "@rasm/core"
 
 const _datarefFamily = Fault.Class.family(["address", "integrity"] as const, {
   address: Fault.Class.row({
@@ -1254,7 +1254,7 @@ export { Dataref, DatarefFault }
 ## [08]-[CUSTODY_CONTRACT]
 
 - Owner: the object plane's half of the branch backend generation — `_descriptor`, the declared custody document whose stable bytes derive from the settled retention and conformance tables alone; `ObjectStore.custody`, the generated `Artifact` and `Capability` messages the branch composition folds into `Backend.compose`; and `ObjectStore.observed`, the realized-state read answering the membership a `Backend.Reading` unions.
-- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`, `GetBucketEncryptionCommand`); `@rasm\/contracts/rasm/contracts/parity/v1/parity_pb` (`ArtifactRole.OBJECT_CUSTODY`, `Provider.OBJECT_STORE`, `ArtifactSchema`, `CapabilitySchema`, `FailureRank`, `RestartClass`); `@rasm/ts/core` (`Format.proto`); `lane/capability.md` (`Backend.Artifact`, `Backend.Capability` — contract authority stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths`).
+- Packages: `@aws-sdk/client-s3` (`GetBucketVersioningCommand`, `GetBucketLifecycleConfigurationCommand`, `GetBucketEncryptionCommand`); `@rasm\/contracts/rasm/contracts/parity/v1/parity_pb` (`ArtifactRole.OBJECT_CUSTODY`, `Provider.OBJECT_STORE`, `ArtifactSchema`, `CapabilitySchema`, `FailureRank`, `RestartClass`); `@rasm/core` (`Format.proto`); `lane/capability.md` (`Backend.Artifact`, `Backend.Capability` — contract authority stays there whole); `journal/retain.md` (`Retain.Policy`, `Retain.depths`).
 - Entry: the branch composition root appends `ObjectStore.custody().artifact` to `Backend.Sources.artifacts` and its capabilities to `Backend.Sources.capabilities`, then folds `ObjectStore.observed` into the one `Backend.Reading` it hands `Backend.observe` — one admission verdict covers relational and object state together.
 - Law: the descriptor is DECLARED custody, never provider state — conditional-put demand, unversioned posture, the reap floor, and one lifecycle row per retention class (transitions off the ladder, expiry off the bound) derive from `Retain.Policy`, `_STORAGE`'s ladder, and `_REAP_FLOOR`; operator coordinates — endpoint, bucket, region, credentials, and the engine row a deployment selects — never enter the preimage, so the generation moves only when the custody contract moves and a redeployment re-keys nothing.
 - Law: the descriptor rows sort by class at encode, because the artifact content preimage reads a published order, never a container's own enumeration.
@@ -1276,7 +1276,7 @@ import {
   Provider,
   RestartClass,
 } from "@rasm\/contracts/rasm/contracts/parity/v1/parity_pb"
-import { Format } from "@rasm/ts/core"
+import { Format } from "@rasm/core"
 import type { Backend } from "../lane/capability.ts"
 
 const _CUSTODY_KEY = "object/custody"

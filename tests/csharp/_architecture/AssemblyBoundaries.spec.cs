@@ -8,8 +8,7 @@ using static ArchUnitNET.Fluent.ArchRuleDefinition;
 namespace Rasm.Architecture.Tests;
 
 // --- [MODELS] --------------------------------------------------------------------------
-// The host-free closure: every Rasm assembly loadable without a Rhino installation. Rules run
-// over this architecture only; host-closed assemblies are manifest facts, never loaded types.
+// The host-free closure: every Rasm assembly loadable without a Rhino installation. Rules run over this architecture only; host-closed assemblies are manifest facts, never loaded types.
 internal static class HostFreeModel {
     public static readonly System.Reflection.Assembly TestKit = typeof(Spec).Assembly;
     public static readonly System.Reflection.Assembly Contract = typeof(Bridge.Contract.Handshake).Assembly;
@@ -27,17 +26,7 @@ internal static class HostFreeModel {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class AssemblyBoundaryLaws {
-    // HOST_BOUNDARY_REENTRY: host-boundary rows live on disk but stay out of Workspace.slnx until
-    // kernel realization lands; the roster shrinks to empty when those slnx rows return.
-    private static readonly string[] HostBoundaryRows = [
-        "libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj",
-        "libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj",
-        "tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj",
-        "tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj",
-    ];
-
-    // Exact reference topology per project — "only" is implied by exactness, so per-project
-    // sibling facts collapse into this one folded table. `Rasm.Contracts` is the generated bindings
+    // Exact reference topology per project — "only" is implied by exactness, so per-project sibling facts collapse into this one folded table. `Rasm.Contracts` is the generated bindings
     // distribution, not a stratum: it references no sibling and every wire consumer references it.
     private static readonly (string Project, string[] References)[] Strata = [
         ("libs/csharp/Rasm/Rasm.csproj", []),
@@ -62,17 +51,26 @@ public sealed class AssemblyBoundaryLaws {
         Manifests.ProjectGraph(rows: Strata);
     }
 
-    // The disk side is the WHOLE workspace walk, never a root roster: a csproj landing at a new
-    // top-level root fails this law loudly instead of silently skipping slnx and CPM parity.
+    // The disk side is the WHOLE workspace walk, never a root roster: a csproj landing at a new top-level root fails this law loudly instead of silently skipping slnx and CPM parity.
+    // The solution is generation-shaped — its project set equals disk exactly, with no carve.
     [Fact]
     public void WorkspaceSolutionMatchesDiskAndCarriesTheScenarioHome() {
         FrozenSet<string> solution = Manifests.SolutionProjects();
         FrozenSet<string> disk = Manifests.DiskProjects();
-        Assert.Equal(
-            expected: Sorted(rows: disk.Except(second: HostBoundaryRows, comparer: StringComparer.Ordinal)),
-            actual: Sorted(rows: solution));
-        Assert.All(collection: HostBoundaryRows, action: row => Assert.Contains(expected: row, collection: disk, comparer: StringComparer.Ordinal));
+        Assert.Equal(expected: Sorted(rows: disk), actual: Sorted(rows: solution));
         Assert.Contains(expected: "tests/csharp/scenarios/Rasm.Scenarios.csproj", collection: solution, comparer: StringComparer.Ordinal);
+    }
+
+    private static readonly string[] EstateFiles = ["Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props"];
+    private static readonly string[] EstateRoots = ["libs", "apps", "tools", "tests"];
+
+    // A nested MSBuild estate file that omits the upward chaining import silently erases the whole root estate and still builds green, so the import line is mandatory the moment one lands.
+    [Fact]
+    public void NestedMsBuildEstateFilesChainUpward() {
+        string[] unchained = [.. EstateRoots
+            .SelectMany(root => EstateFiles.SelectMany(name => Manifests.PrunedFiles(relativeRoot: root, pattern: name)))
+            .Where(path => !File.ReadAllText(path: Manifests.PathOf(relativePath: path)).Contains(value: "GetPathOfFileAbove", comparisonType: StringComparison.Ordinal))];
+        Spec.Holds(condition: unchained.Length == 0, label: $"nested MSBuild estate files missing the GetPathOfFileAbove chaining import: {string.Join(separator: "; ", values: unchained)}");
     }
 
     [Fact]
@@ -98,8 +96,7 @@ public sealed class AssemblyBoundaryLaws {
             .HasNoViolations(architecture: HostFreeModel.Architecture));
     }
 
-    // The TestKit is host-free and wire-blind end to end; the ScenarioKit assembly owns the bridge
-    // wire seam, so the whole TestKit assembly carries the wire-blind obligation.
+    // The TestKit is host-free and wire-blind end to end; the ScenarioKit assembly owns the bridge wire seam, so the whole TestKit assembly carries the wire-blind obligation.
     [Fact]
     public void TestKitStaysWireBlind() {
         HostFreeModel.NonVacuous(HostFreeModel.TestKit);

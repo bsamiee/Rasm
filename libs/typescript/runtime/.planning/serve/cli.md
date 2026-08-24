@@ -26,7 +26,7 @@ import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
 import { Doc, Optimize } from "@effect/printer"
 import { Ansi, AnsiDoc } from "@effect/printer-ansi"
 import { Array, Config, Context, Effect, Layer, Option, Predicate, Pretty, Record, Schema, Struct } from "effect"
-import { Event, Fault, Format } from "@rasm/ts/core"
+import { Event, Fault, Format } from "@rasm/core"
 import { Fanout } from "../net/pubsub.ts"
 import { Life } from "../proc/life.ts"
 

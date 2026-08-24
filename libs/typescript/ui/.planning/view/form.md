@@ -79,7 +79,7 @@ declare namespace Form {
 
 [SUBMIT_TRIP]:
 - Owner: the submit round-trip riding `Form` — `Form.submit` IS the nearest form's `action`: React brackets the async action in its own transition, so `useFormStatus` reflects the trip (the row's submit affordance disables and spins from it, never from a local flag); the action writes through `useAtomSet(mutation, { mode: "promiseExit" })`; a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
-- Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `effect` (`Exit`); `@rasm/ts/core` (`Tap.Verdict`); `@effect-atom/atom-react` (write modality, `system/atom` law).
+- Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `effect` (`Exit`); `@rasm/core` (`Tap.Verdict`); `@effect-atom/atom-react` (write modality, `system/atom` law).
 - Law: submit awaits the store — the mutation's `Result` is the completion evidence; polling an atom to detect completion marks a missing write mode, and a `try`/`catch` around the awaited promise restates the boundary rail.
 - Law: pre-flight rides the hook rail — `Form.observed` consults the `rasm.ui.form.submit` point (`system/hook`, `veto` modality; the contributed `Points` and runtime rows are this page's) before the mutation write, a `vetoed` verdict fails the trip as `DraftRefused` carrying the arbiter's own reason and folds into the same error sink a validation failure feeds, and the settled outcome publishes on the same point tagged by the bounded stage vocabulary. `Form.hook` carries `consult: stage === "preflight"`, so arbiters cannot refuse settled facts and history and telemetry consume one rail.
 - Law: the refusal fold reads the Cause tree through `Cause.failureOption` — the tagged `DraftRefused` arm projects its path-keyed errors, and a `Die`/`Interrupt`/composite cause preserves its evidence through `Cause.pretty` on the form-level row instead of collapsing to a blind sentinel; probing `cause._tag` by hand is the named defect.
@@ -88,7 +88,7 @@ declare namespace Form {
 - Boundary: the async action body is the React-19 form-action platform seam — React runs it inside its own transition (`useFormStatus`/`requestFormReset` are Promise-shaped); `Effect.promise` lifts the non-rejecting `Promise<Exit>` from `promiseExit`, `Exit.match` restores its Cause rail, and `Effect.runPromiseExit(Form.observed(...))` returns the one settled outcome the form folds; the write, hook registry, form id, form element, draft reader, and error sink arrive from the consuming row.
 
 ```typescript signature
-import { Convention, Tap } from "@rasm/ts/core"
+import { Convention, Tap } from "@rasm/core"
 import { Cause, Effect, Exit, Metric, Option, pipe } from "effect"
 import { requestFormReset } from "react-dom"
 import { Hook } from "../system/hook.ts"
@@ -218,7 +218,7 @@ const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "ti
 - Growth: a new transfer policy (chunk size, fingerprint store, signing hook) is one options row on the policy shape — never a second session mechanism.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Effect, Option, Schema } from "effect"
 import { DetailedError, Upload, type OnSuccessPayload, type PreviousUpload } from "tus-js-client"
 
@@ -347,12 +347,12 @@ const Form: Form.Shape = {
 - Law: refusal is a rendered verdict, never a silent no-op — a refused press arrives on the actor's fact stream as `Transition`'s own `Guarded` refusal (`Macro.refused`, naming the advance row whose guard closed it), and the consuming face folds it into the SAME error sink `[02]`'s validation failures feed; the next-trigger stays enabled, because a clickable refusal that explains beats a disabled button that cannot, and a same-signal fallback row minted to manufacture that verdict re-derives the guard the owner already folds.
 - Law: the actor binds through the one bridge and survives remounts — `Atom.subscribable(actor.state)` is the whole machine→view seam (`system/atom#LIVE_BRIDGE`), `actor.freeze` snapshots the configuration and `compiled.restore(frozen)` resumes it, so a reloaded session reopens on the stage it left; stage draft state is `[05]`'s cursors riding inside each stage, and the machine's extended state carries only what guards read.
 - Law: the face is recipe rows over the derivation — the step list renders `standing` as `data-standing` the recipe's variants read, the action grid is three fixed columns (`prev | skip | next-or-submit`) so button placement never shifts as arms appear, `skip` is a first-class sibling rendered only where `skippable` holds, and a hidden stage keeps its mount through the `<Activity mode>` row `system/act#DOCUMENT_RAIL` owns.
-- Packages: `@rasm/ts/core` (`Transition` — `spec`/`Node`/`Row`/`Config`/`Actor`, the `when` guard column, the `Macro.refused` column); `@effect-atom/atom-react` (`Atom.subscribable`); `effect` (`Array`, `Option`, `Schema`); `class-variance-authority` (the step recipe).
+- Packages: `@rasm/core` (`Transition` — `spec`/`Node`/`Row`/`Config`/`Actor`, the `when` guard column, the `Macro.refused` column); `@effect-atom/atom-react` (`Atom.subscribable`); `effect` (`Array`, `Option`, `Schema`); `class-variance-authority` (the step recipe).
 - Boundary: stage CONTENT is ordinary form rows — schema binding, cursors, and the submit trip compose unchanged inside each stage; the final stage's submit is `[04]`'s trip, so the wizard adds navigation and never a second commit path; watchdog deadlines and invoked activities are `Transition`'s own `watches`/`invokes` rows when a wizard earns them.
 - Growth: a new stage is one roster entry (its rows arrive generated); a new navigation arm is one row kind in the builder; a new face posture is one recipe variant; a stage graph past the builder's family — parallel regions, history re-entry — authors its `Transition` spec directly, since the builder instantiates the linear family and never ceilings the machine — never a bespoke stepper state, a completion set, or a second machine binding.
 
 ```typescript signature
-import { Transition } from "@rasm/ts/core"
+import { Transition } from "@rasm/core"
 import { cva } from "class-variance-authority"
 import { Array, Option, Schema } from "effect"
 

@@ -2,7 +2,15 @@
     <PropertyGroup>
         <Description>RhinoCommon- and Eto-aware geometry foundation, analysis algebra, and interaction plane.</Description>
         <CspScope>Domain</CspScope>
+        <!-- Eto-portable interaction plane: no native platform handlers, so the token set stops at ui. -->
+        <RasmHost>common;ui</RasmHost>
+        <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     </PropertyGroup>
+
+    <ItemGroup Label="Kernel Assembly Visibility">
+        <InternalsVisibleTo Include="Rasm.Grasshopper" />
+        <InternalsVisibleTo Include="Rasm.Rhino" />
+    </ItemGroup>
 
     <ItemGroup Label="Numeric Floor">
         <PackageReference Include="ExtendedNumerics.BigRational" />

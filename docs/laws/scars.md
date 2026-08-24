@@ -30,7 +30,9 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: Receipt rows and census counts are dispatch premises — a receipted landing and a tally sizing a rebuild alike re-prove on disk first.
 - Boundary: Census and gate instruments prove on a control probe — one known hit, one known miss — before a count or a verdict routes work.
 - Boundary: Wrong patterns read zero and malformed target sets plan zero, so an instrument examining nothing reports clean.
+- Boundary: Control probes prove wiring alone — probes drawn from the categories an instrument names never reach the dimension its model omits.
 - Boundary: Decompile and reflection listings prove spelling alone; access and implementation prove by bind-and-invoke on the owning rail.
+- Boundary: Catalog rows restate a claim, never probe it — a fence and the row blessing it assert one phantom until reflection or a bind answers.
 - Boundary: Absence proves on the rail a consumer dials — a workspace binary or wrapper answers where an interactive-PATH probe reads nothing.
 
 [ASSERTED_VALUE]:
@@ -39,6 +41,8 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: This scar spans fence literals and prose claims alike — a comment asserting a behavior the member contradicts falls with the literal.
 - Boundary: Inference substituting for a declared fact falls with the asserted copy — coverage never separates two states one probe reads alike.
 - Boundary: Transforms resolved into a column apply once; an egress helper re-applying one over the resolved column is the defect both sites hide.
+- Boundary: Declared extents, spans, and bounds mirroring a roster derive from that roster, since a mint or retire moves the roster alone.
+- Boundary: Estimation asserts too — a rendered width, count, or extent one command measures never rides a writer's eye.
 
 [FORGED_ZERO]:
 - Law: Tallies, levels, and receipt fields publish measured values alone, and a construction reading zero for absent measurement spells absence.
@@ -89,6 +93,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Trigger: Severed or partial writes leave columns half-landed and laws producer-less, each reading complete to a prose scan while inert.
 - Boundary: Construction and call sites on disk prove a producer; a declaration, census row, or exported type never does.
 - Boundary: Wire-complete chains prove at the owning evaluator's read — a column that evaluator never reads passes every producer census inert.
+- Boundary: Resolution proves by reverse census — each site walks back to the row seating its type, since page-local reads pass with no producer.
 
 [SEEDED_FROM_STRING_HASH]:
 - Law: Reproducible lanes derive their seed from a declared ordinal, index, or literal — never a runtime hash of a name.
@@ -100,6 +105,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 
 [SUCCESS_ARM_RELEASE]:
 - Law: Release brackets the acquisition (`IO.Bracket`, `use`), never the outcome; release inside a result-rail `.Map`/`.Bind` leaks on every failure.
+- Law: Speculative arms price no release — a CAS body re-runs, so zeroize, dispose, and free seat on the commit-confirmed arm alone.
 - Trigger: Tuple projection `(fun(x.Dispose)(), y).Item2` reads as a release beside the value while binding release to success.
 
 [DECISION_UNDERIVABLE_FROM_STATE]:
@@ -127,6 +133,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Trigger: Guards pass on the read value while the gated write lands on a value another writer moved, and receipts report stale read beside success.
 - Boundary: This scar spans every engine separating guard evaluation from its write — sibling data-modifying CTEs, any pre-read a later compare rode.
 - Boundary: Per-row re-check is per-ROW: a vector write commits every passing row, and set-wide all-or-nothing rides the transaction's undo.
+- Boundary: Grain cuts both ways — a message-scoped verdict hoists above the fan, since per-leg evaluation lets the first leg answer for its siblings.
 - Boundary: Refutation lands at the generating clause — a doctrine row recommending the chained form without the visibility law re-derives it.
 
 [REFUTED_MECHANISM_RECORD]:
@@ -196,14 +203,21 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Trigger: Gates taking pre-built faults charge every success allocation and formatting nothing reads, up to a corpus scan per passing row.
 
 [POSITIONAL_BACK_REFERENCE]:
-- Law: Notes and cross-references resolve their subject on a greppable token the target itself declares.
-- Law: Pointers whose target already opens by naming its own subject carry no fact — delete the pointer and let the grep on the symbol answer.
 - Trigger: Bare ordinal tags — `([A])`, `([B])` — index the Nth bullet under a table, so one bullet edit silently repoints every tag above it.
 - Trigger: Tags outlive the list they indexed, leaving an ordinal that resolves to nothing while still reading as a citation.
 - Boundary: Markers enter durable prose only as a closed uppercase-bracketed token one schema owner declares.
 
 [GENERATED_TREE_AS_LAW]:
-- Law: Committed generated output names its producer at the consuming branch and proves fresh by regenerating into scratch and byte-diffing the tree.
+- Law: Committed generated output names its producer at the consuming branch and proves fresh at the gate its producer owns.
 - Law: Generated out roots hold generated files alone; manifests, `py.typed`, `__init__.py`, and READMEs sit above the sweep.
 - Trigger: Hand-patched generated files survive every lane they are excluded from while a stamp or pin certifies them fresh.
 - Boundary: Type checkers stay ON the tree, and a red there convicts the upstream generator: carve the narrowest row and name the issue.
+- Boundary: Formatter reds convict the emitter too — relieve the cell where it is written, since carving the gate freezes the defect as configuration.
+
+[INVARIANT_OUTSIDE_ITS_GATE]:
+- Law: Invariants relocated to a more expressive layer state the coverage their old gate drops and land the replacement proof at the new layer.
+- Law: Gates refuse inside the model they parse alone, so a layer their parse carries as opaque payload holds invariants no category ever grades.
+- Law: Runtime enforcement at the richer layer replaces no gate — enforcement binds the value in hand while the gate bound every move of it.
+- Trigger: Relocation reads as strengthening, every gate still cited as that invariant's proof passes, and the coverage dropped reports nowhere.
+- Boundary: Carriers span every kind — an attribute the analyzer skips, a config the differ reads as a blob, a guard the type checker never runs.
+- Boundary: Passes that cannot land the replacement proof revert the relocation whole, since a stated gap with no proof leaves the invariant ungated.

@@ -15,7 +15,7 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 
 [ANCHOR_PLANE]:
 - Owner: `Anchor` — the coordinate-space registry: `Anchor.space(row)` is the one lane constructor, closing a space's locator type inside a monomorphic `Anchor.Lane` (decode/encode through the row's own locator `Schema`, `locate` to an `Option` of viewport geometry, `track` folding the row's `carry` arm over its `epoch` stream), `Anchor.spaces(lanes)` the admission gate refusing duplicate surfaces with evidence, `Anchor.admit(lanes, anchored)` the durable re-entry that turns a persisted `{ space, locator }` back into a held locator or a named refusal, `Anchor.postures` the closed render vocabulary, `Anchor.swept` the margin-rail collision fold, and `Anchor.clustered` the density fold that collapses a crowded viewport into `+n` chips.
-- Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `Order`, `Record`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Class` behind the fault family); `system/act` (`Motion.useFollow` — the rendered transform rides motion values, never per-frame React state); `system/token` (the `z` ladder's `cursor` rank is the layer's one stacking coordinate).
+- Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `Order`, `Record`, `Schema`, `Stream`); `@rasm/core` (`Fault.Class` behind the fault family); `system/act` (`Motion.useFollow` — the rendered transform rides motion values, never per-frame React state); `system/token` (the `z` ladder's `cursor` rank is the layer's one stacking coordinate).
 - Entry: `Anchor.space` per surface, exported from the OWNING page as a value; the composition root hands the assembled record to this plane at boot — the same admission pattern `Overlay.commands` runs, so a malformed registry refuses at composition, never mid-render.
 - Law: spaces arrive as VALUES, never imports — content, canvas, media, and the viewer each export their row from their own page and no `view/` sibling imports another; the registry is the meeting point and the composition root is the assembler, which is exactly how `Hook.Rows` and the port Tags already cross this folder.
 - Law: the registry keys on SURFACE, never kind — `kind` names the codec FAMILY a row's locators speak while `surface` names the mounted instance (`Presence.Point.surface` is the join), so two images, two canvases, or two editors on one screen register two lanes sharing one family and a kind-keyed record collapses them onto whichever mounted last; durable anchors persist the surface name beside the locator, and a surface the app never re-registers parks its anchors.
@@ -31,7 +31,7 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 - Growth: a new surface class is one exported `Anchor.space` row; a new invalidation source is that row's `epoch`; a new presentation is a recipe over an existing posture — the registry, sweep, and cluster folds never fork.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Data, Either, Option, Order, Record, Schema, type Stream, type Types } from "effect"
 
 declare const _held: unique symbol
@@ -223,7 +223,7 @@ const Anchor: Anchor.Shape = {
 
 [ROSTER_FACES]:
 - Owner: the roster faces riding `Face` — `Face.tone` maps the core status verdict onto the token vocabulary, `Face.stacked(roster, seen, self, max)` folds the roster into the avatar stack's shown/overflow split, and the avatar recipe itself is `view/media`'s (this page hands it the worn `face` profile — name, hue `Option`, content-keyed avatar — and never fetches a byte).
-- Packages: `@rasm/ts/core` (`Presence.roster`, `Presence.status`, `Presence.Lease`, `Clock.Hlc` — verdicts arrive computed; this page renders them); `system/token` (`Theme.Tone` keys); `effect` (`Array`, `HashMap`, `Option`, `Order`).
+- Packages: `@rasm/core` (`Presence.roster`, `Presence.status`, `Presence.Lease`, `Clock.Hlc` — verdicts arrive computed; this page renders them); `system/token` (`Theme.Tone` keys); `effect` (`Array`, `HashMap`, `Option`, `Order`).
 - Law: the horizon is SUPPLIED — a `Clock.Hlc` the composition root derives from its own clock source crosses as a parameter into every roster read, so liveness policy stays a `Presence.Lease` value and no ambient clock read exists on this page; the frame-cadence re-read is the app's subscription, never a timer here.
 - Law: the tone table is total over the status vocabulary — `live` reads `success`, `idle` reads `neutral` (an idle collaborator is dimmed, never warned), `gone` reads `removed` (rendered only where history shows departures) — and the `satisfies` contract breaks the build when the core vocabulary grows a member this table has not decided.
 - Law: the stack fold is structural — self leads, others sort by join stamp descending, the cap clamps at two or more, and past-cap actors collapse into one `+n` slot carrying its member keys for the hover list; a stack that hides overflow without the count misreports the room.
@@ -231,7 +231,7 @@ const Anchor: Anchor.Shape = {
 - Boundary: avatar pixels, size derivation, and the image element are `view/media`'s; the presence fold table enters through `system/atom#LIVE_BRIDGE` as an atom like every host fold.
 
 ```typescript signature
-import { Presence, type Clock, type Fold } from "@rasm/ts/core"
+import { Presence, type Clock, type Fold } from "@rasm/core"
 import { Array, HashMap, Option, Order } from "effect"
 import { Theme } from "../system/token.ts"
 
@@ -288,7 +288,7 @@ const _stacked = (
 
 [CURSOR_PLANE]:
 - Owner: the cursor supply riding `Face` — `Face.project(lanes)` derives the viewport projection `Overlay.cursors` takes from the assembled anchor lanes, under the glide law: the projected pair feeds two `Motion.useFollow` values whose live reads back the cursor float's virtual rect, so remote cursors spring toward arrivals with zero per-frame React renders and the cohort's own `autoUpdate` tracks the sprung anchor.
-- Packages: `view/overlay` (`Overlay.cursors`, `Overlay.point` — the cohort fold and the point anchor are landed; this page supplies and smooths); `system/act` (`Motion.useFollow` with the `glide` temperament); `@rasm/ts/core` (`Presence.Point` — the tagged `Sheet`/`Scene` coordinate the projection folds).
+- Packages: `view/overlay` (`Overlay.cursors`, `Overlay.point` — the cohort fold and the point anchor are landed; this page supplies and smooths); `system/act` (`Motion.useFollow` with the `glide` temperament); `@rasm/core` (`Presence.Point` — the tagged `Sheet`/`Scene` coordinate the projection folds).
 - Law: the projection is derived, not authored — a `Sheet` point resolves through the lane registered for its `surface` and a `Scene` point through the viewer's `GlobalId`-space lane's camera projection, so this page holds no coordinate math and a surface class absent from the registry drops its cursors rather than guessing; the supply answers `Option` and `Face.sighted` pre-filters the fold table to actors whose point resolves, so the cohort composition at the root narrows over a proven table rather than forging a coordinate for an unresolvable point.
 - Law: the local pointer broadcasts through `Presence.Move` ops on the owning surface's own cadence — the recognizer throttles at the transport, never the render — and the caret axis broadcasts the same way from content's selection changes; both are Move patches on the one op family, so replay and history read one vocabulary.
 - Law: a broadcast point speaks its surface's OWN locator shape — the `Sheet` pair carries whatever coordinate the owning lane's codec decodes (media broadcasts fractions, canvas broadcasts graph coordinates), so the lane's locator schema is the cursor contract between broadcaster and renderer and a peer on either end reads one spelling.
@@ -296,7 +296,7 @@ const _stacked = (
 - Boundary: the cohort fold, the point anchor, and the portal mount are `view/overlay#PRESENCE_COHORT`'s; the recognizer and its throttle are `system/act`'s; which surfaces broadcast is each owner's declaration.
 
 ```typescript signature
-import { Presence } from "@rasm/ts/core"
+import { Presence } from "@rasm/core"
 import { HashMap, Option, Record } from "effect"
 
 // a point resolves through the lane registered under its OWN surface name — the registry's key IS
@@ -328,7 +328,7 @@ const _sighted = (
 
 [THREAD_PLANE]:
 - Owner: `Face.Thread` — the generic comment-thread record and its render folds: the `Thread` Schema owns identity, the durable `{ space, locator }` anchor, resolution, and the comment list; `Face.clamped` folds the show-more window, `Face.unread` pins the new-comment divider, `Face.watched` is the mark-as-read observation bracket, and `Face.Compose` is the closed three-mode composer vocabulary. `viewer/review` stays the BCF-specific instance of this concept — decoded wire topics with their own board — and neither page renders the other's records.
-- Packages: `effect` (`Array`, `Data`, `Option`, `Schema`, `Stream`); `@rasm/ts/core` (`Clock.Hlc` stamps); `system/primitive` (`Primitive.sanitize` — every rendered body passes the gate; the announce rail carries non-toast arrival notes); `system/intl` (`Message` — every static string is a catalog key).
+- Packages: `effect` (`Array`, `Data`, `Option`, `Schema`, `Stream`); `@rasm/core` (`Clock.Hlc` stamps); `system/primitive` (`Primitive.sanitize` — every rendered body passes the gate; the announce rail carries non-toast arrival notes); `system/intl` (`Message` — every static string is a catalog key).
 - Law: the durable anchor is DATA — `{ space, locator }` persisted whole, re-entering through the named lane's own codec at render; a text-anchored thread's locator is the content thread-mark identity, so ProseMirror's own mapping keeps it placed and this record never stores a raw position.
 - Law: authors are the app's principal spelling — a thread outlives every ephemeral presence actor, so the `author` field carries the app's principal string and the roster face join (worn profile for a live author) happens at render against the presence table; minting a presence-actor brand into this record couples a durable document to a session identity.
 - Law: the list semantics are structural — the thread container reads `role="feed"`, each comment `role="article"` with `aria-posinset`/`aria-setsize` from the LOGICAL comment count (clamped rendering never changes the announced size), and keyboard traversal is the feed pattern's.
@@ -340,7 +340,7 @@ const _sighted = (
 - Growth: a new anchor surface is one registry lane (threads follow for free); a new clamp policy is one `show` member; a new composer capability is one mode arm every consumer breaks on loudly.
 
 ```typescript signature
-import { Clock } from "@rasm/ts/core"
+import { Clock } from "@rasm/core"
 import { Array, Data, Effect, Option, Schema, Stream, type Types } from "effect"
 
 const _Anchored = Schema.Struct({

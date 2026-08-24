@@ -23,7 +23,7 @@ ONE resumable content-addressed rail moves bounded chunks, resumes at verified o
 ```typescript signature
 import { Effect, Option, Schema, Stream } from "effect"
 import { Multipart } from "@effect/platform"
-import { Shape } from "@rasm/ts/core"
+import { Shape } from "@rasm/core"
 import { ObjectFault } from "./store.ts"
 
 const _INGRESS = {
@@ -63,7 +63,7 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
 ## [03]-[CHUNK_STAGE]
 
 - Owner: the content-defined chunk stage — `Rail.chunked`, a stream transform re-cutting the byte flow at Gear-hash boundaries so an insert or delete re-aligns cut points and versioned payloads dedup maximally — and the `ChunkMark` receipt carrying each chunk's span and sub-key.
-- Packages: the owned FastCDC wasm surface (a `wasm-pack` build of the maintained Rust `fastcdc` crate, normalized-chunking v2020, held as a folder-owned artifact behind a capability Tag per the wasm boundary law — every published JS/wasm npm binding is years stale and refused); `@rasm/ts/core` (`Digest` — the sub-key mint); `effect` (`Stream`, `Chunk`).
+- Packages: the owned FastCDC wasm surface (a `wasm-pack` build of the maintained Rust `fastcdc` crate, normalized-chunking v2020, held as a folder-owned artifact behind a capability Tag per the wasm boundary law — every published JS/wasm npm binding is years stale and refused); `@rasm/core` (`Digest` — the sub-key mint); `effect` (`Stream`, `Chunk`).
 - Entry: `Rail.chunked(bytes, policy)` between ingress and the identity fold; the policy row carries `{ min, avg, max }` cut bounds; consumers that need whole-payload identity only skip the stage — chunking earns its cost where dedup or chunk-level proofs are real.
 - Receipt: `ChunkMark` — `{ seq, offset, bytes, sub }` — the sub-key is `Digest.mint("content", chunkBytes)`, the SAME algebra as the object key at finer grain, so chunk identity and object identity share one mint and a second hashing vocabulary is unspellable.
 - Law: the Merkle proof tree is one fold over the chunk receipts — `Rail.prove(marks)` folds the proven-non-empty mark set through the core digest's `proof` row (`createBLAKE3(256)`, the `ProofKey` brand): each leaf mints over its sub-key's decoded bytes under the leaf framing byte, pairs join under the node byte, an odd node promotes, and the receipt carries `{ root, leaves, depth, paths }`; every path is the ordered sibling-key and side sequence for its `ChunkMark.seq`, so a range consumer verifies any admitted leaf in `O(log n)` without rebuilding the tree.
@@ -74,7 +74,7 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
 
 ```typescript signature
 import { Array, Context } from "effect"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 
 declare namespace Rail {
   type CutPolicy = { readonly min: number; readonly avg: number; readonly max: number }
@@ -265,7 +265,7 @@ const _identity = <R>(
 ## [05]-[RESUME_RAIL]
 
 - Owner: the tus assembly — staged `S3Store`, hook-armed `Server`, PATCH-exclusive `MemoryLocker`, finalize re-home, staging groom, and the protocol row that swaps to the IETF form without store or hook edits; beneath it the shared custody landing every byte source on this page spends, and `Rail.preserve`, the `journal/retain.md` `Preserve` port it satisfies.
-- Packages: `@tus/server` (`Server`, `Upload`, `EVENTS`, `MemoryLocker`, `RouteHandler`, `server.get`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`/`namingFunction`/`getFileIdFromRequest`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`, the `DataStore` `getUpload`/`read`/`remove` members); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Exit`, `Layer`, `Metric`, `Runtime`, `Schedule`); `@rasm/ts/core` (`Convention` — the throughput instrument row; `Fault.Class` — the status projection's lattice); `journal/append.md` (`Hook` — the `objectAdmit` veto and observe taps); `journal/retain.md` (`SubjectKey`, `Retain.slice` — the preservation port's subject and its collection rendering).
+- Packages: `@tus/server` (`Server`, `Upload`, `EVENTS`, `MemoryLocker`, `RouteHandler`, `server.get`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`/`namingFunction`/`getFileIdFromRequest`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`, the `DataStore` `getUpload`/`read`/`remove` members); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Exit`, `Layer`, `Metric`, `Runtime`, `Schedule`); `@rasm/core` (`Convention` — the throughput instrument row; `Fault.Class` — the status projection's lattice); `journal/append.md` (`Hook` — the `objectAdmit` veto and observe taps); `journal/retain.md` (`SubjectKey`, `Retain.slice` — the preservation port's subject and its collection rendering).
 - Entry: the serving plane mounts `rail.node` (node req/res) or `rail.web` (fetch Request→Response) under its route; the browser leg is `tus-js-client` driving POST/PATCH/HEAD against this mount and the receipt GET beside it — a ui-branch consumer of the wire protocol, never of this module.
 - Receipt: `onUploadFinish` returns the finalize receipt onto the reply — `{ key, bytes, written }` — so the client learns its content key in the completing response; the 412 case reads `written: false`, the dedup success; `${route}/receipt?upload=<id>` answers the SAME receipt for a staged id, which is the only road a resumed leg has to it.
 - Growth: a per-caller quota is the `maxSize` function reading the caller's admission; a second staging band (media versus artifact) is a second `Rail.of` with its own cut policy and retention row; RUFH lands as the protocol row swap.
@@ -324,7 +324,7 @@ import { EVENTS, MemoryLocker, Server, type Upload } from "@tus/server"
 import { S3Store } from "@tus/s3-store"
 import { Readable } from "node:stream"
 import type http from "node:http"
-import { Convention, Fault } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/core"
 import { Hook } from "../journal/append.ts"
 import { ObjectStore } from "./store.ts"
 import { Retain, SubjectKey } from "../journal/retain.ts"

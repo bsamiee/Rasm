@@ -236,7 +236,7 @@ const _module = {
   runtime: { emits: true },
   security: { emits: true },
   ui: { emits: true },
-  "ui/viewer": { emits: true },
+  "viewer": { emits: true },
 } as const
 
 const _domain = {
@@ -270,7 +270,7 @@ const _domain = {
   queue: { emitters: ["runtime"], subject: "durable-queue settlement and the dead set" },
   relay: { emitters: ["runtime"], subject: "relay claim settlement by channel" },
   remote: { emitters: ["data"], subject: "remote-origin transfer, reconciliation, and the refusal economics of each scheme" },
-  scene: { emitters: ["ui/viewer"], subject: "scene graft admission and the refusals gating it" },
+  scene: { emitters: ["viewer"], subject: "scene graft admission and the refusals gating it" },
   security: { emitters: ["security"], subject: "authenticity, authorization, and key-custody decisions" },
   slo: { emitters: ["core"], subject: "objective burn and severity axes" },
   stream: { emitters: ["data"], subject: "resumable-upload finalization" },
@@ -1050,7 +1050,7 @@ declare namespace Convention {
     & { readonly [K in (typeof _attr)["deploymentEnvironment" | "serviceInstance" | "serviceName" | "serviceNamespace" | "serviceVersion"] | (typeof _incubating)["hostName"] | (typeof _rasm)["ring"]]: string }
     & { readonly [K in (typeof _attr)["k8sCluster"] | (typeof _incubating)["cloudRegion" | "cloudZone"] | (typeof _rasm)["tenant"]]?: string }
   >
-  type Scope = { readonly name: `@rasm/ts/${Module}`; readonly schemaUrl: Wire["schemaUrl"]; readonly version: Identity.App.Version }
+  type Scope = { readonly name: `@rasm/${Module}`; readonly schemaUrl: Wire["schemaUrl"]; readonly version: Identity.App.Version }
   type Translation = keyof typeof _translation
   type Wire = typeof _wire
   type Shape = Types.Simplify<{
@@ -1167,7 +1167,7 @@ const Convention: Convention.Shape = {
   profiled: (identity) => ({ [_profile.service]: identity.app }),
   quantiles: _quantiles,
   rasm: _rasm,
-  scope: (module, version) => ({ name: `@rasm/ts/${module}`, schemaUrl: _wire.schemaUrl, version }),
+  scope: (module, version) => ({ name: `@rasm/${module}`, schemaUrl: _wire.schemaUrl, version }),
   temporal: _temporal,
   tracked: _tracked,
   translated: _translated,

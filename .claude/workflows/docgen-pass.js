@@ -115,7 +115,7 @@ const TEMPLATE = {
 };
 const templatePath = (kind) => (TEMPLATE[kind] ? ROOT + '/.claude/skills/docgen/templates/' + TEMPLATE[kind] : '');
 // terminal stage by kind: an `.api` catalog closes at Fix — the fixer already carries the full API-TRUTH, ultra-stacking, structure, and legacy law and grounds each member against
-// the polyglot `tools.assay api query` rail (ilspycmd/introspect/.d.ts by language), so one authoritative pass suffices and a diff-driven second pass only re-opens proven cells. The adversarial Fix -> Redteam -> Verify chain is spent only
+// the polyglot `assay api query` rail (ilspycmd/introspect/.d.ts by language), so one authoritative pass suffices and a diff-driven second pass only re-opens proven cells. The adversarial Fix -> Redteam -> Verify chain is spent only
 // where a cold second pass catches real over-deletion — spec pages, README/ARCHITECTURE/RULINGS registries, prose-dense kinds. adversarial(kind) gates BOTH the red-team and the
 // verifier: an `.api` catalog enters neither.
 const adversarial = (kind) => kind !== 'api';
@@ -454,10 +454,10 @@ const versionBanLaw =
 // .api truth verification — appended to the fixer and red-team for `api`-kind files ONLY; the catalog is a contract, its surface rows live in table cells, and truthfulness outranks trimming
 const apiVerifyLaw =
     '\n\nAPI TRUTH — an `.api` catalog is a CONTRACT and truthfulness OUTRANKS trimming: every named surface it lists (type, member, signature, kind, capability) is PROVABLY real or it ' +
-    'does not survive, because a false member poisons every consumer that composes this catalog. The surface rows live in TABLE cells — prose you own — not fences. `tools.assay api query` ' +
+    'does not survive, because a false member poisons every consumer that composes this catalog. The surface rows live in TABLE cells — prose you own — not fences. `assay api query` ' +
     'is the polyglot ground-truth rail across all three branches, keyed by the owning package/distribution name and the member: `cd ' +
     ROOT +
-    ' && uv run python -m tools.assay api query --key <package> --symbol <member>` (add `--kind`, `--grep`, or `--full` to narrow; a key spelled in two ecosystems pins its kind with a scope ' +
+    ' && uv run assay api query --key <package> --symbol <member>` (add `--kind`, `--grep`, or `--full` to narrow; a key spelled in two ecosystems pins its kind with a scope ' +
     'prefix — `py:<dist>`, `nuget:`, `npm:`, `host:` — so a Python catalog never reads a C# decompile). It resolves the source kind by language and reports the ' +
     'fidelity it achieved: a C# catalog (path under `libs/csharp`) decompiles the real NUGET/ASSEMBLY through ilspycmd (fidelity `decompiled`) and confirms the package exists through the ' +
     '`nuget` MCP; a PYTHON catalog (`libs/python`) introspects the installed `.venv` object in-process via `inspect` (fidelity `introspected`), so the surface is the EXACT installed ' +
@@ -630,7 +630,7 @@ const analyzeMandate = (group) =>
     'merely spells `Version`.' +
     (group.some((f) => f.kind === 'api')
         ? '\n\nAPI TRUTH (this group carries `.api` catalogs): a catalog is a contract — flag any named surface whose spelling, signature, kind, or capability reads WRONG or overclaimed ' +
-          'as a finding (move=reframe, direction naming the exact symbol to re-verify), so the fixer grounds it against `tools.assay api query` and corrects it.' +
+          'as a finding (move=reframe, direction naming the exact symbol to re-verify), so the fixer grounds it against `assay api query` and corrects it.' +
           apiStackingLaw +
           '\n\nAS THE FINDER on an `.api` catalog, ALSO flag every STRUCTURAL deformation against the hardened template ' +
           templatePath('api') +

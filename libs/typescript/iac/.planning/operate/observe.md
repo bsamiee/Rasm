@@ -39,7 +39,7 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 - Law: degradation is a row declaration WITH A SEAT — each row's `degrade` column states what the estate loses on that row, the dashboards' exemplar links gate on the selected row's `exemplars` column, and the selected row itself seals on the tier beside the resident residence rows; a `_Plane` floor whose evidence half publishes and whose series half does not leaves half the trade unreadable while both halves read complete on the page.
 - Growth: a fourth store is one row with every column answered — the family is closed until a row lands; Thanos and Cortex stay outside it because reference, fleet-scale, and resource-pressure are the three postures a metrics store is selected for and neither adds a fourth.
 - Boundary: which store a stack runs is `program/spec.md`'s `observe.store` coordinate; the tenant metric label is the runtime plane's `Convention.rasm.tenant` dimension arriving on the wire, never re-minted here; remote-write is declined estate-wide, so OTLP is the one ingest door and that is what makes these rows swappable.
-- Packages: `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `@rasm/ts/core` (`Board`, `Convention`); `../program/spec.ts` (`StackSpec`).
+- Packages: `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `@rasm/core` (`Board`, `Convention`); `../program/spec.ts` (`StackSpec`).
 
 ```typescript signature
 // One signal vocabulary, two readers: the census a plane answers on the floor below and the routing bound a gateway
@@ -294,14 +294,14 @@ const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Re
 - Law: charts render, releases do not exist — `helm.v4.Chart` keeps every rendered resource under Pulumi diff and CrossGuard visibility; `helm.v3.Release` is reached only where a chart demands true release lifecycle, and no row here does.
 - Growth: a wide-event relation or column lands at `Olap.events` and reaches this tier with no edit, while a NEW token lands as one `_T` row the bound record demands; a new signal backend is one `_charts` row with its endpoint projections; a collector component is one `_plan` component row and one pipeline mention; a residence is one `_RESIDENCE` row answering `chart`, `door`, `exporter`, and `plugin` — the chart earning its own install with the values body and init-script DDL that install mounts, the door earning realization and the published address, the exporter earning its component id, its write seat, and its egress dialect across the whole pipeline fan, and the plugin earning the board datasource with its dialect and dialed coordinates, each `None` stating the half this plane leaves to another owner; a new egress policy axis is one field on the shared `_POLICY` block every exporter dialect then answers.
 - Boundary: the app-side OTLP export composition is the runtime telemetry plane's and arrives only as the env row; board content is `#BOARD_APPLY`'s upstream data; the wide-event relation, column, and token roster is `data` `lane/olap`'s `Olap.events` and the query dialect is the data planes' — this tier renders that roster into ClickHouse, plants the DDL, and publishes the door; the chart values and config vocabularies are the external contracts `.api/opentelemetry-collector.md` and `.api/clickhouse.md` own.
-- Packages: `@pulumi/kubernetes`; `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@rasm/ts/core` (`Board`, `Convention`, `Reliability`, `Shape.Record`); `@rasm/ts/data` (`Olap.events`, `Olap.Relation`, `Olap.WideToken`); `../program/spec.ts` (`Tier`, `StackSpec`).
+- Packages: `@pulumi/kubernetes`; `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@rasm/core` (`Board`, `Convention`, `Reliability`, `Shape.Record`); `@rasm/data` (`Olap.events`, `Olap.Relation`, `Olap.WideToken`); `../program/spec.ts` (`Tier`, `StackSpec`).
 
 ```typescript signature
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Duration, Option, Record, Schema } from "effect"
-import { Board, Convention, Reliability, Shape } from "@rasm/ts/core"
-import { Olap } from "@rasm/ts/data"
+import { Board, Convention, Reliability, Shape } from "@rasm/core"
+import { Olap } from "@rasm/data"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 const _OWN = (name: string) => name // the chart renders its own Service under the pinned fullname
@@ -2014,7 +2014,7 @@ import { PanelBuilder as Stat } from "@grafana/grafana-foundation-sdk/stat"
 import { PanelBuilder as Table } from "@grafana/grafana-foundation-sdk/table"
 import { PanelBuilder as Timeseries } from "@grafana/grafana-foundation-sdk/timeseries"
 import * as grafana from "@pulumiverse/grafana"
-import { Board, Convention, Reliability } from "@rasm/ts/core"
+import { Board, Convention, Reliability } from "@rasm/core"
 import { Array, Duration, Match, Option, Order, Record, Schema, Struct } from "effect"
 
 declare namespace Boards {

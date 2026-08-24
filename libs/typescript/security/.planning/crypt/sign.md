@@ -18,7 +18,7 @@ Composition is settled: fault rows close at the core `Fault.Class.family` seam; 
 [FAULT_AND_ALG]:
 - Law: a `false` argon2 verify, a rejected OTP, and a rotated-out token are verdict arms, never faults — `SignFault` fires only when a primitive throws, a key refuses import, a load-shed sheds, or a token fails a trust gate.
 - Growth: a new failure mode is one reason literal and one class row; a new signature scheme is one `KeyAlg` row that `Material`, `Jwt`, and the external-verify page inherit unchanged.
-- Packages: `effect` (`Schema`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Schema`); `@rasm/core` (`Fault.Class`).
 
 ```typescript
 import { Persistence } from "@effect/experimental"
@@ -28,7 +28,7 @@ import { hmac } from "@noble/hashes/hmac.js"
 import { sha1 } from "@noble/hashes/legacy.js"
 import { sha256, sha512 } from "@noble/hashes/sha2.js"
 import { decodeBase32, decodeHex, encodeBase32UpperCaseNoPadding, encodeBase64urlNoPadding, encodeHexLowerCase } from "@oslojs/encoding"
-import { Board, Convention, Fault, Identity, Wire } from "@rasm/ts/core"
+import { Board, Convention, Fault, Identity, Wire } from "@rasm/core"
 import {
   calculateJwkThumbprint, createLocalJWKSet, createRemoteJWKSet, EncryptJWT, exportJWK,
   generateKeyPair, importJWK, importPKCS8, importSPKI, importX509, jwtDecrypt, jwtVerify, SignJWT, customFetch, jwksCache,
@@ -199,7 +199,7 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
 - Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.metric.securityJwksQuarantined` counter, a warning log, and an `Admission` fact through `Witness`, so one rotated-in bad key never collapses the verify set and the quarantine is receipt-truth; an empty surviving set is the only `material` failure. The synthetic verify carrier and its horizon parameter are gone with it — `Published` admits a JWKS entry directly, so no fabricated window and no `"verify"` role outside the credential vocabulary is minted to reach the same import.
 - Growth: a new signature scheme is one `KeyAlg` row; a new wire material encoding is one generated oneof member landing beside one `_admissible` arm; a new armor form is one `_IMPORT` row; a new material source (KMS, HSM) is one `Source` case terminating through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
 - Boundary: `crypt/secret` mints `Material.Source.Held` from fetched material and is the only host-side key source this folder owns; `Material.admit` is the first-sight byte boundary for the `csharp:Rasm.AppHost/Runtime/secrets#CREDENTIAL_PEM`-produced `CredentialPublicWire` and decodes its ProtoJSON frame through the direct family before the credential reaches any interior logic; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
-- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`); `effect` (`Encoding`, `Match`); `@rasm/ts/core` (`Convention`, `Wire.decode`); `access/audit` (`Witness`, `SecurityFact`).
+- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`); `effect` (`Encoding`, `Match`); `@rasm/core` (`Convention`, `Wire.decode`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 type KeyHandle = Data.TaggedEnum<{
@@ -406,7 +406,7 @@ const Material = {
 - Law: a port surrenders its operand contract, never its primitive — the OTP `crypto` port's compare admits `string | Uint8Array` because the strategy hands it two token strings, so `plugin.constantTimeEqual` lifts both operands to bytes before the byte-domain primitive runs; handing that primitive over bare type-checks under method-shorthand bivariance and then compares characters, which is an accept-everything gate for any alphabet outside the digits.
 - Growth: a new credential class is one `CryptoCost` row; a cost bump is a row edit the rehash fold detects on the next successful verify; a new comparison shape is one `Probe` case.
 - Boundary: `authn/credential` delegates every digest-at-rest here; `authn/session` consumes `token`/`uuid`/`fingerprint`/`matches`; `crypt/verify` composes `matches` under its dialect grammar; no sibling imports `@node-rs/argon2` or `@oslojs/*` directly.
-- Packages: `@node-rs/argon2` (`hash`/`hashRaw`/`verify`, `Algorithm`, `Version`); `@noble/hashes` (`hmac` streaming through `hmac.create` and one-shot, `sha1`/`sha256`/`sha512`); `@oslojs/encoding` (hex + base32 rows); the constant-time byte compare, the unbiased alphabet sampler, and the `Entropy` port are folder-owned over WebCrypto's `getRandomValues`; `effect` (`Effect.makeSemaphore`, `Metric`); `@rasm/ts/core` (`Convention`).
+- Packages: `@node-rs/argon2` (`hash`/`hashRaw`/`verify`, `Algorithm`, `Version`); `@noble/hashes` (`hmac` streaming through `hmac.create` and one-shot, `sha1`/`sha256`/`sha512`); `@oslojs/encoding` (hex + base32 rows); the constant-time byte compare, the unbiased alphabet sampler, and the `Entropy` port are folder-owned over WebCrypto's `getRandomValues`; `effect` (`Effect.makeSemaphore`, `Metric`); `@rasm/core` (`Convention`).
 
 ```typescript
 type CredentialVerdict = Data.TaggedEnum<{
@@ -623,7 +623,7 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
 - Law: the data key never leaves the layer except as a `WrappedKey`; `SealedEnvelope` carries IV and ciphertext as opaque base64 bytes; an `open` failure is `SignFault.open` — tamper or shredded-key evidence, class `breached` — and increments the `Convention.metric.securityShredReject` counter and publishes the `ShredOpen` fact through `Witness` before it surfaces; the crypto floor mints its own Convention row because the folder reject stream composes one stratum above, while the fact floor sits below it.
 - Growth: a second envelope suite (XChaCha via a future WebCrypto row) is one algorithm row on the same four-verb surface.
 - Boundary: which wrapped key belongs to which subject, and its destruction, is the data wave's journal; this owner holds only the envelope algebra. `@effect/experimental`'s `EventLogEncryption.layerSubtle` zero-knowledge lane consumes this page's key material at the app root — security is the key provider, never the sync engine.
-- Packages: WebCrypto `SubtleCrypto` (`generateKey`/`encrypt`/`decrypt`/`wrapKey`/`unwrapKey`/`importKey`); `Crypto` (`derive`, `plugin.randomBytes`); `@rasm/ts/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
+- Packages: WebCrypto `SubtleCrypto` (`generateKey`/`encrypt`/`decrypt`/`wrapKey`/`unwrapKey`/`importKey`); `Crypto` (`derive`, `plugin.randomBytes`); `@rasm/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 class SealedEnvelope extends Schema.Class<SealedEnvelope>("SealedEnvelope")({
@@ -700,7 +700,7 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
 - Receipt: `mint`/`seal` return the token `Redacted`; `verify`/`unseal` return `AccessClaims`, never a bare `JWTPayload`; the issuer overload returns the verified payload.
 - Growth: a new claim is one `AccessClaims` field; a new JOSE failure code is one `_codeReason` arm; a new external issuer costs nothing — the resolver memoizes per `jwksUri`; a new two-leg ceremony is one port Tag and one `SingleUse.persisted` row.
 - Boundary: the composition root builds the `Keyset` from `crypt/secret`'s `Material.Source.Held` values through `Material.ring` and hands that rebuild in beside `Secret.changes` as the `Rotation` pair — this page never imports `crypt/secret`, which imports it. Both the `KeyValueStore` behind `SingleUse.persisted` and the `HttpClient` behind `JwksTransport.Live` are root-bound.
-- Packages: `jose` (`SignJWT`/`jwtVerify`, `EncryptJWT`/`jwtDecrypt`, `createLocalJWKSet`/`createRemoteJWKSet`, `jwksCache`/`customFetch`); `@effect/experimental` (`Persistence.ResultPersistence`); `@effect/platform` (`HttpClient.retryTransient`, `HttpClientRequest`); `effect` (`Exit`, `PrimaryKey`, `Ref`, `Runtime`, `Stream`); `@rasm/ts/core` (`Convention`, `Fault.Budget`).
+- Packages: `jose` (`SignJWT`/`jwtVerify`, `EncryptJWT`/`jwtDecrypt`, `createLocalJWKSet`/`createRemoteJWKSet`, `jwksCache`/`customFetch`); `@effect/experimental` (`Persistence.ResultPersistence`); `@effect/platform` (`HttpClient.retryTransient`, `HttpClientRequest`); `effect` (`Exit`, `PrimaryKey`, `Ref`, `Runtime`, `Stream`); `@rasm/core` (`Convention`, `Fault.Budget`).
 
 ```typescript
 class AccessClaims extends Schema.Class<AccessClaims>("AccessClaims")({
@@ -1048,7 +1048,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
 - Law: throughput claims ride the same family — a `Jwt` mint or verify-fold claim is one `bench` call over that probe with its own suite key; a second receipt shape per crypto surface is the forked-family defect.
 - Growth: a new bench subject is one `bench` call; a new credential class inherits its target AND its production member through the `CryptoCost` guard; a new statistic is a core-owned claim-band field this page reads rather than computes.
 - Boundary: `HostFingerprint` construction (print, machine, arch, cores, runtime) is the composing runtime's boot fact, passed in — this page never probes the host; claim persistence and cross-host trend boards are the core bench-pack and corpus-gate consumers over the encoded family. mitata's registration and render surface stays in the bench lane under `tests/` — domain code reaches the state-free kernel alone.
-- Packages: `mitata` (`measure`, `do_not_optimize`, the `stats` ladder derived off `measure`); `@rasm/ts/core` (`Board.Bench.fromMitata`/`.measured`, `Board.Claim`, `Identity.App`); `effect` (`Runtime.runPromise`, `Exit`).
+- Packages: `mitata` (`measure`, `do_not_optimize`, the `stats` ladder derived off `measure`); `@rasm/core` (`Board.Bench.fromMitata`/`.measured`, `Board.Claim`, `Identity.App`); `effect` (`Runtime.runPromise`, `Exit`).
 
 ```typescript
 declare namespace Calibration {

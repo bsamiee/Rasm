@@ -14,7 +14,7 @@ Each request family is one deep owner — the class carries its dedup identity i
 ## [02]-[REQUEST_FAMILY]
 
 - Owner: the request-declaration law — every batched lookup is a class extending `Request.TaggedClass("<tag>")<Success, Error, Fields>`, one name serving value, type, constructor, and dedup identity, with the family's resolver mint, window upgrade, and provider seam riding the class as statics; the folder's `Descriptor` family consumes `object/store.md`'s singular `head` member and owns bounded parallel settlement inside the resolver window — one head-lookup family whose geometry (traversal, wall-clock, persisted) is the `[4]` upgrade axis on one declaration, never a sibling family per geometry.
-- Packages: `effect` (`Request`, `Schema`, `PrimaryKey`, `HashMap`, `Option`, `Array`, `Effect`); `@rasm/ts/core` (`Digest.Key`, `Fault.Class`).
+- Packages: `effect` (`Request`, `Schema`, `PrimaryKey`, `HashMap`, `Option`, `Array`, `Effect`); `@rasm/core` (`Digest.Key`, `Fault.Class`).
 - Growth: a new lookup kind in an existing family is one more tagged class sharing the family resolver through `RequestResolver.fromEffectTagged`; a new family is one class whose statics compose the `[3]` engine — never a loose resolver const orbiting an empty class.
 - Law: the fields are exactly the identity — structural `Equal` over them is what collapses two requests for one key, so a field that varies without changing the answer (a caller label, a trace id) rides span annotation, never the request; success and failure types declare once at the family and no call site restates them.
 - Law: the class absorbs its engine — `Descriptor.resolver(head)` composes `Batch.settled` over the provider's singular member, `Descriptor.windowed(head)` upgrades it to wall-clock geometry, and `Descriptor.durable(head, policy)` composes the persisted band; provider plurality never leaks through the port, each window executes under the admitted concurrency bound, and no family hand-rolls the settle fold the engine owns.
@@ -27,7 +27,7 @@ Each request family is one deep owner — the class carries its dedup identity i
 
 ```typescript signature
 import { Effect, Exit, RequestResolver, Schema, type Scope } from "effect"
-import { Digest, Fault } from "@rasm/ts/core"
+import { Digest, Fault } from "@rasm/core"
 import { type ObjectFault, ObjectStore } from "../object/store.ts"
 
 class DescriptorMiss extends Schema.TaggedError<DescriptorMiss>()("DescriptorMiss", { key: Digest.Key.content }) {
@@ -136,7 +136,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 
 ```typescript signature
 import { Array, Clock, Duration, Effect, Metric, RequestResolver, Schema } from "effect"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 
 const _Width = Schema.Int.pipe(Schema.between(1, 1024), Schema.brand("BatchWidth"))
 

@@ -117,7 +117,7 @@ declare namespace CacheLane {
 ## [03]-[KEYED_FLIGHT]
 
 - Owner: `CacheLane.memo` — the ONE memo entry whose modality is the input shape: a bare effect caches whole (`Effect.cached`, or `cachedWithTTL` when a cadence rides the call), a unary function memoizes per-argument (`Effect.cachedFunction` under the caller's own key equivalence); and `CacheLane.dedup(options)` — the request-cache Layer that turns fiber-tree request graphs into deduplicated batched loads. Keyed single-flight rides `Cache.make` at the package surface directly — a rename-forward alias adds no domain value and is refused here.
-- Packages: `effect` (`Cache`, `Cache.ConsumerCache.cacheStats`, `Cache.makeCacheStats`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Equivalence`, `Request.makeCache`, `Layer.setRequestCache`, `Metric.incrementBy`, `Metric.set`, `Ref.getAndSet`, `Schedule.spaced`, `Duration`); `@rasm/ts/core` (`Convention` — the cache instrument and name rows).
+- Packages: `effect` (`Cache`, `Cache.ConsumerCache.cacheStats`, `Cache.makeCacheStats`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Equivalence`, `Request.makeCache`, `Layer.setRequestCache`, `Metric.incrementBy`, `Metric.set`, `Ref.getAndSet`, `Schedule.spaced`, `Duration`); `@rasm/core` (`Convention` — the cache instrument and name rows).
 - Entry: a read surface with stampede exposure mints `Cache.make` once at construction and yields `cache.get(key)` thereafter; a pure recompute memoizes through `memo`; the projection and retrieval read paths compose `dedup` at the root so their `RequestResolver`-batched loads share one cache per request graph — the resolver machinery is the SQL tier's, the cache Layer is this row.
 - Receipt: cache entries remain correctness-neutral values, and `CacheLane.census(name, cache)` is the economics projection — one scoped probe folding the substrate's own `cacheStats` snapshot onto the `cacheHits`/`cacheMisses` sums and the `cacheEntries` occupancy level, each tagged by the caller's cache name, so the `board#PACKS` `lake` hit-share tile reads a series a producer genuinely mints and residency reads beside it.
 - Growth: a new cached surface is one mint with its own spec beside one `census` registration; a per-key TTL posture is the spec's `timeToLive` fold over the exit, never a second cache kind.
@@ -131,7 +131,7 @@ declare namespace CacheLane {
 
 ```typescript signature
 import { Cache, Duration, Effect, type Equivalence, Layer, Metric, Ref, Request, Schedule, type Scope } from "effect"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 
 // Second slot reads by modality exactly as the first does: a cadence beside an effect, a key equivalence beside a
 // function. Omitting the equivalence keeps the substrate default, which answers reference identity for anything
@@ -240,7 +240,7 @@ const _persisted = <K extends Persistence.ResultPersistence.KeyAny, R>(spec: {
 
 ```typescript signature
 import { Data, KeyedPool, Metric, type Scope } from "effect"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 
 const _ORIGIN_POOL = { min: 0, max: 4, ttl: Duration.minutes(5) } as const
 

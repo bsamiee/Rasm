@@ -20,7 +20,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-(none)
+[TILE_POLICY_PLURALITY]-[QUEUED]: the four-formed tile policy resolves as a ruled plurality or a seated owner, and no package inherits the question.
+- Capability: one branch ruling decides whether a name four packages independently formed is a genuine plurality by receiver or a seating failure, so a fifth package resolves the question by reading rather than re-deciding it.
+- Shape: `libs/csharp/.planning/RULINGS.md` — one row beside the standing tile-plan plurality row, naming each of the four receivers and the closure they do or do not share.
+- Unlocks: the shared-consumer test runs once at the branch, and each package's own rulings cite that verdict instead of restating a local scope the branch never granted.
+- Anchors: the four declarations — Compute's tile octree partition, Bim's vector-tile pyramid, Materials' texture-synthesis policy, AppUi's basemap fetch posture; the standing tile-plan plurality row ruling Compute against Materials on this same axis; the id-attribute column Bim's feature projection already takes as a cross-page dependency; `docs/laws/scars.md` `[STRATA_TWIN]`.
+- Atomic: one ruling row and the citation edits its verdict obligates.
 
 ## [02]-[CLOSED]
 

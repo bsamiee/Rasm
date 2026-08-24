@@ -5,10 +5,10 @@
 - module: ESM exports map — `.` resolves `lib/version.cjs` (version identity only); the API lives behind `typescript/unstable/{sync,async,fs,proto,ast,ast/*}` subpaths; `lib/tsc.js` behind the `tsc`/`tsserver` bins wraps the bundled native executable.
 - asset: the native (Go) compiler binary with a thin JS client — AST type declarations, `is*` guards, scanner, node factory, and an IPC `API`/`Snapshot`/`Project` client that spawns the native server.
 - runtime: node; every parse and semantic question rides the native server over IPC — the package ships no in-process text-to-AST parser.
-- plane: `plane:dev` — the one compiler gate (`tsc` is the conformance authority whose diagnostic codes doctrine cites) and the `@stryker-mutator/typescript-checker` engine.
+- plane: `plane:dev` — the one compiler gate; `tsc` is the conformance authority whose diagnostic codes doctrine cites.
 - rail: type gate binary.
 
-Workspace consumes this package on the GATE lane only: `tsc --noEmit -p tsconfig.json` is the one compiler gate, and the Stryker checker boots it per mutant — no repo code imports this package. Program-free syntactic parsing moved to `@swc/core` (`swc-core.md`) the day the flat `lib/typescript.js` namespace stopped shipping: `import ts from 'typescript'` now binds version identity alone, and text-to-AST work in-process is not this package's capability.
+Workspace consumes this package on the GATE lane only: `tsc --build tsconfig.json` is the one compiler gate, walking the root solution's project references — no repo code imports this package. Program-free syntactic parsing moved to `@swc/core` (`swc-core.md`) the day the flat `lib/typescript.js` namespace stopped shipping: `import ts from 'typescript'` now binds version identity alone, and text-to-AST work in-process is not this package's capability.
 
 ## [01]-[UNSTABLE_API_SURFACE]
 
@@ -39,11 +39,11 @@ interface Node { forEachChild<T>(visitor: (node: Node) => T, visitArray?: (nodes
 
 ## [02]-[GATE_SURFACE]
 
-Binary is the gate, and configuration is the whole contract: `tsc --noEmit -p tsconfig.json` checks every file the root config includes — the whole estate, spec projects included — and projects diagnostics to stderr/exit code. Flag law lives in the root `tsconfig.json`; this catalog never mirrors it.
+Binary is the gate, and configuration is the whole contract: `tsc --build tsconfig.json` walks the root solution's `references` — every folder package and spec project, each carrying its own `tsconfig.json` — and projects diagnostics to stderr/exit code. `files: []` empties the root config, so a `-p … --noEmit` form typechecks the empty solution shell and greens falsely. Flag law lives in `tsconfig.base.json`; this catalog never mirrors it.
 
 ## [03]-[INTEGRATION]
 
-[STACK: `typescript` + `@stryker-mutator/typescript-checker`] — the checker boots this compiler against the root `tsconfig.json` to discard mutants that no longer type-check, keeping the mutation score a behavioral signal instead of a compile-error census (`stryker-mutator-typescript-checker.md`).
+[STACK: `typescript` + the assay STATIC rail] — `assay static` drives `pnpm tsc --build tsconfig.json --pretty false` and parses the emitted diagnostics as the one type verdict; mutation runs uncheckered, so no Stryker plugin boots this compiler (`tests/typescript/README.md` [08]-[GATES]).
 
 [BOUNDARY vs `@swc/core`] — syntactic import harvesting is swc's lane (`swc-core.md`): in-process, synchronous, program-free. Spawning the native server to answer a structural question is the rejected shape.
 

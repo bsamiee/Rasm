@@ -14,7 +14,7 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 ## [02]-[LIVE_FAULT]
 
 [LIVE_FAULT]:
-- Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 import { EventLogServer, Reactivity, Sse } from "@effect/experimental"
@@ -24,8 +24,8 @@ import {
   Schedule, Schema, type Scope, Stream, Trie,
 } from "effect"
 import type { IncomingMessage, ServerResponse } from "node:http"
-import { Clock, Fault, Fold, Identity, Presence } from "@rasm/ts/core"
-import { Live } from "@rasm/ts/data"
+import { Clock, Fault, Fold, Identity, Presence } from "@rasm/core"
+import { Live } from "@rasm/data"
 import { Profile } from "../otel/profile.ts"
 import { Fanout } from "../net/pubsub.ts"
 import { Principal } from "./api.ts"

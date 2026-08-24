@@ -25,7 +25,7 @@ Retention makes replay a warm-up and recovery window, never the system of record
 - Law: this port carries ONE envelope and mints none — the announced fact IS `interchange/carrier`'s message envelope, so the binding derives transport key and header band while the selected serde frames payload bytes under `Fanout.Contract`; `dataschema` remains the event's payload-schema URI and never aliases registry identity. Any second envelope class beside it is the drift defect this collapse deletes, and optimistic expectation rides `Fanout.Post` where publish policy belongs.
 - Law: two traces ship and neither folds onto the other — the CREATION-time context rides the roster extensions the mint sealed, while the HOP context rides each transport frame through its exact core dialect. Kafka's `ce_` attribute band and NATS's structured JSON body stay disjoint from the bare carrier keys beside them; `fanout` names the cross-tab hop row, and no dialect masquerades as another.
 - Growth: a new fanout concern is one topic row; a new guarantee axis is one row column every engine answers.
-- Packages: `effect`, `@rasm/ts/core` (`Fault.Budget`), and `../proc/config.ts`.
+- Packages: `effect`, `@rasm/core` (`Fault.Budget`), and `../proc/config.ts`.
 
 ```typescript signature
 import {
@@ -102,9 +102,9 @@ import {
     type Serializer,
     type SerializerConfig,
 } from '@confluentinc/schemaregistry';
-import { Carrier, Event, Fault, Format } from '@rasm/ts/core';
-import type { Backend } from '@rasm/ts/data';
-import type { MachinePrincipal } from '@rasm/ts/security';
+import { Carrier, Event, Fault, Format } from '@rasm/core';
+import type { Backend } from '@rasm/data';
+import type { MachinePrincipal } from '@rasm/security';
 import { Setting } from '../proc/config.ts';
 import { Breaker, Machine } from './client.ts';
 
@@ -331,7 +331,7 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 - Law: the port is engine-blind — no member names NATS, and swapping any row for another edits the root merge and nothing else; the engine roster law is the services doctrine's, instantiated here.
 - Boundary: the `@effect/experimental` EventLog overlay is a PROJECTION of the journal onto a local-first client, never a second carriage lane beside this port. This package claims no native op-log consumer: no real application binding currently maps that envelope into a journal intent, and inventing one here would fork the record of truth this port was built never to become.
 - Entry: engines land through one `Fanout` layer; Kafka receives its generated contract projection.
-- Packages: `effect` (`Context`, `Data`, `Predicate`, `Schema`, `Stream`); `@rasm/ts/core` (`Fault.Class`).
+- Packages: `effect` (`Context`, `Data`, `Predicate`, `Schema`, `Stream`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
 // Every refusal on this port names the TOPIC it was raised against and what actually failed — a caught cause
@@ -771,7 +771,7 @@ const _local = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<
 - Law: a cross-tab post is a real HOP, so it alone carries the `fanout` carrier row beside the announcement — the sealed creation trace rides the envelope's own extensions and the posting tab's current context rides the frame, so a receiving tab continues the hop it observed.
 - Tests: structured JSON round-trips one strictly admitted event through `Event.format.json.single`; a batch-shaped or malformed post drops before the local cell offer.
 - Boundary: the session plane's own `BroadcastChannel` (`browser/route` `Vault`) is a distinct, single-purpose channel — session continuity is not fanout, and neither surface composes the other.
-- Packages: `effect` (`Stream`, `Schema`, `Record`), `@rasm/ts/core` (`Carrier`, `Event`, `Format`), the host `BroadcastChannel` Web API at the sanctioned FFI seam.
+- Packages: `effect` (`Stream`, `Schema`, `Record`), `@rasm/core` (`Carrier`, `Event`, `Format`), the host `BroadcastChannel` Web API at the sanctioned FFI seam.
 
 ```typescript signature
 // Cross-tab posts carry exact JSON-format octets beside the posting tab's hop band. `Event.format` owns both codec
@@ -901,7 +901,7 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 - Law: the durable-consumer census is the reconciliation's missing half — `jsm.consumers.list(topic)` is a `Lister`, so it lifts through the same `Stream.fromAsyncIterable` seam the message lanes ride and pages one turn at a time rather than materializing a roster, each `ConsumerInfo` projecting into the `Fanout.Consumer` fact (created instant, delivered sequence, pending, unacked, redelivered depth); the retire predicate turns the same read into a reap over `jsm.consumers.delete`, answering the survivors so a doctor verb reads the post-reap truth in one call.
 - Law: the iterator seam is the platform-forced boundary — `consume()` yields an async iterable the engine lifts through `Stream.fromAsyncIterable` under a scoped acquisition whose release closes the consumer, so teardown rides the `Scope` and a leaked pull loop is unspellable.
 - Boundary: NATS server deployment — the websocket listener, fsync `sync_interval` hardening, replica quorum — is the deploy plane's; the data journal remains the system of record, and a projection rebuilt from fanout evidence is the named defect.
-- Packages: `@nats-io/nats-core` (`wsconnect`, `tokenAuthenticator`, `Authenticator`, `ConnectionOptions`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`, `ConsumerNotification`, `startBatch`), `@nats-io/obj` (`Objm`, `ObjectStore`), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `MutableRef`, `Predicate`, `PubSub`, `Redacted`, `Schedule`, `Stream`), `@rasm/ts/core` (`Carrier`, `Event`, `Format`), `@rasm/ts/security` (`MachinePrincipal`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`, `Machine`).
+- Packages: `@nats-io/nats-core` (`wsconnect`, `tokenAuthenticator`, `Authenticator`, `ConnectionOptions`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`, `ConsumerNotification`, `startBatch`), `@nats-io/obj` (`Objm`, `ObjectStore`), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `MutableRef`, `Predicate`, `PubSub`, `Redacted`, `Schedule`, `Stream`), `@rasm/core` (`Carrier`, `Event`, `Format`), `@rasm/security` (`MachinePrincipal`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`, `Machine`).
 
 ```typescript signature
 const _nanos = (span: Duration.Duration): number => Duration.toMillis(span) * 1_000_000;
@@ -1698,7 +1698,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 - Law: the registry frame is the sole PAYLOAD framing and `datacontenttype` states it as row data off that arrow, so a consumer reads opaque octets under a declared media rather than a literal asserting a shape the serde chose.
 - Tests: each registry family round-trips a strictly admitted single event; `Kafka.toEvent` arrays refuse as unsupported batch, clone results re-admit, and registry subject/version remain independent of absent or unrelated `dataschema`.
 - Law: replay stays engine-neutral, so this row refuses it — `Fanout.Anchor` gains no partition coordinate because a partition-and-offset pair is broker-local and leaks this engine's shape onto every row, and a fan of per-partition reads merged into one stream answers an ORDER no partition holds; `Fanout.Replayed`'s coordinate is a per-record fact and stays honest where the merged stream's sequence does not. Callers needing a positioned re-read read the data journal, which is the system of record the retention window was never allowed to replace.
-- Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, `KafkaJS.Logger`, `KafkaJS.RecordMetadata`, `KafkaJS.SASLOptions`, `KafkaJS.OauthbearerProviderResponse`), `@confluentinc/schemaregistry`, `cloudevents` (`Kafka`, `CloudEvent`, `CONSTANTS`), `effect` (`DateTime`, `PubSub`, `Queue`, `Redacted`, `Stream`), `@rasm/ts/core` (`Carrier`, `Event`), `@rasm/ts/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `../proc/config.ts`.
+- Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, `KafkaJS.Logger`, `KafkaJS.RecordMetadata`, `KafkaJS.SASLOptions`, `KafkaJS.OauthbearerProviderResponse`), `@confluentinc/schemaregistry`, `cloudevents` (`Kafka`, `CloudEvent`, `CONSTANTS`), `effect` (`DateTime`, `PubSub`, `Queue`, `Redacted`, `Stream`), `@rasm/core` (`Carrier`, `Event`), `@rasm/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `../proc/config.ts`.
 - Boundary: broker deployment — partitions, replication, retention, TLS posture — is the deploy plane's; the bootstrap roster is a `Setting` row and no broker literal exists in the engine. The SASL identity is not a deploy row here: it is the machine principal this engine projects, so a static `sasl.username`/`password` pair beside the provider would be the hand-carried credential the projection deletes. `ssl` stays unset until a `Setting.fanout` row carries the transport posture `proc/config` owns.
 
 ```typescript signature

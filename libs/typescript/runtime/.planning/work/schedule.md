@@ -15,13 +15,13 @@ Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cr
 - Law: an app declares its closed cadence table in this shape and hands it to one mint — schedule policy is root data, a `ClusterCron.make` call outside the fold is unspellable, and a new scheduled job is one row.
 - Law: anchor and catch-up are orthogonal columns — a `"previous"`-anchored row has no missed-tick set by construction (its successor derives from completion), so its `catchUp` is structurally `"skip"`; the row type encodes this with a discriminated pair rather than documenting it.
 - Growth: a new recurrence concern (a jitter band, a blackout calendar) is one row column both engines read; a one-shot delayed job is not a cadence — it is a `flow#SIGNAL_GATE` pause or a `DeliverAt` payload on the actor plane.
-- Packages: `effect` (`Cron`, `Duration`); `@rasm/ts/core` (`Identity.Tenancy` — the tenancy axis the engine descriptor states); `./entity.ts` (`WorkClass`).
+- Packages: `effect` (`Cron`, `Duration`); `@rasm/core` (`Identity.Tenancy` — the tenancy axis the engine descriptor states); `./entity.ts` (`WorkClass`).
 
 ```typescript signature
 import { ClusterCron } from "@effect/cluster"
 import { Array, Cron, DateTime, Duration, Effect, Iterable, Layer, Option, Record, Schedule, Schema, Stream } from "effect"
-import { Identity } from "@rasm/ts/core"
-import { Fact } from "@rasm/ts/data"
+import { Identity } from "@rasm/core"
+import { Fact } from "@rasm/data"
 import { WorkClass } from "./entity.ts"
 import { Step } from "./flow.ts"
 
@@ -69,7 +69,7 @@ const _rows = (table: Cadence.Table): ReadonlyArray<Cadence.Row> =>
 - Law: `Date` lives only at the `Cron.sequenceReverse` seam — the iterator's platform `Date` converts through `DateTime.unsafeFromDate` inside the seam's own `Iterable.map`, so the cadence-domain callback, the tick identity, and every comparison ride `DateTime.Utc`; a `Date`-typed callback or a `toISOString` identity is the host-scalar leak `values.md` names.
 - Receipt: every tick's step exit is the durable run evidence — instant, verdict, duration — the operator census reads; no separate run-history table exists.
 - Growth: a new posture is one `Anchor` discriminant and one `_missed` arm; per-row notification is a tap on the row's body at its owner.
-- Packages: `@effect/cluster` (`ClusterCron`); `effect` (`Cron`, `Array`, `Iterable`, `Layer`, `DateTime`); `./flow.ts` (`Step`); `@rasm/ts/data` (`Fact` — the backfill meter).
+- Packages: `@effect/cluster` (`ClusterCron`); `effect` (`Cron`, `Array`, `Iterable`, `Layer`, `DateTime`); `./flow.ts` (`Step`); `@rasm/data` (`Fact` — the backfill meter).
 
 ```typescript signature
 // The pull is `ceiling + 1`: the one element past the posture's admission PROVES the clip while the ceiling still

@@ -9,14 +9,14 @@ from expression import Error, Ok
 import msgspec
 import pytest
 
+from assay.composition.registry import REGISTRY
+from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, StaticRun, Tool
+from assay.core.routing import Routed, Scope, TargetFiles
+from assay.diagnostics import sarif_status
+import assay.rails.static as static_rail
+from assay.rails.static import run, StaticParams
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.composition.registry import REGISTRY
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, StaticRun, Tool
-from tools.assay.core.routing import Routed, Scope, TargetFiles
-from tools.assay.diagnostics import sarif_status
-import tools.assay.rails.static as static_rail
-from tools.assay.rails.static import run, StaticParams
 
 
 if TYPE_CHECKING:
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 
     from expression import Result
 
+    from assay.core.model import Completed
     from tests.python.tools.assay.kit import AssayHarness, VerbRunner
-    from tools.assay.core.model import Completed
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -79,7 +79,7 @@ def test_cli_consumes_grouped_folder_and_file_targets(cli: VerbRunner, assay_roo
 
 def test_static_help_admits_scoped_target_flags(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
     """``static --help`` is the root leaf and admits the full value-driven target surface."""
-    from tools.assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
+    from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
 
     neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
     monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
@@ -211,7 +211,7 @@ def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
     routed = Routed(Language.TYPESCRIPT, Scope.FULL, files=("vite.config.ts", "vitest.config.ts"))
     phases, _ = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
-    assert ("build", "tsc", "pnpm --silent exec tsc --noEmit --pretty false -p tsconfig.json") in planned
+    assert ("build", "tsc", "pnpm --silent exec tsc --build tsconfig.json --pretty false") in planned
 
 
 _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], ...]], bool]], ...] = (

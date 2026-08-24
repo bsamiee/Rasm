@@ -25,7 +25,7 @@ import { createGuardrails, generateSecret, generateURI, verify, type OTPGuardrai
 import type { OTPHooks } from "@otplib/core"
 import { OTPError, TokenError } from "@otplib/core/errors"
 import { validateToken } from "@otplib/core/utils"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Clock, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Alphabet, Crypto, Probe, type SignFault } from "../crypt/sign.ts"
 import { Curb, Reject } from "../crypt/verify.ts"

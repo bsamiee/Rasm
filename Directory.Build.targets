@@ -1,11 +1,26 @@
 <Project>
+    <!-- RasmHost is the body-declared host-surface token set (common | grasshopper | ui | platform), so its derivations live here, after the body evaluates; every reader is an item-pass condition or an execution-time property, which both see these verdicts. Implication chain: grasshopper carries common and ui; platform carries ui. -->
+    <PropertyGroup Label="Host Surface">
+        <HostGrasshopper Condition="'$(HostGrasshopper)' == '' and ($([System.String]::Copy(';$(RasmHost);').Contains(';grasshopper;')) or '$(RasmPlugin)' == 'grasshopper')">true</HostGrasshopper>
+        <HostPlatform Condition="'$(HostPlatform)' == '' and $([System.String]::Copy(';$(RasmHost);').Contains(';platform;'))">true</HostPlatform>
+        <HostUi Condition="'$(HostUi)' == '' and ($([System.String]::Copy(';$(RasmHost);').Contains(';ui;')) or '$(HostPlatform)' == 'true' or '$(HostGrasshopper)' == 'true')">true</HostUi>
+        <HostCommon Condition="'$(HostCommon)' == '' and ($([System.String]::Copy(';$(RasmHost);').Contains(';common;')) or '$(HostGrasshopper)' == 'true' or '$(RasmPlugin)' == 'rhino')">true</HostCommon>
+    </PropertyGroup>
+
+    <!-- Plugin packaging derives from the body-declared RasmPlugin token; plugins additionally declare their own RuntimeIdentifier and EnableDynamicLoading, which evaluate too early to derive here. -->
+    <PropertyGroup Label="Plugin Packaging">
+        <TargetExt Condition="'$(RasmPlugin)' != ''">.rhp</TargetExt>
+        <IncludeSourceRevisionInInformationalVersion Condition="'$(RasmPlugin)' != '' or '$(IsRhinoBridgeProject)' == 'true'">false</IncludeSourceRevisionInInformationalVersion>
+        <CspScope Condition="'$(CspScope)' == '' and '$(RasmPlugin)' != ''">Boundary</CspScope>
+    </PropertyGroup>
+
     <!-- UseWorkspaceLibraries is project-body-settable, so props-time derivation freezes UsesThinktecture against the pre-body default and hands a non-consumer the JetBrains.Annotations identity. Every reader is an item-pass condition, which evaluates after this file. -->
     <PropertyGroup Label="Workspace Library Policy">
-        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true' or '$(IsWireContractsProject)' == 'true' or '$(IsCspContractsProject)' == 'true')">false</UseWorkspaceLibraries>
+        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(RasmPlugin)' != '' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true' or '$(RasmGenerated)' == 'true' or '$(IsCspContractsProject)' == 'true')">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
         <!-- Thinktecture consumers bind to one shared public JetBrains.Annotations identity. -->
         <UsesThinktecture Condition="'$(UsesThinktecture)' == '' and '$(IsLocalCSharpAnalyzerProject)' != 'true' and ('$(UseWorkspaceLibraries)' == 'true' or '$(IsRhinoBridgeContractProject)' == 'true' or '$(IsRhinoBridgeShellProject)' == 'true')">true</UsesThinktecture>
-        <NeedsSystemDrawingCompilePackage Condition="'$(NeedsSystemDrawingCompilePackage)' == '' and ('$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">true</NeedsSystemDrawingCompilePackage>
+        <NeedsSystemDrawingCompilePackage Condition="'$(NeedsSystemDrawingCompilePackage)' == '' and '$(HostUi)' == 'true'">true</NeedsSystemDrawingCompilePackage>
     </PropertyGroup>
 
     <!-- Reads UsesThinktecture, so it follows that derivation; the generator consumes the value through a CompilerVisibleProperty the editorconfig target resolves at execution. -->
@@ -21,12 +36,12 @@
         <YakPlatform Condition="'$(YakPlatform)' == ''">mac</YakPlatform>
         <YakPushSource Condition="'$(YakPushSource)' == '' and '$(YAK_SOURCE)' != ''">$(YAK_SOURCE)</YakPushSource>
         <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
-        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
+        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and '$(RasmPlugin)' != ''">true</IsYakPackageProject>
         <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
         <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
     </PropertyGroup>
 
-    <!-- AssayTestShell is body-set, so the test verdict settles here and nothing upstream may pre-answer it: spec-free shells stay libraries solution-scope dotnet test never discovers. -->
+    <!-- AssayTestShell is body-set, so the test verdict settles here and nothing upstream may pre-answer it; a spec-free shell stays a library that solution-scope `dotnet test` never discovers. -->
     <PropertyGroup Label="Test Classification">
         <IsTestProject Condition="'$(IsTestProject)' == '' and '$(AssayTestShell)' == 'true'">false</IsTestProject>
         <IsTestProject Condition="'$(IsTestProject)' == '' and '$(IsTestLaneProject)' == 'true'">true</IsTestProject>
@@ -36,6 +51,12 @@
         <OutputType>Exe</OutputType>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <_XunitRunnerJsonContent>{"$schema":"https://xunit.net/schema/v3.1/xunit.runner.schema.json","parallelAlgorithm":"conservative","preEnumerateTheories":true,"longRunningTestSeconds":30,"printMaxEnumerableLength":64,"printMaxObjectDepth":4}</_XunitRunnerJsonContent>
+    </PropertyGroup>
+
+    <!-- coverlet.MTP is CLI-configured; the coverlet.msbuild Coverlet* property family is inert under the MTP flavor. RasmCoverage=true splices the activation tail into the MTP argument stream per test executable. -->
+    <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true' and '$(RasmCoverage)' == 'true'">
+        <RasmCoverageFormat Condition="'$(RasmCoverageFormat)' == ''">cobertura</RasmCoverageFormat>
+        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <!-- MPXJ.Net rides ikvm-maven: JARs resolve from Maven Central and IKVM-compile inside the consumer build. The import task hosts a JVM that dies in the Roslyn LSP's shared MSBuild task host and poisons unrelated project loads; design-time builds empty the Maven chains, real builds keep the full pipeline. -->
@@ -59,12 +80,43 @@
     </Target>
 
     <!-- Remove known root Grasshopper2 resource spillover without touching real app/library folders. -->
-    <Target Name="ScrubGrasshopperResourceSpillover" AfterTargets="Build" Condition="'$(ScrubGrasshopperResourceSpillover)' != 'false' and ('$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">
+    <Target Name="ScrubGrasshopperResourceSpillover" AfterTargets="Build" Condition="'$(ScrubGrasshopperResourceSpillover)' != 'false' and '$(HostGrasshopper)' == 'true'">
         <ItemGroup>
             <_GrasshopperSpillover Include="$(MSBuildThisFileDirectory)Grasshopper.*.dll;$(MSBuildThisFileDirectory)Grasshopper.*.pdb;$(MSBuildThisFileDirectory)Grasshopper.*.deps.json;$(MSBuildThisFileDirectory)Grasshopper.*.runtimeconfig.json;$(MSBuildThisFileDirectory)Grasshopper.*.resources" />
         </ItemGroup>
         <Delete Files="@(_GrasshopperSpillover)" Condition="'@(_GrasshopperSpillover)' != ''" />
         <Message Text="check-build: scrubbed @(_GrasshopperSpillover->Count()) Grasshopper2 resource spillover file(s) from repo root." Importance="normal" Condition="'@(_GrasshopperSpillover)' != ''" />
+    </Target>
+
+    <!-- RASM0001: declared reference edges obey the role lattice — libs consume libs alone; tools add the tests kit tier (tests/csharp/_*); tests consume everything but apps; an app consumes libs and its own tree. RasmInfra edges are workspace plumbing, not declarations. -->
+    <Target Name="RasmReferenceRoleGuard" BeforeTargets="AssignProjectConfiguration" Condition="'@(ProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_RasmRepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</_RasmRepoRoot>
+            <_RasmOwnRole Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(_RasmRepoRoot)libs/'))">libs</_RasmOwnRole>
+            <_RasmOwnRole Condition="'$(_RasmOwnRole)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(_RasmRepoRoot)tools/'))">tools</_RasmOwnRole>
+            <_RasmOwnRole Condition="'$(_RasmOwnRole)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(_RasmRepoRoot)tests/'))">tests</_RasmOwnRole>
+            <_RasmOwnRole Condition="'$(_RasmOwnRole)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(_RasmRepoRoot)apps/'))">apps</_RasmOwnRole>
+            <_RasmOwnAppRoot Condition="'$(_RasmOwnRole)' == 'apps'">$(_RasmRepoRoot)apps/$([System.String]::Copy('$(NormalizedProjectDirectory)').Substring($([MSBuild]::Add($(_RasmRepoRoot.Length), 5))).Split('/')[0])/</_RasmOwnAppRoot>
+        </PropertyGroup>
+        <ItemGroup>
+            <_RasmDeclaredEdge Include="@(ProjectReference->'%(FullPath)')" Condition="'%(ProjectReference.RasmInfra)' != 'true'" />
+            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/'))" />
+            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)tools/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)tests/csharp/_'))" />
+            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)apps/'))" />
+            <_RasmUnlawfulEdge Include="@(_RasmDeclaredEdge)" Condition="'$(_RasmOwnRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmRepoRoot)libs/')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_RasmOwnAppRoot)'))" />
+        </ItemGroup>
+        <Error Code="RASM0001" Condition="'@(_RasmUnlawfulEdge)' != ''"
+               Text="Role '$(_RasmOwnRole)' project '$(MSBuildProjectName)' declares reference(s) outside its lattice: @(_RasmUnlawfulEdge->'%(Identity)', '; ')." />
+    </Target>
+
+    <!-- RASM0002: a project manifest carries identity alone — versions belong to CPM and MinVer, rule severity to .editorconfig, output routing and analysis posture to the root estate. The scan is the project's own XML, so the refusal names the offending element before anything compiles. -->
+    <Target Name="RasmProjectShapeGuard" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_RasmShapeBreach>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), '&lt;(NoWarn|WarningsNotAsErrors|MSBuildWarningsNotAsErrors|TreatWarningsAsErrors|AnalysisLevel|RunAnalyzers|EnforceCodeStyleInBuild|ArtifactsPath|BaseOutputPath|BaseIntermediateOutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion)[ &gt;/]').Value)</_RasmShapeBreach>
+            <_RasmShapeBreach Condition="'$(_RasmShapeBreach)' == ''">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText($(MSBuildProjectFullPath))), 'PackageReference[^&gt;]*\s(Version|VersionOverride)\s*=').Value)</_RasmShapeBreach>
+        </PropertyGroup>
+        <Error Code="RASM0002" Condition="'$(_RasmShapeBreach)' != ''"
+               Text="Project manifest '$(MSBuildProjectFile)' carries a policy element ('$(_RasmShapeBreach.Trim())…'): versions ride CPM/MinVer, severities ride .editorconfig, output and analysis posture ride the root estate." />
     </Target>
 
     <Target Name="ValidateCentralTestProjectAdmission" BeforeTargets="PrepareForBuild"
@@ -80,6 +132,20 @@
         <ItemGroup>
             <None Include="$(_XunitRunnerJsonPath)" Link="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
             <FileWrites Include="$(_XunitRunnerJsonPath)" />
+        </ItemGroup>
+    </Target>
+
+    <!-- MTP resolves results against the launcher cwd, so this pin seats them module-adjacent for every entry point (an explicit results-directory argument still outranks it); the pin spells the bootstrap folder verbatim — a differing dir makes MTP relocate the open diagnostic log and dispose its writer mid-hold — and the link lands before AssignTargetPaths so MTP's testconfig ownership scan spares it. -->
+    <Target Name="GenerateTestConfigJson" BeforeTargets="AssignTargetPaths" Condition="'$(IsTestProject)' == 'true'">
+        <PropertyGroup>
+            <_TestConfigJsonPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'testconfig.json'))</_TestConfigJsonPath>
+            <_TestConfigResultDirectory>$([System.String]::Copy($([MSBuild]::NormalizePath('$(TargetDir)', 'TestResults'))).Replace('\', '/'))</_TestConfigResultDirectory>
+            <_TestConfigJsonContent>{"platformOptions":{"resultDirectory":"$(_TestConfigResultDirectory)"}}</_TestConfigJsonContent>
+        </PropertyGroup>
+        <WriteLinesToFile File="$(_TestConfigJsonPath)" Lines="$(_TestConfigJsonContent)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <None Include="$(_TestConfigJsonPath)" Link="$(AssemblyName).testconfig.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+            <FileWrites Include="$(_TestConfigJsonPath)" />
         </ItemGroup>
     </Target>
 

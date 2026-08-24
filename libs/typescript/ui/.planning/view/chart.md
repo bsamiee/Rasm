@@ -24,7 +24,7 @@ Chart owns declared statistics, streaming series, and user-driven pivots behind 
 - Growth: a new chart need selects a regime row; a new regime is one row with its bracket member on the one owner — never a sibling chart component family.
 
 ```typescript signature
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { useParentSize } from "@visx/responsive"
 import { isArrowRecordBatch, isArrowTable, type RecordBatch, type Table } from "apache-arrow"
 import { Array, Option, Schema } from "effect"
@@ -539,7 +539,7 @@ import "@perspective-dev/viewer-datagrid"
 import "@perspective-dev/viewer-charts"
 import type { Client, JoinOptions, Table as PerspectiveTable, TableInitOptions, TypedArrayWindow, View, ViewConfigUpdate } from "@perspective-dev/client"
 import type { HTMLPerspectiveViewerElement, PerspectiveConfigUpdateEventDetail, ViewerConfigUpdate, WorkspaceConfigUpdate } from "@perspective-dev/viewer"
-import { Convention } from "@rasm/ts/core"
+import { Convention } from "@rasm/core"
 import { Data, Effect, HashSet, Match, Record, Schema, type Scope, Stream } from "effect"
 import { Store } from "../system/atom.ts"
 

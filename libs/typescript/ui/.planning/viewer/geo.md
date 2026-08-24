@@ -29,7 +29,7 @@
 
 ```typescript signature
 import { MapboxOverlay } from "@deck.gl/mapbox"
-import { Fault } from "@rasm/ts/core"
+import { Fault } from "@rasm/core"
 import { Array, Context, Data, type DateTime, Effect, type Option, Schema, type Scope, type Stream } from "effect"
 import {
   GeolocateControl, GlobeControl, Map as MapLibreMap, NavigationControl, ScaleControl, TerrainControl,
@@ -284,7 +284,7 @@ const Clock: Clock.Shape = {
 
 [CAMERA]:
 - Owner: `Camera` — the camera vocabulary spanning every backend: `Camera.State` (center `[lng, lat]`, `zoom`, `bearing`, `pitch` — the shape both the maplibre getters and deck's `MapViewState` speak), the intent family `Camera.Intent` as a closed `Data.taggedEnum` (`JumpTo` instant, `EaseTo` animated, `FlyTo` curved, `FitBounds` extent-driven, `LookAt` eye/target — the 3D viewpoint carriage `mark`'s restore mints), and the fold pair: `Camera.drive(map, intent)` dispatches onto the maplibre `Camera` verbs, `Camera.settled(map)` reads the getters into a `State` — the `moveend` subscription writes it to the atom so the store always holds the authority's last settled truth.
-- Packages: `maplibre-gl` (`jumpTo`/`easeTo`/`flyTo`/`fitBounds`/`calculateCameraOptionsFromTo`, `LngLat`, the getters); `@rasm/ts/core` (`Wire.GeoFeature.Extent` as the bounds carriage); `effect` (`Data`, `pipe`).
+- Packages: `maplibre-gl` (`jumpTo`/`easeTo`/`flyTo`/`fitBounds`/`calculateCameraOptionsFromTo`, `LngLat`, the getters); `@rasm/core` (`Wire.GeoFeature.Extent` as the bounds carriage); `effect` (`Data`, `pipe`).
 - Boundary: the camera atom rides `system/atom#STORE_ROOT` and the gesture that mints an intent is `system/act#CONTINUOUS_OWNER`'s; this page owns the vocabulary and the folds, never the binding or the recognizer.
 - Law: one authority per surface — under `MapboxOverlay` the map owns pan/zoom/pitch and deck's view state syncs automatically; hand-syncing deck's camera under an overlay is the named defect; a map-less free `Deck` drives `viewState` from the same atom.
 - Law: intents are the only write path — a gesture (`system/act#CONTINUOUS_OWNER`), a viewpoint restore, and a fit-to-selection all mint `Camera.Intent` values on every surface class; nothing calls a map verb outside `Camera.drive`, so camera motion is replayable and undo is `system/atom#HISTORY_FOLD` over the camera atom by construction.
@@ -296,7 +296,7 @@ const Clock: Clock.Shape = {
 - Growth: a new motion kind (an orbit-around) is one intent case plus one dispatch arm per backend — consumers break loudly at the missing arm; a new control temperament is one adapter row, never a fourth camera vocabulary.
 
 ```typescript signature
-import type { Wire } from "@rasm/ts/core"
+import type { Wire } from "@rasm/core"
 import { Data, pipe } from "effect"
 import { LngLat, type Map as MapLibreMap } from "maplibre-gl"
 
@@ -447,7 +447,7 @@ import { GeoArrowPolygonLayer, type initEarcutPool } from "@geoarrow/deck.gl-geo
 import { CesiumIonLoader, TILE3D_TYPE, Tiles3DArchiveFileLoader, Tiles3DLoader } from "@loaders.gl/3d-tiles"
 import { FetchError, type Loader, load } from "@loaders.gl/core"
 import { LASArrowLoader, LASLoader, LAZRsLoader } from "@loaders.gl/las"
-import { Fault, type Wire } from "@rasm/ts/core"
+import { Fault, type Wire } from "@rasm/core"
 import { tableFromIPC, type RecordBatch, type Table } from "apache-arrow"
 import { Array, Cache, Data, type Duration, Effect, Match, pipe, type Schedule, Schema } from "effect"
 import type { FeatureCollection } from "geojson"
@@ -824,7 +824,7 @@ const _depth = (pixelRatio: number, policy: Screen.Depth = _DEPTH): PostProcessE
 
 [PLANAR_OPS]:
 - Owner: `Geo.planar` — the turf algebra as bounded op-row tables plus the ops whose own signatures are the contract: `relation` is the DE-9IM predicate matrix (seven uniform `(a, b) => boolean` rows mirroring the NetTopologySuite relationship set), `overlay` is the boolean-overlay triple, `project` is the WGS84↔Mercator pair, and `derive`/`gauge` are the geometry-to-geometry and geometry-to-scalar ops each carrying its own option row. Every member is a pure synchronous turf function; the algebra holds no state, no effect, and no DOM.
-- Packages: `@turf/turf` (`union`, `intersect`, `difference`, `buffer`, `simplify`, `convex`, `dissolve`, `bboxClip`, `mask`, `area`, `length`, `convertArea`, `centroid`, `truncate`, the `boolean*` predicate set, `coordEach`/`geomEach`/`featureEach` traversal, `getCoord`/`getGeom`/`getType` accessors, `toMercator`, `toWgs84`, the `AllGeoJSON`/`Units`/`AreaUnits` vocabularies); `@types/geojson` (the `Feature`/`FeatureCollection`/`Polygon`/`Geometry` value types turf itself imports); `@rasm/ts/core` (`Wire.GeoFeature.Crs` — the SRID row table the admission resolves against); `effect` (`Effect`, `Option`).
+- Packages: `@turf/turf` (`union`, `intersect`, `difference`, `buffer`, `simplify`, `convex`, `dissolve`, `bboxClip`, `mask`, `area`, `length`, `convertArea`, `centroid`, `truncate`, the `boolean*` predicate set, `coordEach`/`geomEach`/`featureEach` traversal, `getCoord`/`getGeom`/`getType` accessors, `toMercator`, `toWgs84`, the `AllGeoJSON`/`Units`/`AreaUnits` vocabularies); `@types/geojson` (the `Feature`/`FeatureCollection`/`Polygon`/`Geometry` value types turf itself imports); `@rasm/core` (`Wire.GeoFeature.Crs` — the SRID row table the admission resolves against); `effect` (`Effect`, `Option`).
 - Law: the overlay arms take ONE collection, never two features — the pinned release moved `union`/`intersect` onto a `FeatureCollection<Polygon | MultiPolygon>` input answering one feature or `null`, so the call shape is the collection and a two-argument sibling has no spelling; `difference` takes the same collection and the empty result is `null`, a real answer the caller folds rather than an error.
 - Law: turf is the planar compute peer, render surfaces are the sink — derived polygons feed a `GeoJsonLayer` row or a `GeoJSONSource.setData`, and the hit-test rows (`booleanPointInPolygon`, `geojsonRbush`) are `mark`'s consumption of this same algebra under its own selection law.
 - Law: planar ONLY — turf never re-derives a spatial relation the C# side owns as authority; the two meet at the WKB/GeoJSON wire behind `WkbParser`, and a relation computed on both sides that diverges is the cross-language drift defect.
@@ -842,7 +842,7 @@ import {
   coordEach, difference, dissolve, featureEach, geomEach, getCoord, getGeom, getType, intersect, length, mask,
   simplify, toMercator, toWgs84, truncate, union, type Units,
 } from "@turf/turf"
-import { Wire } from "@rasm/ts/core"
+import { Wire } from "@rasm/core"
 import { Effect, Option } from "effect"
 import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from "geojson"
 

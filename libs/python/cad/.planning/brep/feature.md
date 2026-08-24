@@ -2,7 +2,7 @@
 
 `featured` applies one edge feature to a decoded body: it admits an `EdgeSelection` against the body's own edge map, charges every proven edge at one magnitude, and asks the shared verdict. This owner holds the sub-topology index regime — where a wire ordinal is zero-based, where OCCT's map is one-based, and how far either survives — so no sibling re-derives it.
 
-Edges resolve through the body the fold already decoded at `brep/operation#OPERATION`, and every verdict through `built`; refusal rows come from `faults#ROWS`. `EdgeSelection`, `EdgeIndices`, `FilletOp`, and `ChamferOp` are the frozen wire names, and the proto itself states that ordinals do not survive resealing — the durable-name gap that follows is modelled at `brep/provenance#READING`.
+Edges resolve through the body the fold already decoded at `brep/operation#OPERATION`, and every verdict through `built` at `brep/placement#ADMISSION`; refusal rows come from `faults#ROWS`. `EdgeSelection`, `EdgeIndices`, `FilletOp`, and `ChamferOp` are the frozen wire names, and the proto itself states that ordinals do not survive resealing — the durable-name gap that follows is modelled at `brep/provenance#READING`.
 
 ## [01]-[INDEX]
 
@@ -39,7 +39,7 @@ from protobuf import Oneof
 from protobuf.wkt import Empty
 from rasm.contracts.gen.rasm.contracts.cad.v1.operations_pb import EdgeIndices, EdgeSelection
 
-from rasm.cad.brep.operation import ShapeBuilder, built
+from rasm.cad.brep.placement import ShapeBuilder, built
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadFault, CadRail
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

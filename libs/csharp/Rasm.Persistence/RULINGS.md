@@ -106,7 +106,7 @@
 - `OperationId.Counter` IS the origin's `VersionVector` slot — a second counter beside it drifts the moment either advances alone.
 - One `DotSource` per store mints every dot — the changefeed range and the authoring stamp reserving apart mint one counter twice.
 - `VersionVector` owns `Ordered`/`CanonicalBytes` and every byte-deriving reader takes them — a caller enumerating `Slots` writes bucket order.
-- `OperationId.Counter` streams as ONE eight-byte `CanonicalWriter.I64` word — the parity corpus pins that form; a sixteen-byte twin forks the key.
+- `OperationId.Counter` streams as ONE parity-pinned `CanonicalWriter.I64` word — `U64` never substitutes, a sixteen-byte twin forks the key.
 - `ColumnFamily.Crdt.Codec` is generated `crdt.v1.CrdtOpWire`; `OpLogEntryWire` retains those bytes at `[Key(6)] Payload`.
 - `OpLogEntryWire`'s thirteen-slot MessagePack envelope leaves every non-CRDT lane opaque.
 - `OpLogWire.Encode` and `Decode` share one admission fold; sync ports exchange frames, never typed entries.

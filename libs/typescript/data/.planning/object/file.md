@@ -37,7 +37,7 @@ Gates bound hostile input before any native decode. Renditions are roster rows, 
 import { Effect, Either, Option, Stream } from "effect"
 import { FileSystem, Path } from "@effect/platform"
 import { watch } from "chokidar"
-import { Digest } from "@rasm/ts/core"
+import { Digest } from "@rasm/core"
 import { Hook } from "../journal/append.ts"
 import { ObjectFault, ObjectStore } from "./store.ts"
 import { Rail } from "./stream.ts"
@@ -190,7 +190,7 @@ const _governed = (
 ## [04]-[DERIVATIVE_ROWS]
 
 - Owner: the plane contract and the raster row family — `Derive.Plane` is the engine row `{ name, open, admit, emit }` the spine folds (raster here, container and `ktx` at `object/asset.md`), `Derive.Row` the envelope every engine's rows share (`name`, `retention`, `grant`), `Derive.Spec` the raster row over it, discriminated `kind: "raster"` so it enters the one category-general entry beside its siblings — rendition policy is one row, `toFormat` is the codec dispatch, tile is the alternate terminal, channel assembly is the alternate chain head, and `OutputInfo` with the source's own measures is evidence.
-- Packages: `sharp` (`clone`, `resize`, `composite`, `extractChannel`, `joinChannel`, `removeAlpha`, `toColourspace`, `toFormat`, `raw`, `tile`, `toUint8Array`, `toBuffer`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `Channels`, `DepthEnum`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputInfo`, and the per-codec `JpegOptions`/`PngOptions`/`WebpOptions`/`HeifOptions`/`JxlOptions`/`GifOptions`/`Jp2Options`/`RawOptions`/`TiffOptions` records); `@rasm/ts/core` (`Wire.Texture` — the frozen `Pack` vocabulary the assembly row's tag closes against).
+- Packages: `sharp` (`clone`, `resize`, `composite`, `extractChannel`, `joinChannel`, `removeAlpha`, `toColourspace`, `toFormat`, `raw`, `tile`, `toUint8Array`, `toBuffer`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `Channels`, `DepthEnum`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputInfo`, and the per-codec `JpegOptions`/`PngOptions`/`WebpOptions`/`HeifOptions`/`JxlOptions`/`GifOptions`/`Jp2Options`/`RawOptions`/`TiffOptions` records); `@rasm/core` (`Wire.Texture` — the frozen `Pack` vocabulary the assembly row's tag closes against).
 - Entry: an app declares its rendition roster once (`thumbnail`/`preview`/`master`/`deepzoom`/`orm` rows) and hands it to `Asset.pipe` beside its container and `ktx` rows; format capability gates through `_governed`'s `sharp.format` read at construction so an unbuildable row refuses at boot, never per request.
 - Receipt: `Derive.Receipt` — `{ name, key, grant, info, dominant, measure }` — the row name, the derivative's own content key, the presigned `ObjectStore.Grant` its row's policy asked for, the codec provenance, the optional placeholder color seeded from `stats().dominant`, and the source measures the encode consumed.
 - Growth: a rendition is one roster row; admission, overlay, channel assembly, pyramid layout, alpha posture, grade ladder, retention, and grant posture are fields on that row, never format paths.
@@ -215,7 +215,7 @@ import type {
   OutputInfo, OverlayOptions, PngOptions, RawOptions, ResizeOptions, TiffOptions, TileOptions, WebpOptions,
 } from "sharp"
 import { Option } from "effect"
-import { Wire } from "@rasm/ts/core"
+import { Wire } from "@rasm/core"
 
 declare namespace Derive {
   type Reason = (typeof _family.kinds)[number] // the spine's stage roster, closed by the fault family that names it
@@ -329,7 +329,7 @@ declare namespace Derive {
 
 ```typescript signature
 import { Array, Match, Metric, Record, Schema } from "effect"
-import { Convention, Fault } from "@rasm/ts/core"
+import { Convention, Fault } from "@rasm/core"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import type { Sharp, Stats } from "sharp"
 

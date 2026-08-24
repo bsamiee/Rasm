@@ -1,3 +1,4 @@
+using Eto.Drawing;
 using GhEditor = Grasshopper2.UI.Editor;
 
 namespace Rasm.Bridge.Cargo;
@@ -9,9 +10,7 @@ internal readonly record struct CaptureFile(string Path, int Width, int Height);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-// Ownership: the only Grasshopper2 type boundary. The render lane uses the editor constructor,
-// never ShowEditor, so offscreen DrawToBitmap avoids NSView realization while keeping GH2 breakage
-// local to this file.
+// Ownership: the only Grasshopper2 type boundary. The render lane uses the editor constructor, never ShowEditor, so offscreen DrawToBitmap avoids NSView realization while keeping GH2 breakage local to this file.
 internal sealed class Gh2Lane : IDisposable {
     private const int FallbackHeight = 720;
     private const int FallbackWidth = 1280;

@@ -13,10 +13,10 @@ Tenancy contract: the ambient reference the request's active `Identity.Tenant` r
 - Law: every bound `Principal` mints here, and `of` takes both axes as optionals because the construction sites differ on each — the data wave's explicit-tenant transformer names a context and omits the subject, `access/claim` names a subject whose tenancy is an `Option`, and a machine-key admission names a subject under no tenancy at all. One member answers all three, so a coordinate the shape acquires reaches every construction site at once instead of only the ones that remembered, and an inline `{ context, subject }` literal at any call is the drift this law forbids.
 - Law: `metered` is the folder's one tenant-tag seam — a security owner emits plain effect-native `Metric` instruments, the serving edge wraps the request handler once in `TenantScope.metered`, and every instrument inside lands tagged; no owner re-reads the reference for telemetry and no exporter is named here.
 - Law: per-tenant series ride governed — `metered` tags with the core `Convention.rasm.tenant` key, the one dimension the runtime export lane's tenant metric-view row admits under its cardinality ceiling, so the per-tenant fan is bounded at the exporter and a free-string tenant key that dodges the governor is unspellable at this seam.
-- Packages: `effect` (`Context`, `Effect`, `Option`); `@rasm/ts/core` (`Convention`, `Identity.Tenant`).
+- Packages: `effect` (`Context`, `Effect`, `Option`); `@rasm/core` (`Convention`, `Identity.Tenant`).
 
 ```typescript signature
-import { Convention, Identity } from "@rasm/ts/core"
+import { Convention, Identity } from "@rasm/core"
 import { Context, Effect, Option } from "effect"
 
 type Principal = {
@@ -58,7 +58,7 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 - Growth: a new session coordinate the data wave pins (a shard key, a search-path override, a region) is one `SessionCoordinate` row; a GUC rename lands once in its row.
 - Law: the plane row is fail-closed like every coordinate — unset folds to NULL under `current_setting(name, true)`, a principal-pinned transaction never carries it because its projection answers `None` for every principal, and its `value` is the row's own published constant, so the policy arm and the maintenance transformer spell one word from one seat.
 - Boundary: the `set_config` write, the RLS `CREATE POLICY` ensure, and the per-isolation Layer construction are all the data wave's; this page declares the names and the projections the enforcement reads.
-- Packages: `effect` (`Option`); `@rasm/ts/core` (`Identity.Tenant`).
+- Packages: `effect` (`Option`); `@rasm/core` (`Identity.Tenant`).
 
 ```typescript signature
 const SessionCoordinate = {
