@@ -25,7 +25,7 @@
 - Growth: a new delivery semantics is one `HookModality` row with its column values, breaking every modality dispatch at compile time; a consuming folder's new point is one row on its own `<Package>Point` roster — the capsule type never widens per folder.
 - Boundary: `TFact` closes at declaration as the owning folder's closed union, so a stringly payload cannot enter the rail; a subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling, because every tap runs inside its own shield. Evidence cells enter as constructor material from the owning composition, never process-static — two compositions in one process hold two cells.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
@@ -172,7 +172,7 @@ public sealed class HookPoint<TFact> : IHookPoint {
 - Law: `Seats` is the fact union's OWN declared correspondence and `Fire` gates on it twice — at entry (an emitter pairing a fact with a foreign point refuses before any veto runs) and on the veto fold's product (a gate rewriting to a sibling case that does not seat at the point refuses before the body or any tap). A 1:1 union derives `Seats` from its `At`/`Point` map; a broadcast fact answers the point set it lawfully fans to; a case entering only through `Replay` seats at its journal points and says so.
 - Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder rails onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one rail every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookRail<BimPoint, BimFact, TelemetrySource>.Of(key, taps: taps)`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 
@@ -381,7 +381,7 @@ public sealed class HookRail<TPoint, TFact, TOwner>
 - Growth: a new host seat is one `HookBinding` row on the folder's own roster; a new rider is one entry in `Riders`.
 - Boundary: keyed instances stay the folder's — a `(point, scope)` seat and a plugin-rider seat are earned by grant custody under branch RULINGS `[02]`, and what those folders need from the kernel is `TOwner` typed once, never a kernel-side registry of their instances.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
@@ -444,7 +444,7 @@ public sealed class HookMounts<TPoint, TOwner>
 - Growth: a new contributing rail is one argument at the composition root.
 - Boundary: the registry is an audit surface, never a dispatch surface — nothing fires through it, and a lookup that returns a point for firing is the deleted form.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 

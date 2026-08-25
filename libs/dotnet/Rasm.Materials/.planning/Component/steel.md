@@ -18,7 +18,7 @@ THE STEEL SEED FAMILY GROUNDED IN THE PUBLISHED SECTION DATABASE. `SteelSeed.Ros
 - Boundary: `SteelDesign` reads ONLY canonical `ComputedSection` columns (`Iw`, `GoverningRadiusMm`, `Avy`, `J/c`) — a re-minted dimension or a parallel `SteelBeamCheck` surface has no place here, and `DesignCapacity.TorsionalNmm`/`FlexuralMinorNmm` are the one source `CapacityReceipt.Steel` reads onto `SectionCapacity.SteelMember`. The DESIGN CODE is `DesignCapacity.Basis` DATA rather than a per-code receipt type, and the resistance BODY is the basis's own `ComponentAuthority`, so the retired `SteelBody` enum was one fact spelled twice. Steel carries `DetailLane.Realization` because `SteelClass.IfcSubtype` reaches the Bim profile lane only as a seeded `DetailSchema.ProfileSubtype` row. The AISI data path is CLOSED in-page — `FormOf` lowers the `ColdFormedC` and `Corrugated` arms straight onto `SectionDims`, so no reverse row lookup and no designation parse exists.
 - Boundary: `SteelFireFacts` is the WHOLE EN 1993-1-2 surface this page publishes — the section factor, the Table 3.1 retention pair, and the §4.2.4 critical temperature in ONE railed receipt rather than three loose statics. Its consumer is LANDED: `capacity#SECTION_CAPACITY` `CapacityReceipt.Fire` mints over `FireState.Steel(DesignCapacity, SteelFireFacts)`; the family-side half is LANDED beside the seed: `SteelSeed.Capacity` dispatches on `CapacityPlacement.FireExposure` through the `SteelFire` §4.2.5.1 unprotected-member temperature step onto `CapacityReceipt.Fire`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;

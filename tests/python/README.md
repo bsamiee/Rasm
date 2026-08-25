@@ -34,7 +34,7 @@ Every oracle is proven able to pass and to fail; a kit capability without a fals
 
 `@spec(subject)` is the one registration surface: it emits a `LawRecord` into the manifest, applies the Hypothesis profile stack, and with `given=True` injects `resolve(subject)` as the generated argument — the subject algebra matches the resolver's (classes, PEP 695 aliases, and parameterized type forms all inject; bare callables refuse) — one decorator owns strategy injection, profile selection, marker application, deadline override, and coverage attribution:
 
-```python conceptual
+```python
 @spec(Shape, mutation=True, events=(lambda drawn: f"kind={drawn.kind}",))
 def test_shape_roundtrip(shape: Shape) -> None:
     assert_roundtrip(shape, Shape)

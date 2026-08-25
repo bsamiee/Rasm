@@ -18,7 +18,7 @@ Capture starts nothing. Heap analysis reads only an already-tracing `tracemalloc
 - Growth: a new evidence source is one `Collector` row; a new capture input is one `Subject` field; a new redaction transform stays the receipts owner's `Scrub` growth.
 - Boundary: collection never starts an agent, thread, tracer, or sampling loop — the profilers stay the admitted owners, the heap gate reads, never arms, `tracemalloc`, and the readings row reads, never mounts, the diagnostic reader whose arming is the composition's `SignalProfile` value. `memray` is DECLINED on that same law — its allocation profiler arms a tracker the capture then owns, the exact agent this row forecloses — so the heap artifact stays the read-only `tracemalloc` ranking and the continuous rail stays `pyroscope-io`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import faulthandler
 import json

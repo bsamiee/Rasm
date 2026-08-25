@@ -45,7 +45,7 @@
 - `WebSocketClient`: `ConnectAsync(Uri, CancellationToken)` opens the socket, with `SubProtocols` and `ConfigureRequest` tuning the handshake.
 - `WebHostBuilderFactory`: `CreateFromAssemblyEntryPoint(Assembly, string[])` and `CreateFromTypesAssemblyEntryPoint<T>(string[])` build a host builder off a target assembly when the host is not composed inline.
 
-```csharp signature
+```csharp
 public class TestServer : IServer, IDisposable {
     public TestServer(IServiceProvider services);
     public HttpClient CreateClient();

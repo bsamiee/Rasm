@@ -30,7 +30,7 @@ Row law:
 - `Decorations` carries the typed decoration column: each entry is one `DecorationRow` application naming the inner service contract and the wrapping decorator, so the decoration topology is data the fold reads and the receipt counts, never an opaque registrar `Func`. A profile that drops a contributor port carries the entry with `Conditional: true`, so the same column decorates on the service profile and skips on the plugin profile by `TryDecorate` row presence.
 - The `Scan` column is `Option`-typed: a row constructed with `Scan: default` composes through explicit descriptor rows alone. The web and AOT module tables construct every row that way — the same table, zero parallel composition system, and the column flip is the growth proof.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -105,7 +105,7 @@ Pass law:
 - The `Decorations` column applies before registrars through `BoundaryActivation.Decorate`, wrapping contributor ports with telemetry and receipt decoration; the decorated contract stays the public contract, and the `Conditional` flag selects `TryDecorate` on a profile-conditional target. A `Conditional: false` entry whose target reports undecorated refuses on the rail — a count alone leaves the composition defect for a reader to notice — and the surviving count is the receipt's `Decorated` column. Decoration owns this cluster's keyed-decoration pass-law; `BOUNDARY_ACTIVATION` owns the decoration introspection.
 - Registration is bootstrap-only: after `MakeReadOnly`, descriptor mutation throws, so every late registration attempt surfaces at the root instead of drifting into runtime state.
 
-```csharp signature
+```csharp
 public static class CompositionSurface {
     extension(ServiceCollection services) {
         public Fin<Seq<ContributionReceipt>> Compose(params ReadOnlySpan<ModuleContribution> modules) =>
@@ -193,7 +193,7 @@ Decoration pass-law:
 - The decorated contract stays the public contract: a decorated port resolves to the decorator, and the decorator resolves the inner registration through the generated `DecoratedService<TService>` handle, so a third decoration wraps the second with no registration rewrite. Keyed contributor ports decorate by their smart-enum service key, so decoration composes per key without a parallel keyed-decoration path.
 - `Decorated` folds the pass into the receipt without a hand-kept tally: `IsDecorated(serviceType)` confirms the frozen collection wraps each `DecorationRow.Service`, so `ContributionReceipt.Decorated` counts confirmed targets from the graph, and `Decorated<TService>` over `GetDecoratedServices<TService>` enumerates the decorated descriptors for graph introspection; a `Conditional: false` entry whose `Service` reports undecorated is the composition defect this fold surfaces.
 
-```csharp signature
+```csharp
 public static class BoundaryActivation {
     private static readonly ConcurrentDictionary<Type, ObjectFactory> Plans = new();
 
@@ -249,7 +249,7 @@ public static class BoundaryActivation {
 - Growth: a new operator verb is one `VerbRow` in the table projecting onto an existing owner; a verb whose owner does not exist yet is a missing case on the owning page, never a CLI-local body; zero new surface.
 - Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation seam); a rejected parse never reaches a row's action because a non-empty `ParseResult.Errors` blocks invocation by the package's own contract, so parse failure is DATA the host entry projects to an exit code and a thrown parse has no spelling here; `Exit` is the ONE exit projection every row leaves through and the status it answers is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, so a banded fault code CANNOT be one: `FaultBand.Config.Code(offset: 0)` is 4100, `4100 & 0xFF` is 4 — a number naming no verdict — and any code ≡ 0 mod 256 reports SUCCESS outright to every shell, supervisor, and CI gate that reads it, which is why `(int)error.Code` as a status is the deleted form — the STATUS carries the verdict (0 admitted, 1 refused); the STREAM renders a typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns; these remain local CLI projections and do not imply a ControlService RPC.
 
-```csharp signature
+```csharp
 public sealed record VerbRow(Command Command, Func<ParseResult, CancellationToken, Task<int>> Project);
 
 public static class AppRootVerbs {
@@ -359,7 +359,7 @@ Seat law:
 - `AgentSeed.Leases` is the ONE bearer holder both the `membership` probe and the `wire-seat` HTTP lane dereference, each at its own moment — per probe and per send — so a lease that `agent-boot` armed and its own occurrence later renewed reaches every hop with no re-registration at either seat and no held copy anywhere to go stale; `WireSeed.Credentials` is what tells them WHICH registration answers for a dialed authority, and an authority carrying no row is anonymous by declaration.
 - Every `<module>-seat` row registers what its owners declare while the collection is editable; every `<module>-boot` row runs the gates whose facts exist only after the build. A gate whose refusal must stop the process rails there, so a refused trust anchor, an unhosted solver, an unrebuilt member set, or a peer surface the registry never took names itself at boot rather than at first call.
 
-```csharp signature
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RootBinding {
     private RootBinding() { }
@@ -1164,7 +1164,7 @@ public static class CompositionRoot {
 
 The following fence belongs in each product composition assembly that admits both Bim and Compute. The product passes its Compute module before `ProductModules.BimCompute` so the descriptor graph proves every constructor dependency at the one provider build; AppHost itself keeps its kernel-and-contracts-only dependency direction.
 
-```csharp signature
+```csharp
 using System;
 using System.Threading;
 using LanguageExt;

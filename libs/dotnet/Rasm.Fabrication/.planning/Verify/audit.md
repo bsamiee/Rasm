@@ -22,7 +22,7 @@ Risk membership derives from the `AdditiveProcess` capability axes `Additive/pro
 - Growth: a risk family is one `AuditRisk` row and its membership arm; a defect is one `AuditDefect` case and its `Risk` arm; a process is one `AdditiveProcess` row at its owner and reaches this page with its families already derived.
 - Boundary: slicing owns contour topology and elevations, support owns generated support, scan-path owns vector planning, and production owns `AdditiveProcess`, `RecoaterEnvelope`, and machine commitment. Audit reads those facts and regenerates none of them.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using CommunityToolkit.HighPerformance;
@@ -143,7 +143,7 @@ public abstract partial record AuditDefect {
 - Growth: a process signal is one `LayerProcessEvidence` case with its risk arm; a limit is one `AuditThresholds` column.
 - Boundary: thresholds carry physical limits and raster demand alone — no risk membership, no frame, and no evidence. Every admitted limit carries its quantity and the raster kernel below computes on raw ordinates, so the two regimes meet at admission and nowhere else. `MaximumRadiusCells` bounds the overhang reach the lineage walk enumerates and nothing else, because wall thickness resolves through a transform carrying no radius.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class AuditEnvelope {
@@ -332,7 +332,7 @@ public sealed partial class AuditPolicy {
 - Packages: `CommunityToolkit.HighPerformance` (`MemoryOwner<T>`, `Memory2D<T>`, `Span2D<T>`, `AsMemory2D`, `AllocationMode`, `ParallelHelper.For2D`, `IAction2D`); `Additive/slicing` (`SliceRegion`, `SliceRegion.Of`, `Outers`, `Holes`, `Covers`); `Additive/support` (`SupportPlan`, `SupportLayer`, `SupportNode`).
 - Boundary: `ParallelHelper.For2D` orders its bounds top, bottom, left, right — a transposed call partitions a rotated plane and no gate raises. Below `AdmittedAudit` no world coordinate exists except through `AuditEnvelope.World`.
 
-```csharp signature
+```csharp
 [ComplexValueObject]
 internal sealed partial class RasterGrid {
     public double MinU { get; }
@@ -543,7 +543,7 @@ internal readonly struct SupportAction(
 - Packages: `CommunityToolkit.HighPerformance` (`Memory2D<T>`, `Span2D<T>`, `Span2D<T>.GetRowSpan`); BCL inbox.
 - Boundary: connectivity and occupancy are RASTER questions and stay here; wall thickness is an exact ring question and composes the kernel wavefront at `[07]-[PREFLIGHT]`. The two never merge — a raster resolves what is connected to what, and a distance quantized to the cell pitch is not a thickness this preflight is willing to report. These kernels read and write planes and integers only; a caller projects a returned cell through `AdmittedAudit.World`.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [SmartEnum<string>]
 internal sealed partial class Connectivity {
@@ -714,7 +714,7 @@ internal static class PlaneFold {
 - Packages: `Additive/slicing` (`LayerMetric`, `LayerMetric.Of`, `LayerMeasure`, `RecoaterLikelihood`, `RecoaterLikelihood.Of`); `UnitsNet` (`Area`, `Volume`, `Length`, `Mass`, `Ratio`, `Density`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 - Boundary: metrics carry measurements alone. Threshold comparison, defect minting, and family filtering all belong to `[07]-[PREFLIGHT]`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerComponent(
     ComponentId Id,
@@ -754,7 +754,7 @@ internal readonly record struct MetricState(
 - Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `IsOpen`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult.Axis`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Canonical`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); `Process/owner` (`Receipt<TEvidence>`, `FabricationCanon.Keyed`, `EgressKind.QualityRecord`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the COMPONENT lineage alone; `Process/faults`; LanguageExt.Core.
 - Boundary: wall thickness composes the kernel wavefront and never the raster, so this page mints no thickness measure of its own and speaks the same clearance vocabulary the toolpath seam already reads. The wavefront admits ONE simple ring, so an outer ring's medial cannot see the layer's holes — every interior node re-measures against them, and that second read is the whole reason the wall fold is not the kernel call alone. QuikGraph addresses components, never cells: a lineage graph holds one vertex per labeled region while a raster graph holds one per cell, and only the former sizes with what the demand gate budgets. `IncrementalConnectedComponentsAlgorithm` and `ForestDisjointSet<T>` are refused for raster connectivity by name — both key on a boxed vertex, so either reintroduces the per-cell element count the run algebra exists to delete.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record AuditEvidence(
     AdditiveProcess Process,

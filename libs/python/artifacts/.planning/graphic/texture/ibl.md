@@ -41,7 +41,7 @@ Three constants are FROZEN and this page transcribes rather than decides them. U
 - Boundary: procedural sky authoring, the fitted Hosek-Wilkie coefficient asset, and the environment-light row a path tracer consumes are the .NET side's — this page ingests a captured or supplied radiance field and prefilters it. Tone mapping, display rendering, and view transforms stay `graphic/color/managed#MANAGED`'s and `opencolorio`'s; the gain-map preview is a container the encoder tone-maps internally, never a view transform authored here.
 - Boundary: the USD dome-light consumer takes the EQUIRECT under `latlong` — `UsdLux.DomeLight`'s `inputs:texture:format` admits `automatic`, `latlong`, `mirroredBall`, `angular`, and `cubeMapVerticalCross`, and NO six-face token — so a six-face publication has no USD reader at all. The cube's consumers are the GPU cube sampler and the C# path tracer's environment row, and both bind the one `ktx2` container.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -300,7 +300,7 @@ class Ibl(Struct, frozen=True):
         )
 ```
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -609,7 +609,7 @@ def _luminance_cdf(plane: DeepPlane, /) -> Result[Plane, TextureFault]:
 - Output: the twenty-seven values ride the manifest's `sh9` list in the frozen layout, and the receipt band spells them `sh_<band>_<channel>` because a band value is one native scalar. Both spellings carry the same number set in the same order.
 - Boundary: no tone map, no exposure, no display transform. Coefficients stay scene-linear radiance and the read-side `intensity` multiplier is the only scale.
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 

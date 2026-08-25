@@ -20,7 +20,7 @@ Every entry carries its tag and its bytes alone, because a homogeneous log leave
 - Law: `Payload.Column` exists because two column postures reach one decode — every digest-preimage payload column is TEXT in every dialect by the append owner's byte-truth law, while the snapshot body and frontier floor stay json columns the spine driver hands back as live objects — so one codec admits string and object arrivals alike, the miss rides `ParseError` on the one admission rail, and a malformed stored text is a projection-time `ParseError` because the column was written by `Schema.encode` and cannot lawfully hold non-JSON.
 - Boundary: the current family is app material arriving as a `Schema.Union` value; the relations carrying this envelope are `journal/append.md`'s journal rows and `journal/retain.md`'s export rows; the native op-log keeps a distinct thirteen-position envelope that aliases this coordinate nowhere.
 
-```typescript signature
+```typescript
 import { Either, ParseResult, Schema } from "effect"
 
 const _Column: Schema.Schema<unknown> = Schema.transformOrFail(Schema.Unknown, Schema.Unknown, {
@@ -68,7 +68,7 @@ declare namespace Payload {
 - Growth: a shape change is one cutover landing one custody row; a second app is one origin row.
 - Boundary: the compiled family is app material and this page never reads a payload — it digests the family's declared shape and compares digests; the cutover itself is `journal/evolve.md`'s.
 
-```typescript signature
+```typescript
 import { Array, Effect, JSONSchema, Option, Order, Predicate, Record, Schema, type SqlError } from "effect"
 import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
 import { CanonicalWriter, Digest, Fault, Identity } from "@rasm/core"

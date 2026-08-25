@@ -10,12 +10,12 @@ One hyphen fusing a law, its mechanism, two consequences, an exception, and an e
 
 - Detection: One entry past the char budget or three sentences carrying more than one fragment class — a law plus mechanism, consequence, exception, or example — chained by semicolons, em dashes, and parentheticals that hide the section it has become.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - Boundary: `Compose` is the dispatch capsule and each `Codec` arm carries the decode form the foreign row needs; the `mesh` arm reads `Reader.Decode` materializing one contiguous `Shape` vertex/normal/index triple at the boundary because the accessor contract admits no zero-copy span, so the one boundary allocation is the point and a per-row `float[]` proliferation is the deleted form; the `scene` arm folds `Variant` graphs onto the same triple through one disposable `Context.Import(...)` over the `Triangulate | JoinVertices | GenerateNormals` steps, the leaked provider types never crossing past this capsule per the boundary-mapping law; the rejected reader picks stand — a native decoder and a closed commercial one both refused, the managed `Reader` shipping its own runtime admitted as the one owner — and a second hand-rolled tokenizer beside it is the deleted form; each arm materializes exactly one `Shape` allocation and a per-format `MeshImporter`/`SceneImporter`/`RowImporter` service family is the deleted form.
     ```
 - Accepted:
 
-    ````markdown accepted
+    ````markdown
     Every arm materializes one `Shape` allocation at the boundary.
 
     - Law: `Compose` folds each row through its own `Codec` arm, `unless` the row's companion column routes geometry to the companion rail.
@@ -35,11 +35,11 @@ Entries whose fragments are all load-bearing at this tier are not bullets: each 
 
 - Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this tier.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - Owner: `Plan` folds the `Work` graph into admission units carrying the pre-minted `key`, the `work` thunk the plan schedules but never invokes, the `parents` upstream keys, the `cost` weight the forward pass sums into earliest-finish, and its `admission` case union, so a node is its key and a dependency is a key edge; the closed `Admission` union selects the scheduling case (`keyed` the cache-eligible default, `bare` a forced-live one-shot, `retried` a transient offload carrying its class), the `Schedule` computes the critical path once over the graph, and a flat unit list losing the front structure is the deleted form.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     [Plan]:
 
     - Shape: Folds the `Work` graph into admission units; a node is its `key`, a dependency a `key` edge.
@@ -56,14 +56,14 @@ Splitting a mega bullet's sentence run into sibling bullets without classifying 
 
 - Detection: Flag a repair fanning a mega bullet into shorter bullets at sentence boundaries, where a bullet still carries a law fused to its mechanism, consequence, or exception rather than one fragment class per container.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - `Compose` folds each row through its `Codec` arm and a per-format importer family is the deleted form.
     - The `mesh` arm materializes one `Shape` triple because the accessor admits no zero-copy span, so a per-row `float[]` is the deleted form.
     - The rejected reader picks stand and a second tokenizer is the deleted form, while geometry routes to the companion rail unless the row clears it.
     ```
 - Accepted:
 
-    ````markdown accepted
+    ````markdown
     Every arm materializes one `Shape` allocation at the boundary.
 
     - Law: `Compose` folds each row through its own `Codec` arm, `unless` the row routes geometry to the companion rail.
@@ -83,12 +83,12 @@ Lists whose entries answer different reader questions — what exists, how it ru
 
 - Detection: Consecutive entries under one label switch question class — a model inventory beside a package call beside a receipt projection beside an anti-pattern ban — so no single question orders the list.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - Cases: `Row` carries the format, extent, and style; the `mesh` arm calls `Reader.Decode` over the accessor contract; the receipt projects `(key, bytes, count)`; a per-format importer family and a raw `float[]` proliferation are the deleted forms; ownership stops at the capsule, never crossing the seam.
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     [Row model]:
     - Fields: `format`, `extent`, `style`.
 
@@ -108,7 +108,7 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
 - Detection: Ordinal markers over items with no execution order or data dependence, or a bullet run whose entries only read in sequence and share no atomic parallel — a paragraph split at its sentence joints.
 - Rejected:
 
-    ```markdown rejected
+    ```markdown
     1. `keyed` admits the cache-eligible default.
     2. `bare` forces a live one-shot.
     3. `retried` offloads a transient with its class.
@@ -120,7 +120,7 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
 
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     - `keyed`: Cache-eligible default.
     - `bare`: Forced-live one-shot.
     - `retried`: Transient offload with its class.
@@ -137,11 +137,11 @@ Closed enumerations whose payload is the roster itself are registry entries, leg
 
 - Detection: Admit an entry over the budget whose body is one closed set of atomic tokens — a banned-word roster, a vocabulary inventory, a code-span registry — carrying no law, mechanism, or consequence between members.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - The gate bans hedging: the word should is banned, and could is banned, and would is banned, and might is banned, and maybe is banned, because each softens a settled decision the voice forecloses.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     - Banned: `should` `could` `would` `might` `maybe` `perhaps` `likely` `probably` `propose` `consider` `recommended` `ideally` `is expected to` `aims to` `in the future` `eventually` `as needed`.
     ```
 - Reason: Roster members are the payload and each is an atomic token, so the entry is a registry enumeration the budget exempts by its code-span density; spelled as prose with a conjunction between members it hides no roster and the exemption lapses.
@@ -153,14 +153,14 @@ Sections opening straight into their first list entry force that entry to carry 
 
 - Detection: Flag a header followed immediately by a list, and a repeated label leader — `Cases:`, `Auto:`, `Owner:` — introducing an inventory without declaring whether the rows are peers, ordered stages, rejected shapes, or owner records.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     ## [02]-[COMPOSE_AXIS]
 
     - Owner: `Compose` the rows carrying media type, extent, capability, codec discriminant, companion flag, the basis-change column, the protocol discriminant, and the serialization option, folded by one lookup over the discriminant, never a call-site branch.
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     ## [02]-[COMPOSE_AXIS]
 
     `Compose` mints one row per format; the discriminant selects the codec arm.
@@ -180,7 +180,7 @@ Child entries nested under a parent that is not their governing rule are peers m
 
 - Detection: Children owning a different concern than the parent's rule — codec records, registries, protocol rows beneath a boundary bullet — or one entry whose semicolons, dashes, and parentheticals encode a tree the render flattens.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - Boundary: `Compose` closes the dispatch and prepares each arm, never authoring content.
         - [MESH_CODECS]: The `mesh` arm names `Reader` as its package and grounds the `stl`/`obj`/`off` rows, import-only, the writer family out of scope.
         - [SCENE_CODECS]: The `scene` arm folds `Context.Import` over the triangulate steps, the leaked types never crossing the seam.
@@ -188,7 +188,7 @@ Child entries nested under a parent that is not their governing rule are peers m
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     `Compose` closes the dispatch and prepares each arm, never authoring content.
 
     | [INDEX] | [CODEC] | [ARM]            | [SCOPE]     |
@@ -207,14 +207,14 @@ Sibling entries each re-carrying one decision in different words are restatement
 
 - Detection: Delete all but the strongest sibling; no law lost proves the run was restatements, and an entry carrying a genuinely distinct decision — a boundary, an exception, a failure law — stays a sibling.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - `Compose` folds every row through one dispatch table, never a call-site branch.
     - Dispatch rides the table; a call-site branch is the deleted form.
     - Every row resolves through the one table — branching at the call site defeats it.
     - A row missing its table entry fails loudly at registration, never silently at dispatch.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     - `Compose` folds every row through one dispatch table, never a call-site branch.
     - A row missing its table entry fails loudly at registration, never silently at dispatch.
     ```
@@ -227,11 +227,11 @@ Entries opening on an article bury their owner; marker leaders only disguise the
 
 - Detection: Flag marker bodies opening on an article — `The`/`the`, `A`/`An`.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - [02]-[SOLVE_VOCABULARY]: The solve, eigen, norm, and gauge route algebra every receipt discriminates on.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     - [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, and `gauge` route the algebra every receipt discriminates on.
     ```
 - Reason: Route families become the subject under the owning verb `route`.

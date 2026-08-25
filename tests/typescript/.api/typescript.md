@@ -24,7 +24,7 @@ Workspace consumes this package on the GATE lane only: `tsc --build tsconfig.jso
 |  [06]   | `unstable/ast/scanner` / `ast/factory`  | lexer / node constructors       | token stream and synthetic-node minting, parse-free          |
 |  [07]   | `unstable/fs` / `unstable/proto`        | host fs seam / wire types       | server transport contracts                                   |
 
-```ts signature
+```ts
 class API<FromLSP extends boolean = false> {
     constructor(options?: APIOptions | LSPConnectionOptions);
     parseConfigFile(file: DocumentIdentifier): ConfigResponse;

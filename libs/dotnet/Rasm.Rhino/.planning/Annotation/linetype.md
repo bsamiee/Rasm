@@ -21,7 +21,7 @@
 - Packages: `Rasm.Drawing` (`LineType`, `LineType.Rhythm`, `LineWidth`), `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `TagSurface`, `DraftBorrow`, `StyleOp.Lens`), `Document/session.md` (`DraftFault`), `Document/tables.md` (`ResourceName`, `ResourceRef`, `GeometryHandle`), `Domain/rails` (`Custody`); RhinoCommon `Linetype`/`LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a display axis is one owner and one `StrokeDef` column; a standard line type is already one `LineType` row on the kernel ladder.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
@@ -314,7 +314,7 @@ public static class StrokeStandard {
 - Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `DraftComponentKind`, `DraftCount`), `Document/commit.md` (`HostInteraction`), `Document/tables.md` (`ResourceLens`, `ResourceRef`, `ResourceIndex`), `Domain/rails` (`Custody`); RhinoCommon `LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a verb every component table shares lands on `TableOp`; a linetype-only verb is one case here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ObjectLinetypeSource>]
 public sealed partial class LinetypeSource {
@@ -494,7 +494,7 @@ public static class Linetypes {
 - Packages: `Annotation/style.md` (`DraftScale`, `DraftCount`, `TargetResolution`), `Document/tables.md` (`ResourceRef`, `ResourceName`, `ResourceIndex`); RhinoCommon `Linetype`/`LinetypeTable` read members per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a read is one `LinetypeAsk` case with its `LinetypeAnswer` twin.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ShapeEvidence(
     double Spacing,

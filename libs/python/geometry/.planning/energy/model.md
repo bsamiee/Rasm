@@ -18,7 +18,7 @@ Honeybee's AGPL-3.0 band rides the standing companion-lane charter — the `ener
 - Growth: a new fenestration strategy is one `BemPolicy` row family — dimension-driven apertures ride `apertures_by_width_height_rectangle` as one more policy case; shading mints (`louvers_by_count`/`overhang`) enter as `EnergySpec` rows the shared `assigned` fold picks up at both tiers in one edit; a new HVAC template or vintage is zero code — the registry and its `equipment_type` vocabulary are upstream data; a new standards kind is one `RESOLVERS` row; the daylight modality (`honeybee-radiance` and sensor grids) enters only through a future package-admission motion; dragonfly-exploded models arrive as ordinary `hbjson` payloads from `energy/district`, no third modality.
 - Boundary: IFC semantic analysis is the `ifc/` plane's — the BIM arm consumes ONLY space solids; simulation is `energy/simulate`'s, urban massing `energy/district`'s, weather `energy/climate`'s; the mesh daemon owns the GLB render wire — this arm's `create_shape` feeds `Face3D` lifting, never a cached render artifact.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable, Mapping
 from enum import StrEnum

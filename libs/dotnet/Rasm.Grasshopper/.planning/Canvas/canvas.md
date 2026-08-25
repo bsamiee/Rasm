@@ -27,7 +27,7 @@ Receipts are the kernel gauge composed: one `CanvasReceipt<TFacts>` over `Gauged
 - Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, pick and raster surfaces, `DragPickingMode`, `CanvasActions`, snap axes, skins, cursors, ZUI state, `SelectionResult`, `Pick`, `WireEnds`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]` — per-project `PrivateAssets` admission), `Rasm.Interaction` (`PickAxis`, `PickGates`, `UiClaim`), `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `Op`, `Lease<T>`), Thinktecture, LanguageExt.Core.
 - Growth: a new read is one result-typed factory; a new pick corner is one legal row on `CanvasPick.Law`; a new host drag grain is one `PickGrain` row keyed on its ordinal; a new raster layer is one `RasterLayer` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -295,7 +295,7 @@ internal static partial class CanvasMap {
 - Packages: Grasshopper2 (`Canvas`, `IFlexControl`, `CanvasActions`, `Projection`, `Duration`, the public sparkle family, `ISparkle`, `IResult`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`, `Op.ToHostSlot`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`, `IGaugeLane`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a command is one `CanvasOp` case; a public overlay is one `SparkleSpec` case; an action gate is one dual-column `ActionGate` row; a gauged concern is one `CanvasLane` row deriving its bound.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;

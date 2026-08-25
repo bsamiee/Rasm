@@ -35,7 +35,7 @@ Suppression is evidence on the record of truth: a bounce or gone endpoint append
 - Growth: a new channel is one `Deliver.channel` row; a new settlement dimension is one spine field at `entity#SETTLED_RECEIPT` every producer populates; a new gate axis (a per-destination rate class, an allowlist) is a column on the channel row the relay lane reads.
 - Packages: `effect` (`Array`, `Duration`, `Option`, `Schema`); `@rasm/core` (`Fault.Class`); `./entity.ts` (`Settled`, `WorkClass`).
 
-```typescript signature
+```typescript
 import { VariantSchema } from "@effect/experimental"
 import {
   Array, Context, DateTime, Duration, Effect, Number, Option, Record, Redacted, Schema, Stream, pipe,
@@ -184,7 +184,7 @@ const _channel = <A extends { readonly tenant: string }, I, R>(row: Deliver.Chan
 - Growth: a provider, OAuth2, or inspect transport is one `_transports` row against one `Setting.mail.transport` value; a new message concern is one payload field and one `_mailOptions` projection.
 - Packages: `nodemailer` (`createTransport`, `createTestAccount`, `getTestMessageUrl`, `Transporter`, `Mail.Address`, `Mail.ListHeader`); `effect` (`Duration`, `Layer`, `Option`, `Record`, `Redacted`); `../proc/config.ts` (`Setting`).
 
-```typescript signature
+```typescript
 type _Sent = {
   readonly accepted: ReadonlyArray<string | Mail.Address>
   readonly rejected: ReadonlyArray<string | Mail.Address>
@@ -369,7 +369,7 @@ const _mailSettled = (
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
 - Packages: `cloudevents` (`HTTP`, `CONSTANTS`), `@effect/experimental` (`VariantSchema.make`, `Class`, `FieldOnly`; `RateLimiter` — the store Tag the grant row spends), `@effect/platform` (`Headers`, `HttpBody`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Duration`, `Number`, `Record`), `@rasm/core` (`Event`), `@rasm/security` (`Crypto`), and `../net/client.ts`.
 
-```typescript signature
+```typescript
 const _RESERVED: ReadonlyArray<string> = [
   CONSTANTS.HEADER_CONTENT_TYPE, "content-length", "transfer-encoding",
   "webhook-id", "webhook-timestamp", "webhook-signature", "webhook-request-origin",
@@ -680,7 +680,7 @@ const _hookSettle = (
 - Growth: a suppression cause (complaint feedback loop, manual block) is one action verb on the same fact shape.
 - Packages: `@rasm/data` (`Fact`); `effect` (`Effect`, `Option`).
 
-```typescript signature
+```typescript
 const _admissible = <R>(suppressed: (channel: Deliver.Kind, target: string) => Effect.Effect<boolean, never, R>) =>
 (channel: Deliver.Kind, targets: ReadonlyArray<string>): Effect.Effect<void, DeliverFault, R> =>
   Effect.findFirst(targets, (target) => suppressed(channel, target)).pipe(
@@ -725,7 +725,7 @@ const _settled = (sent: Delivery) =>
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
 - Packages: `@effect/cluster` (`Singleton`); `@effect/sql` (`SqlClient`, `SqlError`); `@rasm/data` (`Journal`, `Fact`, `Tenancy`); `@rasm/core` (`Fault.Budget`, `Fault.Class`); `./entity.ts` (`WorkClass`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/emit.ts` (`Propagation`); `../otel/meter.ts` (`Pulse`).
 
-```typescript signature
+```typescript
 const _ListEntry = Schema.optionalWith(
   Schema.Union(Schema.NonEmptyString, Schema.Struct({ url: Schema.NonEmptyString, comment: Schema.NonEmptyString })),
   { as: "Option" },

@@ -20,7 +20,7 @@ THE CAST-IN-PLACE CONCRETE SEED FAMILY and THE EXPOSURE-DRIVEN COVER REGIME. A C
 - Growth: a new strength class is one `MaterialGrade` concrete row bound to its `EnConcreteGrade` and substance id (a class the enum lacks stays out until the package publishes it); a new role is one `ConcreteRole` row carrying its OWN roster-verified IFC leaf and cover condition; a new member type is one `MemberRow`; a new cast method is a token on the row — never a per-role type, never a `ComponentFamily` edit, never a hand-keyed Ecm beside the substance row that owns it.
 - Boundary: the grade arm carries fck and the printed cube twin and derives fcm by the standard's own generator — it carries NO Ecm column, because the `concrete.<class>` substance row (`Properties/properties#MATERIAL_PROPERTY_CATALOGUE`) owns the mean modulus and the `EnConcreteFactory` linear-elastic E is the fck/0.00175 secant design line (decompile-verified), so a stiffness read here shadows one owner or imports the wrong one. US strength grades ride the `[03]` correspondence rows as ADVISORY data — `ACI318ConcreteGrade` enum rows exist but every non-EN factory arm throws (probe-confirmed), so no US grade reaches a factory. Member dimensions are this estate's realized selection and seed under `EvidenceGrade.User`; the grade columns transcribe the print. `ComponentAuthority` publishes no ACI row, so the US cover table cites its clause in place and the seed rows stand EN-bodied under `ComponentAuthority.En`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -155,7 +155,7 @@ public static class ConcreteSeed {
 - Law: `c_nom = c_min + Δc_dev` with `c_min = max(c_min,b; c_min,dur; 10)` (Exprs. 4.1/4.2) — Δc_dev the code-default 10 mm, Δc_dur,γ the code-default 0, c_min,b the bar diameter the caller supplies (0 at seed time, so the bond term can only raise a cover later, never lower it). This axis is NOT the `Properties/properties#MIX_PROPORTION` `ExposureClass` axis: that owner keys EN 206 Annex F durability FLOORS (w/c, cement, strength) per class; this owner keys the Table 4.4N cover COLUMNS, which group classes — the bag token is the join between them.
 - Boundary: every numeric cell transcribes the pack's two-sourced print; the correspondence rows are ADVISORY BY CONSTRUCTION (f'c ~9% fractile vs fck 5% fractile — both sources flag it), seeded as guidance data no admission consumes; the 8000/10000 psi mappings are single-sourced and stay off the roster.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -237,7 +237,7 @@ public static class EnCover {
 - Entry: `ConcreteRc.Assemble(member, barGrade, link, layout, annex, key)` derives cover from the member's exposure; `Capacity(..., intent, ...)` accepts only `RcCapacityIntent.Hull` or `.Elastic`, so non-RC build variants cannot enter this route.
 - Boundary: this owner derives NO section math and admits NO VividOrange surface — grade lowering, layer construction, the transformed-section carrier, and the capacity solve all stay behind `RcSectionBuilder`/`SectionCapacity`; the concrete contribution is exactly the member, the cover law, and the layout admissibility its own profile decides.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ConcreteRc {
     public static Fin<RcSection> Assemble(Component member, MaterialGrade barGrade, BarRow link, Seq<RebarLayout> layout, NationalAnnex annex, Op key) =>
@@ -277,7 +277,7 @@ public static class ConcreteRc {
 - Cases: ASCE {special/ordinary RC bearing walls · special/ordinary RC building-frame walls · special/intermediate/ordinary RC moment frames · the two SMF-dual wall rows} each carrying its R/Ω0/Cd triple verbatim; EN {DCL the q ≤ 1.5 overstrength-only cap · DCM frame/dual/coupled-wall q0 = 3.0} — the DCH column, the uncoupled-wall and torsionally-flexible rows, and every αu/α1 default are standard-text-only in the pack and land ABSENT, so a DCH read refuses rather than transcribes an uncorroborated cell; the elevation-irregularity reduction (q0 × 0.8) is the one two-sourced modifier and rides the owner as its constant.
 - Boundary: these are SYSTEM-level design coefficients a lateral-system selection reads — no member check consumes them and no `SectionCapacity` case carries them; the DEMAND-side consumer is the `Rasm.Compute` `Analysis/capacity#SEISMIC_ROUTE` `SpectrumPolicy.Behavior` divisor, which takes the EN q (the `EnConcreteDuctility` q0 under its αu/α1 and elevation modifiers, floored at `QFloor`) or the ASCE R over Ie (the `AsceRcSystem.R` column) as a SCALAR at composition because the branch strata forbid a reference in either direction — the lateral-system selection resolves the row once per engagement and threads the number. Ω0 and Cd are the row's amplification companions with NO Compute arm yet: Ω0 amplifies connected-element force demands and Cd elastic drifts, and no overstrength-combination or drift-amplification fold exists at the member route — the columns stand as system-selection data until that consumer lands, never silently folded into `Behavior`. The SDC permission/height columns of Table 12.2-1 stay untranscribed (out of pack scope); member-level seismic DETAILING (hoop spacing, confinement ratios) has no proven row in the pack and lands nowhere on this page.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 public readonly record struct AsceRcSystem(string Key, double R, double Omega0, double Cd);
 

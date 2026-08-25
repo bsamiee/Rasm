@@ -29,7 +29,7 @@
 - rail: plane:dev
 - `Vitest` namespace and root API — the exhaustive tree the tables above index. `Vitest.Methods` is the type of `it`; `Vitest.MethodsNonLive` is what `layer(...)` hands its callback (no `live`/`scopedLive` — a shared memoized `Layer` is incompatible with per-test real-clock fibers). `ExcludeTestServices extends true` drops the `TestServices` requirement when the shared layer already supplies real services.
 
-```ts signature
+```ts
 import type * as Duration from "effect/Duration"
 import type * as Effect from "effect/Effect"
 import type * as FC from "effect/FastCheck"
@@ -137,7 +137,7 @@ const describeWrapped: (name: string, f: (it: Vitest.Methods) => void) => V.Suit
 - rail: plane:dev / assertion
 - Every two-value assertion takes a trailing `..._: Array<never>` rest — a compile-time guard forbidding extra positional arguments. `assertNone`/`assertSome`/`assertLeft`/`assertRight`/`assertFailure`/`assertSuccess` are TypeScript assertion functions (`asserts x is …`), so post-assertion code reaches `Some.value`/`Right.right`/`Success` payloads without a second guard; `deepStrictEqual`/`assertEquals` compare via the `Equal.equals` trait.
 
-```ts signature
+```ts
 import type * as Cause from "effect/Cause"
 import type * as Either from "effect/Either"
 import type * as Exit from "effect/Exit"

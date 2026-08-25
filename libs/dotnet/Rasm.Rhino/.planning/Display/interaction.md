@@ -25,7 +25,7 @@ The viewport pointer seam is HOST-SPECIFIC and stays whole — `MouseCallbackEve
 - Boundary: `MouseCallbackEventArgs` and `MouseCallback` never cross the callback adapter.
 - Packages: RhinoCommon `Rhino.UI.MouseCallback`/`MouseCursor` (`.api/api-rhinocommon-display.md`); `Rasm.Interaction` (`InputVerdict`); `Rasm.Domain` (`FaultCell`, `HookId`, `Cell`); `System.Threading.Channels`; LanguageExt.Core; `Rasm.Rhino.Document` (`LifecycleGate` — `Document/lifetime.md`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading.Channels;
 using Rasm.Domain;
@@ -288,7 +288,7 @@ public static class Pointers {
 - Boundary: `PickContext` and `GetPoint` are the command rail's, BORROWED by `Pick` for the length of the call; the rig holds neither and disposes neither.
 - Packages: RhinoCommon `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballAppearanceSettings` — `.api/api-rhinocommon-display.md`); `Rasm.Domain` (`Cell`, `Transition`, `FaultCell`, `CapabilitySet`); `Rasm.Domain` (`Custody` — `Domain/rails.md`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GumballSeat {
@@ -554,7 +554,7 @@ public static class Gumballs {
 - Boundary: a mounted widget is visible only through `WidgetId`, `WidgetFact`, `WidgetState`, and `WidgetAnswer` values.
 - Packages: RhinoCommon `Rhino.UI` widget estate (`.api/api-rhinocommon-custom-objects.md` `[GRIP_WIDGETS]`/`[CONTROL_WIDGETS]`/`[WIDGET_BASE_AND_REGISTRATION]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `FaultCell`); `Rasm.Rhino.Document` (`LifecycleGate`), `Rasm.Domain` (`Custody`); `Display/draw.md` (`Marks.Paint`, `Canvas.Pipeline`, `Mark`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>]
 public readonly partial struct WidgetId {
@@ -1101,7 +1101,7 @@ public sealed class WidgetHost : IDisposable {
 - Law: gumball evidence returns on the `Gumballs.Configure` request rail, never as a detached stream, so no gumball point exists — a detached fact stream is the point prerequisite, and gumball occupancy already rides every `ViewportPointerFact`.
 - Packages: `Rasm.Domain` (`HookBinding`, `HookMounts`, `IHookBinding` — `Domain/hooks.md`); `Rasm.Rhino.Document` (`RhinoPoint` roster).
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DisplayHooks {
     public static Fin<Seq<Lease<IDisposable>>> Mount(HookMounts<RhinoPoint, PluginKey> mounts, PluginKey plugin, Op? key = null) {

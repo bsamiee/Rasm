@@ -18,7 +18,7 @@ Edge capacity, cost, and node demand are DATA on the admitted rows, never networ
 - Growth: a new flow question is one `FlowAlgorithm` case plus one `_run_flow` arm; a new edge annotation is one `FlowEdge` field projected at the one build site; a networkx `@_dispatchable` flow accelerator is the same `backend=` policy row the sibling codec lane names, never a second kernel.
 - Boundary: no durable network store, no hydraulic or electrical physics (sizing semantics belong to the consumer reading the flow evidence), no undirected admission — a service network is directed by construction and an undirected question routes to the sibling kernel; `NodeId` never widens beyond the stable `int` index the folder's frame seam joins on.
 
-```python signature
+```python
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 

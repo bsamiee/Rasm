@@ -20,7 +20,7 @@ Canonical-bytes custody is recorded here and re-minted nowhere in this folder: t
 - Growth: a new descriptor-backed message is one proto edit with `assay contracts generate` — zero rows here; a new splat release is one `SplatFormat` member at the corpus and one `SPLAT_FORMS` cell carrying its grounding; a new recovery arm is one oneof arm at the corpus and one arm in each `RecoveryCell` direction; a new contracts-SDK refusal class is one weave beside these two, never an `except` arm re-spelled at a consumer.
 - Boundary: the matrix and generated-detail correspondences a declaration census can never hold — no codec, span, or transcode body (`transport/wire#WIRE_RAIL`) and no causal lift (`evidence/clock#CLOCK`). `transport/serve#SERVE` alone packs a refusal; this page only unpacks the live generated detail at a client edge and preserves it whole. Neither fold reads policy or a clock.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
@@ -202,7 +202,7 @@ def splat_form(key: SplatFormat) -> RuntimeRail[SplatGrounding]:
 - Growth: a new generated family is one `desc()` seat on `REGISTRY`; a new served or dialed method is one `WireMethod` member on its service's roster and a new service one `WireService` member with its `SERVICE_VOCABULARY` row naming the generated application; a new closed family the tables key on is one `Closure` row at the composition root; a new structural assertion is one arm in `_service` or `_closed`, never a second gate; a new sibling consumer binds existing rows by symbol.
 - Boundary: the census proves structure, not values — byte-level round-trip parity is the `evidence/reproduction#SEED_REPRODUCTION` corpus's, and contract compatibility is the corpus gate's, never a runtime descriptor walk. Oneof exclusivity holds on the generated classes by construction and `RecoveryCell.stated` owes only the window refusal. Deliberately partial tables register no `Closure` row and state that partiality at their own owner: `reliability/resilience#RESILIENCE`'s `CIRCUIT` and `RATES` declare absence AS the policy.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from typing import Final, assert_never

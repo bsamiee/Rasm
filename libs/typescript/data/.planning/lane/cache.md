@@ -23,7 +23,7 @@ Latency caching is correctness-neutral: losing a node costs one cold recompute. 
 - Law: the escalation trigger is a process boundary — shared coherence across replicas or pub/sub invalidation fan-out; in-process needs are already covered, so reaching for an external engine below the trigger is refused by the table.
 - Law: `writeBehind` is banned — it smuggles a durability obligation into a may-lose-data lane; a buffered durable write is the journal's outbox, full stop. `redisClient` is banned — the runtime natively supplies single-flight, TTL, and dedup, so the client footprint buys nothing below the escalation trigger; when the trigger fires, the engine row is Valkey behind the existing port.
 
-```typescript signature
+```typescript
 const _tiers = {
   memo: {
     row: "CacheLane.memo — Effect.cached/cachedWithTTL/cachedFunction",
@@ -129,7 +129,7 @@ declare namespace CacheLane {
 - Law: the cache name is the caller's, because a cache is minted at its own read surface and the lane names none — the name keys the series exactly as the origin pool's scheme keys occupancy, and two caches sharing a name fold into one indistinguishable series at the board.
 - Law: the census rides a scoped cadence, never the caller's fiber — one forked repeating probe per registered cache, released with the scope that registered it, so a lookup path never blocks on a metric read and a torn-down composition leaves no live probe.
 
-```typescript signature
+```typescript
 import { Cache, Duration, Effect, type Equivalence, Layer, Metric, Ref, Request, Schedule, type Scope } from "effect"
 import { Convention } from "@rasm/core"
 
@@ -183,7 +183,7 @@ const _census = (name: string, cache: Cache.ConsumerCache<unknown, unknown, unkn
 - Law: the persisted cache is an overlay, never a record of truth — nothing reads it as authority, and dropping the backing store costs warm-up latency only; the journal boundary law of the folder applies unchanged.
 - Law: keys are schema-typed persistables — the request schema owns identity and serialization (`Schema.TaggedRequest` under `PrimaryKey`), success and failure both encode through the key's own result schemas so a persisted failure replays typed, and `timeToLive(request, exit)` folds both dispositions so hits and misses age separately; a cache key is never a hand-built string, and a shape change invalidates structurally.
 
-```typescript signature
+```typescript
 import { Persistence, PersistedCache } from "@effect/experimental"
 import { KeyValueStore } from "@effect/platform"
 import type { Schema } from "effect"
@@ -230,7 +230,7 @@ const _persisted = <K extends Persistence.ResultPersistence.KeyAny, R>(spec: {
 - Law: this row pools RESOURCES, the `Stores` map pools LAYERS — the tenancy store map stays the scope-family owner, and this lane's maps hold engine sessions and warm clients beneath it; the echo is deliberate, the owners distinct.
 - Law: occupancy brackets the LEASE, never the acquire — a pool re-hands an idle item without re-running its acquire, so an acquire-time counter reports how many items the pool has ever built and left alive while every one of them sits idle, and a board reading it for held-connection pressure reads pool residency under an occupancy label. `lease` is therefore the one acquisition road: it increments the `Convention.metric.poolHeld` level tagged by the key's closed scheme vocabulary and decrements on the caller's own scope close, so the series counts exactly the transfers holding a connection right now. Non-monotonic form is what lets that decrement land; a monotonic row here exports a total that only climbs. Every pooled consumer takes this road and mounts no level of its own — the remote plane's origin sessions included — because one pool answering two series hands a board two held-connection numbers no reader can reconcile.
 
-```typescript signature
+```typescript
 import { Data, KeyedPool, Metric, type Scope } from "effect"
 import { Convention } from "@rasm/core"
 
@@ -274,7 +274,7 @@ const _lease = <Scheme extends string, A, E>(
 - Owner: `CacheLane`, the single export assembling the admitted tier, memo, persisted, store, backing, scope, origin-pool, and lease owners.
 - Law: each projection seats at the owner holding its evidence — lease occupancy at `_lease`, the only bracket that knows a lease from a residency, and cache hits, misses, and residency at `_census`, the one reader of the substrate's own snapshot.
 
-```typescript signature
+```typescript
 const CacheLane = {
   tiers: _tiers,
   memo: _memo,

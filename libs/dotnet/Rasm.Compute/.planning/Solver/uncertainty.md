@@ -24,7 +24,7 @@ Variance-reduced draws ride `LowDiscrepancy` through inverse transform; every ps
 - Boundary: PER-AXIS basis and standardization pair by construction and that pairing IS tensor-product PCE law — each axis is orthogonal with respect to its OWN measure in its OWN coordinate (Hermite over the standardized normal, Legendre over the uniform mapped to `[-1,1]`, Laguerre over the rate-scaled gamma), and the product basis is orthonormal because the joint measure factorizes. A reading that calls the per-axis coordinates "mixed" mistakes a tensor product for a change of basis; the construction is correct and a shared coordinate across axes would be the error.
 - Boundary: Morris is a GRID method — each trajectory draws its own axis permutation and step sign from the method's lane, the step is the `p/(2(p−1))` grid delta, and a step leaving `[0,1]` REFLECTS to the other side of the level grid rather than clamping, because a clamped step changes the denominator the elementary effect divides by and reports a distorted sensitivity as a measured one. The screening reads each effect's axis and signed step off the DESIGN it evaluated, so the permutation needs no side channel and cannot drift from the matrix it describes.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]

@@ -19,7 +19,7 @@ Host absorption owns every solver: the `SnappingAction` factory family owns alig
 - Packages: Grasshopper2 (the `SnappingAction` factory family, `SmallerMagnitude`, `TextAnchor`), `Rasm.Interaction` (`Mark`, `PathSpec`, `StrokeSpec`, `TypeFace`), `Rasm.Numerics` (`PerceptualColor`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new candidate is one row through the one factory; the fold and the evidence never fork.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -107,7 +107,7 @@ public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidenc
 - Packages: Grasshopper2 (`SnappingConstraints`, `SnappingSettings`, `SnapSpace`, `StretchLayoutSolver`), LanguageExt.Core (`Validation`), `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `Op`).
 - Growth: a new snap source is one `SnapScope` case; a rounding policy is one row; the verdict shapes never fork.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
@@ -230,7 +230,7 @@ public static class StretchPlan {
 - Packages: Grasshopper2 (`IAttributes`, `Document.Undo`, `ActionList`, `PivotAction`, `VerbNoun`, `WireEnds`), `Document/history.md` (`HistoryLedger.Seal`), `Shell/session.md` (`GhSession`, `ScopeTarget`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`), `Rasm.Domain` (`Context`, `ToleranceLane`), LanguageExt.Core.
 - Growth: a new arrangement is one case whose delta fold breaks the gate loudly — `DocumentMethods.MakeRoom` is the next such case (`RoomCase`, folding the host's own displacement into the same sealed gate); a new undo posture is `Document/history.md`'s row, never a fork here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;

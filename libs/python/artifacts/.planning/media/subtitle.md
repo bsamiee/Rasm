@@ -18,7 +18,7 @@
 - Packages: `pysubs2` owns the timed-text document — the per-dialect parsers, the SubStation override grammar, the ms/frame codec, format autodetection, the shift/framerate retiming, and the style rename/import — so the owner wraps its ingest/egress and track edits, never re-implementing them; `av` owns the mux capsule and the raw-packet subtitle write. Both settled against the folder `.api`.
 - Growth: a writable dialect is one `SubtitleDialect` member; a retime mode is one `RetimeShift` case; a restyle operation is one `RestyleStep` case; a packet-writable muxer is one `_SOFT_SUB` row; a face is one `BurnStyle.faces` row; an evidence fact is one band key; a modality is one `SubtitleOp` case plus one total dispatch arm.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterator

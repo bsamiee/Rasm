@@ -23,7 +23,7 @@ Runtime `transport/artifact` owns identity, extent, framing, and spool custody, 
 - Growth: a new budget is one field with its `Meta` bound and nothing else; a new codec is one `Compression` value on `COMPRESSIONS`.
 - Boundary: the composition root reads the mapping off its own settings surface; this page admits it, states its bounds, and sources none of it.
 
-```python signature
+```python
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import AsyncExitStack
 from typing import Annotated, Final, Protocol, assert_never
@@ -107,7 +107,7 @@ COMPRESSIONS: Final[tuple[Compression, ...]] = (ZstdCompression(level=3), GzipCo
 - Law: an absent caller deadline settles on `call_seconds`, so an unbounded handler has no seat and every served call is bounded by an admitted ceiling whether or not the caller stated one.
 - Boundary: `provider#PROVIDER` opens the scope and converts its `TimeoutError`; this page derives the delay and owns nothing that cancels.
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -131,7 +131,7 @@ def budget(timeout_ms: float | None, ceiling: float, /) -> float:
 - Growth: a new artifact law is one `ArtifactRefusal` case at the contracts helper and one arm here; a new budget axis is one `ProviderPolicy` field read by `_budgeted`.
 - Boundary: atomic storage, frame width, digest computation, and reference confirmation are the contracts helper's; this page composes them and re-implements none.
 
-```python signature
+```python
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 

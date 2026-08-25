@@ -23,7 +23,7 @@
 - Growth: a priceable resource is one `CostKind` row with one tariff; an emission source is one `CarbonKind` row with one factor; an allocation regime is one `AllocationKind` row; a commercial transformation is one `CommercialLoad` row carrying its rank, compounding base, and credit column; a correlation locus is one `LocusFamily` row.
 - Boundary: carbon never converts to currency and never takes a commercial load, so `EstimateRow.Carbon` carries no loading column at all. Credits remain signed rows on the same ledger rather than a second family.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;
@@ -220,7 +220,7 @@ public readonly partial struct Locus {
 - Growth: new evidence is one `EstimateEvidence` case with its `EvidenceKind` row, its index arm, and its activity arm.
 - Boundary: pricing consumes evidence and never invents missing clocks or rates. Every evidence case correlates to `EstimateBasis.Subject`. Machine, depreciation, and energy rows belong to the clock spine at the demand locus, so an `OperationTime` at that same locus contributes labor and setup only. Tool-change evidence is AUTHORITATIVE for change time: the magazine measures index traverse and arm swing the controller's dwell word does not model, so a receipt carrying it prices those rows off the evidence and the page invents no per-change constant.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class EvidenceKind {
@@ -596,7 +596,7 @@ internal sealed record EvidenceIndex(
 - Growth: a commercial transformation is one `CommercialLoad` row; a receipt column is one member over the rows already carried; a per-change charge that is NOT time — handling, magazine service — is one `CostKind` row that prices on both clock sources, because no clock ever contained it.
 - Boundary: THE CLOCK-SOURCE DISCRIMINANT — `ClockSource` alone decides whether evidence PRODUCES a time row or merely ATTRIBUTES one, and both partitions read it. A simulation-backed clock already contains every `SpecializedToolpathEnvelope` and every tool change, because `Verify/simulate` charges each as its own ledger slice inside `SimulationLedger.Cycle`, so an evidence case that also priced those hours would charge the shop twice for one second of spindle time; the census then names where the priced clock went and mints nothing. A declared clock contains neither, so the same evidence is the genuine producer and prices normally. Attribution reads the ledger's own tallies rather than re-folding the evidence, so the ledger stays the one clock owner. The `SpecializedToolpathEnvelope` was admitted once at its S0 atom and the tool-change census once at `Tooling/magazine`, so nothing here re-walks rows or re-tests a payload.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RowLoading(decimal Over, double Factor);
 
@@ -806,7 +806,7 @@ internal sealed record EstimateDemand(
 - Boundary: pricing is DELIBERATELY off the run spine. `FabricationPolicy` declares no estimate case and `Fabrication.Run` never reaches `Estimate.Run`, because a price is a terminal fold over results the spine already settled — an estimate arm would have to name its own `EgressKind`, produce a keyed artifact, and re-enter the provenance walk to say what a caller already holds. The APPLICATION ROOT is the caller: it gathers the settled `FabricationResult` and the evidence corpus correlated to one of its keys, admits an `EstimateBasis`, and hands both to `Estimate.Run`. Nothing on this page claims a spine producer, and the one telemetry edge is the tap the caller supplies.
 - Boundary: this page takes NO `SpanBand`. A traced lane earns its bracket from a solver fold counting internal steps, and `FabricationEngine` carries no estimation row because pricing is a fold over settled receipts with no step census of its own; adding one is a `Process/telemetry` decision, not a folder mint.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Estimate {
     public static Fin<EstimateReceipt> Run(EstimateRequest request, FabricationTap? tap = null) =>

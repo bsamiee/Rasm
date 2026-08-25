@@ -19,7 +19,7 @@ Eigen systems ride the `matrix` owners — `MatrixKernel.GeneralizedEigenpairsDe
 - Auto: descriptors pull the cached `SpectralBasisBundle` — one generalized eigensolve per basis size per mesh snapshot, the cache-hit flag in the receipt — apply the filter, and project; the blue-noise gate bounds low-band energy against `SpectrumPolicy` — ceiling, basis cap, and low-mode count on one admitted value carrying its own provenance, never three page globals — and a total energy under the floor REFUSES rather than stamping a fabricated worst-case ratio.
 - Boundary: output selection lives in `ProjectionRow` keys, so reflection branching in a solver body is the deleted form, and the ONE sanctioned entry-level type test is the lazy-assembly gate; the descriptor family is closed over the filter algebra.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -191,7 +191,7 @@ internal static partial class SegmentKernel {
 - Auto: topology edges classify by connected-face census, then smooth two-face edges classify by the signed dihedral against the threshold — ridge or valley when the length-normalized curvature signal also clears the curvature threshold, plain crease otherwise; region-boundary classification precedes the angle tests when face regions are declared, and the curvature signal is endpoint-smoothed against single-edge noise, so a raw per-edge threshold is the rejected form.
 - Boundary: ngon interiors are counted and skipped, never dropped, and the below-threshold remainder lands in `UnclassifiedEdges`; the receipt's own gate enforces both census reconciliations, so totality is recomputable from its fields, never a prose promise; per-face normals ride the memoized `MeshSpace.FaceNormals` column on the `Fin` rail, so detection never mutates the frozen snapshot.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MeshFeatureKind {
@@ -360,7 +360,7 @@ internal static partial class SegmentKernel {
 - Receipt: one receipt shape carries every algorithm — algorithm-specific evidence rides `Option` columns, never sibling receipt types.
 - Boundary: `UnassignedRegion = -1` is the interior packing alone — `RegionLabel` admits nonnegative ordinals and the result publishes `Option<RegionLabel>`, so absence never crosses the boundary as an int a consumer must decode by prose; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the `Op` rail, so an invalid request never constructs.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union, BoundaryAdapter]
 public abstract partial record MeshScalars {
@@ -804,7 +804,7 @@ internal static partial class SegmentKernel {
 - Auto: the smoothest field solves the smallest eigenpair of the Hermitian connection Laplacian by the `matrix` LOBPCG owner with the residual tolerance RELATIVE to `SparseHermitian.FrobeniusScale` and the ceiling from `KrylovPolicy.BlockBudget` — both read from their owners, so a page-local norm walk or a magic iteration constant is the rejected form, and the gate accepts ONLY `EigenSolveStop.ResidualConverged`; the constrained field rescales hints by the mass B-norm, so hint energy is independent of hint count, and its penalty shift derives from the same operator scale rather than an absolute reciprocal wearing a time argument; cone prescriptions route the `dec` trivial-connection owner as edge adjustments, the holonomy composed, never re-derived.
 - Boundary: per-vertex normalization floors at `ZeroTolerance`, so a zero connection component decodes to the zero vector, not NaN; the connection transport angles are the `mesh` signpost seam (`MeshKernel.ConnectionEntriesOf`), the SAME rows the cached real-block `ConnectionCholesky` assembles from, so a page-local transport-angle derivation is the deleted fourth path, and the Hermitian eigen path and the real-block Cholesky path are two discretizations of one operator from the same entries.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RosySymmetry {
@@ -947,7 +947,7 @@ internal static partial class SegmentKernel {
 - Auto: the quad arm translates the typed target into `QuadRemeshParameters` through one named conversion constant for the native `[0,100]` adaptive unit, threads guide curves and face blocks, and echoes the full pre/post topology into the receipt; the simplify arm captures the native reduce error text as failure detail; flatten runs LSCM, verifies texture-coordinate/vertex parity, and derives the edge-length distortion RMS under the energy-minimizing global scale as its quality witness.
 - Boundary: this tier captures the RhinoCommon `QuadRemesh`/`Reduce`/LSCM surface and never re-derives the first-principles restructure counterparts; a native failure disposes the partial output and routes the `Op` rail with the native error text preserved as detail — failure IS the rail, so a status enum whose only stampable row is `Completed` is deleted rather than carried as constant evidence, and a receipt column mirroring that text would be a second owner of one fault identity; receipts echo every native parameter, so a remesh is reproducible from its receipt alone; an invalid native output REFUSES at construction rather than constructing a receipt whose stored verdict goes stale the moment the mesh moves.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class QuadGuideInfluence {

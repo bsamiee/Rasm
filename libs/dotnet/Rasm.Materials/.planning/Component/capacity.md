@@ -19,7 +19,7 @@ THE SECTION-CAPACITY OWNER and THE ONE UTILISATION RAIL. One `SectionCapacity` `
 - Boundary: `DesignBasis` MEMBER keys ARE the `Rasm.Compute/Analysis/capacity#DESIGN_CHECK` `DesignCode` roster spelled identically — one vocabulary carried by two typed rows because the branch strata forbid a reference in either direction — so the parity census below DERIVES the claim at type-init rather than asserting it in prose (Materials `RULINGS.md [02]`). The section-and-load-path-only keys (`en16612` glazing, `en1993-1-8`/`aws-d1-1`/`astm-d1002`/`icc-es` connection, `en1992-4` anchorage, `en1993-1-9`/`aisc-app3` fatigue) are the DECLARED carve with no member-check counterpart and never cross.
 - Boundary: γM2 has ONE authority — the `DesignBasis` partial-factor column read through `ResistanceAction.Fracture` — so a family page divides joint and fracture resistances through this row and a local copy is the deleted form.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
@@ -271,7 +271,7 @@ public sealed partial class DesignBasis {
 - Growth: a new rung is one `[SmartEnum]` row; the shear ΔτC rungs (100/80, single slope m = 5) are typed-absent this pass and land as a sibling column pair; a third national ladder is one `FatigueLaw` case with its own category roster.
 - Boundary: the per-detail assignment — WHICH constructional detail takes which rung, EN Tables 8.1–8.10 or the AISC descriptive rows — is the CALLER's declaration riding `CapacityPlacement.Detail`, exactly as a weld states its load angle. `SectionCapacity.Fatigue` carries the law whole as its payload, so the ladder never forks the capacity case set.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -350,7 +350,7 @@ public abstract partial record FatigueLaw {
 - Boundary: `Demand` MODALITY columns bind their OWN case — unit shear to `LateralPanel`, the range/count pair to `Fatigue` — so a member arm neither resists nor reads them and the check that consumes them is its own invocation. The identity rides the receipt and build BASE where a new case cannot forget it: the analytics per-check dataset and the `MaterialsFact` stream both key on (op, kind, governing), which collides for two members of one kind under one op.
 - Boundary: `FireState` is the fire modality's typed input contract and `CapacityReceipt.Fire` its ONE mint, so both fire cases are constructed rather than assembled at a call site. BOTH producers are LANDED at their owners: `steel#STEEL_FAMILY` `SteelSeed.Capacity` reads `CapacityPlacement.FireExposure` through the `SteelFire` §4.2.5.1 step and `SteelDesign.Fire` into `FireState.Steel`, and `timber#TIMBER_CAPACITY` `TimberSeed.Capacity` routes its `TimberDesign.Fire` reduced-section receipt into `FireState.Timber` — every fire receipt in the folder constructs through this mint and a `new CapacityReceipt.SteelFire`/`TimberFire` beside it is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct AnchorBed(
     double FckMpa,
@@ -639,7 +639,7 @@ public sealed partial class MemberCheckRequirement {
 - Boundary: the frozen hull's store row is REGISTERED at the custodian — `Rasm.Persistence` `Version/retention#RETENTION_CLASSES` `ArtifactKind.CapacityHull` (`RetentionClass.Cache` because the hull rebuilds from the eager fibre-integration sweep, so eviction costs compute and never evidence; `CacheTier.ArtifactBlob` so the L1 lane never locally caches the mesh). The composition root crosses `ArtifactIndexRow.Admit(ArtifactKind.CapacityHull, key, bytes, classification, at, sourceKey)` at the custodian's `Query/cache#ARTIFACT_BLOB_INDEX`, the `(ComponentId, DiagramResolution.Key)` pair riding as the content-key preimage/sourceKey — `HullCache.Of` reads and writes through the store projections that root supplies, so this owner writes no row and the custodian edits nothing further. `Thaw` is fed EXCLUSIVELY what a trusted `Freeze` minted: the `TypeNameHandling.Objects` `$type` wire is a deserialization-gadget surface, so the store carries an opaque content-keyed blob it never decodes, no peer document reaches `Thaw`, and the `$type` shape never crosses to a peer.
 - Boundary: the verdict crosses to `Rasm.Compute/Analysis/capacity#DESIGN_CHECK` as portable scalar data keyed by section, never a `VividOrange` assembly type, and `DesignBasis.Key` is that crossing's JURISDICTION column. Checks stand REFUSED at this altitude as standing law, never faked as arms: SLS DEFLECTION needs the span, the load distribution, and the modulus — none a `SectionCapacity` carries; RC PUNCHING SHEAR is a slab-column JUNCTION check over a control perimeter no cross-section carries; and the SEISMIC system coefficients are DEMAND-side scalars the load derivation consumes before a `Demand` ever reaches `Check`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionCapacity {
@@ -1206,7 +1206,7 @@ public readonly record struct HullCache(SectionCapacity Capacity, Option<string>
 - Boundary: acceptance is the SECTION-altitude verdict, so a linked RC section that passes and merely owes stirrup detailing returns WITH its deferral for the caller to route forward — the strict `Adequate` bit stays the terminal report's, never the sizing gate's.
 - Boundary: NAMED LOSS on absorbing the fastener-grain scan — the retired `LeastShear` returned the winning EN 1993-1-8 resistance and ranked by thread major diameter; this fold returns the `Utilisation` verdict and ranks by real linear mass. WITNESS: the resistance is `demand / verdict.Ratio` off the returned verdict, and the mass rank orders a mixed-grade sweep correctly where diameter ordered it only within one substance.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SectionCandidate<TSubject>(TSubject Subject, double MassPerMm, Func<Fin<SectionCapacity>> Capacity);
 

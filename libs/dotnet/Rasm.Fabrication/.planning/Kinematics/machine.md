@@ -25,7 +25,7 @@
 - Growth: a machine configuration is one `MachineChain` case payload or one additional joint row; a physical axis extends process-family `AxisLimit` through one `AxisMotion`; a new orientation modality is one `ToolAxisDemand` case carrying its `AxisAt` arm; a search budget or ranking weight is one `InversePolicy` column, and a new gate is one `ToleranceLane` read. Machine products never become solver branches.
 - Boundary: `MachineTool` rejects `KinematicClass.ArticulatedArm`, which remains `RobotProgram` property. `Toolpath/guard.md` owns swept collision, `Posting/program.md` owns controller AST lowering, and `Process/faults.md` owns fault payloads. `AxisSchedule.At` and every statement body beneath `MachineTool` are measured numeric or RhinoCommon mutation kernels; statements do not escape those seams. Provider exceptions terminate at the MathNet seam as typed `Fin` failures, and a non-converged fit fails on its own residual rather than returning the minimizer's last point. Serial fits keep the MathNet functor because joint travel is a HARD constraint on them — the kernel `Lm.Minimize` ladder carries no bound, scale, or fixed-parameter column, so re-seating the residual on `DualModel` trades the bounded solve for one free to leave the mechanism's own limits and degrades a reachable station to `machine-tool:unreachable`; the kernel contribution taken here is the `Dual<T>` scalar, and one forward chain in that scalar is the page's only forward kinematics, the differenced Jacobian and a second double-only chain both being the deleted forms.
 
-```csharp signature
+```csharp
 using LanguageExt;
 using LanguageExt.ClassInstances;
 using LanguageExt.Common;

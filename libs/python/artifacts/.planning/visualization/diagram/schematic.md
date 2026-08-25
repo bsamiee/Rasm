@@ -17,7 +17,7 @@ Authoring is DATA over the closed grammar: a `SchematicSpec` carries `SymbolRow`
 - Growth: a new symbol is one row (the registry resolves the provider catalog by name); a new domain one `SchematicSpec` case plus one authoring arm; a new placement verb one `SymbolRow` field mapped to one fluent call; a new aesthetic axis one theme diagram row; zero new surface for a new consumer.
 - Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT`'s engines), no seven-mark rendering (`visualization/diagram/draw#DRAW`'s), no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`'s), no rasterization or matplotlib backend (the standalone SVG backend is the egress), no receipt or identity beyond the runtime mint; hand-emitted SVG, imperative consumer canvas code, a parallel symbol vocabulary, an unconstructed fault case, and a subinterpreter offload of the ziafont-bound kernel are the rejected forms.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Mapping
 from enum import StrEnum

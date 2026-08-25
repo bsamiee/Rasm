@@ -18,7 +18,7 @@ Kernels follow the runtime lane law — a caller supplies its kernel, the corpus
 - Growth: a new bench subject is one `CORPUS` entry and one recipe; a tightened regression bar is one `BenchThreshold` value on that entry's subject; a new deterministic-input kind is one `BenchFeed` case; a subject demanding a host binary is one `floor` element and a second binary one more, any feed kind; a new external tool is one row on the runtime roster that `floor` names, zero edits here; a new bench statistic, run outcome, or instrument graduates entirely at the runtime tier and reaches every verdict with no roster edit.
 - Boundary: no timing, quantile, threshold, verdict, or instrument construction at artifacts grain — the runtime tier measures and grades, and a page-local `perf_counter` bracket or a second tool-discovery ladder is the deleted form; no `ArtifactReceipt` case for bench evidence, because a benchmark grades the producer, never an artifact; a process-terminal corpus run rides the runtime `JobRun.bounded` envelope so the final projection flushes. A `floor` names the runtime roster's own `KTX_TOOL` PROVISION id, never the texture plane's spawn-command constant — one is the key a host is probed under and the other the executable a leg launches, and conflating them makes both surfaces candidate owners of one spelling. The import direction is one-way by construction: the grader and the tool roster seat at a tier every stratum reaches, so a producer plane composes them directly and no lookup reaches upward.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from typing import Final, Literal

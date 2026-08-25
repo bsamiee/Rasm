@@ -24,7 +24,7 @@
 - Growth: a new rpc is one `Rpc` row beside its two-line generated override; a new refusal is one `faults#ROWS` row; a new reply field is one proto edit and regeneration.
 - Boundary: mount, bind, credentials, process supervision, and the `FaultStamp` source stay at the app root; this page constructs one application value, raises one `ConnectError`, and mints no listener.
 
-```python signature
+```python
 from collections.abc import Callable
 from contextlib import AsyncExitStack
 from typing import Final, override
@@ -208,7 +208,7 @@ class CadProvider(CadService):
 - Growth: a new interceptor is one element the app root passes; a new compression is one `COMPRESSIONS` value; a second served service is its own application value at the app root, never a second mount here.
 - Boundary: hypercorn, the dispatcher, TLS material, and the ambient process lifecycle stay at the app root; this page hands it one ASGI callable carrying its own mount path.
 
-```python signature
+```python
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 

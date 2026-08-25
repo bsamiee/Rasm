@@ -21,7 +21,7 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 - Law: `SkipNestedLinkedDefinitions` is settable on the live definition, so a nested-load posture is a subject column the refresh writes once at admission, never re-derived per version sweep.
 - Packages: Thinktecture.Runtime.Extensions for the rosters and generated admission; NodaTime for the debounce carrier (`libs/dotnet/.api/api-nodatime.md`); LanguageExt.Core for the rails; `Domain/validation` for `ICapability`/`CapabilitySet`/`CapabilityLaw` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, `api-languageext.md`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
@@ -157,7 +157,7 @@ public sealed partial class LinkWatchPolicy {
 - Law: the grant composes the package's `LifecycleGate` (`Document/lifetime.md`) — `Use` takes a claim for the whole body and `Dispose` closes through the same gate, so a release ISSUED DURING a live borrow waits on that claim rather than freeing a bitmap the body still reads. A released-flag check before the body is a check, not a gate. A grant hand-rolling a `lock`/`Monitor` release machine beside the capsule is the collapsed form.
 - Law: a grant's cleanup roster is a total APPEND cell — the S9 carve-out for an unconditional step — so the fault a `Dispose` cannot carry outward parks readable on `CleanupFaults` and no verdict exists to discard.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GdiBitmap = System.Drawing.Bitmap;
 using Rasm.Domain;
@@ -298,7 +298,7 @@ public sealed class PreviewGrant : IDisposable {
 - Law: `ReleaseAll` delegates to kernel `Custody.Release`; a page spelling its own release loop beside it is the deleted form, and `Lowered` aggregates an already-collected fault roster.
 - Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/rails` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`ReceiptPolicy`; `Domain/rails` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GdiBitmap = System.Drawing.Bitmap;
 using NodaTime;

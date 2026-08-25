@@ -24,7 +24,7 @@ PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency pri
 - Law: `asyncIo` is the read-path throughput row — `io_method` is a deployment fact the image projection carries implicitly; no statement composes it, and the row exists so the degradation table answers it honestly.
 - Law: `rls` is the tenancy predicate plane — row-level security policies read the transaction-local GUC; the policy DDL and the pinning transformer are `lane/tenant.md`'s, and this row exists so the grant vocabulary names what the sqlite lanes replace with residency.
 
-```typescript signature
+```typescript
 const _spine = ["uuidv7", "returningOldNew", "virtualGenerated", "temporal", "skipScan", "asyncIo", "rls"] as const
 
 declare namespace Pg {
@@ -48,7 +48,7 @@ declare namespace Pg {
 - Law: `copy` is the maximal-throughput bulk lane under WAL and refuses per-row error routing — batch atomicity is all-or-nothing, so a partial-tolerant ingest splits its batch above the statement.
 - Law: `partition` (declarative partitioning with replication) refuses automated lifecycle — premake and retention drop are the `pg_partman` extension row's, and `journal/retain.md` gates on that grant.
 
-```typescript signature
+```typescript
 import { Record } from "effect"
 
 const _primitives = {
@@ -114,7 +114,7 @@ declare namespace Pg {
 - Law: `btree_gist` is the scalar-key operator-class row — GiST indexes range and geometric types alone on a stock build, so a `WITHOUT OVERLAPS` key or exclusion constraint mixing a scalar column with a validity range needs it before the spine's `temporal` grant means anything; contrib ships it in every image and the embedded pin carries it too, so the gate costs a probe rather than an image change.
 - Law: the standard probe is structural — a row without `probeSql` rides the one batched catalog scan `lane/capability.md` owns; `probeSql` exists ONLY as the exotic per-row override, so probe dispatch reads field presence, never string shape.
 
-```typescript signature
+```typescript
 import { Record } from "effect"
 import type { Backend, Capability } from "./capability.ts"
 
@@ -182,7 +182,7 @@ declare namespace Pg {
 - Law: the shared-pool row is the tenancy fan-out primitive — one app-owned pool acquired once, adopted by every row-scoped and schema-scoped tenant Layer through `layerFromPool`, so a diamond of N apps on one database costs one pool.
 - Law: construction is resilient at the Layer value — `Layer.retry` rides both mints under the branch's ONE retry owner, `Fault.Budget.schedule("lease")`, whose compiled curve already carries jitter, reset, attempt bound, and elapsed ceiling, so this lane spells no cadence of its own; its gate is the only argument it states, because a boot fault is one of two tags and the default class gate reads a `class` property `SqlError` does not carry — the tag predicate therefore rides explicitly, a malformed config fails immediately, a transient pool-acquire refusal re-attempts as graph policy, and a persistent refusal still fails typed at the budget.
 
-```typescript signature
+```typescript
 import { Array, Config, type ConfigError, Duration, Layer, Option, Predicate, Record } from "effect"
 import type { SqlClient, SqlError } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"
@@ -231,7 +231,7 @@ const _fromPool = (
 - Law: both arms take their engine AT THE CALL — `_delta` reads an engine argument and `_explain` carries no dialect default — so no receipt stamps an engine it merely assumed; this branch declares zero construction sites for either, a recorded negative rather than an unrepaired caller, because the maintenance composition owning the harvest cadence lands outside it and supplies the engine from the scope that already selected the profile; minting a default here to fill that absence stamps `pg` onto every PGLite receipt the first composition produces.
 - Law: the statements row rides `_rows` as a core-layer contrib carrying `preload` — `lane/capability.md`'s batched catalog probe inherits it with zero probe edits, the `statements` grant gates both arms fail-closed, and the flag-bearing core row reaches the image projection so the deploy derivation configures `shared_preload_libraries`.
 
-```typescript signature
+```typescript
 import { Array, DateTime, Effect, HashMap, Option, Record, Schema } from "effect"
 import { SqlSchema, type SqlClient, type Statement } from "@effect/sql"
 

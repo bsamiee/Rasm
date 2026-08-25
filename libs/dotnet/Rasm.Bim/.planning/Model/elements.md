@@ -18,7 +18,7 @@
 - Boundary: `BimElement` and `BimModel` are RETIRED — the typed data that record stranded rides the seam `PropertySet`/`QuantitySet`/`Material` nodes the `Bake` fold reaches. `IfcClass` is the vocabulary the projector composes, NOT a field on a seam node — a typed `IfcClass` on the node is the named seam violation [PREDEFINED_TOKEN_RULING]. A hand edit inside the generated-rows region dies at the next regeneration; the `Model/emitter#VOCABULARY_OVERLAYS` tiers are the sole hand surface. Sourcing the authoring verdict from `!Type.IsAbstract` alone is the named defect — the CLR flag is EXPRESS-faithful on every published member but `IfcTransportationDevice`, and only the overlay carries that one. Predefined validity is an EGRESS gate and silent acceptance of an out-of-schema token is the named defect. The schema currency is the SEAM `ReleaseVersion` ranked through its own roster order — a bare `>=` over the SmartEnum, a GeometryGym `ReleaseVersion` in the gate signature, or a hand ordinal table a new seam release leaves unranked are each the deleted form; likewise a raw entity-type string crossing a seam signature.
 - Boundary: `AdmitPredefined` is the whole gate and NO whole-model preflight sits beside it — the retired `AuditTarget` folded these same two reads over every `"ifc"`-classified node against a CALLER-CHOSEN target schema, and every entry in this folder emits at `graph.Header.Schema` alone, so it previewed a gate no caller reaches. NAMED LOSS: the accumulated complete-violation set a schema-retarget deliverable decision reads ahead of the emit. WITNESS: `Admits` and `AdmitPredefined` hold the per-node authority, and a retarget entry folds them over `graph.ObjectNodes` in one `Traverse` on the accumulating rail the moment such an entry lands.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
@@ -182,7 +182,7 @@ public sealed partial class IfcClass {
 - Growth: a new representation identifier is one `RepresentationIdentifier` key the map carries; the content-key seed is the kernel's single seed-zero `XxHash128`; never a second hasher and never a geometry blob on the seam node — only the content key.
 - Boundary: the geometry reference is the content-keyed map [M2] and an inlined geometry blob, a stored `GeometryHandle`, or an IFC representation name on the seam node is the deleted form; the content key composes the kernel hasher over `CanonicalWriter` and a second hasher (or the strata-violating `Rasm.Compute` `InterchangeIdentity` consumed up-stratum) is the named defect [H7]; a separator-joined preimage is the retired form — a space inside a STEP string shifts the split, so the framing is the writer's, never a `string.Concat`; the representation STEP is keyed, NOT evaluated — an in-process BRep tessellation here is the named seam violation (geometry realization routes the `Exchange/tessellation#TESSELLATION_BRIDGE` companion rail); the type representation-map instancing shares one content key across occurrences and a per-occurrence re-key is the deleted form; the content-stable realized-geometry identity across distinct entities is the kernel `GeometryHash` at the GLB wire, a separate key this serialization key never duplicates.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GeometryGym.Ifc;
 using LanguageExt;

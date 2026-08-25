@@ -19,7 +19,7 @@ ISO 128-2 annotation lowering lives in `Annotate`, one owner over `AnnotateOp.le
 - Growth: a leader landing adds one `LeaderContent` case and two lowering arms; a note body adds one `NoteBody` case; an annotation grammar adds one `AnnotateOp` case; bubble polygons add one `BubbleShape` member plus one `_SIDES` row. New visual behavior enters through an existing policy owner.
 - Boundary: no dimension, symbol, or sheet-set logic — `drawing/dimension#DIMENSION`, `drawing/symbol#SYMBOL`, `composition/sheet#SHEET`. `drawsvg` owns the SVG container and leader/scallop builders, `ziafont` the text outline and `typography/math#MATH` the math typeset, `ezdxf` the DXF model, `graphic/vector/region#REGION` the boolean/offset, `kiwisolver` the solve, `typography/layout#LAYOUT`/`typography/shape#SHAPE` the line-break and shaping, `export/layered#LAYERED` the layer binding, and `dotnet:Rasm.Bim` the IFC; identity minting is the runtime's.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 import math

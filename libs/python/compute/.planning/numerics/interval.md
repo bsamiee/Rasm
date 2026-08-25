@@ -16,7 +16,7 @@ One validated-numerics owner producing certified enclosures over a layered floor
 - Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count; an empty isolation is a vacuous row rather than a missing receipt, its rung read off the ladder's resolved row, its width and accuracy ABSENT because it measured neither, and its emptiness named on the band. `span_facts`, the settled payload, and the graduation ledger all read that one band, so the OTLP attribute set, the emitted evidence, and the admission bar never fork, and every absent column omits its key rather than publishing a zero a board reads as measured.
 - Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_source` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row carrying its module column, and one `Certificate` arm; a new certification finding is one `_band` row every consumer reads for free; a new admission bar is one `_CEILING` row and one `span_facts` slot the ledger already reads; a new relational op is one `Interval` method.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum

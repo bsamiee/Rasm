@@ -21,7 +21,7 @@ Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stde
 
 ## [02]-[FIRST_COMMAND]
 
-```bash copy-safe
+```bash
 uv run assay self-test
 ```
 

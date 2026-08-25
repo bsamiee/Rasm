@@ -24,7 +24,7 @@
 - Packages: `RhinoCommon` layer-table surface (`Rasm.Rhino/.api/api-rhinocommon-document.md` — `Layer.IsValidName`, `Layer.PathSeparator`, `GetLeafName`, `GetParentName`, `FindByFullPath`, `FindIndex`); kernel `Rasm.Drawing` (`LayerName`, `LayerStandard`, `HostLayerScheme` — `libs/dotnet/Rasm/.planning/Drawing/sheet.md#[07]-[LAYER]`); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md`).
 - Boundary: `Layer.PathSeparator`, `GetLeafName`, `GetParentName`, and `IsValidName` are the host path grammar; `LayerPath` composes them once, so no consumer re-derives separator arithmetic or name legality.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
@@ -213,7 +213,7 @@ public sealed partial class LayerStamp : IDetachedDocumentResult {
 - Boundary: persistent visibility and locking are THREE-state on the write side and TWO-state on the read side, and the host closes no probe over the gap. `GetPersistentVisibility` answers the layer's CURRENT `IsVisible` when nothing was ever set, so an explicit `true` and an unset-and-visible layer read identically. The trait rows therefore report the host's collapsed answer under names that state the collapse; the edit side keeps all three states because it writes through the pair the host does expose.
 - Boundary: the screen draw colour stays the host's own `System.Drawing.Color` evidence — a snapshot column, never a public payload crossing — and the PLOT product leaves only through the `PlotStyle` projection, where the colour admits into `PerceptualColor` once.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using QuikGraph;
 using QuikGraph.Algorithms;
@@ -480,7 +480,7 @@ public sealed class LayerTree : IDetachedDocumentResult {
 - Boundary: `Layer` inherits `IDisposable` through `ModelComponent`/`CommonObject`, and `Add`/`Modify` copy their argument into the table, so every caller-minted `Layer` — the created row and the staged copy alike — rides `Lease<Layer>.Owned(...).Use(...)`; a live row read back through `FindIndex` or `CurrentLayer` is table-owned and never leased.
 - Packages: `RhinoCommon` per-viewport override family and staged-modify members (`Rasm.Rhino/.api/api-rhinocommon-document.md` — `SetPerViewport*`/`DeletePerViewport*`/`UnsetPerViewportPersistentVisibility`, `Layer.PlotWeight`, `Layers.Modify`); kernel `Rasm.Drawing.LineWidth` behind `PrintPen`; `Thinktecture.Runtime.Extensions` delegate-column rosters.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 internal sealed partial class DetailPaint {
@@ -722,7 +722,7 @@ public abstract partial record LayerEdit {
 - Boundary: layer-table events stay on the events page's `EventFamily` binding, named-layer-state save/restore stays on the presets page, and object relayering by query stays on the tables rail; this page enters `document.Objects` only inside the merge arm's custody move.
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `FactStream`, `UndoSerial`), `Document/commit.md` (`DocumentCommit.Sealed`/`Compensated`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DraftFault`); `RhinoCommon` layer-table mutation members per the `.api` catalog.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using LayerReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Document.LayerSlot, Rasm.Rhino.Document.LayerBody>;
 
@@ -1104,7 +1104,7 @@ public abstract partial record LayerOp {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [SUBSECTION]
 [SmartEnum<int>]
 public sealed partial class LayerBodyKind : ICapability<LayerBodyKind> {
@@ -1255,7 +1255,7 @@ public static partial class Layers {
 - Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — recursive generated messages and `MessageExtensions.ToByteArray`); Celly.Protovalidate (`libs/dotnet/.api/api-celly-protovalidate.md` — descriptor rules at emit); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated organization family); Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — recursive target-complete mapping); kernel `Rasm.Domain` identity; `Document/tables.md`; `Document/session.md`; BCL inbox.
 - Growth: one appended entity field beside one domain column carries a new axis; every containment, member, and view relation stays nested under its owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using Celly.Protovalidate;

@@ -34,7 +34,7 @@ Choose the lifecycle role before adding an owner, construct, rail, or projection
 
 [LIFECYCLE_FLOW]:
 
-```python conceptual
+```python
 from dataclasses import dataclass
 from typing import Annotated, Literal
 
@@ -136,7 +136,7 @@ A typed payload is the one shape that lives between the wire and the canonical o
 - Exemption: `accepted` is the measured admission kernel — the single `try` is the `TypeAdapter.validate_python` gate, the one `except ValidationError` enriches the raised fault with the `.errors()` `loc` paths through `add_note` before mapping to `<invalid-payload>`, and every signature past it holds the materialized owner; this `TypeAdapter` seam is the payload section's named platform-forced statement site, distinct from the `[01]` ordered-capture kernel because one closed payload admits through one validator rather than the wire-then-owner refinement split.
 - Reject: a forwarded payload kwarg, a payload type in a domain interior signature, runtime revalidation repairing an erased payload, and a second `TypeAdapter` pass over the already-admitted payload.
 
-```python conceptual
+```python
 from dataclasses import dataclass, field
 from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict, Unpack
 
@@ -197,7 +197,7 @@ A canonical owner is the first durable frozen shape domain logic accepts, and it
 - Law: a primitive earns this owner when its validation, bundle, or factory recurs — repeated primitive validation graduates to one refinement alias or owner field, a repeated field bundle to one owner, mutable update law to an immutable transition method, and a stable wire or persistence concern to an egress projection, never to a second domain owner mirroring the first.
 - Reject: a boundary engine imported into an interior owner, a mutable field on a frozen owner, a transition as a free function, a projection that revalidates, a mirrored validation/domain/wire owner hierarchy, a validator side effect, and a tag-only shape family.
 
-```python conceptual
+```python
 from copy import replace
 from dataclasses import dataclass
 from typing import Literal, Self
@@ -250,7 +250,7 @@ One vocabulary owner feeds ingress discriminants, canonical tags, wire tags, reg
 - Law: `Nothing` is non-failing computed absence after admission; `Result.Error` is failure.
 - Reject: `None` for failure, a sentinel on a wire struct's domain field, `Option` hiding validation errors, bool flags splitting one option shape, and three loose dataclasses standing in for one closed absence family.
 
-```python conceptual
+```python
 from typing import Literal, assert_never
 
 import msgspec
@@ -302,7 +302,7 @@ def selected(note: Note, fallback: Option[str] = Nothing, /) -> Option[str]:
 - Law: a semi-closed family is a closed core union plus one typed `extra_items` extension band; an open family is admitted only when foreign or plugin code adds members without editing the owner, dispatched through `singledispatch` at the one seam the surface page owns.
 - Reject: optional-field variant bags collapsing N shapes into one nullable record, string dispatch on a `.value`, `singledispatch` over an owned closed family, protocol-per-variant, catch-all default arms, a sibling transition function where an owner method states it, and foreign token spelling inside canonical members.
 
-```python conceptual
+```python
 from copy import replace
 from dataclasses import dataclass
 from typing import Literal, assert_never
@@ -365,7 +365,7 @@ Projection derives outward and never gains authority: a wire struct, persistence
 - Law: a foreign boundary remaps provider names, token vocabularies, cardinality, discriminants, and omitted fields before canonical entry, and the correspondence lives in an adapter table or schema-owned alias the boundary page owns, never a provider-shaped field reaching the owner.
 - Reject: projection-to-projection authority, a projection as a free function instead of an owner method, codec engines in canonical owners, scattered `model_dump` key pops, model-per-provider interiors, and a canonical `schema_version` branch that belongs to read-boundary migration.
 
-```python conceptual
+```python
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated
@@ -428,7 +428,7 @@ A durable owner is frozen after materialization, and state change is a transitio
 - Law: a `frozendict` field transitions through union (`row | {key: value}`), a `Map`/`Block` field through its persistent combinator, and the whole successor is one expression; aliases normalize before replacement and never key an owner replacement.
 - Reject: a mutable field on a frozen owner, a direct `__replace__` where `copy.replace` states the transition, mutate-then-freeze, a shallow nested-dict update, cached-session replay by shallow replace, a second `TypeAdapter` pass over the already-admitted patch, and `MappingProxyType` as durable immutability.
 
-```python conceptual
+```python
 from copy import replace
 from dataclasses import dataclass, field
 from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict

@@ -23,7 +23,7 @@
 - Packages: Grasshopper2 (`SolutionServer.Start`/`Stop`/`DelayedExpire`, `Solution.Cancel`, `SolutionMode`, `IDocumentObject.Expire`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`UiThread`, `UiEvents`, `EvidenceDrain`, `Atomicity`, `UiSubscription`), `Rasm.Domain` (`Lease<T>`), `Shell/events.md` (`GhSource`, `GhFact`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/document.md` (`DocumentGate`, `GateLane`, `GateReceipt`, `GateOutcome`, `RunPulse`), `Components/data.md` (`GhFault`), Thinktecture, LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new execution posture is one `SolutionCommand` case breaking the gate's total `Switch` loudly and naming its lane on the column; a new lifecycle stream on `Watch` is one composed `GhSource` row — the gate pair never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Rasm.Domain;
@@ -164,7 +164,7 @@ public static partial class SolutionControl {
 - Packages: Grasshopper2 (`Solution.Id`/`Phase`/`Mode`/`ComputableCount`/`InvalidParameters`/`OverallProgress`/`Age`, `SolutionId`, `SolutionPhase`, `SolutionRecord.SolutionId`/`Culmination`/`StartTime`/`EndTime`/`Duration`), Riok.Mapperly, `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`, `UiEvent`), `Shell/events.md` (`GhFact`, `SolutionSignal`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new run metric is one field on the owning receipt with its claim row and its generated map line; a new timeline judgment is one claim inside `SolutionTrace.IsValid` — no new receipt species.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Rasm.Domain;

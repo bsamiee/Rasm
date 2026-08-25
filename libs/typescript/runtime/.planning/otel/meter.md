@@ -25,7 +25,7 @@
 - Boundary: the facts themselves are the work plane's (`work/deliver`, `work/queue`) and the journal is the data plane's; this page owns only the projection.
 - Packages: `effect` (`Metric`, `Array`, `Option`, `Record`); `@rasm/core` (`Convention`, `Tap`).
 
-```typescript signature
+```typescript
 import { AggregationType, createAllowListAttributesProcessor, createDenyListAttributesProcessor } from "@opentelemetry/sdk-metrics"
 import { type Identity, Convention, Tap } from "@rasm/core"
 import {
@@ -102,7 +102,7 @@ const _marked = (kind: Pulse.Work, channel: string, count = 1): Effect.Effect<vo
 - Growth: a new census dimension is one `Census` field and one `_GAUGES` row reading it; a new rail tally is one `_FEED` entry over its `_TAP` row.
 - Packages: `effect` (`Context`, `Duration`, `Layer`, `Metric`, `Option`, `Record`, `Ref`, `Schedule`); `@rasm/core` (`Tap.census`); `./emit.ts` (`Hooks.Dispatch`).
 
-```typescript signature
+```typescript
 class Probe extends Context.Tag("runtime/Pulse/Probe")<Probe, {
   readonly census: Effect.Effect<Pulse.Census>
 }>() {}
@@ -173,7 +173,7 @@ const _swept: Effect.Effect<void, never, Probe> = Effect.catchAllDefect(
 - Entry: `Pulse.verbosity` at the composition root.
 - Packages: `effect` (`Logger`, `LogLevel`, `Layer`); `../proc/config.ts` (`Setting`).
 
-```typescript signature
+```typescript
 const _verbosity: Layer.Layer<never, never, Setting> = Layer.unwrapEffect(
   Effect.map(Setting, (setting) =>
     Logger.minimumLogLevel(Setting.tiers[setting.serve.tier].verbose ? LogLevel.Debug : LogLevel.Info)),
@@ -196,7 +196,7 @@ const _verbosity: Layer.Layer<never, never, Setting> = Layer.unwrapEffect(
 - Growth: a new governed space is one `_VIEWS` row with its policy group.
 - Packages: `@opentelemetry/sdk-metrics` (`createAllowListAttributesProcessor`, `createDenyListAttributesProcessor`, `AggregationType`); `effect` (`Record`); `@rasm/core` (`Convention`); `./emit.ts` (`Hooks`).
 
-```typescript signature
+```typescript
 const _VIEWS = {
   engine: (policy: Pulse.Policy) => ({
     aggregationCardinalityLimit: policy.views.engine.limit,
@@ -231,7 +231,7 @@ const _views = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
 - Growth: a new burn family is one `_BURN` row; a new panel axis is one field on the panel struct every producer inherits.
 - Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/core` (`Convention`, `Identity.App`).
 
-```typescript signature
+```typescript
 class _Board extends Schema.Class<_Board>("Pulse/Board")({
   app: Schema.NonEmptyString,
   panels: Schema.Array(Schema.Struct({

@@ -39,7 +39,7 @@ This table routes an interchange concern to its owning surface; the most specifi
 - Law: a sealed host pre-installs extensions and declares the `autoinstall_known_extensions`/`autoload_known_extensions` pair — both default true, so first use of a scanner extension otherwise downloads at runtime, the ambient-network dependency that fires only in production.
 - Exemption: the session capsule's command bodies are the platform-forced ADO statement seam.
 
-```csharp conceptual
+```csharp
 public sealed record EnginePosture(string Source, int Threads, string MemoryCap, string SpillRoot, string SpillCap, bool PreserveOrder) {
     public static EnginePosture Mart(string path, int threads) => new(path, threads, "<cap-a>", "<dir-a>", "<cap-b>", PreserveOrder: true);
     public static EnginePosture Scratch(int threads) => new(":memory:?cache=shared", threads, "<cap-a>", "<dir-a>", "<cap-b>", PreserveOrder: false);
@@ -95,7 +95,7 @@ public sealed class Session : IDisposable {
 - Law: push rows through the appender when data must persist, expose a table function when it must only participate — the staging table for a single-query join is the foreclosed middle.
 - Exemption: the drain loop over the chunk reader is the platform-forced ADO statement seam.
 
-```csharp conceptual
+```csharp
 public sealed record Sample(string Key, double Score, DateOnly Day);
 
 public sealed class SampleMap : DuckDBAppenderMap<Sample> {
@@ -142,7 +142,7 @@ public static class BulkLane {
 - Law: `COPY ... TO` is a filesystem effect outside transaction rollback — publication composes the atomic-write protocol, never transactional cleanup.
 - Law: the footer answers declared shape, per-row-group statistics, and caller stamps without decoding data — `parquet_schema`, `parquet_metadata`, `parquet_kv_metadata` — so artifact admission is a metadata-cost gate run on every delivery.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class Codec {
     public static readonly Codec Zstd = new("zstd");
@@ -217,7 +217,7 @@ public static class ProjectionRail {
 - Law: header indices resolve once outside the loop from the same column rows the descriptor stamps — reader keys, writer emission, and the schema stamp share one declaration, and per-row name lookup re-pays hashing per row; name lookup is ordinal by default, so case-insensitive exchange declares `ColNameComparer` once for every lookup path, and a whole numeric block lifts in one `Cols` range `Parse<T>()` call, never a per-column loop.
 - Exemption: the writer's row-commit block is the platform-forced disposable-row seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct ColumnRow(string Name, string Type, bool Nullable);
 
 public sealed record Measure(string Key, double Score);
@@ -287,7 +287,7 @@ public static class ExchangeSeam {
 - Law: delivery is a closed destination union whose every arm carries its own provenance — locator, stamp, hash — and a bundle member carries two identity levels, the container hash and its own; a string-typed destination parameter erases the per-arm obligation and reopens dispatch at runtime.
 - Law: fidelity routes the format — columnar for typed exchange where types, nulls, and nesting survive; delimited only where a foreign consumer demands text, under the invariant strict profile that alone round-trips.
 
-```csharp conceptual
+```csharp
 public sealed record Descriptor(string ArtifactClass, int Revision, Seq<ColumnRow> Columns) {
     public ulong SchemaKey =>
         XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(string.Join(';',
@@ -362,7 +362,7 @@ public abstract partial record Delivery {
 - Law: CRS posture is fixed by the format — WGS84 longitude/latitude, no CRS member — so reprojection happens in the interior, and emitting projected coordinates is silent corruption no reader can detect.
 - Law: feature properties stay element-backed until projected — `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(options, out var typed)` re-runs the passed `JsonSerializerOptions` over the deferred property object and a false return is absence — and walking the loose `IAttributesTable` in domain code is the rejected form; element-backed `Count` re-enumerates the object per call.
 
-```csharp conceptual
+```csharp
 public sealed record GeoProfile(double Precision, bool WriteBBox, string IdProperty) {
     public static readonly GeoProfile Wire = new(Precision: 1e6, WriteBBox: true, IdProperty: "id");
 
@@ -395,7 +395,7 @@ public static class GeoSeam {
 - Law: a layer write is one transaction over feature row, index row, and contents extent — a stale denormalized extent misleads every discovery consumer, so write paths maintain it or mark it unknown.
 - Law: container admission gates cheapest-first — application identifier, spine presence, declared-versus-sampled SRID agreement, index staleness — so rejection cost is proportional to how wrong the artifact is, and a finished container is itself a delivery arm: single file, spine-described layers, path and content hash as provenance.
 
-```csharp conceptual
+```csharp
 public sealed record BlobCodec(Ordinates Cap, bool RepairRings) {
     public static readonly BlobCodec Container = new(Ordinates.XYZ, RepairRings: false);
 

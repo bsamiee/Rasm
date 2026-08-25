@@ -18,7 +18,7 @@
 - Growth: a new engine is one `DetectEngine` member plus one `_railed` arm; a new facet one `MagicFacet` plus one `_FACET_FLAG` row; a new profile one `DetectProfile` plus one `_PROFILE_FACETS` row; a new libmagic flag one `DetectFlag`; a tuning param one `MagicParam`; a test-class narrowing one `CheckClass`; a routing branch one `MediaClass` plus one `_MEDIA_CLASS` row; a container kind one `Container` plus one `_CONTAINER` row; a source kind one `Source` case; an ingest verdict one `Trust` member plus one `_trust` arm; an identity fact one `DetectIdentity` field; a deployment knob one `DetectSettings` field plus one `detector()` projection; the singular/batch modality rides the existing `of(Source | Iterable[Source])`; zero new surface.
 - Boundary: `Detect` owns content sniffing only — no `ContentKey`, no `ArtifactReceipt`, and no descriptive-metadata read inside the container (`exchange/metadata#METADATA`'s concern). `puremagic`'s default rides the loader path IN-PROCESS as a `RELEASING` kernel (no native dependency to reify, so the process crossing and pickle seam the libmagic arm pays both drop), while libmagic — off the loader path — crosses as `HOSTILE` under its trait-row worker-death retry. Not a single-engine libmagic-only owner: `puremagic` is the categorical-best default and libmagic the distinct-axis fallback. `lane.offload` owns isolation/band/retry/boundary, never a folder-minted limiter beside it. `DetectSettings` admits the deployment env once, never raw `os.environ` reads.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import mimetypes
 from collections.abc import Iterable

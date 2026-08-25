@@ -29,7 +29,7 @@ The one config owner of the process plane: an ordered provider chain answers eve
 - Receipt: the layer's stated annotation is the chain's contract — fault union and requirement set readable at the root without opening the fold.
 - Packages: `effect` (`Array`, `Effect`, `Layer`, `Option`, `Schema`).
 
-```typescript signature
+```typescript
 import {
     type FileSystem,
     type HttpClient,
@@ -114,7 +114,7 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 - Entry: `Setting.Default` at the composition root; `yield* Setting` everywhere else.
 - Packages: `effect` (`Config`, `Duration`, `Effect`, `Schema`, `Struct`).
 
-```typescript signature
+```typescript
 import { Config, Duration, Effect, Redacted, Schema, Struct } from 'effect';
 
 const _tiers = {
@@ -342,7 +342,7 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Receipt: the admitted `Profile` value itself is the local deployment receipt.
 - Packages: `effect` (`Array`, `Config`, `Duration`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/core` (`Fault.Class`, `Identity`).
 
-```typescript signature
+```typescript
 import { Fault, Identity } from '@rasm/core';
 
 const _topologies = ['in-host', 'sidecar', 'companion', 'service', 'edge', 'cli'] as const;
@@ -487,7 +487,7 @@ const _profile = Config.nested(
 );
 ```
 
-```typescript signature
+```typescript
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { type Consumption, Profile, ProfileRefused, Provider, Setting };

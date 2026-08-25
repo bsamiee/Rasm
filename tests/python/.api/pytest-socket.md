@@ -20,7 +20,7 @@
 |  [05]   | `socket_allow_hosts`        | function  | installs a `connect` guard for hosts and CIDR networks; caches resolutions         |
 |  [06]   | `normalize_allowed_hosts`   | function  | resolves an allow-list to IP sets; `host_from_connect_args` reads the target host  |
 
-```python signature
+```python
 class SocketBlockedError(RuntimeError): ...
 class SocketConnectBlockedError(RuntimeError): ...
 def disable_socket(allow_unix_socket: bool = False) -> None: ...
@@ -41,7 +41,7 @@ def socket_allow_hosts(allowed: str | list[str] | None = None, allow_unix_socket
 |  [07]   | `pytest.mark.enable_socket` / `disable_socket` | marker     | per-test override of the default, resolved in `pytest_runtest_setup`    |
 |  [08]   | `pytest.mark.allow_hosts([hosts])`             | marker     | per-test host allow-list, taking precedence over `--allow-hosts`        |
 
-```python signature
+```python
 @pytest.fixture
 def socket_enabled(pytestconfig: pytest.Config) -> Iterator[None]: ...
 @pytest.fixture

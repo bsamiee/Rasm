@@ -24,7 +24,7 @@ Everything here is host-light: `LifecycleGate`, `Subscription`, and `Reentrancy`
 - Growth: a new custody posture is one `LeaseState` case every generated dispatch breaks on loudly.
 - Boundary: the gate holds no resource of its own — `stop` and `settle` are the owner's, so the capsule is reusable across pointer leases, content streams, and watch custody without knowing any of them.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading;
 using System.Threading.Tasks;
@@ -168,7 +168,7 @@ internal sealed class LifecycleGate {
 - Growth: a new release posture is one `SubscriptionRelease` case; generic custody postures belong on the kernel `Custody` algebra.
 - Exemption: `Subscription` and its closure records ride a `Lock` — close claims its detacher roster, runs callbacks after release, and publishes retry custody with one settled result atomically, a sequence whose steps must each run after an earlier one refused; the platform-forced lifetime seam is contained here and no composer writes one.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading.Tasks;
 using Rasm.Domain;
@@ -382,7 +382,7 @@ internal sealed class Reentrancy {
 - Growth: a new loss posture is one `PumpLoss` row; a new deferral clock is a different pump owner, never a mode knob here.
 - Boundary: the pump owns the ONE idle hook per instance and nothing else — the work closures carry their own custody, and the pump never reads what a unit of work does.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

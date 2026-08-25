@@ -21,7 +21,7 @@
 - Growth: a host classification adds one row with its recovery form; a policy value adds one row with its host projection; a new evaluated side is one `SideCode` row and no `MappingSide` case at all.
 - Packages: `api-rhinocommon-geometry.md` (`TextureMapping`, `TextureMappingType`, `TextureSpace`, `TextureMapping.Projection`, `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh`, `Mesh`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`Op.Row`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Display;
@@ -197,7 +197,7 @@ public sealed partial class MappingKind {
 - Boundary: `MappingTag` crosses only through `ChannelTag.Of` and `ChannelTag.Native`; custom meshes transfer through `Lease<Mesh>`, and native property application, cache mutation, losing mesh recovery, and coordinate-wrapper disposal are the platform-forced statement seams.
 - Packages: `api-rhinocommon-geometry.md` (`TextureMapping.Create*` factories, `TextureSpace`, `UvwTransform`, `PrimitiveTransform`, `NormalTransform`, `Evaluate`, `Decompose`, `MappingTag`, `CachedTextureCoordinates`, `Mesh.GetCachedTextureCoordinates`/`SetCachedTextureCoordinatesFromMaterial`/`InvalidateCachedTextureCoordinates`/`HasCachedTextureCoordinates`); kernel `Domain/rails` (`Lease<T>`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.AcceptValidated<TVO>`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `HashMap`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[ValidationError]`, `IDisallowDefaultValue`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MappingSpec : IDisposable {
@@ -597,7 +597,7 @@ public static class TextureCoordinates {
 - Boundary: `ContentReceipt` is the registry page's hand-built receipt; the fact-stream conformance that replaces it with `FactStream<ContentSlot, ContentBody>` is that page's to land, and this rail composes whichever shape it publishes.
 - Packages: `api-rhinocommon-objects.md` (`RhinoObject.SetTextureMapping` both arities, `GetTextureMapping`, `GetTextureChannels`, `HasTextureMapping`, `ObjectAttributes.HasMapping`, `ObjectAttributes.OCSMappingChannelId`); `api-rhinocommon-document.md` (`RhinoDoc.Objects.FindId`); kernel `Domain/rails` (`Lease<T>.Use`, `Op`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`), `Document/tables.md` (`TableTarget`, `RedrawPolicy`, `DocumentCommit.Sealed`), `Render/registry.md` (`ContentReceipt`, `ContentSlot`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MappingCensus(Seq<(Guid Object, Seq<MappingChannel> Channels)> Rows) : IDetachedDocumentResult;
 

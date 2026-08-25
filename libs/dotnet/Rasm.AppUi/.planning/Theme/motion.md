@@ -22,7 +22,7 @@ Rasm.AppUi motion is one `MotionToken` vocabulary: each row carries one `MotionT
 - Growth: a new motion grade is one `MotionToken` row carrying its reduced delegate; a new fault case is one `[FaultCase]` leaf; a new spring invariant is one kernel-gate predicate the delegated admission inherits.
 - Boundary: `MotionTiming.Tween` carries one NodaTime duration and one kernel `Easing` row, while `MotionTiming.Spring` carries one admitted `SpringValue` and derives its duration from `Response` and its curve from the kernel three-regime closed form. `MotionToken.Duration`, `Curve`, `Spring`, `Overshoots`, and `Retargets` are projections of the timing case, never independent constructor columns. Reduced targets are deferred row delegates, and every row whose motion LOOPS reduces to `Instant` so the reduction halts it outright rather than shortening its period. `MotionEasing` is the ONE Avalonia adapter at the animation binding boundary — the kernel `Interaction` plane is Eto-bound, so this adapter is the named Avalonia counterpart, and `Easing.Parse` is unreachable because no motion value crosses this page as a string. `SpringValue.UnitProgress` and `SpringValue.Pixel` are the two declared settle bands — a unit-normalized progress settles below perception at a fraction of its own travel, a pixel-valued travel at half a device pixel — and an epsilon chosen per call site is what makes two surfaces of one product truncate their tails differently; both ride the kernel `SettleBand` carrier and the kernel `Settle` inversion reads the position column as the absolute tolerance. Spring parity has one source: a host-side preset and a shell token evaluate the SAME kernel closed forms over the same admitted pair — the parity map below names each member beside the host surface class that mirrors it; the host preset table seats at the composition root, never here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 using KernelEase = Rasm.Parametric.Easing;
@@ -174,7 +174,7 @@ public sealed partial class MotionToken {
 - Growth: a new animated axis is one `MotionAxis` row carrying its transition constructor, its kind, and its lane; a new feedback form is one `LatencyTier` row carrying its ceiling and its plan; zero new surface.
 - Boundary: `Transitions` validates on admission and THROWS for a `DirectProperty` target, so the bind refuses a direct property onto `MotionFault.AxisRefused` before the list sees it; that validation also verifies UI-thread access, so a seat crosses the UI scheduler port at its caller. `BrushTransition` and `EffectTransition` swap DISCRETELY at half progress whenever their two ends carry incompatible shapes — a continuously varying effect parameter is not a transition and rides the redraw lane, which is why the effect row's lane is `Redrawn` while its transition still exists for the compatible case. `TransformOperations` interpolates OPERATION-WISE while every other `ITransform` interpolates through its collapsed matrix, so the transform axis binds `TransformOperations` and a matrix-assembled `RenderTransform` is the deleted form. Floating chrome animates on the transform and opacity axes ALONE (folder RULINGS `[02]:63` — extent motion is confined to in-flow disclosure). The lane row names WHERE an axis executes; the composed lane's slot correspondence is `Vfx/compose`'s own table, because a `ComposeSlot` column here would point the Theme vocabulary UP at its executor. `TransitioningContentControl.PageTransition` defaults to an immutable cross-fade carrying its own inline duration literal, so the route carrier ASSIGNS the property at mount — leaving the default is a second untokened timing source exactly as the shipped popup-animation style would be.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -374,7 +374,7 @@ flowchart LR
 - Growth: a new animated surface is one `MotionPlan` row carrying its choreography; a new cadence is one `MotionPacing` case with one `Gate` arm; zero operation proliferation.
 - Boundary: the projection surface IS the selection boundary — `ChartSpeed`, `ChartCurve`, `ZoomMilliseconds`, and `Gate` fold `ReducedMotion.Select` at the read, so a raw row token structurally cannot leak unreduced timing; feeding an already-selected token (`EnterToken`, `ExitToken`, a `PhaseMotion.Resolve` result) back through a projection is the deleted double-degrade form. Dwell and linger are INTENT, not motion: they survive reduction untouched, because a hover that opens instantly under reduced motion is a different interaction, not an accessible one. `Gate` discriminates trailing throttle, sampled pulse, and lossless serial dwell through one scheduler-parameterized entrypoint; the pacing rows stay column-less BY REFUSAL — the operator is generic in the element type and a `[UseDelegateFromConstructor]` column cannot carry an open-generic delegate, so the generated total `Switch` is the dispatch. An auto-sized height reads as `NaN` and no transition interpolates it, so a disclosure animates the MEASURED desired extent and releases the pin back to auto at completion — the one place the extent axis animates on floating-free flow. The toast stack reflows as a PROJECTION: a dismissal re-reads `Stacked` at the new ordinals; a card past the cap is present and transparent (the fold derives it from the ordinal — no third posture row), which keeps its measure stable. `MotionPlan.Toast.Hold` is the one motion-owned hold window the `Shell/dialogs.md` `ToastGate.Flush` drain consumes at composition (folder RULINGS `[02]:80` — the product owns toast timers); a dialog-local horizon literal is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -667,7 +667,7 @@ public static class MotionApplication {
 - Growth: a new inertial feel is one `MotionDecay` row carrying its retention; a new dismissible surface is one `HandoffSpec` value over existing rows; zero new surface.
 - Boundary: the tracker is a FIRST-ORDER smoother over the last samples, not a sample buffer — a two-sample difference reports whatever jitter the final pointer event carried, and a buffered average lags the release by its own window; the smoothing constant is the one declared window and a per-surface constant is the deleted form. Retargetability is a modality fact the token already carries: a spring re-enters the kernel closed form at its live `SpringState`, a tween restarts from the current value at rest. This owner holds the gesture state and hands VALUES to the apply lanes DELIBERATELY: the kernel's own motion boundary rules delegated interpolation out of the drive algebra, the composed lane publishes no velocity read at all, and no Avalonia gesture surface threads a `MonotonicBeat` chain — so the beat-sampled `MotionDrive.Step`/`Retarget` arms stay the host-pacer composition (Rhino/GH) while this page composes the same `SpringShape`/`DecayShape` closed forms value-wise, and no physics is derived here. A bound run takes its length from `SpringValue.Settling` at the pixel band rather than from the token duration, so a gently-damped completion is not cut off at its response window. Snap-to-grid quantizes the PROJECTED rest before the threshold test, never the live position, so inertia and snapping compose in one fold and a flick that would cross a cell lands on the cell it aimed at.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -782,7 +782,7 @@ public static class GestureBlend {
 - Growth: a new phase lands as one map row beside its Compute case; zero new surface.
 - Boundary: the map freezes at composition and covers every `ProgressPhase` row — `Covered` is that assertion AS A VALUE, folding the Compute vocabulary against the map keys and naming every absent row on `MotionFault.PhaseUnmapped`, so a Compute case added without a map row fails the proof lane instead of rendering unanimated; terminal emphasis is law — Completed lands the snappy spring, Faulted lands emphasized — and re-keying phase motion per surface is the deleted pattern. Phase motion answers how a progress READOUT moves; `LatencyTier` answers which feedback surface the operation earns in the first place, so the two compose on a long operation and neither selects for the other.
 
-```csharp signature
+```csharp
 public static class PhaseMotion {
     public static readonly FrozenDictionary<ProgressPhase, MotionToken> Map = new (ProgressPhase Phase, MotionToken Token)[] {
         (ProgressPhase.Queued, MotionToken.Fast),
@@ -845,7 +845,7 @@ flowchart LR
 - Growth: a new host reduced-motion source is one column on the preference family at `tokens#VARIANT_AXIS`; a new concession correspondence is one row in the `Concessions` table below; this page grows nothing else.
 - Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch, and the host probe rows live with the preference family that owns every other host read, so an unbound switch answers the unreduced default rather than fabricating a reading. Reduced selection lands on spring-free rows, positional transforms drop with the spring, and looping grades reduce to `Instant`; the collapse table below states what each execution lane does under reduction, because the lanes fail differently — a retained transition that merely shortens still animates, and a render-thread tick that merely slows still costs a recomposite per frame. The posture producer maps the three concession-shaped preference rows onto their kernel `MotionConcession` rows; `Appearance` and `TextScale` stay preference-only BY DISCRIMINANT — they carry values, not display concessions, so no kernel row exists for them and none is owed.
 
-```csharp signature
+```csharp
 public readonly record struct MotionReceipt(string Token, string Resolved, bool Reduced, Instant At);
 
 public static class ReducedMotion {

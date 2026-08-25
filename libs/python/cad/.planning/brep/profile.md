@@ -20,7 +20,7 @@ Loop closure and span kind are structural on the wire, so this owner refuses onl
 - Law: `Basis` at `placement#PLACEMENT` lowers the frame once per call, so a region of many knots pays one `gp_Ax2` construction where the old planar lift paid one per point.
 - Boundary: refusal here names the loop coordinate; geometric degeneracy stays OCCT's and surfaces through the span builders.
 
-```python signature
+```python
 from collections.abc import Callable, Sequence
 from typing import Final
 
@@ -84,7 +84,7 @@ def wire(loop: ProfileLoop, basis: Basis, /) -> CadRail[TopoDS_Wire]:
 - Exemption: the face builder accumulates its holes by statement, the platform-forced seam every OCCT `Make*` owner carries.
 - Boundary: offsetting a finished face and rebuilding its areas belong to `[04]-[OFFSET]`.
 
-```python signature
+```python
 def _faced(outer: TopoDS_Wire, holes: Sequence[TopoDS_Wire], /) -> CadRail[TopoDS_Face]:
     builder = BRepBuilderAPI_MakeFace(outer, True)
     if not builder.IsDone():
@@ -122,7 +122,7 @@ def face(region: ProfileRegion, basis: Basis, /) -> CadRail[TopoDS_Face]:
 - Growth: a join axis lands as one `ProfileOffset` case and one row keyed on it, admitted only once totality is proved per join over the admitted loop corpus.
 - Boundary: `edges` collects the offset result for the area rebuild alone; sub-topology selection for features belongs to `brep/feature#SELECTION`.
 
-```python signature
+```python
 def edges(shape: TopoDS_Shape, /) -> TopTools_ListOfShape:
     result = TopTools_ListOfShape()
     cursor = TopExp_Explorer(shape, TopAbs_EDGE)

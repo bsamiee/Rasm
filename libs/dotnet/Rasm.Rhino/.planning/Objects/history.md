@@ -24,7 +24,7 @@
 - Growth: a new payload kind is one `SlotValue` case whose write and read arms are compiler-coupled; write-only cases return typed unreadable failure.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
@@ -230,7 +230,7 @@ public abstract partial record SlotValue {
 - Boundary: the record keys on the seat's identity, so a script replays only under the command that authored it; the command page's adapter is the only `ReplayHistory` override site and the only producer of a `HistoryOwner`.
 - Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[SmartEnum<bool>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/rails` (`Lease<T>.Owned`, `Lease<T>.Dispose`, `Op.Catch`); RhinoCommon objects (`HistoryRecord.CopyOnReplaceObject`, `ObjRef`); `Commands/command.md` (`HistoryOwner.Mint`); `Document/session.md` (`DraftFault`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class ReplaceSurvival {
@@ -332,7 +332,7 @@ public sealed class HistoryScript {
 - Growth: a host overload adds one `Regrown` case and the generator forces both admission and application arms; a new emphasis axis is one `TextEmphasis` row.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/rails` (`Op.AcceptInput`, `Op.AcceptText`, `Op.Positive`, `Op.Confirm`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -497,7 +497,7 @@ public abstract partial record Regrown {
 - Boundary: `ReplayFrame` is `readonly ref struct` and enters `ReplayStep` as `scoped ref readonly`; only the sealed adapter delegate receives `ReplayHistoryData`, and no consumer callback receives `ReplayHistoryResult`.
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `BindFail`); RhinoCommon objects (`ReplayHistoryData.Results`/`AppendHistoryResult`/`UpdateResultArray`/`HistoryVersion`/`RecordId`/`Document`, `ReplayHistoryResult.ExistingObject`); `Commands/command.md` (`ReplayHook`, `CommandPolicy.Replay`); `Objects/authoring.md` (`ObjectsTelemetry.Publish`, `FaultSite.Replay`); kernel `Domain/rails` (`Op.Catch`, `Error` monoid).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReplayRoster {
@@ -652,7 +652,7 @@ public sealed class ReplayProgram {
 - Law: linkage mutates on the shared spine and its consequences ride the Document spine's stream. `Bind` walks `ObjectSpine.Commit` with redraw `None`, resolves once, applies every bond, and lands one `HistoryBody` per bond beside the sealed serial — so a caller reads WHICH bond landed on which object rather than an untyped id roster that spelled attach, detach, and survival identically.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<int>]`, `[SmartEnum<string>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `ICapability`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashSet`, `TraverseM`, `Fold`, `Error` monoid); QuikGraph (`BidirectionalGraph`, `SEdge<T>`, `AddVerticesAndEdge`, `OutEdges`); RhinoCommon objects (`RhinoObject.SetHistory`/`DeleteHistoryRecord`/`SetCopyHistoryOnReplace`/`HistoryParents`/`HistoryChildren`, `ObjectTable.HistoryRecordCount`); RhinoCommon application settings (`.api/api-rhinocommon-appsettings.md` — `HistorySettings.RecordingEnabled`/`RecordNextCommand`/`UpdateEnabled`/`ObjectLockingEnabled`/`BrokenRecordWarningEnabled`); `Blocks/graph.md` (`GraphFold.Ordered`/`Cycles`/`Reduced`/`Condensed`, `GraphProjection<TVertex>.Closure`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Document/session.md` (`DraftFault`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BondOp {

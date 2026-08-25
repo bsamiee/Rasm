@@ -21,7 +21,7 @@
 |  [03]   | `PluginKind` / `FactoryPlugin<K, Tokens>` | shared ABI                 | plugin-loading types; owner `stryker-mutator-core.md` [04] |
 |  [04]   | `VitestTestRunner`                        | internal `TestRunner` impl | the `FactoryPlugin` factory yield; implements [02]         |
 
-```ts signature
+```ts
 import { PluginKind, FactoryPlugin } from '@stryker-mutator/api/plugin'
 export declare const strykerPlugins: FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]
 export declare const strykerValidationSchema: typeof import('../schema/vitest-runner-options.json')
@@ -41,7 +41,7 @@ export declare const strykerValidationSchema: typeof import('../schema/vitest-ru
 |  [06]   | `MutantActivation`       | union               | `'runtime' \| 'static'` — when the mutant switch flips                      |
 |  [07]   | `TestResult`             | discriminated union | `Success \| Failed \| Skipped` on `TestStatus` — dry-run per-test rows      |
 
-```ts signature
+```ts
 interface TestRunner {
   capabilities(): Promise<TestRunnerCapabilities> | TestRunnerCapabilities
   init?(): Promise<void>
@@ -65,7 +65,7 @@ interface MutantRunOptions {
 
 [INSTRUMENTATION_CHANNEL] — the runner augments `vitest`'s own context to pass mutant state INTO the worker and coverage back OUT, without a side channel. `ProvidedContext` carries the active mutant and hit budget to each test; `TaskMeta` carries the per-test hit count and `MutantCoverage` back — composing onto the host's canonical instrument channel (`INSTRUMENTER_CONSTANTS` / `MutantCoverage`, `stryker-mutator-core.md` [05]).
 
-```ts signature
+```ts
 declare module 'vitest' {
   interface ProvidedContext {
     globalNamespace: '__stryker__' | '__stryker2__'; activeMutant: string | undefined
@@ -91,7 +91,7 @@ Runner and the whole mutation gauge are ONE declarative options object `stryker.
 |  [07]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core    | incremental cache, static-mutant policy, runaway-mutant timeout       |
 |  [08]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
 
-```ts signature
+```ts
 import type { PartialStrykerOptions } from "@stryker-mutator/api/core"
 interface StrykerVitestRunnerOptions { vitest: { dir?: string; related: boolean; configFile?: string } }
 const strykerConfig = {

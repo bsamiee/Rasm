@@ -19,7 +19,7 @@ The unit regime is the seam `Rasm.Element/Properties/quantity#UNIT_SCHEME` `Unit
 - Growth: a newly declarable unit is one `DeclaredLengths` row carrying both its UnitsNet member and its GeometryGym assignment family, so the egress declaration index derives with zero edit; a new base axis is one `BaseAxes` row; a coercion that is not a declared-axis affine belongs at the seam owner, never here.
 - Boundary: `UnitScheme` is the ONE unit regime — this page DECLARES it from IFC and never re-implements coercion, so an eight-axis local record, a per-axis scale delegate, or a bare factor multiplied at a call site is the deleted form; the PER-MEASURE carrier override (`IfcPropertySingleValue.Unit`, `IfcPhysicalSimpleQuantity.Unit`) rides the seam `Coerce`'s `Option<UnitAxis>` declared tail (ingress-only — `Render`/`Invert` stay regime-scoped), so this page holds ZERO magnitude arithmetic and its one job is resolving the declaration (`IfcUnits.AxisOf`) the seam then applies; egress re-declaration (`Render`, `Declare` in the SI-to-declared direction) is the seam's and its IFC re-author is `Projection/egress#IFC_EGRESS`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
@@ -88,7 +88,7 @@ internal static class IfcUnits {
 - Growth: a new IFC value kind is one `ScalarKind` row; a new measure type is one `MeasureDimensions` row carrying its seam `Dimension`, and an angular one adds its name to `Angular`; a new physical-quantity entity is one `QuantityTypes` row whose `Projection/raise#VALUE_RAISE` raiser resolves off that row's own key; a new `IfcProperty` shape is one `Lower` arm.
 - Boundary: this narrowing is Bim's because an `IfcValue` or a dataType string crossing a seam signature is the deleted form — the seam carries only the typed `PropertyValue`/`MeasureValue` cases; the three-valued `IfcLogical` narrows to the seam `Logical`'s `Option<bool>` and coercing it to a two-valued Boolean is the deleted form; a typed table cell keeps its measure and logical identity through the SAME scalar narrowing the list arm takes, and the `ValueString` coercion that stripped every cell to Text is the deleted one-correspondence breach; a magnitude GG boxes as something no numeric conversion reaches is ABSENT and spells NaN so the seam's own finite gate refuses it on the rail, a 0.0 fallback being the forged measurement that admits, content-keys, and round-trips as a real reading; the two table columns declare SEPARATE units, so each cell coerces on its own column's override and one shared unit read rescales the defined column by the defining column's factor.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;

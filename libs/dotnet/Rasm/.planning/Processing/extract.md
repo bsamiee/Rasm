@@ -29,7 +29,7 @@ Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt valid
 - Growth: a new section policy is one `ContourPolicy` case and one adapter arm per admitting domain, a new sampled mode one `SampledExtraction` case and one spine arm, a new probe output one `ProjectionRow`, a new ingress shape one `Of` arm.
 - Boundary: owner-first is law — the local kernel never shadows a route another owner carries, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeDecompositionReceipt` rides `fields.md`'s tagged vector rail.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

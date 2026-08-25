@@ -32,7 +32,7 @@
 
 [ENUM_VOCABULARY]: `settings` knobs — `deadline`/`max_examples`/`phases`/`derandomize`/`stateful_step_count`/`suppress_health_check`/`print_blob`; `Phase` — `explicit`/`reuse`/`generate`/`target`/`shrink`/`explain`; `HealthCheck` — `data_too_large`/`filter_too_much`/`too_slow`/`large_base_example`/`function_scoped_fixture`/`differing_executors`/`nested_given`.
 
-```python signature
+```python
 class SearchStrategy[Ex]:
     def map[T](self, pack: Callable[[Ex], T]) -> SearchStrategy[T]: ...
     def filter(self, condition: Callable[[Ex], object]) -> SearchStrategy[Ex]: ...
@@ -65,7 +65,7 @@ class Bundle[Ex](SearchStrategy[Ex]):
 |  [09]   | `is_hypothesis_test`               | predicate   | True for a `@given`-wrapped callable; the plugin auto-marks matches `property`        |
 |  [10]   | `run_state_machine_as_test`        | driver      | executes a `RuleBasedStateMachine`; `model_based` calls it under the resolved profile |
 
-```python signature
+```python
 def given(*args: SearchStrategy[object] | ellipsis, **kwargs: SearchStrategy[object] | ellipsis) -> Callable[[Callable[..., None]], Callable[..., None]]: ...
 def assume(condition: object) -> Literal[True]: ...
 def event(value: str, payload: Any = "") -> None: ...

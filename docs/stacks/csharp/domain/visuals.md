@@ -31,7 +31,7 @@ This table routes a visual concern to its owning surface; the most specific row 
 - Reject: per-draw `new SKPaint()` — token-resolved long-lived and pooled-scratch `Reset()` are the two legal paint lifetimes; `UniqueId` as cache identity — it is process-local, never content identity; snapshot-then-keep-drawing — `Snapshot()` is copy-on-write, so the capsule orders snapshot last; and `Clear`-versus-`DrawColor` confusion — `Clear` replaces pixels including alpha while `DrawColor` composites, differing exactly on translucent fills over reused surfaces, the ghost-frame defect.
 - Exemption: the capsule's using-scoped recorder, surface, and pixmap bodies are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Target {
     private Target() { }
@@ -103,7 +103,7 @@ public static class RenderCapsule {
 - Law: document bytes embed timestamps — byte identity requires pinned `Creation`/`Modified` — and the result is dual: per-page replay through the capsule's evidence target plus byte length, so a metadata-only change moves byte identity while page hashes hold, attributable without opening the file.
 - Boundary: the durable commit composes the atomic-write law; this lane contributes the `Close()`-before-commit ordering edge and the result.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class DocumentFormat {
     public static readonly DocumentFormat Pdf = new("<format-a>", static (sink, stamp) => SKDocument.CreatePdf(sink,
@@ -161,7 +161,7 @@ public static class DocumentExport {
 - Law: one font file admits once and feeds both shaping and raster — `OpenStream(out ttcIndex)` into the zero-copy blob bridge, the `ttcIndex` load-bearing for collection files — and `SerializeGlyphs` is the shaping-evidence channel that catches shaping regressions without pixel comparison.
 - Exemption: the span-backed run fill is the measured-kernel statement seam.
 
-```csharp conceptual
+```csharp
 public sealed class FontHandle : IDisposable {
     public const int DesignScale = 512;
     readonly Blob blob;
@@ -231,7 +231,7 @@ public static class ShapeBoundary {
 - Law: thumbnail ladders rasterize from vector source at target scale — the `Save` scale pair — never by resampling a master raster.
 - Exemption: the dispose-on-failure ownership transfer in the admission body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct VariantKey(string Asset, string Variant, int Generation);
 
 public static class VectorAssets {
@@ -283,7 +283,7 @@ public static class VectorAssets {
 - Law: axis rows own scale and chrome together — `Labeler` is the one label projection resolved from locale tokens, `UnitWidth` declares one unit's domain width (the invisible-bars defect on date axes is an unset `UnitWidth`), `MinStep` with `ForceStepToMin` pins tick density, and `DrawMargin` pins plot rectangles where dashboards must align.
 - Law: interaction posture is data — `ZoomAndPanMode` flags compose per axis, and `FindingStrategy` declares pointer-to-point mapping consumed identically by tooltips and programmatic queries, so a passing point-query proof certifies interactive behavior — and global policy declares once through `LiveCharts.Configure` at the root, materialized from resolved tokens inside the catalog's publication.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class SeriesKind {
     public static readonly SeriesKind Trend = new("<kind-a>");
@@ -341,7 +341,7 @@ public static class ChartEvidence {
 - Boundary: theme application — variant binding, density switching, template consumption — is interaction law; this algebra's deliverables end at the resolved record and changed-key diff.
 - Reject: cascade resolution as the canvas theming substrate — dictionary chains resolve per element per pass, and the fold's held output is both the determinism and the performance win.
 
-```csharp conceptual
+```csharp
 public sealed record Resolved<TPayload>(int Generation, string Axis, HashMap<string, TPayload> Artifacts);
 public sealed record Catalog<TPayload>(
     FrozenDictionary<(string Role, string Variant, string Density), TPayload> Grid, Seq<string> Roles) {
@@ -388,7 +388,7 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
 - Law: sequential ramps assert trend-signed monotonic `.Oklab.L` over the generated palette and diverging ramps pin a neutral pivot through one ramp builder discriminating on pivot presence, so a perceptually broken palette is a freeze-time construction failure rather than a chart-reading hazard, and text-bearing roles assert their paired `Contrast` ratio at freeze through the same model rather than a re-derived luminance.
 - Law: motion and color converge in one tween row — motion token plus the resolved stop table — where the table is the artifact and the index-clamped sampler the only code, clamped because declared-overshoot easings legally exceed the unit interval; the reduced variant's degenerate tween is a one-stop table that still resolves through the same gamut-mapped mix.
 
-```csharp conceptual
+```csharp
 public sealed record MotionToken(TimeSpan Duration, Func<float, float> Easing) {
     public static readonly TimeSpan Disable = TimeSpan.FromMilliseconds(1);
     public static readonly MotionToken Reduced = new(Disable, EasingFunctions.Lineal);

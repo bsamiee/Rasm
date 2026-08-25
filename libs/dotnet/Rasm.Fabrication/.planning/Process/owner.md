@@ -23,7 +23,7 @@ The `Rasm.Element` `CanonicalWriter` is the one byte codec every preimage compos
 - Law: an `EgressContract` states its admissible alternatives and its CARDINALITY CEILING alone — a floor is dead under every landed policy because a caller asking for nothing is always admissible, and the produced-versus-requested proof at `FabricationResult.Evidence` is what enforces coverage. `EgressContract.None` is the shared row for a policy producing no artifact.
 - Boundary: `EgressKind` federates to the Persistence `ArtifactKind` rows at the content-key boundary by VALUE, never a type reference.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Buffers.Binary;
@@ -150,7 +150,7 @@ public sealed record EgressContract(Set<EgressKind> Alternatives, int Maximum) {
 - Growth: a production modality adds one policy case, one `FabricationResult` case, and one dispatch arm — or, where an existing case already closes the family (`Form` over `FormSource`, `TubeFormed` over `TubeResult`), one row on that family and one arm on its own dispatch, with the outer cases untouched; an artifact adds one `EgressKind` row, one entry on the owning `Egress` arm, and its enrollment counterpart.
 - Boundary: a payload type is named here and DECLARED at its owning plane, so this union imports names and never plane behaviour.
 
-```csharp signature
+```csharp
 // --- [POLICY]
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FabricationPolicy {
@@ -241,7 +241,7 @@ public abstract partial record PostSource {
 - Receipt: `RunEvidence` carries requested and produced artifacts, motion diagnostics, inspection outcomes, verification state, content keys, the ancestral roots its provenance walk reached, and the GENERATION depth that walk measured.
 - Boundary: consumers preserve field order while the `Rasm.Element` `CanonicalWriter` owns ordinal, IEEE-754 double with `-0.0` and NaN normalization, `U128`, `I64`, length-prefixed UTF-8, and presence-tag framing; a second byte codec beside it is the deleted form.
 
-```csharp signature
+```csharp
 // --- [RECEIPT]
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FabricationResult {
@@ -413,7 +413,7 @@ public sealed record RunLineage(
 - Receipt: `Run`'s terminal fold fires `FabricationFact.Run.Of(evidence, elapsed)` through `FabricationRuntime.Telemetry` with elapsed read from `Clock`, projecting duration, artifact kinds, and warnings onto `rasm.fabrication.run.duration`, `rasm.fabrication.run.artifacts`, and `rasm.fabrication.run.warnings` through `Process/telemetry#FACT_PROJECTION` as kind `run`.
 - Boundary: `Run` fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — all five through the ONE kernel `HookRail` the runtime carries (`Process/telemetry#HOOK_RAIL`), so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine. `FabricationRuntime.Admit` binds the default rail on the rail rather than collapsing it with `??`, because seating every point is itself a refusable composition.
 
-```csharp signature
+```csharp
 // --- [RUN_FOLD]
 [ComplexValueObject]
 public sealed partial class FabricationInput {
@@ -538,7 +538,7 @@ public sealed partial class FabricationRuntime {
 - Law: `Raised` is the ONE refusal-only raise and carries four of the five points, proving the admitted fact equals the fired one — an egress-mint gate rewriting a content key forges an identity nothing produced, exactly as a lineage cycle does, and an observe or replay point holds no gate to move it. `Admission` alone takes the kernel's guarded arity, because rewriting the request is what an admission veto exists for; no site spells a point, since `At` is the fact's own column.
 - Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter`, `System.IO.Hashing` (`XxHash128` at the streaming close), LanguageExt.Core rails.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FabricationCanon {
     public static CanonicalWriter Coords(this CanonicalWriter writer, Point3d point) =>

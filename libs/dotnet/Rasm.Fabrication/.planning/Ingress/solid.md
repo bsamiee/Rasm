@@ -24,7 +24,7 @@
 - Exemption: the `using` acquisition of every `OcctShape`, `CModel`, `CReader`, iterator, build item, and `File3dm` is the provider statement kernel — a resource boundary is the law it expresses, not an accumulation.
 - Boundary: no provider handle, exception type, or geometry type escapes this cluster. Documented BCL file-availability exceptions lower through caused `IngressProviderUnavailable`; OCCT, Rhino3dm, and Lib3MF throws have no local provider classifier and retain the exact exceptional `Error`. Clean null/status channels rail as typed geometry or translation refusals, and `OcctRuntime.TryGetNativeVersion` gates OCCT admission so a missing native toolkit refuses typed rather than escaping as a load failure.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 extern alias R3;
 
@@ -526,7 +526,7 @@ public static partial class SolidImport {
 - Exemption: vertex coalescing, face admission, and the edge-census shell-partition sweep are the bounded statement kernels — each is a single traversal whose incremental index IS the algorithm, and every fold around them is expression-shaped.
 - Boundary: `SolidTopology.Measure` refuses typed on a non-finite vertex, a non-triple index count, or an out-of-range index rather than throwing an admission gate; `Native` is the one place a kernel `Mesh` is constructed and no kernel handle travels back out.
 
-```csharp signature
+```csharp
 // --- [CANONICAL_OWNER] -----------------------------------------------------------------
 public readonly record struct SolidVertex(double X, double Y, double Z) {
     public SolidVertex Scale(double factor) => new(X * factor, Y * factor, Z * factor);
@@ -854,7 +854,7 @@ public sealed partial record SolidTopology {
 - Growth: a new egress is one `SolidProjection` row carrying its delegate and one `SolidView` case.
 - Boundary: `SolidRepairEvidence.Session.FinalStatus` carries repaired topology status beside the explicit input snapshot, so both states read off one receipt; exact CAD and 3MF round-trip belongs to a representation-preserving owner, never this triangulating ingress.
 
-```csharp signature
+```csharp
 // --- [PROJECTION_EGRESS] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SolidView {

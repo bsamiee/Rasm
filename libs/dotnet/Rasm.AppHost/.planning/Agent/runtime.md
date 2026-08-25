@@ -20,7 +20,7 @@ This page declares the front door, its veto rail, and the tool-adoption seam the
 - Growth: a new front door is the SAME `Run` entry a new caller invokes carrying its `CallerModality`; a new orchestration consumer drives the same `Run`; zero new surface.
 - Boundary: `CommandIntent` is the SUITE's command identity and no referencing package re-declares it — `Rasm.AppUi/Shell/commands#INTENT_TABLE` `CommandRow` is the UI DERIVATION over this vocabulary, holding the presentation columns (chord, palette text, mount predicate, argument schema) and minting one `CommandIntent` through `CommandRow.ToIntent` at each raise, so a UI verb reaches its work through this `Run` and never beside it; a second type named `CommandIntent` in a package that references this one is a strata twin, not a naming coincidence, because both spellings reach one compile leg and dispatch then resolves against whichever page a call site happened to cite; this front door is the one command-execution entry, and a caller reaching `CommandAlgebra.Run` directly is the deleted form — that bypass strands the veto rail with no firing site, leaves the caller modality unrecorded, and lands a dispatched command outside the hash chain, three failures one shared entry forecloses at once; `CommandAlgebra` stays the one commit-or-rollback transaction at `Agent/capability#COMMAND_ALGEBRA` and this surface is the gate over it, never a second transaction; `EventLog` stays the one hash-chained content-addressed command log on the durable `OpLog` changefeed (`Runtime/determinism#EVENT_LOG`) and both the mint and the publish are that owner's members, so this page composes `Project` and `Publish` in that order and derives no link of its own; the append takes a BODY — `LogBody.Command(descriptor, arguments.Digest)` — so the digest covers the canonical argument bytes and never the descriptor a second time; the veto rail is the app-composed admission policy's seat and this page names no point id and no modality of its own, reading only `Admitted`; a command whose caller resolves no `GrantScope` falls through to the algebra alone, where the broker's consent seat refuses it — one admission decision, never a second gate that could disagree with it.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CommandIntent(
     string Descriptor,
@@ -124,7 +124,7 @@ flowchart LR
 - Growth: a new tool front door is the SAME `McpAdoption` product read by a new consumer, never a new projection; zero new surface.
 - Boundary: `ToolProjection.Adopt` is the one SDK-adoption site and it lives at `Agent/mcp.md` — this page binds its product and never re-authors the subclass or the `McpServerTool.Create` call, so the SDK adoption stays fenced at one site; a tool set divorced from that seam is the deleted form, so the MCP server, the reasoning loop, and the plugin route share one brokered catalog and one dispatch transaction, never three.
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 McpAdoption adopted = ToolProjection.Adopt(
     mcpRuntime,

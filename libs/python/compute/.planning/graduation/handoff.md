@@ -21,7 +21,7 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 - Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer, its audit verb deriving with it; a new compute module is one `ComputeLeg` member beside its `EvidenceScope` row; a new refusal is one `FaultRow` anchor in `RAISES`, its coordinates its declared `slots`; a newly instrumented long fold is one producer-owned stage roster and the optional `evidence_run` slot, never a weave edit; a newly audited admission column is one `_evidence` `Change` row; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row, re-proved by the `mirror_aligned` boot gate a composing root runs with geometry's own `SUBJECTS`/`WIRE_FIELDS`/`LINK_KIND` exports; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row; a new embedded composition is one `ScopeKey` the caller threads, never a sibling registry.
 - Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the .NET owner planning. No ledger, custody, or retention window is minted here — the plane arrives bound at the composition root and this owner declares a `Retain` class alone. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer and a compute-owned axis case, never the geometry case.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from collections.abc import Awaitable, Callable, Iterable, Mapping

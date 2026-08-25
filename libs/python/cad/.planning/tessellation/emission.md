@@ -22,7 +22,7 @@ Byte admission here is EVIDENCE, never preemption. OCCT's bound filename writer 
 - Boundary: post-write extent is ADMISSION EVIDENCE, never a filesystem-growth bound — the bound OCCT filename writer exposes no bounded output callback, so the disk is already committed when the gate reads it, and confining that write belongs to the app root's worker quotas and the call-owned spool.
 - Boundary: this owner writes bytes and admits their extent. Counting what those bytes decode to belongs to `metrology/census#CENSUS`, and publishing them to `service/spool#SPOOL`.
 
-```python signature
+```python
 from pathlib import Path
 
 from OCP.Message import Message_ProgressRange

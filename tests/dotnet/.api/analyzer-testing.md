@@ -39,7 +39,7 @@
 |  [07]   | `MarkupOptions.TreatPositionIndicatorsAsCode`                     | policy         | treat position indicators as code                 |
 |  [08]   | `CSharpGeneratorDriver.Create(generator, driverOptions)`          | generator lane | cache-reason assertions over `TrackedOutputSteps` |
 
-```csharp signature
+```csharp
 public class CSharpAnalyzerTest<TAnalyzer, TVerifier> : AnalyzerTest<TVerifier>
     where TAnalyzer : DiagnosticAnalyzer, new()
     where TVerifier : IVerifier, new();

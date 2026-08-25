@@ -23,7 +23,7 @@ Cross-section algebra is the `Rasm.Element` `Composition/material#SectionPropert
 - Growth: A discrete process is one `TubeFormKind` row, a command convention is one `BendFormat` row, a physical tool is one catalog row, an analytic branch end is one `CopeEnd` row, a roll target is data, and a new modality is one `TubeOp`/`TubeResult` case pair.
 - Boundary: Forming owns tube mechanics and projection; machine capacity, process material physics, exact intersection, development, planar loop admission, posting text, and content identity remain at their canonical owners.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -684,7 +684,7 @@ public abstract partial record TubeResult {
 - Exemption: the barycentric solve and the quadratic root pair are bounded numeric kernels — the kernel publishes no barycentric triangle query, so the solve stays local with a scale-relative degeneracy gate.
 - Boundary: intersection provenance and atlas provenance stay intact through sectioned cope projection; developed islands carry their chart identity and no arm re-derives a crossing.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;

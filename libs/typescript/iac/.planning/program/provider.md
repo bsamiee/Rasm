@@ -25,7 +25,7 @@ Each arm is a total function from spec, host material, and pins to a `PulumiFn`:
 - Boundary: kube-row mechanics are `kube/*`; the object/data engine choices are `StackSpec.profile` values; the tenant row's mechanics are `kube/tenant.md`; the in-cluster reconcile row's mechanics are `operate/policy.md`; cross-stack output reads ride `StackReference` inside the tenant seam `kube/tenant.md` owns.
 - Packages: `effect` (`Array`, `Option`, `Record`); `./spec.ts` (`StackSpec`).
 
-```typescript signature
+```typescript
 import { Array, Option, Order, Record } from "effect"
 import type { StackSpec } from "./spec.ts"
 
@@ -142,7 +142,7 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 - Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary: tier admissions plus `DeployFault`. A new admitting tier widens one type alias and every arm body inherits it.
 - Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/data` (`Backend`).
 
-```typescript signature
+```typescript
 import type { PulumiFn } from "@pulumi/pulumi/automation"
 import type { Backend } from "@rasm/data"
 import { Array, Config, Effect, Encoding, Option, Record, Redacted } from "effect"
@@ -297,7 +297,7 @@ const _edged = (spec: StackSpec): Effect.Effect<Option.Option<{ readonly domain:
 - Boundary: the install script and first-boot part content are app data handed in as pins; the k8s provider construction is the arm body's; VPS provisioning itself (the resource consuming `firstBoot`) is the owning cloud arm's when an estate provisions rather than adopts its metal.
 - Packages: `@pulumi/command` (`remote.Command`, `remote.CopyToRemote`, `local.run`, `local.runOutput`, `types.input.remote.ProxyConnectionArgs`); `@pulumi/cloudinit` (`getConfigOutput`); `@pulumi/pulumi` (`Output`, `secret`, `asset`); `./spec.ts` (`StackSpec`, `Tier`).
 
-```typescript signature
+```typescript
 import * as cloudinit from "@pulumi/cloudinit"
 import * as command from "@pulumi/command"
 import * as pulumi from "@pulumi/pulumi"
@@ -393,7 +393,7 @@ class Bootstrap extends Tier {
 - Boundary: tier mechanics live on the tier pages; the credential vocabulary is `operate/secret.md`'s and the scope roster `kube/data.md`'s; the declared realizers' argument catalogues are the standing research items on the provider `.api` files.
 - Packages: `@pulumi/kubernetes`, `@pulumi/eks`, `@pulumi/docker`, `@pulumi/docker-build`, `@pulumi/aws`, `@pulumi/awsx`, `@pulumi/gcp`, `@pulumi/cloudflare`, `@pulumi/random` (providers + composed classes); every folder tier.
 
-```typescript signature
+```typescript
 import * as aws from "@pulumi/aws"
 import * as awsx from "@pulumi/awsx"
 import * as cloudflare from "@pulumi/cloudflare"

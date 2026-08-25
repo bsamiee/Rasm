@@ -27,7 +27,7 @@ Retention makes replay a warm-up and recovery window, never the system of record
 - Growth: a new fanout concern is one topic row; a new guarantee axis is one row column every engine answers.
 - Packages: `effect`, `@rasm/core` (`Fault.Budget`), and `../proc/config.ts`.
 
-```typescript signature
+```typescript
 import {
     Array,
     Cause,
@@ -311,7 +311,7 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 - Entry: engines land through one `Fanout` layer; Kafka receives its generated contract projection.
 - Packages: `effect` (`Context`, `Data`, `Predicate`, `Schema`, `Stream`); `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 const _FanoutSubject = Schema.Struct({ topic: Schema.String, detail: Schema.String });
 
 const _family = Fault.Class.family(['dial', 'horizon', 'publish', 'poison'] as const, {
@@ -538,7 +538,7 @@ class Fanout extends Context.Tag('runtime/Fanout')<
 - Law: capacity backpressures — the bounded construction suspends a producer ahead of the slowest subscriber's window; a sliding local topic is a row decision, never a default.
 - Packages: `effect` (`PubSub`, `Stream`, `Layer`, `Record`, `Ref`, `HashMap`, `Chunk`).
 
-```typescript signature
+```typescript
 type _Port = Context.Tag.Service<Fanout>;
 type _LocalPort = _Port & { readonly offer: _Port['publish'] };
 
@@ -711,7 +711,7 @@ const _local = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<
 - Boundary: the session plane's own `BroadcastChannel` (`browser/route` `Vault`) is a distinct, single-purpose channel — session continuity is not fanout, and neither surface composes the other.
 - Packages: `effect` (`Stream`, `Schema`, `Record`), `@rasm/core` (`Carrier`, `Event`, `Format`), the host `BroadcastChannel` Web API at the sanctioned FFI seam.
 
-```typescript signature
+```typescript
 const _TAB_POST = Schema.Struct({
     structured: Schema.Uint8ArrayFromSelf,
     band: Schema.Record({ key: Schema.String, value: Schema.String }),
@@ -828,7 +828,7 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 - Boundary: NATS server deployment — the websocket listener, fsync `sync_interval` hardening, replica quorum — is the deploy plane's; the data journal remains the system of record, and a projection rebuilt from fanout evidence is the named defect.
 - Packages: `@nats-io/nats-core` (`wsconnect`, `tokenAuthenticator`, `Authenticator`, `ConnectionOptions`, `NatsConnection`, `Status`), `@nats-io/jetstream` (`jetstream`, `jetstreamManager`, `AckPolicy`, `DeliverPolicy`, `ConsumerNotification`, `startBatch`), `@nats-io/obj` (`Objm`, `ObjectStore`), `effect` (`DateTime`, `Duration`, `Effect`, `Layer`, `Match`, `MutableRef`, `Predicate`, `PubSub`, `Redacted`, `Schedule`, `Stream`), `@rasm/core` (`Carrier`, `Event`, `Format`), `@rasm/security` (`MachinePrincipal`), `../proc/config.ts` (`Setting`), `./client.ts` (`Breaker`, `Machine`).
 
-```typescript signature
+```typescript
 const _nanos = (span: Duration.Duration): number => Duration.toMillis(span) * 1_000_000;
 
 const _BLOB = { store: 'fanout' } as const;
@@ -1540,7 +1540,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 - Packages: `@confluentinc/kafka-javascript` (`KafkaJS.Kafka`, `KafkaJS.Logger`, `KafkaJS.RecordMetadata`, `KafkaJS.SASLOptions`, `KafkaJS.OauthbearerProviderResponse`), `@confluentinc/schemaregistry`, `cloudevents` (`Kafka`, `CloudEvent`, `CONSTANTS`), `effect` (`DateTime`, `PubSub`, `Queue`, `Redacted`, `Stream`), `@rasm/core` (`Carrier`, `Event`), `@rasm/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `../proc/config.ts`.
 - Boundary: broker deployment — partitions, replication, retention, TLS posture — is the deploy plane's; the bootstrap roster is a `Setting` row and no broker literal exists in the engine. The SASL identity is not a deploy row here: it is the machine principal this engine projects, so a static `sasl.username`/`password` pair beside the provider would be the hand-carried credential the projection deletes. `ssl` stays unset until a `Setting.fanout` row carries the transport posture `proc/config` owns.
 
-```typescript signature
+```typescript
 const _kafka = (
     topics: Fanout.Topics,
     contracts: Readonly<Record<string, _KafkaContract>>,
@@ -2088,7 +2088,7 @@ const _kafka = (
     );
 ```
 
-```typescript signature
+```typescript
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Broker, Fanout, FanoutFault };

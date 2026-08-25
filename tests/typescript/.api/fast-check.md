@@ -32,7 +32,7 @@
 |  [13]   | `Size` / `SizeForArbitrary` / `DepthSize`                  | union aliases       | size policy; `Size` = `"xsmall".."xlarge"`           |
 |  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod`   | branded shape       | stateful-value cloning + counterexample rendering    |
 
-```ts signature
+```ts
 abstract class Arbitrary<T> {
   abstract generate(mrng: Random, biasFactor: number | undefined): Value<T>
   abstract canShrinkWithoutContext(value: unknown): value is T
@@ -65,7 +65,7 @@ declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]>
 |  [09]   | `configureGlobal` / `readConfigureGlobal` / `resetConfigureGlobal` | global config       | one `GlobalParameters` override per suite     |
 |  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage`   | reporting utils     | stable hashing + counterexample rendering     |
 
-```ts signature
+```ts
 declare function property<Ts extends [unknown, ...unknown[]]>(
   ...args: [...arbitraries: { [K in keyof Ts]: Arbitrary<Ts[K]> }, predicate: (...args: Ts) => boolean | void]
 ): IPropertyWithHooks<Ts>
@@ -92,7 +92,7 @@ Full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a new 
 
 [ENTRYPOINT_SCOPE]: model-based + async — `commands` + `modelRun` / `asyncModelRun` / `scheduledModelRun` (stateful `Command`/`AsyncCommand` sequences), `scheduler` / `schedulerFor` (`Arbitrary<Scheduler>` for deterministic async-race ordering).
 
-```ts signature
+```ts
 declare function string(constraints?: StringConstraints): Arbitrary<string>
 declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(...arbs: Ts): Arbitrary<OneOfValue<Ts>>
 declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(constraints: OneOfConstraints, ...arbs: Ts): Arbitrary<OneOfValue<Ts>>
@@ -106,7 +106,7 @@ declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitr
 
 `Parameters<T>` is the run policy; `RunDetails<T>` is the verified receipt `check` returns and `assert` embeds on throw. Replay a failure with `{ seed, path }` — both ride the receipt.
 
-```ts signature
+```ts
 interface Parameters<T = void> {
   seed?: number
   randomType?: RandomType | ((seed: number) => RandomGenerator)
@@ -134,7 +134,7 @@ interface RunDetailsCommon<Ts> {
 
 [STACK: `effect/Schema` → `Arbitrary.make` → `fast-check`] — the ONE arbitrary source in `tests/typescript/_testkit`. Every kernel brand (`ContentKey`, `Hlc`, `AppKey`, `Guid-v7`, `OrdinalKey`, SI `Quantity`) and decoded wire shape is a `Schema`; `Arbitrary.make(schema)` yields a `FastCheck.Arbitrary<A>` that already honors the schema's `filter`/refinement, so `INGRESS_BUDGET` decode budgets hold at generation time — never re-encoded as a hand-written `.filter`. `effect` re-exports the SAME engine as `effect/FastCheck`, so the arbitrary a spec composes and the engine a property runs are one instance.
 
-```ts signature
+```ts
 import * as Arbitrary from "effect/Arbitrary"
 import type * as FastCheck from "effect/FastCheck"
 import type { Schema } from "effect/Schema"

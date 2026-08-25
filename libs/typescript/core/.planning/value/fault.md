@@ -16,7 +16,7 @@
 - `Fault.Budget` compiles retry schedules once; `Fault.Degrade` compiles default and caller-owned silence ladders once.
 - `Fault.Capture` carries schema-admitted evidence; `Fault.Enricher` is the total enrichment port.
 
-```typescript signature
+```typescript
 import * as Bounded from "@effect/typeclass/Bounded"
 import * as Monoid from "@effect/typeclass/Monoid"
 import * as Semigroup from "@effect/typeclass/Semigroup"
@@ -213,7 +213,7 @@ const _class = {
 
 `Fault.Capture` admits crash evidence and folds well-known OpenTelemetry attributes through one last-write-wins band monoid. `Fault.Enricher` is a total endomorphism with an identity Layer.
 
-```typescript signature
+```typescript
 const _Attribute = Schema.Union(Schema.String, Schema.Number.pipe(Schema.finite()), Schema.Boolean)
 
 const _Frame = Schema.Struct({
@@ -311,7 +311,7 @@ class _Enricher extends Context.Tag("@rasm/core/Fault.Enricher")<_Enricher, {
 
 `at(kind)` retrieves deadline values; `schedule(kind, gate, stated)` gates the input and honors a `throttled` refusal's own window.
 
-```typescript signature
+```typescript
 const _budgets = ["pulse", "lease", "bulk", "feed", "once"] as const
 const _budgetRows = {
   pulse: {
@@ -393,7 +393,7 @@ const _budget = {
 
 `Fault.Degrade` compiles threshold order once. A caller with different thresholds invokes `compile(rows)` once and reuses the returned `level`/`cadence` policy.
 
-```typescript signature
+```typescript
 const _levels = ["live", "lagging", "severed"] as const
 const _ladder = {
   live: { after: Duration.zero, cadence: Duration.seconds(30) },
@@ -438,7 +438,7 @@ const _degrade = {
 - The census DERIVES from occurrences; a tally kept beside the band is the shape no arrival can reconcile against.
 - Law: every bounded loss names the subject it dropped and the extent it dropped, so an operator reads damage, not silence.
 
-```typescript signature
+```typescript
 const _dropKinds = ["coalesced", "replayed", "truncated", "oversize", "unanchored", "foreign", "unparsed"] as const
 type _DropReason = (typeof _dropKinds)[number]
 const _dropRows = {

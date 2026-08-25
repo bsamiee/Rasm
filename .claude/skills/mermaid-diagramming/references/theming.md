@@ -99,7 +99,7 @@ Every token carries its role on two surfaces: the `themeVariables` that spend it
 
 This block carries the high-traffic themed families; a family absent here takes its keys from its family route or its local style law, and a themed diagram carries only the keys its type consumes. `look: classic`, `useGradient: false`, and `dropShadow: "none"` open every themed fence beside `theme: base` — the render-flat lock the border canon owns.
 
-```yaml copy-safe
+```yaml
 ---
 config:
     theme: base

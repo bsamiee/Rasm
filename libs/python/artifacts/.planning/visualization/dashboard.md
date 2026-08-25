@@ -24,7 +24,7 @@ Interactivity survives the `visualization/chart/export#PREPASS` `VegaTransform` 
 - Growth: a new pane kind is one `DashPane` case, one `_paned` arm, and one receipt count; a new grid axis is one `Grid` field read by the style fold; a new escape destination is one `Destination` member with its `_ESCAPE` row, an absent row failing at type-check rather than emitting unescaped; a new embed knob is one `EmbedOptions` field the mount projection spreads; a new pre-pass mode arrives free, the pre-pass owner already dispatching it.
 - Boundary: no chart authoring, no table building, no diagram layout, and no rasterization — every pane's producer owns its own render, content key, and receipt, and this owner composes their bytes. No live server, no CDN reference, no WebSocket, and no external fetch: embedding is the invariant rather than a policy, so a `ChartRenderPolicy` carrying `allowed_base_urls` refuses `<fenced-html>` exactly as `visualization/chart/export#EXPORT` refuses it, since a browser-side render enforces no fence. `great_tables` `inline_css=True` stays the rejected pane source — it needs the unadmitted `css-inline` distribution while the default scoped `<style>` already travels inside the emitted div. Every dynamic value reaches markup through a `Template` interpolation carrying its destination, so an f-string, `%`-format, or `str.format` splice is the rejected assembly form, and a per-pane `vegalite_to_html` document the rejected composition form.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum

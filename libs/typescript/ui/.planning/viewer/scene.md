@@ -20,7 +20,7 @@
 - Law: only verified whole-buffer octets enter the viewer; every geometry arrival carries the manifest epoch it was planned under.
 - Boundary: runtime owns hauling and cache policy; UI owns decoding and GPU residency.
 
-```typescript signature
+```typescript
 import { Digest, Frame, Wire } from "@rasm/core"
 import { Context, type Effect, type HashMap, type Option, type Stream, type Subscribable } from "effect"
 
@@ -65,7 +65,7 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
 - Law: seating accumulates on ONE carrier — `GlbFault.seating` is the family's own census, so a partially-bound set names every offending plane in a single refusal fact while every other lane refuses singly and keeps the plain carrier.
 - Law: the refusal census and its error-rail fold ride ONE declaration beside the family — the mount and the tracking operator are two reads of one row, and the census is the family's own published vocabulary rather than a tuple a call site assembled.
 
-```typescript signature
+```typescript
 import { Convention, Fault, Shape } from "@rasm/core"
 import { Schema } from "effect"
 
@@ -149,7 +149,7 @@ const _refused = Convention.tracked(Convention.metric.sceneRefusals, _faultPolic
 - Owner: `Glb` acquires one WebGPU or WebGL renderer, output policy, sampling cap, prefilter, and lifecycle.
 - Law: one scoped backplane preserves renderer identity across all decode, upload, dome, and device-loss paths.
 
-```typescript signature
+```typescript
 import { Machine } from "@effect/experimental"
 import { Convention, Shape } from "@rasm/core"
 import { Duration, Effect, Metric, Option, pipe, Schedule, Schema, type Scope, ScopedRef, type Stream, type SubscriptionRef } from "effect"
@@ -410,7 +410,7 @@ const _booted = (plane: Glb.Plane, cool: Duration.DurationInput): Effect.Effect<
 - Law: decode capability splits by binding — `Glb.Served` resolves once per viewport, `Glb.Codecs` re-mints per backend generation, and every lane reads the bundle off the live acquisition rather than capturing it.
 - Law: a standard-material graft whose appearance demands a physical-only lobe upgrades in place; `<material-unphysical>` names only a material outside that pair.
 
-```typescript signature
+```typescript
 import { Convention } from "@rasm/core"
 import { Context, Effect, HashMap, Option, Queue, Record, Ref, Schema, Scope, ScopedRef, Stream, SubscriptionRef } from "effect"
 import { preinit, preinitModule, preload, type PreloadOptions } from "react-dom"
@@ -966,7 +966,7 @@ const _loop = (
 - Owner: `Glb.dome` decodes and prefilters one content-keyed environment under the active backplane.
 - Law: repeated keys update policy without duplicating GPU resources; backend replacement rebinds the same source.
 
-```typescript signature
+```typescript
 const TextureVocab = Wire.Texture
 import * as appearance from "@rasm\/contracts/rasm/contracts/appearance/appearance_pb"
 import { Effect, Match, Option, Queue, Ref, Scope, ScopedRef, Stream } from "effect"
@@ -1305,7 +1305,7 @@ const _dome = (
 - Law: the tool rows carry no fault channel — a plane cutting nothing and a probe reaching no surface are absences the return spells, and the closed `GlbFault` roster names no query reason a tool miss could take without forking the family.
 - Boundary: `panel#CONTROL_SINKS` routes its `section` and `measure` sinks onto these rows; the world-space bake they descend belongs to the asking scope, never the residency manifest.
 
-```typescript signature
+```typescript
 import { Array, Effect, Function, Option, type Scope } from "effect"
 import {
   BatchedMesh, BufferAttribute, Color, DynamicDrawUsage, Frustum, InstancedMesh, Line3, LinearSRGBColorSpace,
@@ -1565,7 +1565,7 @@ const _measure = (tree: MeshBVH, from: Vector3, to: Vector3): Effect.Effect<Opti
 - Law: the widening upgrade is a NARROW copy through the standard prototype — the two idioms three appears to offer both destroy the target.
 - Law: alpha association is a blend fact the material owns; `Texture.premultiplyAlpha` reaches the browser-decoded legs alone — where the decode already demanded straight alpha and the flag stays at its false default — and is inert on every ArrayBufferView upload, so no leg multiplies and association lands on the material.
 
-```typescript signature
+```typescript
 import { Array, Effect, HashMap, Match, Option, Schema } from "effect"
 import {
   ClampToEdgeWrapping, DoubleSide, FrontSide, LinearSRGBColorSpace, MeshPhysicalMaterial, MeshStandardMaterial,
@@ -1963,7 +1963,7 @@ const Pbr: Pbr.Shape = {
 - Boundary: these rows mint deck layer DESCRIPTORS, not GPU handles — deck's reconciler allocates and finalizes at mount, so a `Scope` bracket here would fight it and free nothing, and the mesh and scenegraph payloads stay the caller's.
 - Boundary: the map coordinate is `geo#PROJECT`'s, the redraw clock is the overlay's, and `Tile3DLayer` hands its mesh and scenegraph tile content in through this pair.
 
-```typescript signature
+```typescript
 import type { Color as Paint, Position } from "@deck.gl/core"
 import { ScenegraphLayer, SimpleMeshLayer } from "@deck.gl/mesh-layers"
 import { Array, HashMap, Option } from "effect"
@@ -2050,7 +2050,7 @@ const Instanced: Instanced.Shape = { anchors: _anchors, mesh: _mesh, scene: _sce
 - Owner: the embed row brackets object URLs and seats decoder assets from the same roster.
 - Law: embed is a backend arm of `Glb`, not a second residency owner.
 
-```typescript signature
+```typescript
 import { ModelViewerElement } from "@google/model-viewer"
 
 let _pin: Option.Option<{ readonly draco: string; readonly ktx2: string; readonly meshopt: string }> = Option.none()

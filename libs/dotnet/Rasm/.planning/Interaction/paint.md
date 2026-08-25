@@ -35,7 +35,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Growth: a new drawable is one `Mark` case breaking every replay arm loudly; a new figure is one `PathSpec` case; a new fill is one `FillSource` case; a new dash pattern is one `Dash` case.
 - Boundary: HOST-SPECIFIC-STAYS — Rhino's `WorldMark`, its `Stroke.Rhino()` projection column, `StrokePattern`, `ShadedMaterial`, `IsoBanding`, the `BlendUse` source-and-destination pair, and the `DisplayBitmap` sprite cache; Grasshopper's `IconCase`, `CapsuleCase`, `WireGhostCase`, and the `EdgeDescription` stroke column. The `DisplayPen` eight-entry dash cap is the Rhino projection's own admission and never bounds this vocabulary.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoBrush = Eto.Drawing.Brush;
 using EtoDash = Eto.Drawing.DashStyle;
@@ -311,7 +311,7 @@ public static class Tween {
 - Growth: a new invalidation modality is one `Redraw` case; a new quality tier is one `ScenePolicy` row; a new coverage carriage is one `AlphaLayout` row carrying the GDI format that demands it, breaking every normalize arm loudly; a new pixel egress is one `PixelLease` member per stack, both landing together because a shape one stack answers and the other refuses is a hole a consumer discovers at its own boundary.
 - Boundary: frame pacing, display-link cadence, and animation clocks belong to `Parametric/projections` and `Interaction/clock` — this surface exposes swap-and-invalidate and nothing temporal. HOST-SPECIFIC-STAYS: Grasshopper paints into the Grasshopper2 canvas through its own `PaintPhase` hooks and hands a `Graphics` to `PaintProgram.Replay` rather than mounting a surface at all.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoBitmap = Eto.Drawing.Bitmap;
 using EtoPixels = Eto.Drawing.BitmapData;
@@ -469,7 +469,7 @@ public static class PixelLease {
 - Growth: a new OS swatch is one `ChromeRole` row; a new reproducibility domain is a `GamutPolicy` row on the numeric floor, never a second egress here.
 - Boundary: Grasshopper's DisplayP3 `CGColor` mint STAYS at that boundary, reading the kernel triple; Rhino's `ThemePalette.Detach` swatch feeder STAYS at its boundary and hands a `ThemeShift.Hosted` to the theme grid.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoColor = Eto.Drawing.Color;
 using Rasm.Domain;
@@ -529,7 +529,7 @@ public static class PaintColor {
 - Growth: a new role is one row plus the generator arm the compile break demands; a new spacing step is one row carrying its multiple and a new type slot one row carrying its rung, neither touching the generator; a new published floor is one `ContrastFloor` row; another transition modality is one `ThemeShift` case with every consumer's dispatch loudly broken.
 - Boundary: the shift arrives INJECTED — variant polarity and any live host swatches are read at the boundary that owns the OS theme, and this owner never reads a host theme global.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;

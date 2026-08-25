@@ -20,7 +20,7 @@ The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given s
 - Boundary: which class an actor or job family selects is that declaration's policy field; this table prices classes and never names consumers.
 - Packages: `effect` (`Duration`, `Function`, `Schema`); `@rasm/core` (`Fault.Budget`).
 
-```typescript signature
+```typescript
 import { ClusterError, ClusterMetrics, ClusterSchema, ClusterWorkflowEngine, Entity, EntityProxy, EntityProxyServer, EntityResource, MessageStorage, RunnerHealth, Sharding, ShardingConfig, ShardingRegistrationEvent, Snowflake, SqlMessageStorage, SqlRunnerStorage } from "@effect/cluster"
 import { PersistedQueue } from "@effect/experimental"
 import type { HttpApi } from "@effect/platform"
@@ -83,7 +83,7 @@ const WorkClass: WorkClass.Shape = {
 - Growth: a new producer is one `extend` declaration; a new spine dimension is one field every producer's fold populates.
 - Packages: `effect` (`Array`, `Option`, `Schema`); `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 const _Warning = Schema.Struct({
   class: Fault.Class.schema,
   reason: Schema.NonEmptyString,
@@ -139,7 +139,7 @@ declare namespace Settled {
 - Growth: a new actor family is one `Spec` value; a new message is one `Rpc` row on its group; a new per-Rpc posture axis is one exemption set folded at `_annotated`; a new modality (streaming reply) is `toLayerMailbox` on the same spec; a new banded region is one `_PHASES` entry.
 - Packages: `@effect/cluster` (`Entity`, `EntityProxy`, `EntityProxyServer`, `EntityResource`, `ClusterSchema`); `@effect/rpc` (`Rpc`, `RpcGroup`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter); `effect` (`Array`, `Effect`, `Layer`, `Option`, `Scope`); `@rasm/core` (`Convention` — the identity rows both span seats stamp); `../otel/profile.ts` (`Profile`).
 
-```typescript signature
+```typescript
 declare namespace Actor {
   type Spec<Type extends string, Rpcs extends Rpc.Any, Handle = never, Fault = never, Need = never> = {
     readonly name: Type
@@ -218,7 +218,7 @@ const Actor = { make: _make, expose: _expose }
 - Boundary: the journal, outbox, and idempotency-ledger relations belong to the data wave; this port persists cluster envelopes in cluster-owned relations on the same scope, and atomicity with a domain aggregate is the data journal's transaction, reached by enqueuing from inside it — never by threading this storage into a domain write.
 - Growth: a new durability tier is one row on the tier record carrying both store arms; a new cluster fault tag is one bridge row the governed record demands at compile time.
 
-```typescript signature
+```typescript
 declare namespace Mailbox {
   type Tier = "durable" | "memory" | "noop"
 }
@@ -262,7 +262,7 @@ const Mailbox = {
 - Growth: a new runner transport is one entry row — the websocket runner is `HttpRunner.layerWebsocket`, the served-with-clients form `RunnerServer.layerWithClients`; a new health mode is one kind row; a topology axis change is a `ShardingConfig` field the environment stamps.
 - Packages: `@effect/cluster` (`Sharding`, `ShardingConfig`, `SqlRunnerStorage`, `RunnerHealth`, `K8sHttpClient`, `Singleton`, `ClusterWorkflowEngine`); `../proc/config.ts` (`Setting`); `../proc/exec.ts` (`Runtime` rows at the boot module).
 
-```typescript signature
+```typescript
 declare namespace Grid {
   type Health = "k8s" | "ping" | "noop"
 }

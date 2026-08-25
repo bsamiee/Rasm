@@ -27,7 +27,7 @@ Every appearance value crosses as a Materials VALUE: `ShadeSeam` resolves a hit 
 - Growth: a new sampling strategy is one `SamplePolicy` row carrying its `SampleDecision` delegate; a new guide accumulation is one `GuidePolicy` row; a new guide plane extends `AccumulationTarget` and `Denoiser`; a new transport bound is one `TraceLimits` column plus its `Of` slot; zero new surface.
 - Boundary: convergence is sample-count progressive and the progress sink is the kernel's own `IProgress<double>` governance shape — a fraction this page publishes means samples folded, never seconds spent; the BVH refits in place and rebuilds only through the kernel degradation trigger; the ray-trace dispatch is the GPU compute surface bound through the `Render/pipeline` render-graph lease, the CPU oracle the correctness reference, and the GPU acceleration the SPIKE; per-hit parameterization arrives through `ShadeSeam` over the `Render/meshlets` `MeshletCluster.Sample` projection — a fabricated `(0, 0)` UV is the deleted form, and the sphere-proxy fallback is a DECLARED degradation the attributes row types.
 
-```csharp signature
+```csharp
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Domain;
@@ -671,7 +671,7 @@ public sealed record PathTracePass(
 - Growth: a new shading path is a `LayeredBsdf` policy the Materials owner carries, never a Render-side lobe; a new per-point appearance value is one `SurfaceMaterial` column filled from an existing `TextureChannel` row; zero new surface.
 - Boundary: `PathTracePass` invokes `LayeredBsdf.Sample`/`Evaluate`/`Pdf` with the exact Materials `ShadingFrame`, `Direction`, `RgbSpectrum`, and `Op` types and never re-derives lobe math; `ShadeSeam` is the single composition-time boundary from oracle tuples to those domain values — a Render-side BSDF, host-color throughput, texture sampler, mip reconstruction, transfer decode, or channel roster is the rejected form; Materials delivers the tangent-space normal DECODED and signed, so the perturbation here is one basis rotation and never a `2v−1` decode a second surface double-applies.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct OracleFrame(
     (double X, double Y, double Z) Normal,
@@ -867,7 +867,7 @@ flowchart LR
 - Growth: a new emitter kind is one `LightSource` case carrying its candidate projection arm on the integrator's total fold; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; zero new surface.
 - Boundary: the kernel `SolarPosition.At` supplies the solar ephemeris and Bim lowers `GeoReference` into `SolarSite` values; IES/LDT decode is an ASSET-BOUNDARY admission — the composition root's decoder lands a validated `PhotometricWeb` carrying the file bytes' SHA-256 artifact identity, so no light row parses a file and the decoded table joins the Rhino `PhotometricWebRef(Artifact, Dialect)` reference typed instead of by coincidence; `dotnet:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` seam — this page never decodes an HDRI, projects an equirect, integrates an SH band, or builds a prefilter ladder, and `LightRig.Studio` therefore TAKES the resolved row; Render owns neither a second solar ephemeris nor a second light vocabulary.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public sealed partial class LightKey {
@@ -976,7 +976,7 @@ public sealed record LightRig(Seq<LightSource> Rows) {
 - Growth: a new statutory study day is one `DesignDay` row; zero new surface.
 - Boundary: a Render-side ephemeris sweep or a second sun-study timeline is the deleted form — `Sweep` composes the ONE kernel path; the zone is the site's own civil zone because a statutory design day is a LOCAL date, and `InZoneLeniently` resolves a midnight a DST transition can skip or repeat, so a study never drops a design day over a clock change.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DesignDay {

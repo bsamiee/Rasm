@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `BuildJob` and `AdditiveBuild` enter once; `Receipt<Pl
 - Growth: a modality is one `AdditiveProcess` row naming its `BuildProgramKind`; a per-layer column is one `LayerChannel` row on that kind; an objective is one `OrientationAxis` row that `OrientationWeights` demands of every weight table.
 - Boundary: `ProcessKind`, `KinematicClass`, and `MachineInstance` belong to `Process/family` and `Kinematics/fleet`, and `ObjectiveSense` to the kernel `Rasm/Solving/solver#LM_FUNCTOR` direction vocabulary; this owner composes them and re-declares none.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Text;
@@ -186,7 +186,7 @@ public sealed partial class AdditiveProcess {
 - Packages: `UnitsNet` seats every operating-envelope dimension; `NodaTime` seats calibration age; Thinktecture closes construction.
 - Boundary: `MachineInstance` and its enabled-process census belong to `Kinematics/fleet`; the profile composes one instance and re-declares no fleet state.
 
-```csharp signature
+```csharp
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public static class Physical {
     public static bool Finite(params ReadOnlySpan<double> values) {
@@ -397,7 +397,7 @@ public sealed partial class MachineProfile {
 - Law: `RobotEvidence` carries warnings and no errors. The port already answers on the `Fin` rail, so a success carrying its own failures was a second refusal channel beside the one the caller reads, and the artifact gate refused every value that used it.
 - Boundary: `PartTransform` is the S0 placement atom and carries `Mirrored`; a mirrored placement is refused at the write seam rather than silently dropped, because a mirrored component inverts every normal the manifold proof just established.
 
-```csharp signature
+```csharp
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public static class AdditivePolicyRows {
     public const double CompositionBand = 1e-9;
@@ -551,7 +551,7 @@ public sealed record AdditiveBuild(
 - Packages: `Rasm.Domain` (`Deterministic.OrderKey` — the stateless coordinate key deduping candidate directions), `Rasm.Meshing` (`Slicing.Apply`, `MeshEdit`, `Kernels.Apply`), `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Bounds`).
 - Boundary: support generation belongs to `Additive/support`, scan planning to `Additive/scanpath`, and layer-stack pre-flight to `Verify/audit`; this cluster composes all three and regenerates none.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BuildOrientation(Transform ModelToBuild);
 
@@ -726,7 +726,7 @@ public static class Score {
 - Growth: a new modality is one `BuildProgramKind` row naming its channels; a new column is one `LayerChannel` row and one `ChannelLaw` entry.
 - Boundary: the scan plan is `Additive/scanpath`'s and enters whole; this cluster reads its bytes and key and re-plans no vectors.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerTrack(LayerChannel Channel) {
@@ -774,7 +774,7 @@ public abstract partial record BuildArtifact(BuildProgramKind ProgramKind, Conte
 - Auto: the artifact's content key re-derives from its own payload at admission, so a program whose bytes and key disagree refuses before it reaches a document.
 - Exemption: `Compile` folds a channel table into a track sequence and mints one preimage; the fold body is the named statement kernel.
 
-```csharp signature
+```csharp
 public static class LayerProgram {
     public static Fin<BuildArtifact> Compile(OrientedPart part, AdditiveBuild policy) =>
         policy.Machine.Process.Program == BuildProgramKind.Deposition
@@ -869,7 +869,7 @@ public static class LayerProgram {
 - Law: a slice reference carries its layer program as data — bottom plane, resolution discriminant, and one contour set per top plane — so the writer builds it over one per-slice vertex table.
 - Boundary: a genuinely MIRRORED part composes the kernel re-wind and enters as its own admitted `BuildPart`, so every placement transform reaching the write is determinant-positive by construction and the writer re-authors no geometry.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ThreeMfMaterial(string Name, sColor Color, FeedstockBlend Genealogy);
 public sealed record ThreeMfComponent(int Part, Transform Transform);
@@ -1017,7 +1017,7 @@ public sealed record ThreeMfArtifact(ContentKey Key, ReadOnlyMemory<byte> Bytes,
 - Owner: `ThreeMfCensusMap` is the declared-side projection over the document.
 - Auto: eight declared columns all read the WHOLE source, so each rides `[MapPropertyFromSource]` with its counting reader; target completeness proves on every column while source completeness is forfeit by construction.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 [MapperRequiredMapping(RequiredMappingStrategy.Target)]
@@ -1060,7 +1060,7 @@ public static partial class ThreeMfCensusMap {
 - Packages: `Lib3MF` (`Wrapper`, `CModel`, `CMeshObject`, `CComponentsObject`, `CBaseMaterialGroup`, `CMultiPropertyGroup`, `CBeamLattice`, `CBeamSet`, `CSliceStack`, `CSlice`, `CImageStack`, `CFunctionFromImage3D`, `CLevelSet`, `CVolumeData`, `CAttachment`, `CWriter`, `CReader`).
 - Boundary: `Op.Catch` classifies only `Lib3MFException` as `FabricationFault.ThreeMfWriteRejected` with its exact cause; every other captured error remains unchanged.
 
-```csharp signature
+```csharp
 public static class ThreeMf {
     private static readonly Op NativeWrite = Op.Of();
 
@@ -1355,7 +1355,7 @@ public static class ThreeMf {
 - Packages: `QuikGraph` (`SEquatableEdge` endpoints off the published topology), `Rasm.Element` `CanonicalWriter` through `FabricationCanon`, `NodaTime` (`Instant` off the preflight policy).
 - Boundary: rectangular placement and articulated deposition remain the two peer ports; every other step is a member of this page.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record BuildEvidence(
     MachineInstanceKey Machine,

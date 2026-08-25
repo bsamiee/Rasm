@@ -31,7 +31,7 @@ Config, item, and hook objects the `_testkit` plugins and conftests implement ag
 |  [14]   | `LogCaptureFixture`                  | log capture        | the `caplog` handle over the stdlib logging channel                        |
 |  [15]   | `ExitCode`                           | session verdict    | the run's terminal status enum                                             |
 
-```python signature
+```python
 class Config:
     def getoption(self, name: str, default: object = ..., skip: bool = False) -> object: ...
     def getini(self, name: str) -> object: ...
@@ -67,7 +67,7 @@ Collection, assertion, and parametrization surface the specs and folds call dire
 |  [11]   | `importorskip`              | flow verdict        | import a module, or skip when it is absent                                 |
 |  [12]   | `subtests.test`             | row scope           | core fixture; a failing row reports independently, not stopping the fold   |
 
-```python signature
+```python
 def fixture(fixture_function=None, *, scope="function", params=None, autouse=False,
             ids=None, name=None): ...
 def param(*values: object, marks: MarkDecorator | Collection[MarkDecorator | Mark] = (),
@@ -79,7 +79,7 @@ def importorskip(modname: str, minversion: str | None = None, reason: str | None
 
 `_testkit` plugins implement this hook surface; each signature is the kit's declared subset of the full hookspec — pluggy passes a hook argument only when the implementation names it.
 
-```python signature
+```python
 def pytest_addoption(parser: Parser) -> None: ...
 def pytest_configure(config: Config) -> None: ...
 def pytest_collection_modifyitems(items: list[Item]) -> None: ...

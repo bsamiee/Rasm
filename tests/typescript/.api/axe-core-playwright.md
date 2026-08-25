@@ -28,7 +28,7 @@ Rule-engine conformance is the half no golden encodes: `toMatchAriaSnapshot` fre
 |  [08]   | `setLegacyMode(on?)`       | `(boolean?) => this`            | pre-4.3 frame injection; never used — modern frame audit is default   |
 |  [09]   | `analyze()`                | `() => Promise<AxeResults>`     | inject, run, fold every frame; the one receipt                        |
 
-```ts signature
+```ts
 interface AxePlaywrightParams { page: Page; axeSource?: string }
 declare class AxeBuilder {
   constructor({ page, axeSource }: AxePlaywrightParams)
@@ -48,7 +48,7 @@ export { AxeBuilder, AxeBuilder as default }
 
 `AxeResults` is the audit as data: four disjoint result groups over one `Result` row shape; gauge verdict is `violations` — an empty array is conformance, and each violation row carries the rule id, impact, wcag tags, and the offending nodes with their selector ancestry.
 
-```ts signature
+```ts
 interface AxeResults extends EnvironmentData { toolOptions: RunOptions; passes: Result[]; violations: Result[]; incomplete: IncompleteResult[]; inapplicable: Result[] }
 interface Result { description: string; help: string; helpUrl: string; id: string; impact?: ImpactValue; tags: TagValue[]; nodes: NodeResult[] }
 interface NodeResult { html: string; impact?: ImpactValue; target: UnlabelledFrameSelector; any: CheckResult[]; all: CheckResult[]; none: CheckResult[]; failureSummary?: string; element?: HTMLElement; xpath?: string[]; ancestry?: UnlabelledFrameSelector }

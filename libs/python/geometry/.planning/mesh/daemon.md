@@ -22,7 +22,7 @@ Every request enters `LanePolicy.drain` under a source key derived from the gene
 - Growth: a new output-affecting contract field lands in the canonical coordinate stream and provider projection together. A new artifact transport rule belongs to runtime `transport/artifact`; this page composes it and authors no parallel integrity state machine.
 - Boundary: IFC only. STEP, IGES, sealed B-rep, and OCCT exchange belong to generated `CadService` and the isolated CAD package.
 
-```python signature
+```python
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Sequence
 from builtins import frozendict
 from enum import StrEnum

@@ -24,7 +24,7 @@
 - Growth: a new file family is one `ProfileFormat` row carrying its extensions and its read delegate; a new fabrication intent is one `ProfileLane` row with its two columns; a new reader knob is one `ProfileReadCapability` row read at the provider call; a new declared unit is one `ProfileScale` row.
 - Boundary: the notice cell, the byte snapshot, and the disposable partial readers are the provider statement kernel — every `CadDocument` and `Entity` terminates here and no provider type reaches the canonical owner; documented BCL file-availability exceptions lower to caused `IngressProviderUnavailable`, while ACadSharp and callback throws retain the exact exceptional `Error`. `ProfileCensus` holds the provider notifications once, so no later stage re-reads them; `ProfilePolicy` decides which lanes owe closure, so a bend or etch run never fails a healed import and a reference layer is censused then discarded; a rejected notice kind lowers to `IngressTranslation` on the source locus before any contour is built.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.IO;
@@ -457,7 +457,7 @@ public static partial class ProfileImport {
 - Growth: a new provider entity is one dispatch ROW beside its loop factory; a new annotation modality is one `MarkingContent` case beside its lowering arm; a new sampler is one `SplineSampler` row; a new repair species is one `ProfileRepair` case carrying its measured evidence; a new grouping axis is one field on the provenance key the stitch and normalize folds already read.
 - Boundary: closure is demanded only from lanes `ProfileLane.Closes` marks, so an open bend run reaches the receipt unhealed; provider justification, attachment, stretch, and attribute-flag rosters resolve through owned rows carrying those ordinals, so no provider enum reaches the receipt and no arm restates a roster; `ProfileTopology` reopens no source file and holds no provider handle, because admission already terminated every provider type.
 
-```csharp signature
+```csharp
 // --- [CANONICAL_OWNER] -----------------------------------------------------------------
 public readonly record struct ProfileBlock(string Name, int Ordinal, int Row, int Column);
 
@@ -1238,7 +1238,7 @@ public static class ProfileTopology {
 - Growth: a new egress is one `ProfileProjection` row carrying its delegate and one `ProfileView` case.
 - Boundary: projection returns settled evidence alone — a consumer needing geometry the receipt does not carry re-reads the source through `Read`, never through this fold.
 
-```csharp signature
+```csharp
 // --- [PROJECTION_EGRESS] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProfileView {
@@ -1301,7 +1301,7 @@ public static partial class ProfileImport {
 - Growth: a new admitted source is one `IngressSource` case, one `AdmittedGeometry` case, and one total `Switch` arm bound to that page's reader.
 - Boundary: the fold seats beside the profile owner because the sub-domain publishes one entry and earns no page of its own; every arm reaches a sibling page's public reader and none reaches a sibling's interior; `SteelImport.Read` takes its contour policy as a second argument the `IngressSource.Steel` case carries, so the fold never re-decides a page's own policy shape; `ElementImport.Admit` is synchronous and lifts here rather than widening its own signature for one consumer.
 
-```csharp signature
+```csharp
 // --- [INGRESS_FOLD] --------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IngressSource {

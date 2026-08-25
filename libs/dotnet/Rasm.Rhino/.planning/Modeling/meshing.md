@@ -18,7 +18,7 @@
 - Growth: a new preset is one `MeshPreset` row; a new host bit is one `MeshFidelityFeature` row read once in `Mint`.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters` and its factories, `MeshingParameterTextureRange`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/rails` (`ValidityClaim`, `Op`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`, `ToleranceLane`), `Modeling/solids.md` (`ModelGate`, `BuildBody`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -181,7 +181,7 @@ public readonly partial struct MeshLaw : IValidityEvidence {
 - Growth: a new native surface is one policy value with its `Rig`; a new host bit is one row on the owning capability vocabulary.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `QuadRemeshParameters`, `ShrinkWrapParameters`, `ReduceMeshParameters`, `MeshExtruder`, `QuadRemeshSymmetryAxis`, `MeshExtruderParameterMode`, `MeshExtruderFaceDirectionMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/solids.md` (`ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MeshCount {
@@ -403,7 +403,7 @@ Frozen capability sets carry fidelity, remesh, wrap, reduction, shut-line, smoot
 - Growth: a new diagnostic is one `MeshCheckAxis` row; a new neighbourhood carrier or search cell is one case on its owning union; a new policy surface is one value object beside the ones here; the mutation and operation sections read each with zero new surface.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshCheckParameters`, `MeshClash` and `ClashPoint`, `RTree`, `PointCloud`, `RhinoList` and its `Point3f`/`Point2d` families, `TextLog`), RhinoCommon intersection (`Rhino.Geometry.Intersect` — `Intersection.MeshMeshPredicate`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MeshSlot {
@@ -752,7 +752,7 @@ public readonly partial struct MeshMatchLaw : IValidityEvidence {
 - Growth: a new edit verb is one case with its arm; a new policy surface is one value object beside the ones here.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` weld, offset, heal, collapse, normal, shut-lining, and displacement members; `MeshDisplacementInfo`, `ShutLiningCurveInfo`, `Polyline`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1095,7 +1095,7 @@ public sealed partial class ClosedPolyline : IValidityEvidence {
 - Growth: a new mesher or engine is one case with its arm; the spine, the receipt, and every consumer read it with zero new surface.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` construction, seed, remesh, wrap, boolean, split, partition, match, and projection rosters; `MeshBooleanOptions`, `MeshRefinements`, `MeshExtruder`, `TextLog`), RhinoCommon intersection (`Rhino.Geometry.Intersect`), kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `Fin`), kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`), kernel `Domain/context` (`Context`, `ToleranceLane`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `CapEnd`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), LanguageExt.Core (`Eff.runtime`, `Seq`), Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]

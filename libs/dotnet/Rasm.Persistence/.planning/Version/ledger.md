@@ -23,7 +23,7 @@
 - Boundary: Marten's `origin` header no longer reaches the entry — `OriginStoreId` reads the dot's own `Id.Origin`, so the LWW tie-break is deterministic across peers and no missing header fabricates the `Guid.Empty` bucket that collapsed every origin into one. Marten events PROJECT the changefeed (`H11`): the connected `GraphEvent` producer is the structural `geometry`-lane `GraphDelta`, never a `crdt` op. The remaining closed lane keys reserve protocol space but claim no producer until an application binding supplies one. Persistence only READS `Activity.Current` and projects to the `TraceSlot` VALUE, never re-minting the propagator the AppHost `TraceContext` fold owns; the 16-byte trace-id admits once through the TOTAL `TraceSlot.FromHex`, so an arbitrary correlation string yields `Empty` rather than faulting the subscription daemon. `OpLogEntry` carries no correlation field: correlation rides the session frame and receipts.
 - Boundary: the durable lanes (`Family.Durable`) are the exactly-once CDC row source the `Version/egress` pump drains past the `Store/coordination#OUTBOX_CURSOR`, and `ReplayWindow.DurableOps` is that drain's parameterization; the presence/awareness lane (`durable: false`) stays the lossy `DrainSurface` channel and NEVER the exactly-once CDC envelope.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
@@ -537,7 +537,7 @@ public static class OpLog {
 - Boundary: LWW per column family is the default. `Held` resolves the competing local entry per model and family; content-key equality adjudicates `LocalWin` as an idempotent replay; an ABSENT competitor adjudicates `Merged` through `Fresh`, whose held half is `None` rather than a zero-stamp sentinel — the HLC's own physical half is a Unix-tick `long` whose minimum lies outside the wire domain, so absence rides the option and never a value any writer may carry. Any HLC-resolved win over differing content is a genuine divergence the fold counts and receipts, and an equal `(stamp, origin)` over divergent content is the fork `Apply` halts on. Lane `FirstWriter` (`Presence`) is EARLIEST-wins, the INVERSE direction of the LWW default, so the tuple switch flips both arms for it rather than silently keeping a later row over the genuine first writer.
 - Boundary: `Maintain` is the one arm whose admissibility outlives its fold — compaction commutes and absorbs as a filter, yet it is a MEET where every sibling is a JOIN, so a horizon its minter never observed reclaims a tombstone a concurrent insert still needs. Only the entry's own `OperationId.Context` evidences that check, so the gate lives at the entry: `Crdt.Apply`, holding no frontier, structurally cannot run it. Family `crdt` routes its `Payload` through `Crdt.Apply` so a concurrent edit converges by the join-semilattice least-upper-bound rather than scalar LWW — the multi-writer offline and IFC three-way merge substrate. Winning whole-relation entries commit through the session `Truncate` delegate, their capability row selecting the relation-wide lane rather than a dead flag.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ConflictSide(Hlc Stamp, string Actor);
 
@@ -721,7 +721,7 @@ public static class SyncMerge {
 - Boundary: the two cursor SPACES thread the exchange — the pull leg advances this store's position in the PEER's feed and the push leg the peer-returned confirmation in OURS — and overwriting one with the other resumes the next pull from this store's push frontier inside the PEER's sequence space, silently skipping every entry between. `SyncCursorWire.origin_store` names WHICH feed a position lives in, so `SyncEndpoint.Pull` refuses a cursor naming another store rather than slicing a foreign origin out of this feed, and genesis is the one origin-free spelling a first pull carries. A pulled or streamed generation that differs from this store's stays `SyncFault.SchemaMismatch`, the same refusal on both the segment and the per-frame arm.
 - Boundary: Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run. `SpeckleLikeDiff` keeps `HasObjects` and `SpeckleSend` as SDK-shaped ports precisely because a hub's membership answer is not this service's `TransferSet`, and collapsing the two would make one row's marshal answer for the other's rpc.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Google.Protobuf;
@@ -1075,7 +1075,7 @@ Where a re-drive resumes, and the honest give-up clause each row carries.
 - Growth: a new awareness signal is one `AwarenessKind` row; a new checkout dimension is one field on `ReplicationQuery`; zero new surface — a per-signal awareness factory, a presence row written to the DURABLE event stream, or a second lossy lane is the deleted form.
 - Boundary: presence is one ephemeral `Presence`-lane row (`durable: false`, `FirstWriter` stance) that `Present` mints and `Live` sweeps, never a durable event-stream write and never a transport. Awareness rides the fire-and-forget channel that never appends a durable entry, while the converging `Version/commits#CRDT_ALGEBRA` `EphemeralMap` is the durable self-expiring map a late-joining peer reconstructs — two distinct presence forms the one `Awareness` surface owns together, so the durable projection's liveness horizon agrees with the convergent map's. Working-set checkout subscribes its op-stream to changes touching its checked-out keys alone.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

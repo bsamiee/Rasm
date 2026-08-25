@@ -18,7 +18,7 @@ Admission is trusted layer material plus one optional untrusted blob: `Layer.iss
 - Growth: a new editable-export target is one `ExportTarget` member, one `LayerEngine` row, and one arm over the engine algebra. A new layer attribute is one `Layer` field threaded into each projection. A compositing mode extends `graphic/color/derive#DERIVE`, and each lowering derives the provider member by value or name; Photoshop-only modes remain outside the CSS contract. Codec, OCG usage, lane, save, admission, and untrusted-payload growth extend their existing closed owners.
 - Boundary: a per-producer export class family, parallel name/source/flag lists, hand-emitted SVG groups, hand-written PDF OCG streams, local `BlendMode` twins, per-format blend tables, lossy flattening, class-qualified offload, inline native work, unbracketed document handles, duplicate names, and module batch entrypoints are rejected. `psd-tools` alone authors PSD/PSB and re-proves its own output; no second native writer rides the interpreter. The PSD/PSB arms author the display-referred 8-bit RGBA family — `PixelLayer.frompil` admits pixels only across the PIL seam, which carries no multichannel plane past 8 bits — so bit depth follows the plane's referent and every deep plane stays with the TIFF/ORA/EXR owners. `psdtags`/`tifffile` own TIFF. Rasterization stays graphic-owned, placement stays composition-owned, and PDF/A/PAdES/flat egress stay their close owners.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections import Counter
 from collections.abc import Callable

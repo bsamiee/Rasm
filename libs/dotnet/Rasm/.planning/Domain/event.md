@@ -25,7 +25,7 @@ Bindings, filters, subscriptions, and `dataref` residence policy seat at their c
 - Growth: a new attribute vocabulary is one value object on this cluster; a new capability subject is one row on the branch conformance roster and none here, because this grammar validates the segment's SHAPE and the minter resolves its MEMBERSHIP.
 - Boundary: `EventType.Domain` is the segment `[08]-[OBSERVABILITY_CONFORMANCE]`'s naming gate resolves against the branch roster at the conformance minter, so an unrostered subject refuses at that declaration owner rather than reaching a broker; this page never names that roster, because a kernel page holding an app-platform vocabulary inverts the strata. `subject` is the wire projection of `identity.md`'s `UInt128` currency, so `ContentHash` stays the only digest owner and renderer. `dataref` remains an independent URI-reference on the generated extension message.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Globalization;
@@ -125,7 +125,7 @@ public readonly record struct EventId {
 |  [03]   | `restricted` | redaction route runs | `trusted` | estate-trusted bindings alone        |
 |  [04]   | `secret`     | redaction route runs | `barred`  | no binding — reference-only carriage |
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
@@ -172,7 +172,7 @@ public sealed partial class DataGrade {
 - Growth: a new estate extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
 - Boundary: `Rasm` still references no sibling. A higher package references `Rasm.Contracts` and constructs `EventExtensionContract<Extensions>` from the generated `Parser`/`Descriptor` plus its process validator; the whole message crosses this kernel API. The generic `CloudEventMint` remains available to future apps whose extension vocabulary is not the Rasm profile.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Net.Mime;
 using Buf.Validate;
@@ -528,7 +528,7 @@ public static class EventCarrier {
 |  [02]   | `protobuf` | `+protobuf` |     yes      |   yes   |
 |  [03]   | `avro`     | `+avro`     |     yes      |   no    |
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Net.Mime;
 using System.Text.Json;

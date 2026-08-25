@@ -23,7 +23,7 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 - Boundary: `Variant` is a name this branch carries twice — the flag arm here and the `Fabrication` process variant — and they stay two owners under one spelling because neither ever crosses the other's seam: this one is a `[ValueObject<string>]` whose whole domain is the OpenFeature variant map, and a cross-folder rename would move a wire key three surfaces read (the provider map, the verdict, the decode seam) to settle a collision no consumer can experience.
 - Boundary: the registry is the only flag owner — a hand-rolled flag lookup, an ad-hoc percentage-rollout computation at a call site, and a string-keyed config read bypassing the provider are the deleted forms; `RolloutSegment` is the suite's ONE exposure-percentage owner and carries both of its projections, so `Sandbox/provisioning#ROLLOVER_DRAIN` plans a wave through `Cohort(nodes.Count)` off the band its `RollStrategy` row already holds — a `Width` column re-deriving a wave percentage beside the segment was the deleted twin, and a consumer computing `population * percent / 100` at its own site is the same defect wearing arithmetic; the flag rows bind through the existing eight-source `ConfigSource` chain and `OptionsAdmission` under one `Flags` section root so a targeting-rule edit is a config transition, not a parallel flag store beside the `ConfigurationManager`; the provider is config-backed and in-process — a remote flag SaaS would be one additional `FeatureProvider` row registered under a second domain later, never a replacement of this owner; the kill-switch is the flag row's `Disabled` column the `KILL_SWITCH_FOLD` flips, never a second switch beside the flag rows; a targeting attribute carrying classified subject data redacts through the `Wire/companion#CONTROL_SERVICE` `Redactor` over `DataClassification` before it enters the `EvaluationContext`, never a second classification taxonomy.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(KeyMemberName = "Value")]
@@ -164,7 +164,7 @@ public static class FlagCompilation {
 - Growth: a new match predicate is one `TargetingRule` case the `Assign` fold gains an arm for; a finer bucket resolution is the modulo base on `BucketOf`, never a second hash; a multivariate split is additional `SegmentBand` rows partitioning the `[0,100)` line; zero new surface.
 - Boundary: bucketing is the only rollout-assignment owner — a `Random`-seeded rollout, a `DateTime`-derived bucket, and a `string.GetHashCode` segment are the deleted forms because none is cross-process-stable; the hash is the kernel `ContentHash`, the same `Of`-then-`Half` pair `Runtime/time#SCHEDULE_PORT`'s `ScheduleEntry.Seed` derives its fleet cron jitter from, so the suite spreads on ONE algorithm and this page composes it rather than carrying a second; the assignment is total over the rule fold and falls to the flag default on no match so an evaluation never throws for an unmatched subject; the bucket is computed once per evaluation inside the flag evaluator and never re-derived at the verdict seam.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Bucketing {
     public static int BucketOf(FlagKey key, string subject) =>
@@ -205,7 +205,7 @@ public static class Bucketing {
 - Growth: a new evaluation-fault cause is one `FeatureFault` case; a new reason extends the protobuf enum and the `FlagReason` row carrying it; a new consumer reads the existing `FlagVerdict` shape and maps `Variant` to its own row family, never a second verdict; a richer targeting attribute is one `Set` call on the `Context` fold; a new cross-cutting evaluation concern is one override on the existing `SpineHook` and a new provider observation one `AddHandler` row at `Register`; zero new surface.
 - Boundary: the verdict is the only cross-page features seam — a consumer reaching the `IFeatureClient` directly, a second verdict shape, and a re-derived bucket at a consumer are the deleted forms; the fault lift and exposure emit ride the registered `Hook`; the projection reads `FlagEvaluationDetails<Value>` and never the raw `FeatureProviderException`; consumers map `Variant` to their own row families and the features rail never owns consumer behavior; the generated protobuf message is built directly, while descriptor validation remains centralized at shared decode and gRPC boundaries rather than repeated in every projection.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FlagSubject(string Identity, TenantContext Tenant, HashMap<string, string> Attributes, CorrelationId Correlation);
 
@@ -310,7 +310,7 @@ public sealed class SpineHook(FeaturesRuntime runtime) : Hook {
 - Growth: a per-flag forced-off is one `OperatorOverride` row the fold reads; a forced-*on* variant is the symmetric prepended `All` rule seating the target variant; zero new surface.
 - Boundary: the kill-switch is the only forced-exposure owner — a boolean kill flag beside the flag rows, a config-authored `Disabled` row, a separate emergency-disable store, a runtime mutation of the variant map, and a forced-off targeting rule re-implementing the provider's own disabled gate are the deleted forms — the fold is the column's only writer; the override is the one `OperatorOverride` union the config page owns so the host has one operator-forcing vocabulary covering the degradation-level forcing and the flag forcing, never two; the fold flips one column and never deletes the flag's targeting so the kill-switch is reversible by one reload, and a forced-off flag still mints a `FlagVerdict` carrying `Reason.Disabled` so the consumers route to their safe defaults through the same seam, never a special-cased disable path.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class KillSwitchFold {
     public static FlagDefinition Fold(FlagDefinition flag, OperatorOverride @override) =>
@@ -352,7 +352,7 @@ flowchart LR
 - Law: the protobuf family is generated once from `feature/v1/verdict.proto`; TypeScript imports that output instead of restating its fields or reason alphabet.
 - Boundary: only the generated verdict projection crosses — flag key, evaluated value, assigned variant, and reason; targeting rules, segment bands, and subject attributes stay host-side; the contract is shared through generated code, while each runtime owns its local OpenFeature evaluation behavior.
 
-```ts signature
+```ts
 export {
   FlagReason,
   FlagReasonSchema,

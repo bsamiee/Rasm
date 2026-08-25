@@ -30,7 +30,7 @@ Composition is downward and sideways within the sub-domain: `Op`, `Lease<T>`, `V
 - Growth: a new widget family is one case with one grow arm; a new modality of an existing family is one role row and no consumer edits.
 - Boundary: Rhino's eleven `Rhino.UI` widget cases and its section leaves seat as `Custom` and `Embedded` instances — host widgets are ROWS on this owner, never a fork of it. Grasshopper's canvas objects and attributes stay at its canvas, and its native-host case becomes `Embedded` over an eager mount.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
@@ -155,7 +155,7 @@ public sealed record ElementRuntime(ThemeSeam Themes, IntentTable Intents);
 - Growth: a role row, a policy field, a capability row, a legal corner, a cell case, a topology case, or a placement case — seven growth axes, each one declaration.
 - Boundary: the bare stepper pair and the legacy numeric-up-down alias earn no row — the first carries no capture semantic and the second is a legacy spelling of the numeric stepper. A masked stepper hosts through `Embedded` until a typed-provider case earns its own admission.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using Eto.Forms;
@@ -649,7 +649,7 @@ public sealed class GridPlan<TRow>(
 - Growth: a new capture shape is one `FieldValue` case with the pick arm on the owning role row or case; the guard, port, and report shapes never widen.
 - Boundary: Rhino carried NO capture algebra — values left only through bindings, so a modal that never bound could not read its own fields. Both boundaries gain this owner whole.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
@@ -717,7 +717,7 @@ public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Val
 - Growth: a new spec case is one grow arm breaking loudly; a new custody shape is a resource-rail case, not a receipt field.
 - Boundary: NAMED LOSS — Grasshopper's dispatch-free realize and Rhino's affinity-refusing realize become ONE owner with two members rather than two entries with two contracts. Neither guarantee is erased: the core still marshals nothing and the gate still refuses off-thread. Witness: `GH Eto/controls.md:301` (the dispatch-free law) against `Rhino Eto/elements.md:596` (the off-thread refusal).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
@@ -801,7 +801,7 @@ public static class ControlForge {
 - Growth: a new verb is one case with one drive arm; a new echo rides its verb's case; a new choice outcome is the caller's own type and costs this family nothing.
 - Boundary: cell-edit and selection event streams, calendar raises, and document-page lifecycle are the input owner's source rows observed on the realized control, never forge state.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Eto.Forms.ThemedControls;

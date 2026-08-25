@@ -51,7 +51,7 @@ Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner —
 - Packages: Grasshopper2 (`IIcon`, `IconContext`), `Rasm.Interaction` (`AssetRaster`, `RasterStack`, `IconRender`, `IconPose`), Eto (`Size`, `Color`, `Bitmap`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`).
 - Growth: a new draw modality is one `IconDraw` plan case with its `IconProduct` result case; the gate never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

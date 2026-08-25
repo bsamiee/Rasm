@@ -18,7 +18,7 @@ Response caching is one `Map[ContentKey, np.ndarray]` keyed by `Study.spec_key` 
 - Receipt: `ComparisonReceipt` settles on the runtime spine and carries the cohort key it never had — a merkle address over its member keys, order-sensitive by construction, with those members its consumed lineage. A `*Receipt` carrying no key named evidence nothing could address.
 - Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member and one `_KERNELS` row naming its estimator; a new interior position is one `ResumeStage` member and one `beat` call; a new sync entrypoint shares the `_traced` weave by passing its own `FaultRow`, its provider raise set, and its rail-of-`Traceable`-returning thunk, and an evaluating entrypoint crosses on the study kernel's lane.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum

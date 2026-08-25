@@ -22,7 +22,7 @@
 - Boundary: arming is the composition root's decision — `Setting.otel.profile` resolving no origin means the root composes no `Profile.live` and contributes no `egress` row, so an unarmed deployment loads zero profiler code and this owner carries no unarmed branch.
 - Growth: a new profiling decision is one policy field consumed by the lifecycle bracket; a new native sampler is one `_PROFILERS` row; a new auth shape is one `Credential` case with its `_credential` arm; a new backend speaking this dialect is an origin value, and the one lane this owner ever admits is the OTLP profiles transport the swap row names.
 
-```typescript signature
+```typescript
 import Pyroscope, { init, wrapWithLabels, type PyroscopeConfig } from "@pyroscope/nodejs"
 import { Duration, Effect, Exit, Layer, Match, Option, type ParseResult, Record, Redacted, Runtime, Schema, Scope, type Tracer } from "effect"
 import { type Identity, Convention } from "@rasm/core"
@@ -79,7 +79,7 @@ declare namespace Profile {
 - Growth: a per-profiler toggle is one `profilers` entry; a new sampling axis is one policy field folded into the same config mint.
 - Packages: `@pyroscope/nodejs` (`init`, the per-sampler start/stop rows, `SourceMapper`, `setLogger` and the `Logger` six-level contract via the default export), `effect` (`Effect`, `Exit`, `Layer`, `Match`, `Record`, `Runtime`, `Scope`), `../proc/life.ts` (`Life`).
 
-```typescript signature
+```typescript
 const _credential = (row: Profile.Credential): Partial<PyroscopeConfig> =>
   Match.value(row).pipe(
     Match.tag("Basic", ({ secret, user }) => ({ basicAuthPassword: Redacted.value(secret), basicAuthUser: user })),
@@ -197,7 +197,7 @@ const _live = (policy: Profile.Policy): Layer.Layer<never, never, Life> =>
 - Entry: `Profile.banded(vocabulary, { channel }, () => kernel())` at a synchronous workload seam; `Profile.banded(vocabulary, { channel, step }, effect)` at a long-lived scoped span.
 - Packages: `@pyroscope/nodejs` (`wrapWithLabels`), `effect` (`Effect`, `Option`, `Schema`), `@rasm/core` (`Convention`).
 
-```typescript signature
+```typescript
 type _Held<A> = { readonly ok: true; readonly value: A } | { readonly ok: false; readonly cause: unknown }
 
 const _bandSchema = (vocabulary: Profile.BandVocabulary) =>

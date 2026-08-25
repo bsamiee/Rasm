@@ -16,7 +16,7 @@ Furniture is owned geometry over the vector plane, generated under one `Furnitur
 - Growth: a new projection is one `SolarProjection` member plus one `_R` row; a new furniture element one `FurnishingKind` member plus one generator arm; a new chart convention one `FurniturePolicy` value — ring roster, azimuth rays, compass division, hour band, cadence, disc scale all seed data; a new hour semantics one `HourConvention` member plus one `hour_line` arm; a new solver one typed fold over `positions`; site vocabularies (climate, obstruction masks) are upstream data — zero new surface here.
 - Boundary: no rendering, styling, or layer projection (`visualization/diagram/draw#DRAW`'s); no coordinate assignment of diagram marks (`visualization/diagram/layout#LAYOUT` composes this owner for its `SUN_PATH` arm); no shading/energy analysis (the geometry/compute tracks read the true `zenith` column); no receipt, no entry, no async — the SPA kernel is numpy-vectorized pure computation the consuming producer offloads inside its own seam; no ladybug (AGPL, process boundary, geometry track); only `pvlib.solarposition` and `pvlib.location` are admitted, never the PV-system/irradiance surface. A hardcoded solstice calendar, a per-timestamp scalar provider call, bare lat/lon threaded past the `Location`, and a generator body legislating a chart convention the policy value owns are the rejected forms.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from calendar import isleap
 from collections.abc import Callable

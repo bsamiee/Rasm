@@ -17,7 +17,7 @@ THE JOINT SEED PAGE — the `joint` `ComponentFamily` row (`ComponentClass.Minor
 - Boundary: the plug and slot effective area is the NOMINAL AREA OF THE HOLE OR SLOT IN THE PLANE OF THE FAYING SURFACE, stated identically by AWS D1.1 §4.4.5.3 and AISC 360 §J2.3a, so the weld DEPTH enters no strength term at all. Depth is instead an ADMISSION datum: the code requires a plug or slot in material 16 mm or thinner to be filled to the full thickness and a thicker one to half its thickness or 16 mm, whichever is greater, capped at the thinner joined part — an underfilled plug is a NONCONFORMING weld rather than a weaker one, so the depth column gates the row at seed and never reduces a resistance afterwards.
 - Boundary: `StudClass.SteelShearKn` takes its `StudGroup` and has no default. AISC Eq I8-1 caps the stud at `Rg·Rp·Asa·Fu`, where `Rg` falls to 0.85 at two studs per rib and 0.70 at three, and `Rp` falls from 0.75 to 0.60 the moment the stud sits in the weak position — a stud group frozen at `1.0`/`0.75` reports a strong-position, directly-welded connector's capacity for a three-per-rib weak-position one and over-states it by more than half. The deck relation, the studs-per-rib count, and the rib position are PLACEMENT facts, so they arrive as the placement's own `StudGroup` and the vocabulary carries the published pair for each.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;

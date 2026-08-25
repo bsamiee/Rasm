@@ -39,7 +39,7 @@ Mutation ownership and isolation strategy are explicit before any work is placed
 - Reject: a process-pool wrapper where interpreter isolation is the owner; a pickled `exec` string where `Interpreter.call` dispatches the callable directly; shared mutable module state read across an interpreter boundary; a `NotShareableError`-prone object pushed through `create_queue` without an `is_shareable` proof; a per-lane fault case where one `Lapse` owner carries the lane discriminant; a `Lane` smuggled in as a `lane: str` knob the body re-pairs to a strategy the value already selects.
 - Boundary: process isolation survives only where the process boundary is the actual requirement — `ProcessPoolExecutor.terminate_workers()`/`kill_workers()` retire a stuck pool and `multiprocessing.Process.interrupt()` sends `SIGINT`, surfacing as `KeyboardInterrupt` in the child so its `finally` cleanup runs, where `terminate` sends an uncatchable `SIGTERM` that strands handles; the `create()` interpreter is the lighter isolate when shared address space is acceptable.
 
-```python conceptual
+```python
 import os
 import sys
 from collections.abc import Callable
@@ -167,7 +167,7 @@ Introspection reads where and how the interpreter ran — execution location, me
 - Law: the active exception is read through `sys.exception()` — the single-object form that replaces the `sys.exc_info()` triple — and the raise-site `(lineno, end_lineno, col, end_col)` is `co_positions()` indexed at the deepest traceback frame: walk `__traceback__` to its last `tb_next`, then index `tuple(code.co_positions())[tb_lasti // 2]`, because `co_positions()` enumerates every instruction and only `tb_lasti` selects the raising one — a bare `next(co_positions())` reads the first instruction's location, not the fault's. The read never reconstructs a traceback string and never threads an `exc_info` tuple through a signature. Grouped-failure transport into the carrier — `except*` partitioning and `BaseException.add_note` cause preservation — is `concurrency.md`'s group-edge conversion and `rails-and-effects.md`'s boundary-capture law, composed when introspection rides a multi-failure boundary, never re-spelled here.
 - Reject: `sys.exc_info()[1]` where `sys.exception()` reads the active exception; a hand-built traceback string where `co_positions` carries the structured location; `next(co_positions())` standing in for the raise-site position it does not name; the top `__traceback__` frame where the deepest `tb_next` frame holds the raise; `return`/`break`/`continue` that exits a `finally` and discards the in-flight exception; a docstring-only deprecation where `@warnings.deprecated()` is the auditable marker the type checker and `DeprecationWarning` filter both see.
 
-```python conceptual
+```python
 import gc
 import sys
 import tracemalloc

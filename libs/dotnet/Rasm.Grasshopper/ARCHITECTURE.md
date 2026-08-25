@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel math composed, never re-derived
 ├── Canvas/             # Paint, wire, layout, motion, and interaction owners over the live GH2 canvas
 │   ├── Canvas.cs       # Canvas command-and-projection boundary over the live host surface

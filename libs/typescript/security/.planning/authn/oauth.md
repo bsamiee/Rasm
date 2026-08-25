@@ -20,7 +20,7 @@ OAuth 2.0 authorization-code ceremony over `openid-client`, modeling every issue
 - Growth: a new provider is one row and its `_kinds` entry; a self-hosted issuer reaches the generic row with zero endpoint knowledge; a multi-leg enrollment ceremony (device onboarding across restarts) is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same store.
 - Boundary: the edge owns the redirect and hands the landed authorization response URL back whole; `authn/session` establishes the session; `crypt/sign` owns `Material` (Apple's assertion key), `Crypto` (its fingerprint), and the `Jwt` authority that verifies the id_token; `OAuthStateStore` is satisfied by a short-lived data or session band; `authn/workload` runs the machine-grant plane over the same package and reaches none of these legs — one custodian, two planes, each with its own `Configuration` per issuer.
 
-```typescript signature
+```typescript
 import {
   type AuthorizationCodeGrantChecks, AuthorizationResponseError, authorizationCodeGrant, buildAuthorizationUrl,
   buildAuthorizationUrlWithJAR, buildAuthorizationUrlWithPAR, buildEndSessionUrl,
@@ -427,7 +427,7 @@ class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAut
 - Growth: a new provider is one row; a new claim projection is one `resolveSubject` composition; a form-post provider is a POST callback route handing the same seam its `Request`, which the exchange leg already admits.
 - Boundary: `authn/session` `Token.establish` mints the session; `crypt/sign` verifies external tokens and admits Apple's assertion key; the state store is data/session-satisfied; the composition root binds `Crypto` behind this service's layer, so the deferred binds carry no requirement into the ceremony members.
 
-```typescript signature
+```typescript
 const _decoded = (response: TokenEndpointResponse): Effect.Effect<Grant, OAuthFault> =>
   Schema.decodeUnknown(Grant)(response).pipe(
     Effect.mapError((issue) => new OAuthFault({ case: { reason: "shape", cause: issue.message } })),
@@ -597,7 +597,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
 
 `Renewal`, `Farewell`, and `_lifecycle` are declared above the `OAuth` service (the service delegates its `refresh`/`revoke`/`logout` members to it over a resolved `Bound` and the shared leg seams):
 
-```typescript signature
+```typescript
 type Renewal = { readonly expiresAt: Option.Option<DateTime.Utc>; readonly scopes: ReadonlyArray<string> }
 
 type Farewell = {

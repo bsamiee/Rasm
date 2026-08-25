@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 runtime/
 ├── observability/      # Local evidence production: receipts, signals, and the one OTLP install gate
 │   ├── receipts.py     # Six-column Receipt spine over its Payload family, DRAIN_COLUMNS, ScopeKey, Ring, and the contribute port

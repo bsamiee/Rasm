@@ -23,7 +23,7 @@ Composed owners: `otel/emit#POLICY` supplies the `browser` policy group every ro
 - Growth: a new document instrumentation is one `_rows` entry with its `policy.browser.rows` cell and its policy fields, or one `Hooks.contribute` row from the feature plane that needs it; a new self-egress backend is one `policy.egress` origin.
 - Boundary: registration composes only at a composition root beside `Export.live` — a library composing either node double-instruments its host; the fetch row leaves `clearTimingResources` off because `vital#CONTEXT` reads the same resource-timing buffer, and the server condition's own roster and manager live at `server#REGISTRATION`.
 
-```typescript signature
+```typescript
 import { context as ambient, type ContextManager } from "@opentelemetry/api"
 import { ZoneContextManager } from "@opentelemetry/context-zone"
 import { registerInstrumentations, type Instrumentation } from "@opentelemetry/instrumentation"

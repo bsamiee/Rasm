@@ -46,7 +46,7 @@ Every boundary converts once into the carrier that states the real outcome; reus
 - Law: one inbound funnel admits a raw exception, a wrapped error-exception, a bare string, or an option at a single entry, never a per-shape branch.
 - Reject: reminting a captured failure from its `Message`; a bare `try`/`catch` wrapping a rail transform; a blanket `MapFail` onto a typed fault, which destroys type, stack, and cause for every unknown failure at once.
 
-```csharp conceptual
+```csharp
 public static Fin<Report> Capture(Func<Fin<Report>> native, CancellationToken token) =>
     Op.Of().Catch(native, NativeBoundary.Classify, token);
 ```
@@ -84,7 +84,7 @@ Traversal is rail policy: the collection shape and the sequencing operator toget
 - Use: indexed `Map((value, index) => ...)` before traversal when the algorithm needs the position; the `.As()` re-anchor is always mandatory.
 - Reject: `.Map(f).TraverseM(identity)` where direct `.TraverseM(f)` fuses; index-threaded folds unless the fold carries algorithm state.
 
-```csharp conceptual
+```csharp
 public static Fin<Seq<Report>> TraverseRaw(string[] raw) =>
     toSeq(raw)
         .Map((value, index) => AdmitCode(value).Map(code => new Input(Code: code, Score: index + 1)))
@@ -131,7 +131,7 @@ Apply carrier-qualified failure transforms before collapse; a rail transform nev
 - Law: `MapFail` on `Fin` is `Error → Error` pinned; on `Validation` it changes the failure type and requires `Monoid<F1>` — the asymmetry decides which carrier survives accumulation.
 - Reject: building an independent-field product with `from`/`select` inside an accumulating carrier, which silently switches accumulation off; bridging a composite owner through `TryCreate` or a hand-built `out var` ternary where shapes.md's `Admitted` factory bridge plus the composite-refinement `guard` already admit leaf-then-composite; an interface over the closed family, which forfeits `Switch` totality; a `Switch` over the open set, which cannot admit a foreign conformance; a `Bind` fold over the open constraint set, which reports only the first violation where the applicative fold reports all.
 
-```csharp conceptual
+```csharp
 public interface IConstraint<T> {
     Validation<Error, T> Check(T candidate);
 }
@@ -172,7 +172,7 @@ An effect carries the runtime; `Eff<RT,T>` and `IO<T>` defer boundary work until
 - Law: a lifecycle-gate read guarding an effectful entrypoint executes inside the deferred body — `IO.lift(() => gate.Value ? ... : ...)` — never at effect-composition time; a `gate.Value ? IO.pure(...) : IO.fail(...)` ternary evaluates the fence when the effect is built, so an effect composed before the gate transition and run after it bypasses the gate silently.
 - Reject: service-location wrappers and ambient host globals inside reusable transforms.
 
-```csharp conceptual
+```csharp
 public sealed record Runtime(Mode Mode, TimeProvider Clock, Atom<HashMap<CodeValue, Report>> Cache, CancellationToken Cancel);
 
 public static class Capability {
@@ -195,7 +195,7 @@ public static class Capability {
 - Exemption: `using` acquisition inside a boundary capsule is the named statement exemption; it never appears in domain flow.
 - Reject: resource lifetime hidden behind ordinary domain state.
 
-```csharp conceptual
+```csharp
 public static IO<Report> Guarded(IO<Resource> acquire, Func<Resource, IO<Report>> use) {
     ArgumentNullException.ThrowIfNull(acquire);
     ArgumentNullException.ThrowIfNull(use);
@@ -209,7 +209,7 @@ public static IO<Report> Guarded(IO<Resource> acquire, Func<Resource, IO<Report>
 }
 ```
 
-```csharp conceptual
+```csharp
 public static class Custody {
     extension<T>(Fin<T> step) {
         public Fin<T> Rollback(params ReadOnlySpan<IDisposable?> held) {
@@ -232,7 +232,7 @@ public static class Custody {
 - Law: catch is a stack frame — a handler cannot catch a failure arising after its protected region, and recovery re-enters the saved continuation rather than terminating the rail.
 - Reject: bare `eff1 | eff2` as fallback or retry semantics; predicates written against exception types instead of codes and facets.
 
-```csharp conceptual
+```csharp
 public static CatchM<Error, M, Report> Transient<M>() where M : Fallible<Error, M>, Monad<M> =>
     @catch<M, Report>(static error => error.IsExceptional, static _ => pure<M, Report>(Report.Retried));
 
@@ -253,7 +253,7 @@ public static K<M, Report> Recover<M>(K<M, Report> work) where M : Fallible<Erro
 - Builders split by return type and that split is the composition law: `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `windowed`, and `Forever` mint a `Schedule` curve, while `recurs`, `jitter`, `maxDelay`, `maxCumulativeDelay`, and `decorrelate` mint a `ScheduleTransformer` that reshapes a curve. `Schedule | ScheduleTransformer` and `Schedule & ScheduleTransformer` operator overloads and the implicit `ScheduleTransformer`-to-`Schedule` coercion fuse the two kinds in one chain, so a transformer-headed expression collapses to a `Schedule`; transformer-to-transformer composition is `+`, never `|`.
 - Reject: ad-hoc delay loops; trusting an infinite backoff to stop itself; reading the union of a curve and a transformer as a curve-union choice when it is a reshape.
 
-```csharp conceptual
+```csharp
 public static readonly Schedule Backoff =
     (Schedule.recurs(times: 6)
    | Schedule.exponential(seed: 50 * ms)
@@ -266,7 +266,7 @@ public static IO<Report> Resilient(IO<Report> work) =>
     work.Retry(Backoff);
 ```
 
-```csharp conceptual
+```csharp
 public static IO<State> Converge(Atom<State> cell, Func<State, State> advance) =>
     IO.lift(() => cell.Swap(advance))
         .RepeatWhile(
@@ -311,7 +311,7 @@ State belongs at a boundary or session owner, not inside pure domain accumulatio
 - Law: an expensive or effectful transition computes outside the cell and commits by snapshot comparison under a policy-owned attempt budget — each attempt one compute-and-CAS in a bounded fold, a winning commit terminating the fold and exhaustion returning a typed contention fault, never unbounded recursion or silent recomputation.
 - Reject: read-modify-write outside `Swap`; hiding native lifetime, host tree mutation, or domain aggregation behind `Atom<T>`.
 
-```csharp conceptual
+```csharp
 public static Fin<Report> Memoized(Runtime runtime, Input input) =>
     runtime.Cache.Value.Find(input.Code) is { IsSome: true, Case: Report cached }
         ? Fin.Succ(cached)
@@ -355,7 +355,7 @@ One implementation crosses carriers through `K<F,A>`; transformer stack order is
 - Law: unlift requires a runtime-valid ordering — a stack whose innermost monad supplies no IO floor type-checks and then throws on first use, so a constraint set including unlift asserts a legal ordering.
 - Reject: hand-recomposing `fork`-then-`await` over the trait's own `await` member, or `await` inside an effect-returning body where an effect lift expresses the boundary; a state layer buried under the effect-capable layer.
 
-```csharp conceptual
+```csharp
 public static K<M, Report> Pipeline<M>(Raw raw)
     where M : Stateful<M, Budget>, Readable<M, Config>, MonadUnliftIO<M>, Monad<M> =>
     from limit in Readable.asks<M, Config, double>(static config => config.Limit)

@@ -31,7 +31,7 @@ This table routes a compute concern to its owning surface; the most specific row
 - Reject: a local NDArray or matrix wrapper — it re-derives the shape math `TensorShape` already owns, however thin it is.
 - Exemption: the dense-probe routing kernel is the named statement seam.
 
-```csharp conceptual
+```csharp
 public static class TensorGate {
     public static Fin<Tensor<double>> Admit(ReadOnlySpan<double> payload, params ReadOnlySpan<nint> shape) =>
         TensorPrimitives.Product(shape) is var volume && volume == payload.Length
@@ -73,7 +73,7 @@ public static class TensorGate {
 - Boundary: tensor-rank `Tensor` ops are the shape-checked composition route; a measured kernel flattens dense operands through the probe and calls the span kernel directly.
 - Boundary: the `TensorPrimitives` element-kernel and `Vector<T>` mechanics are the numeric pages' substrate; this card owns the layer above them — the tolerance class, the acceleration class, and the named kernel as a claim-keying policy value — so a kernel-row table here certifies and routes element kernels it never re-derives.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class ToleranceClass {
     public static readonly ToleranceClass Exact = new("<class-a>", static (_, _) => 0.0);
@@ -120,7 +120,7 @@ public sealed partial class KernelRow {
 - Use: `ArrayPool<T>.Shared.Resize` as the one rent-copy-return verb, `DangerousGetArray()` as the one zero-copy bridge to array-demanding APIs (dead with its owner), and `StringPool.GetOrAdd` for staging labels — domain text still admits through owners; a content key over a flattened span is the `BYTE_IDENTITY` `XxHash3.HashToUInt64` codec, never a `HashCode<T>.Combine` second hash path that fragments the identity domain.
 - Exemption: the rent-and-frame bodies are the platform-forced stack-discipline statement seam.
 
-```csharp conceptual
+```csharp
 public static class StagingAxis {
     public const int StackCap = 512;
     static readonly ArrayPool<byte> Lane = ArrayPool<byte>.Create(1 << 20, 64);
@@ -152,7 +152,7 @@ public static class StagingAxis {
 - Law: tags name lanes — a small closed vocabulary declared with the policy, never call sites — and the event stream folds to three projections: per-tag conservation (created = disposed + live + finalized), discard taxonomy (`EnoughFree` dominant means caps below workload, oversize discards mean payloads exceed `MaximumBufferSize` — opposite tuning moves), and lifetime-percentile early warning that predicts held-stream leaks before conservation breaks; double-dispose is data — the event carries both stacks as a protocol-violation result, and the posture poisons the offending lane until repaired.
 - Use: `Capacity64` for long-range capacity, `SafeRead` threading position explicitly so concurrent readers never race the cursor, and `WriteTo` window copies over slicing detours.
 
-```csharp conceptual
+```csharp
 public readonly record struct PoolFact(string Tag, string Kind);
 
 public sealed record PoolPolicy(int BlockSize, int LargeMultiple, int MaxBuffer, long SmallCap, long LargeCap, bool Diagnostics) {
@@ -208,7 +208,7 @@ public static class StreamPool {
 - Law: `ModelMetadata.CustomMetadataMap` is the artifact's self-description channel and `InputMetadata` the admission shape validated once — per-call re-validation re-derives what admission settled; deployment constants bind through `AddInitializer` against `OverridableInitializerMetadata`, never per-run inputs, and extension assets enter through `RegisterOrtExtensions()` with their hashes joining the fingerprint.
 - Exemption: the admission choreography body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public sealed record ProviderRow(string Name, Dictionary<string, string> Knobs);
 
 public sealed record SessionPlan(ReadOnlyMemory<byte> Model, Seq<ProviderRow> Providers, Seq<(string Dim, long Extent)> Pinned, GraphOptimizationLevel Level) {
@@ -257,7 +257,7 @@ public static class SessionAdmission {
 - Law: result caching composes the settled cache seam — the key is (session fingerprint, input content hash over the already-flattened spans), determinism is declared at session admission and never discovered per call, and schema-invalid inputs cache their typed rejection under their own key class.
 - Exemption: the bound-loop capsule body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public sealed class BoundLoop : IDisposable {
     readonly InferenceSession session;
     readonly OrtIoBinding binding;
@@ -311,7 +311,7 @@ public sealed class BoundLoop : IDisposable {
 - Law: length-class boundaries derive from route mechanics — vector-width multiples, the parallel floor, cache footprints — never accumulated thresholds; a literal fast-path branch is the foreclosed spelling because every threshold is a claim row.
 - Law: results carry route provenance — the taken row and every vetoed row with its reason — plus dual evidence for every normalizing admission: the canonical value used beside the original received, so disputes resolve from results rather than reproduction; a veto firing outside its declared reason column is a table-integrity defect the result fold surfaces, result combination is settled rail law, typed algorithm results never flatten into a generic ledger, and genericity lives in the one projection delegate that makes each result family a live data source.
 
-```csharp conceptual
+```csharp
 public sealed record Intent(string Kernel, ReadOnlyMemory<double> Payload, TimeSpan Remaining) {
     public static readonly int[] Edges = [4 * Vector<double>.Count, 512 * Vector<double>.Count];
     public string Dtype => nameof(Double);
@@ -394,7 +394,7 @@ public static class MassEngine {
 - Law: a tuning row stores M perceptual knobs and derives the N−M physical constants as computed members — response and damping fraction stored; angular frequency, stiffness, and damping rate derived — so co-varying constants cannot de-sync, and storing a derived member is the rejected form: the moment two stored members must co-vary, the type has hidden an invariant it should compute.
 - Law: quantity-typing the row makes the derivation dimension-checked — a unit mistake in the derivation is a type error, never a runtime oscillation artifact.
 
-```csharp conceptual
+```csharp
 public readonly record struct AdmittedSpan(double CanonicalMeters, double Original, string OriginalUnit);
 
 public static class UnitSeam {

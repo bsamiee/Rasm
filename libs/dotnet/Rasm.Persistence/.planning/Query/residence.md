@@ -23,7 +23,7 @@ One declaration serves every consumer of a dataset: the DDL that plants its rela
 - Law: batch construction derives from the DECLARED schema — every column reads its own row's Arrow type and builder, so a positional column list beside a declared schema is the deleted form. Container arrays bind their CTOR over child arrays each element row's own builder produced, because `ListArray.Builder` and `MapArray.Builder` expose only the untyped `IArrowArrayBuilder<IArrowArray, …>` child face and `DictionaryArray` and `FixedSizeBinaryArray` ship no builder at all — one assembly discipline covers all five shapes and no case reaches through a cast the declaration already made unnecessary.
 - Boundary: `ColumnType` and `ColumnShape` are BRANCH-LOCAL vocabulary and never a cross-language correspondence — no `libs/contracts/manifest.json` entry names a column type, and a peer runtime planting a residence relation reaches this custodian's DDL rather than spelling its own token set. Every wire token shared with the producer declaration derives from its `Rasm.Element` `Graph/table#TABLE_FAMILIES` `TableType` row (`Utf8`/`Float64`/`Int64`/`Bool`/`Date`/`Timestamp`/`KeyHex` read `.Key`), so the producer's declaration and the custodian's physical row cannot fork on one spelling; the width rows no producer declares (`Float16`, `Float32`, `Int32`, the unsigned trio) stay custodian-local literals; the Arrow face stays `FixedSizeBinaryType(16)` here because the cell packs sixteen big-endian bytes while the producer's own cell crosses as text. `ArrowLanding.Build` proves arity against the WHOLE declared roster because a batch carries every column including the custodian's own stamped ones, while the binary COPY proves against `ResidenceLanding.Supplied` — two rosters, and collapsing them reads a correct producer as a defective one.
 
-```csharp signature
+```csharp
 using Apache.Arrow;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
@@ -327,7 +327,7 @@ public sealed record AnalyticsSchema(string Dataset, Seq<Identifier> Key, Seq<Co
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArrowLanding {
     public static Fin<RecordBatch> Build<TRow>(AnalyticsSchema schema, Seq<TRow> rows, Func<TRow, Seq<ColumnCell>> cells,
@@ -366,7 +366,7 @@ public static class ArrowLanding {
 - Law: `Lifetime` carries BOTH halves in one string — how long a resident row survives and which owner ends it — because a window stated without its scheduler promises an expiry no owner runs. `Degrade` states the honest clause a row gives up rather than a boolean, since what a residence cannot do is EVIDENCE both a tile and a refusal read. `Literal` is the column every dialect must answer and none can share: the tenant is a 16-byte key whose PHYSICAL spelling differs per engine, and a quoted-text comparison against a `bytea` or a `FixedString(16)` matches nothing and raises nothing.
 - Boundary: a residence row is TEMPORAL by construction — every residence partitions, prunes, and expires on time — and no producer ever learns a chunk interval, a TTL, or a partition expression. Every residence is DERIVED and carries zero authority; reading one as authority turns a dropped accelerator into billing loss. NO analytics residence carries a cardinality cap and no row can grow one — a metrics store demands view caps because a TSDB indexes every series, while unbounded dimensionality IS the reason these residences exist. Provider failure renders through a TYPE TEST, never a cast: a driver raising a socket, TLS, or cancellation exception is not a `PostgresException`, and casting one at the fold throws straight out of the `Fin` the rail exists to carry. `Bucket` and `Quantile` are DECLARED rows whose lowering arms are owed at `Query/serving` — until that unit lands, the two projections they answer have no plan arm and a read naming one refuses `Unanswerable`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -557,7 +557,7 @@ public abstract partial record ResidenceFault : Fault {
 - Law: the seam drops the custodian's own tenant column from BOTH producer rosters exactly here, because a producer naming `tenant` describes the key the seam already stamps — every downstream derivation then reads one roster carrying it once, where a per-site filter leaves whichever site nobody remembered emitting a second column at a second physical type. Category and columns AGREE or the dataset never admits: a landing-time dataset naming its own instant hands the custodian a clock it does not own, and an event-time dataset naming none is re-dated to admission by the same append that serves the other category.
 - Boundary: category crosses as TEXT exactly as every column token does, because the two AEC producers this seam names reference the kernel alone and sit BELOW this custodian — a typed parameter is unconstructable at both, and no reference closes that gap without inverting the edge the store already owns. Identity and CARDINALITY are both proven, because a membership test alone reads a repeated name as present: a twice-declared column mints two DDL entries at one name and a twice-named key mints a duplicate `orderby` entry TimescaleDB rejects outright. `Seat` reads the floor columns and never re-derives them — a residence that states a cap refuses an admission rather than accepting a dataset it will silently truncate, and today no row states one.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ResidenceCharter(string Residence, string Fits, string Admit, string Lifetime, Option<string> Cap);
 
@@ -672,7 +672,7 @@ public static class AnalyticsSeam {
 - Law: the reviewed generation artifact RE-APPLIES whole, so a derived set carrying a step that cannot restate itself refuses at derivation rather than at the second apply against a half-provisioned relation. Grouping preserves IDENTITY and segmenting preserves COMPRESSION, and they are DIFFERENT lists derived from one schema: the rollup groups the whole key so each stream keeps its own buckets, while the columnstore segments the bounded text keys alone — segmenting a `KeyHex` content key mints one compressed batch per row and deletes the compression the columnstore exists for.
 - Boundary: relation arguments are REGCLASS text and parse their own quoting, while a column argument and every storage-parameter entry are attname TEXT compared verbatim — so the relation carries the quoted spelling its own `CREATE` used and a column never does. Time trails the order list exactly once: a dataset naming its instant IN the key otherwise repeats it, and a duplicate `orderby` entry is a storage parameter the engine rejects outright. Rollups materialise toolkit SUMMARY state — `time_weight` beside `percentile_agg` — and the reader names its accessor, so the cheap tile and the expensive raw-chunk investigation answer ONE statistic.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

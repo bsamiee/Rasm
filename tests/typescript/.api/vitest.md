@@ -31,7 +31,7 @@
 
 - [01]-[MODIFIERS]: `.skip`/`.only`/`.each`/`.concurrent`/`.sequential`/`.fails`/`.skipIf`/`.runIf`/`.extend`.
 
-```ts signature
+```ts
 declare const test: TestAPI; declare const describe: SuiteAPI
 declare function aroundEach(fn: (test: TaskPopulated, use: () => Promise<void>) => Awaitable<void>): void
 declare function recordArtifact(artifact: TestArtifact): void
@@ -55,7 +55,7 @@ declare function inject<T extends keyof ProvidedContext & string>(key: T): Provi
 |  [08]   | `waitFor`/`waitUntil` · `defineHelper`                         | async wait     | poll to a deadline; `defineHelper` re-anchors stacks  |
 |  [09]   | `setConfig`/`resetConfig`/`resetModules`                       | runtime config | mutate `RuntimeOptions` mid-run; `resetModules`       |
 
-```ts signature
+```ts
 interface VitestUtils {
   useFakeTimers(config?: FakeTimerInstallOpts): VitestUtils; advanceTimersByTime(ms: number): VitestUtils
   setSystemTime(time: number | string | Date): VitestUtils; setTimerTickMode(mode: "manual" | "nextTimerAsync"): VitestUtils
@@ -83,7 +83,7 @@ declare const vi: VitestUtils
 
 - [06]-[INLINE_CONFIG]: `pool`/`environment`/`coverage`/`browser`/`typecheck`/`projects`/`setupFiles`/`globalSetup`/`sequence`/`reporters`.
 
-```ts signature
+```ts
 declare function defineConfig(config: UserConfig): UserConfig
 declare function defineProject(config: UserWorkspaceConfig): UserWorkspaceConfig
 declare const coverageConfigDefaults: Required<Pick<CoverageOptions, FieldsWithDefaultValues>>
@@ -110,7 +110,7 @@ declare module "vite" { interface UserConfig { test?: InlineConfig }; interface 
 - [06]-[POOL_WORKERS]: `Forks`/`Threads`/`VmForks`/`VmThreads`/`Typecheck` `PoolWorker` (`@experimental`).
 - [08]-[CONFIG_TYPES]: `CoverageOptions`/`BrowserConfigOptions`/`TypecheckConfig`/`ApiConfig`.
 
-```ts signature
+```ts
 declare function startVitest(mode: VitestRunMode, cliFilters?: string[], options?: CliOptions, viteOverrides?: ViteUserConfig, vitestOptions?: VitestOptions): Promise<Vitest>
 declare function createVitest(mode: VitestRunMode, options: CliOptions, ...): Promise<Vitest>
 declare function parseCLI(argv: string | string[], config?: CliParseOptions): { filter: string[]; options: CliOptions }

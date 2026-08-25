@@ -25,7 +25,7 @@
 - Law: `PanelClosure` is computed ONCE per unfold, threaded on the assembly, and published on `UnfoldEvidence.Descendants` — `Forming/brake` reads it for sequence descent and this page for the neutral-axis shift. One reverse-topological fold over the bend tree unions each panel's children into its own set, so the census costs one pass rather than one search per panel, and the order is the acyclicity gate the surface lane otherwise skipped.
 - Law: relief-corner clustering is a DISJOINT SET over the proximity relation. A first-match-wins fold is non-transitive, so three seats within probe distance in a chain landed as one cluster or two purely by arrival order, and a corner took either one relief or two overlapping cuts on the same geometry.
 - Law: `Nesting/nfp` `Nest.Rings` is the ONE `Chain`-to-`Loop` termination this page composes; the island walk already owns winding and once-counted edges, so a second termination here forks the admitted context.
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;

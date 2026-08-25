@@ -22,7 +22,7 @@ SI reprojection rides the kernel `Op.Catch` funnel so the `UnitsNet` boundary th
 - Growth: a new well-known dimension is ONE `Row` call naming exponents and symbol together; a registry quantity a second consumer keys by name is one `QuantityType` row spelled `Create(nameof(X))`; a consumer's engineering-domain quantity mints through `QuantityType.Of`/`Create` with no seam row (`SectionModulus`/`TorsionConstant`/`WarpingConstant` — the section second moment is the registry's `AreaMomentOfInertia` and rosters); never a per-quantity dimension type and never a closed `QuantityKind` enum.
 - Boundary: `QuantityType` is the ONE discriminator and `Dimension` the physical signature — a closed kind enum and dimension-as-discriminator are the two deleted forms; exponents come from `BaseDimensions` or the generated factory, and a hand table drifting from the registry — or a name parsed at a call site rather than admitted through `Of` — is the named defect; `PlaneAngle` participates in unit coercion through the `Angle` TYPE arm alone (its SI exponent vector is zero), the discriminant stated on its row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -159,7 +159,7 @@ public sealed partial class QuantityType {
 - Growth: a new measured quantity with an SI-coherent declared base needs NO seam edit; a departing quantity is ONE `SiElection` row whichever kind (elected unit or refusal); a new derived takeoff composes `Combine`; a new mint provenance is one `UnitProvenance` case; a new uncertainty model is one `UncertaintyKind` row naming its `Gaussian` column; never a mint arity, a per-quantity branch, or a parallel operation family.
 - Boundary: the interior NEVER carries a bare `double` quantity, and every construction path and algebra exit holds the FINITE invariant — a NaN/∞ magnitude is unrepresentable in an admitted value, while infinite BAND bounds stay honest uncertainty; `PlaneAngle` stores radians; the ADMITTED CLASS is stated, not discovered — `SiElection`'s `None` rows refuse by name (`<measure-si-incoherent:Name>`) because a decibel in the linear algebra is a physics error and a prefixed base persists wrong by a power of ten; `Derive` provenance gates a registry-named type's dimension, `Label` REFUSES a registry-named type (a per-call-site label can never fork a registry quantity's unit), and `Carried` gates finiteness alone because its triple is a prior admission's evidence — the three postures are union CASES, never sibling arities; `CanonicalUnit` is `Option<string>` and an unresolvable unit is ABSENCE, never a fabricated token; egress is `In` over the once-built index + `UnitConverter.TryConvert`, total (`None` for absent unit, wrong family, consumer mint, dimension-anonymous product), and the named QTO reads derive from the ONE `As` body; tolerance quantization is the KERNEL writer's — `CanonicalWriter.Double` grids every magnitude and band bound on the writer's own tolerance at the `MeasureCanon` write, so no second rounding owner exists on this page and the interior stays full-precision.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -465,7 +465,7 @@ public sealed record MeasureValue {
 - Growth: a new declared unit is one `Declare` call; a new relation or reciprocal is one roster row `Consistency` immediately proves; a new resolution posture is one `UnitResolution` row; presentation never grows a second scheme type.
 - Boundary: PRESENTATION ONLY — the interior stays SI, `Header.CanonicalBytes` EXCLUDES the scheme, and a re-declared display unit never forks a snapshot identity; the scheme never invents a token (`Render` falls back to the measure's own optional canonical unit); `UnitScheme` is the ONE unit-regime owner branch-wide — Bim's `UnitScale`/`UnitAxis`/`MeasureRow` twins are DELETED onto it (W3, retire-proofed; Bim's surviving IFC-name→`Dimension` signature is one column of genuine IFC-schema knowledge at `Projection/value.md`, never a unit algebra), while Materials' `MaterialUnits`/`EmissionEvidence`, Compute's `UnitPolicy`/`QuantityFamily`, and Fabrication's `SolidUnitPolicy` compose it at their waves (their mm-native `[U2]` columns stay bare doubles by their own ruling — EXTEND, never ABSORB); the `declared` tail is the ONE per-value override door — Bim `Projection/value#PROPERTY_LOWERING` is its one named consumer and recomposes its residue arithmetic onto it in its own W3 unit, so no boundary applies `(native + Offset) × Factor` by hand.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct UnitAxis(double Factor, double Offset, string Token);
 
@@ -585,7 +585,7 @@ public sealed partial class QuantityType {
 - Growth: a new measured aggregate is a kernel `Stat` read, never a column here; a new signature axis is one `QuantitySignature` member plus its `CanonicalBytes` write in the same edit.
 - Boundary: `MeasureCanon.Measure` writes the IDENTITY axes — the type token, the SI magnitude, the 7-vector through `Dimension.CanonicalBytes`, the presence-prefixed band — and NEVER the display unit (`Torque`/`Energy` stay distinct; `1000 mm` and `1 m` address identically); magnitudes and band bounds grid on the WRITER's own tolerance (the kernel `Double` quantizes — one rounding owner branch-wide), while the coverage factor is declared policy on no physical axis and writes EXACT through `Bits`; a second dimensioned writer, or a hand seven-`Ordinal` spelling of the vector, is the deleted form.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]

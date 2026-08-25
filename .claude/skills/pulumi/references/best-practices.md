@@ -6,14 +6,14 @@ Program-level law for writing, reviewing, and refactoring Pulumi code.
 
 Resources created inside `apply()` never appear in `pulumi preview` and break dependency tracking. Detection signals: resource constructors inside `.apply()` callbacks, creation inside `pulumi.all([...]).apply()`, dynamic resource counts computed at runtime inside apply.
 
-```typescript rejected
+```typescript
 const bucket = new aws.s3.Bucket('bucket');
 bucket.id.apply((bucketId) => {
     new aws.s3.BucketObject('object', { bucket: bucketId, content: 'hello' });
 });
 ```
 
-```typescript accepted
+```typescript
 const bucket = new aws.s3.Bucket('bucket');
 const object = new aws.s3.BucketObject('object', {
     bucket: bucket.id, // Output<string> passes directly; Pulumi owns the dependency
@@ -27,7 +27,7 @@ const object = new aws.s3.BucketObject('object', {
 
 Pulumi builds its DAG from input/output relationships; manually unwrapped values break the chain, so resources deploy out of order or reference values that never resolved. Detection signals: variables extracted from `.apply()` used later as inputs, `await` on outputs outside apply, string concatenation with outputs.
 
-```typescript rejected
+```typescript
 const vpc = new aws.ec2.Vpc('vpc', { cidrBlock: '10.0.0.0/16' });
 let vpcId: string;
 vpc.id.apply((id) => {
@@ -36,7 +36,7 @@ vpc.id.apply((id) => {
 const subnet = new aws.ec2.Subnet('subnet', { vpcId: vpcId, cidrBlock: '10.0.1.0/24' });
 ```
 
-```typescript accepted
+```typescript
 const vpc = new aws.ec2.Vpc('vpc', { cidrBlock: '10.0.0.0/16' });
 const subnet = new aws.ec2.Subnet('subnet', { vpcId: vpc.id, cidrBlock: '10.0.1.0/24' });
 
@@ -49,7 +49,7 @@ const alt = pulumi.concat('prefix-', bucket.id, '-suffix');
 
 Related resources group into `ComponentResource` classes; a flat top-level graph hides ownership and blocks reuse. Detection signals: repeated resource patterns across stacks, related resources created at top level without grouping.
 
-```typescript accepted
+```typescript
 class StaticSite extends pulumi.ComponentResource {
     public readonly url: pulumi.Output<string>;
     constructor(name: string, args: StaticSiteArgs, opts?: pulumi.ComponentResourceOptions) {
@@ -66,7 +66,7 @@ class StaticSite extends pulumi.ComponentResource {
 
 Every child inside a component carries `{ parent: this }`; without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting also cascades deletion and provider inheritance.
 
-```typescript rejected
+```typescript
 class MyComponent extends pulumi.ComponentResource {
     constructor(name: string, opts?: pulumi.ComponentResourceOptions) {
         super('myorg:components:MyComponent', name, {}, opts);
@@ -75,7 +75,7 @@ class MyComponent extends pulumi.ComponentResource {
 }
 ```
 
-```typescript accepted
+```typescript
 class MyComponent extends pulumi.ComponentResource {
     constructor(name: string, opts?: pulumi.ComponentResourceOptions) {
         super('myorg:components:MyComponent', name, {}, opts);
@@ -88,11 +88,11 @@ class MyComponent extends pulumi.ComponentResource {
 
 Values marked `--secret` are encrypted in state, masked in CLI output, and tracked through transformations; starting plaintext and converting later forces credential rotation and an audit of leaked values in logs and state history. Secrets are passwords, API keys, tokens, private keys, certificates, connection strings with credentials, OAuth client secrets, and encryption keys.
 
-```bash copy-safe
+```bash
 pulumi config set --secret databasePassword hunter2
 ```
 
-```typescript conceptual
+```typescript
 const config = new pulumi.Config();
 const dbPassword = config.requireSecret('databasePassword');
 // Outputs derived from secrets stay secret:
@@ -106,12 +106,12 @@ ESC centralizes secrets across stacks: a `Pulumi.yaml` `environment:` list pulls
 
 Renaming a resource, moving it into a component, or changing its parent reads as `delete+create` without an alias — destruction and recreation of live infrastructure. Detection signal: preview shows replace or delete+create where update was intended.
 
-```typescript rejected
+```typescript
 // was: new aws.s3.Bucket("my-bucket")
 const bucket = new aws.s3.Bucket('application-bucket'); // destroys the bucket
 ```
 
-```typescript accepted
+```typescript
 const bucket = new aws.s3.Bucket(
     'application-bucket',
     {},
@@ -140,7 +140,7 @@ Lifecycle: add the alias, run `pulumi up` on every stack, then optionally drop t
 
 `pulumi preview` shows exactly what will be created, updated, or destroyed at zero cost; `pulumi up --yes` without a reviewed preview is deploying blind. Preview vocabulary: `+ create`, `~ update`, `- delete`, `+-replace` (destroy then recreate — potential downtime), `~+-replace`. Warning signs: unexpected replaces (immutable property changes), deletions of resources meant to stay, more changes than the code diff explains.
 
-```yaml template
+```yaml
 # CI shape: preview on every PR, deploy only on merge to main
 jobs:
     preview:

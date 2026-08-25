@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 libs/dotnet/
 ├── Rasm/              # [KERNEL]         RhinoCommon-aware geometry and numeric kernel
 ├── Rasm.Element/      # [AEC_DOMAIN]     Lowest AEC element seam onto the one ElementGraph

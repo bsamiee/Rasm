@@ -19,7 +19,7 @@ Every host-bound acquisition runs inside `GhSession.Run(ScopeTarget.CanvasHost, 
 - Packages: Grasshopper2 (`Response`, `ResponseMouseArgs`), Riok.Mapperly, `Rasm.Interaction` (`PointerFact`, `InputVerdict`), Thinktecture, `Rasm.Domain`.
 - Growth: a new host precedence tier is one `VerdictSeam` row; a new boundary projection is one mapper row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -87,7 +87,7 @@ internal static partial class InputMap {
 - Packages: Grasshopper2 (`FlexControl` register/focus surface, `IResponsive`, `Responses` and its virtual family, `ResponseRotationArgs`, `CoordinateSystem`), Eto.Forms (`KeyEventArgs`, `TextInputEventArgs`), `Rasm.Interaction` (`ResponderSpec`, `PointerPhase`, `KeyPhase`, `PointerFact`, `InputVerdict`, `UiThread`, `UiDispatch<T>`, `UiClaim`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `HookRail`), `Shell/hooks.md`, `Shell/session.md`.
 - Growth: a new host handler virtual is one adapter relay reading one kernel phase key; a new attachment modality reuses `Attachment` and `Mounted<TFacts>`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
@@ -215,7 +215,7 @@ public static class Dispatch {
 - Packages: Grasshopper2 (`ObjectDragInteraction`, `ResizingFrame`, `Canvas.SnapXAction`/`SnapYAction`, `SnappingConstraints`, `SnappingSettings`), `Rasm.Interaction` (`EdgeGrip`, `GripEdge`, `GripCorner`, `UiClaim`, `Op.ToHostSlot`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md`.
 - Growth: a new gesture capsule is one sealed owner over its host interaction class; evidence rows widen by field, never by sibling record.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -293,7 +293,7 @@ public sealed class EdgeResize {
 - Packages: Grasshopper2 (`FlexControl.PopulateContextMenu`, `PopulateContextMenuEventArgs`), `Rasm.Interaction` (`MenuNode`, `IntentTable`), Eto.Forms (`ContextMenu`, `MouseEventArgs`), `Rasm.Domain`, `Shell/session.md`.
 - Growth: a new synchronous host moment is one moment record with one mount; observation-shaped events stay `Shell/events.md` rows.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;

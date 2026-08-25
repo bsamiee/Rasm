@@ -6,7 +6,7 @@
 
 One folder scheme spans all languages:
 
-```text conceptual
+```text
 tests/
 ├── dotnet/
 │   ├── .api/           # Dev-tool API catalogs the kit and suites compose

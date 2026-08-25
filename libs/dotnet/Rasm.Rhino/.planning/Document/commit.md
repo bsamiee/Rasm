@@ -16,7 +16,7 @@ The bracket's custody is a closed union, never a bool triple: a program either o
 - Law: the posture roster is CLOSED and the traits are a SET — five bool columns on five rows spelled twenty-five cells a reader audited one at a time, where a set column prints its own wire and a new trait is one vocabulary row every posture answers. The two repaint columns the host's `EnableRedraw` takes are trait rows, not literals inside the bracket: a suppressing policy that hardcoded `false` on both silently forbade the terminal repaint some rails need on the restore edge.
 - Law: the flush fires only after the prior redraw state is restored, so a suppressing policy still lands its terminal repaint; restore settles beside the primary through the one aggregation fold — a cleanup refusal never rides a discard.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
@@ -83,7 +83,7 @@ internal static class RedrawScope {
 - Law: `DocumentCommit.Sealed` is ONE entry: it brackets the body in the redraw scope, opens the undo bracket, runs the program, stamps the sealed serial through the bracket's custody, runs the railed receipt projection INSIDE the bracket — so a stamp or projection fault remains rollback-capable — and seals. The identity projection is the default MODALITY, spelled `project: Fin.Succ` at receipt-shaped call sites; the non-projecting arity twin is deleted, so one declaration carries every consumer. NAMED LOSS: the two-argument convenience signature; witness — `Tables.Commit`'s receipt-shaped entry composes `Sealed(..., project: Fin.Succ, ...)` and compiles unchanged.
 - Law: `DocumentCommit.Compensated` owns the whole compensation algebra: land each element, roll back every landed key on the first refusal, and settle source custody through its release policy — every source releases once the fold's fate is decided, a release refusal after success rolls the landed keys back, and rollback then release faults append in that order onto the initiating fault. The identity release is the default modality riding the `Option` seat, so the release-free arity twin is deleted too; a suffix-only cleanup inside a rollback lambda or a `.Match` ladder re-spelling release beside the fold is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class HostInteraction {
@@ -149,7 +149,7 @@ internal static class DocumentCommit {
 - Law: `UndoBracket` is receipt-agnostic — every folder commit rail folds the sealed serial into its own receipt through `DocumentCommit.Sealed` without a foreign-receipt hop; `Stamper` stamps only through an owned or enlisted custody, whose serial the union already proved positive, and an unrecorded program bypasses stamping.
 - Law: rollback is custody-total — an owned record undoes and clears redo, an enlisted record propagates the failure to the command boundary that owns the record, and an unrecorded or refused seat has nothing to roll; every rollback fault appends onto the primary.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record BracketCustody {

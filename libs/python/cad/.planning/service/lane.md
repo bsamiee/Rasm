@@ -20,7 +20,7 @@
 - Growth: a new process-wide OCCT setting is one `Pin` row, a new exchange controller one `Controller` row, and neither touches the fold.
 - Boundary: readers, writers, meshers, and property folds compose an already-pinned process and never re-probe one; the roster's membership is `exchange/identity#PINS`'s ruling, applied here.
 
-```python signature
+```python
 from collections.abc import Callable
 from functools import cache
 from pathlib import Path
@@ -114,7 +114,7 @@ def regime() -> CadRail[None]:
 - Growth: a new native leg is one kernel and one marshal struct; a new marshalled field is one struct member.
 - Boundary: this page spells no outbound raise — the inbound `BrokenWorkerProcess` is the seam's only exception and one arm converts it, and the package's single outbound raise is `provider#PROVIDER`'s `ConnectError`.
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 NATIVE_LANE: Final[CapacityLimiter] = CapacityLimiter(1)

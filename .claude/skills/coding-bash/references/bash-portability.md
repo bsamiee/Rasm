@@ -21,7 +21,7 @@ Cross-platform shell compatibility for Bash `5.2+`/5.3, zsh, dash, and container
 
 `env -S` forwards shebang flags on macOS and GNU coreutils `8.30+`; busybox `env` lacks it. Handle flags in the script body when busybox is a target.
 
-```bash conceptual
+```bash
 # macOS: /bin/bash is 3.2.57 permanently (Apple GPLv3 refusal)
 # Homebrew: /opt/homebrew/bin/bash (ARM) | /usr/local/bin/bash (Intel)
 # Bash version gate: _BASH_V is the version-key probe
@@ -62,7 +62,7 @@ IEEE 1003.1-2024 standardized `pipefail`, `sed -E`, `realpath`, `readlink`, `pri
 
 Adoption bottleneck: dash (Debian/Ubuntu `/bin/sh`) has not shipped `pipefail`. Until dash implements Issue 8, `set -o pipefail` in `#!/bin/sh` scripts breaks on the most common container base images. Gate on runtime probe, not spec publication:
 
-```bash conceptual
+```bash
 _has_pipefail() { (set -o pipefail 2>/dev/null); }
 ```
 
@@ -83,7 +83,7 @@ GNU coreutils and BSD coreutils, the macOS default, diverge on flag behavior for
 |  [09]   | `xargs`    | `xargs -r` (skip-empty)    | No `-r`                         | `xargs` + empty guard                  |
 |  [10]   | `cp`       | `cp --reflink=auto`        | `cp -c` (APFS clone)            | `cp` (plain)                           |
 
-```bash conceptual
+```bash
 _sed_inplace() {
     local -r pattern="$1" replacement="$2" file="$3"
     local -r tmp="$(mktemp "${file}.XXXXXX")"
@@ -114,7 +114,7 @@ _parse_date() {
 
 Resolve platform at init. Bind OS-specific functions once. All call sites dispatch through a uniform key — zero runtime branching after initialization. Tool probes (`_HAS_RG`, `_resolve_tool`) and the bash-version probe (`_HAS_INSITU`) resolve once at init.
 
-```bash conceptual
+```bash
 readonly _PLATFORM="$(uname -s)"
 readonly _CAN_NAMEREF="$(
     (eval 'local -n _t=BASH_VERSION' 2>/dev/null && printf '1') || printf '0'
@@ -164,7 +164,7 @@ _clipboard() { _platform clipboard; }
 
 Multi-axis dispatch — keys compose `action_platform_toolchain` for GNU/BSD/busybox:
 
-```bash conceptual
+```bash
 declare -Ar _GREP_DISPATCH=(
     [pcre_Linux_gnu]='grep -P'  [pcre_Darwin_bsd]='rg'  [pcre_Linux_busybox]='rg'
 )
@@ -197,7 +197,7 @@ Wolfi-base ships bash by default — more predictable than Alpine for build stag
 
 Kernel does NOT deliver default SIGTERM to PID 1 — without explicit handling, SIGTERM is ignored and k8s escalates to SIGKILL after `terminationGracePeriodSeconds` (30s default).
 
-```dockerfile conceptual
+```dockerfile
 FROM alpine:3.21                          # Alpine: install bash explicitly
 RUN apk add --no-cache bash>=5.2
 SHELL ["/bin/bash", "-c"]
@@ -207,7 +207,7 @@ FROM cgr.dev/chainguard/wolfi-base:latest   # Wolfi: bash pre-installed
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 ```
 
-```bash conceptual
+```bash
 # Pattern 1: exec replacement — single-process containers (preferred)
 _exec_service() { exec "$@"; }
 
@@ -235,7 +235,7 @@ Signal and trap semantics diverge across Bash `5.2+`, dash/ash, and zsh `5.9+`:
 
 Critical gap: dash and zsh do NOT fire EXIT on signal death. Trapped signals reset in subshells and across `exec`; ignored signals (`trap ''`) inherit both (POSIX SIG_IGN requirement) — `_critical_section` below exploits this for child-safe signal masking. Portable scripts must explicitly trap each signal with re-raise to preserve 128+N exit codes for orchestrator classification:
 
-```bash conceptual
+```bash
 # Portable signal registration — re-raise preserves 128+N for orchestrators
 _register_signal_traps() {
     local _sig; for _sig in INT TERM HUP QUIT; do

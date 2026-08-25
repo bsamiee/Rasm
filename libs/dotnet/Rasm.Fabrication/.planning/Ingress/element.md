@@ -20,7 +20,7 @@
 - Receipt: `ElementReceipt` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.
 - Boundary: `ElementGraph` never crosses the receipt; `Relationship`, `PropertyValue`, `MaterialComposition`, `MaterialPropertySet`, and `MaterialUsage` remain their canonical generated owners; `NodeId` and provider types lower to strings or content keys only at fact egress; no connection line is synthesized, and a `Connect` row without a realizing element stays topology-only because `ComponentConnection` demands a realizing key; faults from `Rasm.Element` pass through unchanged and local ingress or egress conflicts mint `IngressTranslation`; canonical-property ordering and caller-buffer commit are the serialization-boundary statement kernels.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
@@ -256,7 +256,7 @@ public abstract partial record ElementProjection {
 - Packages: `System.Reflection` supplies the field, generic-argument, and property census `FactColumns.Sound` runs at first construction — the one reflective read on the page, paid once per process rather than per fact; `Rasm.Element` supplies every source type the tables mirror; LanguageExt.Core supplies `Seq`/`Option`/`Unit` and the `Empty`/`More` match the proof folds through.
 - Boundary: this cluster reads member VALUES only — no admission, no conversion policy, no fault. Unit lifting stays at the `Rasm.Element` measure owner, which already publishes SI scalars.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 // --- [FACT_COLUMNS]
 public readonly record struct FactScope(string Prefix) {
@@ -595,7 +595,7 @@ public readonly record struct CurveSample(double Axis, double Value);
 - Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter.Retaining` and its `Fin`-answering `ToBytes` close, `PropertyCategory`); `Process/owner` `FabricationCanon.Ordered` for the two identity digests, LanguageExt.Core rails, `UnitsNet` at the layer-thickness projection.
 - Boundary: writer disposal stays with the caller; a buffer failure rails through the retained locus rather than escaping the `Fin` return.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementImport {
     private const char Field = '\u001F';

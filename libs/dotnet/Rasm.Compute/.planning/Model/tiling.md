@@ -29,7 +29,7 @@
 - Growth: a new seam profile is one `TileBlend` row with its ramp; a new tensor layout is one `TileLayout` row carrying its own gather, scatter, normalize, and stack kernels — never a layout flag branching inside the fold; a new edge posture is one `TileEdge` row with its own fill; a model emitting another plane is one more `TileProduct.Plane` row naming its own tensor at lane zero, a model PACKING another plane into a tensor it already names is one more row at that tensor's next lane, and a model grading its input is one `TileProduct.Measure` row — no surface moves for any of the three; a stage that up-samples is the `Scale` column, which threads every field grid without a caller recomputing anything; a pad posture beyond reflection is one `PadMode` row whose `Fold` may answer absence for a texel no source covers, which the gather rows already clear on; a new plan invariant is one `TileGate` row.
 - Boundary: this owner names no session, no port, and no archive member. Every carrier crossing a kernel row is a span view, so the four layout delegates are the only shape that holds them and `Span2D`/`ReadOnlySpan2D` projections carry the row addressing the flat index arithmetic used to spell at eleven sites. `TileLayout.Stack` consumes a `PlaneFill` filler rather than a materialized plane, so each row owns its own landing discipline and the double copy dies where placement is contiguous; the filler is a delegate the composing root binds — a blob copy, or a `Runtime/archive#HDF_ARCHIVE` hyperslab fill for an archive-resident plane — so no PureHDF member reaches a Compute signature.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -476,7 +476,7 @@ public sealed partial class TilePlan {
 - Growth: a further mosaic-level measured column is one field on `TileMosaic`; a further per-window observation is one column on `TileWindow`; zero new surface for a wider roster, a packed tensor, or an added grade.
 - Boundary: `InferTiled` composes the `Model/sessions#SESSION_CAPSULE` shared-arena `BoundFlow` and NEVER opens a session — the flow's bound input is the bucket and its bound outputs are the tensor roster, so a mosaic and its session warm-up name the same shapes by construction. Tiles run sequentially through the one bound input because the binding holds a single device-resident staging value; intra-tile parallelism belongs to the session's own thread pool, and the only fold this page partitions itself is the per-product normalize, which touches no binding at all. Every arena is a pooled `MemoryOwner<float>` released on the fold's exit, and the mosaic transfers one accumulation rental per product to the caller, so a failed pulse disposes every plane before the fault leaves.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record TilePlane(TileProduct.Plane Product, MemoryOwner<float> Plane);
 

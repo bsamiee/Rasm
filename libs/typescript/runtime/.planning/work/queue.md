@@ -22,7 +22,7 @@ Dead-lettering lives here alone: a parked deliverable is typed evidence on the f
 - Boundary: the queue's item store is the `PersistedQueueFactory` arm of the `entity#MAILBOX` tier row — a distinct store from the cluster envelope `MessageStorage` beside it, which `DurableQueue.worker`'s own requirement names by type and which `MessageStorage` cannot satisfy; the tier selection at the root is what makes every worker Layer composable, and no queue table, poll loop, or storage row exists on this page.
 - Packages: `@effect/workflow` (`DurableQueue`); `effect` (`Effect`, `Function`, `Schema`); `@rasm/core` (`Fault.Budget`); `./entity.ts` (`WorkClass`).
 
-```typescript signature
+```typescript
 import { DurableQueue, DurableRateLimiter } from "@effect/workflow"
 import { RateLimiter as Fleet } from "@effect/experimental"
 import type { SqlClient, SqlError } from "@effect/sql"
@@ -89,7 +89,7 @@ const Job = { of: _job }
 - Growth: a new quota is one table row both arms inherit; a new pacing shape is an `algorithm` value the shipped surface names.
 - Packages: `@effect/workflow` (`DurableRateLimiter`); `@effect/experimental` (`RateLimiter` — the accessor, the store Tag, and the store fault); `effect` (`Duration`, `Effect`).
 
-```typescript signature
+```typescript
 declare namespace Throttle {
   type Subject<Axis extends string> = { readonly tenant: string; readonly weight: number } & { readonly [K in Axis]: string }
   type Granted = Subject<"destination"> & { readonly rate: number }
@@ -172,7 +172,7 @@ const Throttle = { ..._rows, pace: _pace, spend: _spend }
 - Growth: a new lane dimension (deliver-at scheduling, a channel filter) is a deliverable column with a claim predicate on the data statement; a new drain family is one `Lane.row` handed to the route — the verdict fold never widens.
 - Packages: `@rasm/data` (`Journal` — `claimBatch`, `complete`, `Fence`, `Held`, `Settlement`; `Tenancy`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `ParseResult`, `Schema`); `@rasm/core` (`Fault.Class`); `./entity.ts` (`WorkClass`).
 
-```typescript signature
+```typescript
 type LaneVerdict = Data.TaggedEnum<{
   Settled: {}
   Deferred: {
@@ -293,7 +293,7 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
 - Growth: a replay posture (selective by class or route, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
 - Packages: `@rasm/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
-```typescript signature
+```typescript
 const _SUBJECT = 2
 
 const _channel = (tag: string): Option.Option<string> => Array.get(tag.split("."), _SUBJECT)

@@ -32,7 +32,7 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 - Receipt: `RangeEvidence` carries the admitted range, the derived value, the resolved value, and every clamp witness, so a budget states which bound overrode the material's own answer.
 - Boundary: a ceiling the equipment never published is `None` on both tool axes, never a sentinel maximum a clamp reads as a measurement; `ProcessRange` bounds resolve through one `Bound` fold and every ceiling through the one `Capped` cap inside it.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Globalization;
@@ -246,7 +246,7 @@ public sealed record EquipmentEnvelope(
 - Receipt: `At` clamps a state onto the knot span and `Saturated` reports which axes clamped, so a budget publishes the axes it EXTRAPOLATED past instead of silently reading an edge factor as a measured one.
 - Packages: `MathNet.Numerics` `Interpolate.Linear`, `.CubicSplineMonotone`, `.CubicSplineRobust`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ResponseAxis {
@@ -438,7 +438,7 @@ public abstract partial record ModalityPhysics(PhysicsKind Kind) {
 - Receipt: `MechanicalDatum` and `ThermalDatum` reach the budget: the machinability index scales surface speed, the Hollomon pair drives forming flow stress, the plastic strain ratio and elongation bound limit strain, thermal diffusivity closes the cutting-zone temperature margin, and every remaining datum column rides `BudgetEvidence.Material` as the grade evidence a receipt attests.
 - Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes.
 
-```csharp signature
+```csharp
 // --- [MATERIAL_REGISTRY] ---------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MaterialClass {
@@ -719,7 +719,7 @@ public sealed class MaterialRegistry {
 - Auto: `Kind`, `Extents`, and `Equipment` are base positional columns, so a request case is one declaration and its own payload supplies all three.
 - Receipt: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeEvidence`, and the response axes that SATURATED at their preset edge.
 
-```csharp signature
+```csharp
 // --- [BUDGET_SHAPE] --------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhysicsRequest(
@@ -934,7 +934,7 @@ public abstract partial record ProcessBudget {
 - Auto: `Canonical` projects the admitted quantity onto the `Fin<double>` rail one place, so the arrow never re-walks the union.
 - Boundary: every parse runs under the invariant culture, so a shop locale never re-reads a stored dimension differently.
 
-```csharp signature
+```csharp
 // --- [TEXT_ADMISSION] ------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class PhysicsQuantity {
@@ -998,7 +998,7 @@ public abstract partial record PhysicsAdmission {
 - Receipt: Taylor tool life reads the family's own exponent law scaled by the coating's wear factor and the coolant's life factor, so all three columns reach one published number instead of sitting unread.
 - Boundary: `GeometryFault` covers degenerate geometry alone; equipment, quantity, and grade rejections mint through `FabricationFault.Equipment`, so the witness clears its own kind predicate before the fault exists.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SurfaceSpeed {
     public static double Rpm(double metersPerMinute, double cuttingDiameterMm) =>

@@ -19,7 +19,7 @@ The `Bond` axis is a GENERATIVE ALGEBRA over a THEOREM-CLOSED census: a template
 - Growth: a new template bond is one `BondName` row carrying its course set; a new generated bond is one `BondGeometry` row naming its wallpaper group and motif seats beside one `BondName` row — the symmetry census is closed by theorem, so the row is DATA and never a new derivation; a new orientation/cut/shape/mortar/tolerance row is one SmartEnum row; a new `fr` direction/form row, EN unit group, UK-annex row, or cementitious system is one `RuptureModulus`/`FlexuralStrengthEn`/`FlexuralStrengthNa`/`MortarSystem` row; a thin-layer or lightweight mortar is one `MortarType` row declaring that `EnMortarKind`, which arms the EN table's T and L columns with zero type edits; a new regional unit is one `MasonryRow` — per `[DIFF_OF_NEXT_THING]`. A sibling family lands its own vocabulary on its own seed page.
 - Boundary: this page emits profiles, vocabulary rows, bags, seam property sets, and the seed fold. `MasonryVoids.Bucket` rails an invalid derived fraction on `CoringRejected`; bond-orbit refusals lower once to `BondRejected`, and section-map membership derives from `ProfileTopology.Solvable`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;

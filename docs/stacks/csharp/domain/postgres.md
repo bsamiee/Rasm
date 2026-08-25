@@ -38,7 +38,7 @@ This table routes a store concern to its owning surface; the most specific row w
 - Law: `EnableFirstResponseEvent` splits server execution from result drain inside one span; `EnablePhysicalOpenTracing` makes pool starvation visible as open-span bursts instead of latency-tail inference.
 - Exemption: the profile fold's builder mutation and initializer bodies are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public enum Band { Low, High }
 public sealed record Slot(string Key, int Rank);
 
@@ -108,7 +108,7 @@ public static class StoreProfile {
 - Law: retry eligibility is case identity, never a code `==` — the family's `Retriable` predicate admits exactly the contention and transient-transport cases, so the store strategy and the outbound-hop owner read the same closed vocabulary and a conflict or admission defect is structurally unretriable.
 - Exemption: the capture seam's catch arms are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StoreFault : Fault {
     private StoreFault(string detail) => Detail = detail;
@@ -190,7 +190,7 @@ public static class StoreSeam {
 - Law: geodesic truth stores `geography` while hot planar predicates ride a stored generated planar projection — the generated-column law composing into the lane — and SRID is a per-factory type-level invariant with `Transform` the only sanctioned reprojection seam.
 - Law: the full-text spine is three declarations — stored generated tsvector, GIN row, `Matches` predicates — with `WebSearchToTsQuery` the only parser admitted to user text because the full parser throws on malformed input; hybrid retrieval fuses lexical and semantic top-k as two index-served arms in one statement, never two client-fetched lists merged after paying two round trips.
 
-```csharp conceptual
+```csharp
 public sealed class Fact {
     public Guid Key { get; init; }
     public string Title { get; init; } = "";
@@ -270,7 +270,7 @@ public static class QueryRail {
 - Law: staging-then-MERGE is the highest-throughput reconciled upsert the engine offers — COPY into unlogged staging on a bound connector, then one MERGE reconciles into the target with per-row verdicts — rows staged, rows inserted, rows updated, all recorded with zero application-side row iteration, and the result proves conservation: staged equals inserted plus updated, breach failing typed.
 - Exemption: the COPY kernel — row loop, discard arm, verdict drain — is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public sealed record StagedRow(Guid Key, Band Band, Slot Slot);
 public sealed record ReconcileResult(ulong Staged, int Inserted, int Updated) { public bool Conserves => Staged == (ulong)(Inserted + Updated); }
 
@@ -320,7 +320,7 @@ public static class BulkLane {
 - Boundary: messages decode into the op-log shape whose law durability owns — this lane owns exactly the decode: message family to fact rows, before-image evidence, staging, watermark acknowledgement.
 - Exemption: the pump's message switch and tuple drains are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [Union<string, Missing, Carried>(T1Name = "Text", T2Name = "Absent", T3Name = "Unchanged", T2IsStateless = true, T3IsStateless = true)]
 public readonly partial struct Cell;
 public readonly record struct Missing;
@@ -408,7 +408,7 @@ public static class ChangeDecode {
 - Law: the four provisioning rungs own creation — generation materialization rung one, idempotent seeds rung two, operator runbooks rung three, the environment rung four — and the fold reads all four; the process may emit repair artifacts (reconciliation grants, settings diffs) as typed verification outputs but never executes them, and a periodic re-verify stamps a verification epoch so environment drift becomes an observable event in the fact stream.
 - Exemption: the verification read kernel is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public sealed record CapabilityVerdict(int Engine, FrozenSet<Lane> Held, Seq<Error> Gaps);
 
 public static class Verification {

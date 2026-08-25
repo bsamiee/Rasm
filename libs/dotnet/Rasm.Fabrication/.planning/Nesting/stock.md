@@ -54,7 +54,7 @@
 - Packages: `FabricationCanon` supplies both preimage closes over the one `Rasm.Element` `CanonicalWriter` — the retaining `Keyed` for the plan address, the streaming `Ordered` for a strategy's own total order; `Thinktecture` supplies the generated proof and grade families; `LanguageExt` supplies the validation applicative.
 - Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against. Rectangular area reads the packer's own placed set wherever every used sheet publishes one, and `NestPlan.Validate` re-derives it from the projected placements, so the two sources disagreeing is an admission failure rather than a silent drift.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;

@@ -15,7 +15,7 @@ Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker sp
 - Receipt: `contribute` reads the threaded `EmitFact` off `self.fact` — never an in-process re-run of a worker-gated arm — and folds the case off the `Backend.kind` discriminant: emit mints only the `ArtifactReceipt.Pdf`/`.Office` arities the receipt owner declares; the typography-rail `Document` case is not its to mint. Rich per-arm evidence (render scale, outline count, embedded-face set, undeclared-variable set, validation verdict) rides the `EmitFact` carrier, never a widened receipt tuple. `_emit` also awaits `Journal.record` over `receipt.evidence(*live._claim)` — the ONE durable seat for the three kinds this owner mints, because recording suspends and `contribute` cannot — and an archival or born-tagged render appends its declared variant beside the oracle's verdict positionally, since the shared `Pdf` case carries neither.
 - Growth: a new document format is one `DocumentMode` row with one `Backend` row binding its arm and band, one `_SCOPE` row naming its observable payload fields, and a `_REQUIRED` row when it demands an input; a new mode-specific control is one `EmitSpec` field with its `_SCOPE` membership; a new typed cell is one `CellValue` arm; a new interactive-field payload is one `FieldValue` case with one `_ua_field` arm; a new archival profile is one `PdfVariant` row projecting through `_PDF_STANDARD`/`_PDF_PROFILE`/`_ACCESSIBLE` to both engines; a new evidence fact is one `EmitFact` field; a new admission cause is one `EmitFault` case.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import codecs
 import io

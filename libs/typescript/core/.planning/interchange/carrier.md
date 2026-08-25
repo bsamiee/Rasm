@@ -27,7 +27,7 @@ One module seats both owners, since a message envelope's extension slot IS a car
 - Boundary: Tracer owns the live span; data owns persisted contexts; `Carrier` owns pure context values and folds.
 - Packages: `effect` (`Array`, `Effect`, `Either`, `Encoding`, `Option`, `Schema`, `String`, `pipe`); `../value/fault.ts` (`Fault.Drop`, `Fault.Ledger`); `../value/identity.ts` (`Identity.Tenant`).
 
-```typescript signature
+```typescript
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
 import type { Wire } from "./codec.ts"
 import { Headers, HttpTraceContext } from "@effect/platform"
@@ -209,7 +209,7 @@ const _printedBaggage = (members: ReadonlyArray<Carrier.Member>): string =>
 - Boundary: `Dial.Ambient` holds fiber tenancy; security consumes the recovered `Identity.Tenant`.
 - Packages: `effect` (`Array`, `Option`); `../observe/convention.ts` (`Convention`); `../value/identity.ts` (`Identity.Tenant`).
 
-```typescript signature
+```typescript
 const _TENANT = Convention.rasm.tenant
 
 const _decodedTenant = Schema.decodeUnknownOption(Identity.Tenant.FromScope)
@@ -270,7 +270,7 @@ const _withoutTenant = (context: Carrier.Context): Carrier.Context => ({
 - Boundary: Runtime owns clients and bindings; invoke composes `Carrier.current`, tenant promotion, Connect injection, and `_BIN`.
 - Packages: `@connectrpc/connect`, `@effect/platform`, and `effect`.
 
-```typescript signature
+```typescript
 const _KEYS = ["traceparent", "tracestate", "baggage"] as const
 
 const _B3 = ["b3", "x-b3-traceid", "x-b3-spanid", "x-b3-sampled", "x-b3-parentspanid"] as const
@@ -538,7 +538,7 @@ const Carrier: Carrier.Shape = {
 - Boundary: binding and media routing seat at runtime; this cluster owns strict SDK admission, generated conversion, the Rasm profile, and no transport.
 - Packages: `cloudevents`; `@bufbuild/protobuf`; `effect`; generated CloudEvents and estate event modules; `./format.ts`; `../value/contentKey.ts`; `../value/fault.ts`.
 
-```typescript signature
+```typescript
 import { CloudEvent, type CloudEventV1, V1 } from "cloudevents"
 import { isMessage, type MessageInitShape, type MessageShape, type MessageValidType } from "@bufbuild/protobuf"
 import {

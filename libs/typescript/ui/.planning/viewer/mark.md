@@ -21,7 +21,7 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 - Law: modality lives in the op value — click maps to `Toggle` (modifier policy deciding `Replace` versus `Toggle` at the interaction row), marquee maps to `Add` or `Replace`, viewpoint restore maps to `Replace` — never a boolean knob on the fold.
 - Growth: a new set behavior (invert, filter-to-visible) is one op case and one fold arm.
 
-```typescript signature
+```typescript
 import { Wire } from "@rasm/core"
 import { Data, HashSet, Option, Schema } from "effect"
 
@@ -70,7 +70,7 @@ const _step = (set: Selection.Set, op: Selection.Op): Selection.Set =>
 - Boundary: the gesture drawing the marquee/lasso is `system/act#CONTINUOUS_OWNER`'s; pixel→world math is `geo#PROJECT`'s; which surfaces are pickable is the owning layer row's toggle; the BVH build, its stamp, and the one legal `three` prototype patch are `scene#RESIDENCY_GRAFT`'s.
 - Growth: a new pickable surface is a `Hit.Row` producer and nothing else; a million-feature lasso graduates to the GPU fold — a `typegpu` centroid-in-polygon kernel over a `d.arrayOf` centroid buffer adopting the scene-published device (`scene#BACKEND_SELECT`'s compute seam); the CPU rbush ladder stays the floor, and the kernel is one growth row, never a second lasso vocabulary.
 
-```typescript signature
+```typescript
 import type { Deck, PickingInfo } from "@deck.gl/core"
 import { Tile3DBatchTable, type Tiles3DTileContent } from "@loaders.gl/3d-tiles"
 import { bbox, booleanPointInPolygon, geojsonRbush } from "@turf/turf"
@@ -179,7 +179,7 @@ const _lasso = <P extends GeoJsonProperties>(index: Mark.Index<P>, polygon: Feat
 - Law: non-view echo consumers subscribe through one bounded replay channel — `Selection.echoes` is the memoized `Layer` constructing `PubSub.sliding<Selection.Op>({ capacity, replay })` once per app, and `Selection.Echoes` is the shared service every publisher and subscriber yields; late and live wire egress, probe evidence, and sibling mirrors consume the retained operation window without touching the atom registry, saturation replaces the oldest retained operation, and a second subscription protocol is the named defect.
 - Law: `Selection.Echoes` is the adopted source behind the `rasm.ui.mark.op` hook point (`system/hook`, replay modality) — this page contributes the point row and `Selection.hook` yields the shared service, so the registry pumps this one channel and no second op publisher exists.
 
-```typescript signature
+```typescript
 import { Context, Effect, HashSet, Layer, Option, PubSub, Stream } from "effect"
 import { Hook } from "../../src/system/hook.ts"
 
@@ -275,7 +275,7 @@ const Selection: Selection.Shape = {
 - Boundary: pin press interaction rides `system/act#DISCRETE_ROWS`; rich topic text sanitizes through `system/primitive`'s gate before any DOM sink; the live camera an app joins to a gesture-minted anchor to mint a viewpoint is `geo#CAMERA`'s embed adapter row.
 - Growth: a new surface class is one projector with its own anchor host; a new anchor facet the wire gains (a clipping-derived offset) is one `Mark.Anchor` field carried through both projections.
 
-```typescript signature
+```typescript
 import type { ModelViewerElement } from "@google/model-viewer"
 import { Wire } from "@rasm/core"
 import { Option, pipe } from "effect"
@@ -379,7 +379,7 @@ const _pin = (topic: Wire.BcfTopic, viewpoint: Option.Option<Wire.BcfViewpoint>,
 - Law: the receipt is data — `{ requested, resolved, missing }` counts and the missing id list; it renders as an evidence row (`Message` plural forms), never throws; a fully-missing selection still restores a carried camera, and a camera-less viewpoint restores selection alone.
 - Boundary: which elements are resident is `scene`'s graft ledger fact; intent dispatch is `geo#CAMERA`'s; the selection fold is `[2]`'s.
 
-```typescript signature
+```typescript
 import { Array, HashSet, Option, pipe } from "effect"
 import { Camera } from "./geo.ts"
 
@@ -432,7 +432,7 @@ const _restore = (
 - Boundary: which topics a session holds is the app's atom state; the wire encode of an intent is the core interchange plane's; a comment's `viewpoint` resolves through `[6]`'s restore, never a camera write here.
 - Growth: a new lifecycle presentation is one corpus enum member with its status row; a new priority is one `Mark.priority` row the admission then carries with no wire edit at all; a new authored axis is one `Amendment` key; a new board facet — a clash count, a cost delta — is one row field and one arm in the same fold.
 
-```typescript signature
+```typescript
 import { type Timestamp, timestampMs } from "@bufbuild/protobuf/wkt"
 import { BcfStatus } from "@rasm\/contracts/rasm/contracts/bcf/bcf_pb"
 import { cva } from "class-variance-authority"

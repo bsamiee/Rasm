@@ -22,7 +22,7 @@ Seating measurement here dissolves the strata edge the flat corpus carried, wher
 - Growth: a new measured dimension is one `Dimension` member and one `_LADDER` row carrying its extent reader and its property fill.
 - Boundary: exact topology alone. Emitted-mesh evidence arrives already admitted from `metrology/census#CENSUS` as a `Closure` arm, and no OCCT mesher, reader, or writer is reachable from this owner.
 
-```python signature
+```python
 from collections.abc import Callable
 from enum import IntEnum
 from math import isfinite
@@ -150,7 +150,7 @@ def _measured(shape: TopoDS_Shape, census: TopologyCensus, /) -> CadRail[tuple[f
 - Growth: a new closure disposition is one `Closure` case beside one `_PRESENCE` row; a new receipt field derives inside this mint, so no caller grows an argument and no leg learns a second field.
 - Boundary: this owner builds the value; publishing it as `ExecuteResponse.receipt` or `TessellateResponse.kernel` belongs to `service/provider#PROVIDER`.
 
-```python signature
+```python
 from collections.abc import Callable
 from typing import Final, Literal
 

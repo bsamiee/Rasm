@@ -38,7 +38,7 @@ A function that needs several quantities from one sequence folds them in one pas
 - Law: the owner splits on whether the trace threads onward — `Seq.scan(step, SEED)` is the `expression` form when the running states feed a further `Seq` transform under `pipe`, and the stdlib `accumulate` is the form when a bare iterator suffices; neither materializes until the consumer pulls, so a downstream `map`/`filter` fuses without an intermediate list.
 - Boundary: a fold whose accumulator is a `Result` or whose combination reports faults is `rails-and-effects.md`'s carrier thread, and a reduction over a `numpy` array is `algorithms.md`'s route; this seed is a pure value, total over the admitted element, and the page composes those owners without re-deriving either fold.
 
-```python conceptual
+```python
 from collections.abc import Iterable, Iterator
 from functools import reduce
 from itertools import accumulate
@@ -100,7 +100,7 @@ A multi-stage transform over a stream is one lazy `itertools` pipeline that neve
 - Use: `starmap(operation, pairs)` over any of these pairings so the body applies without an unpacking lambda; `frozendict(zip(keys, values, strict=True))` to build a keyed index from two aligned sequences in one expression.
 - Reject: a manual `index` counter; `zip(seq, seq[1:])` where `pairwise` states the window; a slice-step loop where `batched` states the chunk; nested `for` loops where `product` states the Cartesian; co-iteration that truncates on the shorter operand.
 
-```python conceptual
+```python
 import operator
 from collections.abc import Callable, Iterable, Iterator
 from itertools import batched, chain, compress, groupby, islice, pairwise, product, starmap, takewhile
@@ -150,7 +150,7 @@ A comprehension owns exactly one projection and one guard; the moment a second s
 - Boundary: `yield from` over a `Result`-returning step that short-circuits is the `@effect.result` do-notation `rails-and-effects.md` owns, not this fusion; the carrier-free `yield from` here delegates a pure sub-generator, and the two never merge.
 - Reject: a `tuple`/`Block`/`list` that materializes a whole unbounded result for one walk where `Iterator[T]` streams to the egress edge; a stack of `map`/`filter` calls where one comprehension or one generator states the fusion; `yield from` smuggling a carrier the rail page owns.
 
-```python conceptual
+```python
 from collections.abc import Callable, Iterable, Iterator
 from itertools import accumulate
 
@@ -190,7 +190,7 @@ A computation over a recursive structure is a catamorphism: one function destruc
 - Boundary: a standalone memo over a pure recurrence is this layer's one admitted cross-cutting concern, because the interior is total over admitted values and re-validates nothing; once it co-occurs with a type guard, span, or retry, memoization is the ranked `cache` weave wrapping the already-validated body inside the `aspected` stack `surfaces-and-dispatch.md` owns, and a guard, span, or retry never wraps a total interior fold whose rail it invents.
 - Reject: a memo `dict` carried as a parameter; a captured mutable operand the cache key omits, so the cache silently diverges from the inputs; a type-guard or telemetry decorator on a total interior computation; `@cache` on an unhashable-argument or effectful function.
 
-```python conceptual
+```python
 from collections.abc import Callable, Iterable
 from functools import lru_cache
 from typing import Literal

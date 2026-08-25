@@ -31,7 +31,7 @@ The per-bin complex Hermitian dominant pair stays page-local under a convergence
 - Boundary: waveform corpora — long SHM records, python-fitted filter banks, reference spectra — enter through `Runtime/field#FIELD_RESULT_CODEC` `InterchangeIo.ImportWaveforms` as `WaveformCorpus` under declared frame/hop selections, and `Transform.Power(corpus, window, at)` IS the consuming half of that seam: the carrier's `[FrameCount, Frame, Channels]` frame-major buffer feeds the same Hermitian accumulation the plane route feeds, so a screening-scale record never widens into a contiguous per-channel plane. The lane stores nothing and opens no `H5File` — the archive one-owner ruling stands, and the estimator (Arrow) and monitor (receipt-stream) storage declines stay closed.
 - Boundary: spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` conditions channel pairs and `Modal` extracts the measured modes — the FDD first-singular-value spectrum is an operational estimate whose peaks are honest only where excitation is broadband, so `ModalEstimate` carries the full singular spectrum beside its picked modes and a consumer re-judges a peak against its own floor; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

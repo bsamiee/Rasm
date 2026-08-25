@@ -35,7 +35,7 @@ Each lane is a policy row whose durations are the core budget ledger's: a row na
 - Growth: hedging and load-shed stay owned elsewhere (`Effect.raceAll` at the caller, `Gate.shed` at the serving edge); a per-tenant circuit is a key suffix, zero new surface.
 - Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`, `Schema`), `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 const _family = Fault.Class.family(['budget', 'break', 'binding', 'credential', 'throttled'] as const, {
     budget: Fault.Class.row({
         class: 'expired',
@@ -189,7 +189,7 @@ const Breaker = { guard: _guard } as const;
 - Receipt: the overload annotations are the whole seam contract — fault union and requirement set readable without opening the body.
 - Packages: `@effect/platform` (`HttpClient`, `HttpClientError`, `HttpClientRequest`, `HttpClientResponse`, `Headers.get`), `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Number`, `Option`, `Redacted`, `Schema`), `@rasm/core` (`Fault.Budget`, `Fault.Class`), `@rasm/security` (`MachinePrincipal`).
 
-```typescript signature
+```typescript
 import { Headers, HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse, HttpIncomingMessage } from '@effect/platform';
 import {
     Cause,
@@ -470,7 +470,7 @@ function dial<A, I, R>(lane: Client.Lane, request: HttpClientRequest.HttpClientR
 - Growth: a new residency fact (an egress proxy, a TLS pin, a flow-control window) is one field on the root policy passed to the same generator.
 - Packages: `@effect/platform-node` (`NodeHttpClient`, `Undici`), `effect` (`Effect`, `Layer`).
 
-```typescript signature
+```typescript
 import { NodeHttpClient, Undici } from '@effect/platform-node';
 import { Effect, Layer } from 'effect';
 
@@ -523,7 +523,7 @@ const Client = { authorized: _authorized, dial, resident: _resident, residency: 
 - Growth: a new residency posture is one `Http2SessionOptions` value; a new per-call header is one write in the interceptor over the same bag.
 - Packages: `@connectrpc/connect` (`Interceptor`), `@connectrpc/connect-node` (three public transport factories, compression rows, `Http2SessionManager`, `Http2SessionOptions`), `effect` (`Effect`, `Runtime`, `Scope`), `@rasm/core` (`Fault.Class`, `Invoke.Dial`).
 
-```typescript signature
+```typescript
 import type { Interceptor } from '@connectrpc/connect';
 import {
     compressionBrotli,

@@ -52,7 +52,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 - Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`PaintReceipt` — inert evidence; GH's `PassReceipt.Tally` hands it in), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhEvidence`).
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;

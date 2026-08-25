@@ -27,7 +27,7 @@
 |  [12]   | `IsPositive` / `IsNegative`                 | predicate | sign predicates over a numeric or coercible value                         |
 |  [13]   | `IsTrueLike` / `IsFalseLike`                | predicate | truthiness predicates over a numeric or coercible value                   |
 
-```python signature
+```python
 class DirtyEquals[T]:
     def __eq__(self, other: object) -> bool: ...
     def __and__(self, other: DirtyEquals[object]) -> DirtyEquals[object]: ...
@@ -53,7 +53,7 @@ class IsNow(DirtyEquals[datetime]):
 |  [04]   | `field == IsInt(ge=0) & ~IsApprox(0)`        | composed matcher | `&`/`\|`/`~` build a compound predicate without a custom class         |
 |  [05]   | `raw == IsJson(IsPartialDict(kind="shape"))` | decode fact      | parse and match a JSON string against a nested matcher                 |
 
-```python signature
+```python
 from dirty_equals import IsInt, IsNow, IsUUID, IsPartialDict, IsJson, IsApprox
 def test_receipt(emit: Callable[[], dict[str, object]]) -> None:
     assert emit() == {"id": IsUUID(4), "count": IsInt(ge=1), "at": IsNow(tz="UTC"), "score": IsApprox(0.5, delta=0.01)}

@@ -21,7 +21,7 @@ Every receipt composes the `Domain/rails` `ValidityClaim` rows and re-enters the
 - Growth: a new measurement carrier is one generated owner declaring the same two axes — every fold, quantile, and extremum on the page is already generic in it, and `MeasureValue` at `Rasm.Element` conforms by the same bridge with no second contract; a new host payload is one `ScalarMetric` column and one `Of` arm; a new quantile convention is one `QuantileRule` row that every exact reader inherits at once.
 - Boundary: generated default `ValidationError` is ephemeral factory evidence; each `From` crosses it once through `Op.AcceptValidated` into `KernelFault.InvalidValue`. Key egress stays implicit and key ingress explicit, so the raw `double` never re-enters unadmitted. Measurements whose scale is non-linear in `double` are not `Amount` and belong at their own owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
@@ -142,7 +142,7 @@ public readonly partial struct Elapsed : Amount<Elapsed, double>, DomainType<Ela
 - Growth: a fifth moment is one `Moments` slot and one recurrence line; a new carrier costs nothing here; a new weighting is already the `Option<Seq<double>>` axis.
 - Boundary: sample admission runs once inside the fold and the receipt's `IsValid` is the sole downstream evidence of a summarized stream. NAMED LOSS on the rejection column: a stream carrying one sentinel used to fail whole, and now yields a receipt over its survivors — a caller demanding purity reads `Rejected == 0`, and only an all-sentinel or empty stream still rails `InvalidResult`. WITNESS for the collapse: the AppHost `Observability/health` anomaly band, a naive sum-of-squares fold that fabricated `(0d, 0d)` on an empty baseline, rebuilds as `Stat<Scalar>.Of(read.Baseline.Map(static v => (Scalar)v), key).Map(stat => double.Abs(read.Value - stat.Mean) > a.Sigma * stat.Deviation(MomentNormalizer.Population)).IfFail(false)` — the cancellation-prone denominator and the forged zero leave together.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
@@ -367,7 +367,7 @@ public readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<
 - Growth: a new figure off the same sorted array is one field and one `Settle` line; a new quantile convention is one `QuantileRule` row; a second sketched fraction is one more `QuantileSketch` value, sketch state being per-fraction by construction rather than a widened marker set; a new ranked consumer is one `Top` call or one composed cell — a folder-local bounded heap, negated priority, or sort-then-take over an unbounded candidate set is the deleted form.
 - Boundary: `QuantileSketch` stays `double`-carried and geometry-lane by charter — the operational-latency lane is `Rasm.Compute` `StreamMonitor.Quantile` and it composes this marker walk rather than re-implementing Jain-Chlamtac beside it. `Ranked` tiebreaks compose INSIDE `TKey` as tuple components under the one direction — a secondary component whose order must OPPOSE the primary spells an order-reversing bijection on an UNSIGNED key (complement), never float negation, because complement is total where negation folds `NaN`; key finiteness is the caller's admission concern, since the cell orders by `CompareTo`'s total order alone.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

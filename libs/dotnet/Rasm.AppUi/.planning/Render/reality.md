@@ -21,7 +21,7 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 - Growth: a new splat attribute is one `SplatEllipsoid` field; a new sort policy is one `SplatSort` row carrying its packing delegate; a new fault is one `[FaultCase]` leaf; zero new surface.
 - Boundary: the splat source consumes the one Compute `ResidencyPayload` boundary record that `Render/pipeline.md` already projects, and `CaptureDecode` is the composition-bound interpreter for its compressed `Blob` and typed `Layout` — the AppUi owner invents no flat payload member and assumes no native struct packing. `SplatEllipsoid.Opacity` fills from the producer's own `SplatScan.Alphas` column, so this end reads a decoded column and never re-derives opacity from the harmonic DC band. Structural equality keys on `(ContentKey, Sort)` alone: the retained pass sits inside a CAS-compared cache, and a `Seq<SplatEllipsoid>` compared elementwise per swap would pay the whole decode per frame while `ReadOnlyMemory<float>` compares by reference-and-range and would call two byte-identical decodes unequal. The radix sort's view basis is the `Render/pathtrace#BSDF_SHADING` `OracleFrame.OfCamera` triad — the compilation unit's one camera-basis owner, a page-local copy the deleted form.
 
-```csharp signature
+```csharp
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -224,7 +224,7 @@ flowchart LR
 - Growth: a new point attribute is one `PointSample` field; a new classification code is one `PointClass` row naming its family, its ink deriving with no palette edit; a new grouping is one `PointFamily` row taking the next qualitative slot; a new build knob is one `BuildPolicy` column at the kernel owner; zero new surface.
 - Boundary: offline LAZ/scan decode crosses as a Compute payload, so AppUi carries no LAZ decoder; a page-local Morton interleave, cell-index recovery, level-folding sweep, or nearest-neighbour scan is the DELETED form, and the kernel's own errors lower onto `CaptureFault` so a refused build reads as a capture payload fault rather than a geometry fault crossing the render rail untyped. Node bounds are the kernel's unioned primitive extents rather than the full cell, so a sparse cell's sphere is tight. NAMED LOSS on the node: the wire PARENT ORDINAL is gone — `ParentBounds` is the only thing the cut ever read it for, and carrying both made two authorities for one link. NAMED LOSS on the snap: the answer carries the source key and the sample index rather than the whole `PointSample`, because the index already resolves classification, intensity, and colour off `Points` and a copied sample is a mirror that can disagree. Tolerance is compared IN its `UnitsNet` quantity — the `.Meters` unwrap that used to reach the query boundary re-opened the display-unit law the ingress had already settled.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PointSample(
     float X, float Y, float Z,
@@ -480,7 +480,7 @@ public sealed partial record PointCloudSource(
 - Growth: a new capture path is one `CapturePass` case plus its `Mints` row, the retention, the park, and the sort election folding it with no further edit; a retuned point footprint is one `CaptureRaster.PointRadius` value; zero new surface.
 - Boundary: the capture pass is a viewport `RenderPass` case, so reality-capture geometry and BIM geometry share one graph and one target lease; allocating through `GpuBinding.Target` inside a pass creates a nested native lease and is rejected. `CaptureRaster` draws only into `RenderTarget.Surface`, so a target leased from a GPU backend row refuses as `CaptureFault.BackendUnsupported` rather than drawing nowhere. The floor's back-to-front ordering IS `SplatSource.Sorted`, so a floor-local re-ordering over a projected-depth column is the deleted twin. `SKVertexMode` carries no point mode and `DrawPoints` admits one paint, so per-return classification colour rides the three-vertex expansion; a single-paint point draw silently erases classification and is the rejected form. `CaptureRaster.Volume` is KEPT and is not a reconstructible knob: `FrameView` carries a camera and no frustum, and no `Frustum.Of(ViewCamera)` owner exists — the plane derivation is the composition's, bound here as every other port is. The retention posture is `RetentionPosture.Holder` and that is an INVARIANT, not a preference: a decoded pass holds managed arrays and the GPU residency is the render graph's own lease, so a read below the live generation is still a correct decode; a decode that ever holds a native handle takes `RetentionPosture.Generation` and a kernel `Lease<T>` value.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate Fin<int> CaptureComposite<in TSource>(RenderTarget target, FrameView view, TSource source);
 
@@ -701,7 +701,7 @@ public sealed class CaptureTileSet {
 - Growth: a new capture epoch is one `CaptureEpoch` row; zero new surface.
 - Boundary: the epoch swap is `Active`'s and nothing else's — a scrub claim with the selection left to an unnamed caller is the deleted form; the scrub is an animation `FieldIndex` track on the same frame-indexed deterministic clock the transient field scrub uses, so a wall-clock capture playback and a second capture timeline are both rejected forms, and the animation `Scrub` drives this clip.
 
-```csharp signature
+```csharp
 public readonly record struct CaptureEpoch(int Index, Instant At, UInt128 PayloadKey);
 
 public sealed record CaptureClip(string Key, Seq<CaptureEpoch> Epochs) {

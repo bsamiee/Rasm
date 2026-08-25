@@ -17,7 +17,7 @@ Substitute arms are the live path where a build lacks a filter or the filter can
 - Receipt: this page mints NO `ArtifactReceipt` case of its own — it is routing substrate exactly as `visualization/diagram/glyphset#GLYPHSET` and `drawing/standard#STANDARD` mint none; `WiredGraph.node_count`/`AudioGraph.node_count` are the filter-node facts the composing producer folds onto its `core/receipt#RECEIPT` `ArtifactReceipt.Media` `facts` band (`{"filter_nodes": N}`), so the routing evidence rides the one shared media receipt beside the container's HDR/segment facts and the audio's LUFS facts. `Transcode`'s receipt carries `{"filter_nodes": ...}`, the `Xfade` receipt `{"dissolve_frames": window}`, and the `Amix` receipt `{"mix_inputs": count}` — three facts on one band.
 - Growth: a new logical filter operation is one `FilterNode` case plus one `facet` alternative plus one `_FILTER` row plus one `_wire` arm; a new substitute for an existing op extends that row's `substitutes`; a new overlap transition is one `Transition` member plus one `_WEIGHT` row with no blend-kernel edit; a new multi-source clip op is one case plus one `_link_clips` arm plus its `_arity` row; a new mastering/mixing shape is one `AudioGraphSpec` case plus one `AudioGraph.of` arm, never a second graph owner; a filter that gains in-process wiring changes one row from `DISSOLVE` to `NATIVE_MULTI` while retaining the substitute; a new build-capability gate is one probe read — every addition a case, row, or arm, never a hardcoded assumption.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from dataclasses import dataclass
 from enum import StrEnum

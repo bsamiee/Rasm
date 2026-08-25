@@ -20,7 +20,7 @@ Seed helpers and the reseed extension point third-party RNGs register against.
 |  [03]   | `pytest_randomly.XdistHooks`       | xdist bridge      | broadcasts the controller seed to every worker for one shared parallel seed |
 |  [04]   | `pytest_randomly.random_seeder`    | entry-point group | each registered callable receives the per-test seed to reseed a custom RNG  |
 
-```python signature
+```python
 def make_seed() -> int: ...
 def seed_type(value: str) -> str | int: ...
 ```
@@ -36,7 +36,7 @@ CLI surface fixing the seed and toggling the two behaviors independently.
 |  [03]   | `--randomly-dont-reset-seed`                     | reseed toggle | stops the per-test `random.seed()` reset while still shuffling order |
 |  [04]   | `-p no:randomly`                                 | disable       | unloads the plugin entirely — the mutmut invocation path             |
 
-```python signature
+```python
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

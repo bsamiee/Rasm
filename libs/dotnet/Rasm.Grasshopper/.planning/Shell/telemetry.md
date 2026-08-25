@@ -82,7 +82,7 @@ Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefi
 - Packages: BCL inbox, LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`Op`), `Rasm.Interaction` (`DispatchPulse`), `Rasm.Parametric` (`GaugedSpan`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/solution.md`/`Shell/session.md` receipt owners.
 - Growth: a new evidence case is one union case and one arm with its roster row; a new tag axis on an existing write is one `Tag` pair at the arm.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Compliance.Classification;

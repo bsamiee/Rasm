@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm/                      # Kernel below the .NET app strata: exact-arithmetic floor, operational geometry, interaction machinery
 ├── Domain/                # Kernel substrate floor every sibling composes
 │   ├── Rails.cs           # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor

@@ -24,7 +24,7 @@
 - Boundary: callback failures park on the lease's bounded fault cell; a host callback never discards a failed rail.
 - Growth: a pipeline phase is one row; a render state one `RenderAspect` case and one total adapter arm; a filter axis one criterion case.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Analysis;
 using Rasm.Domain;
@@ -401,7 +401,7 @@ internal static class Cases {
 - Law: release composes kernel `Custody.Release` — disable, `UnbindAll`, sprite disposal, every step running even when an earlier one refuses, failures aggregating through `Error.Many` — and the lease's one-shot is a stepped transition whose failed release re-arms while its verdict parks on the cell.
 - Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback seam.
 
-```csharp signature
+```csharp
 // --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class DisplayFaults {
     internal static readonly Rasm.Numerics.Dimension Cap = Rasm.Numerics.Dimension.Create(value: 256);
@@ -607,7 +607,7 @@ public static class ConduitHooks {
 - Exemption: the capsule's `Lock` stays — a `CustomDisplay` write cannot ride a CAS body, and the journal, the native display, and the release flag must move together — the one statement-shaped custody on this page, stated here.
 - Boundary: retained geometry never escapes the capsule; disposal composes the one `Custody` and re-arms only an incomplete release.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class ModeParticipation {

@@ -22,7 +22,7 @@ Every route folds its termination verdict, the objective, and the maximum constr
 - Faults: one `PROGRAM_SOLVE` fence row spans every route — the intent tag is a span fact, never a subject spelling — and `highspy` contributes no exception family to its `catch`, answering through status codes rather than raises.
 - Growth: a new route is one `ProgramIntent` case, one `Carried` arm, one `_PROGRAM_ROUTES` row, and one `_project` arm; a new backend for an existing route is one `direct` column value and one entry closure, the carrier family absorbing its result shape as one case; a new global solver is one `GlobalMethod` case and one `solve` arm, never a new `ProgramIntent` tag; a new facade result shape is one `Termination` member and one `adjudicate` arm; a new host code is one `_PROGRAM_STATUS` or `_HIGHS_STATUS` row.
 
-```python signature
+```python
 from collections.abc import Callable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, Self, assert_never

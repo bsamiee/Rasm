@@ -35,7 +35,7 @@ Recover the fallback from the route value and record the taken path in the resul
 - Law: collapse the built-in absolute, magnitude-squared, and scale-relative rank-tolerance thresholds into the one scale-derived `Scale` column `[03]` carries, never a fourth column re-deciding it; the element carrier is monomorphic `double`, and the `struct, IEquatable<T>, IFormattable` family excludes `INumber<T>`, so a generic-math route signature is decorative.
 - Reject: a `FactorRoute` `[Union]` whose cases each carry one identical `Matrix<double>` and whose `Operator =>` switch projects the same field from every arm — a uniform-payload tagged union the operand-as-argument plus a `Route` key is denser than; a parallel `FactorKind` `[SmartEnum]` beside it splitting the sparse capability grid from the dense route so a new route detonates in a different owner depending on density; a sixth sibling factory; a second route-keyed table per carrier-invariant behavior axis where one route column carries it.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class Route {
     public static readonly Route DefinitePsd     = new("<route-a>", Scale.OperatorRhs, rank1Edit: true,  inertia: false, reentrant: false, transposeSolve: false, static () => Spectral);
@@ -82,7 +82,7 @@ public static class DenseRoute {
 - Law: gate every operand on one all-finite predicate over the flat column-major `Values` span before factoring, with NaN-any and Inf-any early-exit variants when the typed rejection must name its cause.
 - Reject: a strided per-element loop; it forfeits the one-pass vectorized admission the column-major layout grants.
 
-```csharp conceptual
+```csharp
 public static class Admission
 {
     public static Fin<double[]> Admit(double[] flat) =>
@@ -130,7 +130,7 @@ public static class Admission
 - Law: refinement is a bounded fixpoint, not a `Schedule` — the iteration count is the budget cap, the step is idempotent past tolerance (a converged state re-emits itself), and `Range(0, cap).Fold` over the foldable `Range<int>` retires the `for` counter; `Schedule` is retry-or-repeat policy and `.Run()` yields delay `Duration`s, never a refinement loop driver.
 - Boundary: form the residual against the original operator in working precision, never against reconstructed factors — the factors carry exactly the rounding error the correction exists to cancel.
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class Scale {
     public static readonly Scale OperatorRhs = new(OperatorRhsForm);
@@ -208,7 +208,7 @@ public static class HeldRefinement
 - Boundary: serialize solves on a cached square factorization — its one constructor-allocated scratch is non-reentrant and a concurrent second solve corrupts both results with no guard — through a capsule owning the factorization or a pattern-keyed instance pool.
 - Boundary: size the rectangular kind's work buffer from the factorization's solution dimension, which exceeds the row count for structurally singular systems; sizing from the matrix shape is the off-by-augmentation fault.
 
-```csharp conceptual
+```csharp
 public sealed record FactoredOp(
     ISparseFactorization<double> Inner, Route Kind, CompressedColumnStorage<double> A,
     int[] Permutation, int Fill, int SolutionDim) {
@@ -236,7 +236,7 @@ public sealed record FactoredOp(
 - Law: route a non-symmetric change to reconstruction regardless of magnitude.
 - Boundary: batch more than one structural insertion through triplet accumulation plus a single re-conversion — each in-place insertion shifts the suffix at `O(nnz)` — and suppress the process-global exact-fit trim flag for the whole sequence, restoring it once.
 
-```csharp conceptual
+```csharp
 [Union]
 public abstract partial record Edit
 {
@@ -277,7 +277,7 @@ public static class StructuralEdit
 - Boundary: route divergence to a regularized retry or direct solve.
 - Boundary: route count-exhaustion to a direct solve seeded with the partial iterate.
 
-```csharp conceptual
+```csharp
 public static class Iterative
 {
     static Iterator<double> Stack(int dim, double tol, bool symmetric) =>
@@ -300,7 +300,7 @@ public static class Iterative
 }
 ```
 
-```csharp conceptual
+```csharp
 public static class Witness
 {
     public static Fin<double> Gate(string evidence, double residual, double cap) =>
@@ -327,7 +327,7 @@ public static class Witness
 - Law: carry `EigenValues` to interpret `EigenVectors`, since no parallel pairing array exists.
 - Boundary: census conjugate pairs by counting nonzero `D` super-diagonals — `n − 2·pairs` real eigenvalues — the cheapest spectral-type probe before any eigenvector work.
 
-```csharp conceptual
+```csharp
 public static class SchurDecode
 {
     public static Matrix<Complex> Modal(Matrix<double> packed, Vector<Complex> values) =>
@@ -389,7 +389,7 @@ public static class SchurDecode
 - Boundary: only an expected fault carries a stable numeric identity across the wire, so a caller owing a typed refusal mints one from its own family; an exceptional error crosses as opaque remote evidence and is NEVER reminted expected, since that publishes a domain code no owner issued.
 - Boundary: `HasCode` dispatch on a round-tripped error is sound where message-substring matching is not.
 
-```csharp conceptual
+```csharp
 [Union]
 public abstract partial record SolveTerminal
 {
@@ -425,7 +425,7 @@ public static class Terminal
 - Use: the `L1` value-to-ratio cancellation channel as the free conditioning diagnostic; the short overload discards it.
 - Boundary: record the terminated-at-budget case with its binding budget and residual; the three exhaustion mechanisms return best-so-far indistinguishable from convergence.
 
-```csharp conceptual
+```csharp
 public sealed record QuadratureEvidence(double Value, double Error, double L1Norm, double Ratio, int Skipped);
 
 public static class Quadrature
@@ -467,7 +467,7 @@ public static class Quadrature
 - Boundary: route B-orthonormalization through `chol.Factor.LU()`; `chol.Factor.Transpose()` yields the silently-wrong half-factor.
 - Boundary: mark the result inadmissible on excess imaginary residual; a real-symbol operator owes a machine-zero imaginary part, and excess diagnoses broken Hermitian symmetry.
 
-```csharp conceptual
+```csharp
 public readonly record struct WaveAxis(int Length, double Extent)
 {
     public double[] K() =>

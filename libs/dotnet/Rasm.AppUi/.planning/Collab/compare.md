@@ -26,7 +26,7 @@ Two READ-ONLY rails over historical cuts of one collaborative document, sharing 
   - Time enters as an `IClock` and nothing wider: this rail reads an `Instant` to stamp a revert receipt and nothing else, so an app-stratum clock policy record whose monotonic and provider legs no member here reads never crosses down.
   - Notebook replay remains a separate bit-identity concern.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CollabRevertReceipt(string Key, string FrontierDigest, int InverseOps, Instant At, CorrelationId Correlation);
 
@@ -160,7 +160,7 @@ flowchart LR
   - The legend swap ANSWERS: a toggle that lost its seat to a concurrent one and a toggle that landed are different facts, so the transition leaves and a discarded swap verdict — which reports success to both writers — has no spelling here.
   - The session is READ-ONLY over both cuts — a compare that committed would be a revert, which is `[02]-[TIME_TRAVEL]`'s inverse-intent rail and never this one.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

@@ -18,7 +18,7 @@ The carrier is LanguageExt `WriterT<FidelityLog, Fin, A>` — the evidence chann
 - Growth: a new bounded drop is one `FidelityDrop` row with one `Fidelity.Drop` at its lowering site; a new drop-capable lowering returns the carrier and needs no ledger of its own; a new census axis derives off `Facts`, never as a stored column.
 - Boundary: the ledger accumulates what merely HAPPENED and refuses nothing — a refusal is the `Fin` rail carrying a `Model/faults#FAULT_BAND` `BimFault`, and folding a drop into a fault payload (or a fault into the log) is the deleted form that made a recoverable narrowing indistinguishable from a malformed model; a drop row names a LAW, so an anchor-only fact with no row, or a row minted at a call site, is the deleted form; the log is read only through `Run` at the fold edge or `WriterT.listen` mid-fold, never through a struct field, because the carrier is delegate-backed; the `Fidelity` members PIN the three carrier type arguments a hundred call sites otherwise repeat, which is what separates them from a bare rename wrapper, and a second stored artifact beside `Facts` (the retired per-drop count record) is the mirror this derivation deletes.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Traits;

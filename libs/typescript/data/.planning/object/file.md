@@ -33,7 +33,7 @@ Gates bound hostile input before any native decode. Renditions are roster rows, 
 - Law: the intake owner is INGRESS — a caller-declared one admits through `object/store.md`'s owner namespace and its minted-below prefixes refuse, so a host file can never be attributed to a subject's custody scan, and an undeclared one takes the file plane's own row mint rather than an interpolated string a path bearing `:` re-splits.
 - Law: `HookVeto` rides the intake channel WHOLE and never folds into `ObjectFault` — the veto's `denied` class is caller-blamed and non-retryable, the only `ObjectFault` reason a policy refusal fits is `io`, and `io` classes `unavailable`, the arm the recovery rail re-drives; re-spelling hands an armed app policy to that retry loop, so intake states `ObjectFault | HookVeto` and each fault keeps its own family's class.
 
-```typescript signature
+```typescript
 import { Effect, Either, Option, Stream } from "effect"
 import { FileSystem, Path } from "@effect/platform"
 import { watch } from "chokidar"
@@ -135,7 +135,7 @@ const _egress = (key: Digest.Key<"content">, path: string) =>
 - Law: the `raw` row is the DEEP-STORE PRODUCER — `raw({ depth })` over `keyof DepthEnum` emits headerless pixels at `ushort`, `float`, or any other libvips band width, which is exactly the headerless posture `object/asset.md`'s `--raw --width --height` leg already classifies and had no producer for; seven of ten `_STORES` rows are deep, sharp encodes no EXR, and without this row the only deep route is an externally authored file that skips the derivative spine outright. `DepthEnum` is an INTERFACE keyed by band-width name (`char`..`ushort` beside `complex`/`dpcomplex`), so `keyof DepthEnum` is the sound spelling and a widened `string` admits a depth libvips refuses. `sharp.format.raw` reads like every other row in the boot roster proof and settles the FORMAT alone — `sharp.format` carries output capability per codec and no per-depth column exists — so the declared `keyof DepthEnum` column is the only depth gate that fires before a request and a band width this libvips build lacks refuses at the terminal as an `encode` fault.
 - Law: sharp is server-plane native — no browser or wasm path imports it; the browser consumes grants, never the codec.
 
-```typescript signature
+```typescript
 import sharp, { type SharpOptions } from "sharp"
 
 const _GATE = {
@@ -194,7 +194,7 @@ const _governed = (
 - Law: the band extent is the AUTO-ORIENTED extent — the ingress pins `autoOrient`, so a rotated source decodes transposed and `Metadata.width`/`height` still report the pre-orientation pair while `Metadata.autoOrient` reports what the pipeline holds; a constant band sized from the raw pair packs a transposed plane against its siblings and `joinChannel` refuses on the extent mismatch.
 - Law: the grant is minted only where the row's policy asks — `Derive.Receipt.grant` is `Option<ObjectStore.Grant>` folded on the row's own `grant` column, because a presign every derivative pays for is a signature nothing reads until a serving seam consumes one; the row that declares a policy gets its URL, every other row carries `Option.none()` and its key.
 
-```typescript signature
+```typescript
 import type {
   Channels, DepthEnum, FormatEnum, GifOptions, HeifOptions, Jp2Options, JpegOptions, JxlOptions, Metadata,
   OutputInfo, OverlayOptions, PngOptions, RawOptions, ResizeOptions, TiffOptions, TileOptions, WebpOptions,
@@ -296,7 +296,7 @@ declare namespace Derive {
 - Law: recovery derives from `Fault.Class`; invalid or malformed work quarantines, while unavailable boundary work re-drives.
 - Law: `Derive.pressure` SETS the plane's saturation gauges — one `sharp.counters()` read writes `derivativeQueued` from `queue` and `derivativeActive` from `process` through the mounted convention rows, so the maintenance and doctor surfaces sample one owner instead of re-projecting a raw record into series names of their own; the derivative fan-out is the process's native-saturation hotspot, and a producer-side spelling that returns the record leaves both declared rows minted nowhere while a board query already reads them.
 
-```typescript signature
+```typescript
 import { Array, Match, Metric, Record, Schema } from "effect"
 import { Convention, Fault } from "@rasm/core"
 import { GetObjectCommand } from "@aws-sdk/client-s3"

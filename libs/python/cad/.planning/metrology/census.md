@@ -26,7 +26,7 @@ Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its
 - Growth: a new emitted-artifact fact is one `GlbCensus` field filled inside `of`; no caller grows an argument and no second scene opens.
 - Boundary: this owner opens the emitted file alone. Writing those bytes belongs to `tessellation/emission#EMISSION`, gating them against the budget to `tessellation/mesh#MESH`, and publishing them to `service/spool#SPOOL`.
 
-```python signature
+```python
 from pathlib import Path
 from typing import Final
 

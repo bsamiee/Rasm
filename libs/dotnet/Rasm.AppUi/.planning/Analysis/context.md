@@ -26,7 +26,7 @@ Solar position is the kernel's: `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` `SolarS
   - Site geodesy is the `Rasm.Bim` `GeoReference` seam's, admitted here as a validated `SolarSite` value alone — this page runs no datum transform, no CRS reprojection, and no elevation lookup. What the mint DOES prove is that the site and the calendar policy name one clock: a site carries a fixed standard-meridian `Offset` and the calendar carries a full `DateTimeZone`, so a site georeferenced at +03:30 read under a zone whose standard offset is −05:00 would put the almanac's hours and the board's hours on two clocks that never reconcile.
   - Weather records are `Rasm.Compute Analysis/daylight`'s: this page carries the coordinate a study is read AT, never the climate data read there. A file reader on this page would be a second ingestion path the sealed receipts already own.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 
@@ -55,7 +55,7 @@ public abstract partial record ContextFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -124,7 +124,7 @@ public abstract partial record ContextEdit {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record AnalysisContext(
@@ -223,7 +223,7 @@ public sealed record ContextChange(AnalysisContext Context, EvidenceReceipt Evid
   - The channel holds a VALUE and drives no frame: it publishes the context, the timeline, and the range, and the composing surface scrubs. Owning a playhead here would put a second time authority beside the one the animation plane already carries.
   - The three intent keys and the TRACK key are four DISTINCT literals under one plane prefix. The track and the scrub intent previously shared one string under two names, which is a latent cross-registry hit: a command key and an animation track id are two address spaces, and one literal in both binds them by accident on the first registry that scans either.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ContextChannel {
@@ -324,7 +324,7 @@ flowchart LR
   - The tier is POLICY DATA, so a fifth tier is a row: `Pitch` scales the lattice, `Share` bounds what fraction of the device ceiling a tier may claim, and `Surrogate` states whether the run answers through the reduced model — three columns that make "rapid versus detailed" a recorded choice rather than a checkbox nobody can audit afterwards. `Surrogate` is the single honest bool on the row and its discriminant is the tier itself; a second bool here becomes a `CapabilitySet<TierTrait>` rather than a pair.
   - The lattice preview is the settled `FieldSites.Declared` vocabulary and it is bounded by ONE TOTAL POINT BUDGET rather than a per-axis cap, because a per-axis cap multiplies into its own cube — sixty-four per axis draws 262,144 points, which is exactly the frame cost the meter exists to protect. The walk strides the kernel's own linear index, so the preview is a uniform subsample of the WHOLE lattice under a fixed cost at any census and at any anisotropy, and it reaches the scene through the same declaration a streamline seed or a glyph site takes. A preview drawing its own dots would be a picture of a lattice rather than the lattice.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -351,7 +351,7 @@ public sealed partial class FidelityTier {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record BudgetMeter(

@@ -22,7 +22,7 @@ Container choice is DATA, not dispatch: a new container is one `RasterFormat` ro
 - Growth: a new mechanical failure is one typed leaf with the next justified `[FaultCase]` ordinal.
 - Boundary: `Detail` is an angle-bracketed `<kind:value>` discriminant owned by the producing site, never a sentence and never a foreign exception's text; documented return-contract refusals mint the uncaused direction leaf, documented codec throws mint the caused direction leaf, and an unknown package exception remains exact.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -72,7 +72,7 @@ public abstract partial record RasterFault : Fault {
 - Growth: a new container over an existing reader-writer is ONE `RasterFormat` row; a new block layout is one `BlockFormat` row naming its `TextureFormat` value; a new payload class is one `KtxPayload` row carrying its legality and scheme; a further ingest-only family the breadth native already links is one row at the roster's tail holding its `MagickFormat` value. Only a genuinely new reader-writer is a `RasterEngine` case, and adding one breaks the `[04]` dispatch totally rather than defaulting into a neighbour.
 - Boundary: a row declares CARRIAGE and never policy. Quality, block choice, payload class, composition arm, and the preview egress ride `EncodePolicy`, which the `set#TEXTURE_SET` channel row resolves — so the same container serves a colour channel at one payload and a normal channel at another without a second format row, and a caller never selects a block format the container cannot hold.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;
@@ -330,7 +330,7 @@ public sealed record EncodePolicy(
 - Growth: a container added as a `RasterFormat` row reaches decode and encode with zero edits here, because both fold over the row's engine. `RasterEngine` grows by one case, which adds one arm to each of the two `Switch` folds and breaks the generated dispatch totally until both land.
 - Boundary: this page owns CONTAINERS and never pixels. Transfer, primaries, association, range, and the decode ladder are `plane#PLANE_VOCABULARY`'s, resampling and derivation are `filter#PLANE_OP`'s, and channel semantics are `set#TEXTURE_CHANNEL`'s — so a codec never decides what a plane MEANS and never applies a colour transform a decode did not carry. Every EXR read on this page is a WHOLE-MEMORY read — `Decode` receives the complete payload and hands it to `LoadFromMemory` — so the container's incremental protocol never engages and no resumable state is reachable here. A non-success is terminal: its `Error` remains the caused provider refusal when present, otherwise `Status` is the uncaused discriminant, because this page has no byte window to feed back and no partial read to continue.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO;
 using System.Linq;
@@ -439,7 +439,7 @@ public static partial class RasterCodec {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 namespace Rasm.Materials.Raster;
 
@@ -758,7 +758,7 @@ internal readonly ref struct ProjectRows(Span<float> staging, int lanes) : IPlan
 - Growth: a new payload class is one `KtxPayload` row; a new block layout is one `BlockFormat` row. `KtxGate` keeps its own body unchanged by either, because both resolve their `TextureFormat` value off the row.
 - Boundary: the CLI arm's provisioning evidence is a PRESENCE and subcommand-roster probe, never a version string — the provisioned binaries report an absent revision for a version query because the packaging strips their source metadata, so a probe asserting version text fails against a correctly provisioned tool.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.IO;

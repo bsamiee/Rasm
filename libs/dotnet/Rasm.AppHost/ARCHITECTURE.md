@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.AppHost/
 ├── Runtime/             # Runtime spine — lifecycle, clocks, config, ports, determinism, orchestration
 │   ├── Profiles.cs      # ProfileSurface.Resolve seat; ResolvedProfile record, BootVariable set, and the FidelityScale fold

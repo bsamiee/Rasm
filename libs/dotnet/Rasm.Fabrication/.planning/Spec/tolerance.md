@@ -24,7 +24,7 @@ The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters,
 - Growth: a geometric characteristic is one row here naming its kernel counterpart; a zone kind is one row carrying its own second-dimension admission; a modifier is one row carrying its applicability.
 - Boundary: a row states legality alone — the frame that composes them, its datum system, and its settled projection live at `[03]`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -271,7 +271,7 @@ public sealed partial class QifKind {
 - Growth: a frame axis is one column on `FrameExtension`; a compartment is one `FrameCompartment` row.
 - Boundary: an achievable width enters as input-carried capability evidence and never as a reach into `Spec/capability`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct ZoneWidth {
@@ -546,7 +546,7 @@ public readonly partial struct CharacteristicId {
 - Growth: a fit letter, IT grade, diameter band, or general-tolerance class is one row; a tabular standard revision is seed data under the existing admission proof.
 - Boundary: deviations are published in micrometres and sizes read in millimetres, so the conversion rides the quantity owner at the one derivation site rather than a bare divisor per call.
 
-```csharp signature
+```csharp
 // --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FitMember {
@@ -923,7 +923,7 @@ public sealed partial class GeneralTolerance {
 - Boundary: roughness correspondence is not a strategy — `SurfaceParameter.RaRatio` is the declared datum, and a parameter without one refuses rather than inferring a ratio.
 - Growth: a surface parameter is one row naming its profile and its measure; a measure is one row carrying its unit and its admitted band.
 
-```csharp signature
+```csharp
 // --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SurfaceProfile {
@@ -1152,7 +1152,7 @@ public sealed partial class RaTarget {
 - Growth: a stackup method is one row carrying its combination delegate; a process distribution is one row carrying its quadrature weight and its seeded family.
 - Boundary: the chain declares terms and combines them; the shared-factor loadings, systematic offsets, and measured fits a simulation needs are `Spec/capability` contributors bound to these terms by key. The stamp is the REQUEST's, because `Receipt<TEvidence>` stamps where a receipt settles and a pure combination has no clock of its own to read.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ProcessDistribution {
@@ -1306,7 +1306,7 @@ public sealed record ChainEvidence(StackMethod Method, double WorstLowerMm, doub
 - Law: zone width crosses as its exact magnitude and a symbol never crosses at all — decimal presentation and glyph belong to the consuming drawing standard, where a producer-rounded string draws a sub-micron zone as zero.
 - Boundary: frame-box facts cross while model-space geometry does not — datum targets and basic dimensions need a view transform this wire has no view to apply, so each rides the geometry seam.
 
-```csharp signature
+```csharp
 // --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SpecAxis {

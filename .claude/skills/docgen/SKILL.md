@@ -183,11 +183,11 @@ Rewrite on merge, never concatenate, and repair by read-and-rewrite judgment —
 
 Run the gate on every touched durable doc before returning. Run `fix` for the deterministic repairs its `Repair` vocabulary owns — dry-run prints the plan, `--write` mutates — and resolve every judgment-tier `SKIP` row by hand. Its `Check` vocabulary owns the mechanical census alone; a defect class the gate does not carry is review work against the catalog.
 
-```bash template
+```bash
 uv run scripts/prose_gate.py [--json] <paths...>
 ```
 
-```bash template
+```bash
 uv run scripts/prose_gate.py fix [--write] <paths...>
 ```
 

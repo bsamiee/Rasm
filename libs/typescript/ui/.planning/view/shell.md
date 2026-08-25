@@ -27,7 +27,7 @@ Composition facts arrive settled: the pane engine's `Layout` value crosses as `{
 - Growth: a new region is one row; a new chrome arrangement is one roster value; a vertical dock is the `orientation` value; a new stance axis is one `Shell.Stance` field beside its stamp — never a sibling shell component.
 - Boundary: which regions exist, their sizes, and their sides are app composition data; the sheet mechanics are `view/overlay#SHEET_HOST`'s; the kvs mechanics and the seal grammar are `system/atom`'s.
 
-```typescript signature
+```typescript
 import { Array, Option, Record, Schema } from "effect"
 import type { ComponentProps } from "react"
 import { Group, Panel, Separator } from "react-resizable-panels"
@@ -131,7 +131,7 @@ const _stamped = (region: Shell.Region, stance: Shell.Stance): Record.ReadonlyRe
 - Growth: a new nav surface is one render of the same rows; a new item fact (a count, a presence dot) is one `Shell.Item` field every renderer inherits; a new hierarchy posture is one `_nests` member — never a sibling item type.
 - Boundary: href minting, route matching, and admission are the runtime navigation plane's, reached only through app composition; which items exist is app data; tooltip and menu hosting are `view/overlay`'s.
 
-```typescript signature
+```typescript
 import { Array, Option } from "effect"
 import type { LucideIcon } from "lucide-react"
 
@@ -199,7 +199,7 @@ const _crumbs = (trail: ReadonlyArray<Shell.Crumb>): Shell.Crumbs =>
 - Growth: a new scaffold is one `_AREAS` row; a new header arrangement is one recipe row; a new item slot is one `_SLOTS` member every consumer may render — never a sibling scaffold component.
 - Boundary: which scaffold a route uses is app data; skip-link and landmark grammar are `system/primitive`'s a11y charter; density is the token plane's one spacing multiplier.
 
-```typescript signature
+```typescript
 import { cva } from "class-variance-authority"
 
 const _AREAS = {
@@ -247,7 +247,7 @@ const _header = cva("grid gap-2 [grid-template-areas:var(--header-areas)]", {
 - Law: `run` drives the stance atom — each row's Effect writes `Shell.Stance` through the store (a nullary intent per the overlay law), so palette invocation, chord, and rail-button press are one write path and a replay cannot tell them apart.
 - Boundary: the `shell` scope member lands on `view/overlay#PALETTE`'s `_scopes` roster; the table, census, and arming law are that page's; the stance atom is `[02]`'s persisted parcel.
 
-```typescript signature
+```typescript
 import type { Effect } from "effect"
 import { PanelLeft, PanelRight } from "lucide-react"
 

@@ -33,7 +33,7 @@ Hook is this folder's registrar on core's one hook rail. Each plane contributes 
 |  [07]   | `rasm.ui.content.commit`  | commit settlement by bounded stage (`view/content`)                    | `observe`  | 16      |
 |  [08]   | `rasm.ui.canvas.solve`    | layout-solve admission accounting (`view/canvas`)                      | `observe`  | 32      |
 
-```typescript signature
+```typescript
 interface Points {
 }
 
@@ -62,7 +62,7 @@ declare namespace Hook {
 - Law: the runtime rows record is annotation-governed — `Hook.Rows` demands one runtime row per contributed point, so a plane that contributes a type row and forgets its composition row breaks the app root loudly at the mint.
 - Boundary: registration placement is the composition root's — this module exports the mint and never calls it; per-app scoping is the direct consequence of the mint living inside the app scope.
 
-```typescript signature
+```typescript
 import { type Identity, Tap } from "@rasm/core"
 import { Array, Effect, Either, Option, Record, Schema, type Scope, Stream } from "effect"
 
@@ -116,7 +116,7 @@ const _registry = (
 - Law: publishers fold refusal evidence off the verdict's own `veto` — this page carries no parallel refusal channel, and a transport boolean never stands in for arbitration evidence.
 - Law: the verdict is a value with three arms every publisher breaks on — `fanned` carries delivering arity and the point's census, `vetoed` the arbiter's refusal, `unrostered` a point no rail slot names.
 
-```typescript signature
+```typescript
 const _publish = <P extends Hook.Point>(
   registry: Hook.Registry,
   point: P,
@@ -137,7 +137,7 @@ const _publish = <P extends Hook.Point>(
 - Law: replay taps read history from the rail — a history capture or a probe board attaching mid-session drains the point's own retained window before live facts, so evidence and undo lanes share one source of truth and no owner replays state on demand.
 - Boundary: the atom bridge (`system/atom#LIVE_BRIDGE`) binds any row a component must render — an app-held `Subscribable` over a mounted observe seat — and the component never subscribes a channel directly.
 
-```typescript signature
+```typescript
 const _consulted = <P extends Hook.Point, E>(row: Hook.Row<P>, handler: Hook.Handler<P, E>): Tap.Handler<unknown, E> =>
   row.modality === "veto"
     ? Tap.Handler.veto({

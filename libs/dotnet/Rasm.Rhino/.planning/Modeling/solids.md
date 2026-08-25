@@ -27,7 +27,7 @@
 - Growth: a new evidence payload is one `BuildBody` case; a new custody modality is one `ModelGate` member; a new bench dimension is one `BenchEvidence` field; sibling pages add zero spine surface.
 - Packages: kernel `Domain/rails` (`Op`, `Fault`, `Fin`, `ValidityClaim`, `Custody`, `Op.Catch`/`Confirm`/`Need`), kernel `Domain/context` (`Context`, `Tolerance`), kernel `Parametric/projections` (`MonotonicTimeline`), `Rasm.Rhino.Document` (`GeometryHandle`, `Lease<T>`, `CrossingMode`, `GeometryCrossing`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Document/facts.md` (the ruled-plural `FactStream<TSlot, TBody>` sibling), RhinoCommon (`Rhino.Runtime.HostUtils`, `Rhino.Geometry` — `.api/api-rhinocommon-solids.md`, `.api/api-rhinocommon-geometry.md`), LanguageExt.Core (`Seq`, `FoldM`, `Traverse`, `Validation`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -461,7 +461,7 @@ internal static class ModelGate {
 - Growth: a new profile is one `FilletShape` case; a new primitive is one `SolidSeed` case; a new edit verb is one `SolidEdit` case; a new grant is one row on its owning vocabulary — the rail and every consumer read them with zero new surface.
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.FilletSurfaceSettings` `[01]` and its four factories `:84`, `Brep.CreateFilletSurface`/`CreateFilletSurfaceCurve` `:80-81`, `SurfaceFilletBase` section family, `Brep.CreateBoolean*`, `Brep.CreatePlanar*`, `Brep.CreatePipe`/`CreateThickPipe`, `Brep.CreateOffsetBrep`, `MatchSrfSettings`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Box`, `Cone`, `Cylinder`, `Torus`, `Sphere`, `ComponentIndex`, `Continuity`, `BlendType`, `RailType`, `PipeCapMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1004,7 +1004,7 @@ public sealed record MatchLaw(
 - Growth: a new host solid verb is one case with its arm; the spine, the receipt, and every consumer read it with zero new surface.
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — the `Brep` boolean, fillet, blend, offset, shell, pipe, join, merge, match, split, trim, and extrusion rosters `:44-160`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Extrusion`, `ComponentIndex`, `MeshType`, `ExtrudeCornerType`), kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/validation` (`CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`, `PairPosture`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SolidSlot {

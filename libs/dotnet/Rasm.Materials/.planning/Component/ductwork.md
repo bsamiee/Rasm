@@ -20,7 +20,7 @@ The page composes settled law without re-derivation: `SectionProfile.CircleHollo
 - Packages: Rasm.Domain (`Op`/`Context`), Rasm.Element (`MaterialId`, `EvidenceGrade`, the seam bag currencies), the parent `component#COMPONENT_OWNER`/`#COMPONENT_DETAIL`/`#COMPONENT_SEED` owners, the sibling `Attestation`/`SegmentRows`, the `ThreadRow.InchToMm` inch basis, Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[Union]` + `[UseDelegateFromConstructor]`), LanguageExt.Core, BCL (`ImmutableArray`). NO duct-schedule producer exists among admitted packages, so the schedules are PUBLISHED here under SEED_ROW_LAW with per-column provenance.
 - Growth: a new pressure class is one `DuctClass` row; a heavier or lighter sheet one `DuctGauge` row; a negative-pressure round schedule one roster beside `RoundRow` read by the same class delegates.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Globalization;
@@ -118,7 +118,7 @@ public static class DuctSchedule {
 - Output: the projector derives the takeoff rows from the solved hollow section through `QuantityRow.VolumePerLength`/`SurfaceAreaPerLength`/`LinearDensity` (`component#QUANTITY_ROW`) — no takeoff cell is stamped here.
 - Boundary: every stamped bag rides `DuctSchedule.Attested` because the defining gauge cell is primary-single even where the pressure-class ladder itself is corroborated — the weakest contributor rules the row, per the `pipework#PIPEWORK_SEED` law, and the flag reads off the schedule owner rather than being asserted at the bag. `DuctworkSeed.Capacity` is the typed refusal — a duct run's governing verdict is airside, owned by `Rasm.Compute`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

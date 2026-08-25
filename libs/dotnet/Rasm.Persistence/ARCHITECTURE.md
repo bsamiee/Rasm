@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Persistence/            # One system of record; every sub-domain a closed-case owner over the append substrate
 ├── Element/                 # ElementGraph store-load roundtrip over Marten
 │   ├── Graph.cs             # ModelId-keyed Marten stream; GraphCreated/Revised/Retired events share one GraphDelta.ReplayOnto fold

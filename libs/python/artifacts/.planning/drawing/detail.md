@@ -19,7 +19,7 @@ Block authoring and placement recover one identity from one registry. `DetailSou
 - Boundary: no dimension, annotation, or sheet-placement logic — `drawing/dimension#DIMENSION`, `drawing/annotate#ANNOTATE`, `composition/sheet#SHEET`. `ezdxf` owns the detail-library block store, `rustworkx` the cross-reference DAG, `drawsvg` the named-layer boundary/leader container, `drawing/symbol#SYMBOL` the bubble geometry, `drawing/regime#REGIME` the ISO layer/scale codes and `drawing/standard#STANDARD` the discipline-pen DXF lowering, `graphic/color/derive#DERIVE` the palette, `specification/classify#CODE` the classification tables, and `dotnet:Rasm.Bim` the IFC; identity minting is the runtime's.
 - Packages: `ezdxf` owns reusable blocks, `Importer.import_modelspace(target_layout=)`, `xref.attach`, and `recover.read` (the binary-stream loader salvaging non-conforming captures), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `rustworkx` owns `PyDAG`, cycle admission, traversal, stable ordering, reduction, and node-link wires; `drawsvg` owns structured SVG geometry; `expression` owns `Option`, `Block`, and `Map`; drawing owners supply layer, standard, symbol, scale, and palette vocabularies.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 import math

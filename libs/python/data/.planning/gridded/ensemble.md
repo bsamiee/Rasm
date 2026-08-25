@@ -19,7 +19,7 @@ The scenario axis is data twice over: `ScenarioKind` is the closed family-kind v
 - Growth: a new scenario family kind is one `ScenarioKind` member; a new group-wise operation is one `TreeOp` case plus one `apply` arm; a new reduction verb is one `ReduceVerb` literal; a new receipt fact is one entry on the family's fact dict; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.ENSEMBLE` in this module's one `RAISES` table; zero new surface.
 - Boundary: composes the CF owner and the Zarr surface, never a second labelled-array store, no scenario GENERATION (design-option authoring is compute's, prospective builds are `impact/scenario#SCENARIO`'s), no UQ replicate container — the `gridded/field#ENSEMBLE` `EnsembleCorpus` owns replicate-chunked response matrices, a disjoint concern sharing only the receipt family.
 
-```python signature
+```python
 from collections.abc import Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never

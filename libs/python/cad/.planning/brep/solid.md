@@ -21,7 +21,7 @@ Spatial seats lower through `placement#PLACEMENT` and every profile enters as th
 - Growth: a new primitive is one `PRIMITIVE` row beside one wire case; the arm fold reads the roster and grows no body of its own.
 - Boundary: `built` composes from `placement#ADMISSION`, so this owner mints no second builder-admission helper and no second validity probe beside it.
 
-```python signature
+```python
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -125,7 +125,7 @@ def primitive(held: Oneof, /) -> CadRail[TopoDS_Shape]:
 - Law: uniting abutting regions is the admitted form over compounding them, because a compound leaves coincident faces standing and the topology census then reports a face count no manifold body carries at all.
 - Boundary: fuzzy tolerance, parallel custody, and correspondence capture stay at `brep/boolean#BOOLEAN`; this owner elects operands and reads no history.
 
-```python signature
+```python
 def merged(shapes: Sequence[TopoDS_Shape], /) -> CadRail[TopoDS_Shape]:
     match shapes:
         case ():
@@ -152,7 +152,7 @@ def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /
 - Law: `IsDone` alone admits a pipe shell the status still grades as degenerate, so both gates hold before `MakeSolid` and the status ordinal rides the refusal coordinate.
 - Boundary: source-artifact arms, the kernel receipt at `metrology/properties#RECEIPT`, and the seal handoff belong to `brep/operation#ARMS`; every arm here reads parameters and a frame alone.
 
-```python signature
+```python
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Extrusion = Callable[[TopoDS_Face], CadRail[TopoDS_Shape]]
@@ -250,7 +250,7 @@ def swept(op: SweepOp, /) -> CadRail[TopoDS_Shape]:
 - Law: a loft section carries a region and a frame and never an offset, so the placed-face run at `profile#OFFSET` is not this owner's path into geometry and the loops lower directly.
 - Exemption: `BRepOffsetAPI_ThruSections` accumulates its wires by statement, the platform-forced seam every OCCT `Make*` owner carries.
 
-```python signature
+```python
 # --- [ROWS] -----------------------------------------------------------------------------
 
 _RULED: Final[frozendict[LoftStyle, bool]] = frozendict({LoftStyle.RULED: True, LoftStyle.SMOOTH: False})

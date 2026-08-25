@@ -18,7 +18,7 @@
 - Growth: a new patch type is one bundle-page `DeltaPatchType` token, its `DELTA_MATRIX` pairings, plus one `_delta_apply` arm; a new diff algorithm/codec/architecture/suffix-array constructor is one token on its bundle-page axis; a new tuning knob is one named `DeltaKnobs` field with `Delta.of(policy, payload, lane=lane)` unchanged — the in-place and firmware bands are the anticipatory collapse already absorbed, zero new verb beside `emit`/`packed`/`unpack`.
 - Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter or retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), no corpus modality (a corpus diff is N parent-bound nodes, never one), no receipt-case widening, no zero-`verified` receipt standing in for a failed proof (failure rides the rail, never a receipt field).
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from io import BytesIO
 from typing import Final

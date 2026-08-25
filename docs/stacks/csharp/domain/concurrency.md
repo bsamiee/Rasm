@@ -42,7 +42,7 @@ This table routes a throughput concern to its owning surface; the most specific 
 |  [05]   | control      | prioritized, `(priority, sequence)` order | parallel urgent/normal queues  |
 |  [06]   | firehose     | unbounded, single reader                  | fire-and-forget task per event |
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class LossClass {
     public static readonly LossClass EvictedOldest = new();
@@ -133,7 +133,7 @@ public static class Ranked {
 - Law: cpu and io degrees never share one number — cpu is sized by local cores, io by the remote system's capacity, and collapsing them couples a remote slowdown to local starvation.
 - Law: the budget is observable and the loop closes — limiter statistics and lane losses fold into periodic budget evidence, sustained queue growth over a window is the undersized-axis signal, and rebalancing is one record edit with zero call-site edits; a budget without its evidence fold is set once and wrong forever.
 
-```csharp conceptual
+```csharp
 public sealed record Budget(
     int Workers, int IoDegree, int Partitions, int Permits, int LaneCapacity, int Batch,
     TimeSpan Soft, TimeSpan Hard, TimeSpan Heartbeat, TimeSpan Skew, TimeSpan Staleness) {
@@ -196,7 +196,7 @@ public static class Budgeted {
 - Law: `AcquireAsync(weight)` prices heterogeneous work on one limiter — weight in cost units, cumulative queued weight counted against `QueueLimit`, the weight function a policy value beside the row — so one weighted limiter replaces N per-class limiters whose relative rates would otherwise be hand-derived.
 - Reject: a semaphore as limiter — queue order, eviction losses, typed metadata, and statistics deleted at once.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class LimitRow {
     public static readonly LimitRow Interactive = new("<row-a>", static key =>
@@ -261,7 +261,7 @@ public static class AdmissionGate {
 - Law: `DistinctUntilChanged` sits after coalescing — conflate time first, then suppress non-changes; keyed cadence composes as `GroupBy` then a per-group coalescing row, merged — per-key conflation with one declaration per axis.
 - Law: published state crossing scheduler hops is rank-guarded — every update carries the source's own monotone, a CAS admits only ascending ranks, and stale arrivals fold to recorded skips, the reorder gauge; the guard earns admission only at genuine multi-writer convergence — a single-source chain threads its rank through `Scan` and writes plainly.
 
-```csharp conceptual
+```csharp
 public static class DeliveryEdge {
     public static IObservable<(T Latest, int Dropped)> Conflate<T>(IObservable<T> source, TimeSpan cadence, IScheduler clock) =>
         source.Synchronize()
@@ -309,7 +309,7 @@ Four canonical seams cross the worlds — `OnNext` has no park position, so the 
 - Law: existing producer state joins the algebra by one operator — `ToObservableChangeSet` admits observable collections and plain value streams with expiry and size-limit knobs, never a hand-pumped copy — and `PopulateInto(destination)` is the staged-pipeline pump across ownership boundaries, returned as the disposable it is.
 - Law: significance gates at the earliest altitude that can decide — the `EditDiff` comparer suppresses no-op updates before they exist, `IgnoreUpdateWhen` stops them mid-chain, value-level distinct gates the egress edge — and gating late bills every intermediate operator for noise.
 
-```csharp conceptual
+```csharp
 public sealed record Entry(string Key, int Rank, bool Live);
 
 public sealed record Shaped(string Key, int Weight);
@@ -357,7 +357,7 @@ public static class LiveSet {
 - Law: the conservation identity is the audit — written = consumed + recorded loss per lane, summing to one process identity provable from declarations because drop loss and drain residue share the one loss stream; a lane that cannot close the identity from its declared evidence is misconfigured by construction.
 - Exemption: the cooperative flush loop and the forced residue sweep are the platform-forced `Task` seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct DrainFact(LaneRow Lane, int Consumed, int Residue, bool Forced, Option<Error> Abort) {
     public bool Closes(int written, Seq<LaneLoss> losses) =>
         written == Consumed + losses.Count(loss => loss.Lane == Lane);

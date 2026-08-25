@@ -22,7 +22,7 @@
 - Boundary: `Color4f` rides the union as the host color seam value — field payloads are content-parameter truth, and a domain color composes the kernel `PerceptualColor` owner at the consumer that treats it as color, never inside the parameter carrier.
 - Packages: `api-rhinocommon-rendercontent.md` (`FieldDictionary.Add`/`AddTextured`/`AddFilename`/`Set`, `Field`, `BoolField`/`IntField`/`FloatField`/`DoubleField`/`Color4fField`/`Vector2dField`/`Vector3dField`/`Point2dField`/`Point3dField`/`Point4dField`/`StringField`/`DateTimeField`/`GuidField`/`TransformField`/`ByteArrayField`/`NullField`); `api-rhinocommon-display.md` (`Color4f`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Point2d`, `Point3d`, `Point4d`, `Transform`); kernel `Domain/rails` (`Op.Catch`, `Op.InvalidInput`, `Op.Unsupported`); LanguageExt.Core (`Fin`, `HashMap`, `Arr`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Display;
@@ -269,7 +269,7 @@ public sealed partial class ContentCarrier {
 - Boundary: `FieldSpec`, `DynamicFields`, and `FieldBinding` carry NO in-package caller today. `Render/registry.md`'s render-editor shell is the declared consumer; until that page seats them the obligation is open, and an unseated owner at the next pass deletes rather than persisting unreached.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.BeginCreateDynamicFields`/`CreateDynamicField`/`EndCreateDynamicFields`, `FieldDictionary.Add`/`AddTextured`/`AddFilename`); kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Need`, `Op.Confirm`, `Op.OrDefault`), `Domain/validation` (`Op.AcceptValidated<TVO>`, `FactoryValidation`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[BoundaryAdapter]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldPresentation {
@@ -411,7 +411,7 @@ public static class DynamicFields {
 - Law: `FieldCensus.Of` traverses `FieldDictionary` once and projects value, texture bounds, usage grants, and visibility per field.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.BindParameterToField` both arities, `GetParameter`/`SetParameter`, `GetChildSlotParameter`/`SetChildSlotParameter`, `GetExtraRequirementParameter`/`SetExtraRequirementParameter`, `ExtraRequirementsSetContexts`, `ChildSlotNames.PhysicallyBased.FromTextureType`, `ParameterNames.PhysicallyBased.BRDF`, `RenderMaterial.BasicMaterialParameterNames`, `RenderMaterial.TextureTypeFromSlot`, `Field.TextureAmountMin`/`TextureAmountMax`/`UseTextureOn`/`UseTextureAmount`/`IsHiddenInAutoUI`); `api-rhinocommon-objects.md` (`TextureType`); kernel `Domain/rails` (`Op.AcceptText`, `Op.Catch`, `Op.OrDefault`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldBinding {

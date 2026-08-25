@@ -18,7 +18,7 @@ Every visual plane composes a typed per-plane binding: `composition/sheet#SHEET`
 - Growth: a new type role is one `ThemeRole` member plus one `TypeRow`; a new emphasis level one `Emphasis` member plus one hierarchy row; a new color token one `ColorRole` member plus one scheme seed; a new rendering posture one `ThemeMode` member plus one `ColorScheme`; a new per-plane axis one field on the owning `ChartBinding`/`DiagramBinding`/`TableBinding`; a new entourage asset one row; a new office style one `Theme` value — zero new surface anywhere else.
 - Boundary: no color math, compositing vocabulary, pen truth, shaping, layout, font transformation, chart/table/diagram rendering, or sheet geometry. Theme rows carry canonical substrate values and typed per-plane bindings; no `Map[str, str]`, nullable feature preset, receipt, identity, or rail survives inward.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import hashlib
 from dataclasses import asdict, dataclass

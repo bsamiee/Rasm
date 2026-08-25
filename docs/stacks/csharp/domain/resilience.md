@@ -46,7 +46,7 @@ This table routes a resilience concern to its owning surface; the most specific 
 - Use: `ConfigureTelemetry` once on the builder — the listener wraps the whole composite, every rejection carries `TelemetrySource` stamped at throw, and unconfigured telemetry skips event construction entirely.
 - Use: `SeverityProvider` to demote expected retry churn and promote breaker opens — severity `None` suppresses recording entirely — with `ResultFormatter`, `MeteringEnrichers`, and `TelemetryListeners` as observability projections that cannot mutate the outcome.
 
-```csharp conceptual
+```csharp
 public sealed record Reply(bool Faulted);
 
 [SmartEnum<string>]
@@ -109,7 +109,7 @@ public static class HopPipeline {
 - Law: `ResiliencePipeline<T>` execution constrains `TResult : T` — one typed pipeline serves an entire result hierarchy, with subtype executions riding the same strategy state.
 - Exemption: the outcome-capture kernel and the lease `try`/`finally` are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Rejection : Fault {
     private Rejection(string detail) => Detail = detail;
@@ -214,7 +214,7 @@ The retry-owner table is a decision procedure; rows overlap and first match wins
 - Law: the idempotency window equals the allotment — key lifetime derives from it and from no backoff parameter, the key mints above the owner and fixes in the context before the pipeline runs, because a key minted inside the retried callback changes per attempt and defeats itself; hedging widens the window to overlapping duplicates in flight.
 - Boundary: transport seams compose these pipelines into their handler chains; wire shapes and handler mechanics are transport law.
 
-```csharp conceptual
+```csharp
 public sealed record HopKey(string Hop, string Instance);
 
 public sealed record RouteWeight(Uri Endpoint, int Weight);
@@ -288,7 +288,7 @@ public sealed class HopTopology {
 - Law: `WeightedGroupSelectionMode.EveryAttempt` draws every group by weight while `InitialAttempt` draws only the first and walks the rest in declaration order — load-spread versus primary-with-failover from one enum value; the `ActionGenerator` slot is handler-owned and overwrites user assignment, so custom action generation is a custom handler declaration.
 - Exemption: the handler registration and options-mutation bodies are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public static class WireSeam {
     public static IServiceCollection Compose(IServiceCollection services, Seq<HopRow> topology) =>
         topology.Fold(services, static (svc, row) => row.Idempotent && row.Replayable ? Hedged(svc, row) : Standard(svc, row));
@@ -335,7 +335,7 @@ public static class WireSeam {
 - Law: `CircuitBreakerStateProvider` is single-attach — one provider per breaker, and a second pipeline reusing it throws at build — so health evidence reads are per-seat values by construction.
 - Boundary: the capability-level fold consuming these seats — rank derivation, hysteresis, retained-capability sets — is runtime law; this page owns the breaker-set evidence and the force/release anchor it binds to.
 
-```csharp conceptual
+```csharp
 public sealed record DarkGroup(string Name, CircuitBreakerManualControl Control) {
     public static DarkGroup Boot(string name, bool dark) => new(name, new CircuitBreakerManualControl(isIsolated: dark));
     public Task Force() => Control.IsolateAsync();
@@ -373,7 +373,7 @@ public static class GroupBinding {
 - Law: latency chaos delays through the builder's `TimeProvider` — deterministic under a fake clock — and observes cancellation before invoking the real callback, so injected latency surfaces as a cancelled outcome, never a hang.
 - Law: chaos events ride the same instruments and tag vocabulary as resilience events — injected-versus-organic ratios derive from `event.name` partitions with zero extra instrumentation, and drift between declared and observed injection rate detects chaos placed above short-circuiting strategies.
 
-```csharp conceptual
+```csharp
 public sealed record ChaosPosture(bool Enabled, double Rate) {
     public static readonly Atom<ChaosPosture> Cell = Atom(new ChaosPosture(Enabled: false, Rate: 0.02));
     public static readonly Atom<int> Injected = Atom(0);

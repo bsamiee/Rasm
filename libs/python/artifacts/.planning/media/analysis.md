@@ -17,7 +17,7 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 - Receipt: each analysis contributes one `ArtifactReceipt.Media` whose slot threads the PRE-RUN node key — the `core/receipt#RECEIPT` elision law — with the produced-bytes content address on the `address` band fact. Route identity rides `codec`, numeric output rides `facts`, and `AnalysisEvidence` keeps provider handles out of the receipt owner. Exact R128 facts exist only on the native route; substitute fact names expose their weaker measurement.
 - Growth: a structurally distinct measurement is one `AnalysisOp` case, `_NATIVE` row, admission arm, and `_analyzed` arm; another audio scalar is one `AudioMetric` member plus one `measured` row; a native dependency is one requirement-set edit; a substitute replaces one route body behind the same `AnalysisArm` value.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from enum import StrEnum

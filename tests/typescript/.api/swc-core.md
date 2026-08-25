@@ -25,7 +25,7 @@
 |  [07]   | `CallExpression`            | `{ callee: Super \| Import \| Expression }`   | `callee.type === 'Import'`: dynamic import at any depth   |
 |  [08]   | `StringLiteral`             | `{ type: 'StringLiteral', value: string }`    | the specifier text                                        |
 
-```ts signature
+```ts
 function parseSync(src: string, options?: ParseOptions): Module
 interface TsParserConfig { syntax: 'typescript'; tsx?: boolean; decorators?: boolean }
 interface Module extends Node, HasSpan, HasInterpreter { type: 'Module'; body: ModuleItem[] }

@@ -26,7 +26,7 @@ One locale law serves every AppUi surface. `LocaleRow` is the culture axis — t
 - Growth: a shipped language is one `LocaleRow` row with one satellite resx set; a script needing its own face election is one `ScriptTags` entry on an existing row; a locale whose CLDR plural rule the engine does not ship is one `Pluralizer` registered onto `MessageFormatter.CardinalPluralizers`/`OrdinalPluralizers` at the `[04]` formatter mint, never a dispatch arm; a script needing its own wrap rule is one `LocaleBreaks` oracle bound to the row's `Break` column; a per-row string-table override is one delegate column re-added the day a second source exists — today every row reads `LocaleStrings`, so the column would carry one value and is deleted.
 - Boundary: a row whose satellite resx is absent resolves the neutral strings through the inbox `ResourceManager` fallback while its flow, calendar, collation, script tags, and break oracle still apply. The failure modes sit OUTSIDE resolution: invariant globalization makes the culture constructor throw onto the `FormatRejected` rail, a build whose culture assignment drops a `qps` tag emits no satellite for the walk to reach, and a case-sensitive file system needs the directory in the tag's normalized casing. Plural and select grammar lives in the full ICU pattern stored at the resx base key, and `PluralRoute` remains the closed validation vocabulary for cardinal and ordinal pattern inventories rather than a locale column.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -106,7 +106,7 @@ public static class ExpansionBand {
 public readonly record struct ScriptTags(Script Script, Seq<string> Tags);
 ```
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public static class LocaleBreaks {
@@ -194,7 +194,7 @@ public sealed partial class LocaleRow {
 - Growth: a translatable surface is one resx key row per shipped locale row; a width-constrained surface is one `.short`/`.tiny` sibling row; a disambiguated surface is one `.<context>` sibling row; zero new surface.
 - Boundary: `GetResourceSet(culture, createIfNotExists: true, tryParents: false)` returns the row's OWN satellite and answers null where none exists, so coverage distinguishes an untranslated locale from a locale missing individual keys — the fallback-bearing `GetString` cannot make that distinction and is therefore not the conformance read; the returned `ResourceSet` is the manager's own cached instance, so no reader disposes it. Base resx values carry the complete ICU message, so exact `=n` branches, offsets, nested `select`, escaping, cardinal plural, and ordinal plural remain engine-owned and a call-site grammar branch is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -247,7 +247,7 @@ public readonly record struct MessagePattern(string Source, PluralRoute Route) {
 public sealed record CoverageReceipt(string Tag, int Expected, Seq<string> Missing, Instant At);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class LocaleStrings {
@@ -323,7 +323,7 @@ public static class LocaleConformance {
 - Growth: a new display grammar is one pattern value on `ResolvedLocale`; a new format edge is one expression-bodied projection on the same record; a new propagation destination is one `LocaleSeam` row — an arm table missing it refuses at `Of`, so no boot path can forget it; a new settings column is one `LocaleField` row carrying its own projection, admission, and landing.
 - Boundary: ambient process culture remains absent — `CultureInfo.CurrentCulture` has no reader on any AppUi surface, and every format edge takes the resolved culture explicitly; the zoned pattern is built against the INJECTED provider the runtime resolves its zone from, because a statically named provider would parse against a registry the runtime never resolved a zone from. The theme seam carries `Strings` rather than `Formats`: the theme locale selects the SHIPPED control-theme strings, not number and date rendering, so a product running English strings under German formats keeps English theme captions — and all three Semi theme styles resolve a Chinese locale for an unset value, so the seam is required at construction and re-applied on every swap. `Resolve`, `Plural`, and `Message` trap culture and formatter exceptions onto `Fin`, and `Quantity` routes through the measurement policy so a dimensioned value renders in its surface's elected unit at its declared precision — a bare scalar reaching a measured label has no spelling. Every registry-resolved settings literal derives through `LocaleStrings.Key`, so a call-site interpolation of a message key has no producer.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 
@@ -352,7 +352,7 @@ public abstract partial record LocaleFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -514,7 +514,7 @@ public sealed class LocaleValueFormatter(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -714,7 +714,7 @@ flowchart LR
 - Growth: an announced fact is one `AnnouncementPhrase` value naming an existing key; a broader machine-translation target is one `CaptionRoute` case landed with its named engine consumer; zero new surface.
 - Boundary: caption CAPTURE and band rendering belong to `Document/media` — the audio tap, the segmentation, the transcription engine, and the timed band live with the media owner, and this page owns only what language a caption is transcribed or translated INTO and how its text shapes and announces; media consumes `CaptionPolicy` and hands back transcript text, and a locale-side audio pipeline is the deleted form. `ShapedAnnotation` passes the row's `RunSpec` and its `TypographyRole` to typography, so annotation feature tags stay role-owned and one reconciled feature sequence reaches shaping.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -781,7 +781,7 @@ public readonly record struct ShapedAnnotation(string Text, RunSpec Spec, Typogr
 - Growth: a new mirrored surface is one `MirrorSubject` row naming an existing mechanism; a genuinely new mirroring mechanism is one `MirrorMechanism` row with its operation; zero new surface.
 - Boundary: the mechanism is stated ONCE per axis. Layout flow writes the subject's projected direction onto the surface ROOT and the platform cascade carries it to every descendant, so a per-control flow write is the deleted form. Icon mirroring belongs entirely to `assets#ICON_AXIS`: `IconRow.Mirror` carries the kernel `Option<MirrorAxis>` and the MECHANISM derives at the materializer from the resolved source — this page contributes `LocaleRow.Flow` alone, and a locale-side directional-asset roster would duplicate the axis column and strand the glyph-plane derivation at a second owner. Chrome zone remap and dock side both ride `Side`, so left and right swap while top and bottom hold. Order reversal applies to the RANK sequence a projection already produces, never to the underlying rows, so persistence and telemetry keep one canonical order and the mirror lives at presentation.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -843,7 +843,7 @@ public sealed partial class MirrorSubject {
 - Growth: a new readout concern is one `MeasureRole` row naming its two unit tokens, its precision, and an existing grammar; a new rendering grammar is one `MeasureGrammar` row carrying its own `Spell`; a new relative granularity is one `RelativeUnit` row with its period reader and message stem; a new fraction precision is one `FractionRung` row; zero new surface.
 - Boundary: `Render` takes `IQuantity` and refuses the wider `IFormattable`, because a bare `double` satisfies the wider face and makes a unit-blind label reachable by construction; a role whose family does not match the supplied quantity refuses on the rail rather than converting through an unrelated token. Tabular participation is DECLARED on the role and consumed by the type table — the digit-advance feature stays typography's. Temperature is affine, so its conversion crosses the package's own reprojection and never a scalar offset applied here. Angular rendering is degrees-minutes-seconds under the DMS grammar and decimal degrees under the decimal grammar, both from one `Angle` family. Elapsed spans are a MEASURED grammar owned by `ElapsedGrammar` over the resolved duration pattern — a `MeasureGrammar` row for them would be a second elapsed authority with no electing role, which is why none exists.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -969,7 +969,7 @@ public sealed partial class RelativeUnit {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public readonly record struct MeasurePolicy(UnitPosture Posture, int Denominator) {

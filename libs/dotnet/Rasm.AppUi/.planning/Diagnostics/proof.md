@@ -21,7 +21,7 @@ Rasm.AppUi proof derives capture, check, variant-density, benchmark, and replay 
 - Law: the custom-visual lane packs ONCE and replays twice — `CustomVisual.Record` seals the op list, `Materialize` replays it and HANDS THE SEALED RECORD BACK, `CustomVisual.RenderTwin` replays that same `VisualRecord`, and the caller owns the one release once both frames are sealed; a second layout run behind a parallel grab contract is the deleted duplicate; a wide-gamut custom tile hashes its float or ICC-tagged pixels and never a quantized sRGB shadow.
 - Boundary: the rhino lane rides the settled host viewport capture port; the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels` as its pixel projection, or evaluates a live visual onto a leased Skia canvas through `DrawingContextHelper.RenderAsync`; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce that fails under forced ticks has smuggled wall time — and the tick count is a row column; `Regression` compares `FrameHash` values from the settled receipt family and reads `DrawHash` only to NAME the divergence, so pixel equality stays the single pass condition; a per-spec screenshot helper and a second baseline store beside the blob lane are the rejected forms.
 
-```csharp signature
+```csharp
 
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -125,7 +125,7 @@ public static class Captures {
 - Boundary: the derivation engine deletes hand-written per-screen smoke specs — a bespoke screen spec beside the engine is the named defect; every lane rides the ONE shared session, because `StartNew` composes the assembly's `[AvaloniaTestApplication]` entry point and only DEFAULTS the headless WINDOWING subsystem where that entry point selected none — the entry point's own `UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })` and `UseSkia` selections both survive into the session the render-hash lanes draw under; a second render-proof `AppBuilder` beside that session is the rejected form and the `Shell/hosts#HOST_AXIS` one-setup guard throws process-wide on the second admission; host-bound screens exit the matrix structurally through the catalog's headless lane, never through skipped specs.
 - Law: `ScreenCatalogRow.Checks : CapabilitySet<ProofCheck>` is the applicability RELATION seated on the catalog row (`Shell/screens.md`), so which checks a screen admits reads off the roster a maintainer edits rather than off a predicate closure at every derivation call.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]
@@ -226,7 +226,7 @@ public static class ProofEngine {
 - Law: the frame-bench lane composes the AppHost benchmark rail as settled vocabulary — `BenchMeasurement.Of`, `BenchmarkReceipt.Of`, `BenchmarkGate.Gate`, and `GatePolicy.Canonical` mint and judge over the spine's own `HostFingerprint`, the held claim arrives as a value off the Persistence reuse index, and the judged receipt fans through the sink under the AppHost benchmark kind; the allocation delta reads a PROCESS-WIDE counter, so bench lanes run serially and no parallel proof cell overlaps the bracket.
 - Boundary: `VerifyZip`/`VerifyDirectory` pin support-bundle roster and tree completeness, and the extracted `manifest.json` carries the AppHost `SupportManifest.Entry` `ContentKey` column, so content identity pins in the same golden pair rather than a re-hash of the zip.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RenderHashLane(string Key, double Scale, VisualCodec.ColorPolicy Gamut, RenderPosture Posture, int Ticks) {
     public string Cell => $"{Key}@{Scale}x{Gamut.Key}~{Posture.Key}";
@@ -395,7 +395,7 @@ public static class ProofLaw {
 - Law: the three package rows record verdicts witnessed on the assay bind-and-invoke rail, and a verdict is never a version pin — the Skia pair is proven at the render boundary rather than pinned, because the framework's declared dependency is a FLOOR the loader satisfies with a higher major under a matching public key, so the guard is the re-run.
 - Boundary: the validation package is DROPPED estate-wide rather than pinned back — the manifest and registry drop lands at the package owners and its row records the verdict and the resolution; the dock skin carries zero keys in its own theme dictionaries and inherits every light/dark decision from the base Semi dictionaries, so the standing obligation is VARIANT COHERENCE — the two Semi packages move to one variant vocabulary together while the dock skin may lag the dock CONTROL package freely (`Shell/navigation#DOCK_LAYOUTS` states the same obligation at the consuming boundary).
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 public sealed record GoldenLane(string Lane, string Pins, string Writer);
 

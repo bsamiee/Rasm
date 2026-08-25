@@ -22,7 +22,7 @@
 - Output: `Option[BooleanProvenance]` — empty where no correspondence exists, so the receipt leaves its field absent instead of asserting a false negative.
 - Boundary: `Outcome` holds a native handle and stays a frozen dataclass rather than a wire struct; `service/lane` marshals what leaves the worker, and this pair never does.
 
-```python signature
+```python
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -115,7 +115,7 @@ class Outcome:
 - Law: durable selection dies with that collapse — every `Execute` returns a resealed body whose `TopExp` order the seal decides, so a `fillet` after a `fuse` cannot name the edge it wants.
 - Boundary: this owner reads history off a finished operator and never runs one; the operator, its operand partition, and its policy belong to `brep/boolean#BOOLEAN`.
 
-```python signature
+```python
 # --- [SERVICES] -------------------------------------------------------------------------
 
 

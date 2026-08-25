@@ -18,7 +18,7 @@ Descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` i
 - Stage: `emit` is a long fold and takes the optional lane tap: `CodegenStage` is its OWN closed roster — decode, topological order, render — beaten through the hub `StageTap`, so a bundle whose render dominates reports where it stands instead of two positions across the whole projection. One cross-fold phase ladder is the refused form.
 - Growth: a new wire primitive is one `FieldScalar` member and one `_SCALAR` row the three interpreters absorb with zero extra surface, landed beside the peer's `FieldScalar` row in the same change; a new composite shape is one `FieldDescriptor` case, one `FieldNode` union member, one `_fold` arm, and one constructor field on each interpreter, beside the peer's case and `[JsonDerivedType]` literal; a new inbound wire format re-mints the `WireFormat` axis as one member and one decoder row when a producer emits it; a new output artifact is one `EmitTarget` member and one fold arm; a new refusal is one `FaultRow` anchor in `RAISES` whose coordinates are its declared `slots`; a new fold position is one `CodegenStage` member whose ordinal derives.
 
-```python signature
+```python
 import ast
 import decimal
 import importlib

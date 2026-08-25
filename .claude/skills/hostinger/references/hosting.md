@@ -8,7 +8,7 @@ Website creation and every WordPress, plugin, theme, core, and Node.js build mut
 
 A website binds to a hosting `order_id`; the first site on a plan also picks a `datacenter_code` (`listAvailableDatacentersV1` returns the plan-filtered set), and every later site inherits it. Website domains never start with `www.`, and `createWebsiteV1` returns empty `200` before provisioning — poll `listWebsitesV1` until the domain lands.
 
-```bash template
+```bash
 curl -X POST "https://developers.hostinger.com/api/hosting/v1/websites" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "domain": "example.com", "order_id": 12345, "datacenter_code": "us-east-1" }'
@@ -20,7 +20,7 @@ Subdomains (`POST .../accounts/{username}/websites/{domain}/subdomains` with `su
 
 WordPress installs onto an existing website. `installWordPressV1` requires `domain`, `site_title`, and a `credentials` block; `overwrite` defaults false, so the async job fails when WordPress already occupies the path. An omitted `version` resolves to the latest core compatible with the vhost's PHP version.
 
-```bash template
+```bash
 curl -X POST "https://developers.hostinger.com/api/hosting/v1/accounts/{username}/wordpress/installations" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "domain": "example.com", "site_title": "My site", "language": "en_US", "directory": "public_html",
@@ -37,7 +37,7 @@ curl -X POST "https://developers.hostinger.com/api/hosting/v1/accounts/{username
 
 A database name and user carry the account prefix — `createAccountDatabaseV1` auto-adds `u123456789_` when omitted, so the stored name differs from the sent one, and every later call keys on the full name from `listAccountDatabasesV1`. A password change does not rewrite any `wp-config.php` or app config that references the database; that update is manual.
 
-```bash copy-safe
+```bash
 curl -X POST "https://developers.hostinger.com/api/hosting/v1/accounts/{username}/databases" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "name": "u123456789_app", "user": "u123456789_admin", "password": "...", "website_domain": "example.com" }'

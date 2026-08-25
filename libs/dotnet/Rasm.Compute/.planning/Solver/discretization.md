@@ -25,7 +25,7 @@ Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns ex
 - Boundary: the tessellation TOPOLOGY is the kernel's, not merely its sign path. `Tessellation.Build` owns incremental insertion, cavity flood, boundary re-fan, Morton locality order, constraint recovery, and typed exhaustion over exact `Implicit` carriage; a page-local Bowyer-Watson has none of them, re-derives its own super-simplex scaling, inserts in seed order, and reports an exhausted budget as a silently thin mesh. NAMED LOSS: the page's own paraboloid-lift in-circle argument and its centroid-constrained section law retire into the kernel owner that already states both — genuine edge recovery arrives with the kernel's `Conform` rows rather than as a rename of a dropped-triangle filter.
 - Exemption: the counting-sort index fill, the parity ray, the octree recursion, the wall-normal accumulation, and the layer offset ladder are MEASURED span kernels over pooled planes — each dies with the call that fills it and none crosses a page surface.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
@@ -632,7 +632,7 @@ public static class InflationCore {
 - Boundary: the edge-conforming closure is a graph walk over the edge→cell incidence, so each cell enters once. The rescan form re-walked every cell in the mesh per fixpoint round, costing rounds × cells edge tests on a mesh where the marked set is a fraction of a percent; a hand `Queue` plus a visited set beside it is the same walk spelled without its owner.
 - Boundary: order elevation reads the TARGET row's own node budget — corners, edge midpoints, quad-facet centres, interior — so `Tet4 → Tet10`, `Hex8 → Hex20`, `Hex20 → Hex27`, and `Wedge6 → Wedge18` all run one body and none carries a per-pair node count. A terminal row elevates to itself, which is how a fully-elevated mesh stays a mesh instead of failing.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]

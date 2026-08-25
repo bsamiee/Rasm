@@ -22,7 +22,7 @@
 - Growth: a new scheduling concern lands as one relation case, one `SetupAxis` row, one mounting case, or one evidence field; no delegate column or entrypoint appears beside the owner.
 - Boundary: scalar admission is `workholding#EVALUATION` `Fixtures`, so a `As(unit) >= 0 && double.IsFinite(...)` clause spelled at this page is the deleted form.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -406,7 +406,7 @@ public sealed record SetupEvidence(
 - Packages: `BidirectionalGraph<int, SetupEdge>` preserves isolated operations, typed edge payloads, source-first order, strongly connected cycle evidence, and transitive reduction; `HungarianAlgorithm` at `QuikGraph.Algorithms.Assignment` binds the rectangular `int[,]` cost matrix alone.
 - Boundary: ordinary infeasibility prunes one candidate as `Option.None`; malformed input, failed geometry, exhausted budget, withdrawn run, or boundary failure remains a typed `Fin` failure.
 
-```csharp signature
+```csharp
 // --- [SCHEDULE] ------------------------------------------------------------------------
 public sealed record SetupCatalog(
     FixtureSet Fixtures,
@@ -1094,7 +1094,7 @@ internal static partial class Setups {
 - Output: projection preserves the keyed schedule result, WCS, precedence, datum lineage, evidence, cost, and proven bound; raw search policy and evidence-provider capabilities remain ingress-only.
 - Boundary: posting receives WCS identity and values, probing receives datum and correction targets, and documentation receives immutable schedule evidence; no consumer derives setup order from array position alone.
 
-```csharp signature
+```csharp
 // --- [PROJECTION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SetupProjection {

@@ -22,7 +22,7 @@ The boundary-condition family owns constraint application on both sides: elimina
 - Boundary: the per-cell local block is a POOLED plane rented once per cell, and the strain-displacement rows write into a second pooled plane rather than a fresh `double[strain × cols]` per Gauss point — the assembly fold visits every Gauss point of every cell, so a per-point allocation is the dominant garbage of a building-order run.
 - Exemption: the `Bᵀ·D·B` accumulation, the strain-row scatter, the flow advection, and the mass terms are MEASURED span kernels over fixed small arities — each dies with the cell that fills it and none crosses a page surface.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class OperatorAssembly {
@@ -199,7 +199,7 @@ public static partial class OperatorAssembly {
 - Boundary: `Augment` and `AddAt` were two spellings of ONE operation — add into an existing CSR slot — one scanning the row linearly and one binary-searching the same sorted row. The binary search survives and the scan deletes; connectivity guarantees the slot exists for a pattern-preserving add, and a contact coupling no element makes enters through the re-ingest instead.
 - Boundary: contact contributes NOTHING to the linear system: it is nonlinear-only, enforced per residual evaluation through the constitutive `ContactEnforcement` owner with current kinematics and the step's committed multipliers — a precomputed constant force is the deleted form.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -410,7 +410,7 @@ public static partial class OperatorAssembly {
 - Boundary: the peak-relative inertia floor is the ONE scale-derived threshold the mass-singularity refusals and the condensation partition all read, so masslessness is a fraction of the model's own peak inertia and never an absolute kilogramme literal. The fraction exists only to absorb assembly round-off: the frame idealization writes EXACT zeros on its inertia-free rows, so nothing near the floor is a judgement call.
 - Exemption: the per-cell inertia scatter is a measured span kernel over the connectivity the mesh already carries.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class OperatorAssembly {

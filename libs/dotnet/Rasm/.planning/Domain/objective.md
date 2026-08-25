@@ -23,7 +23,7 @@ Every admission here proves against ONE roster shape — the declaration keyset 
 - Growth: a sixth indicator shape is one `Sli` case breaking every dispatch at compile time; a third breach polarity is one `LevelBreach` row every consumer reads through its column.
 - Boundary: series and partition keys stay `string` because the WIRE is the string key — a panel, an alert rule, and a query dialect all address a declared instrument by its published name, and the admission below resolves each against the roster rather than carrying a type no deploy plane can spell. Polymorphic metadata rides the family because every derived `AlertSpec` crosses to a deploy plane, where a base-typed write loses the case.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Text.Json.Serialization;
 using NodaTime;
@@ -112,7 +112,7 @@ public readonly record struct SloSample(long Breaching, long Total) : IValidityE
 - Growth: a tuned discipline is one `BurnRow` value edit every consumer re-derives; a new routing posture is one `AlertPosture` row and one `AlertSeverity` row naming it, joining both extremum walks by rank alone and reaching the deploy plane through the annotations `Specs` already writes.
 - Boundary: the severity roster is exactly `page` and `ticket` — the vocabulary the deploy plane's contact rows already key on — so the compile leg receives one dialect and a rank-ordered incident ladder rides the `Rank` and `Escalated` columns inside those two rows rather than a second severity type; delivery receivers, schedules, and escalation chains are deploy-plane configuration keyed by the severity row, never spec data. `AlertSpec` crosses a deploy plane whole, as data — annotation values are `string` because every one the derivation writes is a key or a name, and every declared severity column reaches that plane through them: the dwell rides `Hold`, the routing pair rides the posture annotations, so no column on the ladder is a policy nothing compiles.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Numerics;
@@ -320,7 +320,7 @@ public static class Slo {
 - Growth: a new visualization is one `PanelKind` row every pack reads through `For` without an edit; a new board row is one `PanelSpec` on the owning pack; a new pack-wide claim is one leg in the applicative product every sink inherits.
 - Boundary: panel rows name visualization alone and carry no query dialect, provider field, or datasource binding, and a break key outside the declared row's own dimensions refuses at pack admission where the descriptor is still editable rather than at the first empty render.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
@@ -397,7 +397,7 @@ public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective
 - Growth: a new gated lane is one `BenchClaim` row beside it and one argument at the composing root.
 - Boundary: `Rasm.AppHost`'s corpus gate reads `Rows` and resolves each claim to its benchmark verdict; judging, regression budgets, and host-evidence binding are the gate's — this ledger owns only the typed enumeration and the duplicate-refusal fold.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 

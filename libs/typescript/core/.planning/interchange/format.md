@@ -21,7 +21,7 @@
 - Law: a decode-only engine refuses encode with `ParseResult.Forbidden`.
 - Packages: `effect` (`Schema`, `ParseResult`, `Either`).
 
-```typescript signature
+```typescript
 import { Array, Effect, Either, Match, Option, ParseResult, Predicate, Record, Schema, SchemaAST, type Types } from "effect"
 
 const _Octets = Schema.Uint8ArrayFromSelf.pipe(
@@ -64,7 +64,7 @@ const _lifted = (
 - Law: the well-known bridges seat here once — `any` packs and unpacks against THIS registry, `struct` and `value` cross `Shape.Json` through the generated `Struct`/`Value` codecs — so a field the corpus declares as `Any`, `Struct`, or `Value` is read at one owner and never through a hand JSON walk.
 - Packages: `@bufbuild/protobuf`; `@bufbuild/protobuf/wire`; `@bufbuild/protobuf/wkt`; `@bufbuild/protovalidate`; `effect`; `../value/schema.ts`; the generated `@rasm\/contracts/rasm/contracts/<family>/v1/<file>_pb` modules.
 
-```typescript signature
+```typescript
 import {
   create,
   createRegistry,
@@ -376,7 +376,7 @@ const Proto: Proto.Shape = {
 - Law: `frame` decodes a payload with no owned schema, so a held frame renders where its family's schema already refused.
 - Packages: `@msgpack/msgpack` (`Decoder`, `Encoder`, `ExtData`, `ExtensionCodec`); `effect` (`Schema`); `../value/clock.ts` (`Clock.Hlc`).
 
-```typescript signature
+```typescript
 import { Decoder as PackDecoder, Encoder as PackEncoder, ExtData, ExtensionCodec } from "@msgpack/msgpack"
 import { Clock } from "../value/clock.ts"
 
@@ -426,7 +426,7 @@ const Pack: Pack.Shape = {
 - Law: paths reject prototype tokens, one structured clone isolates the input pair, and non-root ops delegate to `rfc6902`.
 - Law: root removal returns `Option.none`; the EntityEdit members arm requires a present successor.
 
-```typescript signature
+```typescript
 import { applyPatch } from "rfc6902"
 import { InvalidOperationError, MissingError, TestError } from "rfc6902/patch"
 import { Pointer, unescapeToken } from "rfc6902/pointer"
@@ -586,7 +586,7 @@ const Patch: Patch.Shape = {
 - Law: transport adapters frame NDJSON and feed complete records.
 - Packages: `effect` (`Schema`); `../value/schema.ts` (`Shape`).
 
-```typescript signature
+```typescript
 const _TEXT = { fatal: true } as const
 
 const _strict = new TextDecoder("utf-8", _TEXT)
@@ -617,7 +617,7 @@ const Json: {
 - Growth: a new encoding is one arm row; a consumer selecting on an arm name reads a column that already exists.
 - Boundary: `Wire` owns family-to-arm assignment and supplies the descriptor a proto render needs.
 
-```typescript signature
+```typescript
 const _arms = ["proto", "json", "msgpack"] as const
 
 const _armAbsences = ["descriptor"] as const
@@ -702,7 +702,7 @@ type _ArmAbsent = Arm.Absent
 - Boundary: JSON lands event trees and Protobuf lands generated wire messages; these raw codecs are inner engines, while carrier's `Event.format` is the public admitted event-wire surface.
 - Packages: `cloudevents` (`CloudEventV1`, `CONSTANTS`); `effect`; generated CloudEvents descriptors.
 
-```typescript signature
+```typescript
 import { CONSTANTS, type CloudEventV1 } from "cloudevents"
 
 const _EventTree = Schema.declare(

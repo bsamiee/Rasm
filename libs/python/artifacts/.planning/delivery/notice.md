@@ -24,7 +24,7 @@ Message-envelope algebra, format contract, protocol lowering, and delivery all s
 - Growth: a new announced fact is one projection row keyed by its own point id; a new routed scalar is one `TransmittalIssued` field the encoded payload carries; a new confidentiality spelling is one `_CLASSIFIED` row; a new binding, format, or content mode reaches this announcement untouched, because each is a row at the transport owner.
 - Boundary: fact-to-message-envelope projection only. This page mints no message-envelope algebra, format, header map, wire value, content mode, or broker client, imports no artifacts sibling above the floor, and fires no hook of its own — the runtime `Delivery` receipt carries what the fan answered. Rejected: a lowering callable on an enum member; a frozen struct holding a mutable event; a `frozendict[str, str]` extension passthrough minting spec-invalid names; an event-format media type substituted for the payload's `datacontenttype`; a caller-supplied `source`; a register row projection beside the content-keyed artifact it copies.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from typing import Final
 

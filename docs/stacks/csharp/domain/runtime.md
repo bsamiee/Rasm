@@ -30,7 +30,7 @@ This table routes a runtime concern to its owning surface; the most specific row
 - Boundary: CLI rows parse before boot — the `SetAction` action is the only site that composes and runs the host, args flow into `Args`, the action's cancellation token is the run token, and boot failure maps to an exit code only here, so help, version, completion, and parse faults never construct the runtime.
 - Exemption: the boot fold's builder-mutation body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public sealed class HandedLifetime : IHostLifetime {
     public Task WaitForStartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -91,7 +91,7 @@ public static class Boot {
 - Boundary: this section owns the descriptor algebra and `BuildFact`; the modality fold and the one host build that consumes the contribution are `[02]`'s, so the contribution crosses as one `Action<IServiceCollection>` into that build and the build's `Fin<IHost>` outcome crosses back into the fact, the decoration count carried over the callback edge on one boundary cell.
 - Exemption: the contribution's collection-mutation body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public interface IPort { int Probe(); }
 public interface IStage { int Order { get; } }
 public sealed class CorePort : IPort { public int Probe() => 1; }
@@ -157,7 +157,7 @@ public static class Root {
 - Law: reload facts carry derived evidence — content hash, the changed-key diff `GetDebugView` renders under its redacting value processor, the validation inventory — never raw values, so secrets stay out of the fact stream by construction.
 - Law: a unit of work captures the cell once at entry and threads the record, so mid-flight swaps land on the next unit; coherence wider than one cell marks two sections that were one record wrongly split, and the umbrella record over both is the repair.
 
-```csharp conceptual
+```csharp
 public sealed record LanePolicy(
     [property: Range(1, 64)] int Width = 8,
     [property: Required] string Label = "<value-a>",
@@ -206,7 +206,7 @@ public static class PolicyCell {
 - Law: the band walk is an async fold threading the ledger, never a mutable loop — `Task<Seq<BandFact>>` chains through `Task.Bind` so each band reduces the prior accumulation, and the terminal `Phase.Stopped` swap publishes the whole ledger in one transition; a `ledger.Add` re-assignment inside a `foreach` is the rejected imperative shape.
 - Boundary: `band.Settle` is one lane's cooperative-then-forced drain owned whole by the concurrency surface's participation law — the band walk composes it as an opaque callback and owns only the phase-cell advance, the `Share` budget split, and the last-band fact pin; the per-lane token mechanics and the serialisable drain permit are settled law, never re-derived here.
 
-```csharp conceptual
+```csharp
 public readonly record struct BandFact(string Name, TimeSpan Budget, TimeSpan Elapsed, bool Forced);
 public sealed record Band(string Name, double Share, Func<CancellationToken, Task> Settle);
 
@@ -264,7 +264,7 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
 - Law: transitions are asymmetric by design — escalation jumps straight to the worst probed rank, recovery steps to `Recovered` (the next-less-severe rank read from a memoized predecessor index `Zip`-derived once over the `Items` key order, never a per-call `OrderByDescending` nor `Get(Key - 1)` arithmetic a key gap breaks) only after the current rank's window of consecutive calm evaluations, the window a rank-row column rather than a contributor constant — so a probe escalates past intermediate ranks but recovery walks the ladder one rung per window, making a mid-ladder rank a recovery waypoint rather than a reachable candidate, and flapping cannot oscillate the system.
 - Law: provisioning is verification-only — a boot environment check is a contributor whose failure folds to an initial reduced rank with a fact, and the same contributor at cadence recovers the rank through ordinary hysteresis, so no second re-provisioning path exists.
 
-```csharp conceptual
+```csharp
 [SmartEnum<int>]
 public sealed partial class Rank {
     public static readonly Rank Full = new(0, window: 0, retained: ["<cap-a>", "<cap-b>", "<cap-c>"]);
@@ -330,7 +330,7 @@ public sealed class DegradationFold : IHealthCheckPublisher {
 - Law: `IResettable.TryReset` is the entire return protocol — cleanup and sanity gate as one predicate conjunction, false discards with provider-dispatched disposal, and repair-and-return-true launders bad state; pools track no leases, so a bracket-shaped lease owning the unconditional return is the only leak discipline.
 - Law: pool versus cache is one retention law over two value classes — identity-reused mutables under a reset predicate, value-reused immutables under validity predicates — and any correctness dependency on retention disqualifies both.
 
-```csharp conceptual
+```csharp
 public sealed record Snapshot(string Key, int Count);
 public sealed class ReadLane(HybridCache cache) {
     static readonly HybridCacheEntryOptions Populate = new() { Expiration = TimeSpan.FromMinutes(5), LocalCacheExpiration = TimeSpan.FromMinutes(1) };
@@ -380,7 +380,7 @@ public static class Lanes {
 - Law: calendar recurrence is vocabulary, never cadence — annual dates and period-stepped repeats resolve through calendar arithmetic in local space, and a cron row encoding them surrenders the leap and month-length semantics the calendar types own.
 - Boundary: cadence owns when — a max-concurrent knob on a row is the trespass signature, because throughput belongs to concurrency; in-operation backoff is effect-rail `Schedule` policy, and a cron expression inside a retry loop is the inverse trespass.
 
-```csharp conceptual
+```csharp
 public sealed record ClockSeam(TimeProvider Timer, IClock Calendar, DateTimeZone Home) {
     public ZonedClock Zoned => Calendar.InZone(Home);
     public string Stamp() => InstantPattern.ExtendedIso.Format(Calendar.GetCurrentInstant());

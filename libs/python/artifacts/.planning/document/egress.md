@@ -17,7 +17,7 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 - Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns, never an ENCRYPT arm; `msoffcrypto` the bidirectional Office confidentiality rail.
 - Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm, never a parallel license-keyed table; a new policy concern is one `Finishing` field carrying its own value object; a new receipt fact is one `FinishFact` field with its `combined` column, never a re-derivation off the bytes; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Iterator
 from enum import StrEnum

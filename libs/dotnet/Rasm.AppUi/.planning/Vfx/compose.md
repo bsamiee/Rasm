@@ -25,7 +25,7 @@ Rasm.AppUi composition is the effects plane's execution adapter onto the render 
 - Boundary: `SetElementChildVisual` throws across compositor instances, so the child a capsule attaches is minted from the acquired visual's OWN compositor and never from `Compositor.TryGetDefaultCompositor` — the process default is the right compositor in the single-window case and the wrong one exactly where an embedded host surface makes it matter. `Offset` and `Scale` are `Vector3D`, so the `Vector3D` keyframe animation drives them and the `Vector3` variant targets neither — one letter apart, both compiling, one silently binding nothing — which is the divergence the shape row closes by owning both the mint and the slot's declared row.
 - Boundary: setting a slot cancels a running animation on that same slot before the implicit lookup fires, and starting an animation overrides an assigned value until it stops, so explicit and implicit motion compete on last-write-wins and a surface driving one slot from both paths is the deleted form. `VisualUnavailable` declares `Retriability.Transient` because the condition it names ends when the element enters a render tree; the re-drive owner is the caller's own attach edge and NOT a kernel `RedrivePolicy` — a `Schedule` here would poll a tree membership the framework already raises an event for, and the transient discriminant is what lets a caller tell it from the terminal `CompositorMismatch` beside it.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -44,7 +44,7 @@ public abstract partial record ComposeFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -132,7 +132,7 @@ public sealed partial class ComposeSlot {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed record VisualMount(Visual Element, CompositionVisual Backing) {
@@ -173,7 +173,7 @@ public sealed record VisualMount(Visual Element, CompositionVisual Backing) {
 - Boundary: reduced motion COLLAPSES to a value assignment, never to a zero-duration animation — assigning the slot cancels any running animation on it and lands the terminal value in one write, where a zero-length run would arm the duration trap and still pay a composition batch. A stopped run must leave what a collapse assigns, so `Settle` is a declared constant rather than a per-track knob: a track that reversed or left the current value would let a reduced host and an unreduced host end on different state, and a reversed run is a fresh track over reversed frames.
 - Boundary: composition animation reaches transform, opacity, and colour alone — a material's blur radius, a shader's phase, and a wash's crossfade weight are not slots and animate by redrawing under `[05]-[CUSTOM_VISUAL_TICK]`, so a track naming an effect parameter is unspellable rather than a run that starts and moves nothing. Overshoot refusal is DELEGATED to `Theme/motion#MOTION_BINDING`'s axis-kind law and re-raised as `MotionFault.AxisRefused`: the condition already has a family, and a second case here would fork one diagnostic across two bands. Track admission accumulates through the `Validation` applicative, so a track that is empty AND unsorted AND shape-divergent names all three at once.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -214,7 +214,7 @@ public abstract partial record ComposeSpan {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
@@ -300,7 +300,7 @@ public readonly record struct ComposeReceipt(string Slot, string Resolved, RunOu
 - Boundary: the map is keyed on the SAME `ComposeSlot.Key` vocabulary the explicit path uses, which is the whole reason the vocabulary is closed — a key the object does not declare throws on the explicit path and silently registers a trigger that never fires on this one, and the second failure is invisible in every test that only asserts the value eventually arrives. A slot driven by both an explicit run and a trigger map resolves last-write-wins with no diagnostic, so a surface picks one path per slot: the implicit map wherever the value is assigned by layout, the explicit run wherever a command drives it.
 - Boundary: the plan's choreography names AXES and the transform axis covers six composition properties, so the slot set stays a caller argument — the admission proves MEMBERSHIP rather than deriving the set, because a plan naming `transform` does not decide whether a surface drives offset, scale, or both. `ImplicitAnimationCollection` implements the dictionary interface beside its UWP-shaped members, so the estate binds through the indexer and leaves `Insert`/`Lookup`/`HasKey`/`Size` to the shape they mirror.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ImplicitPlan {
@@ -360,7 +360,7 @@ public static class ImplicitPlan {
 - Boundary: the choice between this handler and the in-tree `material#SAMPLE_CONTRACT` host is decided by CADENCE, not preference — a treatment that must interleave with the control's own content rides the in-tree operation, while a treatment animating every frame independent of layout rides this handler, because a per-frame `InvalidateVisual` re-enters layout arbitration for the whole tree on the UI thread where `Invalidate(Rect)` here stays on the render thread. `GetRenderBounds` widens by the ground's own bleed off the same extent value the draw uses, so the dirty rect and the drawn rect cannot disagree within a frame.
 - Boundary: a frame's moving values are a PROJECTION of the run — the state carries one phase the frame update computed and `OnRender` draws `SurfaceTreatment.Draw` at it (phase is the draw's own argument, never a spec snapshot) — and the RAW elapsed fraction settles the tick while the curve shapes the value, so a curve that overshoots never moves the settling test. Overshoot itself is refused at the mint on the effect axis, which is what makes the curve read a total `UnitInterval` admission rather than a clamp that pays for an admission and discards it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -417,7 +417,7 @@ public sealed record VfxState(SurfaceTreatment Spec, PaintCatalog Paints, Option
 }
 ```
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public static class VfxPoints {

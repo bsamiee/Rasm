@@ -25,7 +25,7 @@ Every fallible read stays on the `Op`-keyed `Fin<T>` rail: Rhino-read material a
 - Growth: a new curve or surface probe is one row through an existing factory fold or a direct constructor where the read is scalar-shaped; a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rail, never a selector edit. Existing selector gates absorb every row extension.
 - Boundary: the selector family is the ONE row vocabulary for parameter-addressed evaluation behind the intent rail — a per-output `CurveEvaluator`/`SurfaceAnalyzer` method family is the named defect collapsed here, and a row exists where evaluation carries ROW SEMANTICS (validity gating, magnitude admission, moving-vs-sweep frame choice, the curvature-bundle lease, the derivative fold); `Domain/evaluation` is the shared derivation floor both these rows and the `Parametric/locate` arms compose — an arm re-implementing row semantics beside the rail is the killed duplicate, while a `Parametric/locate` surface arm reading the floor directly (point/frame/normal, UV pre-normalized) is lawful composition; `SurfaceProjection.ShapeOperator` is the sole second-fundamental-form assembly, `TensorField.Curvature` composes its `Project` and a second `k·d⊗d` assembly is the named double-owner defect; rows sample the LIVE Rhino object under the caller's lease (`Parametric/locate` inside `Lease<Curve>`/`Lease<Surface>`, `VectorIntent.CurveCase` holding the reference) and never duplicate, cache, or outlive their geometry; `SurfaceCurvature` is disposable host memory, so every bundle read runs inside `Lease<SurfaceCurvature>.Owned(...).Use(...)` and an escaping bundle is the named leak defect; the `Domain/evaluation` lattice owns closest-point/normal/frame over ARBITRARY geometry while these selectors own only parameter-addressed evaluation on an already-typed `Curve`/`Surface`, so routing a closest-point through a selector is the altitude violation.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -203,7 +203,7 @@ public readonly record struct SurfaceSpace {
 - Packages: RhinoCommon (`Quaternion.Lerp`/`Slerp`/`Rotation`/`Identity`/`GetRotation`/`Rotate`, `Transform.Rotation`, `Plane.EpsilonEquals`, `Vector3d.IsParallelTo`), Thinktecture.Runtime.Extensions, LanguageExt.Core, `Domain/validation` (`Admit.Plane`), `Domain/context` (`Context.For`), `Numerics/atoms` (`Direction`, `UnitInterval`, `VectorFrame.SeedPerpendicular`).
 - Boundary: `MotionInterpolation` starts where rotation requires a quaternion, vector arithmetic staying on the admitted direction algebra; a per-consumer slerp beside it is the killed duplicate.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -261,7 +261,7 @@ public sealed partial class MotionInterpolation {
 - Growth: a new easing family is one kernel folded through the existing polarities, and a value-parameterized curve rides `BezierEase`, never a vocabulary row; a new physical modality is one shape struct beside `SpringShape` and `DecayShape` carrying its own admission and its own closed forms, never a per-consumer integration loop.
 - Boundary: the two settling reads partition by QUESTION — `Settle` answers how long a run must be BOUND before it starts, and `SettleBand.Settles` (`[06]`) answers when a stepped drive may STOP. That projection stays conservative because an early answer truncates a tail, while the band test reads the state it already holds; a consumer computing a duration from a band test, or stepping until a projected duration expires, has crossed the two.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -613,7 +613,7 @@ public readonly record struct DecayShape(double Retention) : IValidityEvidence {
 - Law: both serialized cells are `Atom` transitions under `Cell.Step`, so the CAS verdict is a `Transition` a reader discriminates and the claimed ordinal reads off the COMMITTED post-state. NAMED LOSS: the two `object` monitors and the two `bool` exhaustion flags — a refused tail substitution and a saturated ordinal space read alike through one swallowed `InvalidResult`.
 - Boundary: `MonotonicTimeline` admits reference identity with the capturing timeline and provider before any `GetElapsedTime` call, and each beat sequence atomically admits only its current tail, so foreign timestamps and replayed predecessors never enter accepted timing evidence. `Stopwatch`, a raw `TimeProvider` mark/elapsed pair, and a host presentation timestamp below the app root are the deleted form; a display link's predicted present time stays at the boundary that reads it. A carrier fusing this timeline with a semantic NodaTime `IClock` is refused the same way — no joint invariant binds a wall instant to a monotonic mark (contrast `Domain/frame` `ReceiptSinkPort`, whose HLC binds wall and logical under a `SkewBound`), so a crossing needing both takes two parameters and each leg answers its own kernel owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -858,7 +858,7 @@ public sealed class MonotonicTimeline {
 - Growth: a new drive modality is one `MotionScript` case, one `MotionSample` case, and one arm in `Step` — every pacer inherits the beat, posture, terminal, and verdict semantics with no parallel sampling arm; a new accessibility axis is one `MotionConcession` row nothing else touches.
 - Boundary: a host clock lease, its run-loop attach and detach, its workspace observation, its transaction fence, and its invalidation request stay at the boundary — none has kernel meaning. Sets of drives are `Seq.Traverse` over this one `Step` followed by a filter on the verdict, so a set-shaped entry point is the arity twin this owner refuses. Device density is a display fact, not a motion fact: a backing scale pinned to a motion sample makes every non-motion consumer read it through a drive, so it stays with the display owner that reads it. Delegated interpolation is not motion algebra — a compositor-run animation projects `SpringShape` onto its own animation object and owns attachment alone.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;

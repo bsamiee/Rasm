@@ -19,7 +19,7 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 - Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new export target one `ManifestWrite` case; a new CF special type one `CFDtype` case; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.VIRTUAL` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
 - Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form. The `libs/contracts/manifest.json` `hdf5-exchange/field` raw-container case virtualizes through the existing `hdf` parser arm with zero new case — the parser names the scale-less axes phony, so the case's `python:data/gridded/virtual#MANIFEST` consumer actor already owns this byte-range leg.
 
-```python signature
+```python
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
@@ -387,7 +387,7 @@ def _native_file(
 - Growth: a new manifest shard axis is one `split_sizes` row narrowing `ManifestSplitCondition.PathMatches`/`NameMatches` against `ManifestSplitDimCondition.DimensionName`/`Axis`, and every other repository axis (caching budget, inline-chunk threshold, virtual-chunk containers, compression level) is a caller-supplied `RepositoryConfig` replacing the value whole with zero owner edits; a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; a new repository refusal law one `FaultRow` row beside `VERSION_APPLY`; zero new surface.
 - Boundary: an `open_or_create` binding no `config` is the deleted form — the repository then re-dials and times out under provider defaults while the manifest walk against the same bucket carries the branch envelope, and the ref table shards nowhere. The durable git-like version-control ENGINE — branch-merge policy, retention orchestration, the reuse ledger — stays C# Persistence; this page emits only the snapshot identity as receipt key and consumes icechunk's native diff/reclaim/rebase-at-commit, the `ConflictSolver` a commit-time policy value, never a merge engine. The `ReadAt` case named `label` avoids the `expression.tag()` reserved discriminant, never a `tag_`-suffix mangle.
 
-```python signature
+```python
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import icechunk as ic

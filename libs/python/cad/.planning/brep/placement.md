@@ -23,7 +23,7 @@
 - Growth: a new builder family is one admission arm keyed on its accessor, never a second `BRepCheck_Analyzer` call standing beside the probe this cluster owns.
 - Boundary: source resolution stays at `exchange/step#CODEC`, the arm roster at `brep/operation#ARMS`, and the seal handoff at `brep/operation#SPINE`; this owner grades one builder's verdict and nothing about the request that reached it.
 
-```python signature
+```python
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -62,7 +62,7 @@ def _edged(builder: BRepBuilderAPI_MakeEdge, coordinate: str, /) -> CadRail[Topo
 - Growth: a new spatial owner is one `Lowering` row naming its component read and its `gp` constructor; a second target for an existing owner is one more row over the same read.
 - Boundary: `placed` is the one arm in this cluster that touches topology, composing `built` at `[02]-[ADMISSION]`; every other arm mints geometry and reads no verdict.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -165,7 +165,7 @@ def placed(shape: TopoDS_Shape, op: TransformOp, /) -> CadRail[TopoDS_Shape]:
 - Growth: a new span shape is one `EdgeKind` member, one `_EDGE` row, and one `_interior` arm, with both wire families reaching it and neither call site edited.
 - Boundary: edges and wires mint here; face construction, hole repair, and offset areas belong to `profile#REGIONS`, and sub-topology selection to `brep/feature#SELECTION`.
 
-```python signature
+```python
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Lift[P] = Callable[[P], gp_Pnt]

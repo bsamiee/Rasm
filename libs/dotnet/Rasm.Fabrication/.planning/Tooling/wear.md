@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 - Growth: a mechanism is one `WearMechanism`; a consumable taxonomy item is one `ConsumableKind`; a maintenance disposition is one `MaintenanceAction` case beside one `MaintenanceDisposition` row answering the serviceability column.
 - Boundary: a consumer-side serviceability dispatch beside the disposition column, and a CLR case-type name serving as a wire or dimension key, are deleted forms.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
@@ -144,7 +144,7 @@ public sealed partial class MaintenanceDisposition {
 - Growth: a signal is one `ConditionSignal` case with one `SignalKind` row and its `WearChannel` projection rows.
 - Boundary: mechanism-to-signal guesswork, a hand-written channel-by-signal switch beside the generated channel vocabulary, value-kind-per-criterion sibling cases, zero-filled modality fields, and untyped edges are deleted forms.
 
-```csharp signature
+```csharp
 // --- [SIGNALS] -------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConditionSignal {
@@ -308,7 +308,7 @@ public abstract partial record WearCriterion {
 - Growth: process applicability is one registry row.
 - Boundary: applicability cases that differ only by which half is empty, hardcoded consumable limits, and uncovered-process empty success are deleted forms.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WearSample {
@@ -423,7 +423,7 @@ public sealed record ConsumableReading(ConsumableKey Key, ToolLifeBasis Basis, d
 - Growth: a phase axis is one column on `PhaseSchedule` and one arm in its `At` pattern.
 - Boundary: point-estimate scheduling, infinite fallback life, invented zero budgets, a line fitted to a resampled spline rather than the observations, and swallowed fit failures are deleted forms.
 
-```csharp signature
+```csharp
 // --- [FORECAST_MODELS] -----------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class TaylorModel {
@@ -776,7 +776,7 @@ public abstract partial record WearResult {
 - Packages: `Tooling/cuttingdata` `LinearFit` and `PowerLawFit`; `Rasm.Domain` `Stat<Scalar>`, `Scalar`, `MomentNormalizer`, and `Op` — the kernel's one moment owner; `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolWear`); MathNet.Numerics `Interpolate.CubicSplineMonotone` and `IInterpolation.Differentiate`.
 - Boundary: a current value taken outside the admitted rows, status-only spent inference, phase read from the limit fraction alone while the page claims trajectory classification, a mean-and-dispersion pair folded beside the kernel moment owner, and bare `Seq.Last` reads are deleted forms.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToolWear {
     private static readonly Op WearOp = Op.Of(name: "fabrication:tool-wear");

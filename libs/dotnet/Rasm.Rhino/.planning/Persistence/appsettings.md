@@ -23,7 +23,7 @@ Owner boundary against the settings tree is settled: `SettingsRoot.ApplicationCa
 - Growth: a new preference owner is one `AppState` case beside one `AppSettingsFamily` row; a new verb is one `FamilyVerb` row and one column.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[Union]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`, `Op.Catch`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/presets` (`PersistenceFault`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — the `GetCurrentState`/`GetDefaultState`/`UpdateFromState`/`RestoreDefaults` quartet on every state-carrying owner, `AppearanceSettings.GetDefaultState(bool darkMode)`, `SetToDarkMode`/`SetToLightMode`, `UsingDefaultDarkModeColors`/`UsingDefaultLightModeColors`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Rasm.Domain;
@@ -374,7 +374,7 @@ public sealed partial class AppTheme {
 - Growth: a new registry verb is one case on the owning edit union; a new general knob is one `GeneralConduct` case with its own two-row policy.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`); `Document/session` (`DocumentPath`), `Persistence/presets` (`PersistenceFault`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `GetPaintColor`/`SetPaintColor`/`DefaultPaintColor`, `GetWidgetColor`/`SetWidgetColor`/`DefaultWidgetColor`, `GeneralSettings.UseExtrusions`/`SplitCreasedSurfaces`, `CommandAlias`, `KeyboardShortcut`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `Mesh`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Rasm.Domain;
@@ -626,7 +626,7 @@ public abstract partial record AppAnswer {
 - Growth: a new operation is one case, one `Mutates` arm, and one dispatch arm; the seat and the mutation fold are untouched.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`, `Traverse`, `Validation`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Op.Side`, `Op.AcceptValidated`, `Op.AcceptText`, `Cell.Seat`, `Cell.Step`, `Transition`), `Domain/validation` (`CapabilitySet`); `Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), `Document/session` (`DocumentPath`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `CommandAliasList` roster, `ShortcutKeySettings` roster with `IsAcceptableKeyCombo`, `NeverRepeatList`, `FileSettings` path roster, `AppearanceSettings.InitialMainWindowPosition`, `CurvatureAnalysisSettings.CalculateCurvatureAutoRange`, `GeneralSettings.MouseSelectMode`/`MiddleMouseMode`/`UseExtrusions`/`SplitCreasedSurfaces`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Rasm.Domain;

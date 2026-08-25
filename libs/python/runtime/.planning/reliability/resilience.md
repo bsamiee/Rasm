@@ -23,7 +23,7 @@ One retry-policy table rules the whole branch: `RetryClass` is the single behavi
 - Growth: a new retry class is one `RetryClass` member with one `POLICY` row; a new provider family is one `_backoff` roster or one `Probe` on an existing row; a new re-offer route is one `Reoffer` case with one arm at the metered settle, the standing `assert_never` breaking every collapse that lacks it; a new narrowed alternative is one `rescope` pair on the row that refuses it; a new refusal this module raises is one `FaultRow` in `RAISES`, which the faults-owned `rostered` door seats into the ONE census so its posture and leg resolve.
 - Boundary: no retry around a pure transform — `stamina` rides only flaky external oracles through this table. Exported contract is branch-consumer law: the entry family and its `FaultRow` parameter, every `POLICY` row with its route column, the `Reoffer` vocabulary, and the `RetryClass` vocabulary; narrowing the `OCCT` target below the `BrokenWorkerInterpreter | BrokenWorkerProcess` pair is a cross-folder break.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -661,7 +661,7 @@ RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetryReceiptHook
 - Growth: a new guarded dependency class is one `CIRCUIT` row and no envelope edit, and the row is what turns that class's unkeyed dials into refusals — a loud break at the call rather than a silent fan of callers sharing one arc; a new state is one `BreakerState` member with its arm on the one `state` fold, the standing `assert_never` breaking every arm that lacks it; a new transition dimension is one key on the emitted row; a new breaker refusal is one `FaultRow` beside `CIRCUIT_OPEN`.
 - Boundary: failure windows over a named dependency only. Mints no retry curve, no rate, no receipt semantics, and no health verdict — the serve health flip stays `execution/workers#POOL`'s, and an arc is per-process state a peer never observes.
 
-```python signature
+```python
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
@@ -771,7 +771,7 @@ class Breaker:
 - Growth: a new rate-governed class is one `RATES` row and no call-site edit; a new peer directive is one `Probe` answering `throttled` on the class that decoded it, never a second `directed` call site; a new metered arm is one call to the same `delay`.
 - Boundary: admission pacing over a named destination only. Mints no retry curve, no failure window, no queue, and no receipt semantics — a rate gate delays a caller and never sheds one.
 
-```python signature
+```python
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

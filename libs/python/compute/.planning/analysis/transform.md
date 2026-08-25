@@ -15,7 +15,7 @@ Operands admit through `numerics/array#PAYLOAD` for the finite gate and the oper
 - Output: `TransformEvidence` parameterizes the result per case — `spectrum`, `compaction`, `envelope`, `roundtrip` — and the `Trip.ROUNDTRIP` pass folds its residual into the shared `roundtrip` case rather than minting a per-transform outcome shape; every `facts()` slot stays a native scalar so the receipt layer aggregates and compares.
 - Growth: a new transform is one `TransformOp` case with its `identity_parts` arm — the `Hankel` row is exactly this, one case folding into the existing `spectrum`/`roundtrip` evidence with zero new outcome shape; a new spectral basis is one `FourierBasis` row with its `FOURIER_ROUTES` triple; an n-D spectrum is a non-empty `axes` value on the existing row; a new trigonometric variant is one `TrigKind` row or `variant` value; a new band readout is one `SpectralReadout` row; a new outcome is one `TransformEvidence` case with its `facts()` arm.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import cache

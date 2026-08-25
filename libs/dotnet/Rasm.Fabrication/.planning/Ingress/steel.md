@@ -22,7 +22,7 @@
 - Growth: a readable block lands as one `SteelFeature` case, one `SteelBlockKind` row, and one Mapperly declaration; a parser fault lands as one `SteelParseKind` row; a profile or face convention lands as one `SteelProfileCode` or `SteelFace` row; a new source or view lands as one generated case or row.
 - Boundary: `DstvBend` remains a typed `KA` rejection until its complete payload is publicly readable; face frames derive wholly from the admitted header so a convention correction is one row; an unlisted DSTV code refuses through the vocabulary's own generated `TryGet` lifted to `Option`, on the rail at the line that read it. The documented `ParseException` hierarchy and BCL file availability lower to caused fabrication cases; every other throw retains the exact exceptional `Error`. `ToSvg()` remains outside fabrication projection.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO;
 using System.Text;
@@ -500,7 +500,7 @@ internal static partial class DstvMap {
 - Exemption: `Corner` and `Rounded` are the named contour statement kernel — the tangent construction IS the fillet law, and each guard names the geometric condition it refuses.
 - Boundary: path cancellation remains source data; one `Fault` mint floors every locus at the `ST` line so `SourceKind.Steel` admits it, and every unreadable block fails with its block key and one-based line.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SteelImport {
     private const int HeaderLine = 1;
@@ -727,7 +727,7 @@ public static class SteelImport {
 - Growth: a new egress is one `SteelView` row carrying its delegate and one `SteelProjection` case.
 - Boundary: projection returns settled evidence alone and opens no writer; NC1 emission is `Posting/dialect` work over the same `DstvMap` table this page owns.
 
-```csharp signature
+```csharp
 // --- [PROJECTION_EGRESS] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SteelProjection {

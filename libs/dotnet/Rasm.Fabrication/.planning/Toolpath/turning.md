@@ -49,7 +49,7 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 - Packages: `Thinktecture.Runtime.Extensions` owns generated closed families; `LanguageExt.Core` owns accumulated admission and traversal; `System.Numerics.Tensors` owns batch finiteness; `Geometry2D/algebra.md` owns the material-region clip and `Geometry2D/arcs.md` the residual biarc recovery; `ToolAssembly.Snapshot` supplies provider-detached insert width and lead angle through `ToolMeasure`; `UnitsNet` types every admitted policy magnitude and the `CutIntent` load boundary; `Rasm.Domain` `ToleranceLane` supplies the chord and arc gates off the profile's own `Context`; `Rasm.Solving` `FitPolicy.Of` admits the spline fit against that same context under this page's `Op`.
 - Boundary: `Turning` owns process geometry and semantic directives; posting admits no typed `TurnProgram` counterpart and reads the lowered `MotionDirective` stream alone.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using LanguageExt;

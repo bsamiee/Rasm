@@ -18,7 +18,7 @@
 - Growth: a new single-blob algorithm is one bundle-page `CompressionAlgo`/`CodecProfile`/`ALGO_OF`/`DEFAULT_PROFILE` row, one `pack` arm, one frame decoder, and one `recover` arm; a new tuning knob is one field on the owning bundle-page knob-struct; a new bounded knob value is one `Literal` token plus one arm-scope dispatch row — zero new verb beside `emit`/`packed`/`unpack`.
 - Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter (the kernel's trait row owns worker-death retry), no receipt-case widening (the flat `Bundle` case carries every codec), no key-over-output mint (`ContentIdentity.key(blob)` as the node key is the deleted form — the output address is lane-admission evidence only), no streaming ingress (payloads are already-emitted bytes; the store crosses at the content-keyed wire). Declined as architecturally incompatible: `FORMAT_ZSTD1_MAGICLESS` (no magic to delimit, breaking the bomb-guarded walk), `multi_decompress_to_buffer` on recovery (materializes every frame, breaking the bounded `_walked` anamorphism), the `lz4.block dict=` primer (the many-small-similar concern is `trained`'s zstd `FULLDICT` ownership), and `zlib_ng.crc32_combine` (the threaded gzip writer recombines its own block trailer internally; a codec-side re-combination re-derives what the writer already owns).
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from io import BytesIO

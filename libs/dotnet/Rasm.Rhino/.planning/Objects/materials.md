@@ -19,7 +19,7 @@ Object render support belongs to `Rasm.Rhino.Objects`. `MaterialScope` discrimin
 - Law: `RenderMeshPolicy` is the RENDER-MESH parameter encoding and carries no meshing STRATEGY. `Rasm.Compute` `Solver/discretization`'s `MeshPolicy` names a finite-element meshing strategy, so the host-boundary one carries the qualifier its concept already had.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[MapProperty]`, `[UserMapping]`, `RequiredMappingStrategy.Target`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `RhinoObject.GetMaterial`/`GetRenderMaterial`, `MeshType`, `GetRenderMeshParameters`, `SetRenderMeshParameters`); RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters.FromEncodedString`/`ToEncodedString`); `Document/session.md` (`DraftFault`); `Document/tables.md` (`ResourceId`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Commands;
@@ -349,7 +349,7 @@ public static partial class MaterialMap {
 - Growth: a new render-support read is one static factory whose return type names its own answer.
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `Traverse`); Thinktecture.Runtime.Extensions (`[SmartEnum<bool>]`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `MeshCount`, `GetMeshes`, `IsMeshable`, `GetTextureChannels`, `GetTextureMapping`, `GetCustomRenderMeshParameter`, `RhinoObject.MeshObjects`); `Objects/state.md` (`ObjectPiece.Paired`, `ObjectPiece.Acquire`, `ObjectPiece.Release`); kernel `Domain/rails` (`Lease<T>`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class MeshFallback {
@@ -495,7 +495,7 @@ public static class MaterialAsk {
 - Growth: a new render-support mutation is one edit case with its demand set, one `MaterialSlot` row, and one `MaterialBody` case; the spine and the stream read it with zero new surface.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[SmartEnum<int>]`, `[ComplexValueObject]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `ForAll`); RhinoCommon objects (`SetTextureMapping`, `CreateMeshes`, `DestroyMeshes`, `SetRenderMeshParameters`, `SetCustomRenderMeshParameter`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

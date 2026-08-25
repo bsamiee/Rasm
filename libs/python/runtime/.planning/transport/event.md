@@ -25,7 +25,7 @@ Specification law owns every row and `cloudevents` accelerates it: `core.v1.even
 - Growth: a new capability subject is one `DOMAINS` row at the metrics owner, reaching this grammar untouched; a new fact under a standing subject is a `<fact>` value and no declaration at all; a broken event semantic is one fresh `<fact>` spelling, independent of any payload-schema URI move.
 - Boundary: attribute grammar only — no transport header spelling, no filter dialect, no subscription. Rejected: a literal `BoundaryFault(...)` construction beside a rostered anchor; a hand-formatted `f"rasm.{...}"` type string beside this owner; a bare-name sequence pattern standing in for a stem comparison; a segment admitted by the mint that the grammar refuses; an event-local capability-segment roster; a `subject` spelling that is not `ContentKey.project("wire")`; a content digest in `id`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from datetime import datetime
@@ -150,7 +150,7 @@ def stamped(produced: datetime, arrived: datetime, /) -> RuntimeRail[float]:
 - Growth: a new extension is one proto field on `rasm.contracts.event.Extensions` plus regeneration — its codec derives off its field kind and both projections stand untouched; a new carried kind is one `_codec` arm; a new required attribute is a specification move, not a branch one.
 - Boundary: attribute algebra and its generated roster only. Composes — never re-mints — the `reliability/faults#FAULT` fences, the `execution/admission#CONTEXT` `Correlation` fold, and `evidence/identity#IDENTITY`'s key render. Rejected: the whole `cloudevents.v1` tree; a `frozendict[str, str]` extension bag; a msgspec struct restating the generated `Extensions`; a local payload wrapper around generated `Message`; a hand extension-name roster beside the descriptor; a caller-retained attribute mapping handed to the constructor; `str(error)` standing in for the aggregating map; a second propagator call site beside the admission fold; a slot whose type the pinned wire spelling cannot rebuild.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from datetime import datetime
@@ -542,7 +542,7 @@ def creation(extensions: Extensions) -> Correlation:
 - Growth: a new singular format is one instance row; a standardized batch form adds one `BatchCodec` value on that row; a new extension is one corpus field and regeneration. A publisher schema changes at `libs/contracts/vendor`, then Assay projects exact bytes into the `rasm.contracts` import root; this owner changes only when the published encoding semantics change.
 - Boundary: event-format serialization and profile admission only. Rejected: a registry frame around the CloudEvents Avro envelope; a hand AVSC constant; a tests/ asset read at runtime; an identity compression port; version-factory fallthrough; settlement inside decode; a batch media type with no publisher format.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass

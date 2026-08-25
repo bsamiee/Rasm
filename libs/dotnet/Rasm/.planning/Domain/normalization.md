@@ -21,7 +21,7 @@
 - Boundary: `ByObjectType` is the sole `Rhino.DocObjects.ObjectType` conversion; `Capability` answers type admission, `OpAcceptance` value validity, and `Requirement` readiness.
 - Packages: Thinktecture.Runtime.Extensions carries the row vocabularies and their delegate columns; BCL frozen collections carry the derived indexes; `Domain/validation` carries `ICapability`/`CapabilitySet`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -226,7 +226,7 @@ public partial record CurveForm(bool IsClosed) {
 - Growth: a geometry kind lands in `Kind` and the relevant form lattice, an analytic primitive as one `AnalyticForm` row carrying both directions, a projection source in `TopologyProjection` with its validity law.
 - Boundary: `GeometryRequest` stays in `Analysis/query`, evaluation and sampling in `Domain/evaluation`, and readiness in `Domain/validation`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using Generator.Equals;

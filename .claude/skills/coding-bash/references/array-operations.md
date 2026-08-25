@@ -15,7 +15,7 @@ Set algebra via associative arrays, structural transforms via bulk expansion, hi
 
 Build a set from one array and probe from the other instead of nested iteration. Case-insensitive sets: key via `${item,,}` in `_to_set` — propagates uniformly to all downstream operations.
 
-```bash conceptual
+```bash
 # Indexed-array set primitives: build set, probe from other
 _to_set() { local -n _src=$1 _dst=$2; local item; for item in "${_src[@]}"; do _dst["${item}"]=1; done; }
 _union() {
@@ -53,7 +53,7 @@ declare -a drift=(); _diff expected deployed drift
 
 Set algebra on associative arrays — keys as elements, values irrelevant for pure set ops.
 
-```bash conceptual
+```bash
 # Compact set primitives — O(n) per operation
 set_intersect() {
     local -n _r=$1 _a=$2 _b=$3
@@ -107,7 +107,7 @@ Nameref pitfalls: avoid `local -n _r=$1` where caller passes `_r` (circular ref)
 
 ## [02]-[STRUCTURAL_TRANSFORMS]
 
-```bash conceptual
+```bash
 # Bulk prefix/suffix — O(n) in expansion engine, zero loops
 # Raw expansion demo (prefix/suffix) owned by bash-scripting-guide.md S3/S5
 # Composed: zip + flag building shows array-level composition
@@ -142,7 +142,7 @@ declare -a cli_flags=("${flags[@]/#/--}")  # cli_flags=("--host=localhost" ...)
 
 Callee accumulates into caller's associative array via `local -n` — replaces `eval`-based indirection.
 
-```bash conceptual
+```bash
 config_set() {
     local -n _target=$1; shift
     local pair; for pair in "$@"; do _target["${pair%%=*}"]="${pair#*=}"; done
@@ -162,7 +162,7 @@ config_merge merged overrides  # last-write wins
 
 ## [03]-[HIGHER_ORDER_TRAVERSE]
 
-```bash conceptual
+```bash
 _map() {
     local -r func="$1"; local -n _src=$2 _dst=$3
     local item result; for item in "${_src[@]}"; do
@@ -212,7 +212,7 @@ declare total=0; _reduce _add big total
 
 Only null-delimited (`\0`) is safe for arbitrary data — newline-delimited breaks on filenames with embedded newlines.
 
-```bash conceptual
+```bash
 # Null-safe collect/emit
 readarray -d '' -t targets < <(fd -e sh --print0 --type f)
 printf '%s\0' "${targets[@]}" | xargs -0 shellcheck
@@ -256,7 +256,7 @@ done
 
 Gate all behind `(( _BASH_V >= 503 ))`.
 
-```bash conceptual
+```bash
 (( _BASH_V >= 503 )) && {
     readarray -t arr <<< "${ generate_lines; }"           # zero-fork via current-shell ${ }
     GLOBSORT=mtime files=(*.log)                          # mtime-sorted glob without stat/ls
@@ -279,7 +279,7 @@ Gate all behind `(( _BASH_V >= 503 ))`.
 
 `wait -n -p` (`5.2+`) collects per-job results without polling — the alternative to `xargs -P` when per-job exit status matters.
 
-```bash conceptual
+```bash
 _pool_map() {
     local -r max_jobs="$1" func="$2"; local -n _src=$3 _results=$4
     local -A _pids=()

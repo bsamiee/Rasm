@@ -20,7 +20,7 @@ Export owns every way rendered state leaves the browser: one source family, one 
 - Boundary: `view/chart` owns every perspective view bracket and hands this owner a read; `viewer/scene` owns the renderer and hands this owner an element; `viewer/probe` owns capture readback and hands this owner a pixel band; `system/cache` owns OPFS residency and this owner owns egress alone — a byte that stays in the browser is the cache's, a byte that leaves is this page's.
 - Growth: a new format is one row with its column in the matrix; a new source is one case with its row of serializers — never a second export surface beside this one.
 
-```typescript signature
+```typescript
 import { Convention, Digest, Fault } from "@rasm/core"
 import { Effect, Schema, type Types } from "effect"
 
@@ -128,7 +128,7 @@ const _encoded = (text: string): Uint8Array => _utf8.encode(text)
 - Boundary: which config a pivot exports, which scale a figure inked, and which rows a grid selected are the owning surfaces' state; this matrix receives handles and answers octets. Where the encode RUNS is the composition root's — the port declares the crossing, the host names the pool.
 - Growth: a new admitted format for an existing source is one key in that source's row and one entry in `Admits` — the mapped contract turns the missing serializer into a compile error at the record while every call site stays untouched; a lossy readback is one arm here, because the codec and quality axes already ride the port.
 
-```typescript signature
+```typescript
 import type { ModelViewerElement } from "@google/model-viewer"
 import type { View, ViewConfigUpdate } from "@perspective-dev/client"
 import { tableToIPC, type Table } from "apache-arrow"
@@ -298,7 +298,7 @@ const _parcel = <T extends Export.Kind, F extends Export.Admits[T]>(
 - Boundary: what a route means to the operator — a download shelf, a share sheet, a journal POST — is the composition's; this page names the route, the parcel, and the refusal.
 - Growth: a new delivery surface is one route row satisfied by the same port; a new port member is earned only by a capability the parcel shape cannot express.
 
-```typescript signature
+```typescript
 import { RecordBatchWriter, type Table } from "apache-arrow"
 import { Context, Effect, Match, type Scope, type Types } from "effect"
 import { Clipboard } from "../system/primitive.ts"

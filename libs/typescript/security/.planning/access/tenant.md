@@ -15,7 +15,7 @@ Tenancy contract: the ambient reference the request's active `Identity.Tenant` r
 - Law: per-tenant series ride governed — `metered` tags with the core `Convention.rasm.tenant` key, the one dimension the runtime export lane's tenant metric-view row admits under its cardinality ceiling, so the per-tenant fan is bounded at the exporter and a free-string tenant key that dodges the governor is unspellable at this seam.
 - Packages: `effect` (`Context`, `Effect`, `Option`); `@rasm/core` (`Convention`, `Identity.Tenant`).
 
-```typescript signature
+```typescript
 import { Convention, Identity } from "@rasm/core"
 import { Context, Effect, Option } from "effect"
 
@@ -58,7 +58,7 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 - Boundary: the `set_config` write, the RLS `CREATE POLICY` ensure, and the per-isolation Layer construction are all the data wave's; this page declares the names and the projections the enforcement reads.
 - Packages: `effect` (`Option`); `@rasm/core` (`Identity.Tenant`).
 
-```typescript signature
+```typescript
 const SessionCoordinate = {
   tenant: {
     guc: Convention.rasm.tenant,

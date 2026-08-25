@@ -23,7 +23,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 - Growth: a new registration engine is one `RegistrationMode` row, one kernel arm inheriting the carrier pre-pose with no seeding edit, and — where its solver consumes a seed — one `_SEEDABLE` member; a new bootstrap backend is one `BootstrapEngine` member, one `_ENGINE_MODULE` probe row, and one `_bootstrap` arm; a new probabilistic estimator is one `NonRigidEngine` member, its `_ENGINE_MODULE` row, and one `_nonrigid` arm answering the same `DeformationField`; a feature-space correspondence is one `feature_fn` policy row on the `FILTERREG` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
 - Boundary: the cleaned input `Cloud` is `scan/ingestion#INGESTION`'s product and carrier mint; deviation against a reference is `scan/deviation#DEVIATION`; surface reconstruction is `scan/reconstruction#RECONSTRUCTION`. The deformation field mints HERE and crosses to the deviation owner, which partitions it against its own signed band and never re-solves a warp; a live `probreg` `Transformation` never leaves this kernel, because it is an `open3d`-coupled native handle the pickle seam cannot carry. No mesh repair, tessellation, or durable store here.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from functools import partial

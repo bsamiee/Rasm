@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.Element}; one namespace per folder
 ├── Tensor/                # CPU tensor vocabulary and BLAS-class numeric core
 │   ├── Vocabulary.cs      # Tensor<T> the only tensor owner, TensorDtype the CLR/ONNX map, TensorOpFamily the equivalence-keyed table

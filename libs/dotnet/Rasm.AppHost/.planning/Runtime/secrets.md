@@ -19,7 +19,7 @@
 - Growth: one lifecycle transition is one `LeaseTransition` case; one refusal is one `SecretFault` case; a new credential class is one `DeadlineClass` lifetime row with its skew escalation, admitted through the same `RotationBand.Of`; a new credential source is one `SecretsSource` provider value on the existing `ConfigLayer`, never a second lease owner; zero new surface.
 - Boundary: the lease is the only credential-lifecycle owner: failed re-pulls keep the current lease live and degrade through health; rented material zeroizes through `CryptographicOperations.ZeroMemory` only after `Cell.Commit` seats its replacement or the drain terminal retires it; content identity uses kernel `ContentHash`. Every fault detail and every receipt column uses the redacted id — the redaction seam covers the log and receipt path alone and never the wire, where `CREDENTIAL_PEM` crosses the key id intact because a verifier SELECTS on it — and an optional refusal passes through `FaultWire.Observe` with `WireJson.Element` once, so the STJ receipt holds canonical ProtoJSON without reflecting a generated message; a reader re-enters through `WireJson.Read`. Mutable material and rotation stay the lease's, while `CredentialPublic` owns public-material admission. That frozen secrets-store mount remains the sole provider read. `LeaseTransition.Released` stays deleted because release without wipe is unlawful. KMS unwrap and PDF signing consume lease-scoped handles without a second long-lived key cache or credential lifecycle.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -202,7 +202,7 @@ public static class SecretLeaseOps {
 - Growth: one material encoding is one `CredentialMaterial` arm landing beside its generated oneof member; one refusal is one `PemFault` case; a new credential class rides the existing two arms already; zero new surface.
 - Boundary: the material axis is the suite's only credential-material wire owner — the lease holds the live `byte[]` and zeroizes it while `CredentialPublic` owns public-material admission, so the two never merge; `X509CertificateLoader` owns certificate admission and `PublicKey.CreateFromSubjectPublicKeyInfo` bare-key admission, and hand-rolled ASN.1, a base64 wrap, and a third-party codec are the deleted forms. Key ids cross INTACT because a verifier SELECTS on them, matching a JWS `kid`, while `SecretRuntime.Redacted` serves the log and receipt seam alone and its output selects nothing. Private-key arms are structurally absent rather than filtered, so `CarriesSecret`, the public-half filter, and the `DataClassification.Secret` block stamp are deleted with the vocabulary that needed them; what the collapse loses is the self-describing label, and what replaces it is the SPKI and X.509 format parse, which refuses a private body by encoding rather than by trusting its own declaration.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Security.Cryptography;
@@ -303,7 +303,7 @@ public static class CredentialPublic {
 - Growth: one carrier field extends every generated peer; one new material encoding is one oneof member landing beside its consumer arm; no hand-maintained carrier surface.
 - Boundary: only public material and the key id cross. `CertificateChain` is a nested support message the parent descriptor reaches, so it registers no second interchange family and no consumer imports it as a root.
 
-```ts signature
+```ts
 export {
   CertificateChainSchema,
   CredentialPublicWireSchema,

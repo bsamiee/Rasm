@@ -21,7 +21,7 @@ Form owns Schema-driven input, submission, resumable upload, the multi-step wiza
 - Law: the error shape is one fold — live per-field validation and server-refusal projection both land as `Readonly<Record<path, ReadonlyArray<string>>>` keyed by the `ParseError` tree's dotted path, so a refusal from the wire and a local decode render through the same `FieldError` rows.
 - Growth: a new form is a schema and its rows; a new constraint is a Schema refinement on the owning field — never a validation prop ladder.
 
-```typescript signature
+```typescript
 import { Array, Either, ParseResult, Record, Schema } from "effect"
 
 declare namespace Form {
@@ -57,7 +57,7 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 - Law: gauges are output, fields are input — `Meter`/`ProgressBar` render atom-derived readings and take no schema field; a disabled field standing in for a reading is the named defect.
 - Boundary: the roster composition pattern (`Xxx`/`XxxContext`/`XxxStateContext`, `Provider` values) is `system/primitive#ROSTER_LAW`'s; this page owns only the schema-field-to-row binding.
 
-```typescript signature
+```typescript
 import { Schema } from "effect"
 import { TokenFieldValue, type TokenFieldSegment } from "react-stately"
 
@@ -83,7 +83,7 @@ declare namespace Form {
 - Law: the trip is woven at the mutation effect — `Form.observed(write, registry, form)` is the composed trip the promiseExit write awaits: the veto consult leads, `Effect.withSpan("rasm.ui.form.submit")` carries the form id as span attribute and log annotation, and `Effect.onExit` both publishes the settled stage and feeds `1` through `Effect.withMetric` into `_SUBMITTED` tagged by the same bounded vocabulary (`resolved`/`refused`/`torn`) — so hook facts, metrics, and error rows cannot disagree.
 - Boundary: the async action body is the React-19 form-action platform seam — React runs it inside its own transition (`useFormStatus`/`requestFormReset` are Promise-shaped); `Effect.promise` lifts the non-rejecting `Promise<Exit>` from `promiseExit`, `Exit.match` restores its Cause rail, and `Effect.runPromiseExit(Form.observed(...))` returns the one settled outcome the form folds; the write, hook registry, form id, form element, draft reader, and error sink arrive from the consuming row.
 
-```typescript signature
+```typescript
 import { Convention, Tap } from "@rasm/core"
 import { Cause, Effect, Exit, Metric, Option, pipe } from "effect"
 import { requestFormReset } from "react-dom"
@@ -185,7 +185,7 @@ const _submit = (
 - Law: dirty-navigation guarding reads the draft — the route guard's dirty predicate is a derived atom comparing draft to committed (`Equal.equals`), consumed by the browser navigation plane through the atom bridge; a `beforeunload` listener beside it is the named defect.
 - Boundary: the multi-step stage graph is `[07]`'s `Transition` spec bound through `system/atom#LIVE_BRIDGE` — the draft cursors ride inside each stage, and the stage machine never mirrors field state.
 
-```typescript signature
+```typescript
 import { AtomRef, useAtomRefProp, useAtomRefPropValue } from "@effect-atom/atom-react"
 import { useDeferredValue } from "react"
 
@@ -208,7 +208,7 @@ const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "ti
 - Law: the server owns finalization — content-address folding and object-store writes land server-side on the data folder's tus lane; this session is a protocol driver, and the finished object's identity returns on the wire.
 - Growth: a new transfer policy (chunk size, fingerprint store, signing hook) is one options row on the policy shape — never a second session mechanism.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 import { Effect, Option, Schema } from "effect"
 import { DetailedError, Upload, type OnSuccessPayload, type PreviousUpload } from "tus-js-client"
@@ -335,7 +335,7 @@ const Form: Form.Shape = {
 - Boundary: stage CONTENT is ordinary form rows — schema binding, cursors, and the submit trip compose unchanged inside each stage; the final stage's submit is `[04]`'s trip, so the wizard adds navigation and never a second commit path; watchdog deadlines and invoked activities are `Transition`'s own `watches`/`invokes` rows when a wizard earns them.
 - Growth: a new stage is one roster entry (its rows arrive generated); a new navigation arm is one row kind in the builder; a new face posture is one recipe variant; a stage graph past the builder's family — parallel regions, history re-entry — authors its `Transition` spec directly, since the builder instantiates the linear family and never ceilings the machine — never a bespoke stepper state, a completion set, or a second machine binding.
 
-```typescript signature
+```typescript
 import { Transition } from "@rasm/core"
 import { cva } from "class-variance-authority"
 import { Array, Option, Schema } from "effect"
@@ -431,7 +431,7 @@ const Wizard: Wizard.Shape = {
 - Boundary: which identity providers exist, the exchange leg `land` receives, and the post-sign-out destination are app composition; the login/signup FIELD content is ordinary `[03]` rows; OAuth's full-page departure means this face renders a leaving state and never sequences after it.
 - Growth: a new phase presentation is one `_PHASES` row; a new ceremony kind (a second factor's prompt, a recovery flow) is a form composed of landed rows — never a ceremony engine, a token cell, or a session mirror in this folder.
 
-```typescript signature
+```typescript
 import { Option } from "effect"
 import type { Motion } from "../system/act.ts"
 import type { Theme } from "../system/token.ts"

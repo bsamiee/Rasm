@@ -31,7 +31,7 @@ The mesh producer is `Solver/discretization#MESH_GENERATION` `MeshLane.Discretiz
 - Boundary: one `Solve` owns every physics, boundary-condition, element, payload, and time-scheme combination. `ConstraintMethod` mutates both operator and right-hand side. Dense/sparse factorization and iterative solve ride the `Tensor` funnels; generalized eigenanalysis reuses the verified dense `Evd` terminal after mass, static-condensation, or geometric-stiffness reduction, because reducing a generalized pencil to standard form demands a positive-definite inertia factor a lumped-mass frame lacks on its inertia-free rows.
 - Boundary: wall budget and cancellation are `LanePolicy` columns the lane composes onto a canonical row and reach the criterion stack through `IterationPolicy.Of` beside the `Solve` argument clock, so every iterative leg bounds wall time off the one clock the receipt durations read; a canonical row binding a clock static, a deadline parameter grown onto the entry signature, or a per-leg literal cap is the rejected form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]

@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 compute/                    # Offline scientific evidence, graduating outward through one rail
 ├── solvers/                # Unified solve routes plus sensitivity, weak-form assembly, and field readout
 │   ├── receipt.py          # Method-tagged tuple payloads, the bounded SolveStatus vocabulary, the graduate fold

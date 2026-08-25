@@ -20,7 +20,7 @@ A registered transform from `scan/registration#REGISTRATION` is the precondition
 - Growth: a new primitive class is one `PrimitiveClass` member and one classification row; a new band statistic is one `DeviationBand` field inside the one fold and reaches the rigid half free, since the split folds through that same band; a new deformation statistic is one `DeformationSplit` field; a stricter verdict is a `DeviationPolicy` value; a per-storey or per-zone grouping is one segmentation post-fold; a new geometric probe against the reference is one `SpatialQuery` case at `mesh/spatial#SPATIAL`, already batched by the shared capsule.
 - Boundary: the registered pose and deformation field are `scan/registration#REGISTRATION`'s; this owner partitions a field it is handed and never solves a warp. The generated `ArtifactRef` identifies the reference body through SHA-256 and extent; `ArtifactTransfer` proves and owns the fetched path, while the surface index is `mesh/spatial#SPATIAL`'s and watertight truth `mesh/quality.closure_fold`'s. No IFC parse, durable-store implementation, raw GLB body, or Rhino/GH mutation enters here.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from enum import StrEnum

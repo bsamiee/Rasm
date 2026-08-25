@@ -16,7 +16,7 @@ Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers
 - Growth: a new mark element is one `DiagramGlyph` case plus one `_lower` arm plus one `_INTENT` row; a new node silhouette one `NodeShape` row plus one `_shape` arm plus one `_DRAWIO_STYLE` row; a new marker one `MarkerKind`/`_marker` pair plus one `_DRAWIO_MARKER` row; a new crow's-foot terminal one glyphset `ER_CAPS` row; a new generic terminal one `EndCap` row plus one `_cap_glyph` arm plus one `_DRAWIO_CAP` row; a new style axis one `GlyphStyle` field; a new named layer a new `GlyphStyle.layer` value the `_groups` partition already buckets; a new egress arm one `DrawTarget` row plus one `DrawArtifact` case plus one `_render_*` arm; a new route regime one glyphset `EdgeRoute` member plus one `_DRAWIO_ROUTE` row. A print/PDF-X plane requiring non-scaling outlined strokes composes `graphic/vector/region#REGION` `RegionOp.Outline`/`RegionOp.Boolean` one hop through the vector owner, never a draw-owned `pathops` import; a CAD-native diagram deliverable is `export/dxf#DXF`'s `Diagram` arm consuming the same positioned glyph sequence under the `drawing/regime#REGIME` pen vocabulary, never a draw-local ezdxf arm shipping vendor-default linework.
 - Boundary: pre-run canonical input owns node identity, and rendering never fingerprints a second byte stream. Layout supplies coordinates and routes; `hex_ramp` supplies color; SVG labels outline to paths, while `.drawio` labels remain editable source text. Typed refusal replaces every silent payload drop.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable

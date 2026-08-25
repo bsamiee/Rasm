@@ -18,7 +18,7 @@ scikit-image measurement lives here as the measured-score half of `Transform`. `
 - Packages: `scikit-image` (`feature`/`filters`/`measure`/`metrics`/`registration`/`transform`/`util` at the members the rows name); `numpy` (fact reductions and the dtype-ceiling derivation); `graphic/raster/process#PROCESS` (`FieldLaw`/`Frame`/`RasterFact`/`Transform`/`TransformPolicy`/`TransformArm`/`TransformInput`/`TransformNeeds`/`_channels`/`_luminance`/`_save_array`); stdlib `io`/`typing.Final`.
 - Boundary: the shared `TransformInput`/`TransformArm`/`_save_array`/`_luminance`/`_channels` substrate, the `Transform` enum, and the `TransformNeeds`/`FieldLaw` axes are `graphic/raster/process#PROCESS`'s; the `Raster`/`RasterOp` owner and the composed `TRANSFORMS | MEASURE_TRANSFORMS` lookup are `graphic/raster/io#IO`'s (`_transformed` executes the gate each row here declares); the produced-raster families (a new pixel array, not a scalar) are process's — this page owns only the measured-score half. Depth stops at the `Frame` carrier both operands share: measuring a LOSSY DEEP encode — an EXR compression row, a UASTC or ETC1S block, a half-float codec — is `graphic/texture/plane#PLANE`'s own fidelity leg, because the strata bar that plane from importing this page and this page names no deep carrier; a deep reference lands here only by crossing the same 8-bit admission the operand crossed.
 
-```python signature
+```python
 from builtins import frozendict
 from io import BytesIO
 from typing import Final, assert_never

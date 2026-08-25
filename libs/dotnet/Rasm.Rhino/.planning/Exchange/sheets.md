@@ -18,7 +18,7 @@
 - Law: name matching is ordinal-case-insensitive to match the host's page-name semantics.
 - Packages: `Rasm.Drawing` (`NamingField`, `NamingStandard`, `SheetNumber`), `Domain/rails` (`Op`, `Fault`), LanguageExt.Core (`Fin`, `Option`, `Seq`), Thinktecture.Runtime.Extensions (`[SmartEnum]`); RhinoCommon `RhinoPageView`/`DetailViewObject` per `.api/api-rhinocommon-display.md`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using SheetReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Exchange.SheetSlot, Rasm.Rhino.Exchange.SheetBody>;
 
@@ -135,7 +135,7 @@ public readonly record struct DetailSelect(
 - Law: `SheetScale` also carries the paper↔model length correspondence as two operations of the one scale owner over the host's `TryGetPaperLength`/`TryGetModelLength` pair — the same owner answers both directions, and a false host return is a typed refusal, never a zero length.
 - Packages: `Rasm.Drawing` (`DrawingScale`, `ScaleNotation`, `ScaleLadder`, `SheetStandard`, `DrawingUnits`), `Domain/context` (`ModelUnit`, `Tolerance`, `ToleranceLane`, `EpsilonPolicy`), `Document/geometry` (`ClipOp`, `ClipScope`, `ClipSet`, `ViewportOp`, `FieldOverride<T>`), `Document/layers` (`LayerRef`, `LayerOp.Amend`, `LayerEdit.Override`, `LayerOverride`), LanguageExt.Core, Thinktecture.Runtime.Extensions; RhinoCommon `ScaleValue`/`LengthValue`/`DetailViewObject` per `.api/api-rhinocommon-display.md`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Equatable]
 public readonly partial record struct LayerVeil(
@@ -339,7 +339,7 @@ public abstract partial record SheetScale {
 - Packages: `Rasm.Drawing` (`SheetSize`, `SheetFrame`, `SheetMargin`, `SheetOrientation`, `ZoneGrid`, `DrawingScale`), `Numerics/atoms` (`UnitInterval`, `Point2d`), `Domain/rails` (`ValidityClaim`, `Op`), `Domain/validation` (`CapabilitySet`, `ICapability`), `Document/geometry` (`ClipOp`, `ClipScope`, `ClipSet`, `ViewportOp`), LanguageExt.Core (`Validation` applicative, `Fin`), Thinktecture.Runtime.Extensions.
 - Boundary: camera pose inside a detail is the viewport camera rail addressed at `ViewportTarget.DetailCase`; `DetailState` owns scale, locks, naming, display mode, veils, and clips — the split keeps one camera algebra in the package. `VeilsCase` contributes no `DetailCommit`, because the layer program lands through `Document`'s own staged `Modify` and the detail object carries nothing to re-commit.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class AnchorAcross {
@@ -806,7 +806,7 @@ internal static class Clips {
 - Packages: `Rasm.Drawing` (`PlotPolicy`, `SheetSize`, `SheetOrientation`, `SheetStandard`, `SheetNumber`, `NamingStandard`, `NamingField`, `SheetOfGrammar`, `DrawingUnits`, `DrawingScale`), `Document/facts` (`IFactSlot`, `IFactBody`, `FactStream`, `UndoSerial`), `Document/session` (`DocumentSession`, `SessionNeed`, `DocumentCommit`, `RedrawPolicy`), `Document/tables` (`Tables.Commit`, `TableOp.ImportPage`, `TableTransaction`), `Domain/context` (`ModelUnit`, `EpsilonPolicy`), `Domain/validation` (`CapabilitySet`, `ICapability`), LanguageExt.Core (`Validation` applicative, `TraverseM`, `Fin`, `Seq`, `HashMap`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`); RhinoCommon `RhinoPageView`/`PageViewGroup`/`DetailViewObject` per `.api/api-rhinocommon-display.md`.
 - Growth: a new consequence is one `SheetSlot` row naming the body kinds it emits; a new evidence shape is one `SheetBody` case, one `SheetBodyKind` row, and one `SheetFacts` mint; a new operation is one `SheetOp` case with its `Admits`/`LeafProfile` row and its arm in the single `Plan`/`Apply` dispatch.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1644,7 +1644,7 @@ public static class Sheets {
 }
 ```
 
-```mermaid codemap
+```mermaid
 ---
 config:
   layout: elk

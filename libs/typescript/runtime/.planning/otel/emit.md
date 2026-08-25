@@ -34,7 +34,7 @@
 - Law: `server.rows` and `browser.rows` close the instrumentation roster against `_SERVER_ROWS`/`_BROWSER_ROWS` for the same silently-ignored-spelling reason `engine.groups` closes against `_GROUPS` — `InstrumentationConfig.enabled` is the zeroth column every other per-row field tunes, so a deployment with no Postgres refuses `PgInstrumentation`'s module patch outright instead of tuning a row it still constructs, and a kiosk build drops interaction spans without dropping its whole condition node.
 - Growth: a new export decision is one policy field consumed by the lane rows; a new backend is a `baseUrl`/`headers` value, never a lane; a new framing or SDK binding is one `_lanes` row; a new instrumentation is one roster entry with its `rows` cell.
 
-```typescript signature
+```typescript
 import {
   Array, Chunk, Context, Duration, Effect, Exit, Function, Layer, Option, Order, pipe, Record, Redacted,
   Ref, Runtime, Schema, Scope, type Tracer,
@@ -180,7 +180,7 @@ const _admitted = (promote: ReadonlyArray<string>) => (key: string): boolean =>
 - Growth: a new PII class is one `sealed` key row or one `patterns` row.
 - Packages: `effect` (`Array`, `Context`, `Option`, `Record`), `@opentelemetry/sdk-trace-base` (`SpanProcessor`, `Span`), `@opentelemetry/api` (`Attributes`).
 
-```typescript signature
+```typescript
 declare namespace Redaction {
   type Rules = {
     readonly patterns: ReadonlyArray<RegExp>
@@ -260,7 +260,7 @@ const Redaction: {
 - Entry: `Hooks.Default` merges first at the composition root, every `Hooks.contribute` node after it, and `Export.live` last so the drain observes the whole contribution set; `Hooks.Dispatch.Default({ app, ledger, points })` seats the app's rail beside them, because the point roster and the breach-ledger width are composition facts the export policy never carries.
 - Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one `Rows` slot consumed by the same drain; `add` widens with the slot, never a new verb; a new hook point is one roster entry on the seat row, and a new modality is a core table row this plane never reads.
 
-```typescript signature
+```typescript
 declare namespace Hooks {
   type Dispatch = _Dispatch
   type Meter = _Meter
@@ -341,7 +341,7 @@ class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
 - Growth: a new governed axis is one `ViewOptions` field the projection reads; a new convertible point shape is one `_FOLD` row.
 - Packages: `@opentelemetry/sdk-metrics` (`ViewOptions`, `MetricProducer`, `CollectionResult`, `MetricData`, `DataPointType`, `AggregationTemporality`, `AggregationType`, `IAttributesProcessor`), `@opentelemetry/api` (`Attributes`), `@rasm/core` (`Convention`).
 
-```typescript signature
+```typescript
 const _OVERFLOW = "otel.metric.overflow"
 const _GLOB = /[.+^${}()|[\]\\]/g
 
@@ -502,7 +502,7 @@ flowchart LR
   W --> C
 ```
 
-```typescript signature
+```typescript
 const _headers = (policy: Export.Policy): HeadersFactory => () =>
   Promise.resolve(Record.map(policy.collector.headers, Redacted.value))
 
@@ -874,7 +874,7 @@ const Export: {
 - Boundary: this terminal projection constructs no exporter, reads no ambient SDK global, and crosses no process boundary.
 - Packages: `@rasm/core` (`Convention.conformance`); `effect` (`Array`, `Duration`, `Order`, `Record`).
 
-```typescript signature
+```typescript
 type _ConformanceCell = (policy: Export.Policy, lane: (typeof _lanes)[Export.Lane]) => {
   readonly disposition: Convention.ConformanceDisposition
   readonly owner: string
@@ -1004,7 +1004,7 @@ const Conformance = {
 - Growth: a new inbound transport is one call site composing `ingress` — the owner is closed.
 - Packages: `@opentelemetry/core` (`TraceState`), `@opentelemetry/api` (`SpanContext`, `TraceFlags`), `@effect/opentelemetry` (`Tracer.makeExternalSpan`, `Tracer.withSpanContext`), `@rasm/core` (`Carrier`, `Fault.Ledger`), `effect` (`Array`, `Context`, `Effect`, `Function`, `Option`, `Record`).
 
-```typescript signature
+```typescript
 const _context = (carrier: Carrier.Context): Option.Option<SpanContext> =>
   Option.map(carrier.parent, (parent) => ({
     traceId: parent.traceId,
@@ -1092,7 +1092,7 @@ export { Conformance, Export, Hooks, Propagation, Redaction }
 - Growth: none — the module is closed; richer dev wiring belongs to the tests estate.
 - Packages: `@effect/experimental` (`DevTools`).
 
-```typescript signature
+```typescript
 import { DevTools } from "@effect/experimental"
 import type { Layer } from "effect"
 

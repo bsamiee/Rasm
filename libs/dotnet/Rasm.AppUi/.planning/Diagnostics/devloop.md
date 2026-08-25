@@ -22,7 +22,7 @@ Rasm.AppUi dev loop is the Debug-profile working surface: hot-reload knob rows a
 - Law: remote evidence ingestion decodes frames through the canonical AppHost `ReceiptEnvelope` JSON wire (`AppHostWireContext`) via a composition-bound decode delegate; correlation and tenant ride the envelope's own slots, so `Ingest` re-emits them UNCHANGED — a decode refusal is TERMINAL by construction, so no redrive rides this edge.
 - Boundary: the collab forensics verbs read the settled sync owner — `CollabPreCommit` binds the composition-supplied `CollabWire.TapPreCommit` installer and seals each `PreCommitFact` through `EvidenceMap.ToEvidence` onto the one `ReceiptSinkPort`, leaving the pending commit's `ChangeModifier` untouched, while `CollabJson` names the readable op-window export the REPL and support bundle consume through the composition-supplied `CollabWire.ExportJson` delegate; the HARFS remote-server knobs and the runtime timeout and hotkey knobs ride the same MSBuild gate as the master row and carry no managed surface.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DevLoopFault : Fault {
@@ -299,7 +299,7 @@ public static class DevLoop {
 - Law: a property commit projects onto the `EvidenceReceipt.Edit` case and stamps that case's own literal, so inspector mutations are attributable on the timeline exactly as deck-routed edits are.
 - Boundary: ProDiagnostics is Debug-gated `PrivateAssets="all"` beside HotAvalonia and absent from the Release surface — a Release-profile attach is structurally unrepresentable; `Conventions.DefaultScreenshotHandler` is `internal`, so the package's file-picker default is unreachable by name and `InspectorCapture` is the only handler this folder can bind; the `ProDataGrid`/`ProCharts` siblings are NOT admitted; both first-party alternates failed the admission gate (`Avalonia.Diagnostics` feed-dead with no Avalonia-12 asset; the Accelerate DevTools pay-tiered, license-gate rejected) — the record stands, never re-proposed.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record InspectorAttach(DevToolsOptions Options);
 
@@ -350,7 +350,7 @@ public static class Inspector {
 - Law: the filter reads each block's own `Query` column so no case is invisible to a search it should answer; bookmarks live on the STREAM keyed by ordinal, because a block is an immutable record and a bookmark is a reader's annotation over it.
 - Boundary: the roster IS both chip tables — a `Facts` list beside a `Chips` list was two authorities for one roster, and the row's read column is the derivation that deletes the mirror.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct FlameSpan(string Frame, string Lane, int Depth, double Start, double Width, Duration Self, Duration Total);
 

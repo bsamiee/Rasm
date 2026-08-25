@@ -30,7 +30,7 @@ Vocabulary here is TRANSCRIBED from the frozen cross-branch fragment and re-deci
 - Growth: a new storage depth is one `PlaneDepth` row with its `_DEPTH_DTYPE` and `_DEPTH_RANGE` entries; a new transfer is one `PlaneSpace` row with its `_TRANSFER` encode/decode pair; a new chromaticity is one `PlanePrimaries` row the tool roster already spells; a new mip fold is one `MipPolicy` row with one `derive#DERIVE` arm; a new fault cause is one `TextureFault` case breaking every capture at type-check.
 - Boundary: 8-bit display rasters, thumbnails, montages, and the `RasterOp` working surface stay `graphic/raster/io#IO`'s and `graphic/raster/process#PROCESS`'s; role vocabulary, aliasing, and classification stay `ingest#INGEST`'s; kernels, folds, and resampling stay `derive#DERIVE`'s; set assembly, egress naming, receipts, and the lane crossing stay `set#TEXTURE_SET`'s; ICC-profile transforms stay `graphic/color/managed#MANAGED`'s and config-driven working-space resolution `opencolorio`'s — this page carries the transfer FUNCTION per the frozen tag and synthesizes no profile.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from atexit import register as at_exit
 from collections.abc import Callable
@@ -312,7 +312,7 @@ _CHROMATICITY: Final[frozendict[PlanePrimaries, tuple[float, ...]]] = frozendict
 })
 ```
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -489,7 +489,7 @@ def converted(plane: DeepPlane, container: DeepFormat, /, *, depth: PlaneDepth, 
 - Growth: a new container is one `DeepFormat` row with one `DEEP_CODEC` entry and one `EncodePolicy` case when its options are not already covered; a new KTX2 payload class is one `KtxPayload` row with one `_ktx_encoded` arm and, where Basis writes it, one `_KTX_BASIS` entry; a new EXR compression is one `_EXR_ROW` entry carrying its exactness and its level band, and `lossless`, `lossy`, and the refusal all re-derive with no arm edit; a new guarantee shape is one `DeclaredBound` case with one `bound` arm, breaking every consumer at type-check; a new storage-capability axis is one `DeepCodecRow` column beside `mips`/`cubes` with one `encode` gate arm; a new producing tool is one `ProducerTool` row on the owning `DeepCodecRow`; a capability an engine lacks for one pairing is one `DeepCodecRow.refusal` arm, never a substitution inside a writer; a container that RECORDS its own colour declaration is one `_CICP_SOURCE` row naming its group, its sniff suffix, and the arm that extracts the declaring bytes, and a code either roster does not yet lower is one `_CICP_TRANSFER` or `_CICP_PRIMARIES` entry.
 - Boundary: block ENCODE is not claimed here — `bcn_encode` and `dds_encode` raise `NotImplementedError` in `imagecodecs` and the KTX2 legs own every block payload; `bcn_decode`/`dds_decode` are the READ-BACK leg a verify pass uses to prove block bytes without a second encoder. Resampling, folding, and every pixel transform stay `derive#DERIVE`'s; a chromaticity MOVE and every config-driven working-space resolution stay `graphic/color/managed#MANAGED`'s, and this page declares the datum without ever converting it. Container conformance grading, the egress grammar, and the receipt fold stay `set#TEXTURE_SET`'s. Container-level tiling exists for a large scanline EXR and carries no pyramid. The colour READBACK reads a declaration and moves nothing: it recovers the transfer and chromaticity a file states so `converted` and the consuming surfaces see the truth, and the transform those axes imply stays `graphic/color/managed#MANAGED`'s exactly as the write side's does. Descriptive metadata — EXIF, IPTC, XMP, and the whole cross-format tag estate the same binary reads — stays `exchange/metadata#METADATA`'s, which holds its own helper; this page requests two tags by name and folds no facet.
 
-```python signature
+```python
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -593,7 +593,7 @@ class DeepCodecRow:
                 return DeclaredBound(unbounded=None)
 ```
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

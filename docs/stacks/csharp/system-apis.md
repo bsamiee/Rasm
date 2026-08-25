@@ -54,7 +54,7 @@ This table is a lookup by repeated local smell; the owning card states the place
 - Rule: codepoint-level work routes through `Rune` and user-perceived characters through `StringInfo` text elements, so a `char` predicate never applies to a surrogate half; `Base64Url.EncodeToUtf8`/`DecodeFromUtf8` own the URL-safe alphabet end to end where a `Convert.ToBase64String` plus a character-replace pass re-spells it.
 - Reject: a manual hex loop; an unsafe ASCII check where `Ascii.IsValid` is the gate; a URL-base64 replace pass; a code-point predicate scattered across call sites instead of one text policy.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class Variant {
     static readonly SearchValues<char> HexDash = SearchValues.Create("0123456789ABCDEFabcdef-");
@@ -120,7 +120,7 @@ public static class FrameCodec {
 - Exemption: `GetValueRefOrAddDefault` returns a `ref TValue?` into the bucket plus the `out bool exists` first-write witness — the one statement seam this card forces — so a running multi-field accumulator threads through one hash probe per row where `AggregateBy` reallocates its accumulator each step and cannot expose a `ref` into the live bucket; a pure single-field per-key reduce is `AggregateBy`'s and never takes the seam. The list size is pinned before `AsSpan` because a resizing `Add` invalidates the span, and a `GetValueRefOrNullRef` result is tested with `Unsafe.IsNullRef`.
 - Reject: a repeated `GroupBy` for a count or fold; a loop dedup where `DistinctBy` keys it; a manual index counter where `Index` carries position; a comparer-free keyed set operation where the domain rule is not default equality; a `TryGetValue`-then-`Add` double probe; domain public identity built from mutable dictionary internals.
 
-```csharp conceptual
+```csharp
 public static class Tally {
     static readonly FrozenDictionary<string, int> Ranks =
         new Dictionary<string, int> { ["<key-a>"] = 1, ["<key-b>"] = 2 }
@@ -169,7 +169,7 @@ public static class Tally {
 - Boundary: a cryptographic digest, signature, or persisted content key is `boundaries.md`'s `BYTE_IDENTITY` — one canonical byte-codec per identity domain, asserted once — so this card owns the in-process non-cryptographic key choice (`XxHash3.HashToUInt64` over `SHA256`) and the secure-random source, never the persisted-identity codec.
 - Reject: a constructed hash or HMAC instance used once and discarded; `System.Random` for cryptographic bytes; `SHA256` for an in-process cache key; `Crc32` as a lookup key or `XxHash3` as a wire-integrity frame check; persisting any `GetHashCode` output — in-process hashes are process-randomized.
 
-```csharp conceptual
+```csharp
 public readonly record struct Extent(long Offset, int Length);
 
 public readonly record struct Segment(ulong ContentKey, uint Frame, int Length);
@@ -219,7 +219,7 @@ public static class SegmentReader {
 - Boundary: the native handle, the borrowed-memory window, and the callback are `boundaries.md`'s `CAPSULE_OWNER`/`REF_SAFE_PROJECTION`/`SUBSCRIPTION_VALUE` — the marshalling-stub-on-a-`SafeHandle` lives there; this card owns the marshalling-attribute selection only, and an `unsafe` interop body requires measured proof plus that boundary owner.
 - Reject: a `[DllImport]` runtime marshalling stub under a trimming owner; a hand-marshalled string where `StringMarshalling` is declarative; an `unsafe` block with no measured proof and no boundary capsule.
 
-```csharp conceptual
+```csharp
 public static partial class HostSeam {
     [LibraryImport("<native>", EntryPoint = "probe_slot", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvSuppressGCTransition)])]

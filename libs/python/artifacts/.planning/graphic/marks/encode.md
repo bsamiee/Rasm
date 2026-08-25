@@ -20,7 +20,7 @@ Every operation answers a `Block[RasterFact]`, one fact per ADDRESSED member: a 
 - Receipt: each ADDRESSED member folds into its own `RasterFact` and projects to `ArtifactReceipt.Preview(key, width, height, bytes_, scores)` keyed over THAT member's emitted bytes, threading `len(RasterFact.data)` and `RasterFact.score` onto the shared receipt — one artifact identity per scannable product, never one receipt standing for a span. Every encode arm measures its real extent off the produced symbol, and `_segno_score` stamps `MarkFact` evidence with `INDEX`/`COUNT` naming the member's position; verify reports the scanned raster dimensions and stamps `VERIFIED`/`DPI` with the member's own `INDEX`/`COUNT` position pair beside native numeric scan facts, its verdict graded over the WHOLE span because a member carries only a fragment of the payload.
 - Growth: a new segno symbol kind is one `_QR_ROWS` row; a new structured payload one `Content` case plus one `_resolved_content` arm, a richer existing payload one more field on its case; a new linear or 2D-matrix symbology one `Symbology` member plus one `TAXONOMY` row on the mark floor — no dispatch edit here; a new fault cause one `MarkFault` case; a new evidence fact one `MarkFact` member the owning arm stamps; a new option knob one key on the owning per-class band; a new operation one `MarkOp` case plus one `_performed` arm plus one `_trait` row, beside one `_arity` arm where it addresses more than one member; a data-URI or per-module `matrix_iter` render one segno growth axis on the qr arm; zero new surface.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from decimal import Decimal
@@ -182,7 +182,7 @@ class Content:
     epc: EpcPayment = case()
 ```
 
-```python signature
+```python
 # --- [TABLES] ---------------------------------------------------------------------------
 
 MARK_ENCODE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
@@ -503,7 +503,7 @@ async def _offloaded(lane: LanePolicy, op: MarkOp, /) -> MarkRail:
     return railed.bind(lambda inner: inner)
 ```
 
-```python signature
+```python
 # --- [COMPOSITION] ----------------------------------------------------------------------
 def _normalized(ops: MarkOp | Iterable[MarkOp], /) -> tuple[MarkOp, ...]:
     match ops:

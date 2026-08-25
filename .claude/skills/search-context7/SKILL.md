@@ -25,18 +25,18 @@ Two MCP tools and a REST surface: `resolve-library-id` ranks indexed sources, `q
 Any member of an external package about to be written, reviewed, or debugged, cross-library seam names both sides in one query.
 
 Step 1. Resolve the library — skip when the ID is already known; libraryName AND query both required
-```text conceptual
+```text
 mcp__context7__resolve-library-id {"libraryName": "Effect", "query": "retry a failing acquisition with capped exponential backoff and jitter"}
 ```
 
 Step 2. Query the repo ID; add the doc-site ID in the same block only when the repo answer is thin.
-```text conceptual
+```text
 mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Effect.retry with a Schedule combining exponential backoff, jitter, and a retry cap"}
 mcp__context7__query-docs {"libraryId": "/websites/effect_website", "query": "Effect.retry with a Schedule combining exponential backoff, jitter, and a retry cap"}
 ```
 
 Step 3. Drill — when a richer owning combinator surfaces, drill the richer symbol the first block surfaced
-```text conceptual
+```text
 mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Schedule.max combining retry count, elapsed-time budget, and capped backoff into one policy"}
 ```
 
@@ -44,12 +44,12 @@ mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Schedule.
 
 Two passes — discover the package, then map it. Discovery (which package owns the capability): exa `category: "github"` returns best-in-class candidates with the stars, recency, and license the admission gate reads; Context7's index-search token-matches unrelated domains and misses here. Depth (map a chosen package): REST search ranks a named library's indexed sources by the signals the MCP strips (`benchmarkScore`, `trustScore`, `totalTokens`, freshness, `verified`); a token-budgeted topical pull routes bulk to disk per capability axis; the typed variant relevance-gates snippets before window entry; each surfaced symbol drills through `resolve-library-id`/`query-docs`.
 
-```text conceptual
+```text
 // discovery — best-in-class candidates with admission metadata (stars, recency, license)
 mcp__exa__web_search_advanced_exa {"query": "best-in-class Python library for <capability>, compared against <incumbent>", "category": "github", "enableSummary": true, "numResults": 6}
 ```
 
-```bash copy-safe
+```bash
 # depth 1 — rank a named library's indexed sources, projected compact
 xh -j GET https://context7.com/api/v1/search query=='scikit-image restoration' "Authorization: Bearer $CONTEXT7_API_KEY" \
   | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .totalTokens, .lastUpdateDate[:10]] | @tsv'

@@ -30,7 +30,7 @@ Session clock is the folder's ONE injected `MonotonicTimeline` (folder RULINGS `
 - Packages: Grasshopper2 (`Canvas.ScheduleRedraw`, `Editor.ShowEditor`), Eto (`Control.Invalidate`, `Control.Focus`, `Form.Close`), Rhino.UI (`EtoExtensions.UseRhinoStyle`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`, `Gauged`, `GaugedSpan`, `IGaugeLane`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`, `FaultCell`).
 - Growth: a new session verb is one `SessionOp` case and one total `Switch` arm; a new repaint posture is one `RepaintPlan` case; a new budget band is one `SessionLane` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

@@ -25,7 +25,7 @@ Each request family is one deep owner — the class carries its dedup identity i
 - Law: the success row is the provider page's schema owner — `Descriptor` answers `ObjectStore.Stat`, the store-minted evidence class, so the probe, the wall-clock window, and the durable band persist ONE row shape and a parallel success struct restating the stat fields is unspellable.
 - Boundary: `Schema.TaggedRequest` declaration mechanics are the core shape law arriving settled; `lane/capability.md`'s `_Probe` stays its own realized family, and `object/store.md` hands the singular `ObjectStore.head` member across as a value — S3 has no batch HEAD operation to invent.
 
-```typescript signature
+```typescript
 import { Effect, Exit, RequestResolver, Schema, type Scope } from "effect"
 import { Digest, Fault } from "@rasm/core"
 import { type ObjectFault, ObjectStore } from "../object/store.ts"
@@ -125,7 +125,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 - Law: identity is the window — batch windows group by resolver reference, so the resolver is built once and travels as a value; `Effect.provide` wrapped around call sites re-mints identity and defeats the window, which is what `contextFromServices` exists to prevent.
 - Law: the tagged-family resolver answers positionally — `fromEffectTagged` hands each handler its tag's whole window and index `i` resolves request `i`, so family growth is a handler row.
 
-```typescript signature
+```typescript
 import { Array, Clock, Duration, Effect, Metric, RequestResolver, Schema } from "effect"
 import { Convention } from "@rasm/core"
 
@@ -201,7 +201,7 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
 - Law: each geometry answers a DIFFERENT lifetime, which is the whole reason three rows exist — a traversal collapse ends with the traversal that opened it, a `dataLoader` window ends at its own wall-clock tick, and the persisted band ends at the `timeToLive` fold over request and `Exit`; every row admits identically through `Effect.request` at a singular call site, so admit is the constant and lifetime is the discriminant. Tenancy answers per row too: the first two are fiber-local and inherit their scope, while the durable band is the only row reaching a shared physical store and therefore the only one carrying the `CacheLane.scoped` partition. Each row forfeits what the next buys — traversal gives up cross-fiber collapse, `dataLoader` gives up restart survival, and `persisted` gives up declaration freedom and every provider whose request carries no schemas.
 - Law: per-flow dedup is a transformer, never a map — `Effect.withRequestCaching(true)` scoped at the flow boundary deduplicates repeated keys across the graph, and the cache it consults is the `CacheLane.dedup` Layer composed once at the root; a hand `Map` of in-flight lookups beside a resolver is the reinvention this row deletes.
 
-```typescript signature
+```typescript
 import { RequestResolver as Experimental } from "@effect/experimental"
 import { type Duration, type Exit, type Scope } from "effect"
 
@@ -240,7 +240,7 @@ const _durable = <Req extends Schema.TaggedRequest.All>(
 - Law: `board` proves the SQL provider reaches the wall-clock window — `read/query.md` upgrades its keyed row through `Batch.windowed` (every `SqlResolver` row IS a `RequestResolver`, so the one geometry member wraps it unchanged) and rebinds the typed call surface with `makeExecute`, so board reads fanning across unrelated request fibers collapse into one statement per window; the pairing is a census row rather than an unstated possibility, because a geometry no lane runs is a capability the engine only appears to carry.
 - Law: `head` serves stream-position reads — a fan of per-stream `Journal.head` probes folds into one `GROUP BY` statement through the SQL specialization (`read/query.md`'s `StreamHead` `findById` row, where an eventless stream is a lawful `Option.none`), because where the provider is the database the fused resolver wins over the general engine.
 
-```typescript signature
+```typescript
 const _lanes = {
   probe: { family: "CapabilityProbe", provider: "requestResolver", window: "traversal", owner: "lane/capability" },
   presence: { family: "Descriptor", provider: "requestResolver", window: "dataLoader", owner: "object/store" },

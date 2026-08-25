@@ -72,7 +72,7 @@ When a concept matches several signatures, the most specific row wins.
 - Accept: `[MemberEqualityComparer<...>]` makes complex-owner equality opt-in; unmarked members remain materialized but leave equality, hashing, and diagnostic text.
 - Boundary: collection members keep reference identity unless a sequence comparer accessor owns that member.
 
-```csharp conceptual
+```csharp
 public sealed class FieldKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
     private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
 
@@ -102,7 +102,7 @@ public static class FieldRanks {
 - Law: comparison grants are monotone; ordering accessors can synthesize comparison past key algebra, equality generation coerces upward, and impossible key axes emit nothing.
 - Boundary: key-typed overloads accept unadmitted raw operands under owner comparer policy; narrow integral keys compute wide, narrow, and re-admit unchecked, while `checked` throws before narrowing.
 
-```csharp conceptual
+```csharp
 [ValueObject<double>(
     MultiplyOperators = OperatorsGeneration.None,
     DivisionOperators = OperatorsGeneration.None,
@@ -131,7 +131,7 @@ public static class ShapeOps {
 - Law: position safety is two structural denials, not a guard — the `Locus` interface declares no `IAdditionOperators<TSelf,TSelf,TSelf>`, so `position + position` resolves no operator, and the owner's `OperatorsGeneration.None` and explicit `ConversionToKeyMemberType` deny the implicit key egress that otherwise folds two positions to scalar key arithmetic and re-admits; both denials are compile failures, neither a runtime check.
 - Law: an algorithm binds the weakest axis it consumes — a `VectorSpace` routine rejects a `Locus` position at the constraint because position is not in the vector-space fragment, ordered and affine reach are the cost of widening to `Amount` and `Locus`, and the unconsumed axis stays unreachable from the signature.
 
-```csharp conceptual
+```csharp
 [ValueObject<double>(
     MultiplyOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     DivisionOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
@@ -198,7 +198,7 @@ public static class AxisAlgebra {
 - Law: row-owned behavior wins when the vocabulary owns the policy or the same full-coverage `Switch` repeats; `[UseDelegateFromConstructor]` columns force every item to answer once, while generated `Switch` remains for single-consumer reactions.
 - Boundary: partial dispatch is a presence test, not routing; `SwitchPartially` cannot distinguish omitted and null arms, omitted `@default` is no-op, `MapPartially` preserves legal defaults, and 1,000 items retain lookup but lose dispatch.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class Variant {
     public static readonly Variant RowA = new("<value-b>", rank: 2, ProjectA);
@@ -258,7 +258,7 @@ public static class VariantOps {
 - Law: equality gates by discriminator, then member under `DefaultStringComparison`; hash omits discriminator mixing, `ToString` erases the active case, and identity-bearing rendering routes through generated case dispatch or `Is{Name}` and `As{Name}` probes.
 - Boundary: implicit conversions make the union a parameter absorber, replacing overloads and lifting mixed collection expressions, until interface, `object`, type-parameter, or duplicate members require `Create{Name}` factories; closing ingress sets both non-public `ConstructorAccessModifier` and `ConversionFromValue = ConversionOperatorsGeneration.None`.
 
-```csharp conceptual
+```csharp
 [Union<string, int, Blank>(T1Name = "Text", T2Name = "Count", T3Name = "Blank", T3IsStateless = true)]
 public readonly partial struct FieldValue;
 
@@ -289,7 +289,7 @@ public static class FieldValueOps {
 - Boundary: the generated `Switch` is depth-honest recursion bounded by the runtime stack, so hostile or unbounded depth is a different shape — an explicit-stack kernel admitted at the boundary, never the generated traversal pushed past its depth budget.
 - Boundary: the carrier-polymorphic catamorphism the snippet composes — the `K<F,B>` child folds combined under the carrier's own `Apply` so one fold specializes across every applicative carrier — is the surface and rail pages' mechanics, supporting material here; this card decides only that the family is a recursive class-`[Union]` and where the recursion lives.
 
-```csharp conceptual
+```csharp
 [Union]
 public abstract partial record Node {
     public sealed record Leaf(double Value) : Node;
@@ -316,7 +316,7 @@ public static class NodeOps {
 - Boundary: Generator.Equals `[Equatable]` is the one generated equality aspect for the shapes Thinktecture does not own, and its trigger is the MEMBER axis, never the root kind alone — any owner holding a reference-equality collection member takes the `language.md` `[IMMUTABLE_CARRIER_SITE]` repair, the class-root node or edge `[Union]` that surrenders Thinktecture's record-root generated equality being one instance; `[Equatable]` declares per NESTED sealed case, never on the union root, whose attribute governs only root-declared members while case members silently reference-compare — never a hand-written `Equals`/`GetHashCode`.
 - Boundary: the two-phase working-versus-snapshot split, the memoized incidence index, traversal and topology, and the content-addressed graph id are the algorithm, system-API, and boundary pages' — this card owns only that the edge and node are two closed `[Union]` owners and that the verb set stays neutral with one `Generic` tail.
 
-```csharp conceptual
+```csharp
 [Union]
 public abstract partial class Relation {
     [Equatable] public sealed partial class Compose(FieldKey whole, FieldKey part) : Relation { public FieldKey Whole { get; } = whole; public FieldKey Part { get; } = part; }
@@ -372,7 +372,7 @@ Every owner's admission surface is itself a closed family decision: the fault is
 - Boundary: `StopAt` carves a smaller recovery surface where a boundary needs one; an in-process subscriber receives only `FaultObservation.Of(error)` — the optional generated identity, typed retriability, bounded cause stamps, and truncation — never `Message`, category, or owner, and a wire lowering copies the CODE half of that identity while the generated case token stays local. Code-keyed in-process recovery identity (`Is`/`HasCode`/`IsType<E>`, never `==`) is the rail page's fault-identity law, composed over this shape.
 - Reject: a category, registry, or key roster paralleling the union — the union case IS the identity, so a mirror publishes a second discriminant, and generated identity plus the band ledger already answer every question it was minted to answer.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LaneFault : Fault {
     private LaneFault(string detail) => Detail = detail;
@@ -400,7 +400,7 @@ public abstract partial record LaneFault : Fault {
 - Boundary: the constraint `IObjectFactory<TOwner,TRaw,ValidationError>` with `TRaw : notnull, allows ref struct` carries the DEFAULT factory evidence — the seam lifts it once into `KernelFault.InvalidValue`, so ephemeral admission evidence never crosses an owner boundary as public identity.
 - Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard the evidence `Validate` already carries; a hand-rolled `Validation` tower re-deriving what the generated bridge already discharges — the generated `Validate` is the one admission authority.
 
-```csharp conceptual
+```csharp
 public static class Admission {
     extension<TOwner, TRaw>(TOwner)
         where TOwner : class, IObjectFactory<TOwner, TRaw, ValidationError>

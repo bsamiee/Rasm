@@ -20,7 +20,7 @@ Rasm.Persistence answers authoritative topology synchronously from the ONE kind-
 - Growth: a new edge filter or orientation is one row AT THE SEAM and zero edits here; a new cross-model relationship class reaches the federated view as one `LinkKind` row with zero edits here; zero new surface — an external graph database for authoritative topology, a per-read whole-edge scan, a local re-declaration of the seam view vocabulary, or a SECOND incidence structure beside the one the seam snapshot freezes is the deleted form, because the seam owns incidence, the roster, and the per-model view, and `ProjectView` COMPOSES those views off the one memo — lifting edges, never re-deriving incidence — adding only the durable link rows no seam incidence carries.
 - Boundary: the in-process QuikGraph view is the default authoritative topology owner; Apache AGE remains an optional analytical projection. Seam `EdgeFilter.Containment` admits only direct placement while spatial ancestry, descent, LCA, and anchors take `Spatial` to include `Aggregate` — the distinction is the seam's row law, read here and never re-derived by an inline `is` test. `Advance` validates through `ElementGraph.Apply` and becomes no second graph-mutation owner. `ProjectView` takes link rows the durable read already validity-filtered — bitemporal selection stays the `Element/graph#STORE_RAIL` reader's — and the in-model seam `Relationship` never widens to carry a cross-model edge: federation crosses ONLY on `ModelLink` rows, so the federated walk answers exactly what a coordination row declared. ROOTED spatial ancestry as a breadcrumb is Bim `Model/spatial` `SpatialStructure.Ancestry`'s alone; this lane answers the bounded reachable SET, which is a different question the multi-parent `Compose` graph can answer without a precedence law.
 
-```csharp signature
+```csharp
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
@@ -126,7 +126,7 @@ public sealed class ProjectView {
 - Growth: a new traversal is one `TopologyQuery` case carrying one `AlgorithmExtensions` composition over the matching seam `EdgeFilter` view; zero new surface — a hand-rolled BFS/DFS, a recursive ltree CTE for in-memory ancestry, a second path solver, or a silent empty-result fallback is the deleted form because QuikGraph owns the graph algorithms, every result is a `KeySelection`, and an absent root rails the typed band.
 - Boundary: every traversal composes `AlgorithmExtensions`; generated `query.Switch(...)` dispatch remains exhaustive. `Rooted` and `Paired` convert unknown endpoints to `TopologyFault.RootAbsent`, while `IsDirectedAcyclicGraph` gates order, LCA, and reduction. `Placement`, `Members`, `Void`, and symmetric connection adjacency make every seam filter row this lane reads operational. Topological distance remains in-process, metric distance remains in `pgrouting`, and both return `KeySelection`-compatible keys.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TopologyQuery {

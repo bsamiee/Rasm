@@ -18,7 +18,7 @@ Runs ride the `EvidenceScope.STUDY` weave — span, narrowed `boundary` fence, b
 - Stage: `Study.run` reports FOUR named positions off its own closed `StudyStage` roster — the design draw, the per-row evaluation sweep, the key mint, and the completed analysis — where the weave's lifecycle pair reported two over an N-row design. The mark is ONE `StageTap` the entry opens with an absent census and the worker re-stamps once the design states its extent; the row beat is the caller's closure, so the roster stays this fold's and never spans into the history owner's.
 - Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new interior position is one `StudyStage` member and one `beat` call, never a weave edit; a new refusal is one `FaultRow` anchor in `RAISES`; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new classical coded design is one `StudyMethod` case and one `_coded` arm reaching the shared `_unit`/`_box` map; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; a new bench statistic is one runtime `BenchmarkReceipt` field under the bench growth law, reached with zero study edits.
 
-```python signature
+```python
 import time
 from collections.abc import Callable, Iterable
 from enum import StrEnum

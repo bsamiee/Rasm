@@ -23,7 +23,7 @@ Capability, fidelity, and scale participation are all SET membership over `Capab
 - Packages: `Domain/validation` (`CapabilitySet<T>`, `CapabilityLaw<T>`, `ICapability<T>`), `Rasm.Numerics` (`Dimension`), `Exchange/options` (`FormatDial`, `DracoDial`), Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 - Growth: a new fidelity is one row plus its legal corner; a new trait, axis, or resource stance is one row; every option projection that reads the new column breaks loudly at the row constructor, never silently at a call site.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -145,7 +145,7 @@ public sealed record CodecTune(
 - Packages: `Domain/context` (`ModelUnit`), `Exchange/operations` (`ExchangeFault`), RhinoCommon (`FilePdfReadOptions.PDF_UNITS`, `FileAiReadOptions.Units`, `FileAiWriteOptions.Units`, `FileEpsReadOptions.Units`) per `.api/api-rhinocommon-fileio.md`.
 - Growth: a new vector-capable engine is one `VectorLens` row; a new admitted unit is one `VectorUnit` row carrying its four host spellings.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VectorUnit {
@@ -251,7 +251,7 @@ internal static class VectorLenses {
 - Growth: a new interchange format is one row naming its extensions, its ability set, and its two engine columns.
 - Boundary: `FilePdf` page authoring and raster encoding are `publish.md` egress; the `pdf`/`svg` rows here own only page-space vector import, and the raster rows are the extension authority each `RasterCodec` row admits itself against — the publish target vocabulary keys on `FileCodec` row identity, never on the raster ability.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FileCodec {
@@ -564,7 +564,7 @@ public static class Codecs {
 - Growth: a new host override lands one arm folding the shared rail into its own verdict currency and one refusal write; the registry, the index law, and the matrix entry are untouched.
 - Boundary: `bool` and `WriteFileResult` are the host's two dialog verdict currencies — the import override answers a bare `bool`, the export override a `WriteFileResult` — and the port folds the matrix rail into each at the seam so nothing above the port sees either. The port dispatches with `CodecTune.Model` and the host-supplied carrier, because dialog traffic carries host intent in the carrier and the dialog itself carries no policy surface.
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class CodecPort {
     private static readonly Atom<HashMap<(Guid PlugIn, CodecPhase Phase, int Index), FileCodec>> Registry =

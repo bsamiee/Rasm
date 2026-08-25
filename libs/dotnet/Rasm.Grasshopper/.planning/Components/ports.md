@@ -17,7 +17,7 @@
 - Growth: a new host discriminant value is one row on the owning vocabulary.
 - Boundary: `Side`, `Access`, and `Requirement` never travel past a binding delegate; interior code holds only the folder vocabulary.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
@@ -126,7 +126,7 @@ public sealed record PortAxes(
 - Boundary: policy assignment crosses through `HostCall.Run`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
 - Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
@@ -367,7 +367,7 @@ public sealed record PinPlan {
 - Boundary: `AddTopological` carries identity text only; `Numeric`, `Generic`, `Index`, `TextPattern`, and connection semantics remain distinct families even where their CLR carrier overlaps another row.
 - Boundary: a host `Add*` marked `[Obsolete]` is never suppressed — the row mints its parameter and attaches it through the public `InputAdder.Add(IParameter, Requirement)` seam, which is the same declaration with no diagnostic to silence.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
@@ -610,7 +610,7 @@ public sealed partial class PortRow {
 - Growth: a new maintenance projection is one fold over the returned parameter seq; enum pins remain integer carriers, while `T` supplies presets and the input seed.
 - Boundary: a rejected policy never reaches the host; presets and assistants are observed through their get-only host contracts rather than projected as plan setters.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;

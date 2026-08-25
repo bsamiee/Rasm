@@ -22,7 +22,7 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Growth: a new tessellation density is one `TessellateRule` case; a new isoline selection one `IsolineRule` case; a second distance lane one `GeodesicGrade` row; a new field quantity one `CurvatureField` column off the same `CurvatureAt` sweep; a lofted, swept, or revolved construction is a growth row on the engine admission.
 - Boundary: basis, derivative, and projection arithmetic stay `nurbs.md`'s engine members; a trimmed region is `Trim` DATA on the one `Tessellate` case — the constrained cells ride the `Meshing/delaunay` `Tessellation.Build` substrate with `PlanarOverlay`'s exact winding classification, so THIS owner emits both the full-domain and the trimmed `UvTessellation` and no consumer mints a constrained substrate beside it.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;

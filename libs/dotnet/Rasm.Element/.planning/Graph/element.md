@@ -27,7 +27,7 @@ PHASE splits the graph: live authoring rides the `TrackingHashMap` HAMT `Graph/d
 - Growth: a new node concept is one `Node` case carrying its payload type, the payload owning its own `CanonicalBytes` contribution so the arm is one ordinal and one delegation (the `Observation` series landed exactly this way; a `Schedule`/`Task` node lands here only if 4D becomes a real target); a new object axis is one column on the `Object` case; a new node-payload component is one type on its owning sibling page; never a parallel node family and never a second identity scheme — the `NodeId` is the one owner, `MaterialId` a node attribute, not a parallel key. New object columns land with their wire field and their presence-delimited `CanonicalBytes` contribution in one edit under the additive contract-evolution law — `ObjectType` is the landed instance, carrying the IFC-canonical `(PredefinedType = USERDEFINED, ObjectType = label)` designation for BOTH object kinds — the Bim `Projection/semantic` `UserLabel` ingress reads it off `IfcObject.ObjectType` or `IfcElementType.ElementType` and `Projection/egress` `StampPredefined` re-stamps the matching slot, one column for the exact round-trip.
 - Boundary: `NodeId` is the ONE identity owner: occurrence roots use Guid-v7 placement identity, type roots hash the representation-excluded type seed, and non-rooted nodes hash full canonical content. `Object` carries the primary and co-applied classifications, `PredefinedType`, content-keyed representations, owner history, and schema span; geometry stays behind `GeometrySource`, model georeferencing stays on `Header`, and IFC rosters stay in the Bim projector. `CanonicalBytes(w)` is the shared id/diff projection, and bag source rank participates in property/quantity node identity. `AppearanceSummary` is FROZEN at its seven-value preimage, carried as ONE `AppearanceVector` admitted through `Of(vector, key) -> Fin<AppearanceSummary>`: a peer carrying a richer appearance fact — a baked texture-set key, an environment binding, a UV transform, a measured refractive index — hangs it behind the `AppearanceKey` on its own wire, because an eighth column re-keys every stored `Node.Appearance` and forks the Bim dedup key in the same edit.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using LanguageExt;
@@ -419,7 +419,7 @@ public abstract partial class Node {
 - Boundary: a TYPE `Object`'s deterministic id excludes the volatile `Representations`, so a geometry attach re-keys neither the Type node nor the cached `Bake`.
 - Boundary: the `Header` carries the `GeoReference`, the `StepHeader`, and the `UnitScheme` (the `IfcUnitAssignment` unit-presentation declaration — canonical-bytes-excluded, so display units never fork identity), and the `Object` nodes carry the `OwnerHistory` and the `SchemaSpan`, so the model's provenance, declared units, and schema span ride the graph rather than a side channel.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -693,7 +693,7 @@ public sealed partial class ElementGraph {
 - Growth: a new coordination axis is one refusal slot beside the tolerance and reference gates; a new union law is one arm in `Unify`; a new slice direction is one predicate on the frontier expansion — never a second union entrypoint and never a per-source header column on the graph.
 - Boundary: `Connect.Interface` is a `UInt128` blob key riding no `Members`, so an extracted slice carries the key while its blob resolution stays SOURCE-bound through the owning `GeometrySource` port; a slice does not copy geometry, and a consumer resolving an extracted interface reaches the source's own store.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FederationSource(
     string Tag, ContentAddress Address, ReleaseVersion Schema, ModelView View, Instant At, string Step,

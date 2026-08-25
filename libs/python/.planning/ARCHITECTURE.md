@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 libs/python/
 ├── runtime/    # Host-free execution foundation four siblings compose
 ├── compute/    # Offline scientific evidence that graduates through one rail

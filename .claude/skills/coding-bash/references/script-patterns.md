@@ -18,7 +18,7 @@
 
 Three-phase pipeline: subcommand dispatch (O(1) via `declare -Ar`), flag parsing (`case/esac`), positional collection (remainder after `--`). Flags consumed exhaustively before positionals.
 
-```bash conceptual
+```bash
 declare -Ar _SUBCMDS=([start]=_cmd_start [stop]=_cmd_stop [status]=_cmd_status)
 declare -a POSITIONAL_ARGS=()
 declare -i LOG_LEVEL=2
@@ -62,7 +62,7 @@ Remove `_SUBCMDS` (or leave empty) for flag-only scripts. Handlers receive only 
 
 Two-dimensional `verb:resource` keyed dispatch with parallel metadata arrays. Subsumes nested subcommands — the composite key encodes the full route:
 
-```bash conceptual
+```bash
 declare -Ar _DISPATCH=(
     [get:user]=_handle_get_user       [get:project]=_handle_get_project
     [create:user]=_handle_create_user [create:project]=_handle_create_project
@@ -106,7 +106,7 @@ _dispatch_help() {
 
 Pre/post hooks wrapping handlers via chainable dispatch. Each middleware receives a nameref to context — rejection short-circuits the chain without coupling to business logic:
 
-```bash conceptual
+```bash
 declare -a _MIDDLEWARE=()
 _use() { _MIDDLEWARE+=("$1"); }
 _run_with_middleware() {
@@ -133,7 +133,7 @@ _use _mw_version
 
 `_OPT_META` encodes all option data — adding an option is one table entry and one `case` branch. Explicit key list controls iteration order (associative arrays have no insertion order).
 
-```bash conceptual
+```bash
 # Terminal colors — NO_COLOR compliant (https://no-color.org), CI-aware
 _BOLD="" _DIM="" _RESET=""
 [[ -z "${NO_COLOR+set}" ]] && [[ -t 2 ]] \
@@ -171,7 +171,7 @@ _usage() {
 
 No `eval`/`source` — `declare -g` with regex-validated key names, comment skip, extglob trimming:
 
-```bash conceptual
+```bash
 load_config() {
     local -a raw_lines; mapfile -t raw_lines < "$1"
     # Paradigm exception: bash lacks higher-order array iteration primitives
@@ -191,7 +191,7 @@ load_config() {
 
 API signatures:
 
-```bash conceptual
+```bash
 _debug() _info() _warn() _err()     # Level-gated, caller-context injection via FUNCNAME[2]
 _die()                              # _err + exit ${EX_ERR}
 # W3C trace context propagation (service-wrapper pattern)
@@ -213,7 +213,7 @@ ERR fires on command failure (diagnostic only), EXIT fires unconditionally and i
 
 Full stack trace via `FUNCNAME`/`BASH_LINENO`/`BASH_SOURCE`. Requires `set -E` (errtrace) so the trap inherits into functions and subshells:
 
-```bash conceptual
+```bash
 _on_err() {
     local -r rc=$? cmd="${BASH_COMMAND}" depth="${#FUNCNAME[@]}"
     printf '\n[ERROR] exit %d: %s\n[STACK]\n' "${rc}" "${cmd}" >&2
@@ -229,7 +229,7 @@ trap '_on_err' ERR
 
 LIFO stack — `eval` acceptable here because all registered commands are script-controlled string literals, never user input:
 
-```bash conceptual
+```bash
 declare -a _CLEANUP_STACK=()
 declare -i _CLEANING=0
 _register_cleanup() { _CLEANUP_STACK+=("$1"); }
@@ -261,7 +261,7 @@ _register_cleanup "exec ${lock_fd}>&-"
 
 Coalescing matters for `SIGCHLD` — multiple children exiting may deliver one signal:
 
-```bash conceptual
+```bash
 # Wrong: single wait loses child exits due to coalescing
 # Right: drain all completed children per signal delivery
 trap 'while wait -n 2>/dev/null; do :; done' CHLD
@@ -278,7 +278,7 @@ trap 'while wait -n 2>/dev/null; do :; done' CHLD
 |  [05]   |  `127`  | Not found      | Command not in PATH            |
 |  [06]   | `128+N` | Signal N       | Killed by signal (130=Ctrl-C)  |
 
-```bash conceptual
+```bash
 readonly EX_OK=0 EX_ERR=1 EX_USAGE=2
 _die_usage() { _err "$@"; _err "See --help"; exit "${EX_USAGE}"; }
 ```
@@ -287,7 +287,7 @@ _die_usage() { _err "$@"; _err "See --help"; exit "${EX_USAGE}"; }
 
 `wait -n -p VARNAME` (Bash `5.1+`) captures the finished PID — required for mapping results back to inputs. Without `-p`, a failed job is unidentifiable in the batch.
 
-```bash conceptual
+```bash
 declare -A _job_pids=()
 readonly MAX_JOBS="${MAX_JOBS:-4}"
 readarray -d '' -t files < <(fd -e txt --print0)
@@ -315,7 +315,7 @@ fd -e txt -x process_file {}
 
 Lock FDs register with `_CLEANUP_STACK` so they release even on ERR paths.
 
-```bash conceptual
+```bash
 # Atomic lock via flock with dynamic FD allocation (no hardcoded FD numbers)
 exec {lock_fd}>/var/lock/myscript.lock
 flock -n "${lock_fd}" || { printf 'Already running\n' >&2; exit 1; }
@@ -339,7 +339,7 @@ trap - INT TERM           # Reset: default disposition restored
 
 `SRANDOM` draws kernel entropy; `RANDOM` is an LCG unsuitable for jitter — correlated storms across near-simultaneously seeded processes. Parameters: `max` (`$1`, default 3), `delay` (`$2`, default 1s), `max_delay` (`$3`, default 60s), command (`$4+`).
 
-```bash conceptual
+```bash
 retry() {
     local -r max="${1:-3}" max_delay="${3:-60}"; local delay="${2:-1}"; shift 3 || shift $#
     # Paradigm exception: retry is inherently stateful (mutable delay, attempt counter)
@@ -362,7 +362,7 @@ retry() {
 
 Write to temporary file, then atomic `mv` (same filesystem). `umask 077` before `mktemp` for sensitive data:
 
-```bash conceptual
+```bash
 write_atomic() {
     local -r dest="$1"; shift
     local tmp
@@ -381,7 +381,7 @@ _register_cleanup "rm -rf '${WORK_DIR}'"
 
 `coproc` (Bash `4.0+`) creates a bidirectional pipe — `${COPROC[0]}` reads stdout, `${COPROC[1]}` writes stdin. Sentinel-based framing solves the result boundary problem (knowing when a multi-line response ends):
 
-```bash conceptual
+```bash
 # Persistent database session — sentinel marks end of each result set
 coproc DB {
     PGOPTIONS='--client-min-messages=warning' \
@@ -413,7 +413,7 @@ Use named pipes when multiple concurrent workers or POSIX portability is require
 
 ## [11]-[TESTING]
 
-```bash conceptual
+```bash
 assert_eq()        { [[ "$1" == "$2" ]] || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: '${2}' != '${1}'"; }
 assert_not_empty() { [[ -n "$1" ]]     || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: empty value"; }
 assert_file()      { [[ -f "$1" ]]     || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: not a file: ${1}"; }

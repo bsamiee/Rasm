@@ -31,7 +31,7 @@ Rasm is a polyglot monorepo whose `libs/` estates hold independently adoptable C
 
 `uv run assay <claim> <verb>` is the one runnable form: one JSON `Envelope` lands on stdout and diagnostics ride stderr. Claims, verbs, and flags live in `uv run assay --help` and each claim's own help.
 
-```bash copy-safe
+```bash
 uv run assay self-test
 ```
 

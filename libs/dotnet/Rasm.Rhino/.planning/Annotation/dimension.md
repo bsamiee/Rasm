@@ -21,7 +21,7 @@
 - Packages: `Domain/context` (`Context.For`, `Tolerance`, `ToleranceLane.Orientation`), `Domain/validation` (`Op.Accept` span receiver, `Op.AcceptValidated`), `Document/session.md` (`DraftFault`), `Annotation/style.md` (`DraftBorrow`, `DraftScale`); RhinoCommon `LinearDimension`/`AngularDimension`/`RadialDimension`/`OrdinateDimension`/`Centermark` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a construction form lands as one `DimensionSpec` case and one total dispatch arm; a new point roster is one product both families read.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
@@ -225,7 +225,7 @@ public abstract partial record DimensionSpec {
 - Packages: `Domain/validation` (`Op.Accept`, `Op.AcceptValidated`), `Document/session.md` (`DraftFault`); RhinoCommon `AdjustFromPoints`/`SetLocations` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a refit form is one `DimAdjust` case reading one point product; a pose column is one member and one clause.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DimAdjust {
@@ -360,7 +360,7 @@ public sealed partial class DimPose {
 - Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`, `DraftSlot`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/rails` (`Op.ToHostSlot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
 - Growth: a dimension verb is one case with its arm; the receipt, the spine, and every consumer read it unchanged.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class LengthChannel {
@@ -453,7 +453,7 @@ public static class Dimensions {
 - Packages: `Annotation/style.md` (`DraftCrossing`, `DraftScale`, `StyleField`, `StyleSetting`, `StyleValue`), `Domain/rails` (`Custody`, `Op.Catch`, `Op.Unsupported`); RhinoCommon `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetAngleDisplayText`/`GetDistanceDisplayText`/`GetTextTransform`/`Explode` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a measuring family is one `DimFamily` row answering every column; a read is one `DimAsk` case with its `DimAnswer` twin.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DimPointRole {

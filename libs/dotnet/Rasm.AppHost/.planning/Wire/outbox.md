@@ -35,7 +35,7 @@ Owned surfaces: the relay vocabulary, the `OutboxOrdinal` sign boundary, the dia
 - Growth: a new lifecycle state is one `RelayState` case breaking every reader's `Switch`; a new operational column is one field on `RelayEntry`; a new binding trust class is one `BindingTrust` row naming the reaches it admits; a new fault is one `OutboxFault` case with the `Retriability` it overrides; zero new surface.
 - Boundary: Persistence alone owns the transactional message and its one CloudEvent mint. The committed op-log is the outbox, the per-binding `OutboxCursor` is dispatch state, and `RelayEntry` is only the AppHost's in-process carrier over the exact envelope returned by `Egress.Envelope`; a second envelope table, a second event mint, or a durable AppHost row is the deleted parallel store. The envelope id remains `OpLogEntry.Id.Wire`, its subject remains `ContentHash.Hex(OpLogEntry.ContentKey)`, and its sequence is the op-log sequence encoded as canonical fixed-width `D20`; none is repurposed as another. The binding subscription supplies the consumer key and configured `OutboundHop`, so semantic subject never becomes routing metadata. The store's arrows take a `long` sequence while the relay ordinal is a `ulong`, and `OutboxOrdinal` is the one checked crossing. The outbox and workflow step-state rows share the producing tenant-scoped transaction, while each durable binding advances its own fenced cursor over the one egress spine. `Redrive.Settle` owns retry disposition against this lane's bound: a non-transient fault dead-letters on its first attempt, and a transient fault retains its earned attempt across sweeps.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RelayState {
@@ -202,7 +202,7 @@ public sealed record RelayEntry(
 - Law: attempts COMPOSE across the two owners and the composition is the idempotency window every receiving binding owes — the hop pipeline owns the per-send schedule (`docs/stacks/csharp/domain/resilience.md` `[ONE_OWNER]`) while this lane owns the re-drive BOUND alone, so one entry's whole span is the hop's allotment repeated across at most `RelayEntry.PoisonCeiling` sweeps; a receiver whose dedup window covers one hop allotment rather than that re-drive horizon admits a duplicate both owners read as correct.
 - Boundary: each drain is a fan-in, so its span links every admitted envelope's producing trace and parents on none. A pending read refusal remains a typed failure rather than an empty healthy sweep. The store read returns the first due unsettled row, including its persisted deferred attempt, and never skips that row to expose a later sequence. This is the only durable AppHost relay: it neither re-mints the Persistence envelope nor republishes it on EventBus. The fenced `OutboxAdvance` CAS moves the binding cursor after delivery; the Persistence dead-letter arrow quarantines and advances one terminal row in the same fenced transaction. A deferred row stops the loaded suffix, so no later success can move the monotone cursor past a gap. Receiving bindings dedupe at-least-once replay by the conserved operation id; a relay-local seen-key cache is the deleted loss window. Barred classes never reach a binding at all, so no receiver sees a fact its own trust class forbids and no downstream filter re-decides what this gate settled. The dead-letter content key uses a framed `(consumer, dedup)` preimage so separate bindings cannot alias the same failed delivery.
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class OutboxRelay {
     public sealed record Runtime(
@@ -387,7 +387,7 @@ sequenceDiagram
 - Growth: a new internal settlement state extends `RelayState` and breaks this receipt's exhaustive fold, with no peer enum or hand carrier.
 - Boundary: no per-row, per-topic, or sweep projection exists here. The exact Persistence envelope carries content-key subject and operation id, not an AppHost topic. Dead-letter rows, replay receipts, and sweep evidence remain native until a real serialized peer consumer lands; a producer-only protobuf family is deleted rather than registered as dormant wire.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record OutboxSweep(
     uint Examined,

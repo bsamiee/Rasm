@@ -40,7 +40,7 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 - Packages: Grasshopper2 (the static `Editor.BeginRhinoGetter`), RhinoCommon (`RhinoDoc` as the handoff payload), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`UiThread`, `UiFault`), `Shell/session.md` (`ScopeTarget`, `GhScope`), `Document/document.md` (`GateReceipt<TFacts>`, `GateLane`, `GateOutcome`).
 - Growth: a new shell command is one `ShellOp` case with its `Switch` arm breaking loudly at the gate; zero new entrypoints on any axis.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;

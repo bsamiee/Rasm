@@ -18,7 +18,7 @@
 - Packages: `RESULTS.promote` is deliberately unused — it widens a member across `Enumeration` classes and raises on a same-class member, so the multi-start reduction is the `jnp.max` code fold; the numpy floor runs over real arrays only, never a JAX PyTree, and its one-hot perturbation never materializes a dense `np.eye(x0.size)` basis a realistic SIMP density field cannot afford; the quadrature weak-form assembly enters transitively through `solvers/mesh`, never as a direct dependency here.
 - Growth: a new provenance is one `DesignProblem` case and one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member with its `_objective`/`target`/`cost`/`_floor_cost` arms, all `assert_never`-closed; a new descent engine is one `Descent` case mapping to its constructor in `Descent.solver`; a new feasibility constraint is one `Feasible` member and one `_feasible` row; a new gated module is one `DesignEngine` field and one `gated()` import line; a new evidence field is one `_OUTCOME_SLOTS` slot with its case-tuple position and no `contribute` edit; the answering engine is the `Provider` column the shared receipt owner seats, never a page-local vocabulary, a backend-specific one landing optional so every other backend leaves it absent; a new outcome case is one `_OUTCOME_SLOTS`, `_OUTCOME_CEILING`, and `_OUTCOME_SCOPE` row; a tighter graduation bar is one `_OUTCOME_CEILING` row; a multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import functools
 from collections.abc import Callable, Iterable

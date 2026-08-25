@@ -2,7 +2,7 @@
 
 Automation API drives Pulumi operations from code instead of the CLI: multi-stack orchestration, self-service infrastructure platforms, embedded per-tenant provisioning, and the replacement of fragile shell scripts stitching `pulumi` commands. A single project with standard deployment needs stays on the CLI.
 
-```typescript conceptual
+```typescript
 import * as automation from "@pulumi/pulumi/automation";
 
 const stack = await automation.LocalWorkspace.createOrSelectStack({
@@ -21,7 +21,7 @@ const upResult = await stack.up({ onOutput: console.log });
 - [INLINE_SOURCE]: `program` embeds the Pulumi program as a function in the orchestrator. Fits single-team ownership, tight coupling by design, and compiled-binary distribution with no source files.
 - [LANGUAGE_INDEPENDENCE]: Orchestrator and orchestrated programs choose languages independently — a Go orchestrator manages TypeScript programs.
 
-```typescript conceptual
+```typescript
 // Local source
 const local = await automation.LocalWorkspace.createOrSelectStack({
     stackName: "dev",
@@ -43,7 +43,7 @@ const inline = await automation.LocalWorkspace.createOrSelectStack({
 
 Dependent stacks deploy sequentially in dependency order and destroy in reverse; independent stacks deploy in parallel.
 
-```typescript conceptual
+```typescript
 // Sequential: infrastructure → platform → application
 for (const info of [
     { name: "infrastructure", dir: "./infra" },
@@ -66,7 +66,7 @@ await Promise.all(
 
 ## [03]-[CONFIG_OUTPUTS_ERRORS]
 
-```typescript conceptual
+```typescript
 // Configuration lands programmatically before up
 await stack.setConfig("aws:region", { value: "us-west-2" });
 await stack.setConfig("dbPassword", { value: "secret", secret: true });

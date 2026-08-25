@@ -20,7 +20,7 @@ Rasm.AppUi turns the resolved token generation into the live application surface
 - Growth: one trigger constant, one policy value, or one `Rematerialize` row with its reason; zero new surface.
 - Boundary: `Rematerialize` rows are DISPATCHED, never merely listed — the swap capsule takes one bound rebuild action PER ROW and its mount proof refuses a roster row nothing rebuilds, so a row that rebuilds nothing cannot sit indistinguishable beside one that does.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -76,7 +76,7 @@ public sealed partial class Rematerialize {
 - Growth: a new emission family is one `Entries` projection row in the one merge; zero new fold.
 - Boundary: a posture partition re-emits the SURFACE family alone — every other key inherits from the parent variant, so a posture scope is one small override rather than a copied palette that drifts on the next re-seed.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ThemeEmission {
@@ -154,7 +154,7 @@ public static class ThemeEmission {
 - Growth: one bound rebuild action per new `Rematerialize` row — the mount proof breaks the composition that forgot it; one settings field per new policy value.
 - Boundary: `ThemePolicy` is the persisted per-profile theme section — `Republish` admits the variant and density keys through the generated `TryGet` lookups and the accent hex through `Color.TryParse`, a rejected write keeps prior values live as `ReloadOutcome.Rejected` on the reload stream, and cross-process propagation rides the op-log cursor exactly as the locale section does; variant and density are CLOSED rosters, so both settings fields pick from their own generated rows and a hand roster naming a retired variant is unspellable; the accent surface projection reads the LIVE seed accent — a persisted explicit accent equal to the default re-admits identically, so the projection carries no override bookkeeping.
 
-```csharp signature
+```csharp
 public sealed class ThemeCell(
     Atom<ResolvedTheme> current,
     Atom<AppearanceSeed> seed,
@@ -321,7 +321,7 @@ public sealed class ThemeCell(
 - Growth: a new skin is one `SkinChain` row carrying its rank and its locale posture; a new candidate family is one derivation fold.
 - Boundary: resolved `Spans` reach no Semi slot — `SemiPopupAnimations` carries its durations as inline literals and publishes no named duration resource, so popup and flyout motion rides the `motion#MOTION_APPLICATION` plan rows and mounting `SemiPopupAnimations` is the deleted form; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` keep the Fluent base and are never displaced by the Semi skins; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve.
 
-```csharp signature
+```csharp
 public static class ThemeRail {
     public static Seq<(TokenKey Foreground, TokenKey Background, ContrastFloor Class)> ContrastCandidates =>
         Seq(PaintRole.Text, PaintRole.TextMuted, PaintRole.TextFaint)
@@ -394,7 +394,7 @@ public static class ThemeRail {
 - Growth: a new product control theme is one `SkinRow` row; a new authored arm is one `AuthoredArm` on its row; a new template part is one `AuthoredPart` with its custody row.
 - Boundary: the banner's PLACEMENT is a pair of style classes the control fold stamps and never a pseudo-class, because the framework sets pseudo-classes and a placement the product chose cannot be one — the banner row's state roster therefore carries the four shipped severities alone; `BorderlessButton` carries `:disabled` alone, `SolidButton` drops the size arms, `OutlineButton` carries the five intent arms alone, and `HyperlinkButton` owns its own trailing link glyph — each fact is the `Shipped` basis payload of its row; the pseudo-class roster is DECLARED on the spec and mirrored by the metadata attribute the theme tooling reads, so a state a template styles against but the control never sets is a spec omission rather than a selector that silently never matches.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

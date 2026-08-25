@@ -27,7 +27,7 @@ Composition facts arrive settled: every posture, tier, and gauge colors through 
 - Boundary: WHICH flows banner versus toast is app policy (blocking evidence banners; non-blocking outcomes ride `Primitive.notify`); the failure envelope for thrown/defect rendering stays `system/primitive#FAILURE_ENVELOPE`'s — `torn` here colors a face, it never replaces the boundary.
 - Growth: a new posture is one roster arm with its `_tone` and `_WINDOWS` rows — the `satisfies` contracts break every table that must answer it; a new tier is one `_TIERS` row; a new fill is one `_FILL` row — never a sibling component.
 
-```typescript signature
+```typescript
 import { Result } from "@effect-atom/atom-react"
 import { cva } from "class-variance-authority"
 import { Duration, Option, Record, type Types } from "effect"
@@ -99,7 +99,7 @@ const _face = cva("flex items-start gap-3 rounded-md p-4", {
 - Boundary: the timers are the platform's — the hook body is the page's one timer seam; the toast queue's dismissal windows stay primitive's rows (this table leases the WAITING faces, that one leases NOTES).
 - Growth: a new transient kind is one row; a new lease axis (a repeat cap, a backoff) is one column every row must answer.
 
-```typescript signature
+```typescript
 import { useEffect, useState } from "react"
 import type { Points } from "../system/hook.ts"
 
@@ -156,7 +156,7 @@ const _horizon = (kind: Status.Kind, held: Duration.Duration): Points["rasm.ui.v
 - Boundary: WHAT to veil is the surface's composition (a grid veils its rows, a form its fields); the failure face is `[02]`'s postures — a veil never renders over `refused` or `torn`.
 - Growth: a skeleton variant (a text-line veil with cloned line boxes) is one recipe row reading the same context — never a second provider.
 
-```typescript signature
+```typescript
 import { createContext, useContext } from "react"
 
 const _Skeleton = createContext(false)
@@ -179,7 +179,7 @@ const _sync = (host: HTMLElement): void => {
 - Boundary: WHAT emptiness means (no rows, no matches, not-yet-created) is the surface's copy through `system/intl`'s catalog; the fault DETAIL rendering (Cause trees, family tags) stays the failure envelope's fold — a result face shows the posture and the affordance, never a stack.
 - Growth: a new face axis (a compact list-row empty beside the page empty) is one size variant on the recipe; a new media kind is one discriminant arm.
 
-```typescript signature
+```typescript
 import type { Effect } from "effect"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
@@ -211,7 +211,7 @@ declare namespace Status {
 - Boundary: WHAT a percentage means (bytes, steps, items) is the caller's `valueText` formatting policy; upload progress specifically arrives through `Form.upload`'s tap parameter as an atom these gauges read.
 - Growth: a new gauge posture (a segmented bar, a radial track) is one indicator variant row; a new dot rank is one row on its own closed axis beside the tone column.
 
-```typescript signature
+```typescript
 const _gauges = ["track", "indicator", "label", "value"] as const
 
 declare namespace Status {

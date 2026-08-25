@@ -28,7 +28,7 @@ One compact `rasm.contracts.fault.FaultDetail` — `domain`, `case`, `correlatio
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; zero new surface. An rpc lands with its corpus row, generated service roster, server override, and real peer invocation in one motion; a service-only or client-only declaration is deleted rather than padded with an unused adapter.
 - Boundary: temporal values cross as `Timestamp` and protobuf `Duration` through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward; ProtoJSON formatting and parsing of every generated message is AppHost `Runtime/ports#WIRE_LAW` `WireJson`. `ParseGuard.Read` gates a payload before bounded parse, while `Runtime/channels#ARTIFACT_FRAMES` streams Put and Fetch through the shared frame law under `WireLimits.Artifact`. Sync state, diffing, transfer manifests, and atomic storage strategy remain store mechanics and cannot alias onto either RPC.
 
-```csharp signature
+```csharp
 using Grpc.Core.Interceptors;
 using ArtifactRef = Rasm.Contracts.Artifact.ArtifactRef;
 using ArtifactService = Rasm.Contracts.Artifact.ArtifactService;
@@ -184,7 +184,7 @@ public static class WireKeys {
 }
 ```
 
-```proto signature
+```proto
 syntax = "proto3";
 
 package rasm.contracts.compute;
@@ -241,7 +241,7 @@ Each message carries its generated field set and wire role; enum vocabularies ca
 - Growth: a new local transport arm is one `[FaultCase]` leaf and one `StatusRail` entry when a status gains distinct semantics; a new malformed-envelope condition is one `WireViolation` case at the AppHost owner.
 - Boundary: the server raises through AppHost `FaultWire.Raise` with one `FaultDetail` in `google.rpc.Status.details`; the client admits exactly one recognized detail as opaque `RemoteFault` on a cause-bearing `WireFault.Remote`. Zero recognized details use transport classification; malformed or multiple recognized details retain the caught RPC error on AppHost's typed `WireBoundary` evidence. In-band conflict slots admit the same compact envelope as response evidence without fabricating a transport cause. Status lookup is keyed by numeric `StatusCode`, never ordinal position. This family is the CLIENT edge alone — the served `ProgressService` leaves its refusals through `FaultWire.Raise` at `Runtime/progress#OBSERVATION_SEAMS`, so no arm here is ever packed onto a trailer.
 
-```csharp signature
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WireFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Wire;

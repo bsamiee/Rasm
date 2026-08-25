@@ -18,7 +18,7 @@ No `ezdxf` lowering crosses this owner: `Terminator.lowering` publishes the line
 - Growth: A new vocabulary member lands with its owning row; a new layer-name field crosses the factory, parser, and projection on the same owner; a new schema adds one `LayerSchema` member and one arm to each inverse direction.
 - Boundary: no `ezdxf` or host-resource authoring (`drawing/standard#STANDARD`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no colour conversion (`graphic/color/derive#DERIVE` — pen rows carry coordinates, never a conversion arm); no font-binary read (`typography/font#FONT` — the fold consumes the `FaceMetrics` value); no theme selection (`graphic/style#STYLE`); no sheet placement, receipt, plan node, or rail beyond the codec `Result` — the substrate is total.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from enum import StrEnum

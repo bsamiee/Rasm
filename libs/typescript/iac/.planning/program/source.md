@@ -21,7 +21,7 @@
 - Boundary: the mirror mechanics are `operate/secret.md`'s; the CI workflows that run inside the shells are app repo material, never lib code; `appAuth` (GitHub-App identity) supersedes the PAT when the estate earns a durable machine identity.
 - Packages: `@pulumi/github` (`Provider`, `Repository`, `RepositoryRuleset`, `RepositoryEnvironment`, `RepositoryEnvironmentDeploymentPolicy`, `RepositoryDeployKey`, `RepositoryWebhook`, `ActionsVariable`); `@pulumi/tls` (`PrivateKey`); `@pulumi/pulumi` (`Input`, `ComponentResourceOptions`); `effect` (`Array`, `Option`, `Record`, `Schema`); `./spec.ts` (`StackSpec`, `Tier`).
 
-```typescript signature
+```typescript
 import * as github from "@pulumi/github"
 import * as pulumi from "@pulumi/pulumi"
 import * as tls from "@pulumi/tls"
@@ -151,7 +151,7 @@ class Source extends Tier {
 - Boundary: fronting DNS/CDN rows stay on the owning arms; this plane declares WHICH bytes publish under one identity and never what a codec means — transcoder wiring, format vocabulary, and capability refusal stay with the consuming folder; the `served` plane's decode is `spec.md`'s.
 - Packages: `@pulumi/synced-folder` (`S3BucketFolder`, `GoogleCloudFolder`); `@pulumi/pulumi` (`Input`, `ComponentResource`, `ComponentResourceOptions`); `effect` (`Array`, `Option`, `Record`, `Schema`); `node:fs` (`existsSync`); `node:path` (`join`).
 
-```typescript signature
+```typescript
 import * as syncedFolder from "@pulumi/synced-folder"
 import { existsSync } from "node:fs"
 import { join } from "node:path"

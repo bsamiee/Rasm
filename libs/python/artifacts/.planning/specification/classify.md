@@ -20,7 +20,7 @@ Construction classification binds `MasterFormat` work results, `UniFormat` eleme
 - Growth: a new division/element/table is one `_DIVISIONS`/`_ELEMENTS`/`_OMNI_TABLES` row; a new classification system is one `ClassSystem` member plus one `re.Pattern` and one arm on each projection (`assert_never` forcing each); a new crosswalk edge is one `_CROSSWALK` row the inverse absorbs; a new fault cause is one `ClassFault` case.
 - Boundary: this owner authors classification semantics, never bytes — no `ArtifactReceipt` case (the composing producers carry the code in their own facts), no rendered artifact.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from builtins import frozendict
@@ -432,7 +432,7 @@ __all__ = ["ClassCode", "ClassFault", "ClassPeer", "ClassRelation", "ClassSystem
 - Growth: a new reference axis is one `Reference`/`SheetRef` field the fold and `rows` absorb; a new query modality is one `resolve` arm (`assert_never` forcing it); a new reconciliation category is one `Coordination` field; a new coordination fact is one `facts()` entry.
 - Boundary: this owner computes the coordination, never the artifact — no rendered matrix (the `visualization/table#TABLE` renderer folds `rows`/`facts`), no receipt rail.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from builtins import frozendict
 from collections.abc import Iterable

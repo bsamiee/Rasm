@@ -24,7 +24,7 @@ This process substrate: a runtime is a row, a bun swap is a Layer selection in t
 - Entry: `Runtime.node` / `Runtime.bun`, read by the boot module only.
 - Packages: `@effect/platform-node`, `@effect/platform-bun`, `@effect/platform` (`FetchHttpClient`), `@nats-io/transport-node` (`connect`).
 
-```typescript signature
+```typescript
 import { FetchHttpClient, HttpServerRequest } from '@effect/platform';
 import type {
     CommandExecutor,
@@ -179,7 +179,7 @@ declare namespace Runtime {
 - Receipt: the root's stated annotation `Layer.Layer<Out>` and the row's `main` pinning `R` to `never` are the boot proof — an unwired Tag fails at the boot line, at compile time.
 - Packages: `effect` (`Layer`, `ManagedRuntime`), `@effect/platform` (`WorkerRunner.launch`).
 
-```typescript signature
+```typescript
 import type { HttpClient } from '@effect/platform';
 import { Effect, Layer, ManagedRuntime } from 'effect';
 
@@ -204,7 +204,7 @@ const _halted = (): Promise<void> => _host.dispose();
 - Boundary: `CommandExecutor` arrives from the runtime row's `context`; stdio bridges (`NodeStream.stdin`, `NodeSink.stdout`) are row-tier members an ops verb composes at its own seam, never re-exported here.
 - Entry: `Proc.run(spec)`; `Proc.open(spec)` under `Scope`; the executor requirement rides `R` to the root.
 
-```typescript signature
+```typescript
 import { Command, type CommandExecutor, type PlatformError } from '@effect/platform';
 import { Array, Clock, Duration, Effect, Match, Option, Predicate, Schema, type Scope, Stream, pipe } from 'effect';
 import { Fault } from '@rasm/core';
@@ -376,7 +376,7 @@ const Proc = { Spec, Receipt, run, open: _opened } as const;
 - Growth: a new measured case is one `Trial.Spec`; a new enrichment band is one handle on `_tuned` plus one row in the `_points` fact stream.
 - Packages: `mitata` (`mitata/src/lib.mjs`), `effect` (`Metric`, `Exit`, `Runtime`), `@rasm/core` (`Board`, `Convention`), `node:v8` (`getHeapStatistics`).
 
-```typescript signature
+```typescript
 import { Board, Convention } from '@rasm/core';
 import { Array, DateTime, Effect, Exit, Metric, Option, Record, Runtime as EffectRuntime, Schema } from 'effect';
 import {

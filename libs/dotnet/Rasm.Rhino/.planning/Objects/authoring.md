@@ -32,7 +32,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - Law: base runs first — every forwarding override invokes the host base before its hook, so standard drawing, transform application, and pick behavior survive an inert program, and a program augments rather than re-implements; suppression of base behavior is a genuinely new adapter, never a program flag.
 - Growth: a new host virtual is one program field with one forwarding line per adapter.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -628,7 +628,7 @@ internal static class HostForward {
 - Law: `RasmCurveObject` alone carries `SetCurve` — the host gives only the curve kind a restage member, surfaced as a protected pass-through; the other kinds replace geometry through the table rail like any object.
 - Law: adapters register nothing themselves — placement is `TableOp.Add` with the constructed instance as source, read-back is the state page's window, and the `ClassId` guid is what rehydrates the subclass when a document reopens.
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class RasmBrepObject : CustomBrepObject {
     protected RasmBrepObject() { }
@@ -745,7 +745,7 @@ public abstract class RasmPointObject : CustomPointObject {
 - Law: the enabler keys on the grips type's `[Guid]` — `RegisterGripsEnabler` resolves `typeof(TGrips).GUID`, not `ClassIdAttribute`, re-registration replaces the prior enabler, and the enabler installs through `EnableCustomGrips` only when the mint answers `Some`; a non-`Some` candidate keeps standard host grips. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a stable key. `Sow` accumulates seed admission, admits exactly the zero-based contiguous index roster, stages every shim before mutation, and disposes the new grip owner when any incremental host addition fails.
 - Law: the grip draw hook runs before base — the base `OnDraw` draws the grips themselves, so a program draws dynamic elements first and the shim calls base after. Reset and mesh-update hooks augment the completed base operation; disposal notifies before base releases the carrier.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class GripSeed {
@@ -944,7 +944,7 @@ public static class GripRig {
 - Law: parameter reads are capability probes — `GetSurfaceParameters`, `GetCurveParameters`, `GetCageParameters`, and the CV-index members answer `false` or empty on grips of another kind, and the facts project absence rather than faulting, so one census serves every grip kind.
 - Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, `Touch` opens no undo record, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GripMove {

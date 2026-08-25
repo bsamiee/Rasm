@@ -23,7 +23,7 @@ Wiring — projector registration, tessellation adapter, `Graph/element#NODE_MOD
 - Growth: a new aspect projector is one `IElementProjection` implementation in its owning package with one registration row at the app root; a new causal or runtime ingredient is one column on `ProjectionContext`; the unified Material/Component/Element paradigm adds NO new interface and NO new mint method, both mints being owner-side compositions of the kernel `Graph/element#NODE_MODEL` `NodeId` floor.
 - Boundary: `ConstraintFinding.Key` and `ConstraintWaiver.Finding` carry `ContentAddress`; the seam preserves an unknown raised exception unchanged, and constraint identity projects numeric fault code with evidence.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -192,7 +192,7 @@ public static class ProjectionAssembly {
 - Growth: a new IFC-semantic rule is one arm in a Bim `IGraphConstraint` implementation; a new constraint family is one `IGraphConstraint` the app registers under its `ConstraintRegistration` grade — a family whose rules split by grade registers as two rows; a new verdict grade is one `ConstraintSeverity` row carrying its `Blocks` column; never a structural-law rule on the constraint and never an IFC rule on the seam's `LegalLink`.
 - Boundary: `IGraphConstraint` is the second seam interface [M3] — the IFC-semantic legality lives HERE and the structural edge law in `Graph/delta#GRAPH_DELTA` `LegalLink`, conflating the two the named defect; the return is `Validation<Error,Unit>` (accumulating), not `Fin` (fail-fast), because a projection's legality report is complete — the doctrinal accumulating-constraint floor foreign code supplies and the seam folds applicatively at the edge, never a case the owner closes; severity and waiver stay SEAM-fold policy over the verdict — the grade a `ConstraintRegistration` column, the waiver a `ProjectionContext` value pinned to the violation's `ConstraintFinding.KeyOf` content key — so the floor a foreign assembly implements never widens for grading; the app registers it alongside the projectors, so the seam composes it without referencing Bim; a default-interface-method carrying a rule is the named defect.
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface IGraphConstraint {
     Validation<Error, Unit> Validate(GraphDelta delta, ElementGraph graph);
@@ -211,7 +211,7 @@ public interface IGraphConstraint {
 - Boundary: an absent lane is a MISSING DESCRIPTOR at both altitudes — the arena declares no descriptor for a channel the source never carried, and `MeshBlock.Declared` records the per-block set so the pools write only declared ranges; a zero-filled range standing in for an undeclared lane is the deleted form, because a consumer cannot tell fabricated zeros from measured ones.
 - Boundary: `FormatKey` carries the `Rasm.Bim` `Exchange/format#FORMAT_AXIS` row KEY — the format VOCABULARY is S2 host-local row data the strata forbid below its stratum, so the seam records the canonical key string and the Bim end alone re-hydrates the row (`InterchangeFormat.Get`); the UV lane is `EncodingChannel.Uv` (TEXCOORD_0, arity 2, `Float32` by the kernel's own law so an unbounded surface parameter never clamps) and the colour lane `EncodingChannel.ColorRgba` (arity 4, `Unorm8`), each ABSENT from the descriptor set when the source declares none — an absent lane is a missing descriptor, never an empty buffer a consumer must length-probe — filled at the ONE decode, sliced by the tile partition with the same triangle gather, and encoded by the residency meshlet arm as its own stream, so a streamed cluster resolves a REAL unwrap and a REAL vertex colour with no second decode of the same bytes; `MeshBlock.Material` follows the `FormatKey` law — the source's OWN material address as an open string the producing `Rasm.Bim` end alone re-hydrates against the appearance projection, never a graph `NodeId` or an `AppearanceSummary` a decode does not hold and cannot seat below its stratum — and it keys a BLOCK rather than the carrier, because a per-material split IS a block partition; an absent key is a source that declared no partition, so an unsplit block never carries a fabricated material and a consumer grouping by key reads the split the source authored; geometry lanes here are the kernel's host-neutral packed arena, never a host geometry type, and the GRAPH keeps geometry by content hash — this carrier is the interchange DECODE product beside the graph, not a node payload.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct MeshBlock(
     int VertexOffset, int VertexCount, int IndexOffset, int IndexCount,

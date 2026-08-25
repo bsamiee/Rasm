@@ -33,7 +33,7 @@ Wire posture is HOST-LOCAL, envelope-only: the `CloudNative.CloudEvents` envelop
 |  [04]   | `artifact-minted` | `rasm.bim.exchange.exported` | normalized body content key |
 |  [05]   | `energy-minted`   | `rasm.bim.energy.emitted`    | normalized body content key |
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Diagnostics;

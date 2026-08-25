@@ -18,7 +18,7 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 - Packages: `av` supplies the demux/seek/re-stamp/mux capsule; the timeline's own workers open read/write containers only for the packet-copy arms, and every decode/encode rides the `media/container#CONTAINER` primitives. Members settled against the folder `.api`.
 - Growth: a structural NLE operation is one `TimelineOp` case plus one total `_mux` arm and one worker composing the spine; a single-input visual operation is one `FilterNode` member consumed unchanged by `Effect`; a concat strategy is one stream-identity axis; a transition is one `media/filtergraph#FILTER` `Transition` member plus one `_WEIGHT` row, this page untouched; a nested timeline is one `Clip` whose `key` is the nested product; an evidence fact is one band key with no receipt edit.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from typing import Final, Literal, assert_never
 
@@ -186,7 +186,7 @@ class Timeline(Struct, frozen=True):
                 assert_never(unreachable)
 ```
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from math import isfinite

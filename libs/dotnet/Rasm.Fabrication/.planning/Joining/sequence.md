@@ -26,7 +26,7 @@ Precedence is a partial order, never a serial rank: `JointPrecedence` folds `Ass
 - Packages: Thinktecture.Runtime.Extensions owns admission and closed dispatch; UnitsNet owns length, speed, temperature, energy, angle, and duration; LanguageExt.Core owns accumulated admission and immutable folds; QuikGraph owns precedence; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Numerics` owns the sparse assembly and factorization; `Rasm.Fabrication.Process` supplies `RunWarning` and the fault band; `Kinematics/cell` supplies `CellTiming` and `CellSpanTiming`.
 - Boundary: weld geometry, station, and realized heat input remain `WeldPlan` evidence, assembly remains the precedence authority, and motion compilation remains a kinematics concern.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -509,7 +509,7 @@ public sealed partial class SequenceRequest {
 - Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `SolveReceipt`, and `Dimension.Create`; `Rasm.Domain` supplies `Op`.
 - Boundary: the kernel holds the factor and the member index alone; the graph, the load vector, and every intermediate array stay inside the fold.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DistortionSource {
@@ -555,7 +555,7 @@ internal sealed record DistortionKernel(
 - Packages: QuikGraph supplies `BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `StronglyConnectedComponents`, `DagShortestPathAlgorithm`, and `DistanceRelaxers.CriticalDistance`.
 - Boundary: typed infeasibility terminates before scheduling, and a feasible but inferior candidate remains evidence rather than disappearing from the result.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct WeldSegment(
     WeldPass Pass,

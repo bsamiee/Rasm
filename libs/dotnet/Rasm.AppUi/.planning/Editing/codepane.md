@@ -20,7 +20,7 @@ Grammar-scoped code editing over AvaloniaEdit and TextMate: `EditorInk` is the o
 - Growth: one chrome pixel is one `EditorInk` row; one enablement axis is one `EditorAffordance` or `WhitespaceMark` row read at both the options fold and the row gate.
 - Boundary: `TokenRawTheme` takes a VALUE theme because the tokenizer compiles its colour trie once — a re-materialization, not a dynamic consumer — and rides `Theme/tokens#CONTROL_THEMES` `Rematerialize.GrammarTheme`, whose rebuild re-emits the block and calls `SetTheme` on every mounted installation; inside a pane the rows bind styled properties through `ThemeRail.Bind`, so a variant flip re-tints with nothing rebuilt. `WhitespaceMark` restores a capability the retired single bool erased: spaces, tabs, and line-ends are three package knobs one flag drove as one. Indent guides ship in no AvaloniaEdit type — the row's own `Attach` mounts the owned renderer on `TextView.BackgroundRenderers` (`InsertLayer` throws for anything but `Above` against `KnownLayer.Background`, and an `Above` layer paints over the text).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [NoReorder]
@@ -227,7 +227,7 @@ public sealed class IndentGuides : IBackgroundRenderer, IDisposable {
 - Growth: one grammar scope row on `CodeGrammar` or one file-backed extension on the registry; a new behaviour column is one `LanguagePlan` member and its `LanguageMap` row.
 - Boundary: `LanguageMap` is the `LanguageConfiguration → LanguagePlan` seam at the Mapperly nested-path rung — `[MapProperty]` nested paths carry the direct columns and per-TYPE `[UserMapping]` converters the `Option`/`Seq` lifts; the three members needing whole-source readers (`AutoPairs` merges two source rosters; `FoldMarkers` and `Indent` compile from nested optionals) ride `[MapPropertyFromSource]` with the RMG020 cost declared HERE: source-side completeness on this mapping proves only by the target roster, which `RequiredMappingStrategy.Target` enforces. The retired `Unindent` pattern column was projected and read by nothing — a knob deleted, its pattern re-admittable as one `IndentPlan` column when a consumer lands.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -436,7 +436,7 @@ public sealed class PlanIndentation(LanguagePlan plan, TextEditorOptions options
 - Growth: one pane capability is one `PaneAffordance` row; a fifth overview lane reaches the session through the one `LaneSource` column with no signature change.
 - Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, released with the session; mount order is the preconditions' own: scope admits before any owner exists, the options row enables the renderers the chrome colours, `SearchPanel.Install` precedes the ink set because its brush write drops otherwise, and the behavior plane binds last over a live document. Read-only panes (the evidence and conflict viewers) are the same capsule under a grant-less `Editable`. Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public delegate Seq<TextSegment> LaneSource(OverviewLane lane);
@@ -602,7 +602,7 @@ public sealed record CodePane(
 - Growth: one completion family is one `CompletionKind` row carrying key, rank, and insertion column; the families are the page's own symbol vocabulary — options section keys, nameof-derived policy member names, `Quantity.Infos` unit abbreviations, resolution intent keys.
 - Boundary: `IOverloadProvider` carries five members and NO caret hook — the window wires Up and Down through its own `ChangeIndex` only while `Count > 1`, so re-selecting a signature as arguments land is the consumer assigning `SelectedIndex` off the same projection the list mounts; `OverloadRows` extends `PropertyModels.ComponentModel.ReactiveObject` (named in full because ReactiveUI publishes a same-named screen base) so `[DependsOnProperty]` raises the three derived members off the one index write; insertion runs only on the `ICompletionData.Complete` arm — a pane-side document mutation is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

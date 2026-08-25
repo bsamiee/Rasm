@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Element/              # Neutral thing-model seam over the kernel; geometry crosses by content hash alone
 ├── Graph/                 # One authoritative graph, its mutation algebra, and generated node-edit support
 │   ├── Element.cs         # Header + frozen node store + Relationship array + built-once incidence; Bake(objectNode) derives the element

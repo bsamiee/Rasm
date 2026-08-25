@@ -19,7 +19,7 @@ AEC schedule vocabulary lives in `frozendict` template rows with domain-scale co
 - Growth: a new schedule type adds one `ScheduleKind` member and `_TEMPLATE` row; columns, spanners, totals, rollup keys, sorting, footnotes, notes, and colors remain template data. A new regime-derived legend adds one `LegendKind`, `_REGIME_LEGENDS` value, title, and total vocabulary arm; discipline remains the `Standard`-carrying case. A new authored legend adds one kind and title. A new fill regime adds one `HatchFill` case and `_hatch_swatch` arm.
 - Boundary: no sheet placement (`composition/sheet#SHEET`), no drawing-symbol geometry (`drawing/symbol#SYMBOL`), no IFC authoring (`dotnet:Rasm.Bim` owns the QTO/schedule rows). `visualization/table#TABLE` owns the render, `drawing/regime#REGIME` and `drawing/standard#STANDARD` the ISO legend codes and pens, `graphic/color/derive#DERIVE` the palette, `polars` the frame shaping, `drawsvg` the swatch primitives, `composition/compose#COMPOSE` the placement, `specification/classify#CODE` the keynote classification codes; identity minting is the runtime's.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import math
 from builtins import frozendict

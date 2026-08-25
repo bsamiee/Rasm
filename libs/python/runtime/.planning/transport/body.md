@@ -20,7 +20,7 @@
 - Growth: a new posture value lands as one enum member and one arm in each closed match of `[03]-[ADMISSION]`; the type checker names the missing arm.
 - Boundary: the posture pair and the carrier hold no message body; `transport/shapes#VOCABULARY` maps the carrier onto the runtime fault rail.
 
-```python signature
+```python
 """Descriptor-driven admission for asynchronous Connect message bodies."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -114,7 +114,7 @@ class AdmissionError(Exception):
 - Growth: a new Connect arity is one `intercept_*` method composing `_stream` and `_admitted`; a per-shape rule mirror has no seat.
 - Boundary: this owner evaluates rules and projects refusals; deadline, metadata, spans, and the served roster are `transport/serve#SERVE`'s.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from typing import Final, final

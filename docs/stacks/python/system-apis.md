@@ -50,7 +50,7 @@ This table is a lookup by repeated local smell; the owning card states the place
 - Law: `importlib.resources.as_file(files(anchor) / name)` materializes a packaged resource to a real path inside a `with` scope and reclaims it on exit — the `__file__`-relative computation it retires; a config payload parses through `tomllib.load`/`loads`, never a `tomli` backport the active interpreter subsumes; `mimetypes.guess_file_type` takes the path directly where `guess_type` re-parses a URL.
 - Reject: `mkstemp` unlink ladders; an `onerror` tuple handler for `rmtree(onexc=...)`; a `__file__` extraction loop; a `tomli` shim; path use of `mimetypes.guess_type`.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from enum import StrEnum
 from os.path import ALLOW_MISSING, realpath
@@ -108,7 +108,7 @@ def transferred(mode: Transfer, source: Path, into: Path, /) -> Result[Path, Tra
 - Boundary: template structure — segments, interpolations, conversions, format specs — is the language-form concern `language.md` owns; this card owns only the render-time fold of the already-built `Template`, so a processor folds its `str | Interpolation` segments through one `conversion`-keyed `frozendict` and `format(..., format_spec)`, never re-parsing rendered text.
 - Reject: f-string pre-parsing; rendered-string reparsing; an enumerated `if conversion == ...` ladder where a `frozendict` derives the converter; string concatenation hiding template policy.
 
-```python conceptual
+```python
 import datetime
 import re
 from collections.abc import Callable
@@ -165,7 +165,7 @@ def recorded(line: str, render: Template, *, refine: str | None = None):
 - Exemption: `heapify_max`/`heapreplace_max`/`heappushpop_max` mutate the heap buffer in place — the one statement seam this card forces — and the railed return copies nothing.
 - Reject: a timestamp-prefixed UUID wrapper; a magic UUID boundary literal where `uuid.NIL`/`MAX` name it; a negated-priority heap; a conditional pop-then-push where `heapreplace_max`/`heappushpop_max` is atomic.
 
-```python conceptual
+```python
 from dataclasses import dataclass
 from fractions import Fraction
 from heapq import heapify_max, heappushpop_max
@@ -227,7 +227,7 @@ def summarized(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prio
 - Law: a keyed authenticity tag is one `hmac.digest(key, message, digest)` one-shot where a `hashlib` update loop over key-plus-message reinvents the construction; tag and digest equality is `hmac.compare_digest`, constant-time over the full width where `==` leaks a timing oracle on the first differing byte; `zlib.crc32_combine(crc_a, crc_b, len_b)` folds two independently-checksummed spans into the whole-stream checksum without a rescan.
 - Reject: a chunked hash loop; a recompute-to-checksum loop; a `hashlib`-built MAC where `hmac` is the keyed owner; `==` on a digest or tag; `random` for key, token, or nonce material.
 
-```python conceptual
+```python
 import compression.zstd as zstd
 import hashlib
 import hmac
@@ -307,7 +307,7 @@ def verified(frame: Frame, key: bytes, /) -> Result[bytes, FrameFault]:
 - Law: `ContextVar.set(value)` returns a `Token` usable directly as a `with` context manager that restores the prior value on exit — including when a raise unwinds the scope — retiring the `token = cv.set(v); try: ... finally: cv.reset(token)` ladder; this is the same-task scoped-restore primitive, distinct from `runtime.md`'s `copy_context().run` which carries `ContextVar` state across a thread or guard boundary.
 - Reject: a `reset(token)` paired in a `finally`; a manual save-and-restore of the prior value.
 
-```python conceptual
+```python
 from collections import Counter
 from collections.abc import Callable, Iterable
 from contextvars import ContextVar

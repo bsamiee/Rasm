@@ -23,7 +23,7 @@
 
 `RulePlan<TRule, TSlot>` is the folder's rule-roster spine (E-R30): five owners spelled `Seq<TRule>` + one-per-slot + `Traverse`-admit + apply independently — `AcceptPlan`, `PointPlan`, `ObjectPlan` here, `PickPolicy` on the selection page, `OptionSet` on the options page — and the spine owns the roster, the null screen, the slot-injectivity gate with its stated exemption, and the two folds; each family keeps only its typed wrapper and its own apply delegate. `ISlotted<TSlot>` types the slot identity: the erased `object SlotKey` compared through `object.Equals` deletes, and each family declares the closed slot vocabulary its knobs actually address.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -144,7 +144,7 @@ public static class Slots {
 
 `AcceptSlot` is the acceptance family's closed slot vocabulary — one row per physical getter knob — and `AcceptGate` rows carry every parameterless native accept call beside its result terminal and its slot, so acceptance grows by one row, never a new case. `AcceptRule` closes the modalities as PRESENCE cases: `Number` enables numeric acceptance, `Zero` widens it to zero (and refuses without `Number` beside it), `Transparent` enables transparent commands — each case's presence IS the enablement, so the booleans that restated presence as payload delete, and an absent case leaves the host default standing rather than writing it. `WaitFor` carries NodaTime `Duration` — semantic time per the substrate law; the host milliseconds spell once at the apply seam. `Requiring` is the derivation seam: a prompt terminal's required row lands only into an unoccupied slot, so a caller's explicit posture survives admission and the derived row is a default, never an override.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class AcceptSlot {
@@ -279,7 +279,7 @@ public sealed partial class AcceptPlan {
 
 The three pointer arms take `GetPointFact` (RENAMED from `PointerFact` — the kernel `Interaction/input` owns that name and `Display/interaction` carries `ViewportPointerFact`; this is the THIRD spelling and it names its getter frame, E-R31): world point, window point, viewport identity, and the held `CapabilitySet<PointerKey>`, projected at the callback edge so no `GetPointMouseEventArgs` reaches a caller sink. The two DRAW arms keep their host args because a draw sink's whole purpose is the live `DisplayPipeline` the arg carries.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PickOff {
@@ -594,7 +594,7 @@ The modal object asks take `Document`'s `ObjectKinds`, never a raw `ObjectType`.
 
 The gumball wire closes here: the point getter IS the consumer `Display/interaction`'s gumball surface names — a `PointFeedback.Pose` drive borrows `PickContext`/`GetPoint` from this page and `Gumballs.Configure` returns its evidence on this request rail, so the 251-line gumball surface has its producer and no detached gumball stream exists.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TextMeaning {
@@ -1066,7 +1066,7 @@ public sealed record Acquire {
 - Law: a receipt carries two DIFFERENT option facts. `Options` is the touch HISTORY — one `OptionChoice` per cycle, in the order the user drove them, carrying the localized display the host published at that moment — and `Settled` is the state, every bound option's final value read once at seal off the still-live lease. Folding the history latest-wins to recover the settled values re-derives what the snapshot already answers, and an option the user never touched appears in `Settled` alone.
 - Law: the point getter is the gumball surface's producer — a `Pose` drive borrows `PickContext`/`GetPoint` from this page and `Gumballs.Configure` (`Display/interaction`) returns its evidence on this request rail, so no detached gumball stream exists.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<GetResult>]
 internal sealed partial class TerminalRow {
@@ -1348,7 +1348,7 @@ internal static class GetterDrive {
 
 `PointFeedbackLease` converts every callback into a non-throwing native handler; its first-fault seat is a kernel `Cell.Seat` over one atom, so the losing writer's verdict is READ, never re-derived, and cleanup faults aggregate through the one release algebra. `Subscription` (`Document/lifetime`) owns attachment rollback and complete detachment. `DragBuffer` owns the host transform list end to end: it runs the drag selection, binds a `GetTransform` or arms display feedback for a point drag, applies each `Pose` sample under a `Cell.Commit` tally, and projects its measured census before disposal.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 internal sealed class DragBuffer : IDisposable {
     private readonly TransformObjectList buffer;

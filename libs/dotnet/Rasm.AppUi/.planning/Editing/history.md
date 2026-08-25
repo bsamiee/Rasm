@@ -26,7 +26,7 @@ The spine is `bodong.PropertyModels`, the `CommandRow`/`EditReceipt` rails, the 
 - Boundary: `RevertKind` owns the glyph key because the kind is the icon's semantic owner; the icon SOURCE rows stay at the `Theme/assets` catalogue, where all five kind keys are rostered through one `History` mint and the case-derived fallback walk ranks the rows WITHIN a rostered key — an unrostered key seals `AssetFault.UnknownKey` at that owner rather than degrading, so minting a sixth kind lands its catalogue row in the same pass and this roster READS the declaration rather than transcribing its text. The label key derives through `LocaleStrings.Key`, the one key derivation every registry-resolved literal crosses.
 - Boundary: the package-owned `ICancelableCommand` Boolean delegate is the sole narrowing boundary for the typed application rail, and the narrow ROUTES its discarded `Error` to the lane's fault sink, so the client arm reports the real cause instead of inventing one from the target. Durable replay preserves the exact failure. The `Composite` case makes a batch one revertible unit so partial-batch undo is structurally absent.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -237,7 +237,7 @@ public sealed record RevertPayload(string Target, RevertDelta Delta);
 - Boundary: `RevertCursor` retains the actual client depth while traversing durable history, so returning from durable offset one resumes the real recorder depth instead of inventing `MaxCommand`; both coordinates are kernel `Dimension` values, so the negative-cursor guard that stood at the traversal head is unrepresentable. The durable read indexes through `Seq.Skip(offset).Head`, the `Option`-returning positional read the carrier publishes.
 - Boundary: `Walk` is TOTAL rather than `Fin` because a halted walk that already applied three of five steps is real mutation the cursor must reflect — a failure carrier discarding the applied prefix would leave the surface's cursor addressing a state the document had left. Its step count is a `Dimension`, so the clamp the fold used to spell has no site. `ContentIdentity` aligns client and durable operations across the seam, while a host-mutating revert routes through the abstract `DocumentTransaction` port so host and client undo remain one transaction.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -454,7 +454,7 @@ public static partial class OpLogMap {
 - Boundary: `ScrubPoint` lowers the strip's content-space point onto the existing `CommandPayload.Fields` case rather than widening the closed payload union with a geometry case that would drag Avalonia's coordinate types across the command wire; the Y component alone addresses the timeline because `OverviewAxis.Vertical` tracks one `DragAxis`, and the axis row HOLDS the untracked component at its prior value, so this reader spells no discard of its own. The content-space offset resolves to a revert ordinal through the fabric's own `ExtentLedger.Window` and `KeyAt`, so the strip, the scrollbar, and the jump address one position model.
 - Boundary: the row projection declares each verb as a `Shell/commands` `FamilyRow` and takes its `Mint` rather than constructing `CommandRow` positionally — eight of ten arguments were the same default at both sites, so a column added to the row shape broke this page twice for a fact it never varied, and the shape row now decides the admitted payload domain that two hand-written accepts arrays used to spell.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -638,7 +638,7 @@ public static class HistoryIntents {
 - Boundary: cross-highlight is ONE channel in both directions: an entry raises `Render/viewpoint#VIEWPOINT_CODEC` `VisibilityAction.Highlight` over `RevertibleOp.Touched` — the same override vocabulary a viewpoint carries — while the live element selection arrives as a picked-id set that the `TimelineBand.Linked` row admits entries against, so neither direction mints a highlight model of its own and a composite highlights every element its children touched. The picked and halted sets enter as STREAMS rather than queries because both move with no edit behind them.
 - Boundary: the strip binds `OverviewAxis.Vertical`, whose `Tracks` capability set holds the horizontal component at its prior value BY THE ROW, so a drag moves the timeline alone and no consumer spells a discard.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

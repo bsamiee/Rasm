@@ -17,7 +17,7 @@ Rasm.AppUi binds the shipped `Semi.Avalonia` design-token vocabulary to the gene
 - Growth: a new Semi slot is one `SemiSlot` row or one `SemiExclusion` verdict; a fourth severity-keyed family is one `Severity(prefix, suffix, rung)` call.
 - Boundary: `DockSurfaceWorkbenchBrush` and `DockSeparatorBrush` resolve as `DynamicResource` in the Dock skin yet no shipped dictionary defines them, so the correspondence MINTS both and every other `Dock*` key already resolves to a `SemiColor*` slot — the palette override re-tints the whole docking estate with no dock-side edit; the shipped `Banner*` and `NotificationCard*`/`ToastCard*` families re-tint through these slot overrides rather than a parallel control theme, severity landing on the status ladder's LIGHT rung for the fill and its base rung for the rim; the toast card carries NO shadow key at all — `NotificationCardBoxShadows` belongs to the corner card — so the toast tier binds its depth through the plane hosting it and authoring a card-scoped shadow here would write a slot the shipped dictionary never defines.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -228,7 +228,7 @@ public static partial class SemiCorrespondence {
 - Growth: a package bump re-derives the roster instead of re-transcribing it; a new proof band is one filter beside the three.
 - Boundary: the walk needs a live application, so conformance splits — `SemiMints` costs one pass over the correspondence and runs where a generation gap must be a typed fault at boot, while the roster-dependent halves fold in the headless proof lane beside the accessibility sweep; the two minted Dock keys are absent from every shipped partition ON PURPOSE, so the rail admits a claimed key with no shipped definition only when it appears in `SemiRoster.Minted`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record SemiRosterReading(

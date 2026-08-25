@@ -25,7 +25,7 @@ Materials OWNS the photo-to-PBR stage vocabulary and SPECIFIES inference; `Rasm.
 - Boundary: Materials owns the VOCABULARY and `Rasm.Compute` owns EXECUTION. `Rasm.Compute` ranks above `Rasm.Materials` in the branch strata with no reference in either direction, so nothing here reaches an ONNX session, an `OrtValue`, or a provider handle; the request crosses as a content-keyed `[WIRE]` recorded at both folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps, Compute transcribes the stage, product, and licence keys into its own mirror, and the app root orchestrates the hop. That wire mints NO `libs/contracts/manifest.json` entry — it never leaves the C# runtime, and a cross-language corpus entry for a branch-interior hop is the fabricated contract the cross-`libs/` ruling forecloses.
 - Boundary: text-to-material generation is an EXTERNAL-SERVICE SEAM, not a registry row. `Raster/tile#TILE_SYNTH` coherence gates every set the estate holds, and the one locally-runnable candidate loses its tileability at export, so a generated set fails that gate; a service-produced set therefore enters through `Raster/set#SET_INGEST` classification like any other third-party asset, carrying its provenance and its licence class as ingest evidence, and no stage, card, or provider row represents it.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
@@ -450,7 +450,7 @@ public static class ModelRegistry {
 - Boundary: the `[WIRE]` seam is `Rasm.Materials/Appearance/neural` ↔ `Rasm.Compute/Model/inference`, recorded at BOTH folder `ARCHITECTURE.md` `[03]-[SEAMS]` maps. It is C#-interior and mints NO corpus contract entry — a cross-language entry for a branch-interior hop is the fabricated contract the cross-`libs/` ruling forecloses. `StageRequest` carries CONTENT ADDRESSES and vocabulary KEYS, never plane bytes: the source plane and every produced plane live in the write-once blob store the app root binds, so the wire stays small and the executor never marshals a raster through a message.
 - Boundary: `StageResult` ingestion produces the `TextureSet` the `acquisition#ACQUISITION` `CaptureSource.NeuralPlanes` arm consumes. `Prior` and `Measure` outputs DROP at that boundary — priors feed another stage or a `Raster/filter#PLANE_OP` and measures grade rather than cover — `Channel` outputs become the set's planes through the frozen `StageResult.Planes` projection, and the arm returns the SET beside the averaged row so a photo becomes a shadeable material rather than only an encodable wire. Grades reach their consumer through `StageResult.Scores`; binding one to the `Raster/tile#TILE_GATE` `TilePolicy.Scorer` closure stays the APP ROOT's hop, since that contract is a delegate over a decoded tile and this owner mints no plane bytes and holds no executor.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record StagePolicy(LicenseClass Ceiling, InferenceProvider Preferred, Option<ModelCardId> PinnedCard, TensorPrecision Precision, ulong Seed) {
     public static readonly StagePolicy Default = new(LicenseClass.Research, InferenceProvider.Cpu, None, TensorPrecision.Fp32, 0UL);

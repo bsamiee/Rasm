@@ -26,7 +26,7 @@ Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA`; criterion sums accumulate
 - Boundary: `ResidualWindow` is the ONE bounded detector evidence ring. `Stats/monitor#MONITOR_LANE` and `Solver/clash#CLASH_AND_TWIN` both push a scalar stream into a fixed-capacity FIFO and both project it as a one-column `Matrix<double>` for `Detect`, under the identical capacity floor and the identical `(Count >= Capacity ? Tail : Held).Add(v)` fold. Seating it beside `EstimatorModel.Detector` is what makes injecting a monitor capsule into a twin score a single windowing rather than two nested ones — the doubly-windowed path re-pushed every row the twin had already pushed and returned the monitor's window's scores rather than the twin's.
 - Boundary: the tolerance carrier is the kernel's and its LANE is the semantic. `FitBudget.Stop` rides `ToleranceLane.Convergence` and `EstimatorPolicy.Classification.KktTolerance` rides `ToleranceLane.Kkt`, so the loss-delta stop and the KKT-violation stop are two admitted bands under two named lanes where two bare `double` fields let either one be handed the other's value. The two canonical budgets mint through the type-init refusal idiom — a constant that violates its own lane is a boot break, never a runtime rail.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public sealed record ScaleCeiling(int Rows, string Gate) {

@@ -24,7 +24,7 @@ Tenant attribution splits by source and the split is load-bearing. Live receipts
 - Boundary: the priced frame is the TERMINAL egress and advertises no reader: `python:artifacts/visualization/table#TABLE` `TablePlan.of` admits it as the settled Arrow-capsule frame it is, so naming a renderer here claims a seam neither end carries.
 - Boundary: rates and totals ride `float` and no settlement reads this frame — observed spend is a dashboard reading, while the trapped exact-decimal arithmetic a settled charge demands homes at the runtime journal's rating fold and never at this projection.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
 from math import isfinite

@@ -20,7 +20,7 @@ Owned families carry the three-part SectionFormat spine, canonical article roste
 - Growth: a new numbering regime adds one `NumberScheme` case and `label` arm; a new nesting level adds one `NumberLevel` and `_LEVEL_STYLE` row; new glyph and punctuation policies add one enum value and total arm.
 - Boundary: this owner authors presentation policy, never bytes or receipts.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import IntEnum, StrEnum
 from math import isfinite
@@ -185,7 +185,7 @@ __all__ = ["Alphabet", "CSI_PAGEFORMAT", "Decoration", "NumberLevel", "NumberSch
 - Growth: a new article is one `_ARTICLES` row; a new subordinate title one `_SUBORDINATE` row; a new main-work title one `_MAIN_WORK` member; a new method/submittal/disposition one `SpecMethod`/`SubmittalClass`/`ParagraphRole` member (a `NOTE` already strips at issue); a new QA rule one `SpecVerdict` field and one `_Tally` step or article check; a new fault cause one `SpecFault` case plus one `combined` member; a new section-number system is already carried by `ClassCode`.
 - Boundary: this owner authors the specification, never the rendered page — `document/emit#DOCUMENT` folds the tree to PDF/Typst/HTML, `PageFormat` owns the numbering, `specification/classify#CODE` owns `ClassCode`, and `dotnet:Rasm.Bim` owns the QTO/IFC a specification cites through `visualization/table#TABLE`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from builtins import frozendict

@@ -17,7 +17,7 @@ The chart plane's ink base: `ChartChrome` folds every chart chrome key from the 
 - Growth: `ChartFault` grows by one `[FaultCase]` leaf and its owning constructions.
 - Boundary: `ChartFault` owns failures shared across the Charts sub-domain; each leaf carries only the payload its semantic case requires.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartFault : Fault {
@@ -77,7 +77,7 @@ public abstract partial record ChartFault : Fault {
 - Growth: a new chart chrome surface is one `ChartChrome` row naming its role, rung, ink, stroke step, alpha, layer, and family; a new palette posture is one `PaintFamily` row; a new restyle shape is one `StrokeForm` row; zero new surface.
 - Boundary: `ChartChrome` mints NO token — every row addresses a rung the `Theme/tokens` generation already produces through `PaintRole.At(rung)`, so a chart chrome colour and a control chrome colour are one value and a chart-local paint token is the deleted form; stroke widths read `MetricFamily.Stroke` steps, so the high-contrast projection's stroke gain widens every chart hairline with no chart edit. `ChartInk` holds `SolidColorPaint` instances rather than colours: a `Paint` is a live draw task, so the swap re-runs the row's own restyle over the held instance and every mounted chart re-tints on its next frame with NO re-mount — the `Rematerialize.ChartPaint` roster row names this rebuild, and a chart holding a resolved colour outside this set is the defect that roster's law names. The process `Theme` is a VALUE the package reads at series attach, so the swap re-runs `Register` AND folds `Theme.ApplyStyleToSeries` over every attached series — `GetSeriesColor` indexes `Colors` by `SeriesId`, so the re-apply is deterministic and idempotent; `GetDefaultTooltip`/`GetDefaultLegend` are FACTORIES read at mount, so the swap re-assigns both as property writes; offscreen `SKCharts` twins and sealed captures are PRODUCTS re-rendered rather than re-tinted. `LiveChartsSettings.HasTheme` REPLACES the whole `Theme` and the last `Add*Theme` call wins, so registration is exactly one `LiveCharts.Configure` at the composition root; a second `Configure` from a board, tile, or screen is the deleted form, and a per-control `ChartTheme` override exists only for the offscreen proof twin whose gamut is pinned. A DASH is a `StrokeForm` row rather than a column beside the pigment: the dashed arm writes `SkiaPaint.PathEffect` inside the one restyle both the mint and the swap run, the intervals are the custom plane's `StrokeStyle.Dashed.Intervals(width)` CITED at the resolved width, so a comparison ghost on a chart and the same series drawn on that plane dash identically and a chrome row carrying its own interval roster is the deleted form. Severity ink is the folder `Severity` family's (`Theme/tokens`): `ChartInk.Ink(Severity)`/`Shade(Severity)` resolve severity pigment through the same rung read chrome takes, so a threshold band, a watch badge, and a status chip are one pigment. The three package-colour repacks (`AsLvc`/`AsSk`/`AsColor`) are BYTE transposes between foreign colour structs, never colour-space math — kernel `PerceptualColor` enters only where perception does (the CVD candidate pairs feed the token sweep's perceptual model); routing a byte repack through the perceptual model would compand a value that never left sRGB bytes.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -225,7 +225,7 @@ public sealed partial class PaintFamily {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record ChartInk(
     ResolvedTheme Theme,
@@ -371,7 +371,7 @@ public static class ChartComposition {
 - Growth: a new crossing is one `ThresholdStep`; a new presentation is one `ThresholdMode` row naming its consumer and its projection member; zero new surface.
 - Boundary: the list is ORDERED and its base is the severity BELOW the first crossing, so a value's severity is the last step it cleared and a gap between steps is unrepresentable — a per-panel threshold block re-authoring its own crossings is what a shared list value forecloses. A percentage-basis list carries crossings in the unit interval and resolves them against the surface's own floor and ceiling at read; an absolute list carries measured values and ignores the surface range, which is what a physical limit needs. Axis bands project through the `BandAxis` row, so a horizontal compliance band and a vertical phase band are one list at two orientations and each carries its severity's own edge caption — a colour with no stated meaning is unspellable, which is why the caption column is total rather than a knob. Severity ink resolves through `ChartInk.Shade` off the `Severity` row, so a threshold band, a watch badge, and a status chip are one pigment and a threshold-local colour column is the deleted form. The tables-side receiving seam for `Cell` is the value-driven format column on `TableColumnRow`; the stepped legend reads `Edges` — both consumers are named on the mode row itself, so the projection-to-consumer correspondence is fence data rather than a hand table.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct ThresholdStep(double At, Severity Severity);
 
@@ -453,7 +453,7 @@ public sealed record ThresholdList(
 - Growth: a new check is one `ConstraintRow`; a new comparison sense is one `BoundDirection` row with its predicate, margin, and driver columns; zero new surface.
 - Boundary: the profile NEVER computes a metric — every row names a scalar `TileSource` arm and the scorecard subscribes it through the same live-data scalar-fold edge a stat tile takes, so a gross-floor-area check and the area readout beside it are one number. Comparison is unit-safe by CONSTRUCTION: bound and measured value both stand in the role's own metric unit — the canonical storage unit every measured feed writes — and the display unit is ELECTED at render exactly as an axis title's is, so a row carrying a transcribed unit abbreviation is unspellable. MARGIN is signed distance in that metric unit; RATIO is that distance as a fraction of the bound's magnitude and is an `Option` — a zero-magnitude bound admits no fraction, and the retired fallback that published the raw margin in the ratio column handed the one cross-metric-comparable column a value in the role's own unit (`RULINGS [02]` ratio law); the zero test reads `EpsilonPolicy.ZeroTolerance`, never `double.Epsilon`, which is the denormal floor and no tolerance at all. The DRIVER names which edge broke; a passing row's driver is empty, since naming a cause on a pass invents one. `Passes` is a DERIVATION of the margin's sign, never a stored column a mutation could desynchronize. Severity is the profile's ONE `ThresholdList` read at the shortfall under a percentage basis; a ratio-less breach grades at the ladder's deepest step because an unscalable breach cannot be ranked shallow, and a ratio-less pass grades at the floor. Ranking reads kernel `Ranked.Top` over ascending ratio so the closest-to-breach rows rise and a truncated card keeps exactly the rows a designer must see; ratio-less rows seat last. A profile is a SAVED artifact crossing the one composition-seated `EvidenceOps.Wire` through its own `Diagnostics/evidence#DURABLE_PARCEL` seal, whose ceiling and generation compare are the shared owner's; a parcel the generation refuses HOLDS its bytes beside the seeded profile, because a compliance set is authored and its rows stay readable by hand. NAMED LOSS: attribute-rename carry — a row column renamed across a generation reaches no reader under the next. `ConstraintVerdict` is DISTINCT from Fabrication's nesting `ConstraintVerdict` — this row grades a live metric against a saved compliance bound; the NFP row witnesses a geometric non-fit — the shared name carries no shared regime.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

@@ -17,7 +17,7 @@ Input and output are both parameterized: `ExportSource` discriminates the `to_on
 - Receipt: the manifest settles on the ONE runtime spine, and its failed-check roster IS the spine's warning band — the retired `validated: bool` answered THAT a check failed and erased WHICH, so a parity failure and a structural failure read identically to every consumer downstream of the flag. The producer name rides a `Posture`: a graph whose metadata named none is ABSENT, and the subject falls back to the checksum's own wire render rather than a `<anonymous>` literal every unnamed asset would collide onto.
 - Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, one `run` arm, and one `_CHECK_CEILING` row; a new refusal is one `FaultRow` anchor in `RAISES`; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter `_CHECK_CEILING` row or the caller's override.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from math import isfinite
 from typing import TYPE_CHECKING, Annotated, Final, Literal, assert_never
@@ -364,7 +364,7 @@ class ModelAsset(Struct, frozen=True):
 - Growth: a new band case is one `ReferenceBand` case with its `kind` literal and the .NET peer's matching admission arm in the same contract change; a new fit policy is one parameter on `fit`; a newly audited container column is one `_evidence` `Change` row; zero new surface.
 - Boundary: reference mass is fitted HERE and never at the peer — the C# comment pins that division; the statistic, thresholds, and sampling floors are `DriftPolicy` rows at the consumer, so no policy value crosses in the container; `h5py` composes under the compute-tier `.api/h5py.md` admission.
 
-```python signature
+```python
 import h5py
 from collections.abc import Mapping
 

@@ -21,7 +21,7 @@
 - Growth: a new change context is one `ChangeReason` row; a new content kind is one `ContentKind` row whose columns close its table behavior.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -200,7 +200,7 @@ internal static class Seam {
 - Boundary: `Resolve` is the only site naming `RenderContent.FromId` and `FindChild`; every sibling page addresses through this union.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/rails` (`Op.OrDefault`, `Op.AcceptText`, `Op.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentRef {
@@ -249,7 +249,7 @@ public abstract partial record ContentRef {
 - Growth: a content fact is one `ContentTrait` row with its predicate; an exclusion axis is one `HashAxis` row with its bit.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderHash`, `RenderHashExclude` both arities, `Styles`, `ProxyType`, `ModelUnits`, `TopLevel`/`Hidden`/`Private`/`IsLocked`/`CanBeEdited`/`IsDefaultInstance`/`IsHiddenByAutoDelete`, `IsReference`, `UseCount`, `DocumentOwner`/`DocumentAssoc`, `FirstChild`/`NextSibling`/`ChildSlotName`/`ChildSlotDisplayName`, `ChildSlotOn`/`ChildSlotAmount`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/context` (`ModelUnit.Of(LengthUnit, Op)`), `Domain/validation` (`ICapability`, `CapabilitySet.Of`/`OfMask`/`Mask`/`Wire`); LanguageExt.Core (`List.unfold`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -410,7 +410,7 @@ public sealed record ContentSnapshot(
 - Boundary: factory-registry minting (`RenderContent.Create` by type id) is the registry page's; this union owns only the serialized-form ingress.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/rails` (`Lease<T>.Owned`, `Op.AcceptText`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentIo {

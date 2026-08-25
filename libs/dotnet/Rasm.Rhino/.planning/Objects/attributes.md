@@ -32,7 +32,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Growth: a new writable axis adds one edit case, one admission arm, one apply arm, and its detached read projection when the page owns that read.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Text`, `Op.Catch`, `Op.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -655,7 +655,7 @@ public abstract partial record AttributeEdit {
 - Law: `Tag` read verbs are refused at admission — `Of` rejects a program carrying a non-mutating `TagOp` so the refusal is a construction fact, never a mid-commit surprise.
 - Growth: a new edit case rides every existing program untouched; a program-level policy is a field on this record, never a parallel program type.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class AttributeProgram {
     private AttributeProgram(Seq<AttributeEdit> edits) => Edits = edits;
@@ -695,7 +695,7 @@ public sealed class AttributeProgram {
 - Law: the decal read composes the axes that READ TRUE — `HorzSweep`/`VertSweep` are the host's own replacements for the deprecated latitude and longitude properties, whose names invert their meaning, so the snapshot names its columns after the true axes and matches `DecalSeed`'s write vocabulary exactly; a round trip therefore requires no consumer to know the host's inversion, which stays confined to `DecalSeed.Build`.
 - Boundary: `ComputedSectionStyle` demands a sectioner's attributes and stays a direct host call at the display seam; this page resolves the three display scalars every consumer needs.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AttributeAsk {

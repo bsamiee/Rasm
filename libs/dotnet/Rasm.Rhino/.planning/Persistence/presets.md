@@ -20,7 +20,7 @@
 - Boundary: `PersistenceFault` never represents generated validation, aggregates, categories, or wire envelopes.
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
@@ -59,7 +59,7 @@ public abstract partial record PersistenceFault : Fault {
 - Boundary: this page owns the construction-plane VALUE parts and the named-preset table crossing. The live viewport borrow, its lease, and the active-plane write are `Viewport/camera`'s; nothing here holds a `RhinoViewport`.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `ConstructionPlane.Plane`/`GridSpacing`/`SnapSpacing`/`GridLineCount`/`ThickLineFrequency`/`ShowGrid`/`ShowAxes`/`ShowZAxis`/`DepthBuffered`/`ThinLineColor`/`ThickLineColor`/`GridXColor`/`GridYColor`/`GridZColor`, each a plain auto property with no has-custom-colour flag); kernel `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core; `System.Drawing.Common` (`libs/dotnet/.api/api-system-drawing-common.md` — `Color`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Generator.Equals;
@@ -274,7 +274,7 @@ public sealed partial record CPlaneModel(
 - Boundary: named views stay in `Viewport/operations`; the layer tree — topology, face, and per-detail overrides — lives on `Document/layers`, and `LayerRestore` consumes only the host's state mask.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `NamedConstructionPlaneTable.Add`/`Find`/`Delete`/indexer, `NamedPositionTable.Save`/`Restore`/`Update`/`Append`/`Rename`/`Delete`/`ObjectXform`/`ObjectIds`/`Ids`/`Names`/`Id`/`Name`, `NamedLayerStateTable.Save`/`Restore`/`Rename`/`Delete`/`Import`/`Names`, `[Flags] RestoreLayerProperties : uint`); `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `DocumentPath`); `Document/tables` (`ResourceId`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO;
 using Generator.Equals;
@@ -607,7 +607,7 @@ public abstract partial record PresetOperation {
 - Growth: a new consequence is one slot row naming its kind set; a new payload is one body case and one kind row.
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -691,7 +691,7 @@ global using PresetReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persisten
 - Boundary: Rhino's table mutation, its `ref`-parameter transform read, and its undo and redraw calls form the platform-forced statement seam. `Presets` composes `DocumentSession` and `DocumentCommit` directly and holds no host handle beyond the demand window.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); `Document/facts` (`FactStream`, `UndoSerial`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;

@@ -27,7 +27,7 @@
 - Law: events fold into atoms — `map.on(...)` returns `Subscription`s registered as scope finalizers, and each handler body rides `useEffectEvent` where it closes over changing values so the subscription never re-binds per render; React owns only mount/unmount and the imperative map lifecycle never leaks into render. Module-level worker policy (`prewarm`, `addProtocol` for authed tile transport) is app-composition material set before the first `Map`; `transformRequest` routes tile URLs through the app's auth boundary.
 - Growth: a second viewport is a second `surface` call with its own scope; the module never holds a singleton map.
 
-```typescript signature
+```typescript
 import { MapboxOverlay } from "@deck.gl/mapbox"
 import { Fault } from "@rasm/core"
 import { Array, Context, Data, type DateTime, Effect, type Option, Schema, type Scope, type Stream } from "effect"
@@ -191,7 +191,7 @@ const _chrome = (surface: Geo.Surface, rows: ReadonlyArray<Chrome.Row>): Effect.
 - Law: the frame bridge is freshest-wins — the stamp stream carries one slot under the sliding strategy, because a stalled consumer must never backpressure the browser's own frame callback and a dropped stamp costs a coarser `delta`, never a lost coordinate; frames are published by a scope-forked drain, so the clock never runs an effect from inside a callback.
 - Growth: a new drive temperament (a ping-pong scrub, a fixed-step replay) is one case and one arm; a new consumer is one read of the published frame, never a second registration.
 
-```typescript signature
+```typescript
 import { Data, Effect, Ref, type Scope, Stream, SubscriptionRef } from "effect"
 
 declare namespace Clock {
@@ -281,7 +281,7 @@ const Clock: Clock.Shape = {
 - Law: the settled state publishes for cross-app taps — the camera atom is the one truth, and a non-atom consumer (a wire egress, a sibling app's probe) observes it through `Atom.toStream(camera)` — never a second `moveend` subscription and never a mirrored cell; per-app soundness holds because each app's registry scopes its own camera stream.
 - Growth: a new motion kind (an orbit-around) is one intent case plus one dispatch arm per backend — consumers break loudly at the missing arm; a new control temperament is one adapter row, never a fourth camera vocabulary.
 
-```typescript signature
+```typescript
 import type { Wire } from "@rasm/core"
 import { Data, pipe } from "effect"
 import { LngLat, type Map as MapLibreMap } from "maplibre-gl"
@@ -346,7 +346,7 @@ const _gestured = (state: Camera.State): Camera.Intent => _Intent.JumpTo({ state
 - Law: a geometry-derived fit cannot express an antimeridian crossing — `bbox` is a coordinate extremum, so a feature straddling the seam flattens to a globe-wide box; a crossing survives only where the wire extent is fit material as-is. The wire `Extent` is an unordered quadruple carrying no `west < east` constraint, so a `west > east` pair reaches the map untouched and the CROSSING READING IS MAPLIBRE'S: `LngLatBounds.adjustAntiMeridian` adds 360 to the east limb inside the `cameraForBounds` every `fitBounds` routes through. The two paths therefore stay distinct rows on one intent, never one derivation.
 - Packages: `@deck.gl/core` (`WebMercatorViewport`); `@turf/turf` (`bbox`, the `AllGeoJSON` input union); `effect` (`pipe`).
 
-```typescript signature
+```typescript
 import { WebMercatorViewport } from "@deck.gl/core"
 import { type AllGeoJSON, bbox } from "@turf/turf"
 
@@ -419,7 +419,7 @@ const Camera: Camera.Shape = {
 - Law: layer assembly admits through `Planar.admit` (`[08]`) — a `geographic` collection feeds a layer directly, a `projected` one crosses `toWgs84` exactly once at that boundary, and an SRID `Wire.GeoFeature.Crs.of` cannot resolve refuses `crs-unresolved` so the layer renders nothing and the refusal surfaces as evidence; per-feature projection inside an accessor is the named defect because an accessor re-runs the crossing every draw.
 - Growth: a new payload format is one `getTileData`/`renderSubLayers` pair; a new 3D-tile transport is one discriminant case with its loader list; a new grid is one cell-table row; a new mark shape is one accessor sub-group on the owning row.
 
-```typescript signature
+```typescript
 import type { LayersList } from "@deck.gl/core"
 import {
   A5Layer, GeohashLayer, H3ClusterLayer, H3HexagonLayer, MVTLayer, QuadkeyLayer, S2Layer,
@@ -717,7 +717,7 @@ const _push = (surface: Geo.Surface, layers: LayersList, effects: _Passes): void
 - Law: the sampling ring is a device-pixel distance — the policy carries a CSS-pixel radius and the row scales it by the surface's pixel ratio, because an unscaled radius shades a retina surface at half its intended reach and reads as a weaker effect rather than a wrong one.
 - Growth: a new per-layer capability is one factory row and every layer inherits it by concatenation; a new screen-space pass is one policy shape plus one row on the same sink.
 
-```typescript signature
+```typescript
 import { PostProcessEffect } from "@deck.gl/core"
 import {
   BrushingExtension, ClipExtension, CollisionFilterExtension, DataFilterExtension,
@@ -789,7 +789,7 @@ const _depth = (pixelRatio: number, policy: Screen.Depth = _DEPTH): PostProcessE
 - Law: `truncate` is the re-encode gate — coordinate precision trims once before a derived feature crosses back to a wire or a source, so a buffer's float tail never inflates a payload nor forks a content key against the same geometry rounded elsewhere.
 - Growth: a new predicate is one row on `relation`, a new overlay arm one row on `overlay`; an op whose signature is genuinely its own joins as an owner member rather than distorting a table's uniform contract.
 
-```typescript signature
+```typescript
 import {
   type AllGeoJSON, area, type AreaUnits, bboxClip, booleanContains, booleanCrosses, booleanDisjoint,
   booleanIntersects, booleanOverlap, booleanTouches, booleanWithin, buffer, centroid, convertArea, convex,
@@ -902,7 +902,7 @@ const _planar: Planar.Shape = {
 - Law: DOM anchors survive only for HTML-bearing overlays (`mark`'s pins) and the PAIR is one bracket — `Geo.pinned` acquires the `Marker` at its coordinate, binds an `Option`-carried `Popup` through `setPopup` so the marker owns its detail node's lifetime, and removes the marker on release; a popup bracketed apart from its marker outlives the anchor it belongs to, and a pin outliving the surface keeps a detached element and its listeners alive. GPU marks belong to deck rows, and the sanitize gate (`system/primitive#SANITIZE_GATE`) is what any wire-borne popup body crosses before it reaches a node — `setDOMContent` takes the gated node, never a raw HTML string.
 - Growth: a new style write is one member on the same sub-owner; a new glyph shape is one `Glyph` case with its arm; a new echo key is one column on the state record the same pair writes and removes.
 
-```typescript signature
+```typescript
 import { Array, Data, Effect, Option, type Scope } from "effect"
 import type { GeoJSON } from "geojson"
 import { Marker, Popup } from "maplibre-gl"
@@ -1069,7 +1069,7 @@ const _pinned = (
   )
 ```
 
-```typescript signature
+```typescript
 declare namespace Geo {
   type Shape = {
     readonly surface: typeof _surface

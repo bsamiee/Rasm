@@ -18,7 +18,7 @@ Worker imports sit at the top of the acyclic scene graph: this module composes `
 - Growth: a new two-operand op is one `BoolOp` member plus one `_BOOL` row; a new importable format is one `SceneSource` member plus one `_IMPORTER` row; a new parametric primitive is one `SourceKind` member plus one `_SOURCE` row — an import-time coverage gate proves the three tables span their vocabularies, so an unruled member fails at worker import; a new kernel is one function plus its `_KERNELS` roster row and one offload arm at `scene/render#SCENE`.
 - Boundary: named provider faults, a failed `PackageOp`, an unsupported round-trip target, an empty output, and `ZipError` converge on `ExportError` inside the export folds; an unexpected exception remains a defect and propagates.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from pathlib import Path

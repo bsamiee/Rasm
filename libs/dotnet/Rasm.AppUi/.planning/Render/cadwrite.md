@@ -20,7 +20,7 @@ Layer identity, line rhythm, and line width are all `Rasm/Drawing/sheet`'s: an `
 - Exemption: `Build`, `Registered`, `Added`, and `Polyline` carry STATEMENT bodies under the boundary-kernel law — `CadDocument`, its table collections, and `LwPolyline.Vertices` are mutable native builders with get-only collections, so the graph is assembled by ordered mutation. What that exemption does NOT buy is expression-shaped statement smuggling: the three `(sideEffect, value).Item2` comma-operator switches this fold carried were side effects wearing an expression, and they delete.
 - Boundary: sheet space is Y-DOWN — the frame the Skia canvas draws in and the one the title block anchors in — while CAD model space is Y-UP, so the flip lives at THIS one boundary exactly as the millimetre-to-point scale lives at the PDF one; the same projection carries the sheet's model-space origin, so a second placement rule per entity arm cannot exist. Writing sheet ordinates raw into a `CadDocument` mirrors the whole drawing against its own PDF while every congruence claim still reads true, so a second pre-reframed entity run and a per-format projection are both the deleted forms. Arc bounds negate AND swap, because an ACadSharp `Arc` always sweeps start to end COUNTER-clockwise in a Y-up frame while `Math.Atan2` over Y-down deltas measured clockwise — negating alone draws the complementary arc and leaving both sweeps the wedge the opposite way from the PDF. The solid line type is the document's OWN registered entry read off its table; the static `LineType.Continuous` is a factory property minting a fresh unregistered entry on every read, so binding it per layer seats one distinct "Continuous" instance per style and the writers reject the duplicate table rows (`RULINGS.md:146`). Text lands as `MText` at the entity's own kernel `TextHeight` in millimetres on the annotation style's layer.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CadDraw {
@@ -138,7 +138,7 @@ public static class CadDraw {
 - Growth: a new CAD serialization is one `CadWriter` row carrying its own writer call; a new version axis is one `CadVersionPolicy` column; zero new surface.
 - Boundary: the version policy is ROW-THREADED — each writer row names the version column it reads and no writer arm carries a call-site literal, so the hardcoded `AutoCad2018` this replaces is the deleted form; the DXF serialization form is a `DxfEncoding` ROW rather than a `bool` on a policy record, and its `Binary` column is the HOST projection read at exactly one call, which is where boundary spellings belong; the SVG writer's `Configuration` is the `CadWriterBase<SvgConfiguration>` slot, so the policy row's line-weight ratio lands on the writer's own config rather than on a constructed one, and the `SKSvgCanvas` presentation arm is the deleted second-SVG-semantic form; all three rows fold the SAME document, so the three formats cannot carry different entities.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

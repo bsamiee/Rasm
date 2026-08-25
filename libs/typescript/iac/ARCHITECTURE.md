@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 iac/
 └── src/
     ├── program/          # Program shapes, arm dispatch, the Automation-API drive, and the bootstrap legs

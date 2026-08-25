@@ -20,7 +20,7 @@
 - Growth: a new application protocol is one `_ROSTER` row beside its generated enum member, and both derived maps follow.
 - Boundary: this cluster reads the header; writing canonical header fields belongs to `exchange/identity#CANONICAL`.
 
-```python signature
+```python
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
@@ -105,7 +105,7 @@ def declared(model: StepData_StepModel, /) -> CadRail[StepProtocol]:
 - Entry: `pipeline` composes each leg kleisli at four arrows, under the six its overload ladder types before degrading to `Result[Any, Any]`.
 - Boundary: path custody, artifact publication, and `SealedStep` construction belong to `service/spool` and `brep/operation`; this owner reads and writes paths handed to it, and `sourced` only looks a digest up in the map the serve layer already resolved — it opens no store.
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

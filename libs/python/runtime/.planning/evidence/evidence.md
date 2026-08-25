@@ -17,7 +17,7 @@ External-API and structural-parsing evidence ride one tagged-union fact stream t
 - Growth: a new evidence family is one `Evidence` case with its value object; a new language one `Lang` member, one `GRAMMARS` row, and one own-language source column per probe; a new probe one `Probe` literal with one `PROBE_SOURCES` row, partial coverage included; a new capture allowlist one `PROBE_KEEP` row; a new traversal shape one `Disposition` member the faults owner adds; a custom-predicate probe earns the `QueryPredicate` handler as its own row when a non-built-in directive ships; a new member group one `_GROUP_*` constant; a widened catalogue reach is one `_DEPTH` value, and every level past the second widens the claim onto surfaces the distribution only re-exports.
 - Boundary: the scan is one-shot by charter — an incremental `Tree.edit`/`changed_ranges` re-scan cache is the ruled-out form for this owner. One tracer spans `code.scan` over the per-file `code.query` legs — never a second tracer per probe — and the trace status and the rail outcome are the same fact on every arm.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from importlib import import_module, metadata

@@ -22,7 +22,7 @@ Rebuilds compose the un-gated Genus-tolerant `TopologyReceipt` projection as the
 - Growth: a new modality is one `HealStage` row, one `HealOp` case, and one typed `RebuildReceipt` case; a new band is one `ToleranceLane` column on `RepairPolicy` at `Of`; a new spatial or exact primitive routes its owning sibling as a consumer-contract row.
 - Boundary: crossing, CDT, and boolean classification stay `Intersection`/`Tessellation`/`Arrangement` property, point proximity the `Spatial` neighbor lane. `RepairPolicy.Retile` names the constrained CDT stage, never remeshing; a composed sibling fault propagates unwrapped, and a collapse or re-mesh preserves every load-bearing feature.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

@@ -23,7 +23,7 @@
 - Boundary: chart-value keys are the pinned chart's contract, drifting only with the pinned `version`; the managed object cells (S3, R2, GCS) are the cloud arms' rows in `program/provider.md`.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `@pulumi/pulumi` (`asset.Asset`); `../crds/rook` (`ceph.v1.CephObjectStoreUser` — crd2pulumi, regenerated on chart bumps like every committed CRD module); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
-```typescript signature
+```typescript
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import * as rook from "../crds/rook"
@@ -134,7 +134,7 @@ class ObjectStore extends Tier {
 - Boundary: chart-value keys are the pinned chart's contract; publish/consume semantics, ack posture, and the dedup window are the runtime fanout owner's; the deployment posture here is the durability fact that page deliberately does not carry.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`); `@pulumi/pulumi` (`interpolate`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
-```typescript signature
+```typescript
 class Nats extends Tier {
   readonly origin: pulumi.Output<string>
   constructor(name: string, args: { readonly spec: StackSpec; readonly namespace: pulumi.Input<string>; readonly version: pulumi.Input<string>; readonly keyring?: pulumi.asset.Asset }, opts?: pulumi.ComponentResourceOptions) {
@@ -188,7 +188,7 @@ class Nats extends Tier {
 - Boundary: the operator chart's values and the CR field dialect drift with the pinned versions — the pins are args; the object-store row is `[2]`'s; the fanout row is `[3]`'s; the per-scope credential mint is the composing arm's `auth` callback.
 - Packages: `@pulumi/kubernetes` (`helm.v4.Chart`, `core.v1.Secret`); `../crds/cnpg` (typed CNPG + barmancloud classes — crd2pulumi); `@pulumi/pulumi` (`all`, `interpolate`); `@rasm/data` (`Pg`); `effect` (`Array`, `Data`, `Effect`, `Match`, `Option`).
 
-```typescript signature
+```typescript
 import { Pg } from "@rasm/data"
 import { Array, Data, Effect, Match, Option } from "effect"
 import * as cnpg from "../crds/cnpg"
@@ -569,7 +569,7 @@ class Postgres extends Tier {
 - Boundary: recovery bootstraps a new cluster; the ordinary database and convergence folds then materialize, hydrate, prove, and publish it; the primitive roster and its grant semantics are the matrix owner's.
 - Packages: `@pulumi/kubernetes`; `../crds/cnpg`; `effect` (`Array`, `Effect`, `Option`); `@rasm/data` (`Pg`).
 
-```typescript signature
+```typescript
 const _granted = (names: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<(typeof Pg.rows)[number]>, DataRefused> =>
   Effect.forEach(names, (name) =>
     Effect.mapError(

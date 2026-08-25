@@ -24,7 +24,7 @@ Ownership is ONE `Context` per CHECK — the AST factory and arena (`IDisposable
 - Boundary: the universal `Consequences` extraction rides one posture row on the SATISFIABLE branch of the same holding — no second verdict authority, no re-`Check`, and an empty implied set where the policy declines or the extraction cannot settle.
 - Boundary: the `Symbolic/lowering#ENCLOSURE` `EnclosureFold.Certify` interval pre-gate answers a rule whose enclosure proves over the declared bounds BEFORE the Z3 context is minted — the COMPLETE `ProvenViolated` roster short-circuits `Unsatisfiable` (a single-rule core hides every other rule the same box already refutes), an all-`ProvenSatisfied` roster short-circuits `Satisfiable`, and every other rule falls through to the exact engine. `Certify`'s typed DECLINE propagates as ABSENCE, never as a fabricated `(double.MinValue, double.MaxValue)` enclosure: the owner refuses to widen precisely so an unbounded node stays distinguishable from a box that straddles zero, and re-minting that interval here discards the proof at the owner's own call site.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -411,7 +411,7 @@ public static class RuleLowering {
 - Auto: `Ground` walks `ElementGraph.ObjectNodes`, admits each member through `NodeClassSelector.Admits`, bakes it through the memoized `Bake` fold so the type→occurrence inheritance the seam owns applies once, and binds every declared symbol off the baked property bags; a member missing one symbol — or carrying a node id the tracking grammar refuses — yields NO grounding, so the population and grounded counts diverge and `[04]` names the gap.
 - Boundary: the selector composes the DECLARING package's own row statics — `StructuralRows` for the cross-package structural vocabulary, the owning package's `PropertyCategory` roster otherwise — because a call-site `PropertyName.Create` forks the spelling the declaring package already froze and the fork surfaces only as a rule that silently grounds nothing. Numeric admission is the three scalar `PropertyValue` arms alone: a measured row reads its SI magnitude, a number and an integer read their own value, and every other value case is NOT a rule binding — a text or enumerated row coerced to a double is the deleted form. The assessment spine stays the CALLER'S: this fold derives a rule, never a verdict, and never mints an `AssessmentResult`. Selector validity is a CONSTRUCTION refusal, so no caller mints a blank-classification selector and no fold re-tests one.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ComplexValueObject]
@@ -491,7 +491,7 @@ public static partial class RuleSatisfaction {
 - Entry: `public static CoverageFact Coverage(ElementGraph graph, NodeClassSelector selector, ComplianceRule rule)` — the rule supplies the grounding roster actually asserted, and the fact reports how much of the admitted class it covers; the read is total over an admitted graph, so no rail wraps it.
 - Boundary: `Check` consumes the fact — an incomplete fact refuses under `SatisfyRight.RequireCoverage` and rides the assessment as evidence otherwise — because a SATISFIABLE verdict over a partial population reads identically to one over the whole class, and the difference is exactly what a compliance consumer is asking about. The fact lands beside the verdict facts on the SAME `AssessmentResult`, never as a second receipt. The bound and unbound halves come out of ONE walk, so the three counts can never disagree about the population they measured.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct CoverageFact(int Population, int Grounded, Seq<string> Missing) {

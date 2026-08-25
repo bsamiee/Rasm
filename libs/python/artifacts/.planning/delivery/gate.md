@@ -19,7 +19,7 @@ Absence is a GRADE, never a pass: `Grade.UNMEASURED` is the value a coordinate t
 - Receipt: this page mints no `ArtifactReceipt` case, no `ContentKey`, and no `ArtifactWork` — the verdict rides `delivery/transmittal#TRANSMITTAL`'s own `TransmittalEvidence` and reaches the fact stream through that owner's projection. `GateVerdict.facts` answers native scalars for that fold; `Coordinate.render` answers the `family.axis@grade` token every refusal names.
 - Boundary: no measurement of its own — every scalar arrives already measured by its producer, and this page re-runs no oracle, no metric, and no clause predicate. Rejected: a bare `bool` verdict a consumer cannot repair from; a `first-failure` abort that hides the sibling breaches one repair pass owes; a family whose absence defaults to pass; a threshold literal spliced into a predicate body instead of a row; a per-family verdict sibling type; a `Grade` ordering read off `StrEnum` declaration position.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from annotationlib import get_annotations
 from collections import Counter
@@ -190,7 +190,7 @@ if frozenset(field for field in get_annotations(GateEvidence) if field != "tag")
 - Growth: a new governed kind is one `_POLICY` row; a new bar is one `Bar` entry in an existing tuple; a graded ramp on an existing axis is a second `Bar` over the same axis with a softer `breach`; a new clause is zero edits here; a new family is one `GateFamily` member, one `GateEvidence` case, one `_measured` arm, one `_AXES` row, and its bars.
 - Boundary: no threshold read from a host, an environment, or a caller flag — a per-call bar forks the verdict for the same artifact and destroys the comparability an issue register depends on. Rejected: a bars-empty row standing in for "ungoverned" while grading `PASS`; a boolean `strict` knob the row set already reconstructs; a clause roster restated here beside the producer's own enum.
 
-```python signature
+```python
 # --- [POLICIES] -------------------------------------------------------------------------
 
 _SOFT_CLAUSES: Final[frozenset[str]] = frozenset({UaCheck.SYNTAX.value})
@@ -296,7 +296,7 @@ if _UNGOVERNED:
 - Growth: a new verdict family is one `GateFamily` member, one `GateEvidence` case, one `_admitted` arm, one `_measured` arm, one `_AXES` row, and its bars — the two load gates and the `assert_never` tails break at import until every piece exists. A new governed kind is one `_POLICY` row; a new bar one tuple entry; a new grade one member and one `_SEVERITY` row. Zero new surface: the gate grows by member, case, and row, never by method.
 - Boundary: no measurement, no rendering, no content key, no `ArtifactWork`, no receipt case, no durable record, and no hook fire — the verdict is a value its consumer carries, and `delivery/transmittal#TRANSMITTAL` owns the one refusal that acts on it. No `beartype` ingress guard and no `LanePolicy`: nothing crosses a worker lane and every input is an already-admitted owner value, so the folder's `_GUARD` idiom has no boundary to guard here. Rejected: a `Result`-returning `graded` that lets a caller default past a verdict; a mutable score registry; a per-family `grade_*` verb family the closed union already discriminates; a threshold argument on the entrypoint.
 
-```python signature
+```python
 # --- [SERVICES] -------------------------------------------------------------------------
 
 

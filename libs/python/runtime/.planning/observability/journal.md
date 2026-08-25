@@ -24,7 +24,7 @@ Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observ
 - Growth: a new evidence kind is one `Change` case with its arm in every consuming fold; a new actor class is one `Actor` member in both branch spellings; a new metered resource is one `Resource` member with its `RESOURCES` row and its rate row; a new fact stream is one more tagged record carrying the family's projections, which the row fold, the gate, the drain, and the groom inherit unedited; a new retention class is one `Retain` member with its `WINDOWS` row; a new derived series is one `Series` member the census admits; a new diff grammar is one `Pointer` pattern edit; a newly classified field is one `FACT_REDACTION` row. A `Resource` member also widens what `Rating` completeness means at the next settlement — `rated` refuses by name on a resource its caller-supplied rating omits — so the rate row lands with the member or the first window carrying it settles nothing.
 - Boundary: this family carries the retention KEY and never the window — `WINDOWS` prices the class and the ledger executes the reclaim, so no page outside this owner spells a duration. Quantities stay integral by constraint, which is what keeps the exact-decimal crossing in `[04]` free of any float: a fractional need is a smaller unit row, never a decimal quantity.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -471,7 +471,7 @@ def _censused() -> RuntimeRail[Block[Series]]:
 - Boundary: a `Ledger` implementer's own landing path records NOTHING — `landed` reaches durability through whatever commit surface that implementer composes, so a producer leg seated on that surface re-enters `record` for every batch it lands and the stream feeds itself without bound. The implementer's composed owners therefore discriminate the ledger's OWN relations from a caller's and record only the caller's, and the durable plane's emptiness cannot do it for them: a journal commit is indistinguishable from a caller's commit by residence alone, so the discriminant is the relation identity the ledger's tables declare at open.
 - Boundary: this owner opens no connection, mints no statement, and names no engine — the ledger executes every landing, scan, tally, and reclaim through its own mechanism, so retention, compaction, and rollup ride machinery a ledger already carries and no worker or scheduler surface enters this branch for telemetry. Append gating admits or refuses and never transforms: the veto fold's returned payload is discarded by law, because a subscriber rewriting evidence makes the plane it observes a second author.
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -785,7 +785,7 @@ class Journal:
 - Growth: a new charge model — tiered, floored, minimum-billed — is one field on the `Rate` row read inside `rated`, never a second rating entry; a new aggregate moment is one `Aggregate` field its monoid folds; a new billing dimension is one `Priced` column its order already spans.
 - Boundary: exact arithmetic is absolute — the integral total lifts losslessly, multiplication runs inside the money context whose armed `FloatOperation` trap makes the no-float law structural rather than disciplinary, and the single terminal quantize is the only rounding in the path. This law stands stricter than the sibling projection at `python:data/tabular/cost#COST`, which prices approximate resource spend for a dashboard; a charge a customer settles admits no float at any step.
 
-```python signature
+```python
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -877,7 +877,7 @@ def rated(billed: Billed, rating: Rating) -> RuntimeRail[Map[Priced, Charge]]:
 - Growth: a new custody posture is one `Custody` instance the composition root binds beside the shipped `local` and `vault` pair — a hardware holder or a cloud KMS arm lands as one more value, never a field on either; a new secret backend behind `vault` is a `CloudVault` arm at the settings owner with zero edit here; a new sealed field is a caller-side projection composing `sealed`/`opened`, since field shapes are application material; a new export surface is one projection over the same `Export`, never a second subject read.
 - Boundary: erasure destroys key material and touches no row — the append-only invariant survives the right to erasure because unreadable IS erased — and the export and the erasure prove one spine: export reads what remains readable, erasure makes fields unreadable, and the stored bytes stay untouched either way.
 
-```python signature
+```python
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

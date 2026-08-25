@@ -27,7 +27,7 @@ The POLAR SPLIT is settled law and this page is where it is spelled for the clim
   - The plane rows take their KEY from the `custom` catalog row they name rather than declaring one, because the reading and the catalog row are the same identity. The two series rows declare their own key, because the shipped catalog names a series KIND and has no name for a reading of it.
   - The reshape a series reading needs is a COLUMN here rather than a caller argument: the carpet IS its calendar reshape, and leaving that declaration to the mount site would let a carpet be declared without the transform that makes it one.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -111,7 +111,7 @@ public sealed partial class ClimateReading {
   - A CAPTION is resolved TEXT the feed elected, never a key a fold hands the shaper. `CompassPoint.Of` answers a point only where one compass arc contains the sector whole, so a twelve-sector rose prints its own bearings rather than being labelled from a sixteen-point vocabulary that would name the wrong quarter silently.
   - Angles are METEOROLOGICAL — degrees clockwise from north, the direction wind comes FROM — and the fold converts to the raster's own screen angle once at the wedge writer. Two conventions inside one fold is the defect that renders a rose rotated ninety degrees with nothing to point at.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -156,7 +156,7 @@ public sealed partial class CompassPoint {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct RoseBand(double Lower, double Upper, double Share);
@@ -172,7 +172,7 @@ public readonly record struct RoseScale(double Peak, Seq<RoseBand> Bins) {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
@@ -273,7 +273,7 @@ public static partial class CustomVisuals {
   - A patch spans the MINIMAL ARC its corners share, and the upper bound may exceed a full turn: a face straddling north has a lowest and a highest bearing on opposite sides of the seam, so a plain extreme read answers the COMPLEMENT and one twelve-degree cell claims the rest of the sky. A face whose minimal arc exceeds a half turn encloses the zenith, where azimuth is undefined at all, so it is a CAP spanning the whole turn to the pole rather than an arc no ordering of its corners can name.
   - Sun geometry arrives as VALUES from the kernel almanac through the feed — this page reads no site, no instant, and no ephemeris, so a sun path is a projection of what the almanac already answered.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -323,13 +323,13 @@ public sealed partial class SunFrame {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct SkyPatch(double FromAz, double ToAz, double FromAlt, double ToAlt, double Value);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
@@ -426,7 +426,7 @@ public static partial class CustomVisuals {
   - Zone rank is the draw and ink order together, so an eighty-percent band under a ninety-percent one reads as the wider region it is rather than as whichever polygon the roster happened to list last.
   - A caption seats at the ring's AREA centroid, never at its vertex mean. A vertex mean is the centroid of a polygon's CORNERS, so an unevenly sampled or concave acceptability region labels outside itself — the adaptive band, whose sloped edges carry most of its vertices, is exactly the shape that breaks. A ring whose signed area vanishes is collinear and has no area centroid, so it falls back to the vertex mean by construction rather than dividing by nothing.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ComfortFrame(double MinX, double MaxX, double MinY, double MaxY, double Skew) {
@@ -449,7 +449,7 @@ public readonly record struct ComfortFrame(double MinX, double MaxX, double MinY
 public sealed record ComfortZone(string Caption, Seq<(double X, double Y)> Polygon, int Rank);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
@@ -535,7 +535,7 @@ public static partial class CustomVisuals {
   - EVERY user-visible string is elected through the resolved locale at this one edge: a design day, a clock hour, a compass caption, a zone name, and every legend bound. A fold that formatted its own text would pin a diagram to one culture, and an invariant format string inside a fold is the deleted form.
   - The HORIZON COORDINATE is declared per reading against `Analysis/context#SCRUB_BINDING`: the rose, the carpet, the directional profile, and the comfort cloud are WEATHER-RECORD reads whose board window is `ContextChannel.Range(context.Record())`, so a projected-scenario diagram is captioned at the horizon its record was read at; the sun path is a SOLAR read that binds `context.Window()` and the context's own almanac, because an emissions pathway moves a weather record and never moves the sun. Binding one span for the whole family is how a 2050 comfort chart comes to carry a baseline caption.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ClimateBrief(
@@ -583,7 +583,7 @@ public abstract partial record ClimateMount {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ClimateFeed {

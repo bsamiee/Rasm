@@ -20,7 +20,7 @@
 - Boundary: `GeometryCrc` and the kernel `ContentHash` are DIFFERENT custodies and neither substitutes for the other. `GeometryCrc` wraps `GeometryBase.DataCRC`, a host-computed running remainder over the native representation: chainable, cheap, in-process, and stable only for the process that computed it, so it answers "did this handle change under me" and nothing else. The kernel `ContentHash` is the federation identity a stored or transported value carries; a `GeometryCrc` persisted or compared across a boundary is the deleted form.
 - Growth: a custody policy is one `CrossingMode` behavior row over the same acquisition rail; a custody phase is one `HandleRelease` case the pure transitions absorb.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading;
 using Rasm.Analysis;
@@ -320,7 +320,7 @@ public static class GeometryCrossing {
 - Boundary: kernel owners construct placement and analysis semantics; this owner applies or observes them inside native custody. Structural equality of the evidence records rides the carriers' own structural `Equals` — `Arr`, `Seq`, and `HashMap` compare by value — so no generated equality attribute stacks here.
 - Growth: a host capability is one case and one exhaustive arm inside the existing operation or motion family; a new routing trait is one `OpTrait` row.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class GeometryComparison {
@@ -695,7 +695,7 @@ public sealed record GeometryReceipt(
 - Boundary: document lookup, table mutation, and redraw remain on the document transaction spine; viewport EXISTENCE is proven by `ViewportOp.Proven` at whichever seam holds the document, because the spine never sees the detached authoring path.
 - Growth: a clipping capability extends `ClipOp`; a membership modality extends `ClipScope`; an override intention never widens — three states are the whole vocabulary.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldOverride<T> {

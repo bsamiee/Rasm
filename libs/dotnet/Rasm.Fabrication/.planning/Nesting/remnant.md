@@ -19,7 +19,7 @@
 - Law: `ReuseTrait` carries the kernel `ICapability` floor, so a traceability demand is a `CapabilitySet<ReuseTrait>` value and never a hand-walked predicate roster — `Missing` answers the accumulating retire causes and `Require` guards the one admission that genuinely refuses, the salvage floor that cannot be stated without the valuation trait carrying it. `Rank` stays the interface's DERIVED declaration order; an ordinal column beside the roster is the refused form.
 - Growth: each reuse gate adds one `ReusePolicy` member and one `ReuseGates` row minting its payload-bearing `RetireCause` case; each traceability demand adds one `ReuseTrait` row the `Required` capability column admits by name; each lifecycle operation adds one `RemnantOp` case and one generated dispatch arm; each physical observation axis adds one `RemnantObservation` member.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
@@ -158,7 +158,7 @@ public abstract partial record RemnantOp {
 - Receipt: `RemnantPlan` carries the next inventory, admissions, accumulated retirement causes, conflicts, validated transitions, per-source-stock `RemnantYield` rows, and the standing potential, consumed, and scrapped `RemnantMeasure` pairs of area and value.
 - Boundary: `RemnantSlots` names the `store.fabrication.remnant.<verb>` streams the validated transitions and the re-admitted inventory census ride on the Persistence slot registry, so shop offcuts survive restart and share across apps without collision.
 
-```csharp signature
+```csharp
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
@@ -374,7 +374,7 @@ file readonly struct InventoryGate(RemnantInventory inventory, RemnantRow[] rows
 - Exemption: `InventoryGate` is the measured per-row partition boundary and `AdmitLineage` the bounded graph-population kernel; mutation stays inside their own admitted containers.
 - Boundary: `Remnant.Key` is the lifecycle key, `Stock.FromRemnant` is the next-nest carrier, and `FabricationResult.Placement.Remnants` is the placement receipt seam.
 
-```csharp signature
+```csharp
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;

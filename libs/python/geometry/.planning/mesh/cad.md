@@ -19,7 +19,7 @@
 - Growth: a new `CadService` rpc is one `CadRoute` row beside one row on `RAISES`; the entry, every caller, and the refusal projection stand untouched, and a route whose reply class the caller does not name is unspellable.
 - Boundary: STEP/IGES and sealed B-rep cross `CadService`; every body crosses `ArtifactService` by reference and no `OCP.*` import exists in this package. `mesh/brep#BREP` composes `EXECUTE` and owns the B-rep evidence projection; this page owns the seam alone and no evidence of its own.
 
-```python signature
+```python
 from collections.abc import Awaitable, Callable
 from math import isfinite
 from typing import Final, assert_never

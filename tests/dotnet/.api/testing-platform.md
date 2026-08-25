@@ -45,7 +45,7 @@ Every dump and retry sub-flag demands its master switch; `--retry-failed-tests-m
 |  [18]   | `platformOptions__resultDirectory`                               | env     | the same option through the environment provider           |
 |  [19]   | `TESTINGPLATFORM_DIAGNOSTIC_OUTPUT_DIRECTORY`                    | env     | diagnostic log root, read at bootstrap                     |
 
-```csharp signature
+```csharp
 public static class TestApplication {
     public static Task<ITestApplicationBuilder> CreateBuilderAsync(
         string[] args, TestApplicationOptions? testApplicationOptions = null);

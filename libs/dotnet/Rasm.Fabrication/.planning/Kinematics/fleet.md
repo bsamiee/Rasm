@@ -26,7 +26,7 @@
 - Packages: `Rasm/Domain/validation#CAPABILITY` supplies `ICapability` and `CapabilitySet` — membership, the required-set seam, the `Missing` evidence complement, and the rank-ordered wire all arrive from the kernel column and this page mints no set algebra of its own; `Rasm/Domain/rails#VALIDITY_FOLD` supplies `ValidityClaim`; `Rasm.Element` supplies `PropertyName` and `PropertyCategory`; Thinktecture.Runtime.Extensions owns the closed rows.
 - Boundary: this cluster reads the admitted component's own bag and nothing else; geometry bounds and material identity resolve at the join.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
@@ -232,7 +232,7 @@ internal sealed record FleetDemand(
 - Packages: `Rasm/Domain/rails#VALIDITY_FOLD` supplies `IValidityEvidence` and every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
 - Boundary: `Process/family` `MachineCapacity` is the machine CLASS operating envelope admitted with the equipment; `ProcessEnvelope` is the INSTALLED station a program runs on, so the two never mirror and a station absent from the shop floor cannot be inferred from the class.
 
-```csharp signature
+```csharp
 // --- [STATION_CAPABILITY]
 [SmartEnum<string>]
 public sealed partial class DeliveryLane {
@@ -434,7 +434,7 @@ internal sealed record StationAssessment(
 - Growth: a new calendar posture is one `CalendarExceptionKind` row carrying its own `BlockDisposition`; a new recurrence is one `CalendarSpan` case with its `Contains` arm; a new routing refusal is one `RoutingStanding` row.
 - Boundary: the calendar reports time; `Process/derivation` alone turns a finish instant into a lot promise.
 
-```csharp signature
+```csharp
 // --- [SHIFT_CALENDAR]
 [SmartEnum<string>]
 public sealed partial class MachineAvailability {
@@ -745,7 +745,7 @@ public sealed partial class AvailabilityPlan {
 - Packages: `Riok.Mapperly` owns the registration projection; `Process/family` supplies `Machine`, `ProcessKind`, `PostDialect`, and topology; `Tooling/magazine` supplies `SlotMap` and `SlotState`; `Spec/capability` supplies `ItGrade`; NodaTime owns the instants.
 - Boundary: no Persistence type crosses `FleetSlots` — the spellings are value federation onto the slot registry's contributed span.
 
-```csharp signature
+```csharp
 // --- [FLEET_REGISTRY]
 [ComplexValueObject]
 public sealed partial class PerformanceBaseline {
@@ -1031,7 +1031,7 @@ public static class FleetSlots {
 - Growth: a new assessment dimension is one behavior-bearing `CapabilityCriterion` row carrying its own `Sense`; a new ranking concern is one `FleetObjective` row carrying its penalty and its canonical `ObjectiveTuning`, and no policy value changes.
 - Boundary: `Process/derivation` alone converts an empty feasible selection to `RoutingInfeasible`; fleet owns the calendar and returns verdicts. `Forming/brake` consumes the frozen `ProcessEnvelope.Brake` case, `Verify/estimation` consumes the effective metrics retained by `MachineMatch`, and `RobotProgram` owns path-level robot reach; fleet admits only the declared operating envelope, payload, and external-axis evidence available at component-routing altitude.
 
-```csharp signature
+```csharp
 // --- [CAPABILITY_JOIN]
 internal sealed record CapabilityDemanded(
     int Axes, int Grade, int AchievedGrade, Power SurfacePower, Mass Payload, int ExternalAxes) {
@@ -1589,7 +1589,7 @@ public static class Fleet {
 - Boundary: this cluster seats EFFORT on stations and returns instants; the lot promise, its due-date comparison, and the `LotOverdue` refusal stay at `Process/derivation`.
 - Boundary: `Fleet.Assign` has NO in-package consumer by construction, and that is the shape of the two problems rather than a gap. Derivation seats a PRECEDENCE TOPOLOGY — steps whose order the operation DAG fixes, each seated lap-phased against `FleetAvailability.Seat` as it becomes ready — while `Assign` covers a FLAT demand roster whose ordinals compete simultaneously, which is the shop-dispatch question a caller holding a released work queue asks and the derivation fold never has. Wiring the cover into that fold would replace a topologically-ordered seat with a one-shot cover that cannot honour precedence; the entry stays published for the dispatch consumer, and its refusal offset stays frozen for it.
 
-```csharp signature
+```csharp
 // --- [INSTANCE_CONTENTION]
 public sealed record InstanceWindow(MachineInstanceKey Instance, NodaTime.Interval Span, double Staffing);
 

@@ -22,7 +22,7 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 - Growth: a new search modality is one `StacQuery` case with its key on the owning surface's `accepts` set; a new href-rewrite scheme is one `SignScheme` member with its `SchemeRow`; a new credential estate is one `Signing` factory binding its own obstore provider with no `SignScheme` member at all; a new discovery surface is one `Surface` member with its `SurfaceRow` whose `accepts` names the method's admissible keywords; zero new surface; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.CATALOG` in this module's one `RAISES` table, which every section anchors on.
 - Boundary: composes the runtime credential and resilience owners, never a second STAC paging loop, CQL2 compiler, SAS token fetch, conformance negotiator, or retry/backoff loop; no live UI, no durable catalog store. A `search_by_<axis>` method family, a `cap`-keyword ternary fork where the `SurfaceRow` carries the name, a blind `**params` splat onto `collection_search` where `accepts` filters the rejected keyword, a `signing.sign(...) if surface is ITEM else ...` branch where `materialize` routes, and a hand-opened `boundary` re-spelling the retry/span/lift the `guarded` envelope fuses are rejected.
 
-```python signature
+```python
 import threading
 from collections.abc import Callable
 from enum import StrEnum
@@ -434,7 +434,7 @@ class StacCatalog(Struct, frozen=True):
 - Growth: a new schema mode is one `ACCEPTED_SCHEMA_OPTIONS` row; a new source is one `TableSource` case with its `reader`/`emit`/`remote` arms; a new sink is one `TableSink` case with its `emit` arm; a new one-call path is one `_TABLE_ROUTE` row; a new work class or raise surface is one `_OpRow` column value; zero new entrypoint.
 - Boundary: composes the `tabular/columnar`/`tabular/query`/`tabular/egress` owners, never a second table engine or writer; no durable catalog store. A hand-built STAC-to-Arrow schema, a hand-rolled parquet writer, a materialize-then-write two-hop where a one-call row writes straight to disk, an entrypoint family whose method names carry the source-versus-sink and local-versus-remote discriminants the values already hold, a `case _, _` corner reject evaluated inside the fold where the roster settles legality at construction, a catch-less `boundary` funnelling a whole leg through `Exception`, and the geopandas trio where the zero-copy Arrow path applies are rejected.
 
-```python signature
+```python
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -749,7 +749,7 @@ class StacGeoClaim(Struct, frozen=True):
 - Growth: a new archival format is one `MediaType` member in the `_raster_hrefs` gate; a new cube source is the existing `gridded/virtual#MANIFEST` `VirtualParser` case upstream, zero change here; a new coverage knob is one field on the `Coverage` row; a new extension read is one typed accessor in `_claim` landing on its own carrier, and a required one is one more rail in the accumulating sweep; a new band roster is one `BandSource` member with its `_census` arm; zero new surface.
 - Boundary: reads the settled `tabular/egress`/`gridded/virtual`/`spatial/geospatial`/`odc-stac` fences and re-mints none — no second object-store transport, virtual-cube builder, COG loader, or raster claim, no full-object read where a byte window applies. A raw `properties` probe where the typed accessor applies, a `VirtualOutcome` consumed without the `VirtualReceipt` narrowing before `.chunk_refs`, a `len(sources)` count where the real receipt evidence is the count, a `_rekey` dropping `expiry`/`matched`/`url`, a caller-supplied egress owner whose store may carry no credential lifetime where this fold binds the discovery's own provider, a hand-fed `stac_cfg` where the extension read derives it, a coalesce fusing an undeclared column with a real measurement, a sentinel folded into a content preimage where the absent fact must refuse, and a fail-fast admission that names one missing column per re-run are rejected.
 
-```python signature
+```python
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 

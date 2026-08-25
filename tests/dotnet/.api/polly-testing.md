@@ -30,7 +30,7 @@
 |  [06]   | `ResilienceStrategyDescriptor.Options`                | property  | `ResilienceStrategyOptions?` — null where a strategy carried none  |
 |  [07]   | `ResilienceStrategyDescriptor.StrategyInstance`       | property  | `object`; every concrete strategy type is internal                 |
 
-```csharp signature
+```csharp
 namespace Polly.Testing;
 
 public static class ResiliencePipelineExtensions {

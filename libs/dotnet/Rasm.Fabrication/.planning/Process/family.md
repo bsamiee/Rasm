@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput
 - Growth: a bounded vocabulary adds one generated row; an operating envelope dimension is one `CapacityAxis` row; an aggregation is one `CapacityFold` row.
 - Boundary: process, machine, modality, strategy, kinematics, holding, and dialect remain independent axes.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
@@ -415,7 +415,7 @@ public sealed partial class DialectFeature {
 - Growth: a machine is one `Machine.Register` call over any `MachineIngress`; a dialect is one row over the named feature and spelling bundles; a vendor word is one `CommandKeys` constant and one override entry; an operating envelope dimension is one row on the owning capacity's fact table.
 - Boundary: machine topology and physical axes are authoritative for motion; dialect rows contain capability data only.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WcsRoster {
@@ -1056,7 +1056,7 @@ public sealed partial class Machine {
 - Receipt: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, component labels, allocation pairs, and unassigned demand slots without exposing mutable graph state.
 - Packages: `QuikGraph` (`BidirectionalGraph`, `UndirectedGraph`, `SEdge`, `Edge`, `ShortestPathsDijkstra`, `ConnectedComponents`, `TopologicalSort`, `MaximumBipartiteMatchingAlgorithm`).
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FamilyNode {

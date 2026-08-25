@@ -21,7 +21,7 @@ Reused axes and seams a rebuild composes without re-derivation: `SolverReceipt` 
 - Growth: a new structure class is one `MatrixStructure` row with its `_TAG_NAMES` entry (the `assume_a` driver is the value itself); a new Krylov method one `KrylovKind` row (the value resolves the callable through `getattr(spla, kind.value)`); a new sparse scheme one `SparseScheme` case; a new operand backend one `LinearMap` case with its `scipy_op`/`dense_array`/`matrix`/`krylov_preconditioner`/`LinearEngine.operator` arms; a new lineax solver cell one `LinearEngine.solver` `match shape` arm; a new tuning axis one `LinearPolicy` field; a new termination code one `_info_status` branch or `_ISTOP` row; a new sparse-eigen method one `EigenScheme` row with its `_eigen_receipt` arm. Never a parallel dense/sparse owner, a free `lineax_solve`, a parallel matrix-free operand union, a boolean `least_squares`/`spectral` knob, or a Python loop over a multi-RHS stack.
 - Boundary: operand construction stays at the boundary — the `scipy.sparse` builders assemble the banded/identity/tensor/block operands the FEM and graph-Laplacian routes feed, and `SparseMat` accepts any container with its known structure; the dispatch bodies take only the projected `scipy_op`/`operator` and the structure. Batched and lineax residuals contract over the operator's OWN `.mv`, never `scipy_op @ x` re-entering the scipy rail off a JAX solve.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -516,7 +516,7 @@ def _operator_receipt(key: ContentKey, m: LinearMap, b: np.ndarray, shape: Solve
 - Growth: a new archive attribute is one `ExchangeMeta` field with its wire spelling; a new container format is one read/write leg pair with its awaitable twin over the shared `_written` half and one container token, never a sibling exchange surface; zero new knob on the solve routes.
 - Boundary: no ledger, custody, or retention window is minted here — the plane arrives bound at the composition root and this owner declares a `Retain` class alone. The int32 index pin is the exchange law — the C# reader declares int32 dataset reads, so an operand whose `nnz` or pointer length exceeds int32 refuses typed at write rather than emitting a container the peer mis-reads; the group convention layout is the C# fence's law and this mirror re-derives none of it; factorization policy is recorded evidence — python re-factors through its own `SparseScheme` under the projected ordering and never claims byte-identical factors.
 
-```python signature
+```python
 import h5py
 import scipy.io as sio
 import scipy.sparse as sp

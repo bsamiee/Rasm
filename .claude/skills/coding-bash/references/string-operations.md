@@ -14,7 +14,7 @@ Multi-stage transform pipelines, regex extraction with BASH_REMATCH, codec patte
 
 Each `${}` produces a new string without mutating the variable — reassignment is explicit. In a loop processing N strings with M transforms, chained PE costs 0 forks vs `sed`/`awk` costing N\*M process spawns. Case transforms `${var,,}` / `${var^^}` are locale-dependent — under `LC_CTYPE=tr_TR.UTF-8`, `${var^^}` maps `i` to `I` (dotless), not `İ`. Pin `LC_ALL=C` when ASCII-only case folding is required.
 
-```bash conceptual
+```bash
 # Multi-stage path normalization: 5 transforms, 0 forks
 _normalize_url() {
     local -r raw="$1"
@@ -74,7 +74,7 @@ _safe_filename_53() {
 
 `[[ str =~ regex ]]` populates `BASH_REMATCH` — index 0 is the full match, indices 1+ are capture groups. ERE only (no PCRE) — no lookahead, no `\d`/`\w`, use `[0-9]` and `[[:alpha:]]`. Bash does NOT support named capture groups (`(?P<name>...)`) — use positional indices only. Each `=~` match is O(1) process cost vs `grep -oP` spawning a subprocess per invocation.
 
-```bash conceptual
+```bash
 # Structured log parsing: 3 captures in one match, 0 forks
 _parse_log() {
     local -r line="$1"
@@ -123,7 +123,7 @@ Regex pattern must be unquoted on RHS of `=~` — quoting forces literal string 
 
 `printf -v var` assigns directly to the named variable — no subshell, no `$()`, O(0) fork cost. In a loop of 10,000 iterations, `printf -v ts '%(%F %T)T' -1` vs `ts=$(date +"%F %T")` is ~50x faster (builtin vs fork+exec+wait per iteration). `%q` produces shell-quoted output safe for `eval`-free reuse. `%(%T)T` (Bash `5.0+`) formats epoch timestamps without `$(date)`.
 
-```bash conceptual
+```bash
 # Fork-free timestamp capture: 0 forks vs $(date) spawning /usr/bin/date
 _timestamp() {
     local -n _out=$1
@@ -168,7 +168,7 @@ _build_key() {
 
 Bidirectional encoding projections: unsafe-in-context to safe-representation and back. `_urlencode` is byte-level via `printf '%%%02X'` with the `'` prefix (POSIX numeric extraction). `_urldecode` is fork-free: single PE replaces `%` with `\x`, then `printf '%b'` interprets the escapes. Hex/base64 require external tools (no pure-bash byte-level I/O for arbitrary binary).
 
-```bash conceptual
+```bash
 # URL encode: RFC 3986 unreserved pass through, rest → %XX
 # Note: for(()) loop is unavoidable — PE cannot iterate bytes
 _urlencode() {
@@ -220,7 +220,7 @@ _json_escape() {
 
 Two expansion levels: parameter expansion inside unquoted heredocs (shell-level), and `envsubst` for external template files (environment-level). `<<'EOF'` (quoted delimiter) suppresses ALL expansion — the most common heredoc bug is mixing quoted/unquoted delimiters.
 
-```bash conceptual
+```bash
 # Heredoc template: variables expand inline
 # Note: $(printf ...) inside heredoc forks a subshell — use printf -v
 # before the heredoc to capture the timestamp fork-free

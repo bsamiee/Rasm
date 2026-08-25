@@ -99,7 +99,7 @@ BRIN contracts:
 
 Bloom filter index for equality queries across arbitrary column combinations. One bloom index replaces N single-column B-tree indexes at ~6x less space.
 
-```sql conceptual
+```sql
 -- Wide table with unpredictable WHERE clause combinations
 CREATE INDEX ON feature_flags USING bloom (tenant_id, user_id, flag_name, environment, region)
     WITH (length = 80, col1 = 2, col2 = 2, col3 = 4, col4 = 2, col5 = 2);
@@ -144,7 +144,7 @@ Bloom vs composite B-tree:
 
 Equality columns first, range columns last — the "EqRng" rule:
 
-```sql conceptual
+```sql
 -- query: WHERE tenant_id = $1 AND status = $2 AND created_at > $3 ORDER BY created_at
 CREATE INDEX ON orders (tenant_id, status, created_at);
 -- tenant_id (eq), status (eq), created_at (range + sort) -- optimal column order
@@ -160,7 +160,7 @@ Anti-patterns:
 
 Partial indexes reduce size and improve write performance by indexing only the rows that matter.
 
-```sql conceptual
+```sql
 -- only 2% of orders are 'pending' -- full index wastes 98% of space
 CREATE INDEX ON orders (customer_id, created_at)
   WHERE status = 'pending';
@@ -217,7 +217,7 @@ Concurrent operations:
 
 Bloat monitoring:
 
-```sql conceptual
+```sql
 SELECT schemaname, indexrelname, pg_size_pretty(pg_relation_size(indexrelid)) AS size,
        idx_scan, idx_tup_read
 FROM pg_stat_user_indexes
@@ -229,7 +229,7 @@ ORDER BY pg_relation_size(indexrelid) DESC;
 
 Unused index detection:
 
-```sql conceptual
+```sql
 SELECT schemaname, indexrelname, idx_scan, idx_tup_read
 FROM pg_stat_user_indexes
 WHERE idx_scan = 0 AND idx_tup_read = 0;

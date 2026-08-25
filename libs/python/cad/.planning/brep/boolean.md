@@ -23,7 +23,7 @@ Operands resolve through `sourced` at `exchange/step#CODEC` and every verdict th
 - Output: `boolean` returns the `Outcome` pair, so a result body and its correspondence travel as one value the fold never reassembles.
 - Boundary: refusal grading belongs to `built`, so this owner adds no second verdict and never re-asks validity of a body the verdict already admitted.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 from pathlib import Path
@@ -112,7 +112,7 @@ BOOLEANS: Final[frozendict[str, Callable[[], BooleanBuilder]]] = frozendict({
 - Law: parallelism is a lane fact rather than an operator preference, so the same custody answer governs the tessellation mesher instead of being re-decided per kernel.
 - Boundary: `fuzzy_m` is the only tolerance the wire carries into this kernel, because sewing tolerance rides `SewOp` and mesh deflection rides the tessellation policy.
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 PARALLEL: Final[bool] = True

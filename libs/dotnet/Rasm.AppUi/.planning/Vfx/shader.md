@@ -25,7 +25,7 @@ Rasm.AppUi shader effects are the effects plane's procedural-source owner: one c
 - Boundary: slots split by who owns the pixels, and the split is a CASE rather than three parallel columns. A `Seed` slot is the estate's own source and its native mints once at compile — the film field is `SKShader.CreatePerlinNoiseFractalNoise`, a shipped Skia generator rather than a hand-rolled SkSL lattice, and the grain and the glass cite ONE mint so the two sample the same field at the pixel — while a `Content` slot is the caller's already-painted draw entering through `SKRuntimeEffectChild`. That split is what makes the coverage gate total: a seeded slot a frame never binds would otherwise refuse every draw of a program whose own source it is.
 - Boundary: both `SKRuntimeEffectUniforms.Add` and `SKRuntimeEffectChildren.Add` THROW on a name the compiled program never declared, and the uniform overload validates the value's own data type against that declaration and throws on a mismatch — so a `Uniform` slot declares its block SHAPE and the frame resolves both axes against the slot before it writes, which is what leaves the throwing arms unreachable rather than trapped. A `Uniform` slot also carries the numeric `Band` its value must land inside, so the `max(x, 1e-3)` floors inside the shader sources are a GPU-side belt over a refusal the C# edge already owns rather than the only guard a zero meets.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -77,7 +77,7 @@ public abstract partial record EffectFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -220,7 +220,7 @@ public sealed partial class EffectRow {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Equatable]
@@ -288,7 +288,7 @@ public sealed record EffectCatalog(HashMap<EffectRow, EffectProgram> Programs) :
 - Boundary: `Contains` on either block answers the compiled program's own DECLARED name roster and never whether a value landed at that name, so a coverage probe against the block reads every declared name as present on a block a `Reset` just zeroed — coverage is therefore the fold's own record of what it wrote, read through a hash set rather than a quadratic `Seq.Contains` rescan. Neither block is reset: `SKRuntimeEffectUniforms.Reset` re-creates the uniform `SKData` and abandons the previous one undisposed, so a per-frame reset trades one native allocation per program per frame for a staleness total coverage already forecloses.
 - Boundary: the write is lifted through `Op.Catch`, not through a bare invoke — both `Add` members THROW on an unknown name and on a data type the declaration cannot take, and the shape gate ahead of the write makes those arms unreachable rather than trapped, so the lift is the belt that keeps a native throw a value on the fold instead of an escape past the rail. A frame carries no time: motion advances the values a frame BINDS, and the clock that advances them belongs to `compose#CUSTOM_VISUAL_TICK`, so a shader cannot read a wall clock and drift from the animation driving it.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -387,7 +387,7 @@ public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue 
 - Boundary: a pattern is GEOMETRY applied to a stroke, so every row binds the `SKPaint.PathEffect` slot and none of them reaches the shader or colour slots — a pattern spelled as a shader tiles the FILL and leaves the stroke smooth, which reads as a solid line over a patterned interior. `Trim` carries a START and a normalized PROGRESS rather than a start and a stop: the stop derives as `start + progress·(1 − start)`, so a range whose stop precedes its start is unrepresentable and the degenerate-trim refusal it used to need has no arm. NAMED LOSS: a caller wanting an explicit stop states the progress that reaches it.
 - Boundary: the tiled row takes its tiling from an `SKMatrix`, so spacing and rotation are one transform rather than a spacing knob beside an angle knob — the pair drifts the moment either moves — and it carries no phase because a tiling advance is the matrix's own translation. A `Cell` operand and a `Rule` operand differ only in which native factory takes that matrix, which is why they are ONE case over a two-armed operand rather than two rows. The stamped row's advance is contour-space, not device-space, so a stamp on a scaled canvas keeps its spacing relative to the geometry it decorates rather than to the pixels beneath it; the estate roster seats no stamped or celled row because both carry a caller's `SKPath` and the roster ships source, never a native a row would have to own.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct DashRun {
@@ -483,7 +483,7 @@ public sealed partial class PatternRow {
 - Boundary: a tile is a device-INDEPENDENT op list, not pixels, so one record serves every scale and a scale change re-plays rather than re-records — which is exactly why the cost measure is the op-list byte count and not a pixel area. A record exceeding the whole ceiling refuses at admission as `TileOversize` rather than retiring the table to seat one cell, and a ceiling admitting no record at all refuses at the mint as `BudgetExhausted`. The cache is the ONLY owner that disposes a `TileCell`; a caller holding a tile shader never releases it and never holds it past its own draw.
 - Boundary: NAMED LOSS — under the owner's generation floor the ceiling DEGRADES rather than refusing. When every live cell belongs to the current generation, pressure frees nothing and the incoming record seats over the bound, where the retired hand cache refused the admission instead. That is the owner's declared law and this plane consumes it rather than re-deciding it: the overshoot lasts one generation, drains at the next `Cycle`, and the receipt's strain flag publishes it so a board reads the breach the refusal used to name. `SKPicture.ToShader` retains the picture, so the pair is one cell releasing in ownership order, and the recorder rides `Custody.Bracket` so a record fold that never reaches `EndRecording` still releases its own scope.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

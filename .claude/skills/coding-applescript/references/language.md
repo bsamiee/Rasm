@@ -6,7 +6,7 @@ AppleScript's language core compiles English-like syntax into an OSA object-spec
 
 A script object carries properties, handlers, nested script objects, and a `parent` property that forms a live dispatch edge. A child handler sharing a name with a parent handler shadows it; `continue` inside the child resumes the first parent-chain handler of that name and returns control to the child afterward. A property read or written through an unshadowed identifier resolves through `parent` at the ancestor's declared slot, so a child mutating an inherited property mutates the ancestor's cell.
 
-```applescript conceptual
+```applescript
 script baseScript
     property xs : {}
     on push(x)
@@ -26,7 +26,7 @@ tell childScript to push(7)
 
 A `script` object declared inside a handler captures the enclosing handler's parameters as its own initialized properties — the native closure and object-constructor surface, since each call mints a distinct script object with a distinct property cell.
 
-```applescript conceptual
+```applescript
 on makeAccumulator(seed)
     script accumulator
         property total : seed
@@ -46,7 +46,7 @@ tell counterA to add(5)
 
 Positional parameters `on name(x, y)` favor internal algebra; labeled `to name given label:value` and `to selector:x selector:y` forms favor script-command readability; interleaved word-and-label handlers give script objects and `my` calls a selector-like surface.
 
-```applescript conceptual
+```applescript
 to clipValues in xs above floor given inclusive:inclusiveFlag
     set out to {}
     repeat with x in xs
@@ -68,7 +68,7 @@ User-defined `given` labels commute freely by label; built-in command labels suc
 
 A bare handler call inside an application `tell` block targets the application's own command set unless `my` or `of me` overrides dispatch to route the call to the enclosing script object instead.
 
-```applescript conceptual
+```applescript
 on localName(x)
     return "local:" & x
 end localName
@@ -84,7 +84,7 @@ That same override protects a Standard Additions command from being shadowed by 
 
 `set` binds a name to whatever the right-hand specifier resolves to at that point; for mutable classes — lists, records, dates, script objects — that binding is a shared reference, and mutation through one alias is visible through the other. `copy` forces value duplication, severing the shared cell. `a reference to` wraps an assignable specifier in an explicit reference object, keeping an application object specifier lazily unresolved and giving list-tail mutation a stable target that survives reassignment of the container name; `contents of` forces that reference to its live value.
 
-```applescript conceptual
+```applescript
 set xs to {1, 2}
 set shared to xs
 copy 3 to end of shared
@@ -101,7 +101,7 @@ Every AppleScript value crosses a process boundary as an Apple event descriptor:
 
 A list descriptor is built with `listDescriptor()` and grown with `insertDescriptor:atIndex:0`, appending under the one-based contract; a record descriptor is walked with `keywordForDescriptorAtIndex:` paired against `descriptorAtIndex:` so its four-character keys survive — positional indexing alone drops them.
 
-```applescript conceptual
+```applescript
 use framework "Foundation"
 set NSAED to current application's NSAppleEventDescriptor
 set d to NSAED's listDescriptor()
@@ -112,7 +112,7 @@ end repeat
 
 A Cocoa method returning through an `NSError **` out-parameter binds in AppleScript to the literal keyword `reference`, and the call destructures a `{result, errorOut}` pair; `result` is `missing value` with the error populated on the failure path. Parameter label `error` requires vertical bars because `error` is a reserved word.
 
-```applescript conceptual
+```applescript
 use framework "Foundation"
 set d to (current application's NSString's stringWithString:"{}")'s dataUsingEncoding:(current application's NSUTF8StringEncoding)
 set {obj, err} to current application's NSJSONSerialization's JSONObjectWithData:d options:0 |error|:(reference)
@@ -123,7 +123,7 @@ if obj is missing value then error (err's localizedDescription() as text) number
 
 `as` invokes AppleScript's and the Apple Event Manager's coercion handlers. A coercion rail names the source and target class explicitly at every ingress and egress where the caller's class can vary, and a failed coercion raises `-1700` (`errAECoercionFail`).
 
-```applescript conceptual
+```applescript
 if class of x is alias then return POSIX path of x
 if class of x is file then return POSIX path of x
 if class of x is text then return POSIX path of (POSIX file x)
@@ -136,7 +136,7 @@ Coercion is asymmetric: `record as list` discards labels and yields values in de
 
 `whose`, `where`, and `that` compile to filter reference forms over an application's own object containers. Parentheses bind a filtered object specifier before a later container phrase applies.
 
-```applescript conceptual
+```applescript
 tell application id "com.apple.finder"
     set homeFolder to path to home folder
     set hits to every file of homeFolder whose name extension is "scpt" or name extension is "applescript"
@@ -150,7 +150,7 @@ An implicit `it` inside a predicate names the candidate object under test; `it` 
 
 A comparison attribute stack is a lexically scoped policy read by text equality, ordering, `contains`, and `text item delimiters` alike. Its default active set ignores `case` and `numeric strings` while considering `diacriticals`, `hyphens`, `punctuation`, `white space`, and `expansion`, so `"a" = "A"` is true unwrapped. `expansion` (ligature folding) is inert. `considering numeric strings` orders embedded digit runs by magnitude, giving `"1.10" > "1.9"` and `"item2" < "item10"` without a custom parser, and `considering X but ignoring Y` composes the full stack in one clause.
 
-```applescript conceptual
+```applescript
 considering numeric strings but ignoring case and white space
     "1.10" > "1.9"
 end considering
@@ -160,7 +160,7 @@ end considering
 
 `text item delimiters` is distinct global interpreter state owned by the `AppleScript` object; every mutation is a try-restored critical section — an unhandled error inside the block leaves the delimiter set for every later script that reads it. Splitting treats every delimiter string in the list as a separator while joining via `xs as text` uses only the first — one property with asymmetric split and join semantics — and both honor the active `considering`/`ignoring` attributes, so a case-sensitive split needs `considering case` pinned around the delimiter mutation, not merely the read.
 
-```applescript conceptual
+```applescript
 set oldDelimiters to AppleScript's text item delimiters
 try
     considering case
@@ -176,7 +176,7 @@ end try
 
 `with timeout` budgets a hostile application's latency at the Apple Event boundary, and the enclosing handler records target, selector, and timeout value as fault coordinates on the way out.
 
-```applescript conceptual
+```applescript
 on fetchWindowNames()
     try
         with timeout of 5 seconds
@@ -190,7 +190,7 @@ end fetchWindowNames
 
 `with transaction` benefits only an application that implements transaction semantics, so the transaction block sits behind an application capability row and an unsupported target keeps the ordinary batched Apple Event path.
 
-```applescript conceptual
+```applescript
 on applyRemoteMutation(targetBundleID, mutationScript, supportsTransactions)
     if supportsTransactions then
         tell application id targetBundleID
@@ -210,7 +210,7 @@ end applyRemoteMutation
 
 List construction appends efficiently through `a reference to` the destination cell; repeated `set xs to xs & {x}` rebuilds the entire list on every append and collapses under large inputs. A `repeat with x in xs` loop variable is a reference to the list item, not its value; `contents of x` forces a value snapshot where the loop body must store the value rather than a live reference.
 
-```applescript conceptual
+```applescript
 set out to {}
 set outRef to a reference to out
 repeat with i from 1 to 5
@@ -220,7 +220,7 @@ end repeat
 
 Record labels are compile-time identifiers resolved against the active terminology, not runtime string keys.
 
-```applescript conceptual
+```applescript
 set receipt to {ok:true, value:42, diagnostics:{}}
 set valueCell to a reference to value of receipt
 set contents of valueCell to 43
@@ -232,7 +232,7 @@ Dynamic keyed data belongs in a Cocoa dictionary reached through AppleScriptObjC
 
 An `on error` clause binds each slot the raising `error` statement set, and a domain fault raised inside a handler sets those slots directly.
 
-```applescript conceptual
+```applescript
 on guardedDivide(x, y)
     try
         if y = 0 then error "zero divisor" number 9001 from x to y partial result {x}
@@ -249,14 +249,14 @@ A selective handler binds directly to the number clause instead — `on error nu
 
 `run script` compiles and executes text, a file, an alias, a script value, or a compiled OSA payload against an explicit parameter vector — a dynamic code boundary where every caller-supplied string becomes executable code, so a generator assembles payloads from closed templates and escaped values, never from raw untrusted strings.
 
-```applescript conceptual
+```applescript
 set loader to "on run argv" & linefeed & "return item 1 of argv & \"/\" & item 2 of argv" & linefeed & "end run"
 run script loader with parameters {"a", "b"}
 ```
 
 `store script` serializes a live script object — properties, handlers, and its `parent` link — into a compiled `.scpt` container; `load script` rehydrates it into an executable value, giving AppleScript a durable object-graph and memoization surface with no database.
 
-```applescript conceptual
+```applescript
 use scripting additions
 on loadOrSeed(pathText, seed)
     set f to POSIX file pathText
@@ -282,7 +282,7 @@ Both verbs compile only when `use scripting additions` accompanies a `use framew
 
 Within a single running script, `property` values persist with the compiled script object until recompilation while `global` values persist across handler calls within one run but reset with each fresh compilation; a handler cannot declare a `property`, and a local declaration shadows a same-named property or global for the remainder of that handler.
 
-```applescript conceptual
+```applescript
 property cachedCount : 0
 global sessionCount
 on bump()
@@ -304,7 +304,7 @@ An application's `.sdef` dictionary decides which terms compile; AppleScript syn
 
 When a term is absent, misspelled, or deliberately bypassed, a chevron literal addresses the Apple event ABI directly with no dictionary resolution — the source-level peer of `NSAppleEventDescriptor` construction: `«event XXXXYYYY»` names an event by four-character class and id, `«class XXXX»` names a type or property code, `«constant ****XXXX»` names an enumerator, and `«data XX...»` carries raw descriptor bytes.
 
-```applescript conceptual
+```applescript
 tell application id "com.apple.finder"
     set nameValue to «class pnam» of «class docu» 1
 end tell
@@ -320,7 +320,7 @@ Character identity is the Unicode code point — `id of t` returns one integer f
 
 AppleScript has no first-class function type, but a single-handler script object is a first-class behavior value: a record of such objects is a dispatch table, and a list of them is a pipeline. Dispatch keys by value, never by record label; the table is a list of `{key, obj}` rows searched by the key's value.
 
-```applescript conceptual
+```applescript
 on strategyTable()
     script upper
         on apply(t)
@@ -348,7 +348,7 @@ A script object closes over its constructor's parameters, so a handler that retu
 
 `AppleScript`'s top-level object exposes read-only vocabulary constants — `pi`, `space`, `tab`, `return`, `linefeed`, `quote`, `version`, and time-span constants in integer seconds — that a rail treats as vocabulary rather than as literals. Date components (`hours`, `minutes`, `day`, `time`) are settable in place against a `date` value with no string reparse.
 
-```applescript conceptual
+```applescript
 set d to (current date) + (1 * days)
 set hours of d to 9
 set minutes of d to 0
@@ -359,7 +359,7 @@ set seconds of d to 0
 
 Vertical-bar identifiers admit reserved words and arbitrary characters as record labels, handler names, and variables, addressing a field whose spelling collides with terminology the compiler otherwise claims.
 
-```applescript conceptual
+```applescript
 set row to {|id|:7, |class|:"widget", |name|:"gadget"}
 {|id| of row, |class| of row}
 ```
@@ -368,7 +368,7 @@ set row to {|id|:7, |class|:"widget", |name|:"gadget"}
 
 A dense language module owns one script object carrying policy rows, constructor handlers, and receipt-shaped errors in a single surface.
 
-```applescript conceptual
+```applescript
 script TextRail
     property parent : AppleScript
     property policies : {strictCase:true, delimiter:","}

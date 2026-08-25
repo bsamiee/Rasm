@@ -19,7 +19,7 @@ Rasm.Persistence composes framework-owned schema artifacts and the provisioning 
 - Packages: Rasm.Contracts (generated parity messages and enums), Rasm.AppHost (`WireJson` ProtoJSON and Celly-backed generated-message admission), Google.Protobuf (`ByteString` and `RepeatedField<T>`), LanguageExt.Core, QuikGraph, Thinktecture.Runtime.Extensions, and kernel `ContentHash`/`CanonicalWriter` beside the generated fault floor.
 - Growth: a framework adds one `SchemaArtifact`; a server capability remains one `ServerExtension` row; a contract-shape change lands in the corpus proto and regenerates this boundary.
 
-```csharp signature
+```csharp
 using System.Collections.Frozen;
 using Google.Protobuf;
 using LanguageExt;
@@ -139,7 +139,7 @@ public static class CapabilityProjection {
 - Law: artifact key ordinal order is the whole wire order. Dependency closure and acyclicity grade the canonical projection without imposing a topological re-order.
 - Entry: framework-native compilation supplies canonical artifact bytes; generated messages and descriptor validation own the cross-runtime boundary.
 
-```csharp signature
+```csharp
 [ValueObject<UInt128>]
 public readonly partial struct GenerationId;
 
@@ -312,7 +312,7 @@ public static class ContractComposition {
 - Growth: a new recovery axis is one `RecoveryAxis` row carrying its measured accessor, its declared accessor, and its own absence law, beside its matching column on the `ResolvedProfile.Recovery` objective a composition root fills — the one `Gauged` fold then carries it into the verdict and the headroom readout alike.
 - Boundary: providers execute native generation materialization and provisioning; this owner neither synthesizes DDL nor orchestrates deployment; recovery evidence stays OBSERVATION-side, so a stamp, a lag, or an objective never enters the contract wire and `RecoveryObjective` is read settled from the profile row rather than re-spelled as a second DR vocabulary.
 
-```csharp signature
+```csharp
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -427,7 +427,7 @@ public static class BackendAdmission {
 - Law: descriptor admission precedes canonical repeated-row proof; a schema-valid document with reordered rows refuses before generation minting.
 - Boundary: conformance proves contract projection semantics; realized provider and recovery evidence still enter through `BackendAdmission`.
 
-```csharp signature
+```csharp
 public static class BackendConformance {
     const int DocumentCeiling = 512 * 1024;
 

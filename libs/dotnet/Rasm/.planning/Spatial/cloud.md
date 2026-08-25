@@ -20,7 +20,7 @@
 - Growth: a new cloud modality is one union case, one factory, and its metric-adapter arms; a new admission rule is one policy column; a new dedup posture is one `CloudDedup` row.
 - Boundary: admission runs ONCE at the factory, so every kernel fold below consumes admitted vertices without re-validating and re-admission runs under `CloudDedup.Preserve` to keep vertices index-stable; native `PointCloud` and `PolylineCurve` reads are the platform seam, held inside their lease windows under `key.Catch`; `Dispose` releases one shared cluster extent, so copies stay safe while a rehydrated cloud owns its own.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
@@ -224,7 +224,7 @@ public readonly record struct CloudAdmissionReceipt(
 - Growth: a new measurement is ONE row through the matching builder; a new cloud case extends the builders' adapt arms; a policy knob is one column on `CloudMetricPolicy`.
 - Boundary: neighborhood-backed rows delegate to `neighbors.md`, the fold living on that substrate while the metric row is its cloud-facing name and its receipt returns unchanged; `AreaMassProperties` and `PolylineCurve` natives stay inside their lease windows; `PlanarWinding` names the 2D ring fold, held distinct from the 3D solid-angle GWN family `reconstruct.md` owns.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VectorCloudMetric {
@@ -391,7 +391,7 @@ internal static partial class CloudKernel {
 - Growth: a new hull species is one kind row and one arm in the hull fold, or one filter predicate over the shared Delaunay fold; a new concave criterion is one policy column; a new rejection cause is one `CloudHullRejection` row keyed off its package ordinal; a new route fact is one `HullRoute` row.
 - Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the foreign-exception seam on this rail and `key.Catch` preserves its exact exceptional `Error`. `ConvexHull.*` instead returns a typed outcome, so `Faceted3D` and `IndexedFootprint2D` gate `Outcome` ahead of `Result` and publish `CloudHullRejection` without a capture. This rail owns the native-first host, index-preserving, and concave hull kinds; the predicate-exact hull fold homes at `Meshing/delaunay` `LowerHull`, and `SolidOf` is the one volume-and-centroid producer both this rail and `[05]` read.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CloudHullKind {
@@ -595,7 +595,7 @@ internal static partial class CloudKernel {
 - Growth: a new per-cell measure is one `Option` column on `CloudVoronoiCell` with its arm in the bounded fold; a new bound species is one `CloudCellBound` row; a new census tally is one column on `CloudVoronoiCensus`; a new interpolant over one site set is one member on `NaturalNeighborField`, sharing the base dual it already holds.
 - Boundary: this band owns the 3D cell decomposition alone — 2D border-clipped point-site Voronoi homes at `Meshing/delaunay` `Tessellation.VoronoiDual`, whose bounded-cell overload is the predicate-exact planar peer, and `Meshing/offset` reads that owner for the medial locus. `VoronoiMesh.Create` returns the bare complex and throws on degenerate input, so `Op.Catch` keeps that exact exceptional `Error` on the failure rail; the `ConvexHull.*` APIs instead return a typed outcome and alone publish `CloudHullRejection`. Natural-neighbour interpolation reads `Volume` from here and fits nothing; the admitting minter is `Meshing/reconstruct`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CloudCellBound {

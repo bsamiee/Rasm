@@ -22,7 +22,7 @@ Rhino publishes snapshot NAMES and nothing else, so capture, restore, and delete
 - Boundary: `DocumentStream` owns worksession change observation, and the Document session owner carries every worksession read and transition. This page owns snapshots alone.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.Snapshots`, `SnapshotTable.Names`, `SnapshotTable.Document`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-commands.md` — `RhinoApp.RunScript(uint documentSerialNumber, string script, bool echo)`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`, `IDetachedDocumentResult`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Generator.Equals;
@@ -244,7 +244,7 @@ public static class Snapshots {
 - Boundary: the composition root is the sole producer of a `ParticipantSpec` and the sole caller of `SnapshotParticipant.Enlist`; lane implementations are foreign, which is why the three contracts are instance interfaces rather than a closed family.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its seven static category members; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-geometry.md` — `Transform`, `BoundingBox`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
@@ -399,7 +399,7 @@ public sealed class ParticipantSpec {
 - Boundary: Rhino's `ref`, `bool`, and `void` override contracts form the platform-forced statement seam. Mutable evidence stays local to the override capsule and crosses into lane code only as an admitted value.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its twenty-four virtual members, `RegisterSnapShotClient`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`); kernel `Domain/rails` (`Op.Catch`, `Op.Settle`, `Op.AcceptValue`, `Transition`, `Cell.Claim`, `Cell.Step`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); LanguageExt.Core (`Atom`, `HashMap`, `Fin`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;

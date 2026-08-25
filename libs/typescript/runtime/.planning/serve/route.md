@@ -29,7 +29,7 @@ This serving assembly: routes are Layers under `HttpLayerRouter` — the app-ass
 - Growth: a new cross-cutting response concern is one line in `Seam.guard`, inherited by every route Layer at once; a new CSP directive is one `_directives` row; a new priced axis is one `_AXES` entry and the `_QUOTA` row spreading it.
 - Packages: `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`, `HttpApiMiddleware`, `HttpMiddleware`, `HttpLayerRouter`, `Multipart`); `@effect/experimental` (`RateLimiter` — the store Tag the priced rows resolve); `@opentelemetry/core` (`getRPCMetadata`, `RPCType`); `@opentelemetry/api` (`context`); `effect` (`DateTime`, `Duration`, `Effect`, `Option`, `Array`, `identity`, `pipe`); `@rasm/security` (`Cookie`, `CookieSpec`, `TenantScope`); `./api.ts` (`Current`, `Gate`, `GateFault`); `../otel/emit.ts` (`Export`).
 
-```typescript signature
+```typescript
 import { Buffer } from "node:buffer"
 import { context } from "@opentelemetry/api"
 import { getRPCMetadata, RPCType } from "@opentelemetry/core"
@@ -321,7 +321,7 @@ const Seam = {
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
 - Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/core` (`Carrier`, `Event`, `Format`), `@rasm/data`, `@rasm/security`, and `../net/channel.ts` (`Avro` — the lane-owned Avro codec).
 
-```typescript signature
+```typescript
 const _octets = (
   request: HttpServerRequest.HttpServerRequest,
   ceiling: FileSystem.SizeInput,
@@ -726,7 +726,7 @@ const Inbound = {
 - Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair under `_AUTH` composing its security owner; a new response-mode provider is one more channel onto `_landOAuth`; a new cookie role reframes through the same fold with zero route edits.
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest.schemaBodyUrlParams`/`toURL`, `HttpServerResponse`, `Cookies`); `@rasm/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `CookieSpec`, `Departed` — the provider-kind decode anchor); `effect` (`Context`, `Schema`, `Option`, `Redacted`).
 
-```typescript signature
+```typescript
 const _csrfed: Effect.Effect<void, Problem, Cookie | HttpServerRequest.HttpServerRequest> = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const cookie = yield* Cookie
@@ -921,7 +921,7 @@ const _ceremony = () =>
 - Boundary: what the assets ARE (app shell, prerender output, the self-hosted wasm bundles the ui wave serves beside the shell) is the ui wave's; this row owns only serving them byte-identical.
 - Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpPlatform`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
 
-```typescript signature
+```typescript
 const _CACHE = {
   immutable: "public, max-age=31536000, immutable",
   entry: "no-cache",
@@ -993,7 +993,7 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
 - Growth: a new virtual host is one multiplex row; a new engine is one runtime-row edit with zero serve-fold changes.
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpMultiplex`); `@effect/experimental` (`RateLimiter` — the store Tag the root binds); `effect` (`Layer`).
 
-```typescript signature
+```typescript
 declare namespace Router {
   type RpcMount = {
     readonly path: `/${string}`

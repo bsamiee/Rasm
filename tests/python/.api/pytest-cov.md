@@ -21,7 +21,7 @@
 |  [06]   | `DistWorker`        | engine controller | xdist worker; measures with `data_suffix=True` parallel files              |
 |  [07]   | `cov`               | fixture           | the live `coverage.Coverage`, or `None` when coverage is disabled          |
 
-```python signature
+```python
 @pytest.fixture
 def cov(request: pytest.FixtureRequest) -> coverage.Coverage | None: ...
 @pytest.fixture
@@ -44,7 +44,7 @@ class TestContextPlugin:
 |  [08]   | `--no-cov` / `--no-cov-on-fail` | CLI flag   | disable coverage entirely / suppress the report on test failures             |
 |  [09]   | `pytest.mark.no_cover`          | marker     | disable coverage for the marked test                                         |
 
-```python signature
+```python
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

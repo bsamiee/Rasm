@@ -17,7 +17,7 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 - Packages: the numba dispatcher, the jax trace handle, the `Wrapped`/`Lowered`/`Compiled` staging rungs, and the four-tier profile reader are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves like the two profile bands.
 - Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row carrying its capture and its own raise set, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the solve receipt's mount with zero receipt edits, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterable, Mapping, Sequence

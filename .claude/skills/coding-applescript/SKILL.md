@@ -62,7 +62,7 @@ Every OSA artifact carries one system-owned type identity binding symbol, UTI, e
 
 A saved applet or droplet carries the ordinary application identity, so applet-ness rides the OSAKit storage type baked into the bundle at compile time and the applet stub Mach-O at `Contents/MacOS`. Compiled JXA reuses `com.apple.applescript.script` and its legacy `osas` OSType, so discrimination between a compiled AppleScript and a compiled JXA script is an `osalang` or component-identifier probe, never a UTI comparison.
 
-```swift conceptual
+```swift
 import UniformTypeIdentifiers
 
 enum ScriptArtifact: String, CaseIterable {
@@ -89,7 +89,7 @@ enum ScriptArtifact: String, CaseIterable {
 
 A stdin script that needs arguments runs as `osascript - scriptArg...`; filename-free stdin consumes the script body and leaves no positional path slot for the argument vector. A reusable core normalizes every ingress before domain logic runs.
 
-```applescript conceptual
+```applescript
 on normalize(payload)
 	if class of payload is list then return payload
 	return {payload}
@@ -114,7 +114,7 @@ A script library loads from `~/Library/Script Libraries/`, `/Library/Script Libr
 
 Automator's `Run AppleScript` action receives and returns `com.apple.applescript.object` list payloads through `on run {input, parameters}`; the action body is a workflow transform, so it returns the downstream payload explicitly rather than falling through. `Run JavaScript` uses `function run(input, parameters)`, and JXA action code returns ordinary JavaScript values only when the next action in the chain coerces them through the OSA object bridge.
 
-```applescript conceptual
+```applescript
 on run {input, parameters}
 	set rows to {}
 	repeat with itemRef in input
@@ -139,13 +139,13 @@ External Shortcuts automation enters through the `shortcuts` CLI or the `Shortcu
 
 `shortcuts sign --mode anyone` submits the shortcut to Apple's network-bound signing service, which validates it against tampering for open sharing — a rail distinct from Developer ID notarization — and `--mode people-who-know-me` signs with the sender's iCloud identity for contact-gated import; a hardened install imports a signed `.shortcut` alone.
 
-```applescript conceptual
+```applescript
 tell application "Shortcuts Events"
 	run shortcut "Normalize Intake" with input {"alpha", "beta"}
 end tell
 ```
 
-```bash copy-safe
+```bash
 shortcuts run "Normalize Intake" --input-path - --output-path - --output-type public.plain-text
 shortcuts sign --mode people-who-know-me -i Intake.shortcut -o Intake-signed.shortcut
 ```
@@ -162,7 +162,7 @@ Personal automations add folder-change, external-drive, Wi-Fi, display, and app-
 
 Every Folder Action handler parameter is required, no handler returns a value, and the attached folder rides as the direct parameter.
 
-```applescript conceptual
+```applescript
 on adding folder items to thisFolder after receiving addedItems
 	repeat with addedItem in addedItems
 		my processAddedItem(thisFolder, addedItem)
@@ -172,7 +172,7 @@ end adding folder items to
 
 A hot folder drains itself or moves accepted work into a terminal subfolder; leaving processed files in the watched root repeats work and degrades Folder Actions throughput. `moving folder window for` is an opt-in contract unreliable across installed hosts, so window-position automation belongs in a stay-open app. A stay-open app owns periodic work through `idle`, which returns the next polling interval in seconds, and releases resources in `quit`.
 
-```applescript conceptual
+```applescript
 property pending : {}
 
 on idle
@@ -192,7 +192,7 @@ A droplet routes Finder drops through AppleScript `open` or JXA `openDocuments`,
 
 A Mail rule script implements `perform mail action with messages`, whose direct parameter is a message list; `in mailboxes` appears for a menu-invoked script and `for rule` appears for a rule-invoked script. That handler wraps in `using terms from application "Mail"` so compilation succeeds outside Mail while preserving Mail's own command terminology and parameter labels.
 
-```applescript conceptual
+```applescript
 using terms from application "Mail"
 	on perform mail action with messages theseMessages for rule theRule
 		tell application "Mail"

@@ -79,7 +79,7 @@
 - Packages: `FabricationCanon` over the `Rasm.Element` `CanonicalWriter` is the ONE byte codec every preimage on this page composes — stock and pair identity, evidence digest, placement key — so a `-0.0`, a NaN payload, or a string boundary can never fork identity between two of them, and a `:R`/`:x32` text render of a scalar under a content key is the deleted form; `Rasm` supplies `ContentHash` for the memo key rendering and `UvIsland.Boundary` for the atlas projection; `Rasm.Fabrication.Process` supplies the fault taxonomy, the run runtime, the settled-receipt carrier, and the telemetry tap; `CommunityToolkit.HighPerformance` supplies the parallel pair fill.
 - Boundary: remnant difference uses true profiles and the combined clearance-and-kerf offset; feasibility uses the offset collision profiles; only consumed stock enters the area and cost denominators.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CavalierContours.Core;
 using CavalierContours.Polyline;

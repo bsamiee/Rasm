@@ -25,7 +25,7 @@ Composition facts arrive settled: appearance keys resolve through `system/token#
 - Boundary: the quarantine atom renders as an inert chip through its own `toDOM` and counts onto the `[06]` metric — self-healing but never silent; which rows a deployment registers is the composition root's, and this page owns the contract, the gate, and the prose-core seed alone.
 - Growth: a new block is one row (its four derivations arrive compiled); a new attribute is one field on the row's `attrs` schema, which moves the generation join by construction; a new embeddable surface is one exported row value at its owning page — never a schema edit here, a codec fork, or a parser rule written by hand.
 
-```typescript signature
+```typescript
 import { Fault, Shape } from "@rasm/core"
 import { Array, Either, Option, Record, Schema } from "effect"
 import { DOMParser, DOMSerializer, type MarkSpec, Node as PmNode, type NodeSpec, Schema as PmSchema } from "prosemirror-model"
@@ -163,7 +163,7 @@ declare const _core: Array.NonEmptyReadonlyArray<Content.Block>
 - Boundary: sanitization is upstream of this plane — the plugin styles whatever tags arrive and enforces nothing, so `[04]`'s paste gate and the sanitize gate decide which element variants can ever fire on foreign HTML.
 - Growth: a new register assignment is one `_REGISTERS` row; a new prose size posture is a modifier the recipe names — never a hand-authored stylesheet for unclassed content.
 
-```typescript signature
+```typescript
 import { cva } from "class-variance-authority"
 import { Record } from "effect"
 import { cn, Theme } from "../system/token.ts"
@@ -229,7 +229,7 @@ const _text = cva("text-neutral-text", {
 - Boundary: the editor's key plane is its own `contenteditable` matcher — the global palette and its `Overlay.Command` scopes stay outside `view.dom`, and a toolbar rendered beside the editor is RAC composition reading `Content.commands` values; which document classes an app mounts, and their node-view constructors, are composition material.
 - Growth: a new editing verb is one command row composing the admitted verbs; a new autoformat is one rule row; a new plugin concern is one value in the roster — never a second view, a raw DOM listener, or a hand-rolled key ladder.
 
-```typescript signature
+```typescript
 import { Effect, type Scope } from "effect"
 import { baseKeymap, chainCommands, splitBlock, toggleMark } from "prosemirror-commands"
 import { dropCursor } from "prosemirror-dropcursor"
@@ -300,7 +300,7 @@ declare const _commands: (compiled: Content.Compiled) => Record.ReadonlyRecord<s
 - Boundary: the authority's storage substrate (the step log, snapshots, its recovery) is server material behind the port; history composes with no coordination — remote steps rebase its branches and undo never reverts another client's work; presence transport, rosters, and leases are `view/presence`'s plane.
 - Growth: a new authority engine is one Layer satisfying the Tag; a new frame policy (batch width, pull cadence) is a field on the port's own row — never a second loop, a peer-to-peer arm, or a CRDT bridge beside the ordered lane.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 import { Context, type Effect, Schema, type Stream } from "effect"
 import { collab, getVersion, receiveTransaction, sendableSteps } from "prosemirror-collab"
@@ -383,7 +383,7 @@ declare const _collab: (
 - Boundary: which flows commit, and where committed documents persist, are app material; the quarantine chip's tone keys `Theme.Tone` through the status plane's vocabulary; the thread mark's anchor semantics are `view/presence`'s to read.
 - Growth: a new commit outcome is one stage value on the bounded vocabulary with its arm in the trip; a new projection is one member reading the compiled artifacts — never a parallel serializer or a second commit path.
 
-```typescript signature
+```typescript
 import { Convention } from "@rasm/core"
 import { Effect, Metric } from "effect"
 import { Hook } from "../system/hook.ts"

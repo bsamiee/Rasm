@@ -27,7 +27,7 @@ Every appearance is required by the captured spec, and every `OccurrenceBinding`
 - Law: seed-built detail bags ROUND-TRIP by element genus — a realizing-element family imports through the `Rasm.Bim` connection-detail reader against `DetailSchema.Realization`, panel product detail through the general Bim object/property fold against `DetailSchema.Product`. One bag crosses out and two genus-keyed readers bring it back, never a projector-side import path.
 - Boundary: `Veto` verdicts enter this fold's OWN rail per the folder ruling, so the gate consult sits after the merge and before the return, where an `Observe` point stays decorator-only and this page names none.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
@@ -335,7 +335,7 @@ public sealed class ComponentProjector : IElementProjection {
 - Growth: a new composition shape extends the seam union and this builder's coercion surface; a new weighted-composition source is one `ConstituentRecipe` case with its `Of` arm. Occurrence placement remains input data on `OccurrenceBinding`.
 - Boundary: the seam owns composition invariants and occurrence-usage admission. This author never invents direction, offset, extent, or cardinal placement from a type-level composition; a recipe is CALLER data resolved per material at the capture root — no substance roster column carries a mix and no family page asserts a recipe, the same declaration law the durability catalogue holds.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CompositionAuthor {
     public static MaterialComposition Single(MaterialId material) => MaterialComposition.OfSingle(material);
@@ -400,7 +400,7 @@ public static class Constituents {
 - Growth: a new engineering discipline routed to a material is one seam `Discipline` row the `MaterialPropertySet` carries — no capture arm; a new family's Type capture is ALREADY total (a new `ComponentFamily` row's components flow through the same `Sectioned`/`Layered`/`Single` law with zero edits here); a new family physics lowering REPLACES that family's declared-None `Lowerings` row with its seed page's own restore-and-lower pair — the table is TOTAL over `ComponentFamily.Items`, so a family with no physics states that rather than reaching a lookup fallback a new family silently inherits; a new composition shape is one `CompositionOf` arm over the new seam case — the subgraph grows by seam case and catalogue row, never a new node author.
 - Boundary: `CompositionOf` reads only `Sectioned` and `SectionProfile`; a solved section always selects `ProfileSet`, while a `Layered` profile maps its bounded role currency to the seam's string `Name` only at `CompositionAuthor.LayerSet`. Required material facts rail missing keys, lifecycle facts remain optional, component detail stays seed-built, and the additive `GraphDelta` passes through the seam's second interface `IGraphConstraint.Validate` — the `Rasm.Bim`-implemented IFC-semantic legality gate — before folding, this capture enforcing only the structural invariants it owns so the two interfaces stay orthogonal. `Rasm.Materials` authors NO `Assessment` node: the `Discipline`-keyed `MaterialPropertySet` set carried on the projected `Material` node IS the assessment input, which `Rasm.Compute` reads directly above the seam, routes by discipline, and answers with a seam `Assessment` `Result` node content-keyed on the input key and route — the multi-ply `AssemblyAggregator` being `Rasm.Compute`'s as well. `Lowerings` is TOTAL over the family roster and a family with no seam-carriable physics carries an EXPLICIT None row, so a new family cannot project physics-free by omission — the whole difference between a declared absence and a lookup miss. Every populated row DELEGATES: the design-code computation stays its seed page's, so this table restores a typed row and calls one lowering, and a family whose row cannot restore its own axes rails `ProjectionFault.Unresolved` rather than lowering a partial receipt — an incomplete-table bug surfaced, never a silently thinned property set.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ComponentSubgraph {
     public static Fin<ProjectionSource> Capture(

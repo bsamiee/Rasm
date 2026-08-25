@@ -21,7 +21,7 @@ Semantic layer structure enters every layered writer through one `LayerPlan`. `L
 - Growth: a semantic meaning extends `LayerIntent`; a payload modality extends `LayerContent` and each writer match; a naming grammar extends the `drawing/regime#REGIME` `LayerSchema` roster alone — `NamingSchema` and `named` widen with it; an editor capability extends `LayerState`; a compositing mode extends `graphic/color/derive#DERIVE` and each writer match.
 - Boundary: PSD/OCG/SVG/IDML/TIFF/ORA mutation belongs to `export/layered#LAYERED`, IDML mutation to `export/indesign#INDESIGN`, and PDF OCG authoring to `document/emit#DOCUMENT`. Geometry, receipt, async, host handles, discipline vocabulary, and compositing vocabulary remain outside this value owner.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass

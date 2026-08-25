@@ -30,7 +30,7 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 - Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; a new L2 topology is one `Store` value on the lane row; a payload-guard retune is one `MaxPayloadBytes` value; a new deployment posture that must narrow the tiers is one arm on `CacheRuntime`, never a per-call flag; zero new surface.
 - Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` arrive as the single Persistence contribution — `Register` admits that one factory through `AddSerializerFactory` on every builder it opens, keyed and default alike, never a per-type `AddSerializer<T>` scatter; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key and `MaximumPayloadBytes` from the lane's own column, and ONE `AddHybridCache` for the whole `Store`-less set under the widest ceiling in it — a fold that registered only the keyed half left every storeless lane resolving an unregistered service under the package's own 1 MiB default, so a 64 MiB artifact declared a guard nothing bound and every over-size blob missed uncached with nothing raised, which is the deleted form; one cache owner across both paths, never a second; the `InHost` capsule takes the default path for EVERY lane and binds no `DistributedCacheServiceKey` at all, so the plugin-ALC gate is a registration fact rather than a runtime branch, and `CacheLane.Capsuled` is its per-entry half — a cache row surviving a collectible load context is the defect both halves of that one decision close; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; the ceiling refusal is the lane's own and rides the byte-shaped write, so an over-size artifact is a typed fact and never a key that reads cold forever; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -64,7 +64,7 @@ public sealed partial class CacheLane {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CacheRuntime(IServiceProvider Services, DeploymentTopology Topology) {
     public bool Capsule => Topology == DeploymentTopology.InHost;
@@ -142,7 +142,7 @@ public static class CacheSurface {
 - Growth: one pool policy row per pooled type; a capacity change is one policy value; zero new surface.
 - Boundary: pooled instances never carry request, document, or host state across returns; `ObjectPool.Create<T>` mints the default-bounded pool, `Bounded<T>` mints through `DefaultObjectPoolProvider` whose `MaximumRetained` overrides the twice-processor-count default, and the text pool rides the package's own `StringBuilderPooledObjectPolicy` with its `InitialCapacity` and `MaximumRetainedCapacity` knobs — the hand-rolled clear-on-return reset is the deleted form because the package policy owns the reset; `LeakTrackingObjectPoolProvider` wraps the provider on the test-host row only; this cluster deletes ad hoc static pools, per-site `StringBuilder` churn, and any wrapper re-deriving the package's `IResettable` contract.
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PoolPolicy<T> : PooledObjectPolicy<T> where T : class {
     readonly Func<T> create;
@@ -198,7 +198,7 @@ public static class Pools {
 - Growth: one `DrainSpec` row per queue carrying its `DrainKind`; a consumer sink, a fan-out clone, a correlated-join arity, or a dual-stream coalesce batch is one row column, never a new owner; `Greedy`, `MaxGroups`, and `PropagateCompletion` are policy columns on the row; a fan-out row's loss reporter is one open-time argument rather than a row column, because the projection belongs to the owner holding the ordinal vocabulary its deliveries are dense in; zero new surface.
 - Boundary: `System.Threading.Tasks.Dataflow` resolves from the `net10.0` shared framework, so it carries no manifest row and no direct package reference, and every consumer reaches Dataflow through these builders — a manifest row minted for it is the deleted form; `DrainQueue` names process-level drainable queues while `WorkLane` stays the Compute solve-path name; the consumer sink lands here rather than at its caller because a subscription holding a public `ActionBlock<T>` field published a package handle whose capacity, degree, ordering, and completion no row stated — `Wire/topics#SUBSCRIPTION_FABRIC` opens `DrainSpec.SubscriptionSink.ActionSink(consume, token)` and holds the `DrainQueue<DomainEvent>` instead; `BroadcastBlock` fans the receipt stream to multiple sinks, `JoinBlock` correlates the watchdog heartbeat against the health snapshot, and `BatchedJoinBlock` coalesces the support artifact stream against the error stream — each is a `DrainSurface` builder over the same union, never a hand-rolled fan-out loop, correlation buffer, or dual-queue zip; a fan-out row accounts its loss by CONSERVATION at its two ends rather than by interception, so a hand-written receipting `ITargetBlock<T>` between head and sink is the deleted form — it re-implements the `consumeToAccept`, `ConsumeMessage`, and postponement protocol this owner declines to own, against an admission rail admitting blocks on four named capabilities and never on a hand-written target; every dispatch over the union is TOTAL — the arm projections return `Fin` with `DrainFault.TopologyMismatch` on the pipe arm and the builders bind their block graphs through total helpers, so a `throw new UnreachableException()` inside an expression fold is the deleted form; completion awaits land at the row's `DrainBand` under the conductor's cancellation scope — this family deletes per-lane queue classes and free-floating background loops.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DrainKind {
@@ -375,7 +375,7 @@ public static class DrainSurface {
 - Growth: a new dedupe consumer is one `DedupeWindow` value at its composition, never a second window type; a different retention or ceiling is one construction argument; zero new surface.
 - Boundary: this is the suite's only duplicate-suppression primitive — the `Wire/outbound#DELIVERY_FANOUT` fan and the `Wire/topics#SUBSCRIPTION_FABRIC` consumer each hold one window value and neither declares a map of its own, so a per-consumer `Dictionary<string, DateTime>` with its own expiry rule and no ceiling is the deleted form that grew until the process did; the key is the consumer's own message identity and this owner never derives one, so a window never decides what "the same message" means; both bounds are mandatory because either alone fails — a TTL with no ceiling is unbounded under a burst and a ceiling with no TTL never forgets a key the wire will never resend; the window is process-local by construction and makes no cross-process claim, so a delivery deduplicated here and re-delivered to a peer is the at-least-once contract holding, never a defect of this owner — cross-process suppression is the durable store's fenced-write concern.
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DedupeWindow {
     readonly Duration ttl;
@@ -416,7 +416,7 @@ public sealed class DedupeWindow {
 - Growth: a new ambient concern is one `AmbientSlot<T>` value at its owning composition, never a second `AsyncLocal` beside it; a bound change is one construction argument.
 - Boundary: this is the suite's only ambient-scope primitive — the per-page `static readonly AsyncLocal<T?>` beside a hand-written `Scope : IDisposable` is the deleted form it replaces, and the three that existed disagreed on all three axes (one cleared the slot on dispose, one restored a prior, one had no restore at all). NAMED LOSS: a caller can no longer read the raw `AsyncLocal` to write it without a scope — writes are scope-shaped by construction, which is what makes the restore total; the kernel `TenantContext` slot stays the kernel's and this owner never reaches it, because tenancy admission is a boundary decision with its own adoption law rather than a nesting one. Disposal is LIFO by contract: the scope restores the frame it displaced, so an out-of-order disposal restores a frame the flow already left — a `using` scope is the only lawful spelling and a stored scope disposed later is the deleted form. The slot is process-flow local and makes no cross-thread claim: work handed to a pooled thread carries a CAPTURED frame value (the `Observability/telemetry#SIGNAL_GOVERNANCE` correlation capture is that capture) rather than reading a slot the pool never entered.
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class AmbientSlot<T> where T : class {
     readonly AsyncLocal<Frame?> cell = new();

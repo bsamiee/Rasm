@@ -17,7 +17,7 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 - Growth: a new refusal is one `RAISES` row under an `ArtifactsLeg.RENDER` anchor; a new modality is one `SceneOp` case plus one `_rendered` arm, one `_canon` arm, and one worker kernel name; a new render-evidence fact is one `ArtifactReceipt.Scene.facts` key. `SceneOp` remains the single modality owner.
 - Boundary: `_emit` runs the arm under `async_boundary` anchored on the `SCENE_RENDER` row and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as that row's fault, never a custom exception re-crossed inward. The frames egress refuses a non-frames op by RETURNING `SCENE_EGRESS`, never by raising into a fence that would convert it back.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from typing import Final, Literal, assert_never
 

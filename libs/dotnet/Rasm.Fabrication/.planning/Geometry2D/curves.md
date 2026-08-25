@@ -19,7 +19,7 @@
 - Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
 - Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;

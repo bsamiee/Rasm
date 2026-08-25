@@ -25,7 +25,7 @@ Appearance is the page's ruling shape: the fold writes NO resolved paint, metric
 - Growth: a new control is one `ControlIntent` case carrying its shape plus `IntentBinding` and one `ShapeOf` arm; a new emphasis is one `ControlEmphasis` row naming its skin; a new numeric type is one `NumericKind` row; a new temporal shape is one `TemporalKind` row with its trait set; a new banner level is one `BannerSeverity` row carrying its own dismissibility; a new modality on an existing case is one posture row; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Boundary: `ControlIntent` is the one control vocabulary in the package — a per-screen control-builder, a second control-generation framework, and a parallel binding, token, or automation path are the `[04]-[BOUNDARIES]` parallel-control-framework rejected forms; the command column is `Option<string>` carrying the `CommandRow` key the materialized control's `ICommand` resolves through `BehaviorRail.Intent`, never a `ReactiveCommand` instance on the intent, so the intent crosses the `ControlIntentWire` seam unchanged; container kinds carry their child-intent sequence so a whole screen is one nested intent tree, while `Menu`, `Breadcrumb`, and the option-bearing kinds carry their own structured ROW shapes, because a menu row's check posture, submenu, and gesture hint are fields no control intent owns; the `Grid`, `Tree`, `Select`, and `MultiSelect` kinds carry the `VirtualWindow` window spec the `Shell/virtualization` fabric owner consumes — the spec crosses the wire so a remote head windows the same viewport contract; the `Tree` kind materializes the `FlatNode` union the flatten emits, so a hierarchy and a GROUPED list ride one item template; the `Overview` kind is the one minimap primitive and names its frame producer by key rather than carrying geometry; value-carrying kinds carry a typed two-way binding path read at materialize, and `Range` carries the second path its upper thumb round-trips; the `Dock` and `Splitter` kinds defer their layout to the `Shell/solver` owner; `IconSlot` is a CONTROL-level shape and its per-row seats (`OptionRow`, `CrumbRow`, `MenuRow`) carry the ASSET and the size alone as a documented narrowing — the item template fixes the leading slot so `Placement` has no reader there, and a per-row `Pending` would need a per-row value key plus a per-row lifetime, a second binding path beside `MaterializeContext.Value`; placement, overflow, picker mode, and toggle vocabulary are the packages' own enums (`Ursa.Common` `Position`, `Ursa.Controls` `OverflowMode` and `UsePickerTypes`, Avalonia `HorizontalAlignment`, `Orientation`, `MenuItemToggleType`, `DataGridLength`), because re-spelling an admitted package's own axis is a rename shell; `OptionRow` and `CrumbRow` share a field-set by shape alone — the discriminant is the CONSUMER's binding triple (an option round-trips its `Value` through `SelectedValueBinding`, a crumb dispatches it through `CommandParameterBinding`), stated at both declarations, so the pair survives on a named payload-timing discriminant rather than folding into a row a crumb could group by accident.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlFault : Fault {
@@ -342,7 +342,7 @@ public sealed partial class NumericKind {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<uint>]
 public readonly partial struct IconStep {
@@ -442,7 +442,7 @@ public sealed record ControlShape(
     Option<Func<ControlIntent, Control, MaterializeContext, Fin<Control>>> Redress);
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlIntent(string Key, IntentBinding Binding) {
@@ -570,7 +570,7 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
 |  [26]   | split button                | refused   | `Menu` whose root row carries the primary command, submenu the rest    |
 |  [27]   | chord capture cell          | seated    | `Shell/commands#BINDING_EDITOR` `KeycapCell` mounts `KeyGestureInput`  |
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record MaterializeContext(
     Func<string, Option<ICommand>> Command,
@@ -597,7 +597,7 @@ public sealed record ControlReceipt(
     Instant At);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ControlFactory {
     public static readonly InstrumentSpec Materialized = InstrumentSpec.Create(
@@ -1031,7 +1031,7 @@ public static partial class ControlFactory {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ControlFactory {
     internal static ControlShape ShapeOf(ControlIntent intent) => intent.Switch(
@@ -1298,7 +1298,7 @@ public static partial class ControlFactory {
 - Growth: a new poolable case is one `Parked` name and one `Redress` body on the existing `ShapeOf` arm; a new pool ceiling is one `Dimension` at the mount; zero new surface.
 - Boundary: `RecycleScope` is the one control pool in the package — the `Shell/virtualization` `VirtualWindow` fabric parks and draws through it for every windowed list, tree, grid, and canvas, so a per-surface control cache beside it is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form; the pool holds CONTROLS and never intents, values, or leases, because a parked control's data is exactly what the reset drops; the reset releases through `MaterializeContext.Release` so the surface activation scope — the one owner of every bound lifetime — decides what dies, and the fold never disposes a lifetime it did not mint; `Interaction.GetBehaviors(parked).Clear()` is the one framework-forced statement, since the behaviour collection is attached state no property clear reaches; the style classes clear while pseudo-classes survive, which is why a stale variant class cannot ride a reuse into a new row and why a pointer-over state left mid-scroll resolves itself; the data context, tooltip, and theme return to UNSET rather than to null, so the host's own inheritance answers instead of a sentinel the boundary law forbids past it; a control whose rack is at its cap is refused BACK to its caller, which drops it on the activation scope — the pool never silently discards a control it accepted; the scope's `Drain` runs on the screen's own teardown and hands the roster back, so the drained controls die with the scope that built them and the pool never outlives the tree it served.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PoolState(HashMap<string, Seq<Control>> Racks, int Held) {
     public static readonly PoolState Empty = new(HashMap<string, Seq<Control>>(), 0);
@@ -1407,7 +1407,7 @@ public static partial class ControlFactory {
 
 ### [05.1]-[CONTROLMAP_ARMS_CS]
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static partial class ControlMap {
     public static ControlIntentWire Emit(ControlIntent intent) => intent.Switch(
@@ -1636,7 +1636,7 @@ public static partial class ControlMap {
 
 ### [05.2]-[CONTROLMAP_ROWS_CS]
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static partial class ControlMap {
     private static IntentBindingWire ToWire(IntentBinding row) {
@@ -1763,7 +1763,7 @@ public static partial class ControlMap {
 
 ### [05.3]-[CONTROLMAP_ENUMS_CS]
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(RequiredEnumMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class ControlMap {

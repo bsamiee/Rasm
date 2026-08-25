@@ -22,7 +22,7 @@ Off-thread compute is one closed protocol and one pool — no wrapper, the platf
 - Growth: a new off-thread capability is one request class plus one union row plus one handler row — every consumer stays untouched, the missing handler breaks loudly.
 - Packages: `@effect/platform` (`Transferable`, `Worker`), `effect` (`Schema`, `Effect`), `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 import { Transferable, Worker, type WorkerError, WorkerRunner } from '@effect/platform';
 import { Context, Effect, Layer, type ParseResult, Schema } from 'effect';
 import { Fault } from '@rasm/core';
@@ -94,7 +94,7 @@ const _Protocol = Schema.Union(Drop, Render);
 - Entry: `BenchLive(policy)` merged at the root; consumers compose `Render.rendered` / `Drop.announced`.
 - Packages: `@effect/platform` (`Worker`), `effect` (`Context`, `Layer`).
 
-```typescript signature
+```typescript
 declare namespace Bench {
     type Kind = (typeof _KINDS)[number];
     type Protocol = Drop | Render;
@@ -117,7 +117,7 @@ const BenchLive = (policy: Bench.Policy): Layer.Layer<Bench, WorkerError.WorkerE
 - Boundary: browser worker spawn and the `BrowserWorker` binding are `browser/fetch#BINDING_ROWS`'s rows under `browser/boot`'s root; this page owns the protocol and the node/bun seam.
 - Packages: `@effect/platform` (`WorkerRunner`), `effect` (`Effect`, `Layer`).
 
-```typescript signature
+```typescript
 const RunnerLive = <const Handlers extends Bench.Handlers>(
     handlers: Handlers,
 ): Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.PlatformRunner | WorkerRunner.SerializedRunner.HandlersContext<Handlers>> =>
@@ -130,7 +130,7 @@ export { Bench, BenchFault, BenchLive, Drop, Render, RunnerLive };
 
 The worker entry module — `runtime/src/proc/worker.main.ts`, the exports-nothing boot seam the spawn factory names:
 
-```typescript signature
+```typescript
 import { WorkerRunner } from '@effect/platform';
 import { Effect, Layer } from 'effect';
 import { Runtime } from './exec.ts';

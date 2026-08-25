@@ -20,7 +20,7 @@ Rasm.Compute prices every measured fact once. The rate table enters at the compo
 - Law: this is the PRICED DECOMPOSITION of one fact, distinct by identity regime from the `Rasm.AppHost` `Agent/capability#DESCRIPTOR_AXIS` `MeterVector`, which is the grant/balance algebra over an integer `HashMap<CostUnit, long>` with `Add`/`Subtract`/`Shortfall`. The discriminant is readable from the value: a real-valued fixed-axis product answers WHAT ONE FACT COST, an integer unit map answers WHAT REMAINS OF A GRANT. Both reach one compile leg through this package's legal AppHost reference, so the two names stay distinct and neither renders as the other on any wire.
 - Boundary: `[PrecisionEquality]` bands every member at the accumulation noise floor so two chargeback folds compare equal under float re-association and `Inequalities` names the axis that moved. Hashing DIVERGES from equality by design — a precision-banded member leaves `GetHashCode` entirely, so a `CostVector` is NEVER a dictionary key; it rides `HashMap` VALUES alone.
 
-```csharp signature
+```csharp
 [Equatable]
 public readonly partial record struct CostVector(
     [property: PrecisionEquality(1e-9)] double ElapsedUnits,
@@ -51,7 +51,7 @@ public readonly partial record struct CostVector(
 - Law: the read is TOTAL by admission. `SecondRate` scans the admitted roster and cannot miss, because admission already proved every `Substrate` row present exactly once; the roster is five rows, so the scan is the whole index a frozen dictionary would build.
 - Boundary: no rate literal lives in the package — the generated factory is the only mint and the composition root supplies the rows. Pricing itself is NOT here: the `Runtime/receipts#TELEMETRY_PROJECTION` fold answers cost and instrument writes in one traversal of the fact union, so this owner holds the rates and that owner holds the arms. NAMED LOSS: a cost-only arm edit lands on the receipts page rather than beside the rate table; the gain is that a landed receipt case cannot meter without pricing or price without metering, where two 33-arm folds let it answer one and silently skip the other.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using static Rasm.Element.Projection.AdmissionSlots;
 
@@ -109,7 +109,7 @@ public sealed partial class CostPolicy {
 - Boundary: `Route` is ABSENT on a process-scoped population and never a fabricated slug, so the ordering read names the absence with one spelling both the sort key and the content preimage share.
 - Boundary: the content-keyed dataset projects columnar for the billing lake through the ONE `Runtime/codecs#ARROW_BATCH` landing — `ArrowBatch.Landing(new LakeDataset.Chargeback(dataset), tenant, allocator)` — which lands the rows LONG on the metering kind, four rows per `(tenant, route)` sorted on `kind`, never a second columnar encoder and never a wide four-column layout this owner would have to keep in step with the lane roster.
 
-```csharp signature
+```csharp
 public sealed record ChargebackRow(TenantContext Tenant, Option<Substrate> Route, CostVector Vector, long Facts) {
     public const string ProcessRoute = "process";
 

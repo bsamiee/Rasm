@@ -19,7 +19,7 @@ Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_
 - Growth: break engines extend `SegmentEngine`; locale tailors extend `_TAILOR_TABLE`; item kinds extend `Item`; fit decisions extend `FitPolicy`; UCA decisions extend `CollationPolicy`; line evidence extends `LayoutLine`.
 - Boundary: shaping and bidi resolution stay in `typography/shape#SHAPE`; font engineering stays in `typography/font#FONT`; authoring stays in `document/emit#DOCUMENT`. Greedy first fit, `tt_wrap` for proportional text, `Pyphen.inserted`, `Pyphen.wrap`, local Unicode or UCA tables, scalar-glyph breaking, and `text.split()` tokenization are rejected forms.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterator, Mapping
 from builtins import frozendict

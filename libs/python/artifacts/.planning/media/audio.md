@@ -17,7 +17,7 @@ It composes the `media/container#CONTAINER` `Media`/`MediaProfile`/`MediaEvidenc
 - Receipt: each audio encode contributes the same single `core/receipt#RECEIPT` `ArtifactReceipt.Media` case the container owner contributes, keyed over the muxed bytes at the container `_emit` arm; the worker folds `(container, codec, samples / rate, frames, bit_rate, blob, _deployment)` through `MediaEvidence.measure` once, the receipt owner importing no `MediaEvidence` value nor `av` handle. `_mix_audio`/`_decode_audio` produce `Pcm` blocks and mint no receipt — their composing arm keys and contributes the one `Media` case.
 - Growth: a new producer dtype is one `_INGEST` row; a new codec one `MediaProfile.codec` string, the resample/reframe pipeline already adapting; a differing producer rate one `frame.rate` stamp before the `AudioResampler`; a new encode knob one `MediaProfile` field in the `voiced` fold; a new mastering stage one `StageKind` member plus one `_STAGE` row; a louder chain one more ordered `Stage` value in `Master.stages`; a channel conversion one `AFORMAT`/`PAN`/`CHANNELMAP` stage or one `profile.layout` name; a new mix policy one `weights` value; a new evidence fact one `Media.facts` band key — every addition a row, member, field, or capsule argument, never a local `av.filter.Graph`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 import math

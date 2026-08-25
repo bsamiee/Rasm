@@ -29,7 +29,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Growth: a new demand modality is one `HandlerDemand` row carrying its host member and its custody column; a new census raise is one `MintFact` case breaking every observer dispatch loudly.
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit bridge contracts each boundary registers against these rows (`IMacViewHandler`, `IMacWindow`, and the `MacConversions`/`CGConversions` projection owners) stay at the Grasshopper boundary, because they name `Microsoft.macOS` types the kernel does not reference.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto;
 using Rasm.Domain;
@@ -124,7 +124,7 @@ public static class Handlers {
 - Growth: another supply timing is one `NativeMount` case; native focus, keyboard routing, and event delivery stay on the mounted controls and this seam owns custody alone.
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit view anchors, the vibrancy panes, the CoreAnimation compositor, and the screen-capture estate at both boundaries construct the platform view and hand this owner a value; the kernel becomes Eto-aware, never AppKit-aware.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
@@ -171,7 +171,7 @@ public sealed class PlatformMount : IDisposable {
 - Growth: a new backend is one `PlatformRow` row carrying its probe and its factor; a new host feature is one `PlatformCapability` row naming its flag; a new demand shape is one `PlatformClaim` case; a new ambient scope is one `PlatformScope` row and no second entry.
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino theme-zone swatch feeder that produces a hosted shift and its host UI service resolution stay at that boundary; the Grasshopper session styling target and its accessibility axis stay at that one. Plugin identity is `Domain/frame`'s `PackageIdentity`, never a second identity here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto;
 using Rasm.Domain;

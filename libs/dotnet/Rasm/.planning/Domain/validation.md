@@ -27,7 +27,7 @@ Validation composes `normalization.md`'s `Kind` roster, `Capability` rows, and `
 - Exemption: `MeshReport` and `CurveSelfIntersectionReport` are the `[BoundaryAdapter]` statement seams; `Analysis/inspect.md` composes `MeshReport` for its defect surface.
 - Packages: Thinktecture.Runtime.Extensions and LanguageExt.Core drive the smart-enum delegate rows and the applicative fold; RhinoCommon carries the check-matrix members.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 
 namespace Rasm.Domain;
@@ -181,7 +181,7 @@ public sealed partial record Requirement {
 - Law: the value-shape table has ONE authority — every Rhino shape carrying a `Kind` row derives from `Kind.Items`, and the residual roster names only the value shapes no geometry kind claims. Shapes added to `Kind` reach the oracle with no edit here.
 - Boundary: `OpAcceptance` is internal; the oracle never crosses the package seam, and the assembly-public gates are `Op`'s acceptance members and the readiness algebra.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
@@ -275,7 +275,7 @@ internal static partial class OpAcceptance {
 - Exemption: `AdmissionProjection` carries `render`/`admit` as runtime delegates and refuses the Mapperly `[Mapper]` rung — there is no member-to-member DTO correspondence to generate, only two opaque total functions between a raw carrier and a generated owner that already proves its own admission; a `[Mapper]` here generates nothing and proves nothing.
 - Boundary: `AdmissionProjection` owns pure render/admit conversion; refusal posture, held state, fallback, and presentation compose after its `Fin`, and every bidirectional boundary composes it rather than re-minting generated validation.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 
@@ -463,7 +463,7 @@ public static class OpExtensions {
 - Law: no package re-cases finite, range, or bounded-interval refusals into its local fault family. A package-semantic rule supplies its typed fault through `Gate`; the kernel never accepts a detail string from which it would invent package meaning.
 - Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`), NodaTime (`Interval`), and the kernel `Band` vocabulary.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using LanguageExt.Traits;
@@ -575,7 +575,7 @@ public static class AdmissionSlots {
 - Law: pairwise readiness is policy-driven — the `requirements` delegate is the caller's policy row — and the combinator owns the resolve-then-validate order so no pair operation re-spells it.
 - Boundary: consumers are `Analysis/measure.md` conformance pairs and `Analysis/relations.md` intersection, classification, and deviation pairs; `Kind` and `KindOf` are `normalization.md`'s.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
@@ -614,7 +614,7 @@ internal static class RequirementContext {
 - Boundary: `Admits(string)` is the only text-shaped arm and it resolves through the vocabulary index first, so text no row names can never match; every interior path is set containment with no string compare.
 - Packages: BCL frozen collections carry the membership store and the vocabulary index; the vocabulary rows themselves are Thinktecture `[SmartEnum<string>]` owners at each instantiating page.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -689,7 +689,7 @@ public sealed record CapabilityLaw<TCapability>(Seq<CapabilitySet<TCapability>> 
 - Growth: a new quality regime is a new reason `Symbol` at the producing boundary, never a fourth case; a new masking transform reuses `Masked` whole; a new probe whose refusal and absence differ is one `Evidence<T>` column at its own receipt, never a presence flag beside an error string and never a fourth case.
 - Packages: Thinktecture.Runtime.Extensions generates the closed unions and the `Symbol` admission; LanguageExt.Core carries the `Fin`/`Option` probe outcomes and the `Error` a refusal parks.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -756,7 +756,7 @@ public static class Evidence {
 - Exemption: the `Complex` span predicates live here because the claim vocabulary carries no `Complex` arm — interleaved real and imaginary parts have no vectorized finiteness member, so the span fold is the named kernel exemption and `Holds` is its one body.
 - Boundary: `Numerics`, `Spatial`, and `Meshing` owners compose these gates at their boundaries; their value objects admit through the `[04]` bridge.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;

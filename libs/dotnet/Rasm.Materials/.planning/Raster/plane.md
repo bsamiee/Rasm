@@ -28,7 +28,7 @@ Typed texels size the arena because bytes cannot: `byte[]` caps at `Array.MaxLen
 - Boundary: rows carry CONVERSION, never storage — a transfer row knows its `TransferFunction` binding, a primaries row knows its `ColorSpace`, its composed geometry, and its assignment token, a range row knows its affine, and a mip row knows its filter and its trait set. `[03]` owns the typed arena consuming them, so a new depth lands as one `IComponent` witness and one `PlaneFormat` row and reaches the whole page without touching an arena, a rail, or a codec.
 - Growth: a new combinable column is one `PlaneTrait` row plus its membership on the owning axis' rows; a new range window is one `PlaneRange` affine pair; a new fold law is one `MipPolicy` row. No arm, no ctor arity, and no consumer moves for any of the three.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
@@ -224,7 +224,7 @@ public sealed partial class MipPolicy {
 - Packages: CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate(int, AllocationMode)` the pooled rental every row's `Rent` column binds, `Memory<T>.AsMemory2D(int, int)` the plane projection), `Rasm.Drawing` (composed — `ChannelDtype.Unorm8`/`Unorm16`/`Float16`/`Float32` the storage-component rows and their `Width` column), Thinktecture.Runtime.Extensions, BCL inbox (`Half`, `double.Clamp`, `Array.MaxLength`).
 - Growth: a new depth is one `IComponent` witness with its rows, one `Normalizes` arm, and one `WebReachable` arm; a new arity is one texel struct with its rows; a new storage row is one `PlaneFormat` declaration naming its arity, witness, component count, depth, and alpha. Nothing else on this page, in the codec, in the filter, or in the pyramid changes — the `Rent` column carries the type application and every consumer stays generic over `ITexel`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IComponent<T> where T : unmanaged {
     static abstract double ToUnit(T value);
@@ -347,7 +347,7 @@ public sealed partial class PlaneFormat {
 - Packages: CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate`/`.Memory`/`.Dispose`, `AllocationMode.Clear`/`Default`, `Memory<T>.AsMemory2D(int, int)`, `Memory2D<T>.Span`, `Memory2D<T>.Slice(int, int, int, int)`, `Span2D<T>.GetRowSpan(int)`, `SpanOwner<T>.Allocate` the per-row lane scratch), `Rasm.Domain` (`ContentHash.Of<TState>(TState, Action<TState, XxHash128>)` the ONE identity entry, `Op`), `Rasm.Numerics` (composed — `CellLattice.Of`/`Columns`/`Rows`/`CellCount`/`CellSize`/`Linear`/`Coarsen` the ONE bounded cell lattice, `Placement.Build` + `TransformSpec.UniformScale` the one transform mint, `Dimension`, `PositiveMagnitude`), `bsdf#SHADING_FRAME` (`MaterialFault` band 2450), TinyEXR.NET (composed — `ImageProcessing.GetColorMatrix(ColorSpace, ColorSpace) -> ColorMatrix3x3` the ONE reconciliation mint and `ImageProcessing.ApplyColorMatrix(ReadOnlySpan<float>, Span<float>, int, ColorMatrix3x3)` the interleaved fold), RhinoCommon (`Transform.Identity`, `Point3d.Origin` at the affine seat alone), `System.IO.Hashing` (`XxHash128.Append` inside the kernel entry alone), BCL inbox (`Array.MaxLength`, `double.Hypot`, `MemoryMarshal.AsBytes`).
 - Boundary: the arena is TYPED end to end and exposes no whole-plane byte view. `MemoryMarshal.AsBytes` over one row span is the sole reinterpretation, taken by the key fold and by the codec bridge, so a caller cannot address the plane as bytes and no consumer can smuggle a depth reinterpretation past the format row. `AllocationMode.Clear` is the admission default because a partially-written plane must read its neutral rather than pool residue, and a press writing every texel passes `AllocationMode.Default` to skip the zeroing pass over a quarter-billion elements.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO.Hashing;
 using System.Runtime.InteropServices;
@@ -527,7 +527,7 @@ public sealed record TexturePlane(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 namespace Rasm.Materials.Raster;
 
@@ -604,7 +604,7 @@ internal readonly struct KeyRows(XxHash128 hash) : IPlaneFold<Unit> {
 - Growth: a new fold law is one `MipPolicy` row carrying its filter and its post-fold flags; a new coupling is one flag with its arm in the post-fold. Neither the chain walk, the level admission, the sampler bridge, nor any consumer changes.
 - Boundary: arbitrary-ratio resampling is `filter#PLANE_OP` `Resize` — a mip level is the lattice's own `Coarsen` step under a declared policy and never a resize alias, so a chain cannot be minted at an arbitrary ratio and a resize cannot silently produce a level a sampler then trilinearly blends. `TexturePyramid` OWNS its levels and disposes them; a pyramid built over an adopted base at `MipPolicy.None` disposes that base too, so ownership is uniform and a caller never holds a half-owned chain.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Numerics.Tensors;
@@ -798,7 +798,7 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
 - Growth: a new eviction law is one `ResidencyPolicy` row projecting its own rank; a cost model other than texels is one column on `ResidentTile` and one read in `Reclaim`. Neither the window, the resolve rail, the mint seam, nor any consumer changes.
 - Boundary: this window bounds CHAINS, never arena bands — `TexturePlane.Layer` windows one rental into layer bands inside a single plane, while `PlaneResidency` holds independent pyramids addressed by a tile coordinate, so a cube-face set and a UDIM grid never share a mechanism. The window carries no decode, no format, and no channel: every tile of one asset resolves through the caller's own mint, so a residency window over base-colour tiles and one over normal tiles are two windows and neither knows the other exists.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;

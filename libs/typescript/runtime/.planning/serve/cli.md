@@ -20,7 +20,7 @@ Terminal entry rides one front-door assembly law: a verb family is a `Command` V
 - Growth: a new app verb family is contributed data (zero lib edits); a new bridge axis is one `Options` combinator row.
 - Packages: `@effect/cli` (`Command`, `Options`, `Args`, `Prompt`, `ValidationError`, `CliConfig`, `ConfigFile`); `effect` (`Effect`, `Config`).
 
-```typescript signature
+```typescript
 import { Args, Command, HelpDoc, Options, Prompt, ValidationError } from "@effect/cli"
 import { FileSystem, type PlatformError, Terminal } from "@effect/platform"
 import { Doc, Optimize } from "@effect/printer"
@@ -85,7 +85,7 @@ const Verb = { completions: _completions, main: _main, wizard: _wizard } as cons
 - Law: runbooks are code — a new runbook is one `Command` row in this family with its probe or effect, never a document; the family is `Command.provide`-scoped with its exec Layer by the app when it needs elevated capability.
 - Boundary: process execution mechanics are `proc/exec#COMMAND_SPEC`'s; fanout semantics are `net/pubsub#PORT_SHAPE`'s; what checks exist beyond the shipped floor is app data through `sources.checks`.
 
-```typescript signature
+```typescript
 const _ops = Fault.Class.family(["probe", "gate"] as const, {
   probe: Fault.Class.row({
     class: "unavailable",
@@ -246,7 +246,7 @@ const Ops = { family: _family } as const
 - Growth: a new semantic intent is one row; a verb needing a color that is not an intent is the smell — name the intent.
 - Packages: `@effect/printer-ansi` (`Ansi`); `@effect/printer` (`Doc`).
 
-```typescript signature
+```typescript
 const _roles = {
   fault: Ansi.combine(Ansi.bold, Ansi.red),
   warn: Ansi.yellow,
@@ -281,7 +281,7 @@ const _themed = (palette: Partial<Record<keyof typeof _roles, Ansi.Ansi>>) =>
 - Growth: a new output shape is one row composing the existing algebra; a third delimiter is one `_shapes` row and a third verdict grade one `_grades` row; a shape needing a new layout primitive reaches for the printer's own (`align`, `hang`, `encloseSep`) before any local invention.
 - Packages: `@effect/printer` (`Doc`); `effect` (`Array`, `Pretty`, `Record`).
 
-```typescript signature
+```typescript
 const _kv = (pairs: ReadonlyArray<readonly [string, string]>): AnsiDoc.AnsiDoc =>
   Doc.vsep(Array.map(pairs, ([label, value]) =>
     Doc.hsep([_role("faint", Doc.string(label)), Doc.align(Doc.string(value))])))
@@ -342,7 +342,7 @@ const _pretty = <A, I, R>(schema: Schema.Schema<A, I, R>): ((value: A) => AnsiDo
 - Boundary: `@effect/cli`'s own `HelpDoc` lowers onto this same `AnsiDoc` rail, so parse-error help and verb output share one render seam; the `Terminal` binding is the runtime row's.
 - Packages: `@effect/printer-ansi` (`AnsiDoc`); `@effect/printer` (`Doc`, `Optimize`); `@effect/platform` (`Terminal`); `effect` (`Context`, `Effect`, `Layer`).
 
-```typescript signature
+```typescript
 const _MODES = {
   tty: (doc: AnsiDoc.AnsiDoc, width: number): string =>
     AnsiDoc.render(doc, { style: "pretty", options: { lineWidth: width, ribbonFraction: 1 } }),

@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 libs/typescript/
 ├── core/       # One authority per cross-language concept — decode and vocabulary floor, zero serving or persistence
 ├── security/   # Crypto mint, authn ceremonies, and access law behind stateless port Tags satisfied downstream

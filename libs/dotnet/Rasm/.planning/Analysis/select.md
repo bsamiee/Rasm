@@ -23,7 +23,7 @@ Every projection duplicating host geometry travels as a `TopologyProjection` min
 - Growth: a new edge feature is one `EdgeFeature` row with its provenance column and one `Features` arm; a new extraction source is one lattice arm emitting `TopologyProjection`s; a new typed output is one projection row on the fan; a new segment reading is one `SegmentPosture` row — selection, projection, and disposal untouched.
 - Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; every `Curves` fold — `CanProject`, `Feature`, `Matches`, `Select` — is the generated total `Switch`, so a new case breaks all four loudly at compile time where a discard arm answers for it silently, and `EdgeDescriptor.Features` folds the same way with each host-enum tail stating its own emptiness; a projection that DECLINES refuses typed rather than vanishing under a `Choose`, so a caller asking for five curves and receiving three learns which arm refused; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -355,7 +355,7 @@ internal static class IndexSelection {
 - Growth: a new face projection is one output arm on the fan; a new selection strategy is one case whose score projection feeds the same `Stat.Extrema` fold — zero new operations.
 - Boundary: eight outputs ride one builder — a `FacePlanes`/`FaceCentroids`/`FaceNormals` operation family is the proliferation this fan forecloses; the borrowed/owned asymmetry is the resource law, borrowed carriers transferring live faces and owned decompositions detaching so no emitted face dangles after the coerced brep disposes; ranking and index reject an out-of-range index through the same `IndexSelection.At` fold the curve family dispatches; the centroid frame composes `Analysis/measure` and `Domain/evaluation`, so a local mass or frame computation here is the wrong move.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
@@ -459,7 +459,7 @@ public abstract partial record Faces {
 - Growth: a new spread aspect is one `SpreadAspect` row carrying its `OutputBinding` and its `Fit` delegate over the same moment fold; a new extraction source is one lattice arm; a new extremum policy is a `ToleranceLane` row on the existing fold.
 - Boundary: spread mathematics is composed — `SampleMoment` owns the covariance, `SymmetricMatrix` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection; a local covariance accumulation or eigen-ordering assumption is the double-owner defect, and selecting the dominant eigenvalue keeps the result order-independent where a first-returned-pair convention couples correctness to an upstream sort; planar-coordinate projection failures abort the fold, since a zero-row substitution biases the covariance toward the origin; `EdgeMidpoints` composes the `Curves` rail, so a second topology-edge walker is the wrong move; control-point extraction leases every minted NURBS form so conversion never leaks. `Lattice` dispatches an ERASED `TGeometry` runtime value, not a closed family, so its discard arm is the boundary refusal the open ingress owes — it mints the typed `Unsupported` naming both the runtime type and the output, and collapsing it onto a generated `Switch` is unspellable where no union owns the input.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;

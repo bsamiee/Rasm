@@ -26,7 +26,7 @@
 - Packages: `UnitsNet` supplies `Speed`, `RotationalSpeed`, `Length`, `Angle`, `Power`, `Ratio`, and `Duration`; `Process/physics#EQUIPMENT` `ProcessRange` supplies controller bounds; `Riok.Mapperly` owns the unit lift; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, `Fin<_>`, and the equality-keyed `HashMap` carrier `BlockLocus` requires.
 - Boundary: raw dimensional doubles, provider range types, and page-local cutting-force equations never cross admission; the ordered `Map` carrier never keys on a `[ComplexValueObject]`, which owns structural equality and no comparer.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
@@ -389,7 +389,7 @@ internal static partial class OptimizeMap {
 - Growth: one optimization concern adds one `PassPolicy` case, one `OptimizePass` row, and one pure `PassState` fold.
 - Boundary: separate `Feeds`, `Delta`, and `Blocks` estimators are deleted forms; symbolic `GValue.Variable`/`Expression` motion fails admission because geometry-changing passes cannot preserve unevaluated coordinates by inspection.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PassDelta(
     OptimizePass Pass,
@@ -503,7 +503,7 @@ public static partial class Optimize {
 - Receipt: `MotionSpan` carries length, cruise ceiling, entry speed, and chord direction, and the trapezoid closes each span when its successor fixes the exit; the last span decelerates to rest.
 - Boundary: arc rows preserve their admitted `I`/`J` centre evidence, distances use full `Point3d` positions, no absent axis becomes zero, and no zero-length span becomes fabricated distance.
 
-```csharp signature
+```csharp
 // --- [OBJECTIVE] -----------------------------------------------------------------------
 public static partial class Optimize {
     internal static Duration Objective(ProgramTrace trace, MotionDynamics dynamics) {
@@ -603,7 +603,7 @@ public static partial class Optimize {
 - Auto: both entries thread the structural `BlockLocus`, so a pass keyed on engagement or a label reads the same path the trace publishes.
 - Boundary: `NodeWalk` decides no domain question — it descends and re-seats bodies, and every rewrite is the caller's.
 
-```csharp signature
+```csharp
 // --- [WALK] ----------------------------------------------------------------------------
 internal static class NodeWalk {
     internal static Fin<Seq<GNode>> Deep(
@@ -667,7 +667,7 @@ internal static class NodeWalk {
 - Exemption: `PatternCensus` is the measured hash kernel — the prefix array and the per-window read are one linear pass whose intermediate array IS the algorithm.
 - Boundary: `Geometry2D/arcs` remains the owner for subsequent arc inspection, offset, and densification.
 
-```csharp signature
+```csharp
 // --- [PASSES] --------------------------------------------------------------------------
 internal static class OptimizationCore {
     private static readonly Set<GCommand> AdaptiveCycles = Set(GCommand.Drill, GCommand.DrillDwell, GCommand.Peck, GCommand.Bore);

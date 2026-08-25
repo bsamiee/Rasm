@@ -55,7 +55,7 @@ Every `Law<T>` row is witness-mandatory: registration carries a `RefutingWitness
 
 Row vocabulary is `Law.Of`, `Law.Identity`, `Law.Idempotent`, `Law.Inverse`, `Law.Roundtrip`, `Law.Commutative`, `Law.Associative`, `Law.Distributive`, `Law.Monotone`, and `Law.Permutation`; a new algebraic family is one row constructor beside these, never a parallel assertion helper. Tables of rows hold together:
 
-```csharp conceptual
+```csharp
 [Law(typeof(Shape), "algebra")]
 public sealed class ShapeSpec {
     [Fact]

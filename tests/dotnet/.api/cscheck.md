@@ -43,7 +43,7 @@ Every `Sample*` method takes the shared run tail `string? seed = null, long iter
 |  [11]   | `GenOperation.Create` / `GenOperationAsync.Create` | builder         | named sync/async operation construction                      |
 |  [12]   | `GenMetamorphic.Create`                            | builder         | named metamorphic operation construction                     |
 
-```csharp signature
+```csharp
 public static void Sample<T>(this Gen<T> gen, Action<T> assert, Action<string>? writeLine = null,
     string? seed = null, long iter = -1, int time = -1, int threads = -1,
     Func<T, string>? print = null, ILogger? logger = null);

@@ -17,7 +17,7 @@
 - Law: the detail is the generated `rasm.contracts.fault.FaultDetail` read off `ConnectError.findDetails` against the one descriptor registry and decoded through `Wire.Remote.FromWire`; a `Transport` carries the class `Wire.Hops` rows for its code, the one table every hop grades through.
 - Boundary: only `Transport(connectivity | deadline | ceiling)` may drive topology; remote recovery may retry only on the current lane.
 
-```typescript signature
+```typescript
 import type { Client, ContextValues, Interceptor, Transport as ConnectTransport } from "@connectrpc/connect"
 import { Code, ConnectError, createClient, createContextKey, createContextValues } from "@connectrpc/connect"
 import { createConnectTransport, createGrpcWebTransport } from "@connectrpc/connect-web"
@@ -113,7 +113,7 @@ const Transport: {
 - Law: carrier headers, tenant scope, HLC, deadlines, and telemetry remain typed Effect context.
 - Boundary: the root supplies browser/Bun `fetch`, the optional scoped Node adapter, and the interceptor chain. GET routing is foreclosed at the METHOD KIND, never at idempotency: Connect routes GET for unary calls alone, and `ProgressService.Watch` — the one method this branch binds that declares `NO_SIDE_EFFECTS` — is server-streaming, so every stream rides POST and no `useHttpGet` knob exists to misread.
 
-```typescript signature
+```typescript
 const _webProtocols = ["connect", "grpc-web"] as const
 const _nodeProtocols = ["connect", "grpc-web", "grpc"] as const
 
@@ -346,7 +346,7 @@ type _DialSeam = Dial.Seam
 - Law: each unary attempt uses the transport timeout, and one outer timeout bounds the complete execution plan.
 - Law: server-stream fallback stops after the first emitted value.
 
-```typescript signature
+```typescript
 const _capabilityEffects = ["pure", "read", "write", "external", "irreversible"] as const
 const _capabilityIdempotency = ["idempotent", "keyed", "single-shot", "non-idempotent"] as const
 const _capabilityUnits = ["cpu-millis", "wall-millis", "bytes-egress", "model-tokens", "calls"] as const
@@ -587,7 +587,7 @@ abstract class Capability {
 - Law: command bodies are the generated `CommandInvocation` — the corpus's five-arm `CommandPayloadWire` and nothing beside it; tenant and clock context remain on the carrier and interceptor rails.
 - Boundary: `Invoke.AvailabilityGate` supplies verdicts, and the runtime supplies socket acquisition and serving lifetime.
 
-```typescript signature
+```typescript
 const CommandInvocation = ui.CommandInvocationSchema
 type CommandInvocation = MessageValidType<typeof CommandInvocation>
 type CommandPayload = MessageValidType<typeof ui.CommandPayloadWireSchema>
@@ -791,7 +791,7 @@ const Gateway: {
 - Packages: `@rasm/contracts` (`progress_pb`), `@connectrpc/connect` (`createClient` through `Dial.sdk`), `@bufbuild/protobuf` (`create` through `Format.proto.create`), `effect` (`Stream`, `Schema`, `Option`, `DateTime`).
 - Growth: a new mark axis is one field on `Progress.Mark` plus one column read; a second Compute stream is one derived member off the same admitted pin.
 
-```typescript signature
+```typescript
 import type { MessageShape } from "@bufbuild/protobuf"
 import { timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt"
 import { ProgressPhase, ProgressService, WatchRequestSchema, WatchResponseSchema } from "@rasm\/contracts/rasm/contracts/compute/progress_pb"

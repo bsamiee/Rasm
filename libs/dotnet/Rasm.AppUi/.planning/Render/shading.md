@@ -33,7 +33,7 @@ One GPU shader-asset owner with a per-backend, byte-budgeted residency cache fee
 - Boundary: this cache is the 3D-APPEARANCE half of the runtime-shader TYPE-DOMAIN partition and holds appearance programs alone — the 2D chrome roster at `Vfx/shader#EFFECT_PROGRAM` carries no backend variant, no resident plane, and a CPU-side program-and-picture budget, so a chrome program forced through this cache would arrive holding a wgpu pipeline-state arm it can never take, and neither cache holds the other's programs; both rosters are ESTATE-SHIPPED source, so caller-supplied shader text has no admission on either, and the shader source is backend-neutral so a backend-specific shader literal is the rejected form, the per-backend lowering living in the arm row.
 - Boundary: texel lanes arrive DECODED and scene-linear from `TexturePlane.Read`, the plane's own decode ladder — INCLUDING the `pq`/`hlg` display transfers the frozen environment row alone admits, whose ST 2084 and HLG inverses are that ladder's own rows, so a `pq` dome reaches this pass already scene-linear and a transfer this pass cannot name never uploads display-referred — so the uploaded `SKImage` carries no tagged colour space (a tagged space re-transforms lanes the Materials decode already resolved) and a Render-side transfer curve, gamma divide, normal-map decode, SH reconstruction, or prefilter integral is the deleted form.
 
-```csharp signature
+```csharp
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -516,7 +516,7 @@ public sealed class ShaderAssetCache : IDisposable {
 - Boundary: `ShadeStage` mounts through the one `Render/pipeline` graph and mints VALUES — the graph is constructed with its pass rows, so this page schedules nothing and holds no frame. Every material resolves to one slot map and bind group at shade time. `Render/pathtrace#LIGHT_RIG` supplies the shared `LightSource` family and resolves the same `EnvironmentLight` row this pass binds. Viewport leases the shared `Wgpu` device. LAYERED sets and cube-face domes reach the Wgpu arm alone, the Ganesh upload declaring the single-layer refusal rather than binding face zero as the whole map, and a wgpu texture reaching the Ganesh bind refuses on the rail rather than writing nothing and letting the shader fall back.
 - Boundary: the per-bind `UvFrame` enters at the material grain and rides every sampled slot the material resolves — the Materials owner keeps the transform OFF the set so one content-addressed atlas serves N sets, so a set-borne tiling column here would fork that key per consumer and an identity frame assumed at the sampler would silently drop the caller's KHR transform; the dome and LUT samplers state `UvFrame.Identity` because the prefilter integrated under exactly that mapping.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BoundSlot {

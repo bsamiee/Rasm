@@ -25,7 +25,7 @@ Kernel `Step` returns one `IntegrationStep` Accepted or Rejected and owns no rej
 - Boundary — composition: `Quadrature.Integrate` is the ONE quadrature call site in this package — a raw `Integrate.GaussLegendre`/`GaussKronrod`/`OnRectangle`/`OnCuboid` call skips the kernel's finite guard, skip budget, and typed evidence and is the deleted form, as is a package-local `QuadratureRoute`/`IntegrationDomain`/`QuadratureRule`/`SmolyakCubature` re-declaration. Kernel refusals remain their original `Error`, so consumers read the fault's own code and message without a second vocabulary mirroring `Rasm.Domain` arm for arm; a bare token discarding that evidence is the rejected flatten. Both legs are managed host-local folds, so the receipt scopes to `Substrate.CpuTensor` and a device row here claims residency this lane never acquires. Elapsed time is MEASURED, never accepted: the receipt mint takes the `IClock` the composition already threads and brackets the run, where a caller-supplied `Duration` let a lane report a figure nothing timed.
 - Boundary — consumers: `Solver/route#SOLVE_ROUTES` is this lane's standing consumer — `FieldIntegrator.Step` threading its `StepHistory` through the transient route's own driver, and `QuadratureEvidence.Claim` gating the element-integration receipt — so the trajectory driver and the quadrature fold both reach a real caller rather than sitting as an unreached surface beside an unread receipt case.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MeasurePolicy(QuadratureControl Accuracy, WorkLane Lane) {
     public static readonly MeasurePolicy Default =
@@ -125,7 +125,7 @@ public static class Integration {
 - Boundary — terminal: only an inadmissible control, span, or station set faults — every termination SUCCEEDS with its disposition, because mapping budget exhaustion onto `Fin.Fail` destroys the relaxed-criterion retry the partition exists to serve. Retriability is a TYPE, not a bool pair: `Relaxable` carries the `RelaxAxis` naming which knob to move — budget exhaustion relaxes `MaxSteps`, underflow relaxes `MinStep` or the tolerance pair, a refusing field relaxes the horizon, and a refusing interpolant relaxes the station set the accepted span was asked to interpolate — where two independent bools admitted a `(true, true)` state no run can reach and told a caller nothing about what to change. `Divergent` alone is unretryable, because a state the norm cannot read is the field's own divergence and no control value reaches it.
 - Boundary — spill: the archive session is the `Runtime/archive#HDF_ARCHIVE` capsule's, so this driver declares its slot and attributes and takes the cursor it hands back. Release brackets the ACQUISITION through `ArchiveSession.Write`, binding to every outcome arm where a `using` inside a rail lambda bound it to the success arm alone. The station ordinal IS the chunk ordinal and the cursor holds it, so write-once is structural rather than a monotonicity argument, and the spilled leg accumulates NO sample seq — the stream is its record, so `Samples` is empty by the leg's own construction and `Station` still reports what landed.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -393,7 +393,7 @@ public static class Trajectory {
 - Boundary — gate: `SpectralControl` binds the SPLIT leg ALONE, and the discriminant is field PARITY, never caller intent. Even-length fields ride the packed arena whose output is real by construction — no imaginary channel to measure, the floor goes unread, and the evidence reports `None`; passing a tighter floor with an even grid changes nothing the run does. That asymmetry is why the residual is `Option<double>`, never a `0.0` written by both legs — a reader treating a missing residual as a passed gate has inverted the one leg that proves Hermitian symmetry. The control arrives as an `Option`, so absence is a carrier rather than a nullable reference crossing a public boundary. The residual denominator floors at the smallest NORMAL double rather than at `double.Epsilon`, whose value is the smallest subnormal and which therefore names a quantity a hundred orders of magnitude below the guard it was standing in for.
 - Boundary — discriminant against the `Stats/signal#SIGNAL_LANE` `SpectralTransform` axis is spatial-versus-sampled, never availability: a symbol is a differential operator over a SPATIAL extent in angular wavenumber, that axis transform-and-invert, framing, and windowing over a SAMPLE RATE in bin frequency. Collapsing either end hands a spatial operator frame, hop, and window evidence it has none of, or a spectrogram a parity column no transform owns.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

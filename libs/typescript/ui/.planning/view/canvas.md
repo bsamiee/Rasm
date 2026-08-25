@@ -25,7 +25,7 @@ Composed facts: the adapter-atom pattern is `view/table#STATE_FOLD`'s (`Grid.edg
 - Boundary: registry lifecycle and write modality are `system/atom`'s; `defaultNodes`/`defaultEdges` and `useNodesState` never appear — an uncontrolled canvas holds graph truth the estate cannot read; the `@xyflow/react/dist/base.css` structural import is app stylesheet data and `style.css` never loads (the token plane owns every visual rule).
 - Growth: a new interaction class is one change-variant arm the engine already emits through the same fold; a new persisted fact is one parcel field; a second canvas on one page is a second cell under a second provider — never a shared store.
 
-```typescript signature
+```typescript
 import type { Edge, Node, NodeChange, EdgeChange, Viewport } from "@xyflow/react"
 import { addEdge, applyEdgeChanges, applyNodeChanges } from "@xyflow/react"
 import { Atom } from "@effect-atom/atom-react"
@@ -115,7 +115,7 @@ declare const _useEdge: (cell: Atom.Writable<Canvas.Graph, Canvas.Change>) => Ca
 - Boundary: `Handle` placement, connection validity (`isValidConnection`), and `Position` sides are per-kind facts the render arm owns; the shipped `input`/`output`/`default`/`group` builtins never render — every kind is an estate row.
 - Growth: a new node kind is one tuple member + one render arm + one `data` schema; a new command is one `Overlay.Command` row on the `node` scope; a new embedding fact is one `attrs` field on the one parcel.
 
-```typescript signature
+```typescript
 import type { ComponentType } from "react"
 import type { NodeProps, EdgeProps, XYPosition } from "@xyflow/react"
 import { Atom } from "@effect-atom/atom-react"
@@ -205,7 +205,7 @@ const _block: Canvas.Block = {
 - Boundary: the `workerFactory` value is app composition (the same bundler-resolved `new Worker(new URL(...))` mint the estate's other workers use); which intent fires when is the consuming surface's; the timeline's solves ride this same admission fold per `[05]`.
 - Growth: this fold IS the general shape for any worker-computed derivation beside a mutable source — a media decode product or an export octet stream admitted against the revision its request captured cites this cluster as a row, never a re-derived guard.
 
-```typescript signature
+```typescript
 import ELK from "elkjs/lib/elk-api"
 import type { ElkNode, LayoutOptions } from "elkjs/lib/elk-api"
 import type { NodeChange } from "@xyflow/react"
@@ -408,7 +408,7 @@ const _admit = (registry: Hook.Registry, canvas: string, solver: Canvas.Solver) 
 - Boundary: recurring-schedule expansion, dependency SEMANTICS (what an arrow means), and working-calendar math are consumer domain logic arriving as span rows; this plane owns coordinates, bands, windows, and routing alone. Zoom on the time axis is a domain-window write (two instants), never a second recognizer.
 - Growth: a new band surface (audio regions, resource allocation, log swim-lanes) is lane rows + span rows + one tone mapping; a new arrow policy is one `_ARROWS` row; a denser schedule is the same window fold at a different `estimateSize`.
 
-```typescript signature
+```typescript
 import { scaleBand, scaleUtc } from "@visx/scale"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { DateTime, Order } from "effect"

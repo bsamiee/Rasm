@@ -19,7 +19,7 @@ Breadcrumb history attaches as replay evidence redacted at the moment of capture
 - Growth: a new breadcrumb source is one `note` call site; a richer scrub is a rule row.
 - Packages: `effect` (`Chunk`, `DateTime`, `Ref`), `@rasm/core` (`Convention`), `./emit.ts` (`Redaction`).
 
-```typescript signature
+```typescript
 import { Array, Cause, Chunk, DateTime, Effect, FiberSet, Layer, Match, Metric, Option, Ref, pipe } from "effect"
 import { type Identity, Convention, Fault } from "@rasm/core"
 import { Redaction } from "./emit.ts"
@@ -55,7 +55,7 @@ const _crumb = (
 - Law: capture is total — its type is `Effect<void>` with no error channel; the enricher is total by contract and the ring read is infallible, so no interior step can open a fault channel on the crash path.
 - Growth: a new evidence axis on the emission is one enricher band row; a new classification is a core row this page inherits.
 
-```typescript signature
+```typescript
 const _captured = Convention.mount(Convention.metric.crashCaptured)
 
 const _triaged: (residue: unknown) => { readonly name: string; readonly note: string; readonly stack: string } = pipe(
@@ -152,7 +152,7 @@ export { Crash }
 - Exemption: the hook `install` body is the platform-forced statement seam — listener registration and removal are the platform's own callback contract.
 - Growth: a new runtime is one `Hook` literal at its boot edge — never a change here.
 
-```typescript signature
+```typescript
 import type { Crash } from "./crash.ts"
 
 const browserHook: Crash.Hook = {

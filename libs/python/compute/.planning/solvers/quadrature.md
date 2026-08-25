@@ -19,7 +19,7 @@ Reused `Readout` axis spans both numeric routes; the FEM route consumes the `Ass
 - Growth: a new quadrature rule is one `QuadKind` member and one `_QUAD` row folded through `QuadEngine.integrate`; a new interpolant family one `InterpKind` member and one `_INTERP` row through `QuadEngine.interpolant`; a new output shape one `Readout` member; a new integrator knob one `QuadPolicy` field; a new termination code one severity-ranked `_QUAD_STATUS` token; a new admission bar one `_CEILING` row; a new element one mesh-owned `CTOR` row, zero surface here; a new FEM sparse scheme zero new surface, since the caller passes any `SparseScheme`/`LinearPolicy` the linear route owns.
 - Boundary: the FEM element axis (`ElementKind`/`FemForm`/`CTOR`) is mesh-owned on `solvers/mesh#MESH_FIELD` — this route consumes only the `AssembledSystem` lowering, so no element vocabulary crosses and no `TYPE_CHECKING` cycle-dodge exists; 2-D/3-D interpolation lives on `solvers/field` (the `interpax` `interp2d`/`interp3d` family) and multidimensional ODE integration on `solvers/differential#DIFFERENTIAL`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass

@@ -38,7 +38,7 @@ This table routes a telemetry concern to its owning surface; the most specific r
 - Law: the global buffer inverts severity economics — `AddGlobalBuffer` rules hold the verbose tiers and `GlobalLogBuffer.Flush` replays them when an incident makes them valuable; the volume ladder is delete before defer before coalesce, and an oversize record bypasses the buffer and emits live.
 - Boundary: audit-grade categories are excluded from sampler and buffer rules by rule construction, never by runtime check.
 
-```csharp conceptual
+```csharp
 public sealed record StepFact(string Stage, int Attempts, TimeSpan Elapsed, string? Detail);
 
 internal static class HostTags {
@@ -83,7 +83,7 @@ public static partial class StepLog {
 - Law: fallback is declared topology — `WriteTo.FallbackChain` reroutes to the next sink on synchronous throw or listener-reported failure, and a fire-and-forget sink that neither throws nor reports defeats the chain silently, so fallback eligibility is a per-sink failure-surface audit.
 - Law: `SelfLog` is the floor beneath the rail — a bounded never-throwing writer, never a pipeline sink, because it runs exactly when the pipeline is the casualty.
 
-```csharp conceptual
+```csharp
 [Union]
 public abstract partial record FactRecord {
     private FactRecord(Stamp at) => At = at;
@@ -160,7 +160,7 @@ public static class Projection {
 - Law: limit-utilization and request-utilization are different alarms — throttling-imminent versus under-provisioned — and one collapsed percentage loses exactly the distinction the orchestrator acts on; the fleet pins the utilization range explicitly.
 - Law: publishers are cadence-coupled consumers — they record and return; the sampling interval bounds every derived signal's reaction time, and a publisher window wider than the consuming policy's period aliases.
 
-```csharp conceptual
+```csharp
 public sealed record SignalCatalog(Seq<string> Sources, Seq<string> Meters, double Ratio,
     Seq<(string Instrument, MetricStreamConfiguration Shape)> Views) {
     public static readonly SignalCatalog Suite = new(
@@ -221,7 +221,7 @@ public static class SignalRoot {
 - Law: the boot epoch rides the origin, so a reborn process is a new origin and high-water persistence is deleted; stamps order and never identify — canonical event identity is the `(stamp, origin)` pair.
 - Boundary: durability composes already-stamped versions and owns only last-writer-wins adjudication; every other ordering construct in the suite composes this one type, and a second timestamp-ordering primitive anywhere is the collapse trigger.
 
-```csharp conceptual
+```csharp
 public readonly record struct Stamp(ulong Word) : IComparable<Stamp> {
     private const int CounterBits = 16;
     private const ulong CounterMask = (1UL << CounterBits) - 1;
@@ -287,7 +287,7 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 - Law: the carrier version key turns mixed-fleet schema drift into a typed fault at extract, never a renamed key misread as absence; the version is numeric and compared as a number, because ordinal text comparison inverts past one digit.
 - Exemption: the propagator's carrier inject body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Arrival {
     private Arrival() { }
@@ -345,7 +345,7 @@ public static class EnvelopeSeam {
 - Law: the posture folds to taxonomy rows, the per-process redactor map, the rotation registry, and the prevention inventory — proven both ways at boot: a canary value per row asserted redacted in export, store admission rejecting unclassified payloads.
 - Exemption: the redaction root's builder-mutation body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public static class Sensitivity {
     public static readonly DataClassification Identifier = new(nameof(Sensitivity), nameof(Identifier));
     public static readonly DataClassification Payload = new(nameof(Sensitivity), nameof(Payload));

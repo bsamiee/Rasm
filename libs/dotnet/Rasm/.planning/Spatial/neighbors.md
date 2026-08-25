@@ -20,7 +20,7 @@ Tolerances arrive from `Domain/context` lanes rather than page literals: the eig
 - Growth: a new index species is one `NeighborIndex` case with its `NeighborSource` case and query arms; a new query is one `NeighborQuery` case and dispatch arm; a new backend is one `NeighborSearchBackend` row; a new coordinate-monotone metric is one `NeighborMetric` row carrying its own radius transform, and the `Static` build folds it into one more frozen tree unasked.
 - Boundary: `SearchCapsule` confines every platform mutation and native lease; every kNN in the corpus reads `NeighborhoodGraph`, and deterministic index release wraps the index in `Lease<T>.Owned`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using QuikGraph;
 using QuikGraph.Algorithms.MinimumSpanningTree;
@@ -253,7 +253,7 @@ public abstract partial record NeighborIndex {
 - Growth: a new per-point measurement is one fold over the `NeighborhoodGraph` spine with its receipt columns; a new derived curvature scalar is one `CurvatureAxis` row that joins every band set unasked; a new curvature classification is one `CurvatureRangeKind` row carrying its own `Admits` body, which the tally fold counts unasked; a new quadric refusal cause is one `QuadricAttempt` case and one census arm; a new orientation strategy is one arm beside the MST fold.
 - Boundary: every measure an arm may not take rides an `Option` — the residual summary, the whole band set, and the self-neighbour count are absent rather than zero-filled, so a receipt never reads as a perfect fit over samples that failed to solve nor as a needle set that missed itself when nothing was counted. Moments and extrema come off `Domain/stats` `Stat<Scalar>`, the branch's ONE moment owner, so no reducer roster re-derives the recurrence here.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodPolicy(Dimension NeighborCount, Option<PositiveMagnitude> Radius, PositiveMagnitude EigenGapTolerance, PositiveMagnitude FitResidualTolerance, UnitInterval SphereLikenessBand) {
@@ -584,7 +584,7 @@ internal static partial class NeighborKernel {
 - Growth: a new transport flavor is one policy argument on this fold.
 - Boundary: every emitted plane admits through `VectorFrame.Of`; `Direction.ParallelTransport` applies caller-supplied frames, and parametric-curve sweeps route `Parametric/curve.md` `PerpendicularFrames`.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class NeighborKernel {
     internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key) => cloud.Switch(

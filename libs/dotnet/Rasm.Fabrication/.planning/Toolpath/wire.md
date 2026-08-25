@@ -52,7 +52,7 @@
 - Growth: a machine-book capability is one `WirePass` row; a new occurrence payload is one `WireCycle` case filling the shared columns; a new projection changes only the supplied arrow.
 - Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using CavalierContours.Core;

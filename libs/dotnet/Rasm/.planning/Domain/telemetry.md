@@ -26,7 +26,7 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 - Growth: a new sub-domain is one `KernelDomain` row, span source and point prefix deriving; a package trace plane is one `TraceScope` row admitted when the composition mints its band; a new bracket coordinate is one `SpanEdge` column every bracket already threads.
 - Boundary: edge shape follows producer arity, and `SpanEdge` is where that choice lands — a batch relaying N durable rows descends from no single producer, so a parent edge to any one of them fabricates a causal chain the batch never had while the link set states exactly what caused it; a single-producer hop is the inverse, an ingress adopting one carrier through `Under` continuing the producing trace id where a link roots an orphan trace no query joins to its cause. Kind rides that same carriage because a remote-parented bracket declaring the internal default misreports the topology every backend derives from the kind column. Edges ride the START call because the sampler votes once at creation, and a producer whose span was unlistened carries the absent carrier; absence never fabricates trace context or baggage.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Diagnostics;
@@ -219,7 +219,7 @@ public sealed class SpanBand : IDisposable, IHookSpan {
 - Growth: a third settled verdict is one `Outcome` row and a widening the `Of` bridge no longer spans, which is the loud break that row is worth.
 - Boundary: the fabric never wraps a second timer or a sampling profiler — profile capture is the app stratum's, this row the per-op scalar truth.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using Thinktecture;
@@ -280,7 +280,7 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 - Growth: a new fact kind is one `PointFacet` row, one `SignalFact` case, and one arm in each of the two projections, both broken loudly by the generated `Switch` while the roster grows a seat per sub-domain unedited; a new kernel instrument is one `KernelInstrument` row and one entry in `Charged`.
 - Boundary: `SignalFact` holds evidence over live resources, so a fact retains no geometry, lease, or handle and a subscriber reading one holds nothing the emitter must keep alive. `TelemetrySink` is composition-entered: an app stratum mints one per composition and threads it, and a kernel page never constructs, caches, or reaches an ambient sink. Quiet-path cost is structural — a subscriber-empty point folds an empty veto sequence and iterates an empty tap sequence, so a publish costs one keyed lookup and allocates nothing past its rail.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -529,7 +529,7 @@ public sealed class TelemetrySink {
 - Growth: a new projected kind is one arm-table row in the contributing folder; a contributor's whole board and reliability policy is one `Board` value on its own port, its whole span custody one `Planes` roster on that same port, and a newly annotated sensitivity one `ClassifiedValue` row on its `Classifications` column.
 - Boundary: `Instruments` and `Published` split by WHO MOUNTS — the root binds handles for the first and a contributor owning its own meter lifetime declares the second, `Declared` is the union every naming gate, view predicate, and pack admission reads, and a row on neither roster exports a stream no gate can refuse. `Planes` carries the contributor's own `TraceScope` roster VERBATIM, because trace and meter scopes are distinct grammars neither derives from. `Classifications` carries sensitivity VALUES as `(taxonomy, value)` text, so no compliance type enters this assembly and a redaction root binding a redactor per rostered row has a set to PROVE its contributors against instead of a coincidence it discovers at egress.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Text.Json;
 using Thinktecture;

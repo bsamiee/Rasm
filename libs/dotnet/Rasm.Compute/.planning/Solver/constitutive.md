@@ -31,7 +31,7 @@ The three page-level names carry their DISCIPLINE rather than the branch's share
 - Boundary: the update is a PURE fold of `(model, strain, state, parameters)` and takes no clock — the `Instant` is caller metadata the result carries, exactly as `Solver/clash` stamps its receipt at the receipt and not at the geometry fold. A clock threaded into a pure numeric kernel is a dead entry parameter every Gauss point pays for.
 - Exemption: the twenty component loops across the energy bodies, the return map, and the gap projection are MEASURED span kernels over fixed small arities — a per-Gauss-point stress update is the `ref struct` fold the expression law exempts by name, and every one of them dies with the call that fills it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public interface IScalar<T> where T : IScalar<T> {

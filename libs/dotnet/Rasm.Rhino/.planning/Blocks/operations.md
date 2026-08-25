@@ -24,7 +24,7 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 - Growth: a new mutation is one `BlockOp` case, one trait row read, and one `Apply` arm — the generated dispatch breaks loudly until all three land.
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinitionTable` authoring, linked-source, lifecycle, and instance members; `FileReference`), `Rasm.Rhino.Document` (`DocumentCommit`, `HostInteraction`, `ResourceRef`/`ResourceId`/`ResourceIndex`/`ResourceName`, `DocumentPath`, `GeometryIntake`), kernel `Domain/rails` (`Op`, `Lease<T>`, `Fault`, `Custody`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
@@ -521,7 +521,7 @@ public abstract partial record BlockOp {
 - Exemption: `Capture` is the statement-shaped native out-parameter boundary — two `Explode` overloads whose only outputs are three `out` arrays — and both collapse immediately onto the same tuple rail.
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceObject.Explode` overloads, `TextFields.GetInstanceAttributeFields`, `TextFields.BlockAttributeText`), `Rasm.Rhino.Document` (`GeometryCrossing`/`GeometryHandle`, `DocumentCommit`, `TableTarget`, `ResourceRef`), kernel `Domain/rails` (`Custody`), Riok.Mapperly (`[Mapper]`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldSource {
@@ -646,7 +646,7 @@ internal static partial class FieldMap {
 - Law: the receipt fold is the stream's monoid — every arm's fragment accumulates through `+`, and the sealed serial rides the stamp projection rather than a rail.
 - Packages: `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `RedrawPolicy`, `DocumentCommit`, `Admission`), kernel `Domain/rails` (`Op`, `Context`, `Fault`, `Custody`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
@@ -884,7 +884,7 @@ public static class Blocks {
 - Growth: a new consequence is one slot row naming its kind set; a new payload is one body case, one kind row, and one projection arm.
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/tables.md` (`ResourceId`, `ResourceIndex`, `DocumentPath`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

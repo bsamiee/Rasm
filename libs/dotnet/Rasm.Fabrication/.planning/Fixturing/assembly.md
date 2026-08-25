@@ -24,7 +24,7 @@
 - Law: `JoinMetric.DepositedEnergy` is the ONE thermal-load quantity, so distortion ordering ranks hot joints against each other by energy instead of collapsing to a hot-before-cold binary.
 - Growth: a new join mechanism is one `JoinMethod` row and, where its scalar or identifier is new, one `JoinMetric` or `JoinText` row; phase, edge, scheduler, preimage, and consumer surfaces stay unchanged.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -452,7 +452,7 @@ public sealed record AssemblyJoint(
 - Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection. Every graph question is a shipped `AlgorithmExtensions` call and no walk is hand-rolled: `IsDirectedAcyclicGraph` rails ahead of the two sorts that throw on cyclic input, `SourceFirstBidirectionalTopologicalSort` answers both directions, `ComputeTransitiveReduction` reduces, `InEdges` reads predecessors inside the lane fold, `ConnectedComponents` labels physical subassemblies, and the cyclic witness composes the ONE `Setups.Components` grouping.
 - Boundary: precedence and physical connectivity remain distinct; geometry failure, missing specification, unstable release, and blocked access remain typed failures carrying a `JoinRejection` reason rather than one opaque code.
 
-```csharp signature
+```csharp
 // --- [PLANNING] ------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class PrecedenceKind {
@@ -1137,7 +1137,7 @@ internal static partial class Assemblies {
 - Output: projection preserves typed precedence, execution receipts, service order, and the already-minted plan key.
 - Boundary: joining consumes joint and phase identity, handling consumes stability and subassembly identity, and service consumes only reversible steps; no consumer reconstructs those facts from prose or array order.
 
-```csharp signature
+```csharp
 // --- [PROJECTION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class AssemblyProjection {

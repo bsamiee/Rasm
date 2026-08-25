@@ -33,7 +33,7 @@ This page mints the python-produced document: the ingest and IBL-assembled plane
 - Growth: a new set kind is one `SetKind` row with one manifest `kind` value; a new source modality is one `MapSource` case with one worker arm; a new slot vocabulary is one `ingest#INGEST` member with its law row, which `_ROSTER`, `default_spec`, `emit`, and the egress grammar all pick up unedited; a new set-level gate is one `admitted` arm breaking every capture at type-check; a new producing tool or license class is one `ProducerTool` or `LicenseClass` row, re-frozen in the fragment first.
 - Boundary: durable stores stay peer-owned and cross at the content-keyed wire — this page imports no object egress, and the branch strata carry no such edge. Directory walking and host paths stay at the app root; the manifest's `source` field carries an ingest root or a generator id, never an absolute host path. Eight-bit previews of a produced plane stay `graphic/raster/io#IO`'s `RasterOp`. USD material AUTHORING and render-actor binding stay their own owners' — but the role-to-slot LOWERING is this page's, because it is a projection of this page's own roster onto a foreign token vocabulary: each consuming page holds its graph and its own slot roster while holding no channel roster to project FROM, and its foreign-token law is exactly why the table cannot sit there. A chromaticity MOVE and every ICC or config transform stay `graphic/color/managed#MANAGED`'s; this page declares the datum and routes the conversion, never composing it.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -516,7 +516,7 @@ async def _recorded[T](settled: RuntimeRail[T], carried: Callable[[T], ArtifactR
             return Error(refused.error)
 ```
 
-```python signature
+```python
 @beartype(conf=FAULT_CONF)
 def _worker_texture(request: MapRequest) -> Result[tuple[MapFact, DeepPlane | None], TextureFault]:
     try:
@@ -787,7 +787,7 @@ def _core_version(fmt: DeepFormat, /) -> str:
 - Growth: a new set kind is one `SetKind` row with its manifest `kind` value; a new egress slot is one `ingest#INGEST` vocabulary row, which `_ROSTER` and its two derived indexes all pick up with no edit here; a new consumer of the produced roster is one `BindTarget`, and a consumer wanting companions adds one `CompanionPolicy` member and one `_COMPANION_TARGET` row with the fan, the fold, the grouping, and the band all unedited; a new sampled floor container is one `_SAMPLED_DEPTH` row whose membership `_SAMPLED_FLOOR` already proves; a new variant claimant is one `_AXIS_PRESENT` row; a new variant axis beyond that is refused by construction until the frozen grammar widens.
 - Boundary: the manifest names blobs; it does not store them. Object-store put, presign, lifecycle, and CDN posture stay at the app root and in the peer branches, and the branch strata carry no artifacts-to-egress edge.
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _VARIANT_FREE: Final[frozenset[DeepFormat]] = frozenset({DeepFormat.KTX2})
@@ -896,7 +896,7 @@ _TILE_LAG: Final[tuple[int, ...]] = (1, 2, 4, 8)
 _TILE_ROLES: Final[tuple[MapSlot, ...]] = (TextureRole.BASE_COLOR, TextureRole.HEIGHT)
 ```
 
-```python signature
+```python
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

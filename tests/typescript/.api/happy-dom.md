@@ -24,7 +24,7 @@ Two consumption seams carry it — vitest selects it by the `environment: 'happy
 |  [04]   | `DetachedWindowAPI`        | class         | `window.happyDOM`; the async-settle + viewport + settings control rail              |
 |  [05]   | `IOptionalBrowserSettings` | interface     | the one construction policy bag (see [03])                                          |
 
-```ts signature
+```ts
 declare class Window extends BrowserWindow {
   readonly happyDOM: DetachedWindowAPI
   constructor(options?: { width?: number; height?: number; url?: string; console?: IConsole; settings?: IOptionalBrowserSettings })
@@ -53,7 +53,7 @@ declare class DetachedWindowAPI {
 |  [05]   | `page.waitUntilComplete()`/`abort()`/`reload()` | `Promise`                   | per-page settle / cancel / reload                       |
 |  [06]   | `DetachedBrowser*`                              | class family                | reuse the global window as browser root (vitest env)    |
 
-```ts signature
+```ts
 declare class Browser {
   readonly contexts: BrowserContext[]; readonly settings: IBrowserSettings
   get defaultContext(): BrowserContext
@@ -73,7 +73,7 @@ declare class BrowserPage {
 
 `IOptionalBrowserSettings` is ONE parameterized policy bag threaded through `Window`, `Browser`, and the vitest `environmentOptions.happyDOM` key — never a matrix of constructor flags. It is where a unit spec bounds cost and picks fidelity knobs.
 
-```ts signature
+```ts
 interface IOptionalBrowserSettings {
   disableJavaScriptEvaluation?: boolean; disableJavaScriptFileLoading?: boolean
   disableCSSFileLoading?: boolean; enableImageFileLoading?: boolean

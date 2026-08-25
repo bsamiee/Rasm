@@ -20,7 +20,7 @@ Spine is `trimesh` and `numpy` — never a phantom `scipy` spine, since no geome
 - Growth: a new query kind is one `SpatialQuery` case and its mirrored `SpatialResult` arm and one `_dispatch` arm — `assert_never` forces the closure; a new exact-geometry provider is one `ManifoldTier` row at `mesh/repair#MESH`, never a probe minted here.
 - Boundary: vertex-KNN acceleration (`open3d.geometry.KDTreeFlann`, `small_gicp.KdTree.batch_knn_search`) is NOT this owner's backend — a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/registration` consumer that owns the cloud-to-vertex correspondence; IFC clash detection is `ifc/analysis#ANALYSIS`'s `ifcclash` drive, never this index; conditioning is `mesh/repair#MESH`'s and the capability probe with it; metrology and the `ArmOutcome` cross-cut are `mesh/quality#QUALITY`'s.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable, Sequence
 from functools import partial

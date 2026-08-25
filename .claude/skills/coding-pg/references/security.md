@@ -10,7 +10,7 @@ RLS policies enforce tenant isolation and access control at the query planner le
 
 Tenant isolation policy (enable + force in same statement block):
 
-```sql conceptual
+```sql
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders FORCE ROW LEVEL SECURITY;  -- without FORCE, table owners bypass RLS
 
@@ -30,7 +30,7 @@ Per-operation policies enforce least-privilege per DML verb:
 
 Combining permissive + restrictive for layered access:
 
-```sql conceptual
+```sql
 -- Permissive: tenant sees own rows (OR'd with other permissive policies)
 CREATE POLICY tenant_read ON orders FOR SELECT
     USING (tenant_id = nullif(current_setting('app.current_tenant', true), '')::uuid);
@@ -42,7 +42,7 @@ CREATE POLICY active_only ON orders AS RESTRICTIVE FOR SELECT
 
 Temporal RLS — policy with range containment:
 
-```sql conceptual
+```sql
 CREATE POLICY valid_period_access ON versioned_entities
     USING (valid_period @> current_timestamp::timestamptz);
 ```
@@ -65,7 +65,7 @@ CREATE POLICY valid_period_access ON versioned_entities
 
 Column-level grants for sensitive data:
 
-```sql conceptual
+```sql
 REVOKE SELECT ON users FROM app_readonly;
 GRANT SELECT (id, name, email, created_at) ON users TO app_readonly;
 -- password_hash, mfa_secret, recovery_codes columns are NOT granted
@@ -73,7 +73,7 @@ GRANT SELECT (id, name, email, created_at) ON users TO app_readonly;
 
 Default privileges for automated schema management — applies to all future objects created by `deploy_role`:
 
-```sql conceptual
+```sql
 ALTER DEFAULT PRIVILEGES FOR ROLE deploy_role IN SCHEMA app
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_readwrite;
 
@@ -86,7 +86,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE deploy_role IN SCHEMA app
 
 Privilege escalation prevention:
 
-```sql conceptual
+```sql
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 -- Grant only specific functions to specific roles
 GRANT EXECUTE ON FUNCTION app.search_entities(text, int) TO app_readonly;
@@ -112,7 +112,7 @@ SECURITY INVOKER vs SECURITY DEFINER for function execution context.
 
 SECURITY INVOKER (the default):
 
-```sql conceptual
+```sql
 CREATE FUNCTION safe_lookup(p_id uuid)
 RETURNS jsonb
 LANGUAGE SQL
@@ -124,7 +124,7 @@ RETURN (SELECT to_jsonb(t.*) FROM orders t WHERE t.id = p_id);
 
 SECURITY DEFINER with search_path lock:
 
-```sql conceptual
+```sql
 CREATE FUNCTION admin_audit_log(p_action text, p_detail jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -160,7 +160,7 @@ $$;
 
 Compliance-grade audit logging for SOC 2, HIPAA, and PCI-DSS requirements.
 
-```sql copy-safe
+```sql
 CREATE EXTENSION pgaudit;
 ```
 
@@ -168,7 +168,7 @@ CREATE EXTENSION pgaudit;
 
 Session audit via `ALTER SYSTEM` (persists across restarts):
 
-```sql conceptual
+```sql
 ALTER SYSTEM SET pgaudit.log = 'ddl, write';
 ALTER SYSTEM SET pgaudit.log_relation = on;         -- log relation name per statement
 ALTER SYSTEM SET pgaudit.log_catalog = off;         -- exclude pg_catalog (noisy)
@@ -184,7 +184,7 @@ SELECT pg_reload_conf();
 
 [OBJECT_AUDIT]: (`pgaudit.role`): captures only statements touching objects where the named audit role has grants. More selective — use for targeted compliance on sensitive tables:
 
-```sql conceptual
+```sql
 CREATE ROLE auditor NOLOGIN;
 GRANT SELECT, INSERT, UPDATE, DELETE ON users, payments, audit_log TO auditor;
 -- Only queries touching these three tables generate object audit entries
@@ -205,7 +205,7 @@ Application-level audit via MERGE RETURNING — not triggers.
 
 Audit via MERGE RETURNING OLD/NEW:
 
-```sql conceptual
+```sql
 WITH write_result AS (
     MERGE INTO entities AS tgt
     USING (SELECT $1::uuid AS id, $2::jsonb AS payload) AS src

@@ -21,7 +21,7 @@ TanStack Table owns the one data grid — rows, headers, facets, grouping, aggre
 - Growth: a new slice is one `Grid.Slice` field, one seed row, and — where an estate owns it — one `Grid.edge` binding; never a second fold and never a parallel controlled pair.
 - Boundary: registry lifecycle, write modality, and the undo fold are `system/atom`'s; this owner holds only the grid's slice vocabulary and its crossing into the table's ownership rail.
 
-```typescript signature
+```typescript
 import type { Atom, Registry } from "@effect-atom/atom-react"
 import type {
   CellSelectionState,
@@ -136,7 +136,7 @@ const _edge = <K extends keyof Grid.Slice>(
 - Law: spanning is role-driven — a `category` column merges adjacent equal values into one anchored run, a `key` column never merges because identity is per row, and a `measure` column never merges because one magnitude read across many rows is a false total.
 - Growth: a new wire kind is one `_CELL` row; a new column fact is one `Grid.ColumnMeta` field every producer of columns then states.
 
-```typescript signature
+```typescript
 import { Feed } from "@rasm/core"
 import type { ColumnDef } from "@tanstack/react-table"
 import { createColumnHelper } from "@tanstack/react-table"
@@ -234,7 +234,7 @@ const _banded = (document: Feed.Document): ReadonlyArray<ColumnDef<Grid.Features
 - Law: the sort registry stays DOMAIN-BLIND — `rank` is the one consumer-ordered entry, and a consumer orders its own closed vocabulary by handing that column the rank its own registry row carries. Domain order crosses as DATA; a key named for a consumer's vocabulary would seat viewer words in the view tier and invert the strata.
 - Growth: a new derivation is one feature beside its row-model slot, never a branch at a call site; a new sort or filter behavior is one registry key.
 
-```typescript signature
+```typescript
 import {
   aggregationFn_count,
   aggregationFn_extent,
@@ -360,7 +360,7 @@ declare namespace Grid {
 - Law: selection identity is the marked column's own value decoded to the `GlobalId` brand — `RowSelectionState` keys on that brand from a band row and a wire row alike, so the grid's selection IS `viewer/mark`'s set with no second identity fold; an undecodable value answers `None` and the row leaves the set rather than keying it on a raw string.
 - Boundary: press, hover, focus-ring, and keyboard primitives are `system/act`'s and `system/primitive`'s; the class dispatch a seat drives is the folder's token plane; the selection SET and its op vocabulary are `viewer/mark#SELECTION_FOLD`'s.
 
-```typescript signature
+```typescript
 import type { Cell, CellSelectionEdges, Header, Row, Table } from "@tanstack/react-table"
 import { Selection } from "../viewer/mark.ts"
 
@@ -465,7 +465,7 @@ const _anchor = <TData>(
 - Growth: a new sticky class (a pinned footer, a group header) is one index-set argument to the range union — never a second extractor.
 - Boundary: the scroll host element and the density estimate are the composing view's; this owner takes both as parameters and mints no layout literal of its own.
 
-```typescript signature
+```typescript
 import type { Range, ReactVirtualizer } from "@tanstack/react-virtual"
 import { defaultRangeExtractor, measureElement, useVirtualizer } from "@tanstack/react-virtual"
 import { Function } from "effect"

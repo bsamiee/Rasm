@@ -26,7 +26,7 @@ Every capability word rides the kernel `CapabilitySet<T>`: the host's `LicenseCa
 - Boundary: `LicenseBuild` and `LicenseKind` mirror their host enums completely, so `Op.Row` over a host read is total and no arm invents a default row.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ValueObject<Guid>]`, `[SmartEnum<THostEnum>]`, `[SmartEnum<bool>]` with `ConversionToKeyMemberType = Implicit`, `[UseDelegateFromConstructor]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`); kernel `Domain/validation` (`ICapability`, `CapabilitySet.OfMask`/`.Mask`, `Op.AcceptValidated`), `Domain/rails` (`Op`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:54` — `LicenseCapabilities` ordinal order and the `0x1FF` union, `LicenseBuildType`, `LicenseType`; `:115` — `GetLicenseCapabilities(int)` and its throw).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
@@ -120,7 +120,7 @@ public sealed partial class LicenseNode {
 - Boundary: `LicenseData.ProductIcon` and `LicenseStatus.ProductIcon` are disposable native handles, so neither rides a detached record; the lease-changed hook answers its badge through the kernel raster owner and the boundary hands the host an icon it mints at that one seam.
 - Packages: Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[UserMapping]`); Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`, `[BoundaryAdapter]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op.Text`, `Op.Need`, `Op.Catch`, `Op.ToHostNullable`, `ValidityClaim`), `Domain/validation` (`Op.Row`, `CapabilitySet`); `Document/events` (`PluginKey`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseData` constructor and reads, `LicenseStatus`, `LicenseLease`).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
@@ -238,7 +238,7 @@ internal static partial class LeaseMap {
 - Boundary: the badge crosses as a kernel `AssetRaster` and the host's `out System.Drawing.Icon` slot is filled at this seam alone — `GetHicon` hands the host an unmanaged icon handle whose lifetime the host then owns, while the leased bitmap disposes with its lease, so the conversion happens once here and no consumer holds a host icon.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `Op.ToHostSlot`), `Domain/validation` (`CapabilitySet.Mask`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`), `Interaction/asset` (`AssetRaster`), `Interaction/paint` (the GDI bitmap lease the badge carries); Eto.Forms (`Control` — `.api/api-eto-forms.md`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:113` — `GetLicense` both overloads, `AskUserForLicense`, `ReturnLicense`, `GetLicenseOwner`, `SetLicenseCapabilities`, `ValidateProductKeyDelegate`, `OnLeaseChangedDelegate`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LicenseReply {
@@ -403,7 +403,7 @@ public abstract partial class RasmPlugIn {
 - Boundary: `LoginToCloudZoo` opens the host's own account flow; the account case answers the resulting identity as detached text off `RhinoApp`.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `Op.Text`, `Retriability`, `RedrivePolicy`), `Domain/validation` (`Op.Row`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`); `Document/events` (`PluginKey.Maybe`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseUtils.GetLicenseStatus`, `GetOneLicenseStatus`, `CheckOutLicense`, `CheckInLicense`, `ReturnLicense`, `ConvertLicense`, `DeleteLicense`, `IsCheckOutEnabled`, `LoginToCloudZoo`, `LogoutOfCloudZoo`, `ShowBuyLicenseUi`, `ShowLicenseValidationUi`), RhinoCommon runtime (`api-rhinocommon-runtime.md` — `RhinoApp.UserIsLoggedIn`, `RhinoApp.LoggedInUserName`).
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -532,7 +532,7 @@ public static class Licenses {
 - Boundary: a sink fault records nowhere on this rail; the observation is a pure detach-and-deliver, and a consumer needing a ledger supplies one inside its own sink.
 - Packages: LanguageExt.Core (`Fin`, `Option`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Side`); `Document/lifetime` (`Subscription.Attach`); RhinoCommon runtime (`.api/api-rhinocommon-runtime.md:187` — `LicenseStateChangedEventArgs.CallingRhinoCommonAllowed`, `RhinoApp.LicenseStateChanged`).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LicenseFact(bool CallingAllowed);
 

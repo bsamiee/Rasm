@@ -6,7 +6,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost, Rasm.Contracts}; no host geometry
 ├── Component/             # One polymorphic Component over the closed component-family axis, class-discriminated
 │   ├── Component.cs       # Component record, closed SectionProfile algebra, MaterialGrade rows, and the ComponentSeed traverse and gates

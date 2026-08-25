@@ -20,7 +20,7 @@
 - Growth: a new material posture is one row carrying sign and rotation; a new provider verdict is one `ArcRelation` row carrying its native codes, and both projections derive from it with no arm to add. A new operation, query, lead, or projection modality is one union case and one generated-total dispatch arm.
 - Boundary: `ArcOp` never wraps `ArcProjection`, so each concern has one entrypoint. Both ingress families carry tolerance, plane, requested error, and policy values in their admitted input, and every probe re-enters the forest's context — a loop proves tolerance and plane through `Compatible`, a query point proves coplanarity — so no cross-context value answers a forest question.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -213,7 +213,7 @@ public abstract partial record ArcOp {
 - Receipt: `ArcTrace.Lowering` and `ArcTrace.Recovery` are TOTAL projections over the whole family, so both directions read the same way and a widened family breaks at compile time; the `Option`-shaped half-projection that served only the lowering direction left every recovery consumer spelling its own type test.
 - Growth: new provider evidence enriches the existing receipts rather than minting a parallel one.
 
-```csharp signature
+```csharp
 // --- [EVIDENCE] ------------------------------------------------------------------------
 public readonly record struct ArcLoopEvidence(Loop Output, int Parent, Sign Winding, int IndexItems, int OutputSegments);
 
@@ -322,7 +322,7 @@ public abstract partial record ArcTrace {
 - Packages: `CavalierContours.Polyline` supplies raw offset stages, the `PointValidForOffset` collision predicate, Boolean result metadata and subslices, containment, self-intersection visitors, exact arc queries, and error-bounded arc lowering; `CavalierContours.Shape` supplies winding-forest construction, offset, parent lineage, and spatial indexes; `geometry3Sharp.BiArcFit2` supplies residual-driven chord recovery; `LanguageExt` supplies `Validation`, `Traverse`, immutable collections, and typed `Fin` rails; `Thinktecture` generates every closed case, policy vocabulary, and admitted value owner.
 - Boundary: mutable lists and indexed native loops exist only while materializing provider input and output. Every provider result re-enters through `Loop.Admit` or `ArcForest.Admit`; no provider enum, shape, index, result, or biarc object crosses the owner. Arc space references NO line-space engine: the chord lowering answers a `Polyline<double>` this owner admits directly, and `FromPline` is the one admission the sibling line-space owner composes for the two hygiene rules the atom's provider answers.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArcAlgebra {
     public static Fin<ArcTrace> Apply(ArcOp operation) => operation.Switch(

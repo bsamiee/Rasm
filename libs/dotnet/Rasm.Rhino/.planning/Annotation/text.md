@@ -24,7 +24,7 @@
 - Packages: `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`ResourceName`); `Document/session.md` (`DraftFault`); `Domain/rails` (`ValidityClaim`, `Op` receivers); `Domain/validation` (`CapabilitySet<T>`, `Op.AcceptValidated`); RhinoCommon `TextEntity`/`Leader`/`AnnotationBase` per `.api/api-rhinocommon-annotation.md`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: a host formatting member joins as a column on the `FaceDecoration` row that already names its concept; a new run edit is one case with its factory and its arm.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -315,7 +315,7 @@ public static class TextRtf {
 - Packages: `Domain/validation` (`Op.Accept`, `Op.Need`); `Document/tables.md` (`ResourceId`); RhinoCommon `TextFields` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a catalog-proven `TextFields` member is one `FieldKind` row with its signature run; every program, composition, and evaluation gains it without another surface.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CoordAxis {
@@ -497,7 +497,7 @@ public sealed record FieldProgram {
 - Packages: `Domain/rails` (`Custody`, `Lease<T>`, `ValidityClaim`); RhinoCommon `TextEntity` outline members per `.api/api-rhinocommon-annotation.md`.
 - Growth: a new outline family is one `OutlineForm` case, one arm naming its host pair, and one `OutlineProduct` case; the grouping fold and the evidence capture gain it unchanged.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class OutlineGrouping {
@@ -713,7 +713,7 @@ public sealed partial class OutlineSpec {
 - Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `StyleField`, `StyleOp.Lens`, `DraftCrossing`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `LengthDisplayRow`); `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`TableTarget`, `TargetResolution.Only`, `ResourceId`, `GeometryHandle`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); `Numerics/atoms` (`PerceptualColor.OfHost`); RhinoCommon `AnnotationObjectBase`/`Leader`/`TextFields` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a new text mutation is one `TextOp` case with its factory and arm; a new read is one `TextAsk` case beside its answer case, and the commit and ask entries gain both unchanged.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnnotationSeed {

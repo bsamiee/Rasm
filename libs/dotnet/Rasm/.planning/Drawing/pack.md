@@ -23,7 +23,7 @@
 - Law: `BrepPatch` control-net quantization answers to the NURBS owner — any lane carrying the underlying control net ties to the `Rasm/Parametric/nurbs#NURBS_ENGINE` `NurbsForm` homogeneous SoA columns and the reconciliation `EncodeForm.Parametric` identity, whose admission gates (weights strictly positive, knots normalized) a dtype's rounding must preserve; a quantization whose round trip breaks either gate refuses at the witness rather than packing a net `Nurbs.Of` faults on re-admission.
 - Boundary: one `PackOp` `[Union]` folds through `Apply` with no per-kind encoder class; reconciliation owns the content digest, so the page binds `(form, digest)` pairs and cloud, mesh, and parametric byte layouts share one digest owner rather than crossing as raw bytes; raw `float`/`byte` stay inside the pack loop, and the only public residency seam is the `Payload`/descriptor pair. `ScalarField` cases the policy already vetted are constructed DIRECTLY — `PackPolicy.Of` admitted the curvature step and iteration count into their band owners, so a re-admitting factory re-gates proven values; raw-ingress siblings keep their `Fin` factory. A lane whose source column is ABSENT refuses typed rather than filling a constant: an opaque-white colour plane and a fabricated (0, 0) UV plane both pass the round-trip witness exactly, so the witness can never be the gate that catches them. Digest provenance splits TWO ways — `Apply` roots `Witness.ContentHash` on the SOURCE, `Of` on the PACKED PAYLOAD through `ContentHash.Of`; the source root runs through reconciliation's `EncodeForm` for every case that HAS one, and `Toolpath` is the single exception, a line/arc span stream with no canonical byte layout there, rooting on its own framed `CanonicalWriter` preimage — and no validity claim can adjudicate which is right, so `RoundTripWitness.Root` names the root and a consumer keying dedup or lake identity MUST read it: a source-rooted and a payload-rooted digest of ONE geometry differ by construction.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
@@ -664,7 +664,7 @@ flowchart LR
 - Law: every channel's `Filter` satisfies `Filter.Admits(Arity, Dtype.Width)`, and `PackSchema.IsValid` is the reader — a filter and a layout that disagree fail the schema before a byte moves. `Normal` and `Rotation` take `Exponential` rather than the semantically closer octahedral and quaternion rows because both carry `Float32` components: octahedral needs a four-component 8- or 16-bit lane, quaternion exactly four 16-bit, and claiming either at `Float32` width is the undecodable emission the law forecloses.
 - Boundary: this owner declares wire IDENTITY, never wire MACHINERY — no meshopt encoder, no glTF document model, and no `EXT_meshopt_compression` fallback-buffer policy lives in the kernel; the `Rasm.Element` interchange writer and the TypeScript `viewer/scene` decoder gate consume these rows, and the kernel's `Directory.Packages.props` carries no meshopt reference precisely because the rows are tokens and laws rather than a codec.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
@@ -729,7 +729,7 @@ public sealed partial class EncodingChannel {
 - Law: `Json` seals at type init through `JsonSerializerOptions.MakeReadOnly()`, so the converter set and resolver chain are fixed before the first evidence byte moves and a composition appending to either throws at the append; both lanes therefore carry the same 106-bit value and a `double`-degrading round trip is structurally unreachable.
 - Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consuming-seam projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer wraps every field zero-copy while the kernel never touches a columnar client — `Rasm.Compute` `Runtime/codecs#ARROW_BATCH` borrows those slices into record-batch columns and `Rasm.Persistence` `Query/lakehouse#FLAT_TABLE_EGRESS` owns the writers, hive generation, and Flight serving beneath them; the kernel reaches neither, and `SchemaId` is the identity the lake generation keys its tree on. `PackEvidenceContext` declares the kernel evidence payload alone and folds into the app-root suite as one `SuiteContracts.Wire` context argument — the kernel mints no second suite and admits no reflection resolver.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.IO;

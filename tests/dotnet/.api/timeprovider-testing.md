@@ -33,7 +33,7 @@ Fence carries the full `CreateTimer` signature and the `FakeTimeProvider` shape.
 |  [09]   | `LocalTimeZone`                                         | read    | the current test timezone                                       |
 |  [10]   | `CreateTimer(...)`                                      | timer   | fake `ITimer` driven purely by advances; signature in the fence |
 
-```csharp signature
+```csharp
 public class FakeTimeProvider : TimeProvider {
     public DateTimeOffset Start { get; }
     public TimeSpan AutoAdvanceAmount { get; set; }

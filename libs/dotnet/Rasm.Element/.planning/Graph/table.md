@@ -21,7 +21,7 @@ One `Tabulate` fold flattens a frozen `ElementGraph` into ten typed row families
 - Growth: a new dataset is one `TableRow` case declaring its temporal category, with its `Cells` arm, its `TableFamily` row, and its projection in `[04]`; a new column is one payload field with its cell in the same arm and its `TableColumn` in the same row; never a sibling row type beside the union and never a dataset whose columns live apart from its payload.
 - Boundary: `TableRow.Object` shadows the simple name `Object` inside the union body exactly as `Node.Object` does at its own owner, and `TableRow.Classification` shadows the seam classification type the same way, so every construction spells the nested case and the generated arms read `@object:` and `classification:`; the row is a DERIVED projection carrying zero authority — the graph and its receipt stream own truth, a dropped dataset rebuilds by re-tabulating, and writing a table row back into the graph is the deleted inversion; `Cells` carries no storage type, so a physical width, a nullability dialect, and a partition expression stay the custodian's; heavy payloads never enter a row — geometry, result artifacts, and raster coverages ride their content keys, which cross as text.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;
@@ -227,7 +227,7 @@ public sealed record TableSnapshot(ContentAddress Address, Seq<TableRow> Rows) {
 - Boundary: `TableSpine` clocks by evidence, not convenience — `element.assessments` is the one EVENT-TIME family and partitions on `at`, the instant its assessment ran, so a rollup never reports arrival time as work time, while every snapshot family is landing-timed because re-tabulating one frozen graph reproduces its facts unchanged and a tabulation instant there re-dates immutable evidence to whenever it was last projected.
 - Boundary: `TableFamily` declares a `Measure` only where a numeric column genuinely folds — a rollup over a count, a token, or a content key is a fabricated statistic the absent measure forecloses.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -523,7 +523,7 @@ public readonly record struct TableBatch(TableDeclaration Declaration, Seq<Seq<O
 - Growth: a new dataset is one projection member returning its `TableRow` case; a new column on an existing dataset is one argument in the projection that already builds its case; a scoped variant is a root set, never a second entrypoint.
 - Boundary: `Tabulate` is PURE over an already-frozen snapshot — it opens no store, resolves no geometry through `GeometrySource`, and reaches no ambient registry, so a caller supplies the graph and receives rows; heavy payloads stay behind their content keys, so a representation hash, a result blob, and a raster key cross as text and the artifact itself never enters a row; the edge row keys on the edge's own content address, so two structurally identical edges address as the one edge they are — the positional array index keying them apart is the deleted form, because array order is a snapshot artifact no consumer may join on; a family's row count is the graph's, never capped — the columnar residences carry no cardinality ceiling and a truncating fold silently under-reports a takeoff.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GraphTable {
     public static Fin<TableSnapshot> Tabulate(ElementGraph graph, Op key, Option<Seq<NodeId>> roots = default) =>

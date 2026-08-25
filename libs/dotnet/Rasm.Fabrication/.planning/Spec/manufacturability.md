@@ -21,7 +21,7 @@ A settled assessment addresses under `EgressKind.QualityRecord` over the REQUEST
 - Law: `RouteObjective` rows carry their own yield-adjusted measurement and weight selector, EVERY column dividing by its own `RouteWeight` reference so the column reaches the fold dimensionless and comparable, and `RouteScore.Total` is the weighted burden where LOWER is better — the one ranking polarity `MachineMatch.Score` and `CellPlacementCandidate.Score` also carry, so `Worst` names the dominant burden on every surface and a new routing dimension is one row with no scoring expression re-spelled.
 - Growth: a concern is one `DfmConcern` seed; a feature is one `DfmFeature` seed; a derivation route is one `DfmProvenance` row declaring its exactness; a routing dimension is one `RouteObjective` row beside its reference column.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -240,7 +240,7 @@ public sealed partial class RouteObjective {
 - Growth: a policy variation is one `DfmRule` row; a process candidate is one `RouteCandidate` row; a sidecar family is one `DfmPackageEvidence` case carrying its own resolution column.
 - Boundary: sidecar OpenCAMLib and PicoGK owners lower native handles into `DfmPackageEvidence` before this host-local owner consumes them; every owner refuses onto `FabricationFault` under `FabConcern.Spec`.
 
-```csharp signature
+```csharp
 // --- [MEASUREMENT] ---------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DfmMeasure : IValidityEvidence {
@@ -741,7 +741,7 @@ public abstract partial record DfmPackageEvidence : IValidityEvidence {
 - Packages: `Process/owner` (`Receipt<TEvidence>`, `FabricationCanon.Keyed`, `EgressKind.QualityRecord`, `ContentKey`); `Rasm.Domain` (`IValidityEvidence`, `ValidityClaim`, `Op`); `Rasm.Meshing` (`MeshSpace.FaceNormals`, `.Index`, `.DuplicateNative`); `Rasm.Spatial`; `Rasm.Analysis`; LanguageExt.Core for the accumulated rail.
 - Boundary: routing ranks process requirements and evidence, while fleet matching, tool selection, support generation, unfolding, joining sequence, correlated stackup simulation, rendering, and persistence remain downstream owners.
 
-```csharp signature
+```csharp
 // --- [RECEIPTS] ------------------------------------------------------------------------
 public sealed record DfmVerdict(
     ProcessKind Process,

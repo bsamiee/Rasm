@@ -17,7 +17,7 @@ Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the
 - Growth: a new access op is one `AccessRequest` case, one `AccessOp` row, and one `_ARM` entry; a new conformance clause is one `UaCheck`/`PreflightCheck`/`ArchiveCheck` member plus one predicate row in its `_UA_CLAUSES`/`_PREFLIGHT_CLAUSES`/`_ARCHIVE_CLAUSES` table (a clause needing fresh evidence also lands its audit field); a new standard PDF/UA role is one model `StructEltKind` member; a new nesting rule is one `_NESTING` row; a new archival or print level is one `Literal` member.
 - Boundary: born-PDF/A authoring stays at `document/emit#DOCUMENT` — ARCHIVE upgrades an ALREADY-emitted PDF in place; `pdf_oxide.DocumentBuilder.tagged_pdf_ua1()` is the from-scratch born-tagged author reserved for emit, never a second structure author over an existing PDF here; signing stays at `exchange/conformance#CONFORMANCE`, security finishing at `document/egress#FINISH`, OCG authoring at `export/layered#LAYERED`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field as dc_field

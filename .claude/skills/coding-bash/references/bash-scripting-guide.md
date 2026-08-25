@@ -4,7 +4,7 @@ Bash `5.2+`/5.3 language reference: strict-mode composition, parameter-expansion
 
 ## [01]-[STRICT_MODE]
 
-```bash conceptual
+```bash
 #!/usr/bin/env bash
 set -Eeuo pipefail
 shopt -s inherit_errexit extglob nullglob
@@ -43,7 +43,7 @@ IFS=$'\n\t'
 
 Fork-free command substitution (`${ cmd; }` / `${| cmd; }`) drops the fork+exec that `$(cmd)` requires, making every hot-path `$()` zero-cost.
 
-```bash conceptual
+```bash
 # Fork-free substitution (5.3) — version-gate for portability
 (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 3) )) && {
     name=${ printf '%s-%s' "${prefix}" "${suffix}"; }        # stdout capture, no fork
@@ -60,7 +60,7 @@ command | mapfile -t arr       # arr is in calling scope, not lost to subshell
 
 ## [03]-[PARAMETER_EXPANSION]
 
-```bash conceptual
+```bash
 # --- defaults and guards ---
 ${var:-default}              # Default if unset/empty
 ${var:=default}              # Assign default if unset/empty
@@ -115,7 +115,7 @@ printf '%s\n' "${files[@]/%.log/.bak}"             # Suffix swap: a.bak ...
 |  [04]   | `case/esac`                                   | Multi-branch pattern only |
 |  [05]   | `declare -Ar TABLE=(...); "${TABLE[$k]}"`     | O(1) dispatch table       |
 
-```bash conceptual
+```bash
 # case/esac: ONLY for pattern matching (globs, extglobs, regex)
 case "${file}" in
     *.tar.@(gz|bz2|xz)) _extract_archive "${file}" ;;
@@ -127,7 +127,7 @@ esac
 
 ## [05]-[VARIABLES_AND_ARRAYS]
 
-```bash conceptual
+```bash
 readonly MAX_RETRIES=3                              # Module-level: UPPER, readonly
 local -r base_dir="/opt"                            # Function-level: lowercase, local -r
 local -n ref=$1                                     # Nameref: alias to caller's variable
@@ -178,7 +178,7 @@ exec {fd}>&-                                        # Release FD
 
 ## [06]-[NAMEREFS]
 
-```bash conceptual
+```bash
 # Return scalar via nameref (zero-fork alternative to $(subshell))
 _compute() {
     local -n _result=$1
@@ -210,7 +210,7 @@ _reduce() {
 
 ## [07]-[DATA_STRUCTURES]
 
-```bash conceptual
+```bash
 # Dispatch table: see [04]-[BRANCHING]
 # Associative set (O(1) membership test)
 declare -Ar VALID_EXTS=([txt]=1 [log]=1 [csv]=1)
@@ -248,7 +248,7 @@ local -r front="${_queue[_q_head]}"; (( _q_head++ )) # Dequeue
 
 ## [08]-[ARITHMETIC]
 
-```bash conceptual
+```bash
 # Ternary assignment
 (( exit_code = failures > 0 ? EX_ERR : EX_OK ))
 # Boolean coercion (non-zero → 1, zero → 0)

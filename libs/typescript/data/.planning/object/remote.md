@@ -30,7 +30,7 @@
 - Law: legs partition the census by the surface that DECIDES the reason — session, op, transfer, watch, exec — so a refusal names its seam without re-deriving it from the scheme.
 - Law: the scheme row answers the descriptor a consumer selects on, and its two honest NON-answers carry as much weight as its columns — `flags` names what a row FITS and IS its degrade statement, since every false column is a capability given up that the op arms then degrade around, while `Remote.intake` is the one ADMISSION making remote bytes durable in this branch; TENANCY and LIFETIME no network row decides, because a foreign filesystem's isolation belongs to whoever operates it and its bytes outlive this branch's interest entirely, so `remove` is a caller verb rather than a retention policy and a row claiming either coordinate asserts authority over a host it merely dials; the `s3:` row alone answers both by delegating to the object plane's reference ledger, which is precisely why it is a bridge rather than a seventh protocol.
 
-```typescript signature
+```typescript
 import { Array, Data, Either, Option, ParseResult, Schema } from "effect"
 import { Fault } from "@rasm/core"
 
@@ -201,7 +201,7 @@ class Origin extends Schema.Class<Origin>("Origin")({
 - Law: every ssh2 kernel guards its SYNCHRONOUS arm — `connect` refuses an absent username, an unparseable or public-only private key, and an agent-forward request with no agent path; `sftp` and `exec` refuse a dropped session — each throwing before any callback runs, so the guard lands those refusals on `auth` and `connect` and blame stays declared rather than collapsing onto the `defect` row every budget refuses.
 - Boundary: the ssh2 and basic-ftp surfaces are callback/Promise boundary kernels — every listener registration and promise lives inside these brackets, and above them only `Stream`/`Sink`/typed effects exist.
 
-```typescript signature
+```typescript
 import { Effect, Option, Redacted, type Scope } from "effect"
 import { Client as SshClient, type SFTPWrapper } from "ssh2"
 import { Client as FtpClient } from "basic-ftp"
@@ -400,7 +400,7 @@ const _probe = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.S
 - Law: `Remote.Stat.modified` carries ONE spelling from every arm — `_stamped` normalizes to ISO-8601 text at the boundary and answers absence on an unparseable reply, because the sync comparator equates two arms' values directly and persists them, so a WebDAV RFC-1123 string beside an SFTP epoch second reports every shared path changed on every run; the FTP census publishes the MLSD-parsed `modifiedAt` alone, never the `rawModifiedAt` a LIST reply prints for a human and no parser reads back.
 - Boundary: the SFTP callback verbs (`stat`, `readdir`, `mkdir`, `rmdir`, `unlink`, `rename`) are the page's callback kernels — each wraps one `Effect.async` settle and nothing else.
 
-```typescript signature
+```typescript
 import { Chunk, DateTime, Number, Ref, Sink, Stream } from "effect"
 import { FileSystem } from "@effect/platform"
 import { NodeSink, NodeStream } from "@effect/platform-node"
@@ -836,7 +836,7 @@ const _unlock = (origin: Origin, session: Remote.Session, token: string): Effect
 - Law: the resume tap fires where the engine is IN HAND — `remoteResumed` is the only evidence the resume flags ever resumed, and the row that ran is known at the selection, so the counter tags the settled engine rather than a re-derivation at the entry record answering a second, unrelated walk.
 - Law: the mined tuning defaults are policy values — `concurrency: 64`, `chunkSize: 32768` arrived from the wrapper ecosystem's measured defaults and live in `_TUNE`, never inline literals.
 
-```typescript signature
+```typescript
 import { Array, Struct } from "effect"
 import { Command } from "@effect/platform"
 
@@ -999,7 +999,7 @@ const _transfer = (from: Remote.End, to: Remote.End, policy?: Remote.Policy) =>
 - Law: the comparator is a policy row, never a fork — `sizeModtime` reads the census, `checksum` compares content evidence (`etag` where the backend mints one, the content-addressed intake fold's key where it does not), `sizeOnly` serves append-only trees; the row travels on the pair.
 - Law: `sizeModtime` degrades BY ROW rather than by fault — a timestamp votes only where both sides carry one, so a server whose `modTime` column came back false compares on span alone and an origin pair mixing a timestamped side with a bare one abstains on that axis instead of declaring every shared path changed forever; `checksum` falls to the same named row, so one degrade is spelled once and neither comparator invents a sentinel for absence.
 
-```typescript signature
+```typescript
 import { HashSet } from "effect"
 import { Model, SqlClient, SqlSchema } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
@@ -1184,7 +1184,7 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
 - Law: the native arm reports EVENTS, never census — the platform watcher's three tags map onto the change vocabulary through one frozen row, so a rename-swap arrives as its own pair rather than a diffed absence, and the settle guard an intake needs stays `Disk.watch`'s because this surface promises observation, not admission.
 - Law: the poll arm is diff-exact — each cycle's census diffs against the held snapshot by the same comparator rows the sync engine reads, emitting `add`/`change`/`remove` with no phantom events on unchanged trees; a lost push connection re-arms through `Stream.retry` and one full poll cycle reconciles anything missed.
 
-```typescript signature
+```typescript
 import { HashMap, Schedule } from "effect"
 
 const _WATCH_ORDER = ["nativeWatch", "execPush", "poll"] as const
@@ -1291,7 +1291,7 @@ const _watch = (origin: Origin, session: Remote.Session, strategy?: Remote.Watch
 - Law: command structure survives every arm — callers cannot inject a `sh -c` program or interpolate a path into command text; only the SSH boundary renders argv into a POSIX command using single-quote isolation, while the local boundary executes `file` and `args` without a shell. Non-zero exits are data on the result, never exceptions; a channel-level failure is the `exec` fault reason.
 - Boundary: the exec callback and the `exit` listener are the channel's boundary kernel — the last statement flow on the page.
 
-```typescript signature
+```typescript
 import { CommandExecutor } from "@effect/platform"
 
 declare namespace Remote {
@@ -1443,7 +1443,7 @@ export { Origin, Remote, RemoteFault }
 - Law: the pooled-session level belongs to the POOL, so `CacheLane.lease` owns it whole and this page mounts no second row — one pool answering two series hands a board two held-connection numbers no reader can reconcile, and the lane's road already brackets the caller's own scope, tags the key's scheme, and serves every other consumer of that pool by construction; a level minted here measures the lane's lease under a name only this page publishes.
 - Law: identifier-grade context rides the SPAN — `Effect.withSpan("data.remote", { attributes: { op, scheme, host } })` carries the host, while the metric axes stay the bounded scheme, verb, action, engine, and strategy vocabularies each closed by its own roster; a host interpolated into a tag mints one series per origin.
 
-```typescript signature
+```typescript
 import { Duration, Effect, Metric } from "effect"
 import { Convention, Fault } from "@rasm/core"
 

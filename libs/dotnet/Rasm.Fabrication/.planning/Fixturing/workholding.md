@@ -23,7 +23,7 @@
 - Growth: a new element mechanism is one `WorkholdingKind` row and, where its scalar is new, one `FixtureMetric` row; consumers change nowhere.
 - Boundary: template cases survive beside realized elements because their payload arrives before geometry realization and aggregate admission; provider geometry never reaches this cluster.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -590,7 +590,7 @@ public sealed record FixtureCandidate(
 - Receipt: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget; `DatumTransfer` folds the `Joining/sequence` `DistortionField` into a per-setup datum budget, so a distortion the weld plane measured narrows the repeatability a later setup may claim instead of being re-estimated here.
 - Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through the `Process/faults` offset-54 `FabricationFault.FixtureInadmissible` case; degenerate geometry stays on `GeometryFault.DegenerateInput`.
 
-```csharp signature
+```csharp
 // --- [FIXTURE] -------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct FixtureStage {
@@ -865,7 +865,7 @@ public sealed partial class FixtureSet {
 - Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`, `SolveLeastSquaresDetailed`, `SolveReceipt`, `Dimension`, `EpsilonPolicy`), `Geometry2D/algebra` (`PolygonOp.ClipOpen`, `.Boolean`, `PolygonTrace.Regioned`/`.Runs`, `RegionTopology`), `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`), `UnitsNet`, LanguageExt.Core.
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
 
-```csharp signature
+```csharp
 // --- [EVALUATION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FixtureProjection {

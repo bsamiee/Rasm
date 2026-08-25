@@ -19,7 +19,7 @@
 |  [04]   | `walk_mutatable_files`                   | cache walker | enumerate mutants over the cache              |
 |  [05]   | `orig_function_and_class_names_from_key` | cache walker | decode a mutant key to its origin function    |
 
-```python signature
+```python
 @dataclass
 class Config:
     source_paths: list[Path]; only_mutate: list[str]; do_not_mutate: list[str]; do_not_mutate_patterns: list[str]
@@ -47,7 +47,7 @@ STATUS = ("killed", "survived", "no tests", "timeout", "suspicious",
 |  [07]   | `mutmut print-time-estimates`                   | CLI telemetry | worst-case per-mutant time estimate                |
 |  [08]   | `mutmut export-cicd-stats`                      | CLI telemetry | CI/CD stats JSON export                            |
 
-```python signature
+```python
 source_paths = ["assay"] (package-relative; policy lives in tools/assay/pyproject.toml); do_not_mutate = ["assay/__init__.py", "assay/rails/mutation_gate.py"]
 pytest_add_cli_args_test_selection = ["tests/python/tools/assay"]; mutate_only_covered_lines = True; max_stack_depth = -1
 pytest_add_cli_args = ["--hypothesis-profile=rasm-mutation", "-o", "required_plugins=", "-m", "not benchmark and not network and not subprocess"]

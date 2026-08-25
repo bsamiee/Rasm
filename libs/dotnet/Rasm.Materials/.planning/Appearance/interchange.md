@@ -29,7 +29,7 @@ This page owns the generated appearance egress and the MaterialX node-graph inte
 - Boundary: `Set.press` carries `Press` WITHOUT a backend column because every receipt reaching the wire is CPU-minted — `AppearanceEgress.Set` proves `PressReceipt.Backend.ContentAuthoritative` before the document mints, so the accelerator lane is structurally absent from the wire rather than a column a reader trusts. `Press.graph_key` carries presence only for a shaded press; a graphless field or slab press leaves the optional column absent. `Set.ibl.luminance_cdf` likewise carries the stored guide only after a guided prefilter and stays absent after an unguided run.
 - Boundary: `Ibl` is the ONE environment document and it mirrors the resolved `EnvironmentLight` row — the frozen band-major `sh9`, the six product planes by `PlaneRef`, the roughness ladder, and the READ-TIME `intensity`/`rotation` pair a consumer applies and a producer never bakes. The model key rides `Set.source` (the generator of a synthesized dome, absent for an ingested HDRI); NAMED LOSS: the two Hosek-Wilkie asset digests and the authored intensity unit pair, which stay on the domain row and reach the analytics plane off that row rather than off the wire.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Collections.Frozen;
@@ -472,7 +472,7 @@ public static partial class AppearanceWireMap {
 - Boundary: colour values cross as the MaterialX `color3` scene-linear triple consistent with the generated `Color` linear projection, never an sRGB byte triple. `file` on an image-family node is `filename`-typed, crossing EMPTY from `FromGraph` (where `TextureSource.Image` carries in-memory levels the host edge writes as sidecar assets) and FILLED from `ToOpenPbr` when a `Wire.Set` is supplied — those leaf names come from `Raster/set#TEXTURE_SET` `TextureSet.Egress`, rendered once against the set's own lowered key, so the `.mtlx` attribute, the object-store path, and the wire column are ONE string rather than three renderings of one grammar.
 - Boundary: the `.mtlx` port name IS the canonical channel name for every OpenPBR-owned row, which is why the binding needs no translation column and a `Scaled` row carries its unit fork as a real `multiply` node rather than a silent rename; a procedural node instead carries its `texture#TEXTURE_UV` `MtlxParameters` rows so it round-trips its parameters and not a bare category, and the `normalmap` node carries its `scale` input from `AppearanceNode.Normal.Strength`. `MtlxDocument` crosses as portable data the host `System.Xml.Linq` serializer renders and admits through the same node-category map, this owner never holding an XML reader at an interior signature and never binding a native MaterialX runtime; `MtlxInput.Value` renders through `ToString("R", CultureInfo.InvariantCulture)` because the schema requires the invariant round-trip literal. An unmapped category, a dangling edge, or a malformed port rails `MaterialFault.Graph`, never a partial document.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -895,7 +895,7 @@ public static class Mtlx {
 - Growth: a new stage COLUMN is one numbered proto field, regenerated at both ends, with the RMG completeness diagnostics forcing its transcription here and the peer's own mapper forcing the counterpart. A new stage, provider, or precision ROW is one enum value at the corpus, one `Map` arm outbound, and one `switch` arm inbound — each of the three a compile break rather than a runtime surprise. A new appearance channel is a `Raster/set#TEXTURE_CHANNEL` row alone.
 - Boundary: this cluster PROJECTS and never decides. `neural#MODEL_REGISTRY` owns the stage, licence, provider, precision, prior, and score vocabularies and `Raster/set#TEXTURE_CHANNEL` the channel roster; the relaying root moves proto-binary bytes with no `WireJson` rendering and no decode, so the only two surfaces reading a stage message are the two ends the manifest case names.
 
-```csharp signature
+```csharp
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StageWire {

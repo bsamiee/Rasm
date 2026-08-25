@@ -24,7 +24,7 @@ Rasm.Persistence stores every admitted artifact class as content-keyed object by
 - Packages: AWSSDK.S3, Azure.Storage.Blobs, Azure.Storage.Blobs.Batch, Azure.Storage.Common, Google.Cloud.Storage.V1, Minio, CommunityToolkit.HighPerformance, System.IO.Hashing, System.Collections.Frozen, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox (`HttpClient` and the multipart form content for the presigned leg's granted HTTP).
 - Growth: one `ObjectStore` row absorbs a new provider with zero new surface — one row, one leg, one capability set (`presigned` exercised it); a new presigned domain is one minter value, a new grant modality one `GrantRequest` case the collapsed signer already spells a verb for, a new capability one `StoreCapability` row every row then answers; a per-provider upload service, a second presigner beside the endpoint-parameterized one, a row delegate re-discriminating the union, a second HTTP uploader, a client-type guard, or a prose degrade clause beside the capability set is the deleted form because the union case IS the dispatch.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
@@ -346,7 +346,7 @@ public readonly record struct ContentBlobPort(
 - Packages: AWSSDK.S3, Azure.Storage.Blobs, Azure.Storage.Blobs.Batch, Google.Cloud.Storage.V1, Minio, CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter<byte>`), System.IO.Hashing, System.Collections.Frozen, LanguageExt.Core, NodaTime, BCL inbox (`HttpClient`, `MultipartFormDataContent`, `ReadOnlyMemoryContent`).
 - Growth: one part-floor, per-part-ceiling, part-count, and erase-page quadruple per provider row, or one chunking row for a tighter window; a sixth provider fills one leg row — its retain, transition, and rehydrate slots the declared no-ops wherever its seats hold nothing — and contributes its exception family to the one lift fold; a second chunker, a re-declared frame width, a hand-written object-size or page literal beside the row columns, a per-provider transfer or read body, a second HTTP uploader, a per-leg page-chunking loop, or a per-provider abort catch is the deleted form.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TransferPart(int Number, long Offset, long Length, int Chunks);
 public readonly record struct CommittedPart(int Number, string ETag);

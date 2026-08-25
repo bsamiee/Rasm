@@ -55,7 +55,7 @@ BusyBox `sh` implements `[[ ]]` but omits glob pattern matching on the RHS. `[[ 
 
 ## [04]-[SHELLCHECKRC]
 
-```bash template
+```bash
 # .shellcheckrc — paradigm-aligned defaults
 shell=bash
 # Enable optional checks that align with immutability/safety paradigm
@@ -70,7 +70,7 @@ disable=SC2329
 
 [SHELLCHECK_YML]: (for CI matrix configuration):
 
-```yaml template
+```yaml
 # .github/linters/.shellcheck.yml (alternative to .shellcheckrc for CI)
 shell: bash
 enable:
@@ -84,7 +84,7 @@ severity: style
 
 ## [05]-[DIRECTIVES]
 
-```bash conceptual
+```bash
 # Correct: justification explains WHY suppression is safe
 # shellcheck disable=SC2086  # $flags intentionally word-split for multi-flag expansion
 printf '%s\n' $flags
@@ -125,7 +125,7 @@ Directive reference:
 
 [ENV_CONTRACT_VALIDATION]: Declare-once, validate-all pattern from container entrypoints:
 
-```bash conceptual
+```bash
 declare -Ar _ENV_CONTRACT=([SERVICE_NAME]='^[a-zA-Z][a-zA-Z0-9_-]+$' [SERVICE_CMD]='.+')
 _validate_env() {
     local var pattern; for var in "${!_ENV_CONTRACT[@]}"; do
@@ -140,7 +140,7 @@ Eliminates per-variable `[[ -z ]]` chains. Contract is data (the map), not code.
 
 [EMBEDDED_SELF_TEST_GATE]: Assert helpers for dispatch-table scripts:
 
-```bash conceptual
+```bash
 _assert_eq()    { [[ "$1" == "$2" ]] || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: '${1}' != '${2}'"; }
 _assert_match() { [[ "$1" =~ $2 ]]  || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: '${1}' !~ '${2}'"; }
 ```
@@ -161,7 +161,7 @@ Inline assertions with automatic caller location via `FUNCNAME[1]`/`BASH_LINENO[
 
 ## [08]-[CI_INTEGRATION]
 
-```yaml template
+```yaml
 # .github/workflows/shell-quality.yml
 name: Shell Quality Gate
 on: [pull_request]

@@ -24,7 +24,7 @@ Rasm.AppUi document export owns one paginated-output rail. MigraDoc composes flo
 - Growth: one destination case extends delivery and breaks the dispatch at compile time; one export target is one row on `[08]`'s format roster, never a second engine; one diagnostic stream is one `BundleMember` factory row; one fault case is one `[FaultCase]` leaf.
 - Boundary: this union is the ONE export-destination owner, so a per-arm destination enum is the deleted form. `FilePath` admits only fully qualified targets whose normalized path stays under `ProfileRoots.AppRoot`, `StoreRoot`, or `SupportRoot`, rejects every symlink or junction in the selected root and existing parent chain, opens the unique pending file with create-new semantics before writing, and lands the final rename fail-closed against a parent swap — source and target resolve through one parent path in one rename syscall, the GUID-named pending sibling cannot pre-exist at a redirected parent, and the link-free parent re-walk runs after the write immediately before the rename. Path admission is PURE and refuses on the `Fin` rail naming which segment refused, so the lift carries the OS write alone. Archive assembly and manifest custody are the AppHost support-capture fold's — an AppUi-local zip assembler or second manifest store is the deleted form; `BundleMember.ContentKey` mints each pre-redaction payload identity through kernel `ContentHash.Of` while AppHost `SupportManifest.Entry` carries the post-redaction key, so an inequality names redaction or a cap rather than corruption.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -227,7 +227,7 @@ public static class SupportBundle {
 - Growth: one `ReportBlock` case extends the content vocabulary and breaks `BlockLines.Of` at compile time; one `BlockLine` case breaks all three emitter rows at once; one report-composition posture is one `ReportTrait` row; zero new surface.
 - Boundary: the report's colour model is its `PdfExport.Color` row bound onto the renderer document before `RenderDocument`, so a press report and a screen report are one composition under one row value; the MigraDoc flow DOM is the ONE flow-pagination owner — a bespoke page-break fold, a per-format report builder, or a second cursor algebra is the deleted form; typography roles map to MigraDoc styles from the `Theme/typography.md` role rows at composition so a report style never re-mints font literals; drafting's paginated flow reports and the diagnostics report-PDF compose `FlowReport.Render` with their own block seqs, while the drafting sheet-PDF is capture's vector-print arm. The MigraDoc NATIVE chart DOM (`Shapes.Charts.Chart`) is a stated CARVE and stays unreached: a report chart enters as a `PlacedVisual` raster encoded through the capture codec axis, because the chart plane's own grammar — the layered series algebra, the paint resolver, the threshold family, the annotation plane, and the legend split — has no representation in the MigraDoc chart DOM, so routing a report chart through it would mean maintaining a second, weaker chart vocabulary whose output disagreed with the same chart on screen. The carve costs vector text inside a chart and buys one chart authority.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public sealed record TableBody(Option<Seq<string>> Header, Seq<Seq<string>> Rows) {
@@ -494,7 +494,7 @@ public static class FlowReport {
 - Growth: a new hardening concern is one `PdfExport` column; a new permission is one `PdfPermission` row; a new identity column is one `PdfIdentity` member; a new colour model is one `ColorTarget` row both legs read; a new conformance claim is one kernel `PdfTrait` row; the cross-reference family grows only when the PDF backend honors a fourth key.
 - Boundary: the signing-credential crossing is a declared ledger row (`Document/export` -> AppHost `Runtime/secrets.md`), and `PdfCredentials` is the typed carve naming exactly what the `[08]` form cannot set. PDF-UA tagging and the colour model both bind before content materialization — `PdfDocumentOptions.ColorMode` governs how each `XColor` is WRITTEN, so a post-render pass setting it re-saves already-written content streams and governs nothing; the post-render pass therefore applies security, identity, forms, and signatures alone. `ColorTarget` is the ONE colour-model authority for the whole page — a `PdfColorMode` literal at a render site, a second CMYK selector on the print arm, and a `bool cmyk` knob beside a spec are the three deleted forms. Annotations are page-composition content, so they enter through the capture vector-print page fold and never through the post-render `PdfReader` pass; the PDF backend honors exactly three annotation keys and each is reached through the named Skia entrypoint that passes it, so the family is CLOSED at three cases and the raw `DrawAnnotation(rect, key, value)` passthrough is the deleted form — an unhonored key returns void with no diagnostic. Region shape is the backend's own discriminant: a named destination is DEFINED at a point, which is the zero-extent rect the backend requires, while an outbound url and an internal link carry a real rect, so a zero-area region on either rect-bearing case refuses at admission.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -676,7 +676,7 @@ public static class PdfHardening {
 - Growth: one Office target is one `[08]` `ExportTarget` row carrying its fidelity column and its writer; one `OfficeSheet` case admits a content kind and breaks the block fold at compile time; a fidelity promotion is one matrix cell flipped as the verified part members land.
 - Boundary: the Office destination is the same `VisualDestination` union. The fidelity row CARRIES its materialization rather than naming it in prose — `Native` cells materialize their own part vocabulary, `Declared` cells preface the projection they state into the produced document, and `Unsupported` cells reject through `ExportFault.ContentUnsupported` — so the matrix cell is the dispatch and a fidelity read as a bare inequality against one row is the deleted form. The workbook part graph carries no font-embedding part, so the spreadsheet writer takes the admitted cells alone: an `EmbeddedFonts` argument threaded there would be a column the format structurally cannot honour, which `[08]`'s preflight already reports as the format's own absent capability.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -848,7 +848,7 @@ public static class OfficeExport {
 - Growth: a new intent is one `PrintIntent` row; a new device profile is one `PrintTransform` value from profile bytes; a new buffer depth is one `ColorTarget` row; a new chain stage is one `PrintLink` row the four build vectors project from.
 - Boundary: lcmsNET owns device-CMYK/ICC transforms at the print boundary ONLY — Unicolour stays the suite color-model kernel and `VisualCodec.ColorPolicy` stays the capture codec gamut family, three disjoint charters; an unparseable profile folds to `ExportFault.ProfileInvalid`, never a silent sRGB fallback; buffer formats and pixel strides are the `[04]` `ColorTarget` row's columns, so a `Cms.TYPE_*` literal at this site and a `rgba.Length / 4` pixel count are the two deleted forms the 16-bit lane made wrong; the press simulation lives in the CHAIN and the gamut operand checks alone, so handing the proofing profile to the gamut slot as the simulation is the deleted form — it drops the preview under anything but `CmsFlags.GamutCheck`; per-link BPC, intent, and adaptation are columns of the same `PrintLink` row so the four positional vectors project from one ordered set; the admitted ceiling reads through its value-object `Value`, so no raw cast leaves the typed magnitude at the native edge.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -1051,7 +1051,7 @@ public static class PrintArm {
 - Growth: one recurring deliverable is one `ReportSubscription` value; one cadence is one existing `OccurrenceSpec` case; zero scheduler surface.
 - Boundary: `SchedulePort` is the only time owner, `FlowReport` the only pagination owner, and `VisualDestination` the only delivery owner; a timer, login hook, or document-local retry loop is rejected. The missed-occurrence window is `SchedulePort.Missed`, read by whichever surface owns the last-success stamp — the pass-through accessor that stood here named a `SchedulePort.Window` member the owner does not declare and re-published a fold with no consumer of its own.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ReportSubscription {
@@ -1103,7 +1103,7 @@ public sealed record ReportSubscription {
 - Growth: a new export format is one `ExportTarget` row naming the capability rows it honours, its arm, and its writer; a new capability is ONE `ExportCapability` row carrying its field rows and its verdict; a new control is one `ExportField` row; a new partition is one `ExportSection` row.
 - Boundary: the form is the ONE configuration surface — a per-format options dialog, a per-format view model, and a per-format validation pass are the three deleted forms. Fields are `FormField` values over the settled `FieldEntry` rows, so dimensioned entry resolves through the measurement policy and expression entry through the symbolic owner exactly as every other form. The preflight NAMES capability rather than promising it, and a target that cannot answer a capability at all omits the note rather than reporting a false positive. Offered page sizes and CAD releases are CURATED seats of their owners' rosters — each page option is a kernel `SheetSize` whose key round-trips through the owner's own admission and each CAD option is an `ACadVersion` the writer policy admits — so a free paper token and a free version string are the two deleted forms. Progress rides the settled run queue, and the completion verbs are command intents the deck raises. Destination admission stays the `[02]` delivery gate's: a recalled row is a remembered PATH the picker produced, and this cluster never computes one.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

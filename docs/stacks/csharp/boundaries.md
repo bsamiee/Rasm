@@ -37,7 +37,7 @@ This table selects the owner for a foreign signal; when a signal matches several
 - Accept: survivor/casualty partition when callers need both usable values and rejected facts.
 - Reject: a later list walk that reinterprets why each probe disappeared.
 
-```csharp conceptual
+```csharp
 public enum RawState { Missing, Detached, Ready }
 
 public sealed record RawRow(RawState State, string? Value);
@@ -67,7 +67,7 @@ public static class ForeignAdmission {
 - Exemption: the `SetHandle` populate, the add-ref/release window, and the in-place slice write inside the capsule kernel are the named platform-forced statement seam.
 - Reject: scattered `using`, public handle fields, parallel borrowed/owned/measured wrapper types, a second disposer registry, a bare `Error.New(ex)` where the closed family states the cause, or a per-edit buffer rebind where the measured window is revised in place.
 
-```csharp conceptual
+```csharp
 public sealed partial class ResourceHandle : SafeHandleZeroOrMinusOneIsInvalid {
     private ResourceHandle() : base(ownsHandle: true) { }
     public ResourceHandle(bool ownsHandle) : base(ownsHandle) { }
@@ -142,7 +142,7 @@ public abstract partial record Lease {
 - Accept: `readonly ref struct` views and `scoped` delegates for synchronous projection.
 - Reject: storing spans, boxing live views, returning views, returning a `Span<T>` field through a property, or crossing `await` with foreign memory.
 
-```csharp conceptual
+```csharp
 public readonly ref struct BoundaryView(ReadOnlySpan<byte> bytes) {
     public int Length => bytes.Length;
     public Option<int> Leading => bytes is [var lo, var hi, ..] ? Optional(lo | hi << 8) : None;
@@ -193,7 +193,7 @@ public static class ViewBoundary {
 - Accept: a bounded channel's full-behavior — drop or wait — is the seam's declared policy, stated where the writer is discarded; under a drop mode `TryWrite` reports admission, never delivery, so loss evidence rides the `Channel.CreateBounded` dropped-item callback into the seam's fault record, never an inferred write result.
 - Reject: blocking the foreign callback, mutating interior state from it, or a foreign thread running arbitrary downstream logic.
 
-```csharp conceptual
+```csharp
 public readonly record struct Subscription(Action Detach, Task<Signal> FirstSignal) : IDisposable {
     public void Dispose() => Detach();
 }
@@ -228,7 +228,7 @@ public static class SignalBoundary {
 - Law: waiters wake only after committed state publishes — try-set forms after the winning transition, never from attempted or aborted transitions — and multi-field state publishes as one immutable reference replacement, so tearing is structurally impossible.
 - Reject: factories, disposers, waits, or external calls inside a replayable swap body; shutdown booleans; teardown that can dispose a replacement session.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Gate {
     private Gate() { }
@@ -269,7 +269,7 @@ public static class SessionCell {
 - Law: drain reads phase, in-flight count, and deadline as one transaction; admission is fenced while mid-flight work reaches a typed terminal, and effects ride the transaction's return value into one post-commit continuation.
 - Reject: closing a session from one flag while another cell still admits; acting on change events fired from aborted attempts — they signal intent, not commitment.
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class Phase {
     public static readonly Phase Open = new();
@@ -327,7 +327,7 @@ public static class DrainBoundary {
 - Exemption: the converter's reader statements and `JsonException` throw channel are the named platform-forced seam.
 - Reject: converter-per-case sprawl, case converters bypassing the family owner, sentinels returned from converters, unanchored interior exceptions, or a hand-written field-by-field projection where `[Mapper]` generates the rename.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Frame {
     public const string KindA = "<kind-a>";
@@ -380,7 +380,7 @@ public sealed class FrameConverter : JsonConverter<Frame> {
 - Boundary: the admitted value carries coordinates and hashes, never payload bytes.
 - Reject: parse-and-reserialize between verification, signing, or forwarding.
 
-```csharp conceptual
+```csharp
 public sealed record CanonicalForm(string Encoder, string NumberShape, string MemberOrder);
 
 public readonly record struct SignedBytes(ReadOnlyMemory<byte> Octets, string Hash, CanonicalForm Form);

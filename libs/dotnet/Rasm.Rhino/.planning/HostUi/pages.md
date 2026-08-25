@@ -25,7 +25,7 @@
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `PropertyPageType`, `RhinoEtoApp.DocumentPropertiesWindowForPage`/`ApplicationPreferencesWindowForPage`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md` (the three page-collection callbacks); `libs/dotnet/.api/api-system-drawing-common.md` (the page image the stacked base publishes); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation`, `Apply`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Interaction` (`ControlSpec`, `UiFault`); `Rasm/Domain` (`Op`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`).
 - Growth: a new registration target is one `PageSeat` row plus its host callback at the load root; a new reveal window is one `PageReveal` row carrying its own resolver; a new selection axis is one `SelectionReach` row and no consumer edit.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -193,7 +193,7 @@ public abstract partial record PagePlan {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`ObjectPropertiesPageEventArgs`); LanguageExt.Core (`Fin`, `Option`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`); Generator.Equals (`[Equatable]`, `[OrderedEquality]`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `SessionMode`).
 - Growth: a new callback is one `PageSignal` case breaking every answering consumer loudly; a new evidence column is one field on the record.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PageActivation {
@@ -253,7 +253,7 @@ public sealed partial record SelectionEvidence(
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `ObjectPropertiesPageEventArgs`, `StackedDialogPage`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Window`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Interaction` (`ControlForge.Realize`, `ElementReceipt`, `ElementRuntime`, `IMount`, `MountPhase`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>.Use`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`, `SessionMode`).
 - Growth: a new post-realization regime is one entry over the same custody window; a new host base is one `PageLeaf` case with its own leaf class; a new lifecycle phase is one kernel `MountPhase` row and no edit here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PageLeaf {
@@ -642,7 +642,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`StackedDialogPage.MakeActivePage`/`SetActivePageTo`/`RemovePage`/`AddChildPage`/`Modified`/`SetEnglishPageTitle`/`NavigationTextIsBold`/`NavigationTextColor`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); `Rasm/Interaction` (`HostPlatform.Snapshot`, `PlatformRow`, `UiFault`); `Rasm/Numerics` (`PerceptualColor`).
 - Growth: a new stacked verb is one `PageNav` case with one arm; a new backend publishing the style members is one row in the declared set.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PageDestination {
@@ -737,7 +737,7 @@ public abstract partial record PageNav {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md` (the three page-collection callbacks and the absent removal overload on `ObjectPropertiesPageCollection`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`ObjectPropertiesPageCollection.Add`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`, `Traverse`, `foldWhile`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Domain` (`Op`, `Cell`, `Transition`); `Rasm/Numerics` (`Dimension`); `Rasm/Interaction` (`UiFault`).
 - Growth: a new host collection is one `PageBasket` case with its own landing pair; a new registration state is one `RegistrationState` case breaking every transition loudly.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PageBasket {

@@ -24,7 +24,7 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once and `Audit.Preflight` gates g
 - Growth: a support family is a row plus its factor entry; a modality is a `SupportProgram` case; a physical constraint is a policy value; a result is one existing projection.
 - Boundary: `TreeSeed` exists only before global identity and parent admission; every published topology value is one `SupportNode`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
@@ -165,7 +165,7 @@ public sealed record SupportFactors(
 - Auto: policy admission is one accumulated slot run, so a caller sees every violated constraint rather than the first, and the factor-table totality proof rides the same fold.
 - Boundary: no gate here reads geometry — an admitted policy is a self-consistent constraint set, and geometric contradiction surfaces at the fold that meets it.
 
-```csharp signature
+```csharp
 // --- [POLICY] --------------------------------------------------------------------------
 public sealed record ContactPolicy(
     Length Gap,
@@ -313,7 +313,7 @@ public static partial class Support {
 - Law: `BridgeSpan` endpoints are rim points extremal along the island's own PRINCIPAL bearing, taken from its rim second moment. A bounding-box diagonal names a direction the material need not occupy and its corners lie off the island entirely, so neither enters a published span; an admitted island rim carries at least three vertices, so the span has no absence arm.
 - Receipt: bridge spans, contact area, trapped area, drain reach, load, heat, and removability remain evidence, never prose-only claims.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record BridgeSpan(int Layer, Point3d From, Point3d To, Length Length, Force Load);
 
@@ -391,7 +391,7 @@ public static partial class Support {
 - Auto: generated callback faults enter `Op.Catch` before projection admission; an admitted generated projection is indistinguishable from a built-in one downstream.
 - Boundary: coverage indexes demand by ordinal, so an out-of-range or duplicate ordinal refuses at admission and no read below carries an absence arm.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SupportLayer(
     int Layer,
@@ -614,7 +614,7 @@ public static partial class Support {
 - Law: demand accumulation folds one keyed map in descending identity — reverse topological order for a strictly layered parent edge — so no node is rescanned per parent link.
 - Boundary: one `PolygonOp.Cells` request distributes tips over the site cloud `Additive/slicing` `CellPattern` draws — stateless, lane-keyed on the candidate ordinal and axis under `GrowthPolicy.Seed` plus the demand layer — so no relaxation loop, merge callback, draw stream, page-local RNG, or second copy of the placement body is minted here. That owner composes the kernel `Deterministic.Unit` and never forks a draw-law family; a draw-law vocabulary landing at the `Process` atoms floor collapses it to one row read.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record TreeSeed(
     int Layer,
@@ -923,7 +923,7 @@ internal static class SupportSites {
 - Receipt: every algorithm output publishes as a NAMED column — roots, sinks, components, closure and reduced edge counts, shared ancestors, the widest merge fan, reachable nodes, unreached routes, and the critical path with the node count that carried it. No graph container leaves this cluster except the one `SupportTopology` publishes by charter.
 - Packages: QuikGraph (`BidirectionalGraph`, `SEquatableEdge`, `IsDirectedAcyclicGraph`, `Roots`, `Sinks`, `SourceFirstTopologicalSort`, `WeaklyConnectedComponents`, `ComputeTransitiveClosure`, `ComputeTransitiveReduction`, `TreeBreadthFirstSearch`, `DagShortestPathAlgorithm`, `DistanceRelaxers`, `VertexPredecessorRecorderObserver`); `Rasm.Spatial` for the site index.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class SupportTopology {
     private SupportTopology(
@@ -1079,7 +1079,7 @@ public static class SupportGraph {
 - Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over the written bytes and rides the carrier's `Key`; `SupportEvidence.PreimageLength` records that payload's measured extent at construction. `Consumed` carries the preflight this growth stood on, and `AuditPolicy.EvaluatedAt` stamps it — the branch's one evaluation instant per build, and the only one this entry reaches.
 - Boundary: the receipt never re-enters the payload it seals, and the plan's identity is its receipt's key — `SupportTopology` carries reference identity, so plan equality is the key's, never a graph comparison. A second key column on the plan beside the carrier's own is the deleted duplicate.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SupportEvidence(
     GraphEvidence Graph,

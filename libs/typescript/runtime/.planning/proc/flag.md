@@ -20,7 +20,7 @@ Feature evaluation is one owner over the real OpenFeature server SDK: targeting 
 - Entry: `Rollout.decide(rule, probe)`; `Rollout.Rule` as the decode target.
 - Packages: `effect` (`Schema`, `Match`, `Array`, `Option`, `DateTime`).
 
-```typescript signature
+```typescript
 import type { UnknownEnum } from '@bufbuild/protobuf';
 import { FlagReason } from '@rasm\/contracts/rasm/contracts/feature/verdict_pb';
 import { Wire } from '@rasm/core';
@@ -178,7 +178,7 @@ const Rollout: Rollout.Shape = { Rule: _Rule, reasons: _REASONS, decide: _decide
 - Boundary: the ledger is a `SchemaStore` over the abstract `KeyValueStore` Tag — binding is a root row; the memo tier is `[5]`'s `Cache`, this cluster owns only the policy values and folds it consumes.
 - Packages: `effect` (`Schema`, `Duration`, `DateTime`, `Option`).
 
-```typescript signature
+```typescript
 const _modes = {
     none: { memo: false, ledger: false },
     session: { memo: true, ledger: false },
@@ -226,7 +226,7 @@ const Sticky: Sticky.Shape = {
 - Law: every delta carries its source epoch — `Reset` replaces the document and `Set`/`Clear` patch one flag only when their epoch is equal to or newer than the held document; accepted rows advance `Ruleset.epoch`, stale rows are no-ops, and reset invalidation is the symmetric key difference so removed flags invalidate beside added and changed flags.
 - Packages: `effect` (`Schema`, `Option`, `DateTime`, `HashMap`); `@rasm/core` (`Wire.decode` — direct-family first-sight admission); `@openfeature/server-sdk` (`JsonValue` — `_Json` types itself against the SDK's own JSON union, so the provider seam and the `get*Details` calls carry no cast).
 
-```typescript signature
+```typescript
 const _CODES = [
     'PROVIDER_NOT_READY',
     'PROVIDER_FATAL',
@@ -348,7 +348,7 @@ declare namespace Verdict {
 - Entry: `Flags.Default(digest, mode, outcomes)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph; `client.track(event, context, details)` at the business-outcome site the roster names.
 - Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
 
-```typescript signature
+```typescript
 import {
     type Client,
     type EvaluationContext,

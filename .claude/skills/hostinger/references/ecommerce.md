@@ -6,7 +6,7 @@ Store law: create a store, satisfy its payment and shipping prerequisites, then 
 
 Creating a store auto-provisions its primary sales channel, so the `sales_channel` field is optional and set only for a headless external storefront. Store deletion is a soft delete — the record marks deleted and the underlying data survives — so it returns `200`, not `204`.
 
-```bash template
+```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "name": "My Store", "country_code": "us", "company_email": "owner@example.com",
@@ -19,7 +19,7 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores" \
 
 A store takes orders only once a payment method and a shipping rate exist. A manual payment method is a checkout-time instruction (bank transfer, cash on delivery); shipping is a single flat rate that creates the shipping zone when absent, with `0` meaning free shipping.
 
-```bash copy-safe
+```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/payment-methods/manual" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" -d '{ "title": "Bank transfer" }'
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/shipping" \
@@ -30,7 +30,7 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/ship
 
 A product is created published with a single variant — these endpoints carry no draft or multi-variant path. A physical product takes `name` and `price` (cents, positive) with optional `description` and `currency`; a digital product adds `download_url`, the external link delivered after purchase. Currency defaults to the store currency.
 
-```bash copy-safe
+```bash
 curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/products/physical" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "name": "T-Shirt", "price": 2499, "description": "Cotton tee" }'
@@ -40,7 +40,7 @@ curl -X POST "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/prod
 
 Every store arrives with its primary channel; a custom channel drives a headless storefront on external infrastructure. Update a channel's `name` and `url` (returned as its `domain`) with a `PATCH`, passing `null` to clear a field, and read the Markdown wiring guide from `getCustomStorefrontSetupInstructionsV1`.
 
-```bash copy-safe
+```bash
 curl -X POST  "https://developers.hostinger.com/api/ecommerce/v1/stores/{id}/sales-channels" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" -d '{ "name": "Headless" }'
 curl -X GET   "https://developers.hostinger.com/api/ecommerce/v1/miscellaneous/custom-storefront-instructions" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"

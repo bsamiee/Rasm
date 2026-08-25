@@ -23,7 +23,7 @@ Stored `Func<…, bool>` query filters are banned because a delegate is opaque t
 - Growth: a new Element query dimension is one `ElementLeaf` arm and one `CanonicalBytes` case; a new restriction is one `ValueMatch` arm; a consumer-specific dimension is one arm on its own leaf family. No generated predicate projection, parallel closure, stored delegate, or second verdict shape participates.
 - Boundary: this page is host-neutral vocabulary and projection; graph walks, store lowering, and UI compilation stay with consumers. `Selection<TKey>` carries no model scope because scope belongs to the query input. `PredicateKey` is the sole durable byte projection, and `MatchVerdict` remains distinct from host verdict vocabularies.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Globalization;

@@ -33,7 +33,7 @@
 
 <!-- source-only: codemap — one node per eventual source file in the language's folder and file casing, each `#` tail naming the concept that file owns; tails align within a block under the 150-column cap, carrying no method chain, type roster, or design detail, and a tail that cannot fit aligned trims to its load-bearing concept. Tails state what the fence OWNS — types, spines, seating constraints — while README router rows state what the page delivers, and the two never share a phrase. Tails open capitalised unless the first token is a code identifier in its own spelling, and every identifier rides BARE — a `text` fence renders no code span, so a backtick spends width against the cap and marks nothing. Node order mirrors the README router's concern order exactly, alphabetical only where the router holds no order; every router card has its codemap node and every node its card. -->
 
-```text codemap
+```text
 core/
 ├── resolver.py       # mints content keys; owns the resolve dispatch
 ├── registry.py       # holds the descriptor registry and admission law

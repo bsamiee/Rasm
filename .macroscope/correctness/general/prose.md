@@ -32,7 +32,6 @@ Durable markdown is agent-facing law governed by `docs/standards/style-guide.md`
 - Carrier follows reader job: a repeated paragraph pattern is a record set, a list item with asserted completion is a checkbox, and a command that has not run is an instruction, never a result.
 - Raw prose is one physical line per paragraph; a manual newline inside a paragraph is a finding.
 - Marker families are closed sets — result, change, lifecycle, state — and invented tokens, emojis, and checkmarks are findings; invocation markers (`[IMPORTANT]`/`[NEVER]`) belong only in instruction and prompt files.
-- Fence intent labels (`copy-safe`, `template`, `conceptual`, `signature`, `accepted`/`rejected`, `codemap`, `seams`) bind the body and bound the demand: a body dishonoring its label retags or repairs, a `template` body carries neutral placeholder slots by definition, and validity-as-written binds `copy-safe` bodies alone — a valid-as-written demand against a `template` body is void.
 
 ## [03]-[REFUTED_CLAIMS]
 

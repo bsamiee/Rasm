@@ -21,7 +21,7 @@ The one public front door's declarative engine: a domain folder exports its `Htt
 - Growth: a new convention axis (sort grammar, field selection) is one schema row on this owner, inherited by every group that composes it.
 - Packages: `effect` (`Schema`, `Option`).
 
-```typescript signature
+```typescript
 import {
   Headers, HttpApi, HttpApiBuilder, HttpApiClient, type HttpApiGroup, HttpApiMiddleware, HttpApiScalar,
   HttpApiSecurity, HttpApiSwagger, type HttpClient, type HttpLayerRouter, HttpTraceContext, OpenApi, Socket,
@@ -82,7 +82,7 @@ const Surface: {
 - Law: every refusal emits before it fails — `_refuse` is the one fail seam, incrementing `Convention.metric.admitRefused` tagged by the reason the fault already carries, so the refusal fan needs zero call-site wiring and a new reason joins the series the moment its row lands; `Gate.refuse` publishes that same seam to the serving route module, so a refusal minted at the seam counts itself through the one fold rather than a second `Effect.fail`.
 - Packages: `effect` (`Schema`, `Option`, `Duration`, `Metric`); `@rasm/core` (`Fault.Class`, `Convention`).
 
-```typescript signature
+```typescript
 const _LEG = "admission"
 
 const _gate = Fault.Class.family(["malformed", "unauthorized", "forbidden", "shed", "rate", "conflict"] as const, {
@@ -162,7 +162,7 @@ const _refuse = (fault: GateFault): Effect.Effect<never, GateFault> =>
 - Growth: a new ambient axis is one `Context.Reference` row plus its projection inside `provide`.
 - Packages: `effect` (`Context`, `Option`, `Schema`, `Array`, `Order`, `Number`); `@rasm/core` (`Shape.Refined`); `../otel/emit.ts` (`Propagation`).
 
-```typescript signature
+```typescript
 const _byWeight: Order.Order<readonly [string, number]> = Order.mapInput(
   Order.reverse(Order.number),
   (pair: readonly [string, number]) => pair[1],
@@ -259,7 +259,7 @@ const Current: {
 - Law: the fleet tier is `Idempotency.persisted` — `PersistedCache.make({ storeId, lookup, timeToLive })` over the store-owned `Persistence.layerResultKeyValueStore`, keyed by a `Schema.TaggedRequest` whose `PrimaryKey` fuses idempotency key and payload digest, so the first execution's exit persists for the retention window, every fleet duplicate replays the stored exit typed through the request's own success/failure schemas, and a divergent payload is a different key that executes fresh; the strict 409 divergence posture stays the memory gate composed in front, so both tiers ride one root and zero handler change.
 - Growth: another general credential scheme is one security row, scheme reader, admission arm, and `via` literal; protocol-specific carriage stays an entry on its protocol's admission owner rather than widening every route.
 
-```typescript signature
+```typescript
 class _Principal extends Schema.Class<_Principal>("Principal")({
   subject: Schema.NonEmptyString,
   session: Schema.optionalWith(Session.fields.id, { as: "Option" }),
@@ -663,7 +663,7 @@ const Gate = {
 - Growth: a new entry family (a queue consumer surface, a cron surface) is one new pairing constructor on this owner under the same shape — group as data, handlers as Layer or reader — never a new assembly law.
 - Packages: `@effect/platform` (`HttpApi`, `HttpApiBuilder`); `@effect/rpc` (`Rpc`, `RpcGroup`, `RpcServer`, `RpcSerialization`, `RpcMiddleware`); `effect` (`Layer`).
 
-```typescript signature
+```typescript
 declare namespace Contribution {
   type Http<G, Api, Out, E, R> = {
     readonly _tag: "Http"
@@ -726,7 +726,7 @@ const Contribution: {
 - Law: the span seed is LIVE-span-only by declaration — `HttpTraceContext.toHeaders` takes `Tracer.Span` where `Tracer.AnySpan` is the `Span | ExternalSpan` union, so a recovered `ExternalSpan` is unspellable at that member and no adapter lifts one into it; an ingress-recovered parent therefore crosses on the carried context alone, which is exactly why the inject site seeds the frame rather than deriving the hop from it.
 - Packages: `@effect/platform` (`OpenApi`, `HttpApiBuilder`, `HttpApiScalar`, `HttpApiSwagger`, `HttpApiClient`, `HttpLayerRouter`, `HttpTraceContext`, `Headers`, `Socket`); `@effect/rpc` (`RpcClient`); `effect` (`Layer`, `Array`, `Record`, `Order`, `Predicate`).
 
-```typescript signature
+```typescript
 const _byKey: Order.Order<readonly [string, unknown]> = Order.mapInput(
   Order.string,
   (entry: readonly [string, unknown]) => entry[0],

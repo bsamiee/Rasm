@@ -24,7 +24,7 @@ The presentation rail is the client-facing design-review deliverable, and it is 
   - ONE index space, TWO named disciplines: `Seat(index)` is the `Fin` rail because an ABSOLUTE index arrives from a step list, a deep link, or a restored checkpoint and can name a stop the tour no longer carries, while `Bounded(candidate)` answers an `int` because a RELATIVE step's bound is the transport's own hold-at-the-ends law. The clamp is a projection rather than a rail, so no caller reaches a refusal a clamped input can never produce.
   - The seat table is minted ONCE at construction, so the total duration, the step list, the elapsed indicator, and the narration index are four reads of one fold rather than four prefix re-folds.
 
-```csharp signature
+```csharp
 
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -169,7 +169,7 @@ public sealed record ReviewTour {
   - The viewport sweep runs FIRST and on its own account: the seat join sweeps the AWARENESS channel, a different channel, so a presenter who closed their laptop keeps a playhead slot standing until the viewport store evicts it.
   - The reduced-motion law applies once at projection, never a tour-local accessibility conditional; three reads of a process-wide switch inside one fold arm could observe a mid-projection flip and emit a keyframe whose eased duration and eased token disagree.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<long>]
 [ValidationError]
@@ -323,7 +323,7 @@ public sealed record TourFollow(
   - Silence is `Option<NarrationTrack>.None` on the stop owner — a sentinel string, an empty-title probe, or a `Silent` instance is the deleted form; the title is required by the one `Fin`-returning admission and the body is `Option<string>` so a caption-only or full-narration stop is one shape.
   - The offline caption is an OVERLAY on the canvas the walkthrough's frame delegate already holds, never an image this page produced: no raster path is this page's declared law, so the caption draws and the walkthrough's own encode leg owns every pixel that leaves.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NarrationTrack {
     private NarrationTrack(string title, Option<string> body) { Title = title; Body = body; }
@@ -394,7 +394,7 @@ public static class TourCaptions {
   - A stop REQUIRES a viewpoint by construction, so a viewpoint-less topic contributes no stop, and an all-viewpoint-less topic set fails `ReviewTour.Of` as the empty tour rather than succeeding silently.
   - The saved-sequence arm resolves keys through the caller-supplied `resolve` delegate, so the source mints no viewpoint store and reads the settled viewpoint persistence.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SequenceStop(
     string ViewpointKey, Duration Dwell, MotionToken Transition, Option<NarrationTrack> Narration);
@@ -486,7 +486,7 @@ flowchart LR
   - Every key this chrome raises is a `Shell/commands#INTENT_TABLE` deck row by construction, because the deck's fold aborts on a key it does not carry and an unlifted roster is a dead screen.
   - The annotation binding constructs no markup model — `StrokeCapture` and `ViewpointMarkup` are the landed owners, and the viewpoint the mark lands on is DERIVED from the seat's own stop, so a caller cannot seat a step's redline against a viewpoint the step never bound.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AudienceState {

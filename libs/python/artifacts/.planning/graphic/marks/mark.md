@@ -17,7 +17,7 @@ Machine-readable-mark vocabulary owns every creatable and readable identity the 
 - Growth: a symbology adds one vocabulary member and one `TAXONOMY` row; a factory-specific option extends only its closed band, refined in place where the value bounds a downstream fold; a fault, source modality, or channel layout adds one case or member to its existing owner.
 - Boundary: no provider import crosses this page — segno/python-barcode/zxing enter only on behavior pages, and the carrier column stores provider display names as `str | None`. Encode owns `MarkOp` and `Content`; decode owns `DecodeScope.scan`; `graphic/raster/process#PROCESS` owns `RasterFact`.
 
-```python signature
+```python
 # --- [TYPES] ----------------------------------------------------------------------------
 from enum import StrEnum
 from typing import Annotated, Final, Literal, NotRequired, ReadOnly, Required, TypedDict

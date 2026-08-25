@@ -21,7 +21,7 @@
 - Growth: a new analysis discipline is one `Discipline` row; a new route one Compute-minted `AnalysisRoute` token; a new result one `Results` bag entry; a new dependency one `DependsOn` member; a new lifecycle state is one `AssessmentOutcome` row carrying its capability set, `Coherent` law, and adjacency — `Open`, `Land`, `Advance`, and every capability-filtered consumer absorb it with zero edits; a new payload shape is one `PayloadContent` case + the rows that admit it; a new failure cause one `FailureKind` row, a new stage one `SolvePhase` row; never a per-discipline assessment type, a per-route enum, a per-state flip method, or a solver I/O shape on the seam.
 - Boundary: solver I/O and route rosters remain in Compute. Assessment DAG links ride `DependsOn`; heavy output rides kernel `ArtifactContent`; neither becomes an edge codec or inline byte payload. The node self-hash excludes audit and lifecycle state, while the route or input key includes solver version so a tool change mints a fresh assessment.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using Generator.Equals;

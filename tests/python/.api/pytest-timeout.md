@@ -20,7 +20,7 @@ Resolved per-item settings and the diagnostic dump the plugin emits on breach.
 |  [03]   | `pytest_timeout.dump_stacks(terminal)` | diagnostic dump | dumps every other thread's traceback to the `terminal` writer on breach   |
 |  [04]   | `pytest_timeout.is_debugging()`        | debugger probe  | suppresses the timer under a detected debugger unless detection is off    |
 
-```python signature
+```python
 class Settings(NamedTuple):
     timeout: float | None
     method: str
@@ -45,7 +45,7 @@ Config key, marker, and CLI/env surface resolving a per-test ceiling.
 |  [06]   | `--session-timeout <seconds>`                  | session ceiling   | caps total session time, checked between tests                   |
 |  [07]   | `--timeout-disable-debugger-detection`         | debugger policy   | keeps the timer armed under a debugger                           |
 
-```python signature
+```python
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

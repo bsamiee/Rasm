@@ -29,7 +29,7 @@ Panel materializes the AppUi shell's generated surface program: stable surface i
 - Boundary: the app composition identifies which declared feed delivered each byte document; `Panel.fold` owns exact message admission, while the write path belongs to the shell producer and this module emits intents only; the telemetry timeline a panel renders over its own event history is `view/chart#SERIES_SURFACE` material — rows here, series there.
 - Boundary: a board of LINKED PIVOT panels is `view/chart#PIVOT_SURFACE`'s workspace grain composed whole, never a second roster folded here — the master panels contribute their selection-derived clauses through the transient overlay every detail panel reads, that whole arrangement persists as the one `Chart.Config` value, and a per-panel edit rides its `{panel}` patch. This board's key space is the shell's addressable CELL, and a perspective panel id is not one: seating pivot panels in it keys two vocabularies on one map and hands the overlay a second owner.
 
-```typescript signature
+```typescript
 import { type Clock, Wire } from "@rasm/core"
 import { BindingState } from "@rasm\/contracts/rasm/contracts/binding/status_pb"
 import { DegradationLevel } from "@rasm\/contracts/rasm/contracts/compute/control_pb"
@@ -178,7 +178,7 @@ const _drain = (
 - Growth: a producer degradation level is one `_degrade` row and a binding lifecycle state one `_tone` row — the core vocabulary lands first, and each table fails at its declaration until its row exists.
 - Boundary: chip/badge primitives are `system/primitive` recipes; plural and status text is `Message`'s (`system/intl`), so the badge's reason resolves from the level key through a catalog row and no level text is authored here.
 
-```typescript signature
+```typescript
 const _tone = {
   [BindingState.CONNECTING]: { tone: "accent", motion: Option.none<Motion.Hold>() },
   [BindingState.SUBSCRIBED]: { tone: "success", motion: Option.none<Motion.Hold>() },
@@ -227,7 +227,7 @@ const _admit = (row: Panel.Row): Panel.Affordance =>
 - Boundary: mounting a part is the view layer's — this module is pure projection and imports no component, so the part key is the seam a view row resolves against its own registry; label, header, and hint TEXT resolves through `system/intl` from the key columns, and the constraint program named by a container arm is `[06]`'s to solve.
 - Growth: a producer oneof arm extends the exhaustive record, while a generated enum member extends its numeric match at the decision that consumes it.
 
-```typescript signature
+```typescript
 import type { Wire } from "@rasm/core"
 import * as controls from "@rasm\/contracts/rasm/contracts/ui/controls_pb"
 import { Match, Option } from "effect"
@@ -387,7 +387,7 @@ const _children = (intent: Wire.ControlIntent): ReadonlyArray<Wire.ControlIntent
 - Law: egress records publish once on the `rasm.ui.panel.egress` hook point (`system/hook`, observe modality) as they reach the command gateway — this page contributes the point and `Panel.egress(registry, gateway)` composes publish-before-send on one Effect rail, so telemetry taps, probe boards, and replay journals never wrap the gateway.
 - Growth: a new interaction is one union case and one handler row; zero dispatch edits.
 
-```typescript signature
+```typescript
 import { Hook } from "../../src/system/hook.ts"
 
 declare namespace Panel {
@@ -434,7 +434,7 @@ const _route = <E, R>(sinks: Panel.Sinks<E, R>): ((interaction: Panel.Interactio
 - Law: the live solver is a RESOURCE, not a kernel — kiwi's incremental `suggestValue` requires the solver and its variable ledger to persist for the `Solved` lifetime, so the draft lives inside one `SynchronizedRef` and every `suggest` routes through `SynchronizedRef.modifyEffect`: concurrent suggestions serialize by construction, no mutable reference escapes, and the sole egress is the immutable positions map; the construction walk is the marked boundary seam.
 - Growth: a generated relation or strength member extends its numeric match, while a new program field breaks this direct consumer until its semantics land.
 
-```typescript signature
+```typescript
 import { Expression, Operator, Solver, Strength, Variable } from "@lume/kiwi"
 import { Fault, Wire } from "@rasm/core"
 import * as layout from "@rasm\/contracts/rasm/contracts/ui/layout_pb"
@@ -613,7 +613,7 @@ const _solve = (program: Wire.LayoutProgram): Effect.Effect<Panel.Solved, SolveF
 - Law: the returned value is an interior application projection, not a wire twin: stable identity and the root remain generated values while received layout programs become live solver resources keyed by their generated surface identity.
 - Growth: a new control arm breaks `[04]`'s exhaustive projection; a new generated root field breaks this direct projection; a new constraint reference cannot enter without joining the one arm row.
 
-```typescript signature
+```typescript
 import { Fault, type Wire } from "@rasm/core"
 import { Array, Effect, HashMap, HashSet, Option, Schema } from "effect"
 

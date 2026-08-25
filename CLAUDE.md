@@ -136,7 +136,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 
 Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill.
 
-```md template
+```md
 // Typescript/Csharp Styling
 // --- [TYPES] ---------------------------------------------------------------------------
 

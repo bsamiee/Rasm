@@ -6,7 +6,7 @@
 
 Every component carries four elements: extend `ComponentResource` and call `super()` with a type URN; accept name, args, and `ComponentResourceOptions`; set `parent: this` on every child; call `registerOutputs()` as the constructor's last act.
 
-```typescript conceptual
+```typescript
 import * as pulumi from '@pulumi/pulumi';
 import * as aws from '@pulumi/aws';
 
@@ -40,7 +40,7 @@ class StaticSite extends pulumi.ComponentResource {
 }
 ```
 
-```python conceptual
+```python
 import pulumi
 import pulumi_aws as aws
 
@@ -67,7 +67,7 @@ An args interface defines what consumers configure and how composable the compon
 - [NO_FUNCTIONS]: Callbacks cannot serialize across language boundaries; configuration properties (`namePrefix`, `nameSuffix`) replace them.
 - [DEFAULTS]: Sensible defaults land in the constructor via `??` so consumers configure only what they need; security posture defaults on (`args.enableVersioning !== false` gates the opt-out).
 
-```typescript conceptual
+```typescript
 interface DatabaseArgs {
     instanceClass: pulumi.Input<string>;
     storageGb: pulumi.Input<number>;
@@ -80,7 +80,7 @@ interface DatabaseArgs {
 
 A component exposes only what consumers need — endpoint, port, security group id — never every internal resource; over-exposure leaks implementation detail into every consumer. Composite values derive with `pulumi.interpolate` or `pulumi.concat`:
 
-```typescript conceptual
+```typescript
 this.connectionString = pulumi.interpolate`postgresql://${args.username}:${args.password}@${cluster.endpoint}:${cluster.port}/${args.databaseName}`;
 this.registerOutputs({ connectionString: this.connectionString });
 ```
@@ -113,11 +113,11 @@ Consumers install with `pulumi package add <git-repo-url>[@vX.Y.Z]`, which downl
 
 A private registry generates API documentation automatically, manages versions, and makes components org-wide discoverable. Versions are `v`-prefixed git tags; a README is required and becomes the registry documentation page; type annotations (JSDoc, docstrings, Go `Annotate()`) enrich generated SDK docs.
 
-```bash template
+```bash
 pulumi package publish https://github.com/myorg/my-component --publisher myorg
 ```
 
-```yaml template
+```yaml
 # CI publish on tag push, OIDC-authenticated
 on: { push: { tags: ['v*'] } }
 permissions: { id-token: write, contents: read }

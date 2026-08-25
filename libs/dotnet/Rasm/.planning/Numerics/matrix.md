@@ -24,7 +24,7 @@ Rebuilds compose the `Rasm.Domain` rails as the receipt validity floor and stay 
 - Growth: a new solve substrate is one `SolvePath` row with its trait set, cap, and `Conditioned()` successor, the receipt shape unchanged; a new gauge modality is one `GaugePolicy` case whose `Switch` arms break at compile time; a new Krylov engine is one `KrylovSolver` row and a new preconditioner one `SparsePreconditioner` row, neither touching the route roster.
 - Boundary: capability reads off the trait set, so a parallel `FactorKind` enum re-declaring the route space never mints, and `Transposed` is a trait on the route because the transposed behaviour binds to the concrete CSparse factor while the route item is instance-free.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
@@ -299,7 +299,7 @@ public abstract partial record GaugePolicy {
 - Growth: a new dense decomposition adds one `Decompose*` member returning a typed carrier holding its factor with one `SolvePath` row, never a sibling matrix type; a norm is one `MatrixNormKind` row.
 - Boundary: MathNet types never cross the public surface — `Matrix`/`Arr<double>` in, typed receipts out, the `internal` factor handles the held-handle exception. Symmetric consumers construct `SymmetricMatrix`, never a dense `Matrix` asserted symmetric: MathNet's `IsSymmetric()` compares with exact `!=`, which accumulation-built operators fail. `QrResult` holds its factor like its three siblings, so a least-squares stream re-solves rather than re-factorizing per right-hand side.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Matrix : IValidityEvidence {
@@ -427,7 +427,7 @@ public readonly record struct CholeskyResult : IValidityEvidence {
 - Growth: a new sparse capability adds one member and one column over the same owners; a second CSR/CSC representation beside `SparseMatrix` is the deleted form — format bridges live inside `MatrixKernel`.
 - Boundary: mesh Laplacian memoization caches these factor objects, so their identity and `Lock` semantics compose from here; a transposed solve is linear-algebra vocabulary on the standing factor and nothing more — the adjoint sensitivity band that composes it stays `Rasm.Compute`'s, and a kernel differentiation rail beside `Lm`'s forward-mode dual floor never mints here.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseMatrix : IValidityEvidence {
@@ -601,7 +601,7 @@ public sealed record CholeskySparse : IValidityEvidence {
 - Growth: new evidence is one `PathEvidence` case or one field with at most one claim row; a new outcome family is one receipt type only when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm receipt clones.
 - Boundary: `Option<T>` carries absence of evidence, never a sentinel; `InputNonZeros` is the one structurally-absent slot — a dense operator has no nonzero census to take — and the stored residual is always recomputed against the original operator, a preconditioned or factor-reconstructed residual being the named lying witness.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PathEvidence {
@@ -704,7 +704,7 @@ public readonly record struct GaugeReceipt(
 - Growth: a new route, gauge case, or eigen substrate adds one kernel arm over its vocabulary row and the existing receipt shape.
 - Boundary: `Matrix<T>.GramSchmidt()` is REFUSED for the LOBPCG basis pass and the refusal is named at the site — the survivor-deflation step requires rank-collapsed columns to remain EXACTLY zero, which a factorization contract promising an orthonormal `Q` neither publishes nor preserves. `SparseLDL` publishes no inertia, so the KKT route composes it for the halved work alone and the saddle's `(n, m)` signature stays unpublished rather than asserted.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MatrixDrawLane : IDrawLane<MatrixDrawLane> {

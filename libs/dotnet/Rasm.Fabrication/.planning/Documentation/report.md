@@ -21,7 +21,7 @@ Every column writer here frames over the `Rasm.Element` `CanonicalWriter` compos
 - Law: every closed row uses the GENERATED positional constructor. A hand `private Row(string key, …) : this(key) => (…)` beside the generator's own is a second construction path that drifts the moment a column is added.
 - Growth: a refusal is one `RecordRefusal` row; an outcome is one `EvidenceOutcome` row carrying its rank; a cause category, correction kind, or declaration kind is one row on its own owner; an attestation role is one row at the Element owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
@@ -286,7 +286,7 @@ public sealed partial class CorrectionKind {
 - Growth: a source is one `QualitySource` case; a record is one `QualityRecord` case; an observation is one `QualityObservation` case; a declaration is one `QualityDeclaration` case.
 - Boundary: `ProcedureReceipt`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence; `Documentation/passport` composes `QualityEvidence` and authors only the passport column.
 
-```csharp signature
+```csharp
 // --- [ADMISSION] -----------------------------------------------------------------------
 [ValueObject<string>]
 [ConfidentialData]
@@ -1551,7 +1551,7 @@ public static class QualityEvidence {
 - Growth: a new shop deliverable is one `ScheduleKind` row naming its deliverable row and its inputs under their two custodies; a new column on an existing deliverable is one roster member, required where every instance carries it and optional where the geometry decides.
 - Boundary: the values stay `PropertyValue` as the seam authored them — this fold selects and groups, it never re-resolves a material, re-derives a quantity, or renders a sheet.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ScheduleRow(PropertyName Row, PropertyValue Value);
 

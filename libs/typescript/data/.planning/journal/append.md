@@ -31,7 +31,7 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 - Law: the spine posture is the composition root's — `Journal.ddl(spine)` seats the ensure the root ships, and the partitioned spine carries no stream unique, because PostgreSQL refuses a unique constraint omitting the partition key; its OCC is the advisory lock and the head read alone, and the constraint-name re-spell arm sleeps there.
 - Boundary: the tenant column is what `Tenancy.rls("journal_event")` predicates over; `Model.makeRepository` is banned on this table — the journal issues neither `UPDATE` nor `DELETE` against events, and erasure is `journal/retain.md`'s key destruction.
 
-```typescript signature
+```typescript
 import { Reactivity } from "@effect/experimental"
 import {
   Model, SqlClient, SqlEventJournal, SqlEventLogServer, SqlSchema, type SqlError, type Statement,
@@ -187,7 +187,7 @@ const _relation = (relation: string, spine: Journal.Spine): Journal.Relation => 
 - Law: `Journal.now(sql)` is the one dialect-now fragment — every sibling statement that stamps a timestamp splices it, so the dialect pair exists in exactly one spelling folder-wide.
 - Boundary: encode faults are `ParseError` on the admission rail; the atomic composition is `[5]`'s.
 
-```typescript signature
+```typescript
 const _Subject = Schema.Struct({ stream: StreamKey, detail: Schema.NonEmptyString })
 
 const _family = Fault.Class.family(["landing", "replay", "envelope"] as const, {
@@ -460,7 +460,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: the ledger stores the receipt after the append succeeds, so a replayed key returns the ORIGINAL receipt — idempotency means the duplicate caller cannot distinguish itself from the first writer.
 - Law: ledger rows age by `touched_at` under a `journal/retain.md` window — a replay past the window is a fresh publish by declaration, and the window is a policy value, never a literal.
 
-```typescript signature
+```typescript
 const _IdempotencyKey = Schema.NonEmptyString.pipe(Schema.maxLength(200), Schema.brand("IdempotencyKey"))
 
 const _Receipt = Schema.Struct({
@@ -575,7 +575,7 @@ sequenceDiagram
   end
 ```
 
-```typescript signature
+```typescript
 declare namespace Journal {
   type Slot<A> = {
     readonly keys: (stream: StreamKey) => Live.Keys
@@ -707,7 +707,7 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: `_EventRow` is the envelope's projection plus this relation's own `version` column, so the decoded row carries the stored bytes and the compiled family proves them — the decoded family value is the only shape past this seam, a malformed payload surfaces as `ParseError` exactly once at the admission, and no cursor cell is hand-coerced.
 - Law: the read composes the compiled family with the column codec ONCE at the binding, so the stream's per-row cost is one decode and the generation the guard proved at write is the generation this read assumes; a log a re-mint moved under an open reader answers the reader's next transaction with skew.
 
-```typescript signature
+```typescript
 const _EventRow = Schema.Struct({
   ...Payload.Envelope.fields,
   version: _Version,
@@ -768,7 +768,7 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 - Law: `layerStorageSubtle` is the default overlay posture — zero-knowledge storage for the untrusted multi-tenant deployment, where the server persists ciphertext it cannot read; the plain `layerStorage` row is the explicit single-tenant opt-in, selected at the composition root.
 - Law: the overlay backings are adopted only while their table bootstrap is verifiably ensure-shaped — idempotent, additive, provision-runnable; otherwise their DDL is owned locally beside these rows and the layers still bind.
 
-```typescript signature
+```typescript
 class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   id: Model.Generated(_Sequence),
   sequence: _Sequence,
@@ -1028,7 +1028,7 @@ const Journal = {
 - Law: the verdict vocabulary and its delivery are core's and the runtime seats the rail; the port answers `Tap.Verdict` whole and `Hook.gated` re-spells its `vetoed` arm as the `HookVeto` rail fault the publish transaction rolls back on — a port collapsing three arms to an option erases the fan arity, the delivery census, and the unrostered case at the one seam that must read them.
 - Law: telemetry and policy subscribe to domain facts, never instrument domain code — a compliance observer, an admission quota, or an audit mirror is a `Tap.subscription` row over `Hook.points`, and forking an owner page to intercept its seam is the defect this vocabulary deletes.
 
-```typescript signature
+```typescript
 const _facts = {
   journalPublish: Schema.Struct({ stream: StreamKey, count: Schema.Int, tags: Schema.Array(Schema.String) }),
   objectAdmit: Schema.Struct({ key: Schema.String, owner: Schema.String, bytes: Schema.OptionFromSelf(Schema.Number) }),

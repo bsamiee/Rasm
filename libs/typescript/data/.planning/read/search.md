@@ -23,7 +23,7 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 - Law: the `Reranker` answer is provider material, never trusted order — the port's declared type admits duplicates, unknown cells, and omissions, so the consuming seam (`[4]`'s rerank admission) proves the answer against its own candidate window and no port value can change hit cardinality; the port stays thin because the evidence lives at the seam that holds the candidates.
 - Law: the port's provider side batches through `read/batch.md`'s engine — the window geometry is the satisfying Layer's concern; this port declares only the vector contract.
 
-```typescript signature
+```typescript
 import { Array, Context, Effect, Schema } from "effect"
 import { Fault } from "@rasm/core"
 
@@ -129,7 +129,7 @@ class Reranker extends Context.Tag("data/Reranker")<Reranker, {
 - Law: the vector row is ONE row with a grant-ordered method — `vchordrq` under `vchord`, else `hnsw` under `vector` — the stronger engine is data and an image upgrade re-indexes without touching a query.
 - Law: every index row states both dialects — the pg text and the sqlite text are one `ensure` pair, `SELECT 1` only where the lane genuinely cannot exist on the profile (vector and trigram ride pg-only grants), and the FTS floor row's sqlite arm is the external-content FTS5 virtual table with three sync triggers and the idempotent `rebuild` command that admits pre-existing corpus rows, so the lane arm and its storage artifact are one row and cannot drift.
 
-```typescript signature
+```typescript
 import { Schema } from "effect"
 import { Query } from "./query.ts"
 
@@ -285,7 +285,7 @@ declare namespace Search {
 - Law: each lane answers the coordinates it decides and declares the rest unowned — `grants`, `material`, and `shapes` together ARE the selection sentence; `material` is also the admit column, naming the write that fills the lane (`text` the corpus body itself, `embedding` a vector row minted under the corpus fingerprint); lifetime belongs to the corpus row for every text lane and to the FINGERPRINT for the semantic one, where superseded vectors stay queryable under their own until re-embedding completes. Tenancy is not this table's to decide — `_scoped` splices the caller's one fragment into every lane identically, so a tenancy column here forks the predicate `lane/tenant.md` owns; what each lane forfeits rides `floor` and the `ungranted`, `unembedded`, `denied`, and `unshaped` dispositions, so a degraded lane names its own loss in the reply.
 - Law: geometry gates ahead of grants — a lane whose scorer cannot read the corpus's body geometry reports `unshaped` even where its extension is installed, because a granted lane contributing noise ranks that noise into the fused pool while an absent lane costs only recall; `phonetic` and `fuzzy` score `label` corpora alone, the inverted, trigram, and vector lanes score both, and a lane widening its reach is one column edit.
 
-```typescript signature
+```typescript
 import { Statement, type SqlClient } from "@effect/sql"
 
 class _Vector extends Schema.Class<_Vector>("Search.Vector")({
@@ -419,7 +419,7 @@ const _admitted = (
 - Law: snippets ride the granted relevance lane AND its dialect — `ts_headline` is the in-core pg floor and the FTS5 `snippet()` arm serves the sqlite profiles against the same provisioned virtual table the lane row queries; the `bm25`-granted relevance arm ranks and never clips, because `vchord_bm25` ships NO highlight member and none can exist — a `bm25vector` carries vocabulary ids and frequencies, not text offsets — so a bm25 lane row pairs its ranking with the floor's own headline arm over the matched rows, and the ranking spelling itself proves at the lane's capability probe since the alpha line respells `to_bm25query`'s arity across minors.
 - Law: rerank is an admitted window policy — when the `Reranker` is present and the request asks, the top `window` fused hits re-order by the port's verdict AFTER the seam proves it: the answer deduplicates, unknown cells drop, candidates the provider omitted keep their fusion order behind the ranked head, an empty body window reports `partial`, and the tail beyond the window never moves — so hit cardinality is invariant under any provider answer, the page's tail guarantee holds for every value the port type admits, and a port fault holds fusion order through `Effect.either` with the disposition read off `class` — `denied` for a settled verdict, `degraded` for the rest; retrieval never fails on the accelerator.
 
-```typescript signature
+```typescript
 import { Array, Effect, Either, HashMap, HashSet, Match, Option, type ParseResult, pipe, Record, Schema } from "effect"
 import { VariantSchema } from "@effect/experimental"
 import { SqlClient, SqlSchema, type SqlError, type Statement } from "@effect/sql"
@@ -581,7 +581,7 @@ flowchart LR
   W --> P[/Search Page/]
 ```
 
-```typescript signature
+```typescript
 const _ddl = (corpus: Search.Corpus, granted: HashSet.HashSet<string>) => {
   const vector = HashSet.has(granted, "vchord")
     ? Option.some(_indexRows.vectorChord)

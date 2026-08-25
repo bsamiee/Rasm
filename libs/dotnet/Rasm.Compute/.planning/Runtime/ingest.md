@@ -40,7 +40,7 @@ Both rows reach binary and structured content mode and both resolve a subscripti
 |  [01]   | `mqtt`    | User Properties, UNPREFIXED | topic       | parked bridge this page opens    | unacked; the broker redelivers |
 |  [02]   | `nats`    | headers, `ce-` prefixed     | subject     | shedding channel the client owns | receipted; nothing replays it  |
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BrokerSource {
@@ -425,7 +425,7 @@ internal static class NatsBinding {
 - Growth: a new dictionary query is one `Fetch<TResponse>` call with its own response shape; a new status classification is one arm on the status fold; zero new surface.
 - Boundary: a transport miss returns the typed fault the app-root `BsddPort` adapter degrades on, and the app composition root that references both packages closes `Fetch<BsddClassResponse>` and adapts it into the Bim `BsddPort` so neither package depends on the other — a Bim-minted bSDD transport, a Compute-side bSDD response record or local fallback, and a direct cross-package reference in either direction are the rejected forms. A 200 carrying an empty body is a CONTENT refusal and rails as one: the prior `?? throw` was re-caught two frames up and re-labelled unreachable, so an endpoint answering correctly with nothing read as an endpoint that could not be reached.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed class BsddTransport(HttpClient client, CallSpine spine) {
     private static readonly JsonSerializerOptions BsddWire = new(JsonSerializerDefaults.Web) {

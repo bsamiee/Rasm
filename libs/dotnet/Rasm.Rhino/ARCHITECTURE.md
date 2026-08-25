@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 ├── Document/           # Host-document substrate under every host surface
 │   ├── Session.cs      # Capability-scoped document-session demand, unit-regime adjustment, worksession custody

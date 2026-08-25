@@ -21,7 +21,7 @@ Wire visuals for the Grasshopper boundary fold through one owner set — route a
 - Packages: Grasshopper2 (`WireShape`, `WireShapeDefault.CreateSpline`, `IParameterAttributes`, `WireEnds`), LanguageExt.Core (`Validation`, `Partition`), `Rasm.Domain` (`Op`, `Cell`, `FaultCell`, `Lease<T>`).
 - Growth: a new route geometry is one installed `WireShape` subclass — zero edits here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
@@ -103,7 +103,7 @@ public static class Traced {
 - Packages: Grasshopper2 (`WindowSelection`, `WireEnds`), `Canvas/canvas.md` (`CanvasQuery.Pick`, `CanvasOperator.Read`, `PickHit`), kernel `PickGates`, LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new pick modality is one method over an existing host read.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -137,7 +137,7 @@ public static class WirePick {
 - Packages: Grasshopper2 (`WireSkin`, `EdgeDescription`, `Canvas.ZuiWireDetailingState`), `Rasm.Interaction` (`PaintColor`, `Tween`, `Op.ToHostNullable`), `Rasm.Numerics` (`PerceptualColor`), `Canvas/paint.md` (`GhPlan`, `GhMark.WireCase`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new wire treatment is a `Styled` derivation; a new pass policy is one plan parameter — the draw seam lives at the executor and never forks.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

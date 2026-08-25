@@ -21,7 +21,7 @@ Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/c
 - Growth: a new topology scalar is one `TopologyScalar` row — key, output, and extract delegate over the same `OnGeometry` fold; a new structural interrogation is one `Topologies` case; a new geometry family entering the gate is one `OnGeometry` arm serving every row at once.
 - Boundary: brep/mesh polymorphism lives in one gate — a per-operation `is Mesh`/`is Brep` switch is the deleted repetition, and a fold identical on both families takes the `onAny` arity rather than two drifting delegates; release brackets the ACQUISITION at both piece folds, so a throw mid-projection frees what a failure-rail `BindFail` never reaches; the genus, hole, and Euler family is derived from three primitive rows and a stored genus beside the formula is the killed form; `Capability.EvaluateTopology` is the single topology-evaluation admission row, containment escalating through `Requirement.SolidTopology`; `SolidOrientationOf` maps the mesh orientation int onto `BrepSolidOrientation` so both families answer in one enum, never a mesh-specific parallel vocabulary; component extraction owns its disposal — a piece failing the typed projection is disposed before the fault leaves.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -250,7 +250,7 @@ public sealed partial class TopologyScalar {
 - Growth: a new mesh sample is one `MeshSampleKind` row in its band, the census and receipt machinery untouched; a new face metric is one `MeshMetric` row binding a measure delegate over the same polygon resolution, and a new metric OUTPUT is one `OutputBinding` arm on `Measure` over the same census; a new capture source is one `CensusSource` row; a new polygon-level extraction is one `Meshes` case lifted through `Lift`.
 - Boundary: a row's band derives from its key decade — the `group:` column beside it was a second authority one edit could contradict, and the index is read through its accessor so the generator has filled `Items` first; defect rows read the one threaded `MeshCheckParameters` capture and a per-row `Mesh.Check` re-run is the killed N-fold host cost; face metrics measure visible polygons through the canonical `ComponentIndex` addressing, never a triangle-level parallel family; ring measurement routes through the `Spatial/cloud` metric surface exclusively, never a local perimeter/skewness/area loop; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier on its `Fin` rail so downstream extraction shares the corpus transfer/disposal protocol.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;

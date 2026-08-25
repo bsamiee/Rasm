@@ -25,7 +25,7 @@ Settled composition: `Rasm/Domain/rails#FAULT_BAND` carries `FaultBand`, `[Fault
 - Growth: a new evidence stream is one `StoreSlot` row on its owning page's roster; the grammar admits a new domain or verb with zero registry edits.
 - Boundary: the slot is the `kind` argument the sink `Send` carries, so slot vocabulary and wire kind are one spelling; this page mints its own slots — `store.stat.statements`, `store.stat.io`, `store.stat.duckdb`, `store.stat.sqlite.statements`, `store.stat.sqlite.connection`, `store.stat.plan`, `store.cost.usage`, `store.cost.fact` — and every other page's slots enter as its contributed rows, so the registry owns uniqueness while each page owns its spellings; a sibling PACKAGE's family — the Fabrication `store.fabrication.<domain>.<verb>` shop-state rows (remnant inventory, fleet performance horizons, magazine slot state, capability history), each pairing a typed read and write receipt on its Fabrication owner — enters through the `Mounted` `contributed` span at composition, so a foreign family is call-site data under the same uniqueness law, never a census edit; a per-occurrence discriminant — a traversal's query case, a sink's lane — rides the receipt payload, never the slot string, so the census stays frozen while payloads vary.
 
-```csharp signature
+```csharp
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -108,7 +108,7 @@ public abstract partial record StatFault : Fault {
 - Growth: a new harvested column is one field on the owning row and one select column; a new server view is one harvest member on this owner.
 - Boundary: this fold is the query-depth complement to the driver meter seam — the `Npgsql` meter carries operation duration and pool level at the AppHost root while these rows carry per-statement and per-backend server truth as receipts; pg_stat views are server-global, so these receipts carry no tenant brand by ruling and the batch's message envelope carries the frame correlation at the `Send` seam; the three lag gauges stay distinct owners — provisioning's slot lag, recovery's replication lag, and this page's I/O timing never share a row; `track_io_timing` is a deliberate server posture the provisioning verify batch asserts before timing columns read as truth.
 
-```csharp signature
+```csharp
 public sealed record StatementStatRow(
     long QueryId, long Calls, double TotalExecMs, double MeanExecMs, long Rows,
     long SharedBlksHit, long SharedBlksRead, long WalBytes);
@@ -186,7 +186,7 @@ public static class PgStatHarvest {
 - Growth: one profiling metric key is one receipt field and one parse line; plan-shape capture and drift verdicts are the `#PLAN_PROFILE` rail's, which probes `EXPLAIN (FORMAT json)` without arming this profiling bracket.
 - Boundary: the profiling switch is connection state, so the bracket sets, runs, and resets on every exit path — a lane query outside the bracket runs unprofiled at full speed; `outputPath` arrives from the configured artifact owner, resolves to a full path, escapes as a DuckDB string literal, and is deleted after decode on success or failure, so ambient temp storage and orphaned profile files are forbidden; the harvest borrows the `Query/columnar` connection and mints no second DuckDB lane; the analytical lane is process-scoped, so the receipt carries the frame's correlation and instant while tenant stays a `ProjectionContext` fact the sink's message envelope carries by ruling.
 
-```csharp signature
+```csharp
 public sealed record DuckOperatorRow(string Name, double TimingSeconds, long Cardinality);
 
 public sealed record DuckProfileReceipt(
@@ -268,7 +268,7 @@ public static class DuckProfileHarvest {
 - Growth: one counter is one field and one raw-call line, bounded by the constants the core interop assembly declares — the reprepare/run statement counters and the cache-spill gauge stay off the receipts because `SQLitePCLRaw.core` declares no `SQLITE_STMTSTATUS_REPREPARE`/`SQLITE_STMTSTATUS_RUN`/`SQLITE_DBSTATUS_CACHE_SPILL` constant, and they re-widen the day the core assembly grows the rows.
 - Boundary: every raw call crosses the ONE `Store/provisioning#ENGINE_OPERATIONS` `HandleBridge`, so the harvest opens no second native path, reads the same native connection the ADO surface drives, and inherits that capsule's handle refusal and fault capture rather than restating either; `enable_sqlite3_next_stmt` is a REGISTRY arm, not a harvest step — the walk throws on an unarmed connection AND on any handle prepared before the arm, so `Arm` leads the open ritual's capability roster ahead of the first statement and a per-call arm inside the harvest faults on the statements it exists to read; the `sqlite3_next_stmt` walk borrows each statement handle only inside the fold and holds none past it; the per-table `dbstat` space census is probe-gated, never build-assumed — `raw.sqlite3_compileoption_used` over `SQLITE_ENABLE_DBSTAT_VTAB` reads false on the plain `e_sqlite3` build and the bound provider is the `Store/provisioning#EMBEDDED_FLOOR` cipher bundle, so store-level bytes ride the `SCHEMA_USED`/`STMT_USED` gauges and the SQL `PRAGMA page_count`/`page_size` product as the standing form; the embedded store is process-scoped, so these receipts carry no tenant brand by ruling; provider-bundle facts stay engine-layer and never become Persistence vocabulary.
 
-```csharp signature
+```csharp
 public sealed record SqliteStatementStat(int VmSteps, int FullScanSteps, int Sorts, int AutoIndexRows);
 
 public sealed record SqliteConnectionStat(int CacheHits, int CacheMisses, int CacheWrites, int CacheBytes, int SchemaBytes, int StatementBytes);
@@ -318,7 +318,7 @@ public static class SqliteStatHarvest {
 - Growth: a fourth engine is one `PlanSubject` case and one leg; a fourth compare outcome is one `PlanVerdict` case beside one `PlanRule` row whose `Stable` column re-derives the stability share's good half with no pack edit; a richer shape facet is one row in the pg facet list or one decode line; zero new surface — a per-engine capture service or a timing-bearing digest is the deleted form.
 - Boundary: the digest preimage carries SHAPE facets only — a timing or cardinality byte makes every run drift, the deleted form; the pg statement key joins `pg_stat_statements.queryid` so the explaining half joins the `#PG_STAT_HARVEST` evidence, and the `#SQLITE_STATUS_HARVEST` full-scan tell names the suspect statement this leg explains; the pg leg's `ANALYZE` executes the statement, so capture runs deliberately on a suspect lane, never ambient; the DuckDB leg reads `EXPLAIN (FORMAT json)`'s `physical_plan` row without arming the profiling bracket, so plan capture and profile harvest stay independent probes.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -467,7 +467,7 @@ public static class PlanProfile {
 - Growth: a new point is ONE `PersistencePoint` row and one `PersistenceFact` case — the seat, the census, and the registry entry all derive from `Items`, so no `Live` body, no census literal, and no typed column moves; a subscriber is one gate or tap value at composition; a rider is one `HookBinding` through `Mounts`; a new lifecycle domain contributes its point through this roster, never a second registry type.
 - Boundary: ids, modalities, and the trace plane live on the roster rows alone, so a construction literal re-spelling any of the three has no place to live; point ids ride the `rasm.<pkg>.<domain>.<point>` grammar the settled `HookId` factory admits, `persistence` the pkg segment; the owning pages fire through the composition adapters and injected taps — a hook parameter on an owner rail signature is the deleted form; the AppHost `Receipt` point already taps every message envelope this package emits, so these points carry what that tap cannot: the typed fact cases and the two veto modalities; policy engines, audit sidecars, and UI live-update legs subscribe or seat riders here without touching owner rails.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -573,7 +573,7 @@ public sealed record PersistenceHooks(
 - Growth: a new usage axis is one `UsageReceipt` field, one `Decode` line, one `UsageFactRow` column with its `ColumnRow`, one `Cells` arm, and one gauge row; a new source census is one `Fold` argument row.
 - Boundary: tenant is the injected frame/catalog column (the RLS partition), never an ambient read, and it enters as a typed `TenantId` at the ingress boundary alone — the interior carries `TenantContext`; the kernel root row IS the absent tenant, so a single-tenant store contributes no `rasm.tenant` dimension and never a zero-valued sentinel; `TenantContext` is a plain record rather than a generated owner, so the census wire carries its two members and the decode reads the slug — the `x32` prefix the key arm mints — never a raw key scalar no `JsonElement` numeric accessor spans; the per-tenant meter dimension rides the `rasm.tenant` spelling under the estate `*`-wildcard series cap — above the cap, attribution rides receipts, the fact table, and exemplar-sampled traces, never unbounded tag values; the fact table is DERIVED and carries zero authority — it accelerates a cost question and rebuilds from the receipt stream at warm-up cost, so reading it as billing truth turns a dropped accelerator into billing loss, and the metrics-plane cardinality cap governs the meter alone while the residence holding these facts carries none by law.
 
-```csharp signature
+```csharp
 public sealed record UsageReceipt(TenantContext Tenant, Option<ArtifactKind> Kind, RetentionClass Class, StorageTier Tier, long Bytes, long Objects, long Deliveries, Instant At, CorrelationId Correlation);
 
 public readonly record struct UsageFactRow(
@@ -697,7 +697,7 @@ public static class StoreUsage {
 - Growth: one projected slot is one `ReceiptFan.Arm` registration and its instrument rows here, a slot whose receipt shape an existing arm already folds binds that arm's parameterized mint under its own tag value rather than a second body, and a slot family drawn from a CLOSED vocabulary lands with no edit at all — the object plane's arms derive from `BlobFactKind.Items`, so a tenth fact kind reaches the meter the moment that vocabulary grows; a further step tell, memory region, profile phase, or I/O event the harvest receipts grow is one `(wire field, tag value)` pair on its own row table — never a second instrument, because the fanned dimension already carries the axis; a slot without an `Arms` row is receipt-only by default, so projection is opt-in per row and no page declares the default; a new bucket policy is one `Buckets` row at the kernel, never a folder-local bound array; the census follows rows and slots with zero edits.
 - Boundary: the port `Scope` string is the minted package row the composing root admits by name, board and reliability policy travel DOWN on that same port so the mounting root proves every descriptor inside the fold that binds the handles and never reaches a package-specific pack field by name, and instruments mount through the composing root's meter mint, never a package-local `Meter`; every level cell is the composition's kernel `LevelCells`, so no folder-shaped or process-static cell exists; pg_stat and engine-status sources are server- and process-global, so no harvest row carries a tenant tag — ONLY the usage levels carry the `rasm.tenant` dimension, capped by the one per-instrument governance view its declaring row projects and never multiplied by a class or tier product, and that dimension is the key those families MAY carry rather than one every entry holds — the root tenant's group reports untagged on the same instrument, the declaration's own absence arm, so a partitioned and an unpartitioned deployment publish one series shape a cross-deployment query unions — while every other fanned dimension closes over a vocabulary its row table enumerates or a `Query/residence#RESIDENCE_FAMILY` closed roster names — `residence` over the residence family and `dataset` over the landed residence datasets — so the whole roster's series count is declared rather than payload-driven; every tag key an arm stamps is a declared `Dimensions` entry on its row, so the governance leg derives each view's `TagKeys` from the roster; the census `Instruments` roster is this scope's alone while its `Slots` are the composition's whole mounted surface, foreign contributed families included, because a board discovering one package's streams still resolves every slot the sink emits; arm bodies are the one place receipt wire names meet instrument writes, and an arm never re-validates the payload its typed receipt already admitted.
 
-```csharp signature
+```csharp
 public sealed record CensusRow(string Name, string Kind, string Unit, string Description, ImmutableArray<double> Buckets, Seq<string> Dimensions);
 
 public sealed record StoreTelemetryCensus(string Source, string Version, Seq<CensusRow> Instruments, Seq<string> Slots, Seq<string> Projected);
@@ -946,7 +946,7 @@ public sealed partial class StoreInstruments {
 - Growth: a new board panel is one `PanelSpec` on the pack; a new reliability policy is one `Objective` row over an existing indicator shape, and a share over an already-fanned population needs no roster edit at all; a new indicator shape is a kernel `Sli` case breaking every compile leg at once.
 - Boundary: dashboards, alert provisioning, query dialects, the panel descriptor row, and the burn algebra are the kernel's and the deploy plane's — this page carries pack DATA behind the same `rasm.persistence.*` names the instruments carry and never a descriptor type, query string, board JSON, or provider type; a success share is a partition over the ONE counter its outcome dimension already fans, so the settlement share reads all four settlement rows the arm writes and `Ratio` stays reserved for genuinely independent counters; both headroom indicators are `Saturation` over a scalar level with `LevelBreach.Floor`, because a cache hit ratio breaches BELOW its bound and a counter pair no level reading can form is the one alternative shape; the top-N statement duration carries a PANEL and no objective — the harvest selects the slowest statements by total execution time, so an objective over that sample targets a population chosen for breaching and reports a fixed rate no tuning moves; the tenant usage families carry panels alone, because a chargeback census is a figure against no ceiling and a storage population has no reliability target, and their three `TenantContext.TenantSlot` break keys render on EVERY deployment now that the root group publishes untagged — an unpartitioned host draws one unbroken series under that key rather than the empty panel a partition-only write left it; the plan-stability good set derives from the `PlanRule` stability column rather than a value literal, so a fourth compare rule joins the share where the vocabulary owns it; the pack's own `Wire` column spells `persistence.census`, the provenance key that plane's closed tuple admits this projection under.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;

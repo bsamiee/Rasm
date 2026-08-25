@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 cad/
 ├── faults.py           # CadFault spine: leg, case, and recovery vocabularies and the one wire projection both ways
 ├── exchange/           # Correspondence to foreign exact representations, both directions

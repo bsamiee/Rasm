@@ -22,7 +22,7 @@ The crash-durable workflow and persistent-job owner for the runtime spine: a `Wo
 - Boundary: a schedule key has ONE author — `WakeKey` carries the `wf:` head and the `{kind}:{instance}:{index}:{attempt}` body, so the three deferred wakes cannot drift into three formats and a `SchedulePort` row cannot be spelled by a site that does not hold a `WakeKind`; the re-drive key carries the ATTEMPT ordinal because each deferral is a distinct self-completing row, while the timer and signal-timeout keys carry attempt zero because a step registers exactly one of each. This is the keyed-registry key law the folder's other namespaced registries read, one head per registry.
 - Boundary: the in-process re-drive LAW is the kernel's — `RedrivePolicy(Schedule Law, int Bound)` with `Redrive.Settle` answering `Deferred`/`Abandoned`/`Terminal` — so this page holds no attempt ceiling, no backoff arithmetic, and no `attempt < max` comparison; the step's durable `Attempt` ordinal is the only state, and the verdict reads it. NAMED LOSS: the retired `RetryPolicy(MaxAttempts, BaseBackoff)` multiplied a base by a clamped attempt, so its growth curve was linear and unstateable anywhere else; the policy's `Schedule` carries whatever curve it declares and the bound truncates it by derivation, which is why `StepRedrive` reads as a capped exponential rather than a multiplication. Jitter stays OFF this policy: `Schedule.jitter`/`decorrelate` draw ambient entropy unless seeded, `Runtime/determinism#DETERMINISM_KERNEL` names ambient entropy the deleted form for this folder, and a static policy value has no seed in scope — a de-correlated curve lands where the seed does or not at all.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
@@ -191,7 +191,7 @@ public sealed partial record WorkflowInstance(
 - Boundary: the instance's ONLY outbound face is the projected `StepStateRow` on the receipt stream — the workflow-instance, step, and step-kind wire shapes this page once declared had no C# producer, no `libs/contracts/manifest.json` row, and no peer decoder anywhere in the estate, so they crossed nothing and are WITHDRAWN rather than left as a wire face a reader could believe in (`LAW_WITHOUT_PRODUCER`); serializing the live `WorkflowInstance` record was the same defect from the other side, since `EventLog.Chain`, `FencingToken`, and `Option<CommandReceipt>` have no wire shape at all and the fan published whatever their serializers happened to emit. A dashboard that wants the workflow lands its face as a registered family at `Runtime/ports#WIRE_LAW` with a decoder at both ends, in one pass.
 - Boundary: the park's correctness wake reads the re-drive policy's LAST admitted delay — the widest interval its own curve produces — so one policy value prices both the bounded re-drive and the assessment re-probe, and the declared `Bound` is positive precisely so that wake exists; a zero-bound policy would leave the park delivery-only, which the two-tier wake law forbids.
 
-```csharp signature
+```csharp
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public static class Orchestrator {
     public static readonly RedrivePolicy StepRedrive = RedrivePolicy.Of(
@@ -368,7 +368,7 @@ stateDiagram-v2
 - Growth: one durable step column is one field on the projected row plus its codec arms; a new read shape is one coordination op-union READ case decoded here; zero new surface.
 - Boundary: the adapter is decode-only per the Persistence `[V2]` law — requests cross as this projected row of primitives, results decode from Persistence-owned types, the op-union/token/receipt shapes are Persistence's and the store is token-VALIDATING; the store's own `WorkflowKey`/`StepKey`/`SignalKey` value objects stay on ITS side of the seam, which is exactly why these delegates take primitives; the durable CAS store is the branch `ONE_FENCED_LEASE_STORE` leg under the `TenantId` RLS predicate, and the workflow-step dispatch registers as one keyed `OutboundHop` consumer of the branch `ONE_OUTBOX_EGRESS_SPINE` op-log rather than a second egress table (`Wire/outbox#OUTBOX_FABRIC`); a per-process workflow table that bypasses the fenced store, an AppHost record pushed down through the seam, and a second recovery store are the rejected forms; the workflow step-state row and the outbox row commit under one tenant-scoped transaction so crash-durable step resumption and exactly-once-effective delivery share one durable boundary.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record StepStateRow(
     string InstanceId,
@@ -432,7 +432,7 @@ public sealed record StepStateSeam(
 - Boundary: the crash-resume is the only mid-saga recovery owner — a re-run from the start, a best-effort replay, a second recovery store, and a scan the port law forbids are the deleted forms (the sweep rides the waterfalled op-union READ cases, never an AppHost-side table scan); resume reads the durable cursor so a committed step is never re-executed, the exactly-once-step guarantee; a resumed instance carries a fresh decoded token so two processes resuming one instance cannot both commit — the stale token loses the store CAS, and the dead holder's late advance is the decoded `LeaseFenced` rejection, never a silent double-commit.
 - Boundary: both entries are COMPOSITION-shaped and neither runs itself — `Resume` is a boot gate on the runtime module's post-generation fold and `Reclaim` is a maintenance-cadence `ScheduleEntry` gated on the reclaim-role lease, and `Runtime/modules#MODULE_LEDGER` seats both in the same pass; a recovery surface no boot reaches is prose, which is exactly the state this anchor was in.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CrashResume {
     public static IO<Seq<WorkflowInstance>> Resume(OrchestrationRuntime runtime, TenantContext tenant) =>

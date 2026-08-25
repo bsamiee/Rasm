@@ -21,7 +21,7 @@
 |  [06]   | `HasRepr`     | wrapper       | asserts an object's `repr` inside a snapshot without an equality-comparable value          |
 |  [07]   | `UsageError`  | exception     | raised on a malformed snapshot call or an unmanaged-value misuse                           |
 
-```python signature
+```python
 def snapshot(obj: T = ...) -> T: ...
 def external(name: str | None = None) -> Snapshot[object]: ...
 def external_file(path: Path | str, *, format: str | None = None) -> Snapshot[object]: ...
@@ -42,7 +42,7 @@ def get_snapshot_value(snapshot: Snapshot[T]) -> T: ...
 |  [06]   | `extra.prints(stdout=..., stderr=...)` | context manager | asserts captured stdout/stderr against snapshots                            |
 |  [07]   | `extra.warns(snapshot([...]))`         | context manager | asserts emitted warnings against a snapshot list                            |
 
-```python signature
+```python
 from inline_snapshot import snapshot, external, outsource, Is
 from inline_snapshot.extra import raises, prints, warns
 def test_wire_golden(produce: Callable[[], bytes]) -> None:

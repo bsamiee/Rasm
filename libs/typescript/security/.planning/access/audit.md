@@ -20,7 +20,7 @@ Security's evidence rail in one owner: `SecurityFact` closes the folder's loud a
 - Growth: a new loud arm is one case, one `_points` row, and one publish line at its arm; a new fact field is a case field the journal inherits.
 - Packages: `effect` (`Schema`, `Option`); `@rasm/core` (`Fault.Class`, `Identity.Tenant`, `Tap`).
 
-```typescript signature
+```typescript
 import { Board, Convention, Fault, Identity, Reliability, Shape, Tap } from "@rasm/core"
 import {
   Array, Context, DateTime, Duration, Effect, Fiber, Layer, Mailbox, Match, Number, Option, Predicate, PubSub, Queue, Record, Schema, type Scope, Stream,
@@ -155,7 +155,7 @@ class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
 - Packages: `effect` (`Context`, `PubSub`, `Queue`, `Mailbox`, `Fiber`, `Stream`, `DateTime`).
 - Packages: `@rasm/core` (`Fault.Budget`, `Fault.Class`, `Identity.App`, `Tap`).
 
-```typescript signature
+```typescript
 class AuditRecord extends Schema.Class<AuditRecord>("AuditRecord")({
   app: Identity.App.fields.app,
   at: Schema.DateTimeUtc,
@@ -193,7 +193,7 @@ const _selects = (selection: SecurityFact.Class | SecurityFact.Point): Predicate
 - Boundary: which store receives `AuditTrace` values is the composing app's lake seam; this page owns only the projection and its masking law.
 - Packages: `effect` (`Match`, `Option`, `Record`); `crypt/sign` (`Crypto.sign` as the root-side `Pseudonym` satisfaction, never an import here).
 
-```typescript signature
+```typescript
 class Pseudonym extends Context.Tag("security/access/Pseudonym")<Pseudonym, {
   readonly mask: (value: string) => Effect.Effect<string, AuditFault>
 }>() {}
@@ -261,7 +261,7 @@ const _egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pse
 - Boundary: pack dispatch and panel vocabulary are the core board owner's; burn rows and severity routing are the core slo owner's; rule and dashboard compilation is the iac observe leg's over the encoded values `pack` hands it; the runtime export lane owns the OTLP path the snapshot bypasses.
 - Entry: `Audit.pack(board)` at the app's deploy-feed seam beside `Audit.board(board)` — a pure value mint over the context the root already holds, never a Layer and never a second board.
 
-```typescript signature
+```typescript
 class SnapshotRow extends Schema.Class<SnapshotRow>("SnapshotRow")({
   name: Schema.NonEmptyString,
   kind: Convention.Kind.schema,

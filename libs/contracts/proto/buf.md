@@ -4,7 +4,7 @@
 
 ## [01]-[DEPENDING]
 
-```yaml copy-safe
+```yaml
 version: v2
 deps:
   - buf.build/rasm/contracts

@@ -20,7 +20,7 @@
 - Growth: a new creation knob is one `SubDCreationSpec` column with its claim; a new edge filter bit is one capability row the projection reads by name.
 - Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266`, `SubD` edit `:273-282`, `SubD` topology `:307-314`, `SubD` config `:316-328`), kernel `Domain/rails` (`Op`, `Lease<T>.Acquire`/`Use`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
@@ -291,7 +291,7 @@ public readonly partial struct SubDEdgeSelection : IValidityEvidence {
 - Growth: a new subd constructor is one `SubDOp` case with its arm; a new edit is one `SubDEditVerb` case with its arm and its generated key; a new measured edit is one `SubDSlot` row.
 - Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266` incl. `CreateFromMesh`/`CreateFromSurface`/`CreateFromLoft`/`CreateFromSweep`/`CreateQuadSphere`/`CreateGlobeSphere`/`CreateTriSphere`/`CreateIcosahedron`/`CreateFromCylinder`/`JoinSubDs`, `SubD` edit `:273-282` incl. `Subdivide`/`Offset`/`ToBrep`/`InterpolateSurfacePoints`/`MergeAllCoplanarFaces`/`PackFaces`/`Flip`/`TransformComponents`/`SetVertexSurfacePoint`/`UpdateAllTagsAndSectorCoefficients`/`UpdateSurfaceMeshCache`, `SubD` topology `:307-314` incl. `DuplicateEdgeCurves`/`SetVertexTags`/`SetEdgeTags`), `Modeling/lofting.md` (`SweepFrameLaw`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), kernel `Domain/rails` (`Op`, `Op.Confirm`, `Op.Catch`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SubDSlot {

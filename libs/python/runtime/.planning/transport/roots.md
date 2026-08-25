@@ -50,7 +50,7 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
 - Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row carrying dispatch, argument planning, result projection, path, and retry class; a new precondition one `PutMode` on `Put` or one `overwrite` value on `Copy`/`Rename`; a newly unreachable cell one capability column on `StoreBackend` the matrix derives from, or one explicit `_REFUSAL` row where no column answers it; a new conditional-get axis one `GetOptions` key on `Get`; a new get-response evidence field one more `GetResult` member on the `Get` `read`'s `payload` tuple; a new streaming or signing surface one `StoreOp` case whose `read` carries its non-byte value on the `payload` slot and emits a `None` `Source`, never a parallel handle table.
 - Boundary: object-store operation dispatch and its reach matrix only. Composes — never re-mints — the `reliability/resilience#RESILIENCE` `guarded`/`guarded_sync` envelopes and the `reliability/faults#FAULT` `BoundaryFault` those lift; mints no content key, quantity unit, hook point, or durable receipt. Rejected: a capability bound answered by a provider exception where a matrix row states it as data; an exported `reader` used for response streaming, because its later pulls escape the operation rail; a consumer catch over `BaseError`; a message match for not-found; a hand-opened boundary/span around a guarded caller; a sync leg dropping a retried row's `OBJECT_STORE` envelope; a per-operation `from_url` re-mint; a parallel `S3Lane`/`AsyncObjectStoreLane` family.
 
-```python signature
+```python
 import hashlib
 import posixpath
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Buffer, Callable, Generator, Iterable, Sequence

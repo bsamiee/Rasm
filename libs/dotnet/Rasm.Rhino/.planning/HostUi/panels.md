@@ -28,7 +28,7 @@
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panel`, `IPanel`, `ShowPanelReason`, `Panels.IsShowing`/`IsHiding`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Label`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Realize`, `ElementReceipt`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `PluginKey`).
 - Growth: a new lifecycle evidence is one `PanelChange` case; a new identity axis is one column on the seat, breaking every ledger read loudly.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
@@ -230,7 +230,7 @@ public abstract class HostPanel : Panel, IPanel {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panels.RegisterPanel` both overloads, `OpenPanel`, `OpenPanelAsSibling`, `FloatPanel`, `ClosePanel`, `IsPanelVisible`, `PanelDockBars`, `GetOpenPanelIds`, `DockBarIdInUse`, `ChangePanelIcon` both overloads, `GetPanels<T>`, `PanelType`, `FloatPanelMode`); `libs/dotnet/.api/api-system-drawing-common.md` (the icon the registry takes); LanguageExt.Core (`Fin`, `Option`, `HashMap`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`); `Rasm/Interaction` (`AssetOrigin`, `AssetAnchor`, `FileLocation`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Lease<T>`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`, `DocKey`, `PluginKey`, `Subscription`).
 - Growth: a new registry operation is one `PanelIntent` case, one arm, and one `PanelMount` shape only if no existing shape carries it; a new settlement is one `PanelVerb` row.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PanelFocus {
@@ -584,7 +584,7 @@ public static class PanelHost {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (panel visibility semantics); LanguageExt.Core (`Fin`, `Option`, `Seq`); `Rasm/Domain` (`Op`, `HookBinding`); `Rasm.Rhino/Document` (`MountRegistry`, `RhinoPoint`, `DocumentStream`, `Observation`, `EventScope`, `EventFamily`, `EventPayload`, `Delivery`, `ReceiptPolicy`, `Subscription`, `PluginKey`).
 - Growth: a new observation source is one `PanelObserve` case with one arm.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PanelObserve {
@@ -660,7 +660,7 @@ public static class PanelHooks {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`RhinoApp.ToolbarFiles`, `ToolbarFileCollection.SidebarIsVisible`/`MruSidebarIsVisible`/`FindByPath`/`FindByName`, `ToolbarFile`, `Toolbar.BitmapSize`/`TabSize`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Traverse`, `foldWhile`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Domain` (`Op`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
 - Growth: a new toolbar command is one `RuiCommand` case with one apply arm; a new census column is one field on its own fact; a new sidebar or bar is one row both sides read.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class NameMatch {
@@ -930,7 +930,7 @@ public static class Rui {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RuiUpdateUi.RegisterMenuItem`, `RuiUpdateUi.Enabled`/`Checked`/`RadioChecked`/`Text`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
 - Growth: a new menu axis is one `MenuDelta` case with one apply arm.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class MenuToggle {
@@ -1012,7 +1012,7 @@ public static class MenuLinks {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`EtoCollapsibleSection3`, `ICollapsibleSectionHolder2`, `EtoCollapsibleSectionHolder2`, `LocalizeStringPair`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Grow`, `ElementReceipt`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
 - Growth: a new lifecycle signal is one `PanelSectionSignal` case with one override; a new section capability is one row on its roster.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1245,7 +1245,7 @@ public static class PanelSections {
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`NumericUpDownWithUnitParsing`, `RichTextAreaWithAlternateText`, `ImageButton`, `ImageToolTipButton`, `AddRemoveButton`, `RhinoButtonRow`, `ControlGridLayout`, `Divider`, `LabelSeparator`, `StaticAlignedLabel`, `DisplayAndPrintColorPicker`, `ViewportControl`, `RhinoLayout` padding/spacing/width/label factories, `NumericUpDownWithUnitParsingUpdateMode`, `DistanceDisplayMode`, `GridWrapMode`, `DisplayAndPrintColorPickerMode`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Theme.ThemeZone`, `RhinoUiServiceLocator`, `PlatformServiceProvider`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); `Rasm/Interaction` (`ControlSpec`, `ControlMint`, `ElementSpec`, `ElementRuntime`, `EditTrait`, `IntentTable.Verb`, `IntentKey`, `PaintColor`, `ThemeSeam`, `ThemeShift`, `ThemeVariant`, `PaletteRole`, `ThemeChange`, `UiFault`); `Rasm/Domain` (`Op`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`).
 - Growth: a new Rhino widget is one `HostControl` case and one mint arm; a new layout row is one entry on its own vocabulary; a new update mode is one `UnitPulse` row the mask fold already reads.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<RhinoLayout.PaddingType>]
 public sealed partial class RhinoPad {

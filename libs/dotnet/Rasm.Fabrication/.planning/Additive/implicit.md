@@ -27,7 +27,7 @@ Wire posture is host-local: `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorF
 - Growth: a topology is `FieldExpression` data, a common topology one `FieldKind` seed row, a per-occurrence topology one `FieldDefinition.Generated`, and a spatial driver one `ImplicitCell` field column.
 - Boundary: raw level equations never claim signed-distance semantics — the distance law divides the residual by the world gradient norm floored at the policy's own gradient floor, so a level set whose gradient vanishes reports a bounded distance rather than an infinity.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Collections.Frozen;
@@ -380,7 +380,7 @@ public readonly record struct FieldThreshold(float Iso, Length HalfWidth, Calibr
 - Growth: a new frequency measure is one `SpectralMetric` row; a new response family is one `SpectralExpression` case, which breaks every symbol program at compile time.
 - Boundary: a symbol reads the bin's per-axis cycles-per-millimetre off the transform receipt's own axes and never re-derives a spectrum axis beside the lattice that produced it; the shape pair is the step's anisotropy ratio and cut-off wavelength, the ONE pair every metric reads.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct SpectralShape(double Anisotropy, double Wavelength);
 
@@ -463,7 +463,7 @@ public sealed partial class SpectralSymbol {
 - Growth: a native transform is one `VoxelMorphologyStep` case; a frequency-domain transform is one `SpectralSymbol` row under the single `Spectral` case.
 - Boundary: a native failure carries the provider's own cause forward on the composed error, because the provider owns that taxonomy and the fabrication case names only the operation and its budget.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record VoxelMorphologyStep {
@@ -618,7 +618,7 @@ file sealed class FilteredField(Voxels source, SpectralReceipt filtered, CellLat
 - Growth: a new provider selector is one `[SmartEnum<string>]` here carrying its native column; a new sampling lane is one `MaskSampling` row spelling its two columns.
 - Boundary: the slice fetch takes its buffer by reference because PicoGK writes into one allocated `ImageGrayScale` across every slice, so the column is a declared delegate rather than a `Func`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SliceRender {
@@ -701,7 +701,7 @@ public readonly record struct RasterFrame(float VoxelSizeMm, Point3d Origin, int
 - Growth: a new operation is one `ImplicitOp` case and one `VoxelOperationKind` row; a layer encoding is one `CliMode` case.
 - Boundary: commit, wire read, wire write, and the three grading-field readers are the genuine EXTERNALS this page injects — each names a capability the caller owns — while every algorithm the page charters stays on the page.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class VoxelOperationKind {
@@ -849,7 +849,7 @@ public abstract partial record ImplicitOp(
 - Growth: a materializing consumer is one `Voxelize` callback.
 - Boundary: `PeriodicImplicit.fSignedDistance` copies the provider's by-reference callback value before use; VDB source identity travels with its field name and required metadata; the document container is what NAMES a field, so the direct single-field write cannot serve an egress whose import lane resolves by name.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record VoxelMetrics(
     Volume Volume,
@@ -1398,7 +1398,7 @@ file sealed class FieldCalibration : IDisposable {
 - Growth: a layer encoding is one `CliMode` case and one lane here.
 - Boundary: the stack is INSPECTED between the field and the file — the layer census and the slices are the canonical identity preimage — so the vectorize-then-write staging earns its place; where a lane writes a single field and reads nothing back, the collapsed single-call write is the form and no container materializes.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CliImport(int Layers, BoundingBox Bounds, string HeaderDate, Seq<string> Warnings);
 
@@ -1511,7 +1511,7 @@ public static partial class Sdf {
 - Growth: a new preimage is one method here composing the same family.
 - Boundary: canonical keys include every behavior-bearing policy value, emission setting, and field identity; a float raster writes through the double primitive, which canonicalizes signed zero and every NaN payload, so a bit pattern the provider happens to emit cannot fork a key.
 
-```csharp signature
+```csharp
 public static class ImplicitCanonical {
     public static Fin<ContentKey> Cli(
         PolySliceStack slices,

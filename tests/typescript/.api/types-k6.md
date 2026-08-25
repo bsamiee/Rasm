@@ -24,7 +24,7 @@
 |  [06]   | `__ENV` / `__VU` / `__ITER`   | ambient global | env map, 1-based VU id, 0-based iteration counter            |
 |  [07]   | `open(path, mode?)`           | ambient global | read a fixture file at init time (corpus / payload seed)     |
 
-```ts signature
+```ts
 export function check<VT>(val: VT, sets: Checkers<VT>, tags?: object): boolean
 export function group<RT>(name: string, fn: () => RT): RT
 export function sleep(t: number): void
@@ -45,7 +45,7 @@ declare var __ENV: { [name: string]: string }; declare var __VU: number; declare
 |  [04]   | `Scenario`        | union (7 executors) | `executor` discriminates the load shape; the whole roster is one type    |
 |  [05]   | `Stage`           | interface           | `{ duration; target }` — a ramping segment for `stages`/`ramping-*`      |
 
-```ts signature
+```ts
 interface Options {
   vus?: number; duration?: string; iterations?: number
   stages?: Stage[]
@@ -75,7 +75,7 @@ type Executor =
 |  [04]   | `RefinedResponse<RT>` / `Response`                          | interface     | `status`/`body`/`headers`/`timings`/`json()`; RT body |
 |  [05]   | `url` / `expectedStatuses`                                  | function      | URL tagged-template / status-set predicate            |
 
-```ts signature
+```ts
 export function request<RT extends ResponseType | undefined>(method: string, url: string, body?: RequestBody, params?: RefinedParams<RT>): RefinedResponse<RT>
 export function asyncRequest<RT extends ResponseType | undefined>(method: string, url: string, body?: RequestBody, params?: RefinedParams<RT>): Promise<RefinedResponse<RT>>
 export function batch<Q extends BatchRequests>(requests: Q): BatchResponses<Q>
@@ -103,7 +103,7 @@ Custom metrics feed thresholds BY NAME — a `new Trend("my_op_ms")` becomes the
 |  [07]   | `k6/net/grpc`                               | ambient module | gRPC protocol driver                                              |
 |  [08]   | `k6/browser`                                | ambient module | browser-automation driver                                         |
 
-```ts signature
+```ts
 export abstract class Metric { constructor(name: string, isTime?: boolean); add(value: number | boolean, tags?: { [name: string]: string }): void }
 export class Trend extends Metric {}  export class Counter extends Metric {}  export class Rate extends Metric {}  export class Gauge extends Metric {}
 export const test: { abort(input?: string): void }

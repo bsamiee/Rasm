@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Fabrication/
 ├── Process/                 # Entry vocabulary, axes, physics, rail, and plan orchestrator
 │   ├── Owner.cs             # Fabrication.Run admission-to-result seat; evidence projects lineage without replaying plane logic

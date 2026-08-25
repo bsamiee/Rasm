@@ -21,7 +21,7 @@
 |  [01]   | `Stryker`    | class         | `new Stryker(cliOptions).runMutationTest()` → `Promise<MutantResult[]>` — the gauge entry |
 |  [02]   | `StrykerCli` | class         | `new StrykerCli(argv).run()` — the `stryker run` command wrapper; not the gauge path      |
 
-```ts signature
+```ts
 import { Stryker, StrykerCli } from "@stryker-mutator/core"
 import type { PartialStrykerOptions, MutantResult } from "@stryker-mutator/api/core"
 import type { createInjector } from "typed-inject"
@@ -40,7 +40,7 @@ export default Stryker
 
 [PUBLIC_TYPE_SCOPE]: `@stryker-mutator/api/core`'s `StrykerOptions` is the JSON-schema-generated config; `PartialStrykerOptions` is a DEEP-partial (nested keys like `dashboard.project` are optional too) — the exact `Stryker` constructor input; the gauge encodes the whole config as ONE data object, every field below a canonical row the plugin catalogs reference rather than redefine; the one field the gauge exists to own is `thresholds: MutationScoreThresholds` — three data points, not a matrix of flags.
 
-```ts signature
+```ts
 interface StrykerOptions {
   mutate: string[]
   testRunner: string
@@ -72,7 +72,7 @@ type PartialStrykerOptions = DeepPartial<StrykerOptions>
 
 [PUBLIC_TYPE_SCOPE]: `MutantResult` is the per-mutant receipt `runMutationTest()` returns and `Reporter.onMutantTested` streams; `MutantStatus` is its bounded verdict vocabulary. Both re-export from `mutation-testing-report-schema` through `@stryker-mutator/api/core` — the status tokens are PascalCase, `MutantResult = Mutant & schema.MutantResult`.
 
-```ts signature
+```ts
 import type { MutantResult, MutantStatus } from "@stryker-mutator/api/core"
 type MutantStatus = "Killed" | "Survived" | "NoCoverage" | "CompileError" | "RuntimeError" | "Timeout" | "Ignored" | "Pending"
 interface MutantResult {
@@ -105,7 +105,7 @@ Uncheckered, a doomed mutant masquerades as `Survived` (UNDETECTED) instead of l
 |  [06]   | `declareFactoryPlugin`        | function      | type-checks a plugin's DI graph and returns a `FactoryPlugin<K, Tokens>`          |
 |  [07]   | `commonTokens` / `tokens`     | const / fn    | the DI token constants + the string-literal-tuple helper typing `["$injector"]`   |
 
-```ts signature
+```ts
 enum PluginKind { Checker = "Checker", TestRunner = "TestRunner", Reporter = "Reporter", Ignore = "Ignore" }
 interface PluginInterfaces { [PluginKind.Reporter]: Reporter; [PluginKind.TestRunner]: TestRunner; [PluginKind.Checker]: Checker; [PluginKind.Ignore]: Ignorer }
 type Plugins = { [K in keyof PluginInterfaces]: Plugin<K> }
@@ -129,7 +129,7 @@ Four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mu
 
 [PUBLIC_TYPE_SCOPE]: `Reporter` (`@stryker-mutator/api/report`) is the streaming/terminal result channel a custom gauge reporter implements — every method optional, all fired by the host; the instrument surface (`@stryker-mutator/api/core`) is the canonical mutant-activation channel the vitest-runner's `declare module 'vitest'` augmentation (vitest-runner.md [02]) composes onto: `INSTRUMENTER_CONSTANTS` names the injected identifiers, `InstrumenterContext` is the per-worker mutation state, and `MutantCoverage` is the `perTest` coverage payload that drives `coverageAnalysis`.
 
-```ts signature
+```ts
 interface Reporter {
   onDryRunCompleted?(event: DryRunCompletedEvent): void
   onMutationTestingPlanReady?(event: MutationTestingPlanReadyEvent): void

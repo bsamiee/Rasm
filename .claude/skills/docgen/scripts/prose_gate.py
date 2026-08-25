@@ -40,7 +40,6 @@ class Check(StrEnum):
     EM_DASH = "em-dash"
     FENCE_CONFIG = "fence-config"
     FENCE_GEOMETRY = "fence-geometry"
-    FENCE_INTENT = "fence-intent"
     FENCE_LANGUAGE = "fence-language"
     FENCE_STYLE = "fence-style"
     FENCE_UNCLOSED = "fence-unclosed"
@@ -120,19 +119,6 @@ SKILL_NAME_CAP = 64
 SKILL_ROOT_CAP = 500
 TABLE_WIDTH_CAP = 150
 DIVIDER_WIDTH = 90
-FENCE_INTENTS = frozenset({
-    "accepted",
-    "codemap",
-    "copy-safe",
-    "template",
-    "conceptual",
-    "generated",
-    "output-only",
-    "rejected",
-    "seams",
-    "signature",
-    "test-only",
-})
 TABLE_COLUMN_CEILING = (
     15  # row count is never capped; the 150-column rendered-width cap (TABLE_WIDTH_CAP) is the sole size law, columns govern only the horizontal axis
 )
@@ -226,7 +212,6 @@ MERMAID_LAYOUT = frozenset({"flowchart"})
 MERMAID_MUTE = frozenset({"block", "eventmodeling", "ishikawa", "kanban", "mindmap", "sankey", "timeline", "venn"})
 # Block 2600-27BF covers warning/exclamation/info pictographs; the arrow blocks stay legal for codemap glyphs.
 EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B50\u2139\uFE0F]")
-PROMPT_LINE = re.compile(r"^\s*(?:\$|\u276F|PS>)\s+\S")
 # Bare group labels `[X]:` hug their list; a table keeps its blank.
 GROUP_LABEL = re.compile(r"^\[[A-Z][A-Z0-9_]*\]:\s*$")
 # Floating bracketed labels — no colon, alone on the line — introducing a list or table lack the colon a list label carries.
@@ -725,7 +710,7 @@ def sealed(path: Path, start: int, state: Diagram, scope: bool) -> tuple[Row, ..
     rows: list[Row] = []
     absent = tuple(name for name in ACCESSIBILITY if name not in state.directives)
     if absent and kind not in MERMAID_MUTE:
-        rows.append(row(path, start, Check.FENCE_INTENT, "fail", f"mermaid fence lacks {' and '.join(absent)} under its declaration"))
+        rows.append(row(path, start, Check.FENCE_CONFIG, "fail", f"mermaid fence lacks {' and '.join(absent)} under its declaration"))
     if kind in MERMAID_LAYOUT and (keys := tuple(key for key in MERMAID_ELK_KEYS if key not in state.keys)):
         rows.append(row(path, start, Check.FENCE_CONFIG, "fail", f"{kind} fence frontmatter lacks `{'`, `'.join(keys)}`"))
     return tuple(rows)
@@ -734,20 +719,14 @@ def sealed(path: Path, start: int, state: Diagram, scope: bool) -> tuple[Row, ..
 def fenced(
     path: Path, line: str, number: int, fence: tuple[str, int, int, str, int], state: Diagram, scope: bool, cap: int
 ) -> tuple[bool, Diagram, tuple[Row, ...]]:
-    # Fence-interior census: geometry, intent misuse, mermaid payload, and comment openers; returns (closed, fence state, rows).
+    # Fence-interior census: geometry, mermaid payload, and comment openers; returns (closed, fence state, rows).
     rows: list[Row] = []
     glyph, width, start, info, margin = fence
     if fence_closes(FENCE.match(line), glyph, width, margin):
         return True, state, sealed(path, start, state, scope)
     trimmed = line.strip()
-    if ("codemap" in info or "seams" in info or any(mark in line for mark in GLYPHS)) and len(line) > cap:
+    if any(mark in line for mark in GLYPHS) and len(line) > cap:
         rows.append(row(path, number, Check.FENCE_GEOMETRY, "fail", f"line {len(line)} > cap {cap}"))
-    elif "copy-safe" in info and PROMPT_LINE.match(line):
-        rows.append(row(path, number, Check.FENCE_INTENT, "fail", "copy-safe fence line carries a shell prompt"))
-    elif "copy-safe" in info and PLACEHOLDER.search(line):
-        rows.append(row(path, number, Check.FENCE_INTENT, "fail", "copy-safe fence carries a placeholder slot; the body is a template"))
-    elif "output-only" in info and PROMPT_LINE.match(line):
-        rows.append(row(path, number, Check.FENCE_INTENT, "fail", "prompt-led command rides an output-only fence; the body is a run instruction"))
     if state.mermaid:
         state, payload_rows = diagrammed(path, line, number, state, scope)
         rows.extend(payload_rows)
@@ -790,23 +769,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             if not info:
                 rows.append(
                     row(
-                        path, number, Check.FENCE_LANGUAGE, "fail", "opening fence has no language tag; tag the language, or `text` for plain payload"
-                    )
-                )
-            elif template:
-                pass
-            elif len(tokens) == 1 and tokens[0] not in ("text", "mermaid"):
-                rows.append(
-                    row(path, number, Check.FENCE_INTENT, "fail", f"fence `{info}` carries no intent label; append one from the closed intent set")
-                )
-            elif len(tokens) > 1 and tokens[1] not in FENCE_INTENTS:
-                rows.append(
-                    row(
-                        path,
-                        number,
-                        Check.FENCE_INTENT,
-                        "fail",
-                        f"fence intent {tokens[1]} outside the closed set {', '.join(sorted(FENCE_INTENTS))}",
+                        path, number, Check.FENCE_LANGUAGE, "fail", "opening fence requires a language or identifier token"
                     )
                 )
             fence = (marker[0], len(marker), number, info.lower(), len(matched.group("indent")))

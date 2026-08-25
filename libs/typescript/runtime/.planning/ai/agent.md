@@ -16,7 +16,7 @@ The agent altitude, ruled and sealed: an agent session's interaction state is a 
 - Law: both lanes land ONE system message — the trim lane truncates the held prompt and the digest lane replaces it, so the compaction write is a whole-history set either way and neither lane appends beside what it just folded.
 - Growth: a memory concern (pinned facts, user preferences) is a system block the digest lane preserves, never a second store.
 
-```typescript signature
+```typescript
 import { type AiError, Chat, type LanguageModel, Prompt, type Response, Tool, Toolkit } from "@effect/ai"
 import { Array, BigDecimal, Effect, Either, Function, HashSet, Match, Option, Record, Ref, Schema } from "effect"
 import { Fault, Transition } from "@rasm/core"
@@ -100,7 +100,7 @@ const _open = (row: Session) =>
 - Law: a reasoning-continuity carrier is therefore never load-bearing across turns in this loop — a posture needing it holds the parts itself and rebuilds the prompt from them, because the persisted history is the substrate's value and this page does not reach inside it.
 - Growth: a loop concern (reflection pass, plan-then-act) is a phase row plus a fold arm, never a second loop.
 
-```typescript signature
+```typescript
 const _PHASES = ["idle", "thinking", "awaiting", "compacting"] as const
 const _Phase = Schema.Literal(..._PHASES)
 const _isPhase = Schema.is(_Phase)
@@ -313,7 +313,7 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
 [ACTOR]:
 - Packages: `@rasm/core` (`Transition`, `Fault.Budget`); `effect` (`Function`); `../work/entity.ts` (`Actor` — the escalation mint).
 
-```typescript signature
+```typescript
 const _phaseNodes = {
   idle: { kind: "atomic", parent: "session" },
   thinking: { kind: "atomic", parent: "session" },
@@ -364,7 +364,7 @@ const _restore = (frozen: Transition.Frozen) => Effect.flatMap(_compiled, (compi
 [APPROVAL]:
 - Packages: `./model.ts` (`Guardrail`); `../work/flow.ts` (`Signal` — the durable deferred); `@rasm/core` (`Transition`).
 
-```typescript signature
+```typescript
 declare namespace Agent {
   type Held = typeof _Held.Type
   type Verdict = Held & { readonly approve: boolean }

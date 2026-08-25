@@ -23,7 +23,7 @@ The hook rail lives here too, because a hook point is an evidence surface a boar
 - Law: registry membership is proved AT CONSTRUCTION and travels as nothing. `ReceiptSurface.KindOf` resolves the case against the frozen `[JsonDerivedType]` roster and throws on a case that roster never declared, so an objective naming an unregistered case has no construction path. NAMED LOSS: the `Kind` column is retired — its stated purpose was a boot probe, no probe on any page ever read it, and the construction-time resolution it was derived from is the same proof carried out one step earlier. `Runtime/receipts#FOLD_PROJECTIONS` `ReceiptFolds.Cases<TCase>` is this correspondence's un-erased twin, taken where the predicate need not survive as a value.
 - Boundary: an unregistered case fails where the selector is CONSTRUCTED rather than at a boot probe restating it, so the failure names the objective row rather than a roster count.
 
-```csharp signature
+```csharp
 public sealed record FactSelector(Func<ComputeReceipt, bool> Holds) {
     public static FactSelector Of<TCase>(Func<TCase, bool>? holds = null) where TCase : ComputeReceipt {
         ignore(ReceiptSurface.KindOf(typeof(TCase)));
@@ -46,7 +46,7 @@ public sealed record FactSelector(Func<ComputeReceipt, bool> Holds) {
 - Law: `Breaching` filters the ALREADY-filtered population, so the sample's `Breaching <= Total` claim holds by construction at the one seam that mints it and no consumer re-proves it.
 - Boundary: `Slo.Specs` is the kernel's compilation-ready projection and this owner forwards nothing to it — a consumer holding the pack reads `BoardPack.Alerts` in one hop, so the two zero-caller forwarding members that stood between them are retired.
 
-```csharp signature
+```csharp
 public sealed record ComputeObjective {
     private ComputeObjective(Objective objective, FactSelector population, FactSelector breach) =>
         (Objective, Population, Breach) = (objective, population, breach);
@@ -86,7 +86,7 @@ public sealed record ComputeObjective {
 - Boundary: `BoardPack.Admit` carries every claim this pack owes — panel widgets and break keys, indicator series and partition keys, and objective-name distinctness across the alert namespace — so an alert can never name a series the meter never mounts, a panel can never break on a key its row never declares, and a folder-local probe restating any of them is the deleted form. Two further proofs are STRUCTURAL and probing them tests nothing: `FactSelector.Of` resolves its kind through the frozen registry so an objective naming an unregistered case has no construction path, and `ComputeObjective.Of` mints the population-and-breach pair off ONE type argument behind a private constructor so a pair spanning two cases has none either.
 - Boundary: omitting the window canonicalizes it at the kernel to the estate compliance default, so no calendar literal lands in a descriptor row and a shortened window still refuses below the longest burn row; a hand-typed window, factor, or severity beside the kernel table is the forked form that silently diverges from every sibling descriptor plane on the next tuning.
 
-```csharp signature
+```csharp
 public sealed record PanelRow(
     string Title, string Instrument, string Unit, InstrumentKind Measure, PanelKind Panel,
     Seq<string> By, Option<Buckets> Ladder);
@@ -144,7 +144,7 @@ public static class ComputeDescriptors {
 - Boundary: subscriber-fault isolation is the kernel capsule law composed whole — every observe delivery runs fork-shielded, so a throwing or failing tap parks on the roster's evidence cell and never touches the emitter's `Fire` result; a faulting UI subscriber structurally cannot fail a solve. A veto refusal is the point's contract, returned on the emitter's rail as the veto's own typed fault.
 - Boundary: payload types close at declaration — every `TFact` is a typed record already settled on its owning page, so a stringly payload cannot enter the rail; the rail adds no second emit path — `ReceiptSurface.Emit` stays the one sink leg and the `Runtime/receipts#TELEMETRY_PROJECTION` fold stays the one instrument projection, hook taps observing evidence beside them; a tap that must never lose an event is a durable outbox consumer, never a hook subscriber; ids are registry-enforced unique, so two apps compose disjoint hook sets without collision.
 
-```csharp signature
+```csharp
 public readonly record struct ConvergenceMark(CorrelationId Correlation, string Physics, int Iteration, double Residual);
 
 public sealed record ComputeHookRail(
@@ -197,7 +197,7 @@ public sealed record ComputeHookRail(
 - Growth: a sixth indicator shape is one kernel `Sli` case, one proto oneof arm, and one `Switch` arm here; a ninth panel row or a fifth burn row is one enum value beside its kernel row, and every consumer re-derives.
 - Boundary: the consumer fence is `typescript:core/observe/board#PACK_WIRE`, which lands `BoardPackWire` through the branch's one ProtoJSON arm and folds it into the value `typescript:iac/operate/observe#BOARD_APPLY` ingests; `compute.receipt` is the pack's FIRST column at both ends, so the provenance key and the pack are one value and no consumer tier originates a key its producer cannot stamp.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime.Serialization.Protobuf;
 using Riok.Mapperly.Abstractions;

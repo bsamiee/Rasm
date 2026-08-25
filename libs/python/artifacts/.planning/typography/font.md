@@ -20,7 +20,7 @@
 - Growth: a new engineering operation is one `FontJob` case plus its total `apply` arm; a new retention, instancing, freeze, synthesis, or outline axis is one field on its existing policy owner. CFF↔glyf conversion lands as one `FontJob` case over `cu2qu`/`qu2cu`, while WOFF/WOFF2 remains `SubsetPolicy.flavor`.
 - Boundary: no PDF authoring (`document/emit#DOCUMENT`), no text shaping (`typography/shape#SHAPE`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner transforms or authors a font binary and proves it embeddable, never producing a document. A post-`SUBSET`/`INSTANCE`/`FREEZE` shaping-regression proof composes `typography/shape#SHAPE`'s `QA` request over the produced binary — the vharfbuzz golden oracle lives there, never a second QA arm here. A hand-walked `glyf`/`CFF`/`GSUB`/`fvar`/`STAT`/outline decode, a hand-assembled static cut or variable font, a Python-list font-merge, hand-built COLR/CPAL tables, and a hand-coded script→OT-tag map are each rejected against the fontTools op that owns them; the uharfbuzz HarfBuzz subsetter loses to fontTools `SUBSET` for Python-native `Options` feature-policy control. A permissive `Mapping[str, object]` option bag, a parallel `_woff` writer, and a `dict` instancer keyword bag collapse into the per-mode `FontJob` case carrying only its op's typed fields.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 import math

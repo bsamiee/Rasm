@@ -24,7 +24,7 @@
 - Boundary: `SuppressDialogBoxes`, `SuppressAllInput`, and `AllowUserInterfaceWithHeadlessDocument` are host FILE-OPTIONS facts read at a save or open seam, not interaction policy — they stay rows on this boundary and reach no kernel interaction owner.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -139,7 +139,7 @@ public sealed record ReadIntent(
 - Boundary: the adopter receives the whole `ArchiveEnvelope` — payload beside `ArchiveIntegrity.ReadCase` — so a consumer that cares about checksum or archive version reads its own evidence rather than trusting an unverified payload.
 - Packages: LanguageExt.Core (`Fin`, `Unit`); kernel `Domain/rails` (`Op`); `Persistence/userdata` (`ArchiveSchema`, `ArchiveEnvelope`), `Persistence/dictionary` (`ArchiveMap`); `Document/session` (`DocKey`).
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface IParticipant {
     ArchiveSchema Schema { get; }
@@ -162,7 +162,7 @@ public interface IParticipant {
 - Boundary: this rail runs inside the host's own save and open sequence and opens no document session; the document is already the host's and the crossing mutates no table. No deferral and no re-drive is expressible here — the host callback owns the thread and a retried write reopens a chunk the host already closed.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Seq`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`); `Persistence/userdata` (`ArchiveIo.Cross`, `ArchiveIntegrity`, `ArchiveEnvelope`); `Document/session` (`DocKey.Of`); RhinoCommon file I/O (`.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ParticipationAsk {
@@ -237,7 +237,7 @@ public static class Participation {
 - Boundary: this bridge addresses the plug-in root alone. `SettingsRoot` also carries a command root keyed on the host `Rhino.Commands.Command` instance, which a command holds for itself, while `SavedSettingsRoot.CommandCase` names the command for observation — both live at their owner and this page seats no second addressing family.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<bool>]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` tuple `.Apply`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.AcceptValidated`); `Persistence/settings` (`SettingKey`, `SettingPath`, `SettingsRoot.PlugInCase`, `SavedSettingsRoot`, `SettingsTree`, `SettingsSaved`, `SettingStore.Observe`), `Document/lifetime` (`Subscription`); `Plugin/census` (`PluginCensus.Ask`, `PluginQuery.Keyed`, `PluginRead.Presence`, `PluginPresence`, `PluginState`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `GetPluginSettings`, `SavePluginSettings`, `SaveSettings`, `FlushSettingsSavedQueue`, `RaiseOnPlugInSettingsSavedEvent`, `SettingsSaved`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public sealed partial class SettingsLoad {

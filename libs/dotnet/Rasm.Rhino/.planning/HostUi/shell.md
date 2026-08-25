@@ -38,7 +38,7 @@ Composition is downward: `Op`, `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`
 - Growth: a new crossing modality is one `HostWork<T>` case and one `Run` arm; a new gauged coordinate is one measure token the seat resolves once.
 - Boundary: `HostThread` owns Rhino command-thread affinity while the kernel `UiThread` owns Eto control-tree affinity — two marshals, two seams, one lane roster and one pace band between them.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.ComponentModel;
@@ -363,7 +363,7 @@ public static class MarshalLatency {
 - Growth: a new status axis is one `StatusOp` case and one `Apply` arm; a new toast placement is one `ToastPlacement` case the host overload set already admits.
 - Boundary: `PromptWatch.Observe` detaches callback-scoped option handles into immutable `PromptFact` rows before guarded delivery.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ToastSpec {
@@ -519,7 +519,7 @@ public static class PromptWatch {
 - Growth: a new projection feature is one `ProgressFeature` row and one arm; a new movement modality is one `ProgressMove` case.
 - Boundary: `Progress.Use` demands `SessionNeed.Redraw`; release clears every owned projection, returns cleanup failure through the use rail, and retains failed attempts for explicit retry.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class ProgressFeature {
@@ -840,7 +840,7 @@ public static class Progress {
 - Growth: a new dress-and-persist posture is one `WindowPolicy` row; a new parent axis is one `WindowScope` case and one `Parent` arm.
 - Boundary: every document-scoped operation is a `HostWork<T>.Session` value, and every returned owner detaches as `DocKey`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WindowScope {
@@ -1030,7 +1030,7 @@ public static class ShellTheme {
 - Growth: a new capability read is one `HostProbe` case, one `HostFact` case, and one `Probe` arm; a new process trait is one `HostTrait` row the snapshot's own fold already fills.
 - Boundary: process facts include runtime architecture and system references; assembly paths admit through `Op.AcceptText` before any resolver mutation.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1237,7 +1237,7 @@ public static class HostAssemblies {
 - Growth: a new execute modality is one `ScriptRun` case with one `Admit` leg and one dispatch arm; a new call shape is one `NodeCallShape` row.
 - Boundary: `PythonScript`, `PythonCompiledCode`, and `ComponentFunctionInfo` never cross a public signature except inside `ScriptUnit`, whose whole contract is that pairing.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public sealed record ScriptUnit(PythonCompiledCode Code, PythonScript Engine);
 
@@ -1414,7 +1414,7 @@ public static class NodeFunctions {
 - Growth: a new load phase is one `SkinPhase` case and one sealed override chaining its base.
 - Boundary: `Rhino.Runtime.Skin` is host-constructed and never crosses a public signature; the adapter is the only derivation.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SkinPhase {
@@ -1507,7 +1507,7 @@ public static class ShellHooks {
 - Growth: a new request modality is one `TokenAsk` case and one dispatch arm; a new login phase is one `LoginPhase` row keyed on the host enum.
 - Boundary: `SecretKey` never leaves the protected callback and the live token interfaces never leave the lease.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ProgressState>]
 public sealed partial class LoginPhase {
@@ -1708,7 +1708,7 @@ public static class HostEndpoints {
 - Growth: a new host parameter is ONE `NamedKind` row and ONE `NamedValue` case; nothing else edits.
 - Boundary: geometry, viewport, and meshing rows cross as serialized values, and the three live-handle readers the host also publishes — `TryGetObjRefs`, `TryGetRhinoObjects`, and the native window-handle pair — carry document handles and raw pointers this boundary's detachment law forecloses; object identity crosses on the `IdSet` row instead. `NamedLease` owns every rehydrated common object until the synchronous host call ends.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NamedValue {
@@ -2096,7 +2096,7 @@ public static class NamedCallbacks {
 - Growth: a new completion modality is one `RunOutcome` case with its severity arm and its metadata projection; a new host severity or button is one keyed row.
 - Boundary: no Eto type appears on this cluster — the host notification family is `Rhino.Runtime.Notifications` alone, and the kernel `Presence` gate owns OS notification-centre, tray, taskbar, and badge presence, which never alias with this in-host centre.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<HostNotice.Severity>]
 public sealed partial class NoticeSeverity {
@@ -2423,7 +2423,7 @@ public static class Notices {
 - Boundary: capsule cardinality is one per plugin `AssemblyLoadContext`, opened once at load and never per feature; a second plugin is a second identity resolve and a second open under its own discriminator. `ProfileIdentity.ResourceAttributes` owns resource identity, `TelemetryDomain.Qualify` renders `service.name` off the `TelemetryDomain.Rhino` row rather than a literal, `Rostered` refuses an unrostered `rasm.` key, semconv `host.*` stays the machine facts `AddHostDetector` supplies, and `Environments.Production` floors the environment row while the `OTEL_RESOURCE_ATTRIBUTES` detector outranks it at deploy.
 - Boundary: telemetry LIFETIME is the plugin `AssemblyLoadContext`'s own `Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — and every Rasm meter in the plugin process reaches the capsule `IMeterFactory`, a process-static `Meter` staying the named defect. The app root also registers the eight `MarshalLatency` checkpoint, measure, and tag names before the `ShellMount.Marshal` row seats the ledger.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate Fin<Seq<Func<Fin<Unit>>>> ShellSeat(Op key);
 

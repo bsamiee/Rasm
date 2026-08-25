@@ -20,7 +20,7 @@ Gesture, projection, stack, framing, named-view, clipping, convention, and pose 
 - Law: `GestureAxis` is a two-row vocabulary over ONE host parameter three verbs share, so the axis cannot own the write the way `OffsetOrigin` does; the named lowering is the whole point and the `bool` reaches exactly one place, the delegate's own argument list.
 - Boundary: gestures are relative host edits with no meaningful inverse value; their receipt evidence is the post-edit `ChangeCounter` delta, not a pose echo.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -140,7 +140,7 @@ public abstract partial record GestureRequest {
 - Law: the stack verdict is EVIDENCE, not a discard. `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` both at the stack boundary AND when the popped projection equals the current one, so the host CONFLATES two causes it never separates; `StackMove` names exactly what the host answers — `Moved`, or `Held` carrying both causes in one case — and the receipt publishes it. A third case derived from the `ChangeCounter` delta fabricates a distinction the host does not make, since a held pop advances no counter under either cause.
 - Boundary: every stack arm runs inside `Op.Catch`, so a host throw rides the rail the arm's own `Fin<StackMove>` promises; the stack DEPTH is host state this rail never mirrors.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class FrustumForm {
@@ -290,7 +290,7 @@ public abstract partial record StackVerb {
 - Law: `RestoreScope.Within` captures every prior facet, applies the scoped set, runs the body, and settles the prior-row release through `Custody.Settled`, preserving both primary and restore errors on the rail.
 - Boundary: `RestoreScope` touches process-global host settings only inside `Cameras.Apply`, whose session demand serializes the capture, body, and restore on the command thread.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CommitPosture {
@@ -535,7 +535,7 @@ public sealed partial class RestoreScope {
 - Growth: a new static capability is one `CameraOp` case and one `Execute` arm — the generated `Switch` breaks every dispatch site; a new gesture, pace, projection, or clip modality is one row on its section owner with zero rail change.
 - Boundary: every host mutation rides the lease's marshalled borrow, so a background caller pays one crossing per `Apply` while a paced frame pays none — every `FrameClock` row ticks on the UI loop already. No native handle leaves the rail.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RedrawWhat {

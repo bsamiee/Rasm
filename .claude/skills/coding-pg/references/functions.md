@@ -17,7 +17,7 @@ SQL functions are candidates for planner inlining when all conditions are met:
 
 When inlined, the function body is substituted directly into the outer query plan — zero call overhead.
 
-```sql conceptual
+```sql
 CREATE FUNCTION full_name(profile jsonb)
 RETURNS text
 LANGUAGE SQL IMMUTABLE PARALLEL SAFE
@@ -26,7 +26,7 @@ RETURN profile->>'first_name' || ' ' || profile->>'last_name';
 
 Set-returning SQL function (not inlined — materialized as subplan):
 
-```sql conceptual
+```sql
 CREATE FUNCTION active_tenants()
 RETURNS SETOF tenant
 LANGUAGE SQL STABLE
@@ -62,7 +62,7 @@ Volatility misclassification consequences:
 
 For multi-statement logic that SQL functions cannot express. Minimize PL/pgSQL — every PL/pgSQL function is a candidate for replacement by SQL + CTE + MERGE.
 
-```sql conceptual
+```sql
 CREATE FUNCTION upsert_entity(
     p_entity_type text,
     p_id uuid,
@@ -104,7 +104,7 @@ PL/pgSQL contracts:
 
 PL/pgSQL dispatch via EXECUTE — eliminate IF/THEN chains:
 
-```sql conceptual
+```sql
 -- Dynamic dispatch: operation name → SQL template, no branching
 CREATE FUNCTION entity_op(
     p_table text,
@@ -179,7 +179,7 @@ Prepared statement vs dynamic SQL tradeoff (Effect-SQL):
 
 State function + final function pattern for domain-specific fold operations.
 
-```sql conceptual
+```sql
 CREATE FUNCTION weighted_avg_state(state numeric[2], value numeric, weight numeric)
 RETURNS numeric[2]
 LANGUAGE SQL IMMUTABLE PARALLEL SAFE
@@ -209,7 +209,7 @@ SELECT category, weighted_avg(score, confidence) FROM reviews GROUP BY category;
 
 Moving-aggregate with MSFUNC/MINVFUNC — O(1) per frame slide for window aggregates:
 
-```sql conceptual
+```sql
 CREATE FUNCTION running_sum_state(state numeric, value numeric)
 RETURNS numeric
 LANGUAGE SQL IMMUTABLE PARALLEL SAFE
@@ -255,7 +255,7 @@ Hypothetical-set aggregates: `CREATE AGGREGATE ... (ORDER BY ...)` with `HYPOTHE
 
 Procedures own transaction-controlled operations; unlike functions, they COMMIT/ROLLBACK within the body.
 
-```sql conceptual
+```sql
 CREATE PROCEDURE batch_archive(p_batch_size int DEFAULT 1000)
 LANGUAGE plpgsql
 AS $$
@@ -295,7 +295,7 @@ Procedure contracts:
 
 `FOR UPDATE SKIP LOCKED` is the standard locking strategy for any batch or queue processing function. When multiple workers consume from the same table concurrently, SKIP LOCKED prevents contention — each worker claims its own batch without blocking.
 
-```sql conceptual
+```sql
 CREATE FUNCTION claim_batch(
     p_table text,
     p_batch_size int DEFAULT 100,
@@ -337,7 +337,7 @@ Batch/queue contracts:
 
 Generic functions via polymorphic pseudo-types. One function serves all compatible types.
 
-```sql conceptual
+```sql
 CREATE FUNCTION array_compact(arr anyarray)
 RETURNS anyarray
 LANGUAGE SQL IMMUTABLE PARALLEL SAFE

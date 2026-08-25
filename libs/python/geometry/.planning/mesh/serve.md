@@ -22,7 +22,7 @@ The servicer has no ring, byte cache, frame state machine, or second store. `Tes
 - Growth: a new artifact integrity rule lands in the contracts helper; a new generated RPC adds one override and route charge here. Neither change adds a local frame dialect or storage port.
 - Boundary: runtime owns bind, Connect codecs, body admission, health, typed fault egress, and lifecycle. Geometry contributes generated application rows and one servicer instance.
 
-```python signature
+```python
 from collections.abc import AsyncIterator
 from functools import partial
 from typing import TYPE_CHECKING, Any, Final, assert_never, override

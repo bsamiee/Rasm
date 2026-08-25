@@ -23,7 +23,7 @@
 - Law: the component index is ADMITTED, not guarded per use. The host's two legal corners — an invalid type at index `-1`, a named type at a non-negative index — are the value object's construction law, so `Objects/state` composes the same owner instead of re-spelling the pattern (E-R55, seated at the LOWER stratum: `ARCHITECTURE.md:107,161` places Objects above Commands, so the shared owner lands here and Objects imports it).
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`, `PartitionFallible`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`, `ValidityClaim`, the `Rollback` custody extension), `Analysis/query` (`AnalysisQuery`, `Analyze`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:217-219` — the `ObjRef` projector roster, `PickContext`, `ObjectTable.PickObjects`, the `GetBaseClass` result reads), RhinoCommon objects (`api-rhinocommon-objects.md:184` — `ObjRef` identity projection).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -169,7 +169,7 @@ public sealed record PickCapture(
 
 - Law: every part states the CAPABILITY that produced it. `Whole` and `DefinitionPart` were byte-identical single-field wrappers whose only difference was the `PartKind` row that built them, and the three `SubD*Part` wrappers differed only in a payload type every producer erased into `Option<Picked>` before any consumer saw it. One `PartKind Origin` base column carries the discriminant for all four surviving cases. NAMED LOSS: the static payload type on five of the seven former arms; recovered from `Origin`, and the witness is the projector roster below, where each row already knows which member it read.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public abstract record Picked {
     private Picked(PartKind origin) => Origin = origin;
@@ -241,7 +241,7 @@ public sealed partial class PartKind {
 - Law: a receipt names WHICH getter participated, never that one did. `PickContext.GetObjectUsed` is the host's own null sentinel and its projection into `Option<PickGetterFact>` is the last line naming it; the fact carries the terminal the participating getter reported and the option seat it ended on.
 - Law: a stale reference does not void the pick. `CaptureOwned` partitions survivors from casualties and the receipt carries both, so a forty-object pick with one dead reference answers thirty-nine captures and one named refusal. NAMED LOSS: whole-batch atomicity — a caller that needs all-or-nothing reads `Rejected.IsEmpty` at the entry, and the release of every owned reference is unchanged on both branches.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PickGesture {
@@ -370,7 +370,7 @@ public sealed partial record PickReceipt(
 
 `Picks.Capture` projects borrowed references without taking custody. `CaptureOwned` consumes a returned reference sequence, partitions casualties from survivors, and releases every entry on both branches. `Execute` derives and disposes one `PickContext`, projects `GetObjectUsed`, and returns only detached evidence. `Part` is a SCOPED projector: it mints the `Picked` view, hands it to the caller's projection, and lets it die with the call, because the live `RhinoObject`, `GripObject`, `SubDComponent`, and `GeometryBase` it wraps carry no lease — returning the `Picked` itself is the deleted form and `Retain` is the one crossing into owned custody.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Picks {
     public static Fin<PickCapture> Capture(ObjRef reference, Op? key = null) {

@@ -17,7 +17,7 @@
 - Growth: a topology extends `Execution`; an array strategy extends `IterationPolicy`; output obligation extends `OutputPlan`; none creates a second processing entrypoint.
 - Boundary: `ProcessScope` is the only step seam into `IDataAccess`; it carries context, cancellation, iteration evidence, typed reads, receipted writes, notices, and the operation key.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
@@ -162,7 +162,7 @@ public static class Executions {
 - Growth: a component capability is a policy value or an existing declaration row; a new bake posture is one `BakePolicy` row; the record never grows a builder family.
 - Boundary: `OutputPlan` owns output obligation beside its `PinPlan`; no second raw-index emission roster exists. `BakeKey` coordinates, `BakeDataState` re-find filtering, and layer pre-creation stay `Grasshopper2.Bake`'s and are reached through the minted context, never re-derived here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
@@ -278,7 +278,7 @@ public sealed record ComponentSpec {
 - Boundary: every ABI-only throw follows `RunFact` or injected `FaultCell` custody; runtime failures stay on the run ledger and report through `IDataAccess` where available.
 - Law: `Connectivity`/`ConnectivityComplete` exist on no live `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — all three are host plumbing the base owns, so no `Lifecycle` slot projects them and a catalog row claiming component virtuals for the first two is stale against the shipped assembly.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
@@ -509,7 +509,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 - Growth: a public plugin ingress is one `PluginSource` case and one load arm; plugin metadata is one `PluginSpec` member and one host override.
 - Boundary: assembly harvesting remains inside `PluginServer`; local reflection is limited to exported-type declaration and persistent-id admission.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 

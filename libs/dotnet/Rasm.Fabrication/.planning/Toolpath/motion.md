@@ -26,7 +26,7 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 - Growth: a new engagement axis is one column on the sub-owner that owns it; a new machine posture is one `RouteLaw` column.
 - Boundary: `Cam` never uses pass count as an axial-depth surrogate and never chord-samples a revolution a `Move.Circular` arc states exactly. Fabricated physics, Cartesian coordinates relabeled as joints, and automatic guard lifts stay unrepresentable.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using LanguageExt;
@@ -505,7 +505,7 @@ public sealed record MotionRun(
 - Auto: a modality-divergent strategy carries ONE emitter that dispatches its modality inside, so the table stays one row per strategy and the divergence lives where its cases do. `HoleCycle.Fits` spans both directions — the tool must fit the measured bore and the bore must admit the tool.
 - Boundary: every pass count crosses `Bounded`, so a degenerate step never mints an unbounded roster; quarter revolutions ride `Move.Circular` exactly and chord sampling governs linear approximation alone.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EntryPolicy {
@@ -790,7 +790,7 @@ public sealed record CamStrategy(CutStrategy Strategy, bool DemandsClosed, Func<
 - Receipt: `FabricationResult.Motion` carries atom-safe moves, generated directives, joint rows, seconds, and cell code; reach is asserted only by a machine or cell solve. Every element keys through `CutElement.Identify`, the package's one mint, so the occurrence ordinal separates geometrically equal profiles at one depth and an axial shift re-keys rather than inheriting its source's identity.
 - Boundary: `Cam` never feeds between islands, rings, graph components, native paths, or fill strokes. `Cleared` and `Sampling` are the private folds the sibling `Guard` and `SurfacePolicy` owners would otherwise shadow by name.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class ToolpathRowMap {

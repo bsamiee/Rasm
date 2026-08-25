@@ -36,7 +36,7 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
   - Terrain draws a grid because a grid is what it has: the payload's `Columns`/`Rows` own the topology and a scattered sample set refuses at admission. Interpolating scatter onto that grid does NOT ride the kernel natural-neighbour field — `Spatial/cloud` `CloudKernel.NaturalNeighborWeights` builds a VOLUMETRIC Voronoi dual and refuses any query whose inserted cell is not `Bounded`, so a coplanar lon/lat sample set leaves every cell open in the third axis. A scattered height source therefore grids UPSTREAM of the payload.
   - Deleted patterns: a fork of `ChartSeriesKind` for these kinds, a hand-rolled diagram control, a second Skia-surface owner, a page-local gamut roster, and a layout-local meter.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -1312,7 +1312,7 @@ Every row emits one stroke per element; the plane column is the draw ordinal the
   - Every instant crosses `PlanScale` and every tick label crosses the payload's own `ResolvedLocale` through a `LocalDatePattern` built once per tier — a page-local epoch arithmetic, an invariant-culture tick label, and a ruler formatted off the authoring machine's culture are deleted forms, because a plan is read by every viewer the locale rail serves.
   - `PlanMap` is the ONE seam and it is READER-FREE: every `PlanTask` column comes from exactly one `ConstructionTask` member or one `PlanCell` member, so `RMG020` keeps source-side force and the ignore roster is the planner's own solve inputs a render never reads. `EnabledConversions` excludes `ExplicitCast` because LanguageExt carriers cross this seam and the default binds `Option<T>`'s throwing cast in preference to a registered converter. A hand positional projection beside it is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

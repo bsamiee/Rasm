@@ -43,7 +43,7 @@
 |  [13]   | `collector.WaitForMeasurementsAsync(int, TimeSpan)`          | gate     | the same wait under a wall timeout                         |
 |  [14]   | `services.AddFakeLogging(...)` / `sp.GetFakeLogCollector()`  | wiring   | host-built SUTs capture without touching their composition |
 
-```csharp signature
+```csharp
 public class FakeLogger : ILogger {
     public FakeLogger(FakeLogCollector? collector = null, string? category = null);
     public FakeLogCollector Collector { get; }

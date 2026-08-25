@@ -30,7 +30,7 @@ Terminal evidence is likewise measured, never stamped: a direct factorization on
 - Boundary: a route holding a live archive session brackets it — the session releases on the refusing path exactly as on the settling one, because a `using` inside a `Bind` lambda leaks the handle on every rail the lambda does not return through.
 - Exemption: the block partition walk, the transformation column march, the pencil sweep, the geometric-stiffness scatter, and the mode recovery are MEASURED span kernels over indices the partition already carries; each dies with the reduction that fills it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public readonly record struct Step<TState>(TState State, Option<double> Settled) {
@@ -903,7 +903,7 @@ public static class SolveRoutes {
 - Boundary: a failed rung's residual is ABSENT, not a sentinel. The trail carries `Option<double>`, so a reader distinguishes "this rung ran and left this residual" from "this rung could not run at all" — a `double.PositiveInfinity` in that slot reads as a measured divergence.
 - Boundary: the `RebuildsOperator` column had no reader and the recovery fold re-derived the same fact per arm; the rung's own repair delegate now carries it, so the fact exists once and nothing re-derives it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -1023,7 +1023,7 @@ public static class SolveRecovery {
 - Boundary: each container class is its own session because their write laws differ — a HISTORY writes `[steps, dofs]` kinematic datasets one chunk per accepted step (monotone by construction, because a march is strictly step-ordered); MODES writes `[pairs, dofs]` mode-outermost as recovery produces them; a CHECKPOINT is one create-only container per COMMITTED step keyed `(ContentKey, step)`, because create-only forbids a growing checkpoint file.
 - Boundary: an absent session is a `[Union]` case, never a null-object holding four nulls. The inert arm answers every call with success and the live arm carries its writer and its dataset roster, so the integrator folds thread ONE call shape and no field on the page is nullable.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -1170,7 +1170,7 @@ public static class SolveCheckpoint {
 - Boundary: transfer rows are EXPLICIT `(donor, receiver)` index pairs per weight, never a positional map — two coupled fields are discretized independently, so binding donor slot `k` to receiver dof `k` injects one field's boundary values onto unrelated degrees of freedom and the staggering converges on an answer nothing asked for. Both ends of every pair are range-checked against the field they index, because zero-filling an out-of-range donor publishes a transferred zero indistinguishable from a measured one.
 - Boundary: the relaxation factor rides the SCHEME row, so a scheme that relaxes and a policy that carries an Aitken column can never disagree about whether relaxation runs.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

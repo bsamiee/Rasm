@@ -28,7 +28,7 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 - Growth: a third ranked surface (a warm-up band, a maintenance sweep) is one registry plus one grader over the same executor.
 - Packages: `effect` (`Clock`, `Duration`, `Effect`, `Exit`, `Option`).
 
-```typescript signature
+```typescript
 import {
     Array,
     Cause,
@@ -265,7 +265,7 @@ const _backendProbe = (setting: Setting, files: FileSystem.FileSystem, paths: Pa
 - Law: routes are data — `Life.route(kind)` projects the row; the serving edge mounts the three routes from this anchor and encodes the report (`pass/warn → 200`, `fail → 503`), `iac` writes the same three paths into workload manifests, so the path never exists twice.
 - Receipt: `Life.Report` — one `Schema.Class` (kind, overall grade, `Life.Graded` rows with millis-encoded elapsed and `Option` detail, instant) riding the owner as a static, so the serving edge encodes the derived wire twin (`pass/warn → 200`, `fail → 503`), telemetry consumes the same rows, and no hand-serialized health body or second health shape exists.
 
-```typescript signature
+```typescript
 class Life extends Effect.Service<Life>()('runtime/Life', {
     scoped: Effect.gen(function* () {
         const setting = yield* Setting;

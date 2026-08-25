@@ -28,7 +28,7 @@ A cell is a `LayerStack` under a coordinate — a compare surface mounts the sam
   - Admission refuses ALL of its defects at once. A first-defect ladder answered "axes, members, or cap" to an operator who had to fix one column, resubmit, and meet the next refusal — the accumulating rail names every column in one pass and each gate carries the fault case its own column earns.
   - `CompareFault` carries each refusal through a direct generated union case.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 
@@ -58,7 +58,7 @@ public abstract partial record CompareFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(EmptyStringInFactoryMethodsYieldsNull = false)]
@@ -108,7 +108,7 @@ public sealed partial class CompareAxis {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct CompareCoord(OptionKey Option, string Analysis, Instant At) {
@@ -186,7 +186,7 @@ public sealed record CompareLattice(CompareGrid Grid, Seq<CompareCell> Cells, Se
 }
 ```
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 
 public sealed record CompareGridWire(
@@ -235,7 +235,7 @@ public static partial class CompareGridMap {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CompareCells {
@@ -289,7 +289,7 @@ public static class CompareCells {
   - A cell whose layers declare INCOMPATIBLE domain arms cannot share a scale: a continuous field and a coded classification have no common ramp, so the union refuses by name rather than rendering a gradient over class codes. Arm identity is a short-circuiting comparison against the sample the re-seat already elected, never a full distinct-materialize over every layer to answer a same-ness question.
   - The capture link is a CONTACT SHEET rather than N unrelated files: one bake, one sheet, one coordinate table, so a deliverable carries the comparison and not a folder a reader must reassemble — and the sheet REFUSES on a grid that never granted the channel, because pictures of cells that shared no camera, no coordinate, and no scale are a folder wearing a comparison's name.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [NoReorder]
@@ -308,7 +308,7 @@ public sealed partial class CompareLink : ICapability<CompareLink> {
 public delegate Fin<CompareSync> CompareMerge(CompareSync held, CompareFrame frame);
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record CompareFrame(
@@ -337,7 +337,7 @@ public sealed record CompareSync(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class CompareChannels {
@@ -412,7 +412,7 @@ internal static class CompareChannels {
   - Grid verbs — swap the walked pair, pin an axis, bake the sheet — are `Shell/commands#INTENT_TABLE` rows raised by key AND affordances the body actually carries, so every one is reachable from the surface, from the palette, and from a remote call.
   - The grid DECLARATION is the screen state worth checkpointing, and it now travels as its own encoded payload rather than as a slot a restore read back untouched: the walked pair, the pinned coordinate, the cap, and the grant set are what an operator arranged, a restore re-admits them through the same five gates a live declaration crosses, and a blob that no longer admits drops rather than seating a lattice the grid owner would have refused. The cells are not state — they resolve from the sealed set through the bound arrow, so a restore re-resolves rather than rehydrating a picture of a run.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record CompareSheet(CompareGrid Grid, Seq<ReportBlock> Blocks, Seq<RenderReceipt> Captures) {
@@ -429,7 +429,7 @@ public sealed record CompareSheet(CompareGrid Grid, Seq<ReportBlock> Blocks, Seq
 }
 ```
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public static class CompareBoard {

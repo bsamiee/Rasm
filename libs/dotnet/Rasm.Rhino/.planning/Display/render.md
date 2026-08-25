@@ -32,7 +32,7 @@
 - Boundary: the framebuffer is LINEAR scene-referred radiometry, so the bulk carriers — `PixelBlock`, the `ValuesCase` component block — keep the host `Color4f` quad and never convert per texel; the one admitted correspondence for a VALUE crossing is the kernel pair `PerceptualColor.OfHost(Color4f, RgbTransfer.Linear)` / `ToColor4f(GamutPolicy.Unbounded, RgbTransfer.Linear)`, which `[04]`'s `ChannelView` publishes beside its raw fast lane so a consumer wanting perceptual math composes the kernel and a hot loop pays nothing.
 - Packages: `api-rhinocommon-render.md` (`RenderPipeline`, `RenderWindow`, `RenderWindow.Channel`, `ImageAdjust`, `StandardChannels`, `ComponentOrders`, `RenderReturnCode`, `RenderSuccessCode`, the scene-population virtuals); `api-rhinocommon-render-realtime.md` (`AsyncRenderContext`); `api-languageext.md` (rails, `Seq`, `Atom`); `api-thinktecture-runtime-extensions.md` (unions, rows); kernel `Domain/rails` (`Retriability`, `Transition`/`Cell`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`, `Op.Row`), `Interaction/chrome` (`MountPhase`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -795,7 +795,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 - Boundary: callback failures park on `Faults`; no event handler swallows a failed rail, and `RealtimeDisplayMode`/`RealtimeDisplayModeClassInfo`/`LightManagerSupport`/`LightArray` never cross a public signature.
 - Packages: `api-rhinocommon-render-realtime.md` (`RealtimeDisplayMode` and its ~30 members, `RealtimeDisplayModeClassInfo`, `LightManagerSupport`, `LightArray`, `LightMangerSupportCustomEvent`); `api-rhinocommon-render.md` (`RenderWindow.SetProgress`/`SetIsRendering`/`InvalidateArea`); `api-rhinocommon-display.md` (`DisplayPipeline`, `DisplayTechnology`); kernel `Domain/rails` (`FaultBand`, `Cell`/`Transition`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`CapabilitySet`, `ICapability`, `Op.Row`), `Parametric/projections` (`MonotonicTimeline`, `GaugedSpan`), `Interaction/dispatch` (`DispatchLane`); `Display/draw.md` (`Canvas`, `DisplayMark`, `Marks.Paint`, `SpriteSheet`), `Display/conduit.md` (`ConduitFrame`, `ConduitPhase`, `SwitchState`, `DisplayFaults`), `Display/modes.md` (`Appearance`, `HostRow<TNative>`); NodaTime (`Instant`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class HudControl {
@@ -1573,7 +1573,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 - Boundary: the owner-scoped key spelling is `key ?? this.key` — an `Op` fallback needs no receiver row, and the kernel publishes `OrDefault()` alone (branch `[03]` optional-key row), so no second arity is owed upward.
 - Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `Op.Row`, `Op.Settle`), `Domain/rails` (`Op`, `Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/rails` (`Custody`); NodaTime (`Duration`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<PostEffects.PostEffectType>]
 public sealed partial class EffectStage {
@@ -2250,7 +2250,7 @@ public sealed class ChannelEffect() : EffectHost(program: Program) {
 - Boundary: custom render meshes enter the live scene through the Objects authoring owner — a `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registered through `RegisterProvider` under this page's viewport and pipeline-attributes context — and reach this queue as ordinary mesh deltas; the provider adapter itself stays the authoring page's owner.
 - Packages: `api-rhinocommon-render-realtime.md` (`ChangeQueue` and its 17 `Apply*` hooks, the notify bracket, the policy overrides, the `GetQueue*` pulls, the CRC resolvers, every payload column); `api-bcl-channels.md` (`CreateBounded`, `DropOldest`, `SingleReader`, the drop observer); kernel `Meshing/mesh` (`MeshSpace`), `Spatial/reconciliation` (`Reconciliation`, `ReconcileOp`, `EncodeForm`, `GeometryHash`), `Drawing/pack` (`Encode`, `PackOp`, `PackPolicy`, `EncodedGeometry`), `Domain/rails` (`Lease`, `Cell`, `Transition`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/context` (`ModelUnit`, `Context`), `Analysis/query` (`Env`), `Interaction/dispatch` (`UiFault`, `DispatchLane`), `Parametric/projections` (`MonotonicTimeline`, `MonotonicStamp`); `Render/settings.md` (`RenderConfig`, `WorkflowEvidence`, `EnvironmentRole`), `Render/content.md` (`ContentRef`, `HashProbe`), kernel `Domain/rails` (`Custody`), `Display/draw.md` (`Canvas`, `DisplayMark`, `Marks.Paint`, `ShadedMaterial`, `SpriteSheet`), `Display/modes.md` (`Appearance`, `HostRow<TNative>`); Riok.Mapperly for `QueueMap`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

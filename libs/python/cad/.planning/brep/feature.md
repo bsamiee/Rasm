@@ -21,7 +21,7 @@ Edges resolve through the body the fold already decoded at `brep/operation#OPERA
 - Law: `all` reads the whole map, so a selection over a body whose edge count the caller never saw stays total.
 - Boundary: the map is built per call and never cached — a cached map outlives the body it indexed and hands a later call ordinals into a shape it never saw.
 
-```python signature
+```python
 from collections.abc import Callable
 from functools import partial
 from typing import Final, Protocol, assert_never
@@ -84,7 +84,7 @@ def selected(shape: TopoDS_Shape, selection: EdgeSelection, /) -> CadRail[Block[
 - Growth: a new edge feature is one `_FEATURES` row beside one row at `brep/operation#ARMS`.
 - Boundary: variable radius, face-scoped selection, and shelling have no wire arm today, so this owner refuses to invent one and carries the gap as research.
 
-```python signature
+```python
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Charged = tuple["EdgeFeature", Callable[[], str]]

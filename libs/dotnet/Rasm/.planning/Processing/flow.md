@@ -40,7 +40,7 @@ Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold u
 - Exemption: `Label`'s `Dictionary<int, int>` is the label sink `AlgorithmExtensions.StronglyConnectedComponents` fills by signature, and the census `first`/`size` arrays are span-kernel state that dies with the fold that fills it; both are transient inside one `Op.Catch` body and no consumer sees either.
 - Boundary: `TopologicalSort` and both bidirectional forms throw `NonAcyclicGraphException` and a flow digraph is cyclic by construction, so the band never composes them — the condensation IS the acyclic product; every QuikGraph value stays transient inside the fold with its throws funnelled through `Op.Catch`, and a graph-typed public member is the killed shape. The band publishes through `Processing/intent.md`'s `VectorIntent.Atlas` case exactly as the tracer publishes through `Streamline`, so `MorseAtlas` and `FlowKernel` both stay internal behind one admission-then-dispatch rail. A site is a recurrent set's representative sample, never a root-solved zero — refining one to the field's exact zero is the `Solving/solver` functor's — and a separatrix whose horizon runs out carries `None` for its terminal node rather than a fabricated one. The census and Jacobian-assembly loops are the named span-kernel statement exemption.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

@@ -19,7 +19,7 @@ This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit
 - Growth: a new proximity answer is one row here with one `SupportProjection` row naming it; every existing space widens by the same fold with no arm edited.
 - Packages: Thinktecture.Runtime.Extensions, `Rasm.Domain` (`ICapability`, `CapabilitySet`, `Capability`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -56,7 +56,7 @@ public sealed partial class SupportCapability : ICapability<SupportCapability> {
 - Growth: a newly closest-capable Rhino kind is one `normalization.md` capability-row membership, changing zero lines here; a new proximity regime is one case with its arms; a new analytic species is one `AnalyticShape` case and one `Of` arm; a new solid containment host is one `ContainProbe` row and one `Of` arm.
 - Boundary: `SupportSpace` is the ONE proximity adapter, and `Domain/evaluation`'s landed ingress is `extension(object? geometry)`, so every regime hands it the boxed payload and the case NAME carries the regime the payload's type never carries. NAMED LOSS on `SignedDistance`: `EvaluationRequest.Signed` re-solves the closest hit inside `evaluation.md`, so the caller's already-computed `ClosestHit` is not reused and a signed read costs one extra closest solve — the price of one evaluation ingress instead of two, paid where the hit is cheap and the second entrypoint was not. Its cluster arm composes `cloud.md`'s indexed closest-vertex probe; a second `PointCloud` index minted here doubles the `ClusterCase` cache. Admission runs once and crosses pages, so no read re-validates the factory-proven payload.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ContainProbe {
@@ -188,7 +188,7 @@ public abstract partial record SupportSpace {
 - Growth: a new proximity modality is one `static readonly` row with its three columns; a new output shape is one row on the canonical carrier's `Project<TOut>`, picked up by the egress unchanged; zero new entrypoints.
 - Boundary: raw→typed resolves once at the egress by delegating to the canonical owners' `Project<TOut>`; the capability half of every gate reads the space's admission-captured set, never re-deriving the `normalization.md` rows per call.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SupportProjection {

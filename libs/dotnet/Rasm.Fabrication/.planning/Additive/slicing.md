@@ -28,7 +28,7 @@ The wall ladder is this page's defining law: a slice boundary is the part SURFAC
 - Packages: `Rasm.Meshing` (`SliceStack`, `Chain`, `Slicing.Apply`, `SliceOp`, `SlicePolicy`, `LayerPlan`); `Geometry2D/algebra` (`PolygonAlgebra.Apply`, `PolygonOp.Topology`/`Boolean`/`Offset`/`ClipOpen`/`Measure`, `PolygonTrace.Regioned`/`Runs`/`Measure`/`Diagram`, `RegionTopology`, `RegionNode`, `PolygonMeasure`, `OffsetField.Uniform`); `atoms#GEOMETRY` (`Loop`, `ProfileOp`, `ProfileResult`, `Edge3`); `UnitsNet`; LanguageExt; Thinktecture.
 - Boundary: `Slice` is the one additive slice-stack consumer and an in-page section sweep, triangle crossing kernel, or endpoint chain walker is the deleted form; variable layer height is `LayerPlan`'s and a Fabrication height loop is the sealed-boundary violation; a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; `Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull. A second per-layer measurement record anywhere in the folder is the deleted duplicate.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -244,7 +244,7 @@ public sealed partial class SliceRegion {
 - Packages: `UnitsNet` (`Length`, `Speed`, `Ratio`, `Duration`, `Area`, `Volume`, `Angle`); Thinktecture (`[SmartEnum]`, `[ComplexValueObject]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.
 - Boundary: every owner here admits through its generated `Validate` onto the one `Admitted` bridge, so no site re-spells the refusal lift and no caller holds an unadmitted policy.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class BeadSection {
@@ -475,7 +475,7 @@ public sealed partial class DensityPolicy {
 - Packages: `Rasm.Domain` (`Deterministic.Unit`); `Geometry2D/algebra` (`SitePolicy`, `PolygonOp.Cells`, `CellDiagram`, `SiteEdge`); `owner#RUN_DISPATCH` (`FabricationCanon.Discriminant`/`Rows`, `ContentKey.CanonicalBytes`); `UnitsNet`; Thinktecture; LanguageExt.
 - Boundary: `Cells` mints no diagram — a page-local tessellator, relaxation loop, or draw stream is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class InfillPatternKind {
@@ -622,7 +622,7 @@ public abstract partial record InfillPattern(InfillPatternKind PatternKind) {
 - Packages: `Process/owner` (`FabricationPolicy.Additive`, `FabricationInput`, `FabricationResult.AdditiveResult`); `Process/faults` (`FabricationFault`, `Admission`); `Additive/support` (`SupportPlan`, `SupportPolicy`); `Additive/scanpath` (`ScanPolicy`); `Additive/production` (`AdditiveBuild`, `BuildJob`, `BuildOutcome`); `Additive/implicit` (`ImplicitOp`); `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`LayerPlan`, `SlicePolicy`).
 - Boundary: a shell or cell failure flattened to empty geometry is the erased-rail defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ShellRun(int Wall, Loop Path, bool Bridging) {
     public DepositionFeature Feature =>
@@ -815,7 +815,7 @@ public abstract partial record AdditivePolicy {
 - Receipt: `AdditiveResult` carries planar `Move` rows with the kernel layer count, or the implicit `.cli` key with its mask keys; build routes pass complete `BuildOutcome` evidence through `AdditivePolicy.Build.Egress`.
 - Boundary: printability belongs to the kernel and a slicer-side mesh-defect classifier is the duplicate gate; gyroid and TPMS belong to `Additive/implicit` and a planar gyroid pattern row is the named false collapse.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Slice {
     public static Fin<FabricationResult> Solve(
@@ -1238,7 +1238,7 @@ internal sealed record RingWalk(Seq<Loop> Rings, Length At, SliceRegion From, bo
 - Packages: `atoms#GEOMETRY` (`Loop.Apply`, `ProfileOp.Measure`/`Closest`/`Sample`, `ProfileResult`, `Loop.RotateStart`); `UnitsNet`; LanguageExt.
 - Boundary: travel sequencing between deposition rows belongs to the egress consumer, which prices its moves through `FeedPolicy.For(DepositionFeature.Travel)`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DepositionPath(
     Loop Path,

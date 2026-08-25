@@ -22,7 +22,7 @@ This page also seats three folder-wide owners the archive and codec rails compos
 - Boundary: `ExchangeFault` never represents generated validation, aggregates, categories, or wire envelopes.
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -69,7 +69,7 @@ public abstract partial record ExchangeFault : Fault {
 - Packages: `Domain/rails` (`Op`, `Lease<T>`, `ContentHash`, `FaultBand`), `Rasm.Numerics` (`Dimension`), `Rasm.Rhino.Document` (`DocumentPath`), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`), LanguageExt.Core (`Atom`, `Fin`, `Option`, `Seq`).
 - Boundary: `OutputPolicy.Land`'s published shape is the folder's frozen staging seam — `Exchange/publish`'s `Landing` family and `Exchange/archive`'s `Archives.Land` both bind it by name, so its interior refines freely and its signature does not.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -344,7 +344,7 @@ public sealed partial record OutputPolicy {
 - Growth: a third batch rail joins with a receipt implementing `IBatchYield` and gains the ordinal, the halt residue, the mutation fold, and the evidence projection with no new declaration; a new halt cause rides the `Error` a failed step already carries.
 - Boundary: the fold owns ordering, halting, and residue alone — what a row DOES, what its receipt holds, and how its evidence reads stay with the composing rail.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IBatchYield {
     Seq<ExchangeEvidence> Evidence { get; }
@@ -439,7 +439,7 @@ public sealed record BatchProgram<TReceipt> where TReceipt : IBatchYield {
 - Packages: `Rasm.Rhino.Persistence` (`PresetOperation`, `PresetExecution`, `Presets.Commit`, `PresetAnswer`).
 - Boundary: the composed seam is the Persistence surface below and nothing more — `PresetOperation` as the request, `PresetExecution` as its policy row, `Presets.Commit` as the entry, and `PresetAnswer` as the yield this rail wraps in one fact.
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 using Rasm.Rhino.Persistence;
 
@@ -462,7 +462,7 @@ internal static class PresetSeam {
 - Packages: `Domain/rails` (`Op.Probe`, `Op.Catch`), `Rasm.Numerics` (`VectorAngle`), `Rasm.Drawing` (`NorthPosture`), RhinoCommon (`EarthAnchorPoint`, `RenderSettings`, `Sun`) per `.api/api-rhinocommon-document.md` and `.api/api-rhinocommon-rendersettings.md`.
 - Boundary: the model-to-earth transform is unit-aware — `GetModelToEarthTransform(modelUnits:)` receives the document's live `LengthUnit`, read inside the same demand window that uses it, so a stale unit regime cannot skew the projection.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Drawing;
 
@@ -725,7 +725,7 @@ public abstract partial record AnchorYield {
 - Growth: a new write channel is one `WriteContent` row plus its column in the surfaces that admit it; a new route or a new edit lands in exactly one request family and every closed dispatch breaks loudly.
 - Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this rail's batch runs against the session it was handed. `Parallel.ForEachAsync` and `DocumentSession` disposal statements are the platform-forced `Task` and resource exemptions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class WriteContent : ICapability<WriteContent> {

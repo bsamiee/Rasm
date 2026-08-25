@@ -38,7 +38,7 @@ This table routes a wire concern to its owning surface; the most specific row wi
 - Law: the browser row is a handler wrap, not a different client — `GrpcWebHandler(GrpcWebMode.GrpcWebText, inner)`; text mode is mandatory for server-streaming to stream, binary buffers, and the client-stream and duplex columns are structurally absent on this row — route those calls to an HTTP/2 row or reshape the wire.
 - Law: trust is a closed row set — `ChannelCredentials.Insecure` for UDS and loopback, `SecureSsl`, `Create(channel, call)` for TLS with identity — mutual-TLS identity rides `SslOptions` on the handler row, and `UnsafeUseInsecureChannelCallCredentials` is legal only where the transport itself is the perimeter.
 
-```csharp conceptual
+```csharp
 public sealed record PeerRoute(Uri Authority, string SocketPath);
 public sealed record Port<TReq, TRes>(
     Func<TReq, CallOptions, Task<TRes>> Ask, Func<TReq, CallOptions, IAsyncEnumerable<TRes>> Watch, TimeSpan Budget, bool ChannelRetry);
@@ -103,7 +103,7 @@ public static class WireAxis {
 - Law: request compression is a per-call metadata opt-in — the `grpc-internal-encoding-request` entry names a registered `CompressionProviders` row, response decompression is automatic from the registry, and `WriteOptions` with `WriteFlags.NoCompress` exempts individual messages inside a compressed stream — the mixed-entropy row.
 - Exemption: the awaited capture kernel — the `RpcException` catch arm — and the `Metadata` stamping sweep over the mutable host collection the interceptor delegate returns are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransportFault : Fault {
     private TransportFault(string detail) => Detail = detail;
@@ -212,7 +212,7 @@ public static class CallSeam {
 - Law: serialized-descriptor byte equality is refused by construction — buf's image and protoc's `FileDescriptorProto` bytes diverge on `json_name` and option encoding, so `SerializedData` equality across a C# host and a Connect peer is a falsehood, and `FileDescriptor.SerializedData`/`ToProto()` serve descriptor-set export and reflection reads alone.
 - Law: the corpus reshapes a wire IN PLACE and regenerates every branch from that one source in the same pass, so no consumer meets two shapes of one message and a package a peer advertises past the local one convicts a stale binary; `UnknownFieldSet` tolerance covers the window between a regenerated producer and a consumer restart, never a second standing shape.
 
-```csharp conceptual
+```csharp
 // One runtime compatibility shape: the generation a peer advertises, derived from the generated descriptor,
 // compared whole; unknown fields are the parser's tolerance and one corpus emission settles every other verdict.
 public sealed record WireGeneration(string Package) {
@@ -239,7 +239,7 @@ public static class Handshake {
 - Law: the range checks throw and project onto one coded fault band at the seam — `Timestamp.ToInstant` rejects pre-`0001-01-01T00:00:00Z` instants, `Duration.ToNodaDuration` and `ToProtobufDuration` reject spans outside the protobuf ±315_576_000_000 s window, leap-second and 24:00 time-of-day payloads reject, the unspecified day-of-week wire value maps to the none case as the family's one sentinel-to-vocabulary projection, and a range rejection reads identically at binary and JSON edges because both codecs feed one fault family.
 - Law: the STJ bridge is one options mutation at suite-codec composition — `ConfigureForNodaTime(options, IDateTimeZoneProvider)` or `ConfigureForNodaTime(options, NodaJsonSettings)` whose sixteen converter slots make per-suite overrides slot writes, with `WithIsoIntervalConverter`/`WithIsoDateIntervalConverter` swapping the interval representation — the default interval converter's `Start`/`End` names pass through the naming policy and its instants delegate to the registered instant slot, so interval JSON shape pins in golden bytes; zone-bearing types require the explicit provider, non-ISO calendars reject at write, and the `NodaTimeDefaultJsonConverterAttribute` per-property route hard-pins defaults and serves isolated DTOs only.
 
-```csharp conceptual
+```csharp
 using ProtoDuration = Google.Protobuf.WellKnownTypes.Duration;
 using NodaDuration = NodaTime.Duration;
 
@@ -283,7 +283,7 @@ public static class TemporalBridge {
 - Law: `UseHealthChecksCache` false executes mapped checks inline per Check; the Watch stream's first write is freshly computed with later writes on the runtime-owned publisher cadence, and stopping completes watchers with a final NOT_SERVING — the drain edge attach choreography consumes — while polling Check races listener teardown.
 - Law: browser translation is one middleware and per-endpoint consent — `UseGrpcWeb(new GrpcWebOptions { DefaultEnabled })` with `EnableGrpcWeb`/`DisableGrpcWeb` conventions — and a grpc-web request without consent falls through as a non-gRPC request, the signature of a missing enable row; detection is structural, the response mode negotiates independently from the Accept header, the middleware spoofs the protocol so no service code can detect translation, and browser callers need a CORS policy exposing `Grpc-Status`, `Grpc-Message`, and the encoding headers.
 
-```csharp conceptual
+```csharp
 public sealed class RelayService;
 public sealed record ExposureRow(string Service, Func<IEndpointRouteBuilder, GrpcServiceEndpointConventionBuilder> Bind, Option<string> HealthTag, bool Web);
 public sealed record Exposure(Seq<ExposureRow> Rows, int ReceiveCap, bool DetailedErrors);
@@ -328,7 +328,7 @@ public static class ServerRoot {
 - Law: manifest watching is pull-on-failure — epoch change is only actionable to a peer that just observed a failure, and filesystem-event subscriptions add a liveness dependency on event delivery for nothing; an unchanged generation makes the bounce cheap, a moved generation pays the full rehandshake.
 - Law: in-flight work at epoch advance resolves by domain outcome — completed-with-outcome survives, incomplete re-issues as intent, never bytes, because remote commands, deep-links, and journal replay enter one invocation surface sealing one domain outcome family under an origin discriminant and an idempotency key, so replay is re-presentation through the same gate; the message bus is the named rejected form — delivery-order ambiguity, at-least-once duplication, an independent retry owner, and an ungated path around the generation gate.
 
-```csharp conceptual
+```csharp
 public sealed record Manifest(string SocketPath, int Pid, long StartStamp, long Epoch, WireGeneration Generation, int ControlCap, int ArtifactCap);
 
 [JsonSerializable(typeof(Manifest))]
@@ -383,7 +383,7 @@ public static class Endpoint {
 - Law: the four failures are disjoint by construction and each maps to exactly one remediation — oversize re-chunks, truncated re-reads, corrupt redials, misframed re-gates — and a corridor implementing any subset re-discovers the missing class in production as the ambiguous one.
 - Exemption: the receive-order kernel — exact reads, the rented-buffer lease, and the catch arms — is the platform-forced stream statement seam.
 
-```csharp conceptual
+```csharp
 [SmartEnum<byte>]
 public sealed partial class FrameKind {
     public static readonly FrameKind Control = new(1, static manifest => manifest.ControlCap);
@@ -455,7 +455,7 @@ public static class Corridor {
 - Law: no STJ schema export pins peer compatibility — `JsonSchemaExporter` output is never compared, hashed, or advertised between peers; the wire generation compared at attach is the whole compatibility surface, so a schema-hash pin beside it is the foreclosed second authority.
 - Exemption: the merge root's options-mutation body is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public sealed record PackageCodec(string Package, IJsonTypeInfoResolver Context, Seq<Type> Advertised);
 
 public static class SuiteCodecs {

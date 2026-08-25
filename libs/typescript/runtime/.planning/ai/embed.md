@@ -20,7 +20,7 @@ The embedding corpus pipeline and the retrieval port's satisfying side: determin
 - Growth: a new cut lane (code-aware, table-aware) is one handler row; an overlap or ceiling change is a lane field.
 - Packages: `effect` (`Array`, `Schema`, `Option`); the `Intl.Segmenter` platform seam (universal runtime intrinsic).
 
-```typescript signature
+```typescript
 import { AiError, EmbeddingModel, type LanguageModel } from "@effect/ai"
 import { GoogleClient } from "@effect/ai-google"
 import { type OpenAiClient, OpenAiEmbeddingModel } from "@effect/ai-openai"
@@ -115,7 +115,7 @@ const Cut = { Lane: _Lane, pieces: _pieces, scrub: _scrubbed }
 - Growth: a new provider row is one table entry over `custom`; a cache or window policy change is a field on the one policy union; a Google task-type posture is a row field, never a call knob.
 - Packages: `@effect/ai` (`EmbeddingModel`, `AiError`); `@effect/ai-openai` (`OpenAiEmbeddingModel`, type `OpenAiClient`); `@effect/ai-google` (`GoogleClient` — the raw `BatchEmbedContents` rail); `@rasm/data` (`Batch.Engine`, `Batch.Persistence`, `Batch.tagged`, `Batch.windowed`, `Batch.durable`); `@effect/experimental` (`Persistence.ResultPersistence` — the durable band's requirement); `effect` (`Exit`, `Layer`, `Option`, `PrimaryKey`, `Schema`).
 
-```typescript signature
+```typescript
 const _Custom = Schema.Union(
   Schema.TaggedStruct("Batched", {
     maxBatchSize: Schema.Int.pipe(Schema.positive()),
@@ -295,7 +295,7 @@ const _band = (
 - Growth: a scope-selected second model is a second `embedder(row)` Layer against the same Tag at the root; a cross-encoder reranker is a `Reranker` implementation swap.
 - Packages: `@rasm/data` (`Embedder`, `EmbedFault`, `Reranker`, `Search`); `effect` (`Layer`, `Effect`, `Array`, `HashSet`, `Schema`); `./model.ts` (`Guardrail`).
 
-```typescript signature
+```typescript
 const _fingerprint = <R>(row: Embedding.Row<R>): Search.Fingerprint => Search.fingerprint(row.embedding)
 
 const _folded = (print: Search.Fingerprint) => (fault: AiError.AiError): EmbedFault =>

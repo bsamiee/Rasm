@@ -124,7 +124,7 @@ Use these placement rules when the chooser names the primitive but code still ne
 
 Type-evidence spotlight: a `@dataclass_transform` decorator mints the closed owner family, `@disjoint_base` seals the nominal root over `@final` sealed members, `Self`/`override` carry declaration evidence, inline `**P`/`Concatenate` preserve a context-threading signature woven under `@beartype`, a `TypeForm` registry holds the structural type-expression values that `door.is_subhint` resolves by decidable subtyping, `is_primary` is the `TypeIs[Primary]` that narrows the member so its `widened` transition is callable while `door.is_bearable` narrows the raw value into the refinement alias `Atom` that transition admits, and the total `match` over the sealed members proves exhaustiveness — all static evidence, no value materialized into an owner rail.
 
-```python conceptual
+```python
 import copy
 import dataclasses
 from collections.abc import Callable
@@ -222,7 +222,7 @@ def described(context: Context, value: Member, raw: object, /) -> str:
 - Reject: homogeneous `**kwargs`, open payload prose, split total/non-total `TypedDict` mirror shapes, `Unpack` re-spread through an interior signature, mutable-key promises in comments, and `Mapping[str, object]` bags.
 - Boundary: this site owns the payload type form and the `Unpack` root signature; `TypeAdapter` admission of the raw payload, `frozendict` extension-band materialization, and the `Result` rail are the value lifecycle owned by the shape page.
 
-```python conceptual
+```python
 from typing import NotRequired, ReadOnly, Required, TypedDict, Unpack
 
 
@@ -264,7 +264,7 @@ SHAPE = admitted(key="<key-a>", span={"lo": 0, "hi": 4}, tag="<ext-a>")
 - Boundary: `if TYPE_CHECKING: from X import Y` is the narrower form for a name that must never load at runtime, while a `lazy from X import Y` used only in annotations already costs nothing under PEP 649/749 deferred evaluation, so the guard is reserved for the reference that must stay unimportable. A module whose import registers or runs a side effect — codec, dtype, driver, or plugin registration — is never `lazy`-deferred, since deferral moves the effect to an arbitrary first-use site and a worker thread under free-threading; force it eager through the runtime's `sys.set_lazy_imports_filter`, populate the registry by explicit entry-point discovery owned by `boundaries.md`, or cross one owned memoized registration seam — a single cached function whose body performs the registering import and which every consumer calls before first use — so the effect fires at a controlled point the page names. A proxy reifies on a first `LOAD_GLOBAL`/`LOAD_NAME`, attribute access, `getattr`, or `types.LazyImportType.resolve()` — `globals()`, `dir()`, `__dict__`, and `frame.f_globals` reads do not, so the `__dir__` union stays cost-free — while the reification mechanism, `sys.lazy_modules` membership, the `sys.set_lazy_imports` modes, and the `require-lazy`/`ban-lazy` policy belong to the runtime owner and the enforcement gate.
 - Exemption: the module `__getattr__` resolver is the platform-forced statement seam — the attribute protocol calls it and reads a raised `AttributeError` as the miss signal, so it cannot ride the `Result` rail; its `find_spec` presence guard, the `raise AttributeError` miss, and the `raise ImportError` install-hint on a known-but-absent optional dependency (where `hasattr` raises and `find_spec` probes without importing) are its only statements — the probe rides a TOP-LEVEL module name, since `find_spec` on a dotted name imports the parent package and pays the exact load the guard defers, and distribution presence is the capability unit for a package whose submodules ship unconditionally.
 
-```python conceptual
+```python
 import threading
 from importlib import import_module
 from importlib.metadata import version
@@ -322,7 +322,7 @@ __all__ = ("Backend", "Shape", "TABLE", "codec", "driver", "render", "store")
 - Law: untrusted or dynamic input interpolated into markup — SVG, XML, HTML, or Typst — rides a `string.templatelib.Template`, never an f-string, because an f-string renders the interpolation into the surrounding markup before any escape point can intercept it; a `Template` instead exposes each `Interpolation.value` for a destination-keyed processor to escape or validate against its target grammar before render, and `xml.etree.ElementTree` builds the XML or SVG node tree so a serializer escapes rather than a string splice.
 - Boundary: the render-time fold of a live `Template`'s `str | Interpolation` segments, the conversion/format-spec application, and the destination-keyed escaping or validation of each `Interpolation.value` are `system-apis.md`'s; this site owns the structural type forms — the AST nodes and the live `Template` shape — read before any rendering, never the render itself.
 
-```python conceptual
+```python
 import ast
 
 from builtins import frozendict
@@ -357,7 +357,7 @@ CONGRUENT = ast.compare(ast.parse('t"{alpha}"', mode="eval"), ast.parse('t"{alph
 
 Reflection spotlight: one entrypoint discriminates on whether the subject is a protocol or a concrete owner, then folds every structural reader into one `frozendict` evidence registry — `get_protocol_members` over a proven protocol, `annotationlib.get_annotations(format=FORWARDREF)` reading deferred field hints without forcing evaluation, `get_original_bases` with `get_origin`/`get_args` decomposing the generic base list, and side-effect-free `inspect.getmembers_static` over the public member set — feeding a generated owner with no descriptor triggered and no value materialized.
 
-```python conceptual
+```python
 import annotationlib
 import inspect
 from types import get_original_bases
@@ -412,7 +412,7 @@ REFLECTED: Reflected = reflected(Shape)
 - Reject: tuple-pair pseudo-maps, sorted-item key normalizers, module-level dictionaries used as immutable policy tables, `MappingProxyType` views over mutable storage, frozen shells around dictionaries, mutate-then-freeze copy ladders, and a hand-maintained secondary map kept parallel to the primary it should derive from.
 - Boundary: `frozendict` is not a `dict` subclass and preserves insertion order for iteration, but order is not equality or value-hash semantics; use tuple pairs or an owning value object when order is semantic. `frozendict` is shallowly immutable; nested values must be immutable or owned by a model.
 
-```python conceptual
+```python
 from builtins import frozendict
 from enum import EnumCheck, StrEnum, verify
 

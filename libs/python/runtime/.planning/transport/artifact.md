@@ -30,7 +30,7 @@ Wire vocabulary imports from the one `rasm.contracts` root: the artifact family 
 - Growth: a new bound is one `ArtifactLaw` field and one `_declared` read; a new refusal is one dataclass, one union arm, and one `rendered` arm.
 - Boundary: this cluster reads descriptors and mints values; no octet, path, or socket is touched here.
 
-```python signature
+```python
 """Descriptor-ruled artifact custody, framing, identity proof, and reference traversal."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -344,7 +344,7 @@ class ArtifactError(Exception):
 - Growth: a new descriptor value kind is one `_embedded` match arm; a new proof axis is one `confirm` comparison in its ordered slot.
 - Boundary: proof opens no spool it was not handed a path for; custody hands paths in, proof hands references out.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -564,7 +564,7 @@ def references[F: str](message: Message[F], /) -> Result[tuple[ArtifactRef, ...]
 - Growth: a new source shape is one `ArtifactSource` arm and one `_copied` match arm; a new frame rule is one `_FrameLaw._admitted` check.
 - Boundary: custody owns the path for the context's lifetime alone; a persisting consumer copies inside the context and holds no path past exit.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
@@ -839,7 +839,7 @@ async def receive(
 - Growth: a new RPC direction is one `_ArtifactEnvelope` row and its wrap and unwrap entry pair.
 - Boundary: framing emits and unwraps envelopes; it opens no socket and proves no inbound frame — `receive` does.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import final
@@ -1013,7 +1013,7 @@ def fetch_frames(responses: AsyncIterator[FetchResponse], /) -> AsyncGenerator[A
 - Growth: a new `ArtifactService` rpc is one `_ArtifactClient` method and one `ArtifactTransfer` method over the existing custody owners.
 - Boundary: the transfer holds no retry, window, or credential — `transport/serve#CAPABILITY_INVOKE` owns re-drive; the client arrives constructed.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager

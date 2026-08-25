@@ -17,7 +17,7 @@ Operands admit through `numerics/array#PAYLOAD` for the finite gate and the oper
 - Packages: `scipy.signal`, `pywt`, and `numpy` per the fence imports; `numerics/array#PAYLOAD` owns namespace resolution and the finite gate at admission, so this owner threads neither and needs no `array-api-extra` `nan_to_num` — a non-finite operand never reaches a body.
 - Growth: a new transform is one `SignalOp` case with its `identity_parts` arm — `assert_never` surfaces the omission at type-check; a new filter family is one `FilterKind` row; a new decomposition mode is one `DecompMode` row with its `WAVELET_ROUTES` triple; a new shrink rule is one `ThresholdMode` row owning its callable; a new band projection is one `SpectralReadout` row in the transform owner every PSD-bearing op inherits; a new evidence shape is one `SignalEvidence` case with its `facts()` arm.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import cache

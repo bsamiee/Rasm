@@ -69,7 +69,7 @@ Every search runs one sequence:
 4. Prove with `test_match_code_rule` against one matching and one non-matching snippet; every non-match returns to step 3.
 5. Run `find_code_by_rule` with absolute `project_folder` and bounded `max_results`; `output_format=json` when captures or ranges feed the next step.
 
-```yaml template
+```yaml
 id: <query-id>
 language: <language>
 utils:
@@ -150,14 +150,14 @@ Rule precision is engineered: each device below is the standing form for its pro
 
 Durable rules are project structural law as a scanned gate: `sgconfig.yml` at the root, every YAML under `ruleDirs` a rule. A rule earns admission on three proofs — the violation is provable by node shape alone, no standing gate owns it (linter, analyzer, type checker, compiler, generator diagnostic), and it encodes a project law rather than generic hygiene; a scope-, type-, or cross-file-dependent invariant never becomes a rule. One rule owns a whole violation family through `any:` and `utils:`, splitting only when message or fix diverges; shared deep structure across split rules lands in a parameterized global util carrying an explicit `kind` guard. Every rule is `severity: error` — the scan exits nonzero and blocks.
 
-```text template
+```text
 sgconfig.yml                     # keys: ruleDirs, utilDirs, testConfigs, languageGlobs, customLanguages, languageInjections
 rules/<language>/<area>.yml      # one topic file per law family; rules split by ---; id equals filename, unique project-wide
 utils/<util-id>.yml              # global utils: explicit id + language, own constraints; a local utils: block shadows its homonym
 rule-tests/<rule-id>-test.yml    # binds by id, never filename; snapshots land beside it in __snapshots__/
 ```
 
-```yaml template
+```yaml
 id: <rule-id>                    # imperative grammar: no-<construct> / require-<shape>
 language: <language>
 severity: error

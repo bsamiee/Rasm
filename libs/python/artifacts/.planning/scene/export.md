@@ -17,7 +17,7 @@
 - Receipt: each export contributes `core/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target, bytes, facts)`, minted once at the `scene/render#SCENE` `Export` arm; this owner contributes the serialized payload and, for the USD sinks, the `scene/stage#STAGE` stats band (prim/layer counts, extent diagonal, and for a USDZ sink the packaged dependency rosters plus the rule and warning counts its compliance close measured) the worker entry threads back through `authored`. A passing compliance verdict is the ABSENCE of the `<usd-failed>` raise, never a band constant restating it. Never a parallel per-format rail.
 - Growth: a new scene-file export is one `SceneTarget` member plus one `ROW` entry; the coverage gate rejects an unruled member. A new plotter variant changes `write`, `Prepass`, `Capture`, or `options` inside that row. A new strategy is one `ExportRow` case plus its total projections and worker fold arm. A new USD metadata field threads once through `authored`, a new fault is one `ExportFault` member, and a new round-trip source is one `SceneSource` member plus one `scene/render_worker#WORKER` `_IMPORTER` row. `ROW` remains the single target correspondence.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime

@@ -15,7 +15,7 @@ Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-st
 - Law: the spine's `ResourceRef` is the ONLY definition address, resolution re-enters the mutable table per use, and no native `InstanceDefinition` escapes its owning document window — a folder-local address union beside the lens rows is the deleted form.
 - Law: the deleted posture is a LENS ROW, never a hand roster walk beside the live lens — the same three address shapes resolve under both postures, so an operation choosing "live" or "deleted" passes a lens and re-spells nothing.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public static class Definitions {
     internal static readonly ResourceLens<InstanceDefinition> Lens = new(
@@ -53,7 +53,7 @@ public static class Definitions {
 - Boundary: `GeometryCrc` chains the host remainder for the process-local probe and never crosses a boundary; the kernel `ContentHash` is the ONLY federation identity (`Document/geometry.md` states the custody split).
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinition`, `GetReferences`, `UseCount`, `GetContainers`, `UsesLayer`/`UsesLinetype`/`UsesDefinition`), RhinoCommon document (`.api/api-rhinocommon-document.md` — tables the dependency probes bound against), kernel `Domain/identity` (`ContentHash.Of<TState>`, `CanonicalWriter`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -455,7 +455,7 @@ public sealed record BlockPlacement(Guid Id, Transform Motion, Point3d Insertion
 - Law: `DeletionPolicy`'s dialogue column is the spine's `HostInteraction` row, never a second bare bool spelling the same axis.
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md:98-100` — the three `CreatePreviewBitmap` overloads), kernel `Interaction/asset` (`AssetExtent`), kernel `Domain/validation` (`CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

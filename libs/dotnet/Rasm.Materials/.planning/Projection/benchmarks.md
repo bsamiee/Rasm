@@ -21,7 +21,7 @@ Settled composition: Materials owns workload vocabulary and content-bound identi
 - Law: a program is a CLOSED `ProgramPin` case reading its own vocabulary's key, never a bare token — a misspelled container, a retired strategy, or an unresolvable material key each produced a legal-looking case token measuring nothing, discovered only when the harness refused mid-run. Every pin carries its RESOLVER on `BenchPin` and each rails, since an empty family or a refused synthetic grid measures the harness's own empty-input path and grades as the fastest row in the corpus.
 - Boundary: workload rows pin inputs and derive identity — kernel bodies stay on their owning pages and a workload never re-implements the kernel it measures. `PressGpuParity` is the one workload whose INTEREST is not its own duration: it presses one plan on both lanes and COMPOSES `press#PRESS_RECEIPT` `PressProduct.Parity`, which the gate reads as evidence and NEVER as a content input — persisted plane bytes are CPU-minted by structure, so grading that divergence against a tolerance proposes exactly the equivalence the content-identity veto denies.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
@@ -141,7 +141,7 @@ public static class BenchPin {
 - Growth: a new corpus entry is one logical pin row; a new measured receipt axis remains an AppHost owner change threading `BenchMeasurement`; harness residence and claim residence arrive as functions, so the bench project moves either without touching this page.
 - Boundary: raw BenchmarkDotNet artifacts stay at the bench-project edge, which supplies `harness` and `claim` — this page composes the gate and never opens a measurement session, a durable claim store, or an `ActivitySource`. No statistical fold lands here: `BenchMeasurement.Of` already admits the harness sample into exact order statistics over one `Distribution<Elapsed>`, so a folder-local moment mint states a second answer to a measurement the AppHost carrier owns.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;

@@ -16,7 +16,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 - Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy. This page opens NO fence of its own — the hub `evidence_run` weave is its one fault seam, so a `scipy.stats` raise and the gated `ImportError` both classify there and a rail already in hand returns rather than re-raising into it.
 - Growth: a new `(statistic, pvalue)` test is one `Tag` literal, one `TestIntent` case, one `_SIGNIFICANCE_CALLS` row, and one `_STAT_ROUTES` row; a divergent-shape test adds one dedicated reader instead; a new fittable distribution is one `Distribution` row; a new Anderson-Darling reference is one `Goodness` row only when `scipy.stats.anderson` documents it; a new reject regime is one `Decision` row carrying its own `reject` rule.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum

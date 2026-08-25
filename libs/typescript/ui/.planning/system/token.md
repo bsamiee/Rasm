@@ -24,7 +24,7 @@ Semantic tone is one closed set here and a KEY everywhere else: `Theme.Tone` is 
 - Boundary: the `to("srgb-linear")` conversion feeding three `ColorManagement` leaves through `Theme.linear` — srgb-linear coords are a fixed 3-tuple, so the marked adapter asserts the bound rather than fabricating a fallback coordinate; the `@import "tailwindcss"` entry stylesheet and `@custom-variant` declarations are app stylesheet data, not module code.
 - Growth: a new identity is one seed value; a new semantic is one tone row naming its seed anchor; a new contrast tier is one `_APCA` row — never a second color engine or a per-component color literal.
 
-```typescript signature
+```typescript
 import { ColorSpace, contrastAPCA, type PlainColorObject, serialize, steps, to, toGamutCSS, tryColor } from "colorjs.io/fn"
 import { OKLCH, OKLab, P3, sRGB, sRGB_Linear } from "colorjs.io/spaces"
 import { Array, Effect, ParseResult, Record, Schema, type Types } from "effect"
@@ -95,7 +95,7 @@ const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): st
 - Boundary: which semantic a surface's axis maps to is that surface's law (`system/vital` grades, `system/primitive` recipe and note rows, `viewer/mark` lifecycle, `viewer/panel` phase, `viewer/probe` verdict, the review plane's change kinds); this page owns the seed contract, the roster, the ramp, and the gate alone, and the seed VALUES a deployment runs on are the composing root's.
 - Growth: a new appearance identity is one seed value; a new semantic is one `_TONES` row naming its anchor; a new slot is one `_SLOTS` rank with the `_PAIRS` rows it participates in; a new plane is one `_HEADS` row beside its `_PROJECTIONS` row; a new contrast tier is one `_APCA` row — never a second color engine, a per-surface union, or a hand-written override block.
 
-```typescript signature
+```typescript
 import { Option } from "effect"
 import { Shape } from "@rasm/core"
 
@@ -303,7 +303,7 @@ const _paletteKeys: ReadonlyArray<string> = [
 - Law: the group table is data — a new custom utility family is one `classGroups` row over `validators.*` predicates or a `fromTheme` scale reference, never a parser change; `system/act` consumes these groups through its `Motion` row strings and never mints a sibling instance.
 - Law: `cn` is pure synchronous string work below the Effect boundary — it runs inside render, memoized by `tailwind-merge`'s LRU, and never lifts onto a rail.
 
-```typescript signature
+```typescript
 import { type ClassValue, clsx } from "clsx"
 import { extendTailwindMerge, validators } from "tailwind-merge"
 
@@ -394,7 +394,7 @@ const cn = (...inputs: ReadonlyArray<ClassValue>): string => _merge(clsx(inputs)
 - Boundary: aspect namespaces join as rows here when a consumer earns them; the Vite integration (`@tailwindcss/vite`) is app build wiring; color namespaces are `[03]`'s and ride the gated rail.
 - Growth: a new axis is one interior anchor with one `_EMITTED` row — never a hand-written utility, a second emission call, or a component-local constant.
 
-```typescript signature
+```typescript
 const _density = { comfortable: "0.25rem", touch: "0.3125rem" } as const
 
 const _spacing = _density.comfortable
@@ -473,7 +473,7 @@ const _Scale: {
 - Law: density stamps beside theme — a coarse-pointer environment (the negation of `(hover: hover) and (pointer: fine)`) elects the touch multiplier, the same stamp writes `data-density` in the pass that writes `data-theme` (the comfortable floor clears the attribute exactly as the base plane does), and the `:root[data-density="touch"]` override restating `--spacing` from `Theme.Scale.density.touch` is stylesheet data; a JS pixel derivation or a second dimension table is the named defect.
 - Boundary: the media-query reads and the dataset writes are this page's platform-forced seam; the atom mechanics are `system/atom`'s; the `@custom-variant` declaration is stylesheet data beside `@plugin "tailwindcss-react-aria-components"`.
 
-```typescript signature
+```typescript
 import { Effect } from "effect"
 
 const _kinds = ["light", "dark", "contrast", "system"] as const

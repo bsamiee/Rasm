@@ -27,7 +27,7 @@ Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile`
 - Packages: Thinktecture.Runtime.Extensions supplies `[Union]`, `[SmartEnum<string>]`, `[ValueObject<string>]`, `[ComplexValueObject]`, and `[ValidationError]`; LanguageExt.Core supplies `Fin`, `Validation`, `Option`, `Map`, `Set`, `Seq`, `Traverse`, `Apply`, and `Fold`; MathNet.Numerics supplies `Interpolate.Linear` and `IInterpolation`; UnitsNet supplies typed boundary quantities; RhinoCommon supplies `Point3d` and `Vector3d`; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Fabrication.Process` supplies `ConsumableKey`, `ProcessBudget.Joining`, `Admission`, `FabricationFault`, and `FabConcern.Joining`.
 - Boundary: `Rasm.Materials` supplies material, penetration, and qualification identities; callers resolve preparation geometry into the local `FillProfile`. Containment, area, and interpolation are defined only over the admitted station range, so a station outside it clamps to the terminal section rather than extrapolating a spline past its data.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -592,7 +592,7 @@ public sealed partial class WeldJoint {
 - Packages: `Joining/deposition` supplies `WeldPolicy`, `WeldRuleSet`, `RoleFactor`, `PositionFactor`, `ShapeFactor`, `BeadProgram`, `RoleBand`, `WeavePattern`, `ArcProgram`, `ArcFitPolicy`, `ArcFit`, `PassLineage`, `WeldProcessLaw`, and `TransferMode`; `Process/atoms` supplies `Move`, `MoveOrientation`, and `ProcessBudget.Joining`; RhinoCommon supplies `Plane`, `Point3d`, and `Vector3d`; LanguageExt.Core supplies the accumulated rail.
 - Boundary: `Joining/sequence` alone orders deposits and cooling, `Joining/procedure` alone assesses `WeldPlan.Demands`, kinematics alone turns segments into robot solutions, and Cam alone conditions execution motion. The arc program and the fit gate are `Joining/deposition` owners this fold DRIVES, so a run-in length or a fit tolerance is never re-derived here.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class TorchFrame {
@@ -927,7 +927,7 @@ public sealed partial class JointStage {
 - Packages: QuikGraph supplies `BidirectionalGraph`, `STaggedEdge`, `IsDirectedAcyclicGraph`, `SourceFirstTopologicalSort`, and `InEdges`; `Rasm.Element` supplies `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`; `Rasm.Domain` supplies `Op`; `Joining/deposition` supplies `WeldPolicy` and its rule set.
 - Boundary: `FillProfile.VolumeMm3`, `Fits`, and `Pass` are numerical fold kernels; `Transport`, `Pose`, and `Weave` are Rhino mutation kernels. `Weld` never posts machine code.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WeldRequest {

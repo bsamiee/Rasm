@@ -17,7 +17,7 @@ Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) im
 - Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row, the graduation axes riding the one `_FEATURE_CASE` value unchanged; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row — and `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
 - Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import StrEnum

@@ -22,7 +22,7 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 - Law: `LightFalloff` is the RENAMED host mirror, never the kernel `Falloff` — `Numerics/calculus.md`'s `Falloff` is a radial-decay WEIGHT PROFILE carrying `SlopeBound`, `Weight`, and a metric sampler, while this row is the `Light.Attenuation` coefficient regime the host seats through `SetAttenuation`. Both wear one word over two concepts; composing the kernel union here hands a caller a Gaussian spread to write into a quadratic coefficient slot.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `KeyMemberEqualityComparer`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Choose`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `Light`, `LightObject`, `LightStyle`, `Light.Attenuation`, `LightTable`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`/`ToRgb`, `UnitInterval`, `VectorCone`); kernel `Domain/validation` (`Op.Row`, `ICapability`, `CapabilitySet`); `Document/session.md` (`DraftFault`); `Document/tables.md` (`ResourceIndex`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
@@ -238,7 +238,7 @@ public sealed record LightStamp(
 - Law: pose is TWO edits, never one optional pair. `Place` moves and `Aim` turns; a program carrying both applies both to ONE working duplicate inside a single `Modify`, so atomicity is the commit's and the "both absent" corner is unrepresentable rather than guarded.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); kernel `Domain/rails` (`Lease<T>.Acquire`, `Lease<T>.Use`); kernel `Numerics/atoms` (`PerceptualColor.ToDrawing`, `UnitInterval`); kernel `Domain/validation` (`CapabilitySet.Require`); RhinoCommon objects (`Light.Intensity`/`PowerWatts`/`PowerLumens`/`PowerCandela`, `SetAttenuation`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -478,7 +478,7 @@ public sealed record LightShade(
 - Growth: a new light verb is one `LightOp` case, one `LightSlot` row naming its body kinds, and one `LightBody` case; a new property axis is one `LightEdit` case with its `Requires` column; a new descriptor column is one appended proto field beside one mapper column.
 - Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp`); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated scene, artifact, geometry, and spatial messages); NodaTime.Serialization.Protobuf (`libs/dotnet/.api/api-nodatime-protobuf.md` — `Instant.ToTimestamp`); NodaTime (`Instant`); kernel `Domain/identity` (`ArtifactContent`, `ContentHash.Of`, `ContentHash.Wire`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`, `ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Google.Protobuf;
 using NodaTime;

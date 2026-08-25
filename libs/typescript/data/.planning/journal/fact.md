@@ -27,7 +27,7 @@ Journal append is the system of record — a missing metric point is a dashboard
 - Law: app and optional tenant fields compose `Identity.App.fields.app` and `Identity.Tenant.fields.tenant`; no bare string enters.
 - Receipt: the encoded twins derive (`typeof AuditFact.Encoded`, `typeof MeterFact.Encoded`) — the row shapes the journal persists and downstream rollups read; no hand wire twin exists.
 
-```typescript signature
+```typescript
 import { Schema } from "effect"
 import { Clock, Identity } from "@rasm/core"
 import { SealedEnvelope } from "@rasm/security"
@@ -114,7 +114,7 @@ declare namespace Fact {
 - Law: rowing and appending are SEPARATE rails because their faults have opposite lifetimes — `_rowed` fails only on encode, which a constructed member cannot reach, while `_append` fails only on `SqlError`. Splitting them is what lets the drain retry the append and still stay total: one shared rail seats a permanent fault under an unbounded schedule and wedges every later fact behind one row no database can ever accept.
 - Law: `SqlError` is NOT uniformly transient, so the schedule reads it — a missing relation, a violated constraint, and an over-long value are refusals no wait resolves, and a schedule that retries every fault alike rebuilds the exact wedge the rail split exists to prevent, one layer up and out of sight. `Journal.signal` is the one classifier, the retry gates on it, and a `refused` batch leaves the owed roster for the refused one so the drain proceeds to the next window with the refusal readable rather than spinning on it forever.
 
-```typescript signature
+```typescript
 import { Array, Effect, HashSet, Option, type ParseResult } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import { Digest } from "@rasm/core"
@@ -220,7 +220,7 @@ const _append = (
 - Law: `_meters` filters on rail-minted `stamp_physical`; `Clock.Hlc.physicalOf` places settlement bounds on the same axis.
 - Law: aggregates merge by the component-wise additive fold — associative by construction, so window rollups fuse across drains and a billing period is a fold over persisted window aggregates.
 
-```typescript signature
+```typescript
 import { Array, BigDecimal, Data, DateTime, HashMap, Option, type ParseResult } from "effect"
 import { SqlSchema } from "@effect/sql"
 import { Clock } from "@rasm/core"
@@ -312,7 +312,7 @@ const _rate = (
 - Law: custody is `(app, tenant, subject)` structurally, so a fact carrying no tenant coordinate has no custody row — its `bearing` fields are DROPPED rather than landed unsealed, and the verb, actor class, target, and instant still record the event; sealing runs before the draft leaves, so an identifier reaches the rail already unreadable.
 - Law: every audit fact also emits one structured log annotated with the convention's audit rows — observability beside durability; the meter's metric egress is deliberately lossy and bounded — resource tag always, tenant tag only where the resource row's posture admits it — and the journal remains the sole truth for both streams.
 
-```typescript signature
+```typescript
 import { Array, Chunk, DateTime, Effect, Fiber, HashMap, Layer, Mailbox, Metric, Option, Predicate, Record, Ref, Schedule, Schema, Stream } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import { Clock, Convention, Digest } from "@rasm/core"

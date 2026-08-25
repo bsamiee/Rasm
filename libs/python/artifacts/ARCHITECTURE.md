@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 artifacts/
 ├── document/            # Paginated structured documents: the DocumentNode tree and its emit/extract inverses
 │   ├── model.py         # DocumentNode semantic tree, DocumentDelta diff/merge algebra, PDF/UA StructureNode family, lowering projections

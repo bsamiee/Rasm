@@ -16,7 +16,7 @@ Geometry's B-rep surface is a generated `ExecuteRequest` crossing, not a Python 
 - Receipt: `BrepResult.contribute` yields the one `emitted`-phase receipt off the returned kernel census, so receipt and provider evidence read one fold and geometry measures nothing twice.
 - Boundary: `remote_fault` preserves the provider's typed `FaultDetail`, status, correlation, causal stamp, tenant, and recovery whole at the client edge `mesh/cad#BRIDGE` owns; this page never re-spells that capture. No native package or handle crosses Python 3.15.
 
-```python signature
+```python
 from collections.abc import Iterable
 from functools import partial
 

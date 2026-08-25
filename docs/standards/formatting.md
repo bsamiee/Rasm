@@ -78,7 +78,7 @@ Render an inline status, result, change, or state as a bracketed token so an age
 |  [03]   | numerator equals denominator | `100%`          |               `20` |
 |  [04]   | ordinary incomplete value    | floored integer | floored cell count |
 
-```text conceptual
+```text
 Progress: [██████░░░░░░░░░░░░░░] 33%
 Progress: [############--------] 60%
 ```
@@ -109,7 +109,7 @@ A bar carries no appended count, unit, phase name, date, ETA, or basis text; tho
 
 A standard file carries one H1, a dense law lead, a container chooser or use-when, and rule sections named by the concern they own, with examples only where a common mistake needs a guard; it ends at the last load-bearing section with no closing checklist.
 
-```markdown template
+```markdown
 # [TITLE]
 
 <Lead: the operating law in one or two single-line paragraphs, at most 500 characters total.>
@@ -132,9 +132,7 @@ A standard file carries one H1, a dense law lead, a container chooser or use-whe
 A surface a parser, generator, gate, or ledger reads keeps its exact shape. Every load-bearing form names its enforcing gate or the reason none exists yet, and a gate compiles established law into build or review pressure without inventing law of its own.
 
 [FENCE_RULES]:
-- A code fence carries a language tag and one intent label; renderer-local fences use the exact renderer tag, and Mermaid fences are `mermaid`.
-- Intent labels: `copy-safe` runs as written, `template` for neutral placeholders, `conceptual` for illustration, `generated` for generated output, `test-only` for test source, `output-only` for observed output, `signature` for a transcription-complete owner declaration an implementer copies verbatim, `accepted` and `rejected` for a worked contrast pair, and `codemap`/`seams` for width-capped topology fences.
-- A body honors its label: a `copy-safe` body carries no placeholder slots or shell prompts, and an `output-only` body carries no prompt-led run command — either mismatch retags the fence.
+- Every opening code fence carries a language or identifier token.
 
 [COMMAND_OUTPUT]:
 - A copy-safe command is an instruction to run; an expected signal is the short output or state change to compare.
@@ -148,7 +146,7 @@ A surface a parser, generator, gate, or ledger reads keeps its exact shape. Ever
 [MONOSPACE_TOPOLOGY]:
 - Use monospace text where raw Markdown inspection matters more than a render: file trees, repository layout, tiny matrices, and small stacks. Alignment is the meaning; misaligned topology is worse than prose.
 
-```text conceptual
+```text
 project/
 ├── README.md
 └── reference/

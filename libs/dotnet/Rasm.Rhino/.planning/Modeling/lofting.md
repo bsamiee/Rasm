@@ -18,7 +18,7 @@
 - Growth: a new station modality is one case on its rail's union; a new sweep grant is one vocabulary row.
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep`/`CreateFromSweepSegmented`/`CreateFromSweepInParts`, `Brep.CreateFromLoft`/`CreateFromLoftRebuild`/`CreateFromLoftRefit`, `DevelopableSrf` `:139-141`), RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurve.MakeCompatible` `:193`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -227,7 +227,7 @@ public readonly partial struct CurveCompatibility : IValidityEvidence {
 - Growth: a new solver weight is one column with its claim; a new patch grant is one vocabulary row.
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.CreatePatch`, `Brep.VariationalPatchSettings` `:47`, `Brep.CreateVariationalPatch`, `Brep.CurveConstraint`/`PointConstraint`, `Brep.VariationalPatchResult`, `RhinoVariationalDomain`), kernel `Domain/rails` (`Op.ToHostSlot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -427,7 +427,7 @@ public readonly partial struct LoftTangency : IValidityEvidence {
 - Growth: a new construction verb is one `LoftOp` case with its arm; a new solver channel is one `LoftSlot` row.
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep*`, `Brep.CreateFromLoft*`, `Brep.CreatePatch`, `Brep.CreateVariationalPatch` `:94-100`, `Brep.CreateDevelopableLoft`, `DevelopableSrf.GetLocalDevopableRuling`/`RulingMinTwist`/`UntwistRulings` `:139-141`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), LanguageExt.Core (`Eff.runtime`, `Zip`, `Seq`), Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VariationalThreading {

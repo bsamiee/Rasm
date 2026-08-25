@@ -11,7 +11,7 @@ The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class
 
 [SUMMARY_MINT]:
 
-```typescript signature
+```typescript
 import { Array, Data, Effect, Equal, Number, Option, Order, pipe, Schema } from "effect"
 import { Clock } from "../value/clock.ts"
 import { Digest } from "../value/contentKey.ts"
@@ -122,7 +122,7 @@ const _diverges = (self: _Merkle, that: _Merkle): Commit.Divergence =>
 
 [COMMIT_OWNER]:
 
-```typescript signature
+```typescript
 class Commit extends Schema.Class<Commit>("Commit")({
   key: Digest.Key.content,
   parents: Schema.Array(Digest.Key.content),

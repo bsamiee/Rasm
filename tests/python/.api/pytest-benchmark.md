@@ -19,7 +19,7 @@
 |  [04]   | `BenchmarkSession` | session        | aggregates fixtures, resolves the storage URI, and generates/compares the run JSON             |
 |  [05]   | `FileStorage`      | storage        | `file://` backend writing `<machine>/NNNN_<name>.json` under the storage root; eager `mkdir`   |
 
-```python signature
+```python
 class BenchmarkFixture:
     group: str | None; extra_info: dict[str, object]; stats: Metadata | None
     def __call__(self, function_to_benchmark: Callable[..., R], *args: object, **kwargs: object) -> R: ...
@@ -44,7 +44,7 @@ class Stats:
 |  [09]   | `--benchmark-skip`                                 | CLI flag      | skip all benchmarks                                                 |
 |  [10]   | `pytest_benchmark_update_json`                     | hookspec      | mutate `output_json` post-run; the regression gate reads the series |
 
-```python signature
+```python
 def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, output_json: dict[str, object]) -> None: ...
 ```
 

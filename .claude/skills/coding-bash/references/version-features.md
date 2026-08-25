@@ -21,7 +21,7 @@ Bash 5.2/5.3 feature exploitation. Minimum baseline is 5.2 — features below th
 
 That performance gap is structural: `$()` forks a subshell (clone + pipe + exec), `${ }` runs inline. In a 10k-iteration loop, `${ printf '%s' x; }` completes ~5-8x faster than `$(printf '%s' x)` — fork/exec overhead dominates at scale.
 
-```bash conceptual
+```bash
 # Fork cost quantified: measure the gap directly
 _bench_fork_vs_insitu() {
     local -r iterations=10000
@@ -72,7 +72,7 @@ Use `${ }` for inline value construction in hot paths. Use `$()` when isolation 
 
 `${| cmd; }` executes `cmd` in the current shell, expands to the value of `REPLY`, and restores `REPLY` after expansion. It does not capture stdout. `cmd` must assign `REPLY` directly; any stdout it writes still goes to the caller's stdout. Bind the expansion immediately when the value matters.
 
-```bash conceptual
+```bash
 # Sequential binding: each body sets REPLY, expansion reads that value
 get_system_profile() {
     local os kernel arch
@@ -110,7 +110,7 @@ GLOBSORT (5.3) controls pathname expansion order globally. `+` prefix = ascendin
 |  [07]   | `numeric`   | Leading digits in filename  |
 |  [08]   | `nosort`    | Raw readdir order (fastest) |
 
-```bash conceptual
+```bash
 # Process newest logs first — no ls/stat/sort pipeline
 GLOBSORT="-mtime"
 for log in /var/log/app/*.log; do
@@ -151,7 +151,7 @@ Three builtin variables replace `date(1)` forks entirely. All are unconditionall
 
 `printf -v ts '%(%F %T)T' -1` is the fork-free timestamp — replaces `$(date '+%F %T')` entirely. `-1` means "now"; strftime format via `%(...)T`.
 
-```bash conceptual
+```bash
 # Microsecond benchmarking — pure integer arithmetic, no bc/awk
 _bench() {
     local -r label="$1"; shift
@@ -217,7 +217,7 @@ _rate_check() {
 
 One distinction is critical: `EPOCHREALTIME` measures wall-clock time (subject to NTP step corrections mid-measurement), `BASH_MONOSECONDS` measures elapsed time (monotonically increasing, never adjusted). Use `EPOCHREALTIME` for timestamps, `BASH_MONOSECONDS` for durations.
 
-```bash conceptual
+```bash
 # Elapsed-time measurement: NTP-immune, integer-resolution
 _elapsed() {
     local -r label="$1" start="$2"
@@ -267,7 +267,7 @@ _mono_now() {
 
 `BASH_TRAPSIG` (5.3) is set to the numeric signal number inside a trap handler. Before 5.3, a single handler shared across signals had no way to determine which signal fired — requiring separate handler functions per signal or wrapper hacks.
 
-```bash conceptual
+```bash
 # Dispatch-on-signal: one handler, differentiated cleanup
 _shutdown() {
     local -r sig="${BASH_TRAPSIG}"
@@ -312,7 +312,7 @@ Bash 5.3 ships loadable builtins as shared objects — `enable -f /path/to/built
 
 Key 5.3 additions: `kv` (in-process key-value store) and `strptime` (date string parsing). Combined with existing `fltexpr` (float arithmetic), these eliminate the three most common fork-to-external-tool patterns: `awk` for math, `date` for parsing, and temp files / associative arrays for lookup tables.
 
-```bash conceptual
+```bash
 # Bootstrap: load available builtins, set capability flags
 _load_builtins() {
     local -r lib="${BASH_LOADABLES_PATH:-/usr/local/lib/bash}"
@@ -381,7 +381,7 @@ Three additions address distinct production needs: array expansion safety, inter
 
 [ARRAY_EXPAND_ONCE]: replaces `assoc_expand_once` (5.2) with broader scope — subscript expressions in assignment statements, `${name[sub]}` expansions, and `unset` are evaluated only once. Prevents double-evaluation bugs where a subscript containing command substitution or arithmetic side effects fires twice.
 
-```bash conceptual
+```bash
 # array_expand_once: prevent double-evaluation of subscript expressions
 shopt -s array_expand_once
 
@@ -396,7 +396,7 @@ counters[$(_next_key)]=1
 
 [READ_E]: activates Readline programmable completion during `read` — turns `read -ep` from a bare prompt into interactive input with tab completion, history, and key bindings. Production use: interactive CLIs needing domain-specific completions during input.
 
-```bash conceptual
+```bash
 # Interactive prompt with Readline completion (5.3)
 # Provides tab-completion and history editing during read
 _prompt_service() {
@@ -414,7 +414,7 @@ _prompt_service() {
 
 [SOURCE_P_PATH]: specifies a custom search path for sourcing files — isolates library loading from the ambient `PATH`. Prevents accidental sourcing of same-named files from unexpected directories.
 
-```bash conceptual
+```bash
 # Controlled library loading: source only from approved paths
 _load_libs() {
     local -r lib_path="/opt/app/lib:/opt/app/vendor"
@@ -441,7 +441,7 @@ Enable `array_expand_once` globally in scripts using associative arrays with com
 
 `shopt -s patsub_replacement` (5.2) changes `${var//pat/rep}` behavior: `&` in the replacement expands to the matched text, mirroring sed's `\&`. Disabled by default for backwards compatibility — enable explicitly.
 
-```bash conceptual
+```bash
 # Bounded-concurrency pool with PID tracking (5.2+)
 _parallel_pool() {
     local -r max_workers="${1:-4}"; shift
@@ -492,7 +492,7 @@ shopt -u patsub_replacement   # restore default — scope carefully
 
 Since the minimum baseline is 5.2, version gating discriminates only the 5.2 vs 5.3 boundary. Features at or below 5.2 (EPOCHSECONDS, EPOCHREALTIME, SRANDOM, `wait -n -p`, `wait -f`) are unconditionally available — no flags needed.
 
-```bash conceptual
+```bash
 # Packed version integer: single comparison per feature check
 readonly _BASH_V=$(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] ))
 # Only 5.3 features need gating — 5.2 features are baseline

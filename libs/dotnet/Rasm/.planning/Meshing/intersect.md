@@ -22,7 +22,7 @@ Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups fro
 - Growth: a new crossing modality is one `IntersectKind` row and one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `Implicit` case; a new broad-phase knob is one `IntersectPolicy` column, and a new band is one `ToleranceLane` row at the context owner.
 - Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission and open sections emit as typed rows; `Apply` is total over the `Fin` rail; `CrossingStore` is the single-writer arena whose frozen `CrossLattice` is the only projection consumers hold.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

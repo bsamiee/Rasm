@@ -19,7 +19,7 @@
 - Law: `Shape.Ingress` owns frame and byte ceilings.
 - Packages: `effect`; `./codec.ts` (`Wire`); `./format.ts` (`Format`); value `Digest` and `Shape`.
 
-```typescript signature
+```typescript
 import type { MessageShape, MessageValidType } from "@bufbuild/protobuf"
 import { Array, Chunk, Effect, Either, Encoding, HashMap, Option, pipe, Ref, Schema, Stream } from "effect"
 import { Digest } from "../value/contentKey.ts"
@@ -142,7 +142,7 @@ const _gathered = (budget: Shape.Ingress) => {
 - Law: verification covers the complete artifact, and parity failure prevents the joined allocation.
 - Exemption: `_joined` performs one bounded allocation and ordinal copy.
 
-```typescript signature
+```typescript
 class Artifact extends Schema.Class<Artifact>("Artifact")({
   key: Digest.codecs.content.bytes,
   generation: Shape.Refined.OrdinalKey,
@@ -235,7 +235,7 @@ const ArtifactAssembly: {
 - Law: duplicate content keys refuse, and the collection ceiling is `Shape.Ingress`; every other field rule is the corpus's `buf.validate` rule on the generated `GeometryResidency`, evaluated once at the descriptor admission.
 - Law: `kind` decides cull and draw posture, and the same rows carry the per-kind census the declared VRAM budget is judged against.
 
-```typescript signature
+```typescript
 import * as appuiResidency from "@rasm\/contracts/rasm/contracts/render/residency_pb"
 
 const _payloadStream = <A>(
@@ -385,7 +385,7 @@ const Residency: {
 - Boundary: `Frame` carries the wire form and its descriptor; entity-graph authoring and release raising stay with the producing runtime.
 - Packages: `effect` (`Array`, `Either`, `Option`, `Schema`); `./format.ts` (`Format`).
 
-```typescript signature
+```typescript
 const _ifcSerializations = ["step", "xml", "json", "ifcx"] as const
 const _ifcContainers = ["plain", "zip"] as const
 const _ifcReleases = ["IFC2X3", "IFC4", "IFC4X1", "IFC4X3", "IFC4X3_ADD2", "IFC5"] as const

@@ -25,7 +25,7 @@
 - Growth: a sampling law is one `SweepSampling` row, and an acceptance regime is one `RemovalBands` value — a lane-named gate moves at the context override with no column added here.
 - Boundary: `VoxelWire` remains the only stock ingress and egress codec; native `Library`, `Voxels`, `Lattice`, and `Mesh` leases never cross the operation. A verification whose motion carries no cutting move is refused rather than answered with a fabricated air-cut ratio, so the ratio's denominator is positive by admission at every later read.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
@@ -231,7 +231,7 @@ public sealed partial class VerifyPolicy {
 - Growth: a cutter geometry is one `CutterFamily` row on the existing rule columns; a new non-cutting body is one `Obstruction` row.
 - Boundary: a body that crashes never reads as material removed, because obstruction membership never subtracts.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RemovalFinding {
@@ -718,7 +718,7 @@ public static class Removal {
 - Receipt: every setup snapshot key closes through `FabricationCanon.Keyed` — the ONE retaining mint over the `Rasm.Element` codec, answering on the `Fin` rail — framing stock lineage, motion, setup and tool frames, tool assembly identity, cutter policy, the acceptance bands, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
 - Boundary: `ResidualLoops` reuses one Rhino vertex index per extracted native vertex before plane intersection; provider geometry terminates here.
 
-```csharp signature
+```csharp
 public static partial class Removal {
     private static Fin<DeviationField> Surface(
         VerifyPolicy policy,
@@ -896,7 +896,7 @@ public static partial class Removal {
 - Receipt: `FabricationResult.VerificationResult` carries residual stock, per-setup snapshots, gouge witnesses, both residue volumes, the air-cut ratio, and the voxel-derived volume tolerance its own `Clean` verdict reads.
 - Boundary: the page opens no solver span, because the removal fold counts no solver-internal step and `FabricationEngine` rosters no removal lane; a traced removal lane is one `FabricationEngine` row at `Process/telemetry` before a bracket exists here.
 
-```csharp signature
+```csharp
 public static partial class Removal {
     private static Fin<FabricationResult.VerificationResult> Project(
         VerifyPolicy policy,

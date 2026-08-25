@@ -24,7 +24,7 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 - Growth: a new field type is one `FormField` row reusing the `ControlIntent` vocabulary; a new admission is one `FieldEntry` row with its predicate and typed constructor; a new fault case is one `[FaultCase]` leaf; a new rule shape is one `FieldRule` case declaring its edges; a new search facet is one `FilterFacet` row; zero new surface.
 - Boundary: a form is a validated `FormSchema` whose field controls materialize through `ControlFactory` and whose rows seat into the admitted form mechanism; a settings-dialog framework, form-builder, per-form control class, and second validation scheme are rejected. The interior is TYPED — `FormState` holds kernel `FieldValue` cases inside `FieldCell` rows, and JSON exists only at `With` (inbound, admitted once per entry row) and `FieldJson.Lower` (outbound, the `Shell/commands#INTENT_TABLE` `CommandPayload.Fields` crossing) — so heterogeneous storage never becomes untyped interior reads. Dimensioned admission parses against the FAMILY type `QuantityInfo.ValueType` carries and clamps on the scalar in the elected display unit; `UnitMath.Clamp` constrains to the closed family type an erased field never carries, so the boxed face cannot reach it and the `[BASEUNITS_PARTIALITY]` walk is never entered, the display unit arriving from the `MeasureRole` row rather than a unit system. Expression admission is the `Rasm.Compute` symbolic owner — `SymbolicBuild.Build` over the engine's non-throwing parse, free-symbol binding from sibling field values, `SymbolicExpr.Evaluate` to one real — so a local arithmetic parser, a string `eval`, and a second dimension proof are deleted; a typed spinner carries no expression because its text seam narrows through the package's own per-closed-generic parse. Form validation accumulates independent failures and submit rides the one `CommandRow` rail.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -148,7 +148,7 @@ public readonly record struct FormFilter(string Query, FilterFacet Facet) {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record FieldCell(Option<FieldValue> Uniform, int Targets, Option<string> Source, ValueOrigin Origin) {
@@ -478,7 +478,7 @@ public sealed record FormSchema {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class FieldJson {
@@ -579,7 +579,7 @@ public static class FormSurface {
 - Growth: a new section furniture is one `SectionChrome` row; a new row affordance is one construction inside `Editor`; zero new surface.
 - Boundary: `FormChrome` is the page's boundary capsule for form-mechanism construction — the mechanism owns geometry, the capsule owns seating, and every CONTROL comes from `ControlFactory`. The operation cluster's verbs bind through `BehaviorRail.Intent` over `MaterializeContext.Activate`, and their commands are the form's own arrows rather than deck rows, because the deck freezes at boot and a runtime-compiled schema cannot mint rows in it. The read-only description grid carries resolved TEXT and no editor. The form host is the mechanism's items control and never the constraint-solver panel — the solver carries no label-column algebra.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public readonly record struct FormGeometry(Position LabelPosition, GridLength LabelWidth, HorizontalAlignment LabelAlignment) {
@@ -609,7 +609,7 @@ public sealed partial class SectionChrome {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class FormChrome {
@@ -775,7 +775,7 @@ public static class FormChrome {
 - Growth: a new wizard step is one `FormSection` row on the schema; zero new surface.
 - Boundary: a wizard is sections over the one `FormSchema` — a parallel wizard framework and a second step roster are rejected; the forward gate IS the `Validation` rail narrowed to the section's keys, `Skip` marks only the conditional section the flow bypasses, and the step cursor is a typed value the `ControlIntent.Tab`/`Accordion` wizard chrome reads.
 
-```csharp signature
+```csharp
 public sealed record WizardState(int Index, Seq<string> Visited) {
     public static WizardState Start => new(0, Seq<string>());
 }
@@ -826,7 +826,7 @@ public static class WizardFold {
 - Boundary: SELECT-SIMILAR is a signature match over a `CapabilitySet<SelectionFacet>` — the set deduplicates and orders by declaration rank, so two callers naming one facet set produce one signature where a caller-ordered `Seq` produced two; a facet a seed does not carry refuses the query, because an absent layer treated as a wildcard selects the whole model, and the refusal accumulates per seed. Facet VALUES are Bim-owned element facts read through one composition-bound projection; this page models no element schema.
 - Boundary: every `SelectionSet` persists per document through the `Editing/livedata#VIEW_STATE` `SnapshotPort` instantiation bound at composition to the Persistence snapshot vocabulary — no store type enters these fences and a second port shape is the deleted form; composition refuses operands spanning two documents; the recall verbs are command-table intents gated by the availability algebra, so a set list, apply, rename, and drop mint no local command surface; element-set queries stay Bim-owned receipts and AppUi runs no query engine.
 
-```csharp signature
+```csharp
 [SmartEnum]
 public sealed partial class PickMode {
     public static readonly PickMode Single = new(
@@ -1048,7 +1048,7 @@ public static class SelectionChannel {
 - Growth: a new commit posture is one `CommitPosture` row; a new batch verb is one `CommandRow` row the selection folds over; a new outcome instrument pair is one `OutcomeCount` row; zero new surface.
 - Boundary: the pending cell is the one deferred-commit owner — a per-screen dirty-field set, a second apply path, and a keystroke-driven re-solve are rejected. The parameter lane is an INSTANCE of the settled `Editing/history#REVERT_SCOPE` algebra: it carries its own recorder, `ClientLog`, content identity, actor, and cursor, binds that owner's `SessionWindow` so the durable half answers empty by construction, and reads the algebra's OWN head placement — a lane-local head read hands the newest recorded op to undo and redo alike. A value set re-admits every member through the target schema on import and reports each stale member individually. Batch editing folds through the one `CommandExecution.Combine` algebra with one intent key and one `CommandPayload.Many`; a per-macro registry and a batch payload case beside the closed `CommandPayload` union are rejected. Host-mutating batch edits route through the abstract `DocumentTransaction` surface-host port so the undo scope batches the N edits as one host transaction.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -1181,7 +1181,7 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class BatchEdit {
@@ -1249,7 +1249,7 @@ public static class BatchEdit {
 - Growth: a new input concern is one `RecipeInputKind` row; a new study is one `StudyRecipe` value; a new revision is one catalog row; zero new surface.
 - Boundary: a study form is a compiled `FormSchema` — no schema type, wizard variant, or submission dialog is minted, and the pending posture is the settled one. Revision election refuses an absent pin because a study silently re-configured against a newer recipe is a result nobody can reproduce. Submission binds the settled correlation vocabulary alone and names no queue type. The pre-solve gate arrives as an ARROW — `Analysis/context#BUDGET_METER` `BudgetMeter.Of` (mapped to `Fin<Unit>` at composition) binds there, that owner already consumes `StudySubmission`, and a budget TYPE crossing into this fence would make the pair mutually referential; the gate runs FIRST because a request nothing can compute makes every field rule beneath it moot.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

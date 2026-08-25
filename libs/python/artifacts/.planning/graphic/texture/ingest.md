@@ -28,7 +28,7 @@ Every roster column TRANSCRIBES the frozen cross-branch fragment: a canonical na
 - Growth: a new channel is one `TextureRole` member with one `_ROLE_SPACE` row and its `_ALIASES` entries; a new environment product is one `IblProduct` member with one `_PRODUCT_LAW` row; a new pack is one `ChannelPack` member with one `_PACK_MEMBERS` row, whose law and neutral DERIVE — `slot_law`, `_RESOLUTION`, and the producer's roster stay total on all three. When the row crosses either wire it lands in the frozen fragment FIRST, since a locally minted slot is the fork the fragment exists to foreclose.
 - Boundary: this page transcribes the roster and decides none of it. Genuine gaps route as a card at the owning tier and re-freeze in the fragment; a divergent local spelling is the drift defect. Baking, shading, and the graph binding stay C#'s; the plane bytes for a `BAKED` role never originate on this branch.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from dataclasses import dataclass
 from enum import StrEnum
@@ -182,7 +182,7 @@ class Classification(Struct, frozen=True):
         return Nothing if not self.faults else Some(Block.of_seq(self.faults).reduce(TextureFault.combined))
 ```
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ROLE_SPACE: Final[frozendict[TextureRole, RoleLaw]] = frozendict({
@@ -410,7 +410,7 @@ if any(product.value in _RESOLUTION for product in IblProduct):
 - Growth: a new alias is one `_ALIASES` entry, which `_RESOLUTION` folds in with no descent edit; a new UDIM grammar is one `Udim` row with one parse arm; a new convention token is one `_CONVENTION` entry; a new source origin is one `SourceOrigin` row with the evidence columns it fills, and the descent is unedited because every origin resolves through the same table.
 - Boundary: no decode, no derive, no encode, no lane, no receipt. Directory walking, glTF chunk parsing, host paths, and object-store listing stay at the app root that hands this page a name roster with its header evidence — a host path never crosses into a manifest, whose `source` field carries an ingest root or a generator id alone. The OCIO config, its `FileRules`, and every colorspace transform stay `graphic/color/managed#MANAGED`'s.
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

@@ -32,7 +32,7 @@ Truth records stay exempt by law: the journal never takes a repository, and this
 - Law: the JSON variants are the edge's material — `Row.json`/`jsonCreate`/`jsonUpdate` are the wire shapes a serving surface encodes and admits; a hand-declared DTO beside a model is the parallel-shape defect the variant system exists to kill.
 - Boundary: `journal_event` and `fact_journal` are append-only evidence — their models exist for row typing only and the repository ban on them is `journal/append.md`'s law; the retention `Sensitive` posture serves `journal/retain.md`'s DSAR export, which reads JSON variants and leaks nothing by construction.
 
-```typescript signature
+```typescript
 import { Schema } from "effect"
 import { Model } from "@effect/sql"
 import { Identity } from "@rasm/core"
@@ -68,7 +68,7 @@ class Board extends Model.Class<Board>("Board")({
 - Law: the `Result` schema of a model-backed read is the model itself or a projection re-anchored on the model's `.fields` — never a hand-declared row struct restating columns; a JSON column inside a non-model `Result` composes `journal/generation.md`'s `Payload.json(shape)` so the parse-if-string dialect difference stays one codec folder-wide.
 - Law: each request key composes its owner schema; an unbranded string cannot address a keyed relation.
 
-```typescript signature
+```typescript
 import { Schema } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 
@@ -116,7 +116,7 @@ const _reads = (sql: SqlClient.SqlClient) => ({
 - Law: the durable band stops at this provider — `SqlRequest` is a plain request carrying no payload, success, or failure schema, so the persisted geometry composes over `read/batch.md`'s declared families alone and a SQL lookup wanting restart-survival caches its decoded answer at the cache lane; a row promising persistence here needs a second request declaration beside the one the resolver already mints.
 - Boundary: the `StreamHead` row reads `journal_event` under `journal/append.md`'s published read contract — the columns it touches are the append page's declared evidence surface, the repository ban holds, and the fused resolver wins here because the provider IS the database.
 
-```typescript signature
+```typescript
 import { Effect, Option, Schema } from "effect"
 import { SqlClient, SqlResolver } from "@effect/sql"
 import { Journal, StreamKey } from "../journal/append.ts"
@@ -185,7 +185,7 @@ const _windowed = (resolvers: _Resolvers, engine: Batch.Engine) =>
 - Law: resolver constructors are scoped effects, not resolver values — `Query.table` settles every resolver row concurrently at binding and publishes `Query.Resolved<Rows>`; calling `execute`, `cachePopulate`, or `cacheInvalidate` on an unsettled constructor effect is an impossible surface. Both cases settle identically, so a foreign lane pays the same one-window law.
 - Law: one binding per relation per scope — the binding constructs inside the tenancy scope's Layer (`lane/tenant.md`'s `Stores` family), so resolver identity, loader windows, and span prefixes are scope-local and cross-tenant batching is unrepresentable.
 
-```typescript signature
+```typescript
 import { Context, Effect, Schema, Scope } from "effect"
 import { Model, SqlClient } from "@effect/sql"
 import type { MssqlClient } from "@effect/sql-mssql"
@@ -314,7 +314,7 @@ export { Query }
 - Growth: a third foreign engine is one spec-case row — one member on `Query.Foreign`, one `layerConfig` row at the root, one optional arm wherever a statement already forks; the entrypoint, the product, and the read law are untouched.
 - Boundary: which foreign Layer composes where is the composition root's; folding an ingress read into durable truth is `journal/append.md`'s; the driver's own construction and config surface is the `.api` catalogues'. This cluster mints no DDL and grants no write.
 
-```typescript signature
+```typescript
 import { Config, Duration, Effect, Schema } from "effect"
 import { Model, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"
 import { MssqlClient, MssqlTypes, Procedure } from "@effect/sql-mssql"
@@ -435,7 +435,7 @@ const _mysqlIngress = MysqlClient.layerConfig({
 - Boundary: the adjacency is RELATIONAL, so the walk stays in the engine — `computation.md`'s `Graph.dfs`/`Graph.dijkstra` family owns an in-memory adjacency value, and reaching for it here would pull a whole edge set across the wire to answer a question one recursive term already answers in place.
 - Growth: one appended nested field is one projected column here; a new reach question is a bound and direction at the call, never a second walk.
 
-```typescript signature
+```typescript
 import { Array, Duration, Effect, Option, Order, Schema, Struct } from "effect"
 import { Model, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"
 import { Digest, Fault, Shape } from "@rasm/core"

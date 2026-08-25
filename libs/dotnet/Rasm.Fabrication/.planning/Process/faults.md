@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen intege
 - Boundary: a predicate asserts the CONDITION the row names, never the presence of an admitted operand — a generated union hands non-null cases, so a null clause is refuted ceremony. Correspondence-bearing rows re-run the correspondence they refuse, so a pair that actually corresponds cannot mint as an inadmissible pair.
 - Growth: a new failure condition is one row and one payload case; a new plane is one `FabConcern` row carrying its folder and stratum.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -348,7 +348,7 @@ public sealed partial class KerfKind : IWitnessKind<KerfWitness> {
 - Packages: `Rasm.Domain` (`Fault`, `ValidityClaim` rows and the `All` fold every kind predicate composes), RhinoCommon value geometry, `NodaTime.Instant` and `Duration` on lot evidence, Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL inbox compose directly.
 - Boundary: a witness kind admits only its own payload type, so a cross-family pairing fails admission rather than reporting a foreign condition. A payload arrives from a generated union already non-null, so the contract carries no null arm and no reflected type tag.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public interface IWitnessKind<in TWitness> {
     string Key { get; }
@@ -608,7 +608,7 @@ public sealed partial class VoxelBudget {
 - Growth: a new fabrication failure is one `[FaultCase]` ordinal at the free offset and one case naming it and its owning `FabConcern`; higher-plane evidence crosses as the narrow matching `FaultSubject` case or that plane's own witness union, never as an upper-plane behavioural import.
 - Boundary: band ownership derives from numeric `Code`, while `Concern` partitions the fabrication plane. No category, message-key, offset-column, or compatibility registry survives. A condition settled as a verdict remains a verdict and never re-mints as a fault.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 // --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -829,7 +829,7 @@ public abstract partial record FabricationFault : Fault {
 - Packages: `Rasm.Element` (`AdmissionSlots.Gate`/`.Accumulate`), LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `Seq`, the `Apply` join and `Traverse` fold), Thinktecture.Runtime.Extensions (`IObjectFactory`, default `ValidationError`).
 - Boundary: the slot mints NO fault — the raise site owns which band answers for its refusal, so the combinator carries no `Kind`, no locus prefix, and no `FabricationFault` case, and a package-local OR per-folder re-declaration of the lift or the fold is the named defect: the copy forks the accumulation law and its type name collides with the `Rasm.Element` owner under `CS0104` at every page importing both namespaces plainly. `Accumulate` folds a slot RUN while the tuple `.Apply` joins a fixed product — a raise site picks by the shape it already holds. A gate spelling `new KernelFault.InvalidValue("faults", locus)` inline builds a refusal the passing arm discards and takes the deferred arity against `FabricationFault.Inadmissible` instead; a `file static class` wrapping that spelling behind a two-argument `Of(admitted, locus)` re-spells the deferred arity under a per-plane name and is the deleted form. A boundary value enters through `Validate` or `TryCreate` and never through the throwing `Create`.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Admission {
     public static Fin<TOwner> Admitted<TOwner>(this ValidationError? refusal, TOwner admitted) =>

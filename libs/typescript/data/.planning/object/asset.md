@@ -46,7 +46,7 @@ Frozen law keys the KTX category tables against the generated `Wire.Texture` enu
 - Law: layer construction proves every seam the roster demands — every `_CODECS` module `ready` awaited and `supported` read as one capability gate (a kernel added to the roster is proven by construction, never by a second boot leg), `watlas.Initialize()` awaited on its own because the atlas module publishes readiness without a `supported` flag, `KHRTextureBasisu.register()` called so `ImageUtils` answers KTX2 extent, channels, and VRAM (the roster alone installs no impl), the meshopt encode METHOD pinned at construction so it is never a side effect of a level knob, and `setAllowNetwork(false)` pinned because the object plane supplies every resource by key — so no fold fails halfway through a document mutation and no sidecar ever fetches.
 - Boundary: bytes in hand or a generated `ArtifactRef` redeemed through the caller's artifact transport — `readBinary`/`writeBinary` are the admitted IO pair; `read(uri)`/`NodeIO.write(uri, doc)` never enter this plane, and an XXH3 object-store key is never forged from the ref's SHA-256 identity.
 
-```typescript signature
+```typescript
 import { Array, Effect, Match, Option, type ParseResult, Predicate, Record, Schema } from "effect"
 import { Digest, Fault, Wire } from "@rasm/core"
 import { enumToJson } from "@bufbuild/protobuf"
@@ -850,7 +850,7 @@ const _opened = (io: NodeIO, bytes: Uint8Array, source: string) =>
 - Law: the tool proof asserts presence and the subcommand roster derived from `_VERBS`, NEVER version text — every provisioned `ktx` binary prints `GIT-NOTFOUND` for `--version` — and a failed proof refuses the service at construction with the `tool` reason, so no request ever discovers the absence.
 - Boundary: `info` and `compare` stay unspawned — the first duplicates the header read this plane already owns beside a validation the `validate` row settles, and the second is a two-file parity assertion belonging to the proof estate, not to a plane whose products are content-addressed by construction.
 
-```typescript signature
+```typescript
 import {
   cloneDocument, createTransform, dedup, flatten, getTextureChannelMask, getTextureColorSpace, inspect, instance,
   join, listTextureChannels, listTextureSlots, meshopt, palette, prune, quantize, reorder, simplify, unwrap, weld,
@@ -1263,7 +1263,7 @@ const _proof = Effect.gen(function* () {
 - Law: two subcommands FORFEIT declaration agreement and say so on their rows — `transcode` lowers to a desktop-native payload no wire declaration admits and `extract` answers an image rather than a container, so both carry `proves: Option.none()` and the Khronos validator is their whole proof; reading a classification off either is reading a declaration nothing stated.
 - Law: terminal metrics partition by engine plane and `Fault.Class.Kind`; `Convention` owns every instrument name and dimension. A censused refusal contributes ONE outcome under its DOMINANT issue's class, elected on the family's own rank lattice, so a verdict carrying several offenders never double-counts its plane and never grades a whole set by whichever column iteration reached last.
 
-```typescript signature
+```typescript
 import { Cause, Exit, Metric } from "effect"
 import { type CommandExecutor, FileSystem, Path } from "@effect/platform"
 import { Convention } from "@rasm/core"

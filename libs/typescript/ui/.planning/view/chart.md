@@ -23,7 +23,7 @@ Chart owns declared statistics, streaming series, and user-driven pivots behind 
 - Boundary: `Grid` (`view/table`) owns fixed-shape interactive collections at DOM scale; `viewer/geo` owns the live basemap (Plot's `geo` mark serves statistical maps only); `viewer/probe` and `viewer/panel` render their metric and telemetry boards THROUGH this owner; `view/export` serializes what these brackets render and holds no engine of its own.
 - Growth: a new chart need selects a regime row; a new regime is one row with its bracket member on the one owner — never a sibling chart component family.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 import { useParentSize } from "@visx/responsive"
 import { isArrowRecordBatch, isArrowTable, type RecordBatch, type Table } from "apache-arrow"
@@ -178,7 +178,7 @@ const _useFrame = (sizing: Chart.Sizing): Chart.Panel => {
 - Law: `Plot.plot` answers `SVGSVGElement | HTMLElement` — a caption, a title, or a legend option wraps the svg in a figure — so every consumer reading the element as SVG discriminates on the tag it holds; `view/export`'s serializer row is the one place that discrimination is spelled, and an `as SVGSVGElement` at a mount site is the named defect.
 - Growth: a new declared chart is a spec value — marks, transforms, facets as data; a new bespoke shape is one prop record on `Chart.Mark` reading the same scale pair, a new motion behaviour is one field on `Chart.Target`, and a new fold statistic is one field on `Chart.Fold` — never a d3-rendered surface beside any of them.
 
-```typescript signature
+```typescript
 import * as Plot from "@observablehq/plot"
 import { AxisBottom, AxisLeft } from "@visx/axis"
 import { Group } from "@visx/group"
@@ -359,7 +359,7 @@ const _bespoke = <Datum,>(
 - Law: the stylesheet imports once — `uPlot.min.css` rides the token stylesheet; theme flips rebuild the options value from `Theme.Palette.ramp`-resolved strokes, and the canvas's missing per-point ARIA is compensated by the accessible summary row the regime's `summary` column already obliges.
 - Growth: a new series is one options row; a new geometry is a `paths` builder key — never a second time-series engine.
 
-```typescript signature
+```typescript
 import { RecordBatchReader, tableFromIPC } from "apache-arrow"
 import { Array, Effect, Option, Predicate, Stream } from "effect"
 import uPlot from "uplot"
@@ -496,7 +496,7 @@ function _stream(
 - Law: the bracket is woven — acquisition carries `Effect.withSpan("rasm.ui.chart.pivot")` with the feed name as a log annotation, and every derived frame feeds `1` through `Effect.withMetric` into `_FRAMES`, so engine spin-up latency and delta throughput reach the app bridge with zero collector import; feed names stay log material, never metric tags.
 - Growth: a new exploration surface is one bracket call over the ONE workspace atom; a new panel is a `Chart.Move` case value, a new engine bitness a `Chart.Bitness` key, and a headless consumer (export, alert, derived feed) rides `Chart.derive`'s view lane or `Chart.borrow`'s lend — never a second engine.
 
-```typescript signature
+```typescript
 import { Atom } from "@effect-atom/atom-react"
 import type { KeyValueStore } from "@effect/platform"
 import perspective from "@perspective-dev/client"

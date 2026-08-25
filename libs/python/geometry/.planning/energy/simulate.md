@@ -22,7 +22,7 @@ Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype cor
 - Growth: a new translation format is one `WRITERS` row; a new output family one `SimPar` policy row over its `add_*` method; a new result decode is one `ResultQuery` case — `loadbalance`/`emissions`/`generation`/`component_sizes` the named next rows over their `honeybee_energy.result` parsers; a new workflow is one `RunSpec.recipe` value over the runtime catalog, zero page edits; a cloud submission consumes `job()` when a consumer names it.
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame whose table diverges from `FRAME_SCHEMA` is the deleted form — the C# decoder can neither attribute nor dedupe it.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable, Sequence
 from enum import StrEnum

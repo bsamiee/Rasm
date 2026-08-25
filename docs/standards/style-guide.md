@@ -85,7 +85,6 @@ Examples prove shape or prevent misuse. Place them beside the rule they clarify.
 
 - Use one positive example and one near miss only where agents copy the distinction incorrectly without them.
 - Keep example wording aligned with the terminology it teaches.
-- Mark every example block with its declared fence intent.
 
 ## [07]-[ACCESSIBILITY]
 

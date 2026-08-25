@@ -46,7 +46,7 @@
 - Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s; the node group `capacity` sizes is `provider.md`'s aws `cluster` row; backend publication is `operate/converge.md`'s pointer write.
 - Packages: `effect` (`Schema`); `@pulumi/aws` (`types.enums.ec2.InstanceType`); `@pulumi/eks` (`OperatingSystem`); `@rasm/core` (`Identity.App`); `@rasm/runtime` (`Consumption`, `Profile`).
 
-```typescript signature
+```typescript
 import * as aws from "@pulumi/aws"
 import * as eks from "@pulumi/eks"
 import { Identity } from "@rasm/core"
@@ -253,7 +253,7 @@ declare namespace StackSpec {
 - Growth: a new tier is one subclass row on its owning page with its roster mention here; a new interception point is one `_HOOKS` entry; a new privilege refusal is one `_HARDEN` field; the base never grows knobs.
 - Packages: `@pulumi/pulumi` (`ComponentResource`, `ComponentResourceOptions`, `CustomResourceOptions`, `mergeOptions`, `Inputs`, `ResourceHook`, `ErrorHook`, `ResourceHookBinding`, `ResourceHookFunction`, `ErrorHookFunction`); `@pulumi/kubernetes` (`types.input.core.v1.{PodSecurityContext,SecurityContext,Volume,VolumeMount}`); `effect` (`Record`).
 
-```typescript signature
+```typescript
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Record } from "effect"
@@ -332,7 +332,7 @@ abstract class Tier extends pulumi.ComponentResource {
 - Boundary: which keys each arm returns is `provider.md`'s program body; how a channel row becomes a container `EnvVar` is `kube/workload.md`'s rendering; which custody variables a cell holds is `operate/secret.md`'s mint; the reading side's group nesting is the runtime `Setting` owner's; receipt evidence is `automation.md`'s — outputs and receipts never merge.
 - Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi` (`Output`); `@pulumi/pulumi/automation` (`Stack`); `@rasm/core` (`Shape.Record`); `./automation.ts` (`DeployFault`).
 
-```typescript signature
+```typescript
 import type { Stack } from "@pulumi/pulumi/automation"
 import { Array, Effect, Option, Record, Schema } from "effect"
 import { Shape } from "@rasm/core"

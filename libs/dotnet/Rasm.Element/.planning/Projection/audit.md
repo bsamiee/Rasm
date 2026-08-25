@@ -25,7 +25,7 @@
 - Boundary: a vacuous population reads FULLY covered. Empty models never trip a gate built to catch a half-classified one, and `0/0` admits no other honest answer; a gate that means "and the model is non-empty" states that as its own blocking-count ceiling.
 - Boundary: `Quantified` and `Propertied` require a NON-EMPTY bag, not a bound one — an `Assign.PropertyDefinition` edge onto an empty bag is a binding, not evidence, and counting it reads the scaffolding as the content.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -112,7 +112,7 @@ public sealed partial record CoverageCensus(
 - Boundary: the `Compose` acyclicity proof is WHOLE-GRAPH where `Bake`'s ancestry guard is per-root: a cycle in a subtree no consumer bakes still corrupts a federation merge and an egress walk, and `ElementGraph.View(EdgeFilter.Composition, EdgeOrientation.Forward)` proves the property over the graph's own memoized scope — a filtered-view generic re-spelled here mints a second kind-scoping owner beside the one that declares it.
 - Boundary: an empty representation on an occurrence is a WARNING, and on a TYPE is not a finding at all — a Component's shape legitimately rides its occurrences, so grading the catalogue definition reports the modelling convention as a defect.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SweepOrigin {
@@ -180,7 +180,7 @@ public readonly record struct AuditTally(AuditCategory Category, ConstraintSever
 - Boundary: the default policy is STRUCTURAL only — every coverage floor zero, the blocking ceiling zero — so an undeclared project claims no coverage it has not committed to, and a gate that passes by default passes only a model with no structural fault.
 - Boundary: `Clears` reads the RECEIPT alone, which is what makes the receipt persistable beside the model; re-folding the graph to answer a question the receipt already carries is the deleted form.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AuditThresholds(
     double Classified, double MaterialBound, double Quantified, double Propertied,

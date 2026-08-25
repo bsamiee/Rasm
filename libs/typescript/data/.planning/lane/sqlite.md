@@ -27,7 +27,7 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 - Law: evidence grants degrade to composed statements — `returningOldNew` pairs RETURNING with a transactional pre-image, `conflictClaim` uses an explicit upsert marker, `merge` uses upsert arms, and `temporal` uses a single-writer overlap check.
 - Law: the D1 column refuses the interactive transaction — atomic publish is batch-shaped or routed to pg; the refusal is a row, not a code fork.
 
-```typescript signature
+```typescript
 import { Pg } from "./postgres.ts"
 
 const _fallbacks = [
@@ -101,7 +101,7 @@ declare namespace Sqlite {
 - Law: the libSQL row is contract-level compatible, never byte-level — the replica engine is not the C library; its credentials and sync cadence ride `Config.redacted` and `Config` duration facts.
 - Law: the D1 row adopts the platform binding as a value — `env.DB` arrives at the Workers composition root; replication sessions and PITR are platform facts recorded as degradation semantics, never re-modeled.
 
-```typescript signature
+```typescript
 import { Config, type ConfigError, Effect, Layer, type Scope } from "effect"
 import type { SqlClient, SqlError } from "@effect/sql"
 import * as NodeSqlite from "@effect/sql-sqlite-node"
@@ -222,7 +222,7 @@ const _d1 = (db: D1Client.D1ClientConfig["db"]): Layer.Layer<D1Client.D1Client |
 - Growth: a new storage-separation mechanism is one profile row `tenancy` cell; an extension the pin ships is one `_CONTRIB` entry and its degradation cell.
 - Boundary: coordinates derive from admitted generation policy; caller options cannot set recovery, durability, or server configuration.
 
-```typescript signature
+```typescript
 import { PGlite, type Extensions, type PGliteInterface } from "@electric-sql/pglite"
 import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist"
 import { fuzzystrmatch } from "@electric-sql/pglite/contrib/fuzzystrmatch"
@@ -401,7 +401,7 @@ export { PgliteRuntime }
 - Law: `SqliteFault` closes through `Fault.Class.family`; absent byte-capable profiles classify `absent` without local policy columns, the reason declares its own subject and renders its own sentence, and `operation` derives from the `Sqlite.Io` tag roster so a case with no fault spelling is unrepresentable.
 - Law: EVERY arm resolves its client through `Effect.serviceOption`, so profile absence is a typed `SqliteFault` and the entry's requirement channel stays empty — an arm naming a driver Tag directly puts that Tag in the requirement of the whole entry, which strands every bun, browser, and edge composition at the call site whichever case it passes.
 
-```typescript signature
+```typescript
 import { Data, Option, Schema } from "effect"
 import { Fault } from "@rasm/core"
 
@@ -496,7 +496,7 @@ const _bytes = (io: SqliteIo) =>
 - Law: wall span is harness-measured — the engine exposes no per-query clock through any admitted driver, so `_profiled` times the statement's own run with `Effect.timed` and the span covers exactly the profiled execution; the diagnosis therefore EXECUTES the statement, scoping the arm to explicit calls like the pg EXPLAIN arm.
 - Law: the harvest never re-parses driver rows by hand — `EXPLAIN QUERY PLAN` rows, `pragma_page_count()`/`pragma_freelist_count()` reads, and the `dbstat` aggregate all decode through `SqlSchema`, so a malformed cell is a `ParseError` on the admission rail.
 
-```typescript signature
+```typescript
 import { Pg } from "./postgres.ts"
 import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
 import { Array, Duration, Schema } from "effect"

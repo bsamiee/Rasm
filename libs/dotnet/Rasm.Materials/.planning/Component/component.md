@@ -26,7 +26,7 @@ This page also owns the ONE section-computation spine: `SectionSolver.Solve` is 
 - Growth: a new part is one seed row; a new family is one `ComponentFamily` row and one seed page (no union edit, no switch edit, no `.Concat` edit); a new section shape is one `SectionProfile` arm and one compiler-forced `Solve` arm (buildingSMART profile-schema cadence, never thing cadence); a new fault is one `ComponentFault` case; a new structural column is one `ComputedSection` field every solvable arm fills; a new detail row is one `DetailSchema`-named tuple in a seed bag; a new typed mint is one `QuantityRow` row; a new evidence tier is an Element `EvidenceGrade` row (seam-owned, wire tokens append-only), never a local provenance roster; a new grade is one `MaterialGrade` row plus its `GradeProperties` arm. Three admissions widen by declared trigger, never speculatively: the reinforcement predicate grows `CircleHollow` when a certified tendon-duct diameter lands (the `reinforcement#REINFORCEMENT_FAMILY` Growth clause seeds the annular `IfcTendonConduit` row through the same generator), the precast predicate grows `Layered` when a dimensioned sandwich-wythe build two-sources over the `PlyRole.ConcreteWythe` row (its symmetry already rides `ComponentSymmetry.Stack`, so the wythe stack derives with zero symmetry edits), and the electrical predicate grows `CircleHollow` when the NEC Chapter 9 Table 4 OD/ID ladder proves (the `electrical#CONTAINMENT` conduit systems then mint through their own fold beside the conductor folds — without this widening the declared containment growth would fault at family admission). The symmetry projection widens by declared trigger the same way: `MirrorGrant.Matched` lands when a book-match veneer pairing fact two-sources onto a construction row — the pair obligation then derives from the material fact alone, never a caller flag — and the nap vector (`SymmetryFold.Fixed`: a pile lies one way, so a half-turn shows) lands when a napped covering build authors an oriented face row.
 - Boundary: `ComponentFault` derives `Fault`; generated identity binds each direct leaf to `FaultBand.Component`. Documented VividOrange grade, section, capacity-solve, and capacity-decode refusals use cause-bearing semantic leaves; unknown provider throws stay exact `Exceptional` errors. `IfcBinding` strings stay NEUTRAL here; the generated `Rasm.Bim` roster is the validation authority (composition-time `IfcLegality`, egress-time `AdmitPredefined`, design-time emitter stamp audit) — Materials never references `Rasm.Bim`. Every seed page declares the ONE flat `Rasm.Materials.Component` namespace — the `Component/` folder is one namespace under `dotnet_style_namespace_match_folder = true:error` — so the policy rows bind `<Family>Seed.Rows` by bare name with no alias. `Component.Symmetry` is the ONE symmetry authority: the kernel `PatternPlan.Law`/`PanelPolicy.Law` admissions and the `Rasm.Fabrication` nesting move gate read this projection, never a re-derivation from appearance or geometry — a consumer-side legality knob beside a material that already models direction is the named re-mint. The derivation under-grants and never over-grants (a directional read admits a subset of the isotropic placements), so a missing construction fact costs placements, never legality; masonry stays isotropic by the same boundary — `BondGeometry`'s wallpaper group is ASSEMBLY symmetry, how units tile, while this law is the unit substance's own, and the two never merge.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -332,7 +332,7 @@ public sealed record Component(
 - Entry: each `Of` factory lifts universal magnitudes through `AcceptValidated`, rails scalar edge/slope invariants through `KernelFault`, and uses semantic geometry leaves for envelope, cell, ply, outline, and composition coherence.
 - Boundary: `VoidCell` is MIN-CORNER anchored in the profile's `[0,WidthMm]×[0,DepthMm]` corner frame (the convention `MasonryVoids.Cells` and the cmu lattice emit); `Grouted` drives the as-built net (only ungrouted cells void), the grouted fraction, self-weight, and the parallel-path thermal split; `Reinforced` marks bar-bearing cells; geometry-only cells collapse as-built physics to the ungrouted case. `Ply.Role` is the BOUNDED `PlyRole` row, never a free string: `Longitudinal`/`Transverse` are the timber structural discriminants, `Pane`/`Interlayer`/`Cavity` the glazing stack semantics, the panel face/core rows carry appearance-facing policy, and `ConcreteWythe` is the precast sandwich structural layer a dimensioned wythe build instantiates; the `Oriented` column marks the grain-bearing rows (`Longitudinal`/`Transverse`/`VeneerPly`/`StrandLayer`) the `ComponentSymmetry` stack read folds, so a new figured layer authors placement direction by declaring its row, never by a consumer edit. `ComponentFamily.Admits` proves the lane subset, so a known panel role cannot enter timber and a known timber role cannot enter glazing. The human-readable `IfcMaterialLayer.Name` is a BOUNDARY projection over `(Material, Role, ordinal)` — an unknown role is unrepresentable, and no consumer parses a role string. `NonNegativeMagnitude` does not exist in `Rasm.Numerics` (verified) — the non-negative/finite edge check is the inline `Edge` guard inside `Of` (R8 resolved).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -638,7 +638,7 @@ file static class Admit {
 - Boundary: `SectionSolver.Solve` is the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.SectionSolve(Key, Profile, Section, Elapsed)` tap SUBJECT and the `Projection/benchmarks#BENCH_CORPUS` `BenchKernel.SectionSolve` measured kernel; the tap is a composition-root decorator on the folder rail at `MaterialsPoint.SectionSolve`, so this owner emits nothing, carries no `Duration`, and references no signal type — the seam is declared at both ends and instrumented at neither.
 - Boundary: `Forms` states each arm's midline and strip stack; solver-generated value invariants cross the kernel bridge, cross-column coherence rails `SectionIncoherent`, and provider throws retain their exact exceptional `Error` through one `Op.Catch`.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public readonly record struct SectionSupplement(
     double Zx, double Zy, double J, double Avy, double Avz,
@@ -1213,7 +1213,7 @@ file sealed record ZedRow(Length Height, Length TopFlangeWidth, Length BottomFla
 
 The FROZEN twenty-column receipt (`[FROZEN_INVARIANTS]`): field names, types, and order are byte-identical wire law — `Projection/component#COMPONENT_PROJECTOR` `SeamSection` lifts the whole set onto the seam `SectionProperties` (mm→SI typed `MeasureValue`s through `QuantityRow`, `Iw` fifth after `J`, the three asymmetry columns last), so a `Rasm.Compute` structural/fire runner reads `graph.SectionOf(member)` without re-resolving or admitting VividOrange. The elastic columns and `HeatedPerimeterMm` come from the ONE polygon integral; `ZxMm3`/`ZyMm3`/`JMm4`/`AvyMm2`/`AvzMm2` from the `Forms` supplement; `IwMm6` (EN 1993-1-1 §6.3.2 lateral-torsional-buckling input) is positive ONLY for an open thin-walled arm; `ShearCentreYMm`/`ShearCentreZMm`/`MonosymmetryFactor` (the EN 1993-1-1 NCCI SN030 general-LTB inputs) are signed zero-valid plain doubles — engineering-zero for every doubly-symmetric arm, non-zero for a channel/tee/angle/mono-I, so the seam `IsDoublySymmetric` reads zero-as-symmetric EXACTLY. `AxisDistanceMm` is the EN 1992-1-2 cover-to-reinforcement, zero for every non-RC section — the RC value rides the `reinforcement#RC_SECTION` `ConcreteSectionProperties` path.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ComputedSection(
     PositiveMagnitude AreaMm2,
@@ -1248,7 +1248,7 @@ public readonly record struct ComputedSection(
 - Boundary: `ComponentCatalogue.Of` is the `Projection/observability#SIGNAL_FACTS` `MaterialsFact.CatalogueAdmit(Row)` VETO subject — a composition-root decorator on the folder rail at `MaterialsPoint.CatalogueAdmit` may transform or refuse each row pre-freeze, so this owner emits nothing and the frozen maps see only admitted rows. `TypeCandidate` is DECLARED ONCE at the seam — `Rasm.Element/Projection/projection#PROJECTION_CONTRACT`, the lowest stratum both non-referencing peers reach — and this fold composes that declaration under the `[PORT]: IIfcTypeReconciler` contract alignment; the producer is `Rasm.Bim` `Projection/foreign#REINGEST` `Reingest.ExportTypeCandidates`, and Materials still references no `Rasm.Bim`. That port's forward leg reconciles ingested types AGAINST Materials ids; `AdmitImported` is its reverse leg, minting rows FROM the types the forward leg left unreconciled, so the two directions close one loop rather than opening a second surface.
 - Entry: `ComponentCatalogue.Of(context)` folds `ComponentFamily.Items`; `Traverse` is the rail (a seed row `Component.Of` rejects, a `Sectioned` row `SectionSolver.Solve` cannot solve, or a cross-seed `ComponentId` collision, ABORTS the build TYPED — never a `Choose`/`ToOption` swallow and never the raw frozen-map duplicate-key throw); `Lookup` preserved. Composition-root code binds `Of`'s `Fin` ONCE and passes `catalogue.Rows`/`catalogue.Sections` into `ComponentResolution.Build`. `ComponentCatalogue.AdmitImported(candidates, context, key)` is the ONE reverse fold: it re-reads the seeded rows through the same `ComponentFamily.Items` traverse, elects each candidate's family by the REVERSE read of its `IfcBinding` pair, resolves the section from the seeded row the candidate's `ProfileDesignation` publishes, and lowers the result through the SAME railed `Component.Of` — an unclaimed pair, a pair two families both claim, an unpublished section designation, or a declared profile standard disagreeing with the matched row's authority each SKIP typed, while a `Component.Of` rejection or a within-batch designation collision ABORTS the whole admission under the fail-loud CATALOGUE law.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 public static class SeedJoin {
     public static Lazy<Fin<FrozenDictionary<ComponentId, TRow>>> Of<TRow>(Seq<TRow> rows, Func<TRow, string> designation) where TRow : struct =>
@@ -1384,7 +1384,7 @@ public sealed record ComponentCatalogue(
 
 The ONE bounded typed-mint owner `Projection/component#COMPONENT_PROJECTOR` `SeamSection` and `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Admit` compose — a page-local `(QuantityType, Dimension, unit)` triple at a mint site is the fork this owner closes. Every `QuantityType` spelling and `Dimension` vector below is frozen wire law (`[FROZEN_INVARIANTS]`); each `Scale` states its row's own NATIVE catalog basis, so a millimetre-sourced column and an SI-native one both reach the seam in SI. BOUNDARY: detail-bag rows keep the DIMENSION-ONLY `MeasureValue.OfSi(dim, si)` overload so an authored and an imported bag content-key identically — `QuantityRow` owns TYPED mints only.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class QuantityRow {
@@ -1418,7 +1418,7 @@ public sealed partial class QuantityRow {
 
 The seed-time bag constructors: each `Realization`/`Product`-lane seed page builds its family's bag AT SEED TIME (`MasonryDetail.Of`, `GlazingDetail.Of`, `FastenerDetail.Of`, `PanelDetail.Of` and siblings compose this owner), so a bag is built where its values are known and the projector reads one already-conforming set. `ProjectType`'s read becomes `c.Detail.Map(bag => Mint(new Node.PropertySet(NodeId.Of(new NodeSeed.Placement()), bag), tolerance))`. The `Measured` SI value carries the DIMENSION-only mint (the overload Bim uses) so an authored and an imported row content-key identically; `Joint` routes the `PropertyValue.Enumerated` through the schema's CLOSED allowed set, never a local re-spelling.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ComponentDetail {
     public static Fin<(PropertyName, PropertyValue)> Joint(string kind, Op key) =>
@@ -1450,7 +1450,7 @@ public static class ComponentDetail {
 - Entry: `Build(rows, sections)` is the total build-time join; `Resolve(reference, table, key)` aborts an unregistered reference on `ComponentMissing`, distinct from an earlier section-integral refusal.
 - Boundary: the resolver owns NO section math and NO seam type — the section is DATA captured at the catalogue-build site that owns the geometry, never a `Func<Component, Op, Fin<ComputedSection>>` re-invoked at resolution. `ProfileRef` stays seam-canonical.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ResolvedComponent(Component Component, Option<ComputedSection> Section);
 
@@ -1476,7 +1476,7 @@ public static class ComponentResolution {
 - Growth: a new grade is ONE row plus (at most) one new column on its family's arm; a new graded family is one `GradeProperties` arm — the generated total `Switch` breaks every reader loudly; a new authority is one `ComponentAuthority` row. The M1 `Grades` CS0101 (`fastener.md` vs `reinforcement.md`, both `public static class Grades` in one namespace) dissolves here — both static classes become row blocks on this owner.
 - Boundary: NAMED LOSS — a family's property set is now reached through one `Switch` arm instead of a direct member on a family-typed roster; per-family symbolic rows survive as `MaterialGrade` statics, so no call site loses its name. WITNESS — the steel design read `SteelGrade.A992.NominalYieldMpa` rebuilds as `MaterialGrade.A992.Columns.Switch(steel: static s => s.NominalYieldMpa, …)` (or the arm pattern-match where one family is already proven). A grade's substance id stays the design-seam `MaterialId` key; `Appearance` is `Option` because most families ride the seed's two-slot law and only the coated rosters (rebar, fastener) publish a per-grade appearance.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record GradeProperties {
@@ -1745,7 +1745,7 @@ public sealed partial class MaterialGrade {
 - Growth: a new family seed is ONE `SeedLaw` value beside its roster — the algorithm is closed; a new per-row proof is one conjunct in that family's `Coherence`.
 - Boundary: NAMED LOSS — a family page can no longer vary the seed ALGORITHM, only its policy value; a family needing a genuinely different fold shape (none exists on disk — every retired body was this shape) would be a new entry on THIS owner, never a local fold. SECOND NAMED LOSS — `Coherence` proves and DISCARDS: the arm a family proved present re-reads its own `Option` inside `Profile`/`Detail`; the proof-carrying widening (`SeedLaw<TRow, TProof>` threading the proven shape) is the declared growth move the day a family's coherence outgrows a guard, never a per-family re-derivation. WITNESS — `insulation.md` `InsulationSeed.Rows` (a per-row `AcceptValidated` + `ProfileOf` coherence guard + `InsulationDetail.Of` + `Component.Of` traverse) rebuilds as `ComponentSeed.Rows(context, Roster, InsulationLaw)` with `InsulationLaw` declaring the SAME coherence, route, and bag as data — and its form/extent guard now ACCUMULATES across rows.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SeedLaw<TRow>(
     ComponentFamily Family,

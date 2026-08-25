@@ -18,7 +18,7 @@
 - Packages: `ezdxf` (`tools.pattern.scale_pattern` the definition scaler; the definition-row format `set_pattern_fill(definition=)` consumes — the entity mutation stays `drawing/standard#STANDARD`'s); `drawsvg` (`Pattern(width, height, patternUnits=)` the def-tier tile, `Lines` the stroke children with native `stroke_dasharray`/`stroke_dashoffset`); `expression` (`tagged_union`, `Result`); `msgspec` (`Struct`); stdlib `math` (the scalar trigonometry — no array substrate for a closed-form sweep); `graphic/vector/path#PATH` (`Bounds`/`Point2`); `graphic/vector/region#REGION` (`applied` over `RegionOp` — the clip lowering).
 - Boundary: `PatternFault.degenerate` accumulates independent admission failures, `unlowerable` preserves target grammar limits, and `geometry` carries `RegionFault` whole. Material binding, ezdxf entity mutation, color derivation, identity, and receipts remain consumer-owned.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from fractions import Fraction

@@ -16,7 +16,7 @@ Each point set admits through `numerics/array#PAYLOAD` for the finite gate and t
 - Packages: `scipy.spatial`, `numpy`, `expression`, and `msgspec` per the fence imports; `scipy.spatial` and `optimize.linprog` bind once each as module-scope `lazy` names that defer both trees to the first kernel body, so `resolve` stays a pure tag-dispatch and `linprog` costs nothing until the halfspace Chebyshev-centre interior point asks for it.
 - Growth: a new spatial query is one `SpatialQuery` case with one `resolve` arm and one `identity_parts` arm; a new evidence shape is one `SpatialEvidence` case with its `facts()` arm — the receipt carries the evidence whole and needs no edit; a new distance metric is one `Metric` row; a new tessellation backend is one `Tessellation` row; a new degrading route is one `NEIGHBOUR_FLOOR` row.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from itertools import combinations

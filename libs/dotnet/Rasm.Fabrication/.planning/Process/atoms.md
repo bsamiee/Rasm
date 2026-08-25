@@ -25,7 +25,7 @@
 - Packages: `CavalierContours` (`Polyline<double>`, `PlineOffset`, `PlineBoolean`, `PlineContains`, `Shape<double>`, `StaticAABB2DIndex<double>`), RhinoCommon value geometry, `UnitsNet` at the measure boundary.
 - Boundary: containment, area, and winding are defined only over a CLOSED loop; an open chain has no interior and answers `Sign.Zero`, zero area, and false containment consistently. Provider geometry never leaves this cluster.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -456,7 +456,7 @@ public sealed partial class ProjectionDir {
 - Growth: a new specialized lane is one `SpecializedToolpathKind` row and one `SpecializedToolpathRow` case; a new controller semantic is one `MotionDirective` case, and the dialect owns its spelling.
 - Boundary: closed row vocabularies are `[SmartEnum<string>]` rows; a unit-suffixed bare double stays bare where `CanonicalWriter` digests it, under the folder ruling that lifting a digested scalar to a typed quantity forks every key already minted.
 
-```csharp signature
+```csharp
 // --- [MOTION]
 [SmartEnum<string>]
 public sealed partial class SpindleControl {
@@ -765,7 +765,7 @@ public sealed partial class MotionEvidence {
 - Packages: `Thinktecture.Runtime.Extensions` closes construction; `UnitsNet` seats the quantity projections.
 - Boundary: provider assets, mutable tool state, and unit parsing terminate at `Tooling/magazine`; this cluster admits decoded scalars and keyed catalogue identities only.
 
-```csharp signature
+```csharp
 // --- [EQUIPMENT]
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct ConsumableKey {
@@ -1057,7 +1057,7 @@ public sealed partial class CutterForm {
 - Auto: every atom here admits through its generated `Validate` and the one `Admitted` bridge, so no site re-spells the refusal lift.
 - Boundary: `CapabilityVerdict` fails closed by ABSENCE — an attestation the study never earned is unheld, so it fails `Pass` on its own evidence rather than masquerading as a zero-Cpk process, and a consumer states the attestations it demands as one `CapabilitySet` value instead of a bool per axis.
 
-```csharp signature
+```csharp
 // --- [PLAN]
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MachineInstanceKey {

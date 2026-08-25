@@ -8,7 +8,7 @@ Vector storage and similarity search. HNSW, IVFFlat, and DiskANN indexes for app
 
 ### [01.1]-[SCHEMA_INDEX_PATTERNS]
 
-```sql conceptual
+```sql
 CREATE EXTENSION vector;
 ALTER TABLE documents ADD COLUMN embedding vector(1536);
 
@@ -38,7 +38,7 @@ ORDER BY embedding <=> $1::vector LIMIT 20;
 
 ### [01.2]-[QUERY_PATTERNS]
 
-```sql conceptual
+```sql
 SELECT id, 1 - (embedding <=> $1::vector) AS similarity
 FROM documents ORDER BY embedding <=> $1::vector LIMIT 20;
 
@@ -76,7 +76,7 @@ ORDER BY embedding <=> $1::vector LIMIT 20;
 
 Full-text search with BM25 relevance scoring. Replaces `ts_rank_cd` for search-quality ranking.
 
-```sql conceptual
+```sql
 CREATE EXTENSION pg_search;
 CREATE INDEX ON documents USING bm25 (id, title, body)
     WITH (key_field = 'id', text_fields = '{"title": {"tokenizer": {"type": "default"}}, "body": {}}');
@@ -89,7 +89,7 @@ ORDER BY relevance DESC LIMIT 20;
 
 Advanced query syntax — phrase, regex, fuzzy, boost:
 
-```sql conceptual
+```sql
 -- Phrase match (exact sequence)
 SELECT id, paradedb.score(id) FROM documents
 WHERE id @@@ paradedb.phrase('body', 'distributed consensus protocol');
@@ -115,7 +115,7 @@ WHERE id @@@ paradedb.regex('title', 'post(gres|gre).*');
 
 Tokenizer configuration — per-field control in index definition:
 
-```sql conceptual
+```sql
 CREATE INDEX ON documents USING bm25 (id, title, body)
     WITH (key_field = 'id',
           text_fields = '{
@@ -136,7 +136,7 @@ CREATE INDEX ON documents USING bm25 (id, title, body)
 
 ## [03]-[HYBRID_SEARCH_BM25_PGVECTOR_RRF]
 
-```sql conceptual
+```sql
 WITH semantic AS (
     SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> $1::vector) AS rank_s
     FROM documents ORDER BY embedding <=> $1::vector LIMIT 100
@@ -157,7 +157,7 @@ RRF formula: `rrf_score = Σ 1/(k + rank_i)` where k=60 dampens rank differences
 
 Trigram-based fuzzy text search and similarity scoring.
 
-```sql conceptual
+```sql
 CREATE EXTENSION pg_trgm;
 CREATE INDEX ON users USING gin (name gin_trgm_ops);   -- faster for LIKE/ILIKE/regex
 CREATE INDEX ON users USING gist (name gist_trgm_ops);  -- supports ORDER BY similarity + KNN
@@ -182,7 +182,7 @@ FROM users WHERE $1 <% name ORDER BY wsim DESC LIMIT 10;
 
 Spatial data types, geodesic calculations, and geometric operations.
 
-```sql conceptual
+```sql
 CREATE EXTENSION postgis;
 CREATE INDEX ON locations USING gist (geom);
 
@@ -219,7 +219,7 @@ SELECT id, ST_CoverageClean(geom) OVER (PARTITION BY region) AS cleaned_geom FRO
 
 Hypertables, continuous aggregates, columnar compression, and retention policies.
 
-```sql conceptual
+```sql
 SELECT create_hypertable('metrics', by_range('time', INTERVAL '1 day'));
 ALTER TABLE metrics SET (
     timescaledb.compress, timescaledb.compress_segmentby = 'device_id',
@@ -230,7 +230,7 @@ SELECT add_retention_policy('metrics', INTERVAL '90 days');
 
 ### [06.1]-[CONTINUOUS_AGGREGATES]
 
-```sql conceptual
+```sql
 CREATE MATERIALIZED VIEW metrics_hourly WITH (timescaledb.continuous) AS
 SELECT time_bucket('1 hour', time) AS bucket, device_id,
        avg(value) AS avg_value, max(value) AS max_value, count(*) AS sample_count
@@ -272,7 +272,7 @@ FROM metrics_hourly GROUP BY day_bucket, device_id WITH NO DATA;
 
 In-database job scheduling via cron expressions.
 
-```sql conceptual
+```sql
 SELECT cron.schedule('refresh-mat-view', '*/15 * * * *',
     $$REFRESH MATERIALIZED VIEW CONCURRENTLY mv_dashboard$$);
 SELECT cron.schedule_in_database('maintenance', '0 3 * * *',
@@ -290,7 +290,7 @@ SELECT cron.unschedule('refresh-mat-view');
 
 Automated partition lifecycle: creation, retention, and template management.
 
-```sql conceptual
+```sql
 CREATE EXTENSION pg_partman;
 CREATE TABLE events (
     id uuid PRIMARY KEY, created_at timestamptz NOT NULL, payload jsonb NOT NULL
@@ -318,7 +318,7 @@ SELECT cron.schedule('partman-maintenance', '0 * * * *',
 
 Required for EXCLUDE constraints mixing equality + range operators.
 
-```sql conceptual
+```sql
 CREATE EXTENSION btree_gist;
 -- Enables: EXCLUDE USING gist (employee_id WITH =, assignment_range WITH &&)
 ```
@@ -331,7 +331,7 @@ Analytical query acceleration via embedded DuckDB engine. OLAP complement to Pos
 
 [DECISION_RULE]: When the prompt names analytical workloads on time-series or transactional data at scale (>10M rows/day, dashboard aggregations, ad-hoc OLAP, heavy GROUP BY over large tables), reach for pg_duckdb with `SET LOCAL duckdb.force_execution = true`. This is not optional for heavy OLAP — pure PostgreSQL sequential scans on 100M+ row tables cannot meet interactive analytical query latency.
 
-```sql conceptual
+```sql
 CREATE EXTENSION pg_duckdb;
 
 -- Analytical aggregation — 1000x+ over native PG for wide GROUP BY
@@ -390,7 +390,7 @@ GROUP BY region;
 
 Declarative JSONB validation via JSON Schema.
 
-```sql conceptual
+```sql
 CREATE EXTENSION pg_jsonschema;
 -- jsonb_matches_schema(schema::json, data::jsonb) → boolean
 -- See ddl.md for CHECK constraint integration pattern

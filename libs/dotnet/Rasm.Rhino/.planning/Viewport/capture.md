@@ -27,7 +27,7 @@ Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model 
 - Growth: a new refusal class is one case, one offset row, and one message row inside the band's span; the band's own span guard throws at type init when the span is spent.
 - Boundary: `ViewportFault` is the Viewport family alone — Exchange, Render, Plugin, and Persistence each mint their own on their own band row, and the kernel `UiFault` stays the one UI refusal family.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Modeling;
@@ -59,7 +59,7 @@ public abstract partial record ViewportFault : Fault {
 - Law: absence at construction is unrepresentable, not guarded per use. `Size2i` and `CaptureDpi` refuse the default struct outright, `Offset2i` names its legal default `Origin` because a zero pixel origin is a real address, and the eleven `IsValid` re-probes the prior page carried against `default(T)` ghosts have no successor.
 - Law: native `System.Drawing.Size` and `Rectangle` values mint only through the owners' own projections — `Size2i.Native` and `Offset2i.Window(Size2i)` — and an integer position never rides the extent type.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -665,7 +665,7 @@ public sealed partial class CaptureDecor {
 - Boundary: DELIVERY is not here. `Exchange/publish` owns the `Landing` union whose raster, vector, and printer arms consume `Captures.Stage`'s prepared batch and mint the matching `CaptureArtifact` cases; this page publishes the sink-free preparation and the artifact vocabulary, so Viewport (S3) never names Exchange (S4) and the forbidden upward edge cannot exist.
 - Boundary: `CaptureArtifact.Summary` is the neutral run projection the shell's completion-notice row consumes; the artifact family itself never reaches a notification surface, because every announce operand beyond the outcome — the localized label, the observer that receives the reply, the timeline that stamps it — belongs to the caller, and a scripted or bridge-run capture must reach no notification surface at all.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct DepthSample(Offset2i Pixel, float Z, Point3d World);
 
@@ -813,7 +813,7 @@ public sealed record DepthCaptureSpec(
 - Law: the spec configures and the host animation tools record — `Images`, `Dates`, and `CurrentFrame` are host-written receipts read back as evidence, never spec inputs. A day study spaces frames by `MinutesBetweenFrames` and a seasonal study by `DaysBetweenFrames`; each window writes only its own spacing member.
 - Law: `SequenceOutput` admits extension, animation name, and HTML name as canonical filename components through an ACCUMULATING `Validation`, so a caller with three broken components learns all three; separators, special dot components, platform-invalid characters, and trailing dots or spaces never reach native output metadata.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
@@ -1177,7 +1177,7 @@ internal static partial class SequenceMap {
 - Law: run-rail timing stamps `CaptureArtifact.Bench` on success; failure keeps the original cause, and no second measurement fault exists.
 - Boundary: every entry crosses the kernel dispatch on the immediate lane and proves its own `SessionNeed` set inside the same window — `UiThread.Run(new UiDispatch<T>.Blocking(() => session.Demand(…)), DispatchLane.Immediate, key)` — so the crossing asserts the thread and the demand serializes the host call, and neither authority is re-derived at a call site. Target resolution, host work, and release stay inside that scope.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

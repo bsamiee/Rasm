@@ -22,7 +22,7 @@
 - Growth: a new transfer function whose weight is `exp(rate*λ)` is a MINT, not a case; a genuinely new shape is one case, one `Weight` arm, and one `Compose` arm, the kernel and every consumer untouched; a new normalization is one row with its `Rescale` column and a new distance one row with its compute column.
 - Boundary: filters weight eigenvalues alone — never a mesh, a basis matrix, or a vertex — so the one filter value drives `Meshing/dec` heat scaffolds, `Processing/segment` descriptors, and `Spatial/fields` spectral-distance cases from this floor.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
@@ -155,7 +155,7 @@ public abstract partial record SpectralFilter {
 - Growth: a new DEC operator is one field, one validity coupling, and one `ProjectionRow`; a new assembly witness is one receipt field.
 - Boundary: `DiscreteCalculus` is the `Rasm.Compute` adjoint seam — Compute binds the operator columns and the validity fold, never `Transport`, so the probe column stays kernel-grain; `SignpostTransportReceipt` is declared by `Meshing/mesh`, the intrinsic-triangulation owner, and carried here only as probe evidence, so each DDG receipt has exactly one declaration site with this page owning the mesh-free members. DECLARATION and CONSTRUCTION are the split with `Meshing/dec`: no member here emits `D0`, `D1`, or a star, and `dec`'s assembly re-owns no algebra declared here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
@@ -314,7 +314,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 - Growth: a new signature family is one filter case and policy rows, the kernel loop already generic over the weight function; a new distance is one `SpectralDistanceKind` row and a new energy normalization one `SpectralEnergyNormalization` row, the compute and rescale columns being the arms.
 - Boundary: the kernel is mesh-free, seeing vertex COUNT as its only topology, so it serves tet, grid, and mesh bases identically, while mesh-side basis computation and caching (`SpectralBasisBundle`) are `Meshing/dec`'s.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

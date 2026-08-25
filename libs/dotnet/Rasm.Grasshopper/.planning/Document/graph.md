@@ -23,7 +23,7 @@ Traversal is host-absorbed: reachability walks, cycle detection, bounded path en
 - Packages: Grasshopper2 (`ObjectList`, `Connectivity`, `ConnectiveObject`, `GroupObject`, `GraphTopology`, `WireEnds`, `IParameter`, `IPin`, `IDocumentObject`), Eto (`PointF`, `RectangleF`), `Components/ports.md` (`PinSide`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new host reach is one `GraphReach` row; a new membership projection is one `GraphRoster` row; a new searched type is one `NearKind` row; a new elision axis is one `RelayAxis` row; a new read intent is one `GraphProbe` case whose arm breaks the gate's total `Switch` loudly.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Drawing;
 using Grasshopper2.Doc;
@@ -220,7 +220,7 @@ public static partial class GraphScope {
 - Packages: Grasshopper2 (`Connections`, `ObjectList.ChangeAllIds`/`ApplyIdMap`/`AddGlobalPin`/`RepairPins`/`ExpireAll`/`WindowSelect`, `DocumentMethods.SplitWire`, `Shout`, `Listen`, `PinRepair`, `WindowSelection`, `SelectionMode`), Eto (`PointF`), `Rasm.Interaction` (`PickAxis`), `Rasm.Parametric` (`MonotonicTimeline`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/document.md` (`DocumentGate`, `GateLane`, `GateReceipt`, `GateOutcome`, `WirelessPair`, `PinRepairRow`), `Document/history.md` (`HistoryLedger.Seal`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new wire verb is one `GraphMutation` case; a new bulk-transfer kind is one `WireFreight` row; a new endpoint role is one `WireEndRole` row; a new survey axis is one kernel `PickAxis` row — the gate never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Drawing;
 using Grasshopper2.Doc;

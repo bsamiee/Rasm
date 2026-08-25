@@ -22,7 +22,7 @@ Closed rosters publish as data, `dimensions` derives each metric-plane fan, and 
 - Boundary: which producer stamps which key is the emitting folder's; this cluster owns the spellings alone.
 - Packages: `@opentelemetry/semantic-conventions` (stable and `incubating` entrypoints).
 
-```typescript signature
+```typescript
 import {
   ATTR_CLIENT_ADDRESS,
   ATTR_CONTAINER_IMAGE_NAME,
@@ -215,7 +215,7 @@ const _value = {
 - Boundary: which site mounts which instrument is the emitting folder's; this cluster owns names, units, shapes, and their closure.
 - Packages: `effect` (`Duration`); `../value/schema.ts` (`Shape`).
 
-```typescript signature
+```typescript
 const _module = {
   core: { emits: true },
   data: { emits: true },
@@ -731,7 +731,7 @@ const _profile = {
 - Boundary: this S1 owner exposes local diagnostic data only. Exporter wiring and the reader seat are `runtime/otel`'s.
 - Packages: `effect` (`Array`, `Cause`, `Duration`, `Effect`, `Exit`, `Metric`, `MetricBoundaries`, `MutableHashMap`, `Option`, `Order`, `Record`, `Types`); `../value/identity.ts` (`Identity`); `../value/schema.ts` (`Shape`).
 
-```typescript signature
+```typescript
 const _translation = {
   NoTranslation: { escape: false, suffix: false },
   NoUTF8EscapingWithSuffixes: { escape: false, suffix: true },

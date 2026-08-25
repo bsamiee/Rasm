@@ -8,11 +8,11 @@ Work-file entries bury their state in a prose sentence instead of a greppable `[
 
 - Detection: Flag an entry whose lifecycle state lives in a sentence an agent must parse, not in a leader token it can filter.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - Entry 0042 is currently blocked on the persistence seam and moves once the codec lands.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     - [0042]-[BLOCKED]: persistence seam codec
         - Capability: Content-addressed decode across the wire
         - Anchors: Codec owner and artifact index
@@ -27,11 +27,11 @@ Work-files mark state with ad-hoc words drawn from no declared, closed vocabular
 
 - Detection: State tokens that vary across agents and files with no owning declaration.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - Entries use `done`, `finished`, `in-flight`, `on-hold`, `killed`, and `wip` interchangeably across agents.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     [STATUS]: `[QUEUED]` `[ACTIVE]` `[BLOCKED]` `[COMPLETE]` `[DROPPED]`
     ```
 - Reason: Closed token sets with one meaning per token make the ledger machine-filterable; interchangeable synonyms fork one state across agents.
@@ -43,17 +43,17 @@ Closed token sets with no per-member content explode into a one-per-line list.
 
 - Detection: Flag a referenced token set rendered as a bullet list where no member carries its own field.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - `QUEUED`
     - `ACTIVE`
     - `BLOCKED`
     - `COMPLETE`
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     [STATUS]: `[QUEUED]` `[ACTIVE]` `[BLOCKED]` `[COMPLETE]`
     ```
-    ```markdown accepted
+    ```markdown
     [STATUS]:
     - `[QUEUED]`: Accepted for the sequence, not yet running
     - `[BLOCKED]`: Held by a dependency
@@ -67,13 +67,13 @@ Dense deltas and checklists spell each state as a full word where a declared com
 
 - Detection: Flag a delta or checked list widened by full-word status where a globally declared glyph suffices.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - pass: codec landing
     - fail: seam alignment
     - attention: index migration
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     - [O] codec landing
     - [X] seam alignment
     - [!] index migration
@@ -87,13 +87,13 @@ Multiple work files each declare their own marker spellings for one shared state
 
 - Detection: Two or more surfaces re-declaring partial, differently-spelled tokens for the same lifecycle.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     - file one: `[WIP]` `[DONE]` `[STUCK]`
     - file two: `[in-progress]` `[complete]` `[held]`
     - file three: `[active]` `[shipped]` `[waiting]`
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     [STATUS]: `[QUEUED]` `[ACTIVE]` `[BLOCKED]` `[COMPLETE]` `[DROPPED]`
     ```
 - Reason: One owner declares the vocabulary and every instance composes it; scattered re-declarations fork the state concept into incompatible spellings.

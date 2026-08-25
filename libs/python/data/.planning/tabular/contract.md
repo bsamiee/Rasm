@@ -21,7 +21,7 @@ The data-contract owner: a quality gate, a structural admission path, and a cros
 - Growth: a new check is one `CheckKind` row threading its `_CMP`/`_SET`/`_TEXT`/`_INCLUSIVE` table; a new column claim is one `QualityRule`; the narwhals-lazy backend is a pandera row on this owner, never a parallel gate.
 - Boundary: no raising in domain logic, no global schema registry, no coercion (`coerce=False`); a per-check validator family, an exception-driven gate, and an undecorated `DataQuality.of` are the rejected forms.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from re import Pattern
@@ -225,7 +225,7 @@ class DataQuality(Struct, frozen=True):
 - Growth: a new structural attribute is one column on `FieldShape` read once by the interop `schema_of` owner; a new structural divergence is one `BreachKind` member the interop `resolve` owner arms; a new quality rule is one `QualityRule`/`CheckKind` row on `DataQuality`; a new backend is admitted free by the interop `Backend` axis; a new refusal law on this page is one `FaultRow` on `RAISES`.
 - Boundary: no Persistence generation law, no live Rhino/GH mutation; a hand-rolled validation loop, a per-backend admission branch, a second inline `collect_schema()` derivation, a presence-only check that passes a wrong-dtype field, a duplicate `ContractClaim`, a second pandera gate, a no-op thunk fenced over an already-built verdict, a joined breach STRING erasing the per-column code, a first-breach abort where every required column admits independently, and an undecorated `of`/`admit` are the rejected forms.
 
-```python signature
+```python
 from typing import Any
 
 from beartype import beartype
@@ -295,7 +295,7 @@ def _breached(breach: FieldBreach) -> RuntimeRail[FieldShape]:
 - Growth: a new covenant is one `RelationEdge`; a new cardinality one `RelationCardinality` row whose value names its builder; a new backend member admitted free by the `Backend` axis; a new produced-frame member one `CovenantMember` carrying its sibling-owned `ContentKey`; a new member-participation rule one `MemberPolicy` row; a cross-member grouped invariant beyond foreign-key cardinality one `@dy.filter` keep-set; a new breach diagnostic one slot row on the stream; a `cast`/`failure_examples` knob one policy field threaded into the existing call; a new verb one `CovenantOp` case; a new IO direction one `ContractIo` case owning its `round_trip` arm; a new unproven-artifact disposition one `Restore` case owning its `prove` arm.
 - Boundary: `dataframely` owns the Polars-native cross-frame integrity, `polars` every frame read and write beneath it, `FrameInterop.translate` every member lowering; no raising in domain logic. An inline `narwhals.from_native(...).to_polars().lazy()` lowering, a hand-stitched anti/semi-join where `require_relationship_*` owns integrity, a second `ContentIdentity` mint over a sibling-owned key, a per-cardinality filter family, a per-verb method tree, a per-arm re-lowering, a re-derived member key, a covenant type re-synthesized per helper, a hardwired per-arm `cast=False`, a parallel gate or per-kind breach record, a second claim type, a heterogeneous `RuntimeRail[ContractClaim | bool | bytes]` outcome union, a `Schema`- or `Collection`-tier delta call, a read delegating validation to a `validation=` argument, a restore dropping the grading that argument ran, a module-scope row table keyed on `ContractIo`/`Restore`, a union case carrying slots its own arm ignores, and an undecorated `of`/`run` are the rejected forms.
 
-```python signature
+```python
 from collections.abc import Iterator, Mapping
 from contextlib import nullcontext
 from enum import StrEnum

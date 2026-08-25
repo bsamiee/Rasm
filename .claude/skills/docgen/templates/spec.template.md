@@ -20,7 +20,7 @@
 - Growth: <growth-one-row-rule>
 - Boundary: <boundary-refusal>
 
-```<lang> signature
+```<lang>
 <owner-signature-transcription>
 ```
 
@@ -34,7 +34,7 @@
 - Growth: a new op is one `ShapeOp` case and one dispatch arm
 - Boundary: this owner refuses wire decode, deferred to the codec seam
 
-```python signature
+```python
 class ShapeFold:
     def apply(self, op: ShapeOp) -> Result[ShapeReceipt, ShapeFault]: ...
 ```

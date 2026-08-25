@@ -24,7 +24,7 @@ Every mutation enforces the seam's STRUCTURAL edge law through the generated tot
 - Boundary: `GraphMutation` is the ONE request owner, `WorkingGraph` the HAMT live form, `GraphDelta` the event body, and `ElementGraph` the frozen read form. `LegalLink` enforces endpoint presence, typed-edge irreflexivity, and endpoint-kind legality; Bim constraints own IFC semantics. `Merge` is a strict-left sequential compactor, not a generally associative monoid. `ReplayOnto` trusts seam-produced deltas, while `AdmitOnto` replays foreign/projector deltas through structural admission.
 - Boundary: the working EDGE half is an ordered `ImmutableList` whose O(edges) membership/splice cost is batch-shaped and deliberate — the fence's `WorkingGraph` comment owns the full law (order is what the wire emits; every read-path query is a frozen-snapshot read), stated once there.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;

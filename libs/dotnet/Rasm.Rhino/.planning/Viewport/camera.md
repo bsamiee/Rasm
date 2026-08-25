@@ -19,7 +19,7 @@ Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, sessi
 - Law: broadcast redraw suppression is a BRACKET — the acquisition captures the prior redraw state and disables, the use traverses the rows, and the restore runs from the bracket's own final arm — and the restore RE-DRIVES once through the kernel redrive owner (`Redrive.Run(RedrivePolicy.Of(Schedule.recurs(1), 1), restore)`), its residual fault APPENDING to the primary through the one aggregation fold. A hand-spelled retry literal and a `.Match` ladder re-spelling cleanup beside the fold are the deleted forms.
 - Boundary: the lease owns no host resource and is not `IDisposable`; each use re-resolves the address, executes, and discards every native reference before the marshalled closure returns.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -169,7 +169,7 @@ public sealed class ViewportLease : IDetachedDocumentResult {
 - Law: architectural view conventions are NOT pose recipes here — `Rasm.Drawing` `ViewConvention.Pose` computes the convention pose from a subject bounds through the kernel catalog rows, and this owner only admits and seats the projected `ViewPose`.
 - Boundary: reading and writing cross the same lease; a pose is a value, so two reads of a mutated viewport differ by construction and no cached pose masquerades as live state.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<double>]
 [ValidationError]
@@ -269,7 +269,7 @@ internal static class CameraSeat {
 - Law: `ViewMapping` is the ONE world/screen/clip/camera correspondence — one admitted `(Source, Destination)` pair generates the complete directional space, and a consumer needing pixels-per-unit reads `GetWorldToScreenScale` through `PixelScale`, never a re-derived projection ratio; the transform reads through a `ViewportInfo.GetXform` snapshot because that member returns `Transform.Unset` on failure where the live `RhinoViewport.GetTransform` returns `Identity` and makes refusal invisible to `IsValid`.
 - Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view rails hold, and the write is host mutation gated by the operations rail. `Write` captures all focal-blur fields before mutation, applies the ordered field rows fail-fast, and restores the complete prior state through one compensation path when any setter fails; the sample-count invariant is mode-conditional so an unconfigured view (`ViewInfoFocalBlurModes.None`, zero samples) reads back cleanly and that capture stays reachable on the first write.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SpatialProbe {
@@ -593,7 +593,7 @@ public static class ViewTransforms {
 - Law: snapshot values feed three consumers with one shape — the operations rail's view stack, the capture specification's window mapping, and the motion drive's keyframe seeding — so a per-consumer snapshot variant is the collapsed form.
 - Boundary: `Restore` is a host mutation and enters the operations rail through `CameraPose.Write`; the snapshot owner never seats a native viewport directly.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Staleness {

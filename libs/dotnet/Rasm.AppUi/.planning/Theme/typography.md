@@ -23,7 +23,7 @@ Generation is the page's ruling shape, exactly as it is at `Theme/tokens`: a per
 - Growth: a new text appearance is one `TypographyRole` row; a new emphasis is one ladder step; a new numeral or casing posture is one `FeatureFacet` row on its axis; a new family lane is one `FamilyLane` row carrying its chain accessor; a new face weight is one `WeightLadder` rung; zero new surface.
 - Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to this generation — a bare font value at a call site is the named defect. The declared tracking unit is EM: `TextStyleRow.TrackingEm` is the generated value and `TrackingPx` the single projection a retained `LetterSpacing` or a shaped advance consumes. Emphasis moves the weight rung ALONE, so the emission writes the geometric leaves once per role and the weight leaf once per emitted emphasis. Casing applies at presentation through `FeatureFacet.Apply` and small-caps contributes its feature intent rather than a second string transform; numeric and temporal text arrives pre-formatted through the `Theme/locale` temporal patterns, so the numeric row guarantees glyph geometry alone. The text-scale knob is a UNIT interval whose midpoint is the neutral reading, so the multiplier is two linear segments hinged at that midpoint. `Theme/tokens` owns the `TokenKey` mint and this owner addresses its emission through it. NAMED LOSS of the facet collapse: a role naming two numeral rows was a compile error when `NumeralModality` and `TypeCasing` were two types; it is now the row constructor's axis guard, refusing at type init. `Emission` crosses its leaves as `(TokenKey, object)` because `ResolvedTheme` holds an erased leaf map — a `Theme/tokens` seam to close with a typed leaf union, not a typography concern.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public static class WeightLadder {
     public static readonly ImmutableArray<int> Rungs = [300, 400, 500, 600, 700];
@@ -249,7 +249,7 @@ public sealed record TextStyleRow(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TypeScale {
     const double TrackingIntercept = -0.0223d;
@@ -328,11 +328,11 @@ public static class TypeScale {
 - Growth: a new platform or script coverage is one `FontChain` row or one ranked family on an existing row; a new owned asset is one `EmbeddedFace` row; a new capability axis is one `FaceRequest` column reaching the same election; zero new surface.
 - Boundary: the chain row is ELECTED ONCE by the composition root off its resolved host profile and handed to `Admit` and `TypeScale.Resolve` — ambient OS probing here is the deleted form, and the three family rosters are the platforms' shipped reading and monospace families (Apple, Microsoft, Noto) with the owned faces ranked first, which is the provenance a platform row carries. `WithInterFont` registers the shipped static collection, the owned faces register through `ConfigureFonts` as embedded collections, `FontManagerOptions.DefaultFamilyName` pins the embedded family, and the ranked host families plus the symbols terminator land as `FontFallbacks` rows. The shipped package carries STATIC faces alone, so optical sizing and true italics exist only through the owned variable asset. The design scale is read off the face's own `UnitsPerEm`, so an advance rescales exactly. A face instance is keyed on `(typeface identity, variation coordinates, palette index)` and holds the stream, blob, face, font, and admitted feature set for the capsule's whole life. Construction is a kernel `Custody.Rollback` fold: a refusal after any native owner initialized releases the completed owners LIFO on the failure arm alone, so a never-returned capsule leaks nothing and no `try`/`catch` spells the release. A concurrent cabinet miss resolves through `Cell.Step`, so the loser of the race disposes the capsule it opened and both callers lease the one that landed. Colour-glyph faces elect their palette from the face's own `OpenTypeColorPaletteFlags`, and the elected index is CLONED onto the raster typeface rather than recorded beside it. `SKFontArguments` is a `ref struct`, so it crosses as a construction argument and is never a stored field.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FaceRequest(
     FontChain Chain,
@@ -421,7 +421,7 @@ public static partial class TypographyMap {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -608,7 +608,7 @@ public static class FontAdmission {
 - Growth: a new script is one segmentation outcome on the same fold; a new surface class is one `RenderPosture` row; a new break rule is one `BreakClass` row or one composition-supplied oracle; a new trim behaviour is one `TrimPolicy` row carrying its fold; zero new surface.
 - Boundary: `FeatureAdmission.Admit` is the one `Feature` mint over both scopes, discriminated by the range. `Tag.Parse` SILENTLY COERCES — a null or empty string yields the none tag and a longer string truncates — so the four-character shape validates BEFORE the parse. The itemizer resolves script through the HarfBuzz unicode functions and general category through the BCL rune classification; a common or inherited codepoint takes the running script and the paragraph base direction, and runs reorder into visual order by that base direction. The carve is stated: no bidirectional algorithm with explicit embedding overrides is admitted. Segment ingress uses the windowed `AddUtf16(text, itemOffset, itemLength)` form with the edge flags set from the segment's position, so joining forms survive a segment boundary. The shaped fold reads the zero-allocation glyph spans; it carries `SKFont.ScaleX` through the horizontal projection, negates the vertical axis because HarfBuzz shaping space is y-up, and rescales every advance through the face's own `UnitsPerEm`; the two-span fill with a running cursor is the page's ONE named `EXPRESSION_SPINE` exemption — no span operator states a three-output scan. `SKTextBlobBuilder.Build()` returns NULL for an empty builder, so an empty segment refuses on the rail by name. `SKCanvas.DrawTextBlob` does not exist — the shaped blob draws through `DrawText(SKTextBlob, x, y, SKPaint)`. Line breaking runs over CLUSTERS: only a cluster boundary whose glyph is safe to break is a candidate. Unshaped `MeasureText(string)`, string convenience shaping, caller-owned blob disposal, an untyped native exception, and a blob outliving its backing stream are rejected forms. Streaming carve: face probing is a bounded boot-time cost inside `Open`, and no edge on this page retries, so `Schedule` and `Channel<T>` have no seat here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct RunSpec(Direction Direction, Script Script, Language Language, ClusterLevel Level);
 
@@ -707,7 +707,7 @@ public sealed partial class LineEnd {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class ShapedRun(SKTextBlob blob, SKPoint origin, SKPoint advance, ImmutableArray<ClusterMark> clusters, FaceInstance face, SKFontMetrics metrics) : IDisposable {
     public SKTextBlob Blob { get; } = blob;
@@ -749,7 +749,7 @@ public readonly record struct TextLine(int Start, int End, double Advance, doubl
 public readonly record struct ShapeKey(string Text, TokenKey Style, RunSpec Spec, RenderPosture Posture, double Size, TypeSlant Slant);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FeatureAdmission {
     public static Fin<Feature> Admit(string tag, uint value = 1u, Option<(uint Start, uint End)> range = default) =>
@@ -950,7 +950,7 @@ public static class LineBreaker {
 - Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; a new extension is one builder row on the one pipeline; a new alert kind is one `CalloutKind` row; zero new surface.
 - Boundary: the pipeline admits only extensions with owned projection arms. Heading depth reads `TypographyRole.ForHeading`, so a document heading is a role reference and the role ladder owns the depth map. Table rows and cells, and fenced and indented code, cross through the `TypographyMap` seam; the block dispatch itself stays a hand fold because every other arm composes children recursively and a generated mapper would carry a `Use` converter per member and prove nothing. The fold's tail arms are LAWFUL openness over a FOREIGN family — Markdig's block and inline hierarchies are open, so an unmatched node lands as `Opaque` carrying its node identity and span. A GFM alert kind is a `StringSlice` on the package block, never an enum, so `CalloutKind` admits it as a keyed row through the generated `TryGet` and an unknown kind lands the block as a `Quote`. `UseMathematics` projects engineering notation without typesetting it, `UseAdvancedExtensions` stays absent because no owner admits its diagram and container grammars, and raw HTML becomes explicit opaque evidence. The inline style set is a `CapabilitySet<InlineStyle>` and the link target an `Option`, read off ONE ancestor walk per leaf inline.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1189,7 +1189,7 @@ flowchart LR
 - Growth: a new metric rule is one policy value; a new decoration is one `Decoration` row naming its metric tags and skip-ink posture; zero new surface.
 - Boundary: measurement consumes `ShapedText.Advance` and the shaped cluster marks — unshaped `MeasureText(string)` is the deleted form. The em admits as an INTEGER pixel value, because a fractional em makes every derived rung fractional and the grid stops being a grid; the line box snaps to the baseline unit with round-to-even and floors at the em. Half-leading distributes EVENLY above and below the em box, so a container's first baseline is the half-leading plus the ascent. Icon boxes align to the cap-height CENTRE because the visual centre of Latin text is the cap band. Decoration geometry reads the face's own underline and strikeout metrics — Skia publishes them as nullable device-pixel values and the HarfBuzz OpenType metrics table in font units is the fallback, divided by the instance's own em square. A caret lands on the nearest preceding cluster boundary — a source index inside a ligature answers the ligature's start — and `None` means outside the text; a selection band's edges are the covered clusters' SOURCE extrema projected to pen offsets, so a right-to-left run opens the band at its visual start rather than at the carrier's head. Tabular advance constancy for the numeric row is proven by equal shaped advances over digit permutations in the headless evidence lane under the golden posture. The caret, selection, and decoration folds are the editing planes' geometry seam (`Editing/inspector` code pane, `Document/media` diff seat); this page declares them and those surfaces bind them.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

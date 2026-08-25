@@ -21,7 +21,7 @@
 - Packages: `Annotation/style.md` (`DraftAngle`, `TagEdit`, `TagSurface`, `TableGrip`, `TableOp`, `ListEdit`, `ListSurface`), `Document/session.md` (`DraftFault`), `Document/tables.md` (`ResourceName`, `ResourceIndex`, `TagOp.Snapshot`), `Domain/rails` (`Custody`); RhinoCommon `HatchPattern`/`HatchLine` per `.api/api-rhinocommon-drafting-resources.md`; `Rasm.Drawing` `Hatching.Apply` for exact fill synthesis.
 - Growth: a pattern attribute lands in `PatternDef`, its validation gate, `Apply`, and `Read`; no mutation case carries a partial parallel definition.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -176,7 +176,7 @@ public sealed partial class PatternDef {
 - Packages: `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`), `Domain/context` (`Context.Of`, `Tolerance`, `ToleranceLane.Closure`), `Domain/validation` (`Requirement.AreaMass`), `Annotation/style.md` (`DraftBorrow`, `DraftScale`, `DraftAngle`); RhinoCommon `ColorGradient`/`Hatch.Create`/`Hatch.CreateFromBrep`.
 - Growth: a construction form is one `HatchSpec` case with its arm; a gradient axis is one `FillGradient` column.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class GradientForm {
@@ -361,7 +361,7 @@ public abstract partial record HatchSpec {
 - Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagSurface`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `DraftComponentKind`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); RhinoCommon `HatchPatternTable`/`HatchPattern.ReadFromFile`/`WriteToFile`.
 - Growth: a verb every component table shares lands on `TableOp`; a hatch-only verb is one case here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HatchProgram {
@@ -534,7 +534,7 @@ public static class Hatches {
 - Packages: `Annotation/style.md` (`PreviewSpec`, `PreviewSurface`, `DraftCrossing`, `DraftScale`, `DraftAngle`), `Interaction/asset.md` (`AssetExtent`), `Document/tables.md` (`GeometryHandle`), `Domain/rails` (`Custody`); RhinoCommon `Hatch.Get3dCurves`/`Get2dCurves`/`ToBrep`/`Explode`/`CreateDisplayGeometry` and `HatchPattern.CreatePreviewGeometry`.
 - Growth: a read is one `HatchAsk` case with its `HatchAnswer` twin; a loop axis is one row carrying its own host reader.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class LoopKind {

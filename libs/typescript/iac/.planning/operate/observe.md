@@ -41,7 +41,7 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 - Boundary: which store a stack runs is `program/spec.md`'s `observe.store` coordinate; the tenant metric label is the runtime plane's `Convention.rasm.tenant` dimension arriving on the wire, never re-minted here; remote-write is declined estate-wide, so OTLP is the one ingest door and that is what makes these rows swappable.
 - Packages: `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `@rasm/core` (`Board`, `Convention`); `../program/spec.ts` (`StackSpec`).
 
-```typescript signature
+```typescript
 type _Signal = "logs" | "metrics" | "traces"
 
 type _Plane<Isolation extends string, Admit> = {
@@ -214,7 +214,7 @@ const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Re
 - Boundary: the app-side OTLP export composition is the runtime telemetry plane's and arrives only as the env row; board content is `#BOARD_APPLY`'s upstream data; the wide-event relation, column, and token roster is `data` `lane/olap`'s `Olap.events` and the query dialect is the data planes' — this tier renders that roster into ClickHouse, plants the DDL, and publishes the door; the chart values and config vocabularies are the external contracts `.api/opentelemetry-collector.md` and `.api/clickhouse.md` own.
 - Packages: `@pulumi/kubernetes`; `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `effect` (`Array`, `Duration`, `Option`, `Record`, `Schema`); `@rasm/core` (`Board`, `Convention`, `Reliability`, `Shape.Record`); `@rasm/data` (`Olap.events`, `Olap.Relation`, `Olap.WideToken`); `../program/spec.ts` (`Tier`, `StackSpec`).
 
-```typescript signature
+```typescript
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Duration, Option, Record, Schema } from "effect"
@@ -1184,7 +1184,7 @@ class Lgtm extends Tier {
 - Growth: a second pull-side surface is one `_SCRAPED` row answering `armed` and `job` beside one `_INFRA_PORT` entry; a counter a pg major adds is one `_IO_COLUMNS` row, and a column type it introduces is one `_IO_KINDS` row.
 - Boundary: the pg coordinates and the exporter image ref arrive as args from the composing arm; the data tier owns the server config rows, `track_io_timing` and `track_wal_io_timing` among them — without them the timing columns read zero, never null.
 
-```typescript signature
+```typescript
 const _INFRA_PORT = { pgExporter: 9187, opencost: 9003 } as const
 
 const _SCRAPED = {
@@ -1316,7 +1316,7 @@ const _infraReceivers = (ingest: StackSpec.Observe["ingest"]): ReadonlyArray<str
 - Law: the loop evaluates no rules — no loader reaches the bundled store, so `recorded` is false here and every burn numerator renders inline through the same core projection the estate's evaluator-less store row renders through; reading the estate row's rule posture instead spells recorded series names on an arm that records none.
 - Growth: a dev-loop port or knob is one `_DEV` field.
 
-```typescript signature
+```typescript
 import * as docker from "@pulumi/docker"
 
 const _DEV = {
@@ -1390,7 +1390,7 @@ class Dev extends Tier {
 - Growth: a new backend's address is one ingest row and one query row beside its chart row.
 - Boundary: ports and path suffixes are the pinned charts' facts, versioned with the pins.
 
-```typescript signature
+```typescript
 const _DOOR = { gateway: "collector", agent: "agent" } as const satisfies Record<StackSpec.Observe["topology"], keyof typeof _charts>
 
 const _urls = (bind: {
@@ -1468,7 +1468,7 @@ const _urls = (bind: {
 - Law: one provider per stack — every resource in the tier threads `{ provider }` through `child()`; a second provider instance is the split-diamond defect; auth never rides env here — the in-graph read is the canonical binding for deploy-time application.
 - Entry: `new Boards("boards", { spec, urls, targets, auth, boards, packs, library, alerts, objectives, contacts, deploy, rolls }, opts)` — the k8s arm feeds `lgtm.{urls,targets}`, the docker arm `dev.{urls,targets}`; `boards`/`alerts`/`objectives` produced by the app's core observe suite call against those same targets, `packs` by the producer censuses, `rolls` by the AppHost fleet ledger.
 
-```typescript signature
+```typescript
 import type { Builder, Dataquery } from "@grafana/grafana-foundation-sdk/cog"
 import {
   AxisPlacement, ColorDimensionConfigBuilder, type DataSourceRef, FrameGeometrySourceBuilder, FrameGeometrySourceMode, LogsDedupStrategy, LogsSortOrder,

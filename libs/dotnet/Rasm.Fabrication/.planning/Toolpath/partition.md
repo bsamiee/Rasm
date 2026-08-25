@@ -26,7 +26,7 @@
 - Growth: a new site-cloud law is one `SiteDistribution` row carrying its own lane fold; a new grading law is one `DensityField` row; a new egress modality is one `PartitionProjection` case; a new ordering law consumes the retained graph without changing tessellation; a new per-cell planar measure is one `PartitionCell` column read off the retained `SiteCell`, and a new volumetric measure is one `PartitionSolid` column read off the retained `CloudVoronoiCell`.
 - Boundary: QuikGraph construction and the observed walk are the one statement-bearing foreign-mutation seam; aggregate admission, domain computation, and egress remain expression-shaped. Diagrams are never minted here — a page-local tessellator, relaxation loop, draw stream, or volumetric dual is the deleted form, the planar complex routing `PolygonOp.Cells` and the 3D complex `VectorIntent.Voronoi`. Every `PolygonAlgebra.Apply` call carries its `Op` key, so a trace-shape refusal names the calling operation instead of a hand-written axis literal. No absence rides a sentinel count or an infinite length: an unreachable cell leaves the tour and the closure census refuses.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;

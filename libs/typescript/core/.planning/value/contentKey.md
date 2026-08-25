@@ -12,7 +12,7 @@
 - `CanonicalWriter` emits fixed-width integers little-endian, UTF-8 strings and arbitrary octets behind an int32 byte-length frame, and repeated semantic rows behind an int32 count; callers state field order and never frame.
 - `raw` is reserved for fixed-width or already-delimited bytes. A variable-width generated `bytes` field uses `bytes`, and a collection uses `rows`, so neither can shift an adjacent field boundary.
 
-```typescript signature
+```typescript
 import { Effect, Either, Encoding, ParseResult, Predicate, Record, Redacted, Schema } from "effect"
 import { createBLAKE3, createCRC32, createSHA256, createXXHash64, createXXHash128, type IHasher } from "hash-wasm"
 import { Shape } from "./schema.ts"

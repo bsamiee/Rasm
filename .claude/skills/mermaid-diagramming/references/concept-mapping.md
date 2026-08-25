@@ -57,11 +57,11 @@ Shape lives in the material's structure, not its subject line — a document tit
 - In an argument: premises converging on a conclusion are a diagnosis fan when the claim is causal, a strict taxonomy when the claim is classification, and a position judgment when two independent gradings do the work.
 - In a plan: dated commitments with dependencies are a committed future; undated stage membership is a queue snapshot; the two shapes in one document are two diagrams.
 
-```text rejected
+```text
 The document lists steps, so it becomes a flowchart of the steps in order.
 ```
 
-```text accepted
+```text
 The steps carry three owners and four handoffs between them; ownership is the payload, so the shape is a laned procedure and the fence is swimlane-beta with the steps homed in owner lanes.
 ```
 

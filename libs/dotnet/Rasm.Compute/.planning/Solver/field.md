@@ -21,7 +21,7 @@ Quadrature rides the mesh as PROVEN evidence. `ElementClass.Quadrature` is the k
 - Boundary: `[Equatable]` with explicit member equality is load-bearing — `Nodes` and `Connectivity` are `ReadOnlyMemory<T>`, which synthesized record equality compares by REFERENCE, so two identical meshes read unequal and one mesh reloaded reads unequal to itself. Every content key, memo probe, and sweep dedupe over a mesh depends on that equality being structural.
 - Boundary: the nodal gather writes into a PER-THREAD scratch buffer, live only until that thread's next gather — the assembly, the metric fold, and the inertia scatter each call it once per cell over a parallel range, so a fresh array per call is one allocation per cell per pass, and every consumer reads the span inside the same cell iteration, which is exactly the contract that makes the buffer reusable.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

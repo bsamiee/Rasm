@@ -19,7 +19,7 @@
 - Law: the two-row presentation and language vocabularies key on the HOST bool itself — `[SmartEnum<bool>]` deletes the mirror column, so the row name is the read and no `.Echo`/`.IsEnglish` getter restates the key.
 - Law: `CommandPolicy` accumulates — an empty need set, an absent notice, and an out-of-band budget are three independent defects one `Validation` reports together, each as its own `DraftFault` clause, where the prior single-message hook collapsed all three onto "policy is incomplete".
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
@@ -128,7 +128,7 @@ public sealed partial class CommandPolicy {
 - Law: `Drive` folds the kernel `foldUntil` over the budget range — the fold carries the rail as its state, stops on a settled verdict or a failed rail, and exhausting the range without a verdict is a typed budget refusal naming `StageBudget`; a success-shaped fall-through past the bound would certify an unconverged program as converged.
 - Law: `Commit.Fold` is railed and rides `Tables.Commit` as its receipt projection inside `DocumentCommit.Sealed`, so a fold refusal fails the commit with the operation faults instead of surviving a sealed record.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
@@ -307,7 +307,7 @@ Both host overrides collapse a typed rail into a bare native verdict, so both pe
 - Law: `CommandFaults` is a LEDGER declaration, not a fault family and not a factory — it holds one `Ring<Error>` under a declared retention row and one `Refused` sink, mints no case, takes no message string, and classifies nothing. It belongs to this package's `<Surface>Faults` ledger family beside `PluginFaults`, `ShellFaults`, and `DisplayFaults`, so renaming it alone forks four consistent declarations into three plus one. The near-collision with `Rasm.AppHost`'s `CommandFault` union is not one: that family sits at a stratum this package cannot reference, and the branch row rules a referencing package's own EVIDENCE and REFUSAL types, which is what this static holder is not. A suffix sweep converting it destroys a real retention surface and reaches no untyped producer.
 - Law: the process ledger IS the kernel ring. A cap, oldest-first eviction, and a shed counter were this page's hand `FaultLedger` — the kernel `Ring<Error>` is that shape once for the estate, its `Park` verdict is COUNTED (`Lost`) rather than discarded, and the capacity is a named policy row instead of a buried literal. The per-observer twin deletes with the observer plumbing (`[05]`).
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class CommandFaults {
     internal static readonly Rasm.Numerics.Dimension Retention = Rasm.Numerics.Dimension.Create(value: 256);
@@ -374,7 +374,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
 - Law: the three host-args projections are ONE `[Mapper] CommandMap` — each source type's field copy generates, `[UserMapping]` rows carry the `UndoMoment` and `OptionKind` resolutions, and the Started/Ended CASE stays on the pulse row because the same host args type serves both events: the discriminant is the pulse's own, unrecoverable from the argument value, so the mapper owns the columns and the row owns the case.
 - Law: `Activity` is a `CapabilitySet<CommandActivity>` — `InCommand` and `InScript` were two bools whose product is genuinely open (a script runs inside a command), so the set prints its own wire and a third activity axis is one row.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -642,7 +642,7 @@ public static class CommandRegistry {
 
 `Scripting.Run` targets the admitted session document and preserves the native terminal. `Scripting.Proxy` dispatches one proxy inside the same document and thread grant: the caller supplies a typed body over the admitted `DocumentSession`, the re-closed `SessionMode`, and its own payload type, and the host `RunCommandDelegate`, `RhinoDoc`, `RunMode`, and `object data` stay inside the adapter. Script text, echo, and MRU display are case evidence; named dispatch validates registry membership before execution.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScriptOp {

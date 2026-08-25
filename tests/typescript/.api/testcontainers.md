@@ -26,7 +26,7 @@ One parameterized builder spans the whole package: `GenericContainer(image)` car
 |  [06]   | `ResourcesQuota`               | type                             | `{ memory?; cpu? }` — bounded operating envelope       |
 |  [07]   | `ContentToCopy` / `FileToCopy` | type                             | seed content/files into the image (init SQL, fixtures) |
 
-```ts signature
+```ts
 declare class GenericContainer implements TestContainer {
   constructor(image: string)
   static fromDockerfile(context: string, dockerfileName?: string): GenericContainerBuilder
@@ -60,7 +60,7 @@ declare class GenericContainer implements TestContainer {
 |  [04]   | `ExecResult`               | type                                    | `{ output; stdout; stderr; exitCode }` in-container receipt |
 |  [05]   | `ExecOptions`              | type                                    | `{ workingDir; user; env }` exec context (`psql`/`mc`)      |
 
-```ts signature
+```ts
 interface StartedTestContainer extends AsyncDisposable {
   getHost(): string
   getFirstMappedPort(): number
@@ -92,7 +92,7 @@ Every row leaving its gate unset inherits the image's own `HEALTHCHECK` and fall
 |  [06]   | `Wait.forAll([...])`                        | `CompositeWaitStrategy` | conjoin gates (port + log + http) for a multi-signal image  |
 |  [07]   | `Wait.forOneShotStartup()`                  | `WaitStrategy`          | ready when a run-to-completion container exits              |
 
-```ts signature
+```ts
 declare class Wait {
   static forLogMessage(message: string | RegExp, times?: number): WaitStrategy
   static forHttp(path: string, port: number, options?: { abortOnContainerExit?: boolean }): HttpWaitStrategy
@@ -121,7 +121,7 @@ Cross-container wiring, runtime detection, image policy, and the multi-service c
 |  [06]   | `DockerComposeEnvironment`            | class                   | multi-service lane; `.up()` → `StartedDockerComposeEnvironment`        |
 |  [07]   | `StartedDockerComposeEnvironment`     | class `AsyncDisposable` | `.getContainer(name).getMappedPort(p)`; `.down()`                      |
 
-```ts signature
+```ts
 declare class Network { constructor(uuid?: Uuid); start(): Promise<StartedNetwork> }
 declare class TestContainers { static exposeHostPorts(...ports: number[]): Promise<void> }
 declare function getContainerRuntimeClient(): Promise<ContainerRuntimeClient>
@@ -140,7 +140,7 @@ declare class DockerComposeEnvironment {
 
 [STACK: both harness rows as data on the one builder] — the pg row and the S3 store row differ only in their `with*` data, not in mechanism:
 
-```ts signature
+```ts
 const pgRow    = new GenericContainer(Containers.pin("pg"))
   .withExposedPorts(5432).withEnvironment({ POSTGRES_PASSWORD: "…" })
   .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/, 2))

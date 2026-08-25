@@ -29,7 +29,7 @@ Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` join
 - Boundary: exact-row admissibility IS the FD/AD partition this package already rules for the modal oracle at `Solver/clash#CLASH_AND_TWIN`: a hyper-dual-authorable objective earns exact derivatives, a full-FE, subprocess, or ONNX oracle stays black-box on the sampled rows, and `Validate` refuses the mismatch before materialization rather than degrading silently. `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Gradient` supplies that exact source, read once at the design centre for every axis — a per-axis re-evaluation, a lane-local dual scalar, and a finite-difference stand-in behind the exact row's name are the three deleted forms. Linearized bars take each axis's OWN transform: a logarithmic factor spanning two decades has a geometric extent, so its slope chains through the centre value and its span is the log-space extent — the arithmetic difference of the endpoints reports a bar dominated by the upper decade alone.
 - Boundary: scheduler composition supplies the admitted `ProgressCell` leaves, parent, and `PhaseSubscription`; sweep advances and disposes them but never mints an `AdmittedIntent`. `Governed` requires cooperative `step` settlement and forks refinement through `IO.Fork`; a frame-budget expiry returns the BEST SETTLED refinement rather than discarding the frame's work — only an expiry before the first refinement settles has nothing to return and faults.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

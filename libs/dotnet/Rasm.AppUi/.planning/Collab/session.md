@@ -26,7 +26,7 @@ Presence is ephemeral and admission is durable: a role never persists in the op-
 - Growth: a new role is one `SessionRole` row carrying its grant set; a new capability is one `SessionCapability` row plus its appearance in the granting rows and one arm on the intent fold; a new fault is one `[FaultCase]` leaf; zero new surface.
 - Boundary: `SessionFault` owns session refusals and `CollabFault` owns merge refusals through separate direct generated unions. The grant column is a `CapabilitySet`, never a `Seq` the caller scans: `Require` carries the MISSING rows into the refusal, so an evidence-free "not authorized" is unspellable. The role axis is closed and generated so a new role breaks the grant declaration at compile time, and a role-shaped string travelling as a bare literal is the rejected form at every level — the register stores the row's `Key` and reads it back through `Of`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -100,7 +100,7 @@ public abstract partial record SessionFault : Fault {
 - Growth: a new lifecycle state is one `MembershipState` row carrying its reachability predicate and its authoring refusal; a new verb is one `MembershipOp` case whose generated total `Switch` breaks the write law and the capability fold at compile time; a new member column is one `CollabColumn` row both ends read; zero new surface, zero new register.
 - Boundary: the register is DURABLE truth on the one edit-intent union — a membership row written directly into the live document, a session store beside the ledger, or a role read off a presence channel are the three deleted forms, because authority a cold replay cannot reproduce vanishes with the session. `Govern` is the register's ONLY write ingress and it carries no gate of its own, because `IntentLedger.Project` folds the composition-bound `Admit` column ahead of `LedgerAppend`; a governance surface calling `Apply` directly is the named deleted form. Every write descends through the `Collab/sync#DOCUMENT_OWNER` scoped `Use` and its mint-then-write nested scope, and every read crosses the same `CollabColumn` rows the write arm crossed. Transition legality lives on the DESTINATION row and ANSWERS a kernel `Transition<MembershipState>` — the refused case carries both the prior state and the cause, so no caller re-derives from a discarded bool; the hand-built `Conflict` beside a `false` is the deleted form. The peer key is the `Collab/sync#DOCUMENT_OWNER` `ContainerKey` mint at every hop, so a page-local `peer.ToString(...)` spelling has no seat. `MemberRow` carries role, actor, and stamp as `Option` because they are the evidence a WRITTEN row holds.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -236,7 +236,7 @@ public static class MemberRegister {
 - Growth: a new intent case is one `Required` arm; a new roster law is one `RosterInvariant` row plus its appearance in the demanding verbs' sets; one admission instrument is one `InstrumentSpec` row on `TelemetryRow` with its writer beside it; zero new surface.
 - Boundary: ONE gate at ONE seam — `IntentLedger.Project`, ahead of `LedgerAppend` — so a refused intent reaches neither durable truth nor the live document; a second gate at `CollabWire.Merge` is the rejected form because a remote frame carries opaque Loro delta bytes and no intent to grade, so a peer's edits are graded at that peer's own producer and its right to be on the wire at all is session membership. Replay is likewise ungated, because a row that reached the ledger was admitted when it was written and re-grading it against today's roster would make cold-load a function of current membership rather than of the window. The gate reads the DURABLE register and never a presence channel, because presence is forgeable TTL-expiring state and a grant read off it would let a peer widen its own authority by publishing a claim. Independent refusals ACCUMULATE and dependent ones sequence: the register read, the seated role, and the roster read are a chain because each needs the last, while the grant demand and the roster invariants join applicatively — the monadic ladder that reported one defect per attempt is the deleted form. `Governing` is computed ONCE on `RosterView`, and it is the same value `Collab/session#SESSION_CHROME`'s panel grades, so the decision and the affordance that leads to it cannot drift. The rank check guards the roster alone and never the document, so a govern grant is authority over LOWER ranks and one owner never ejects another. The tenant partition is the message-envelope `TenantContext` the seal already stamps and this gate re-mints none of it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -447,7 +447,7 @@ flowchart LR
 - Growth: a new seat column is one `SessionSeat` member projected from a row the register or the channel already carries; a new presence field is one `CollabColumn` row inside the structured identity value; zero new surface, zero new channel.
 - Boundary: presence is EPHEMERAL and admission is DURABLE, so a role never persists in the op-log as presence and a presence value never authorizes — `Seats` renders both columns and every decision reads `Granted`, because a claim is forgeable TTL-expiring state and a view treating it as authority would show a role no gate honors. The claim is the one write on the AWARENESS channel a capability gates, and the viewport channel carries its own gate at its own producer — `Collab/tour#TOUR_PROJECTION`'s `TourFollow.Publish` reads this register for `SessionCapability.Present` before the playhead is written and keys it by publishing peer, so a claim is never the thing a follower trusts and two channels are never gated at one site. This owner mints no channel, no apply path, and no second roster — the awareness channel, `Presence.ApplyRemote`, and `MemberRegister.Roster` are the three landed owners it composes, and a session-local ephemeral store beside them is the rejected form.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SessionSeat(ulong Peer, MemberRow Member, Option<SessionRole> Claimed, bool Live) {
     public CapabilitySet<SessionCapability> Granted =>
@@ -491,7 +491,7 @@ public sealed record SessionPresence(Presence Presence, CollabDoc Document) {
 - Growth: a new activity is one `NoticeKind` row carrying its lifetime and handoff projection; a new cluster facet is one `SeatCluster` projection; zero new surface, zero new channel, zero new timer.
 - Boundary: the cluster reads the DURABLE roster and the channel decorates it, never the reverse — a stranger cannot appear by broadcasting, and a seat's granted rights render beside the claimed role. The notice carries no timer, no scheduler, and no tick — its lifetime is a row column and its remaining fraction a pure read off the MONOTONIC line, so a suspended surface resumes honest; a wall-clock delta over `Instant`s was the form that made that claim false. A notice without a handoff is unrepresentable because the row projects the verb AND the payload, so a dead-end toast wearing a notice's shape cannot be constructed, and every key it names is its owning surface's own constant rather than a literal that drifts from it. The producer/consumer seam is a BOUNDED CHANNEL for the reason `Collab/presence#LIVE_WIRE` states: `Subscribe` fires on the engine's Rust callback thread, so a notice list projection invoked there holds the diff frame open for its whole duration; `TryWrite` seats and returns, the consumer drains at its own cadence, and the shed observer parks each dropped notice on the sink rather than losing it silently. The feed NEVER filters the root feed, because a client-side filter pays the whole document's traffic to render one issue's activity.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -622,7 +622,7 @@ public sealed record ActivityFeed(
 - Growth: a new connection state is one `SyncHealth` row carrying its six columns; a new banner verb is one `ConnectionVerb` row; a new governance verb is one `SessionAction` row naming its grant and its invariant set; zero new surface, zero second health source.
 - Boundary: the roster reads the DURABLE register for every decision and the channel for liveness alone, so an action revealed by a presence claim is the deleted form; action visibility is CAPABILITY-AND-INVARIANT DERIVED rather than role-named, so adding a role never touches the panel and a second retention-bound verb declares its own set. The affordance and the decision cannot drift because both fold `RosterInvariant.Holds` over one `RosterView` — the second hand-written sole-governor predicate that made the "one law" claim false is deleted. The health fold takes the staleness projection as its SOURCE and derives no freshness of its own; a `FeedHealth` row this axis does not yet spell resolves to the most conservative posture rather than to `live`, so an unmapped grade under-promises instead of claiming a sound connection. Editing is never refused locally — a local edit is a typed intent that queues, so the row carries how a queued intent PRESENTS rather than whether it is admitted; the retired `Edits` column answered `true` on every row and the posture reading it was a constant, which is `RULINGS.md` `[02]`'s own named dead-configuration defect. The queued count is the overlay ledger's own pending gauge and the degradation level is the governor's tier; every chrome key is a DECLARED row column rather than a string composed at the materialize site, and the re-drive law is the kernel `RedrivePolicy` the health row declares rather than an attempt ceiling or a backoff arithmetic spelled here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct SyncKeys(string Pane, string Headline, string Body) {
     public static SyncKeys Of(string stem) => new(stem, $"{stem}.headline", $"{stem}.body");

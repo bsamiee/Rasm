@@ -22,7 +22,7 @@ The rail composes and never re-mints: `OutputPolicy.Land` is the folder's atomic
 - Packages: `Domain/rails` (`Op`, `ContentHash`), `Domain/validation` (`CapabilitySet<T>`, `ICapability<T>`), `Rasm.Rhino.Document` (`DocumentPath`), `Exchange/operations` (`ExchangeFault`, `WriteContent`), RhinoCommon (`File3dm.TableTypeFilter`/`ObjectTypeFilter`, `File3dmWriteOptions.EnableRenderMeshes`/`EnableAnalysisMeshes`, `RhinoApp.ExeVersion`) per `.api/api-rhinocommon-fileio.md`.
 - Growth: a new mesh channel is one `MeshChannel` row plus its column in each target's declared set; a new slice is one `ArchiveSlice` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -257,7 +257,7 @@ public sealed partial class ArchiveWritePolicy {
 - Packages: `Domain/rails` (`Op`, `Lease<T>`, `IValidityEvidence`, `ValidityClaim`), `Rasm.Numerics` (`Dimension`), `Exchange/operations` (`ExchangeFault`, `MutationPhase`, `GeoPoint`), QuikGraph (`BidirectionalGraph`, `TaggedEdge`, `AlgorithmExtensions.IsolatedVertices`) per `libs/dotnet/.api/api-quikgraph.md`, RhinoCommon (`File3dm` tables) per `.api/api-rhinocommon-fileio.md`.
 - Growth: a new resource role is one row carrying its reach; a new relation is one row; neither touches the container, the coverage fold, or the integrity query.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ResourceReach {
@@ -450,7 +450,7 @@ public readonly record struct ArchiveVerdict(int InvalidObjects, int DanglingLin
 - Growth: a new mutable archive surface is one case with its application arm; the amended yield and the total dispatch break loudly until the case is handled.
 - Boundary: `SetPreviewCase` carries copied `ArchiveBytes`, decodes and clones the bitmap while the stream remains live, and disposes both bitmaps after `SetPreviewImage` copies the pixels. `ClearPreviewCase` passes the host null sentinel.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ArchiveUnitPolicy {
@@ -609,7 +609,7 @@ public sealed record ArchiveMutation(ResourceNode Resource, Seq<ExchangeEvidence
 - Growth: a new archive request is one `ArchiveOp` case, one admission arm, and one dispatch arm; the program, the landing, and the evidence family are untouched.
 - Boundary: `File3dm`, static-read `ViewInfo`/`DimensionStyle`, `EarthAnchorPoint`, and preview `Bitmap` values live only inside owned lease windows; every yield contains local value shapes, copied byte memory, paths, hashes, or typed faults before release. A static read answering an array of host rows folds through the owned-lease pair — one arm projecting detached values, one arm counting — and both force the fold, because a lazy projection defers the release past the window that owns it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArchiveOp {

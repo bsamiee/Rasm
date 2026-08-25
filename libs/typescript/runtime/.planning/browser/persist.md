@@ -35,7 +35,7 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 - Packages: `@effect/experimental` (`Persistence`); `@rasm/core` (`Fault.Class`); `effect` (`Array`, `Clock`, `Effect`, `Layer`, `Option`, `ParseResult`, `Predicate`, `Record`, `Schema`); `idb-keyval`.
 - Boundary: `@effect/platform`'s `KeyValueStore` Tag stays unbound here by design — its browser binding is Web-Storage-backed and carries no IndexedDB layer, so the durable lane is direct `idb-keyval` under this one owner; the EventLog journal's own IndexedDB database is `[5]`'s and never shares these stores.
 
-```typescript signature
+```typescript
 import { Persistence } from "@effect/experimental"
 import { Fault } from "@rasm/core"
 import { Array, type Clock, Effect, Layer, Option, ParseResult, Predicate, Record, Schema } from "effect"
@@ -307,7 +307,7 @@ const KvBacking: Layer.Layer<Persistence.BackingPersistence, never, Kv> = Layer.
 - Growth: a new pressure band is one `_BANDS` row; a new backing is one `_BACKINGS` row; a new residency fact (a bucket API, a durability probe) is one member on this owner; a new egress route is one `_ROUTES` row plus its `_LADDER` seat.
 - Packages: `effect` (`Array`, `Effect`, `Exit`, `Option`, `Predicate`, `Schema`, `Scope`); `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 const _BANDS = {
   ample: { ceiling: 0.5, heavyLane: true, warmDepot: true, degrade: "<none>" },
   tight: { ceiling: 0.85, heavyLane: true, warmDepot: false, degrade: "<depot-residency-refused>" },
@@ -671,7 +671,7 @@ const Egress: {
 - Boundary: the mountable sync handler is `serve/live#MOUNT_PORT`'s row and its storage port is the data wave's binding; compaction and reactivity keys are the app's group declarations.
 - Packages: `@effect/experimental` (`EventJournal`, `EventLog`, `EventLogRemote`, `Reactivity`); `@effect/platform-browser` (`BrowserKeyValueStore`); `effect` (`Layer`).
 
-```typescript signature
+```typescript
 import { EventJournal, EventLog, EventLogRemote, Reactivity } from "@effect/experimental"
 import { BrowserKeyValueStore } from "@effect/platform-browser"
 

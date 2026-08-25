@@ -25,7 +25,7 @@
 - Growth: a new gate is ONE row naming its band, its dimension, and its derivation; every consumer reads it through `Context.For` with no signature change anywhere.
 - Boundary: `Tolerance.Value` is a public bare `double`, so `context.Absolute.Value`, `context.Angle.Value`, and every host read of the shape compile unchanged across the branch — the compatibility is load-bearing and deliberate, not incidental. `Rasm.Element` owns the dimensioned rendering of a tolerance.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 using Rhino.Geometry.Intersect;
@@ -140,7 +140,7 @@ public readonly record struct Tolerance(ToleranceLane Lane, double Value) : IVal
 - Growth: a new model-space fact (a grid-resolution policy, a document epoch) is one validated slot on the scalar floor, inherited by every derived factory; a new GATE is a `ToleranceLane` row and touches nothing here.
 - Boundary: `Context` threads explicitly — a parameter on synchronous rails, inside `Env` on `Eff` pipelines (`rails.md` Op law), never a global default; `Analyze.From`/`Analyze.In` (`Analysis/query.md`) forward over the `Of` family, `Env` carrying the constructed `Context`. `Absolute`/`Relative`/`Angle` survive as stored accessors returning `Tolerance`, so every `.Value` read across the kernel and the host plane compiles unchanged while the three deleted value-object TYPES disappear from every signature.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 using Rhino;

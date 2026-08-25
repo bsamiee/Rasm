@@ -53,7 +53,7 @@
 - Growth: a new machine posture is one `RetractKind` policy value carrying its S0 classification; a new cost regime is one admitted `LinkObjective`; a new obstacle occurrence is one `Keepout` admission; a new move classification is one `LinkSegment` case.
 - Boundary: no route publishes `double.PositiveInfinity`, a disconnected partial tour, an open tour that never returns home, or unguarded moves.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Numerics.Tensors;

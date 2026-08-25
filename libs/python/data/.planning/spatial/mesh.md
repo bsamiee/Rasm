@@ -21,7 +21,7 @@ Every payload keys by runtime `ContentIdentity` over the canonical `float64` poi
 - Growth: a new surface format is one extension string on the `trimesh` row; a new FE format already routes through `meshio.extension_to_filetypes`; a new engine is one `MeshBackend` case plus one `_Backend` row; a new leg is one `MeshOp` case, one `run` arm, and one `MeshProduct` case; a new named array kind is one more dict the row `walk` folds, surfacing as one more egress column and receipt arity with no frame edit; zero per-format `read_*`/`write_*` family; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.MESH` in this module's one `RAISES` table, which every section anchors on.
 - Boundary: no geometry kernel, no bridge lifecycle, no NURBS/Brep/SubD construction — the `rhino3dm` row reads `File3dm` meshes and instance references only, the offline 3dm reader per the geometry-flow law. Frame streaming is XDMF's alone, so a surface row carrying no frame reader refuses the leg by name instead of dying inside a codec it never opened.
 
-```python signature
+```python
 from collections.abc import Callable, Iterator, Mapping
 from itertools import accumulate
 from typing import Final, Literal, assert_never
@@ -626,7 +626,7 @@ class MeshExchange(Struct, frozen=True):
 - CRS: `LasHeader.parse_crs` answers `None` for a file carrying no CRS VLR AND for a file whose VLR it cannot understand, so `str(... or "")` fuses both with a subset that carried none forward. Absence rides `Posture` from the single read site and the receipt omits the fact key rather than publishing an empty CRS a consumer reprojects against.
 - Boundary: no geometry kernel registration, no scan-to-BIM compute, no `pdal` filter-graph, no host coupling — host-free file exchange feeding the geometry companion at the wire; the point records cross as one content-keyed `PointRecordTable` through the shared `_column` builder, never a `laspy`- or `pdal`-specific object and never a re-spelled column fold.
 
-```python signature
+```python
 from collections.abc import Callable, Iterator
 from typing import BinaryIO, Final, Literal, assert_never
 
@@ -920,7 +920,7 @@ def _landed(data: "laspy.LasData", out: ResourceRef, mode: WriteMode) -> Runtime
 - Growth: a new product is one `ProductKind` member with its `_PRODUCT` row; a new container for an existing product is one suffix change on that row; zero new surface and no per-product entrypoint.
 - Boundary: byte landing and identity only — no BCF authoring, no spreadsheet rendering, no model diffing, and no IFC read of any kind. The producing geometry planes own every payload; a `ProductKind` row whose bytes this tier would have to author is the rejected shape.
 
-```python signature
+```python
 from collections.abc import Iterator
 from enum import StrEnum
 from typing import Final

@@ -20,7 +20,7 @@ Drain's single compare-and-swap mints the stamp and the ordinal together (kernel
 - Packages: Grasshopper2 (`SolutionId`), Eto.Drawing (`PointF`, prelude-bare per the csproj global using), `Rasm.Interaction` (`IUiFact`, `UiFact`, `LifecycleStage`, `PulseBeat`), `Rasm.Domain`.
 - Growth: a new GH2 host signal is one row on its signal vocabulary and, where the payload is new, one `GhFact` case breaking every total dispatch loudly; a new Eto fact is the kernel's one case and costs this page nothing.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -111,7 +111,7 @@ public abstract partial record GhFact : IUiFact {
 - Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and args types), `Rasm.Interaction` (`IUiSource`, `EventAnchor`, `UiEvents`, `EvidenceDrain`, `Atomicity`), `Rasm.Domain` (`Op`, `Fault`).
 - Growth: a new host stream is one row through an existing fold; a new args family is one `Wired` instantiation — the roster's two folds and the kernel gate never change.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -230,7 +230,7 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 - Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookRail`, `Op`, `Lease<T>`).
 - Growth: a third `CancelEventArgs` surface is one mount arm; the write-back law never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.ComponentModel;
 using Rasm.Domain;

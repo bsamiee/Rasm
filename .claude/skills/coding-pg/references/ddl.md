@@ -6,7 +6,7 @@ Schema design patterns for PostgreSQL 18.
 
 One polymorphic example demonstrating: domains, generated columns, range types, NOT NULL defaults, uuidv7(), JSONB validation.
 
-```sql conceptual
+```sql
 CREATE DOMAIN email AS citext CHECK (VALUE ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$');
 CREATE DOMAIN money_precise AS numeric(19,4) CHECK (VALUE >= 0);
 
@@ -55,7 +55,7 @@ CREATE INDEX organization_search_idx ON organization USING gin (search_vector);
 
 Domains brand primitive scalars with validation. Column declarations reference the domain — never inline equivalent CHECKs.
 
-```sql conceptual
+```sql
 -- CHECK-constrained domain: validation on every INSERT/UPDATE
 CREATE DOMAIN slug AS text
     CHECK (VALUE ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$' AND length(VALUE) BETWEEN 3 AND 63);
@@ -75,7 +75,7 @@ CREATE TYPE monetary AS (amount numeric(19,4), currency text);
 
 Composite types model structured return values and function parameters. Prefer over OUT parameter proliferation.
 
-```sql conceptual
+```sql
 CREATE TYPE audit_entry AS (
     actor_id uuid, action text, payload jsonb, occurred_at timestamptz
 );
@@ -100,7 +100,7 @@ Dual `start_date`/`end_date` columns are forbidden; always use `tstzrange` with 
 
 `WITHOUT OVERLAPS` is the temporal constraint mechanism: use it in PRIMARY KEY or UNIQUE constraints for temporal non-overlap. An EXCLUDE constraint is the fallback only when the constraint needs operators beyond equality and range overlap, such as three-way exclusion with non-equality operators.
 
-```sql conceptual
+```sql
 CREATE TYPE price_range AS RANGE (SUBTYPE = numeric);
 
 -- Multirange for non-contiguous intervals
@@ -170,7 +170,7 @@ Range operators:
 
 Enums are rigid — reordering impossible, removal requires full type recreation. Prefer domain-constrained text or FK lookup.
 
-```sql conceptual
+```sql
 -- Domain-constrained text: transactional, no type recreation
 CREATE DOMAIN order_status AS text
     CHECK (VALUE IN ('draft', 'confirmed', 'shipped', 'delivered', 'cancelled'));
@@ -186,7 +186,7 @@ ALTER TABLE orders ADD CONSTRAINT fk_order_status
 
 ## [06]-[TYPE_COMPOSITION]
 
-```sql conceptual
+```sql
 -- Domain + range: branded temporal interval with floor constraint
 CREATE DOMAIN booking_period AS tstzrange
     CHECK (NOT isempty(VALUE) AND lower(VALUE) >= '2020-01-01'::timestamptz);
@@ -205,7 +205,7 @@ CREATE TABLE articles (
 
 Virtual columns compute at read time — zero storage, instant `ALTER TABLE ADD`. Expressions must be IMMUTABLE.
 
-```sql conceptual
+```sql
 ALTER TABLE customer ADD COLUMN
     full_name text GENERATED ALWAYS AS (
         profile->>'firstName' || ' ' || profile->>'lastName'
@@ -229,7 +229,7 @@ ALTER TABLE product ADD COLUMN
 
 TimescaleDB hypertables for time-series; pg_partman for non-time-series range/list. Never hand-roll partition creation.
 
-```sql conceptual
+```sql
 -- Range partition by time
 CREATE TABLE events (
     id          uuid        DEFAULT uuidv7(),
@@ -274,7 +274,7 @@ SELECT partman.create_parent(
 
 ## [09]-[CONSTRAINTS]
 
-```sql conceptual
+```sql
 -- Exclusion constraint: no overlapping periods per tenant (requires btree_gist)
 ALTER TABLE lease ADD CONSTRAINT no_overlapping_leases
     EXCLUDE USING gist (tenant_id WITH =, lease_period WITH &&);
@@ -330,7 +330,7 @@ DDL properties governing `Model.Class` field modifier selection:
 
 Model.Class mapping for the canonical table (branded entity IDs):
 
-```typescript conceptual
+```typescript
 const OrganizationId = S.UUID.pipe(S.brand('OrganizationId'));
 
 class Organization extends Model.Class<Organization>()('Organization', {
@@ -358,7 +358,7 @@ class Organization extends Model.Class<Organization>()('Organization', {
 
 Canonical document-chunk-embedding schema for retrieval-augmented generation:
 
-```sql conceptual
+```sql
 CREATE TABLE documents (
     id          uuid        DEFAULT uuidv7() PRIMARY KEY,
     tenant_id   uuid        NOT NULL,

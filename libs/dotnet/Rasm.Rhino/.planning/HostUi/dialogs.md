@@ -26,7 +26,7 @@
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Dialogs` message, list, check, property, context-menu, layer, linetype, print-width, sun, and colour members; `NamedColorList`; `RhinoEtoApp.MainWindowForDocument`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`RangeDialog`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control` as the anchor type); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Interaction` (`PickerDemand`, `UiFault`, `MenuNode`, `MenuForge`, `MenuSlot`, `IntentTable`, `IntentKey`, `AskTrait`, `AskDelivery`, `AskModality`, `AlphaMode`); `Rasm/Domain` (`Op`, `Ring<Error>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`, `PrintPen`).
 - Growth: a new Rhino-only interrogation is one `Inquiry` case, one answer case, and one arm; a new toolkit prompt is one `PickerSpec` case at the kernel and no edit here; a message roster the toolkit gains moves OUT of `VerdictRoster` and into the kernel policy.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -619,7 +619,7 @@ public static class Inquiries {
 - Growth: a new host production is one `HostAsset` case, one arm, and one `HostProduct` shape only if no existing shape carries it; a new stroke channel is one `PreviewChannel` row; a new coverage carriage is one kernel `AlphaLayout` row and no edit here.
 - Boundary: the host image cache, the `DisplayBitmap` table, and the plug-in icon registry keep their own custody — this owner mints, answers, and never retains.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PreviewChannel {

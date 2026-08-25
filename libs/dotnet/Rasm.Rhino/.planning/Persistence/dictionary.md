@@ -21,7 +21,7 @@
 - Growth: a new payload type is one row; a new boundary is one `ArchiveReach` row with the membership on the rows that reach it; consumers are untouched.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`, `Traverse`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Op.AcceptValidated`, `Cell.Claim`, `Transition`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[DICTIONARY_VALUE_WRITE]`/`[DICTIONARY_VALUE_READ]`/`[DICTIONARY_LIFECYCLE]` — the `Set` overload roster, `SetEnumValue<T>`, `TryGetValue`, `Keys`, `Version`, `Name`, `ChangeSerialNumber`, `ParentUserData`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `GeometryBase.Duplicate`, `GeometryBase.GeometryEquals`, `MeshingParameters` copy constructor), RhinoCommon objects (`api-rhinocommon-objects.md` — `ObjRef` copy constructor, `ObjectId`, `GeometryComponentIndex`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Drawing;
@@ -360,7 +360,7 @@ public sealed record ArchiveValue {
 - Growth: a new merge policy is one `ArchiveMerge` row; a new diff shape is one `ArchiveChange` case with every reader loudly broken.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Traverse`, `Fold`, `Choose`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.AcceptValidated`, `KernelFault.InvalidValue`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[DICTIONARY_LIFECYCLE]` — `ArchivableDictionary(int, string)`, `Keys`, `TryGetValue`, `Version`, `Name`, `ChangeSerialNumber`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.Collections;

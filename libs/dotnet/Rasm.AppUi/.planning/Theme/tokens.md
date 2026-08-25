@@ -22,7 +22,7 @@ Generation is the page's ruling shape: a hand-authored per-role paint row, a per
 - Growth: a new appearance identity is one `AppearanceSeed` value, never a paint roster; a new role is one `PaintRole` row carrying its derivation; a new metric is one step on an existing `MetricFamily` or one family row; a new elevation is one `DepthTier` row; a new severity is one ranked `Severity` row; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Boundary: `ThemeCatalog` admits every Avalonia colour into the kernel `PerceptualColor` and constructs, converts, and measures no colour through `Wacton.Unicolour` itself — the one package name that crosses is `HueSpan`, the traversal a polar `BlendPath` row takes as its argument. `TokenKey` is minted by the generation owners alone, so a consumer cannot address a bucket by a string it composed and a key that names no generated rung is unspellable rather than a silent lookup miss; the resolved buckets are total by construction and `Palette` reads them on the accumulating rail, so a refused generation reports EVERY missing anchor as one typed `ThemeFault.PaletteRejected` at boot rather than an index throw inside a static initializer. `Readable` is the one derived-contrast form and its solve lives at the kernel: a page-local bisection over `Tone` beside `Contrast` is the deleted form, exactly as a local sRGB lerp is. Light and high-contrast are PROJECTIONS of one generation through `VariantProjection` — the high-contrast projection zeroes near-neutral chroma, raises every `Readable` floor to `ContrastFloor.AaaText`, drops the `Elevation` trait so every shadow stack empties (the shipped high-contrast dictionaries carve no `BoxShadow` slot, so border emphasis substitutes), and widens the stroke family in one row. Elevation is a LAYER STACK, never one offset-and-blur pair, and each layer names its `LayerKind`. `ThemeFault` owns colour and typography failures through its direct generated union cases.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(SkipKeyMember = false)]
@@ -201,7 +201,7 @@ public sealed partial class Severity {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -401,7 +401,7 @@ public sealed partial record ResolvedTheme(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -421,7 +421,7 @@ public abstract partial record ThemeFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ThemeCatalog {
@@ -631,7 +631,7 @@ public static class ThemeCatalog {
 - Growth: a new preference is one `PreferenceRow` row plus its host-seam read-and-change pair; a new accessibility concession is one kernel `MotionConcession` row and one `PreferenceRow` row naming it; a new surface posture is one `PostureSlot` row and its emitted variant partition.
 - Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe reads `HostUtils.RunningInDarkMode` with flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rides the same host row, standalone rows read `Application.PlatformSettings` (`GetColorValues()` answering `ThemeVariant` and `ContrastPreference`, re-probed on `ColorValuesChanged`), and the browser probe stays a designed-only column. Avalonia publishes appearance and contrast alone: reduced motion, reduced transparency, and text scale have NO platform surface, so those three rows read the host-attach seam column a mount supplies and default to `Withheld` when a host answers nothing. The seam is a PAIR, read beside change, because a host that can answer those rows can also flip them — with the platform subscription as the only change source three of five rows are unraisable, and a host answering nothing binds an empty subscription rather than an absent one. `RegisterFollowSystemTheme` is NOT the OS light-and-dark follow: it guards on Windows, tracks `ContrastPreference` alone, and maps the system accent onto one of the four shipped high-contrast variants, so mounting it would install a second appearance driver. The four shipped Semi high-contrast variants inherit every palette key from their parent variant, so the shipped side is a system-colour mapping and the high-contrast PALETTE is this page's own projection: two rows here, `Desert` carrying the light-inheriting chain and `NightSky` the dark-inheriting one, and a locally minted `new ThemeVariant("high-contrast", …)` key never reaches that dictionary because inheritance resolves through the shipped key. Density and variant are orthogonal and compose only inside `Resolve`; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule.
 
-```csharp signature
+```csharp
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -789,7 +789,7 @@ public sealed class PreferenceCell(
 - Growth: one density row carrying its policy; one surface class is one arm of the ONE election dispatch.
 - Boundary: the Fluent compact resource swap rides the `Style` column on the one rail, never a parallel compact stylesheet; the type ladder reads `TypeScale` under the same policy so a density election moves type with geometry; a surface electing a density does NOT independently elect a variant — both columns come off the one election row, and the per-surface variant OVERRIDE is the swap capsule's delegate column.
 
-```csharp signature
+```csharp
 public sealed record DensityPolicy(UnitInterval Space, UnitInterval Radius, UnitInterval Stroke, UnitInterval Extent, UnitInterval Type);
 
 [SmartEnum<string>]
@@ -836,7 +836,7 @@ public static class SurfaceElection {
 - Growth: a new data-colormap is one `Colormap` row carrying its class and its published anchor stops with their source; a new class treatment is one trait row.
 - Boundary: the stop rosters are PUBLISHED palettes, cited per row — viridis/magma/cividis from the matplotlib perceptually-uniform family, turbo from Google AI, coolwarm from Moreland's diverging maps, twilight from matplotlib's cyclic pair, Tableau 10 from the Tableau categorical set — so provenance is the row's, never a hand-picked hex run; sampling composes the kernel `PerceptualColor.Mix` under the class's own traversal through the tokens page's admission edge, and a local sRGB lerp is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [NoReorder]

@@ -28,7 +28,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 - Packages: `Rasm.Interaction` (`UiThread.Tune`, `StallPolicy`, `DispatchLane`), `Rasm.Parametric` (`PaceBand`, `MonotonicTimeline`), `Rasm.Numerics` (`PositiveMagnitude`), `Rasm.Domain` (`Op`).
 - Growth: a measured per-lane pathology is one stretch row in the policy this producer seats; the entry never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

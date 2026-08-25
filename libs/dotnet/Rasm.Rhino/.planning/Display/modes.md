@@ -28,7 +28,7 @@
 - Boundary: colors quantize once at the writer through `Quant.Sys` — the folder's one `System.Drawing` egress composing the kernel `PerceptualColor.ToDrawing` at `Display/draw.md`; raw host colors and attribute editors stay inside the boundary.
 - Packages: RhinoCommon `Rhino.Display` (`DisplayPipelineAttributes` and its nested vocabularies — `.api/api-rhinocommon-display.md`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`, `[ComplexValueObject]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `ICapability`, `Op`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -739,7 +739,7 @@ public abstract partial record Appearance {
 - Growth: a built-in mode is one `ModeKind` row; a descriptor trait is one `ModeTrait` row.
 - Packages: RhinoCommon `Rhino.Display.DisplayModeDescription` (`.api/api-rhinocommon-display.md`); Thinktecture.Runtime.Extensions; `Rasm.Domain` (`CapabilitySet`, `ICapability`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct ModeId {
@@ -828,7 +828,7 @@ public abstract partial record ModePlan {
 - Law: the `.ini` import's dialogue posture is the Document spine's `HostInteraction` row, never a bare bool — the row is the corpus-wide host-dialogue axis every folder's `quiet` argument reads.
 - Growth: a table verb is one request case, one dispatch arm, and one `ModeRequest` entry case in the same pass.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record ModeOp {
@@ -885,7 +885,7 @@ internal abstract partial record ModeOp {
 - Growth: a new mode operation is one request case, one `ModeOp` case, and one receipt projection inside the existing dispatch.
 - Packages: RhinoCommon `Rhino.Display.VisualAnalysisMode` and `Rhino.DocObjects.RhinoObject` (`.api/api-rhinocommon-display.md`); Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]`, `[UserMapping]`); LanguageExt.Core; `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `DocumentCommit`, `HostInteraction`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct AnalysisId {

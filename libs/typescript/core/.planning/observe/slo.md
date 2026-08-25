@@ -20,7 +20,7 @@
 - Law: Partition derives a good share from one tagged counter; Ratio is reserved for independent numerator and denominator counters.
 - Law: budget is `1 - target`, and an objective window cannot be shorter than its longest burn window.
 
-```typescript signature
+```typescript
 import { Array, Duration, Number, Option, Order, Record, Schema } from "effect"
 import { Shape } from "../value/schema.ts"
 import { Convention } from "./convention.ts"
@@ -165,7 +165,7 @@ class _Objective extends Schema.Class<_Objective>("Objective")({
 - Law: burn windows remain Duration values through arithmetic and dialect rendering; consumers never parse strings.
 - Growth: a tuned discipline (a fifth row, a different factor) is a table edit; consumers re-derive.
 
-```typescript signature
+```typescript
 const _burnKinds = ["pageFast", "pageSlow", "ticketFast", "ticketSlow"] as const
 const _burnRows = {
   pageFast: { factor: 14.4, key: "page-fast", long: Duration.hours(1), severity: "page", short: Duration.minutes(5) },
@@ -182,7 +182,7 @@ const _Burn = Shape.vocabulary(_burnKinds, _burnRows)
 - Receipt: `Verdict` carries each row's burn state and optional dominant severity as routable data.
 - Growth: a new verdict axis is one field on the fold's construction — the table and arithmetic are closed.
 
-```typescript signature
+```typescript
 const _burnOf = (objective: _Objective, errorRate: Reliability.Slo.Rate): number => errorRate / objective.budget
 
 const _share = (burn: Reliability.Slo.Burn, objective: _Objective): number =>
@@ -239,7 +239,7 @@ const _SloOwner: {
 - Law: Board and IaC compile `Reliability.Alert.Spec`; neither consumer re-derives burn thresholds.
 - Law: specs carry routing inputs only; deploy configuration owns receivers, schedules, and escalation chains.
 
-```typescript signature
+```typescript
 const _severityKinds = ["page", "ticket"] as const
 const _severityRows = {
   page: { hold: Duration.zero, tone: "critical", urgency: "interrupt" },

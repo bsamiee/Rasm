@@ -20,7 +20,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 - Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. Deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
 - Boundary: the graph plane produces the node-keyed enrichment frame; the relational join belongs to the tabular plane, never a graph-database node table re-minted here. `NodeId` is never widened to `Hashable` to admit a networkx analysis kernel — conversion keeps it the rx `int`. No product collaboration store, no bridge lifecycle, no compute numeric trio.
 
-```python signature
+```python
 import sys
 import tempfile
 from collections.abc import Iterable
@@ -664,7 +664,7 @@ flowchart TD
 - Growth: one appended nested entity field carries a new axis; presentation evidence enters no graph edge.
 - Boundary: generated Protovalidate already owns field, list, member, and view-row constraints. This fold proves only cross-node limits and selection resolution, re-mints no wire, and exposes the resolved current node as typed optional index evidence.
 
-```python signature
+```python
 class OrganizationIndex(Struct, frozen=True):
     entities: Map[str, NodeId]
     members: Map[str, NodeId]

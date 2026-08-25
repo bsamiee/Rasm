@@ -17,7 +17,7 @@ The stream-and-reshape plane: `ChartStream` is the typed feed roster with retent
 - Growth: a new reducer is one `ChartReducer` row projecting the spread; a new civil axis is one `CalendarAxis` row; zero new surface.
 - Boundary: every order statistic reads the kernel `Distribution<Scalar>` under `QuantileRule.NearestRank` — the declared percentile is an observation the population CONTAINS, so a p95 a viewer reads beside a measured maximum belongs to the same sample set, and min, max, mean, deviation, median, quartiles, and the requested quantile are ONE kernel fold per group rather than ten hand statistics over a privately sorted array; the weighted mean is the kernel `Stat<Scalar>.Of` weighted fold, the one reduction a stream of PRE-REDUCED rows admits without distortion, and a zero-mass window REFUSES on the kernel rail rather than reading zero. `GroupSpread.Of` is the one construction, so a row set reducing one group nine ways folds once. Calendar reshape rides NodaTime through one injected zone and calendar policy, so an hour-by-day matrix, a month rollup, and a season rollup resolve their civil fields through the same zone a time brush and an axis label resolve theirs through, and a UTC-offset literal anywhere in a reshape is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -136,7 +136,7 @@ public sealed record CalendarPolicy(DateTimeZone Zone, CalendarSystem Calendar) 
 - Growth: a new reshape is one `TransformRow` case naming its input and output shape and one evaluator arm; zero new surface.
 - Boundary: a transform names its INPUT and OUTPUT shape, so an unsatisfiable chain refuses at declaration — a quantile reducer over a matrix, a calendar reshape over a summary, and a downsample over a span track are chains no evaluator sees, and the terminal shape's arity is what `ChartSpec.Admit` checks the encoding against. The downsampler is a ROW rather than a stream column, so a feed declaring no rows passes untouched and a bucket policy can never sit inert. Every step is a pure rewrite, so the whole chain replays off a captured snapshot for the proof lane with no live feed.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransformRow {
@@ -283,7 +283,7 @@ public static class TransformChain {
 - Growth: a new feed class is one static `ChartStream` row; a new bound is one column value on its row; zero new surface.
 - Boundary: the roster is TYPED rows, so window, bound, cadence, and shape live on the row and nowhere else — the markdown mirror the fence rosters once trailed is gone. `Analytical` carries no retention because the analytical lane is a SNAPSHOT source: each refresh replaces the whole keyed set, so retention is one query answer and expiry is the next refresh — a window would truncate an answer the store already bounded and a size limit would evict rows of the answer currently displayed. Rows sharing one source case are one source read under two retention postures, never separate sources: `ReceiptTimeline` holds a longer correlation horizon than `ComputeReceipts` and declares no downsample row because `Lttb` folds an `(x, y)` point series and a SPAN track has no such point to keep. `Scripted` is the proof lane's deterministic feed — its script seeds derive at the `DataSource.FakeDeterministic` owner from the kernel `Deterministic` lanes, so a replay renders the same board twice. `ToCollection` precedes `Sample`, so cadence samples state rather than dropping deltas, and the chart lock owns the terminal series swap.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 public sealed record ChartStream(
     string Key,
@@ -380,7 +380,7 @@ public static class ChartFolds {
 - Growth: a new planning read is one fold here projecting a receipt column the Bim owner already carries; zero new surface.
 - Boundary: receipts are CONSUMED as feed values, never re-solved — the CPM walk, the calendar election (`network.CalendarFor(task)`, never a network-wide calendar parameter), the float derivation, and the currency repricing are the Bim owner's, and this fold reads `TaskGrain`, `CriticalPath`, and `CostRollup` columns whole; a `bool IsMilestone` read and a network-wide `WorkCalendar` argument are the deleted forms the Bim page's own laws name. Cost rows fold the `ByCategory` partition of the RAILED rollup, so a mixed-currency estimate reaches the chart already repriced or refuses by name — summing native amounts across currencies inside a reducer is unspellable because the fold never sees them. Instants cross to chart space as `DateTime.Ticks` exactly as every temporal coordinate on this plane does.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PlanFeeds {
     public static Fin<Seq<ChartDatum>> Schedule(ScheduleNetwork network, Op key) =>

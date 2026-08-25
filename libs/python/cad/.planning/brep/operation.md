@@ -24,7 +24,7 @@ Refusals ride `CadRail` on `BREP_INPUT`, `BREP_KERNEL`, and `BREP_OUTPUT` from `
 - Boundary: source topology arrives as the file owns it; reader precision, forced maximums, `ShapeFix_ShapeTolerance`, and `BRepLib.SameParameter_s` stay outside.
 - Boundary: healing earns its own typed admission contract and receipt, and never aliases tessellation deflection or IFC precision.
 
-```python signature
+```python
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
@@ -76,7 +76,7 @@ from rasm.cad.metrology.properties import UNMEASURED, receipt
 - Growth: a new operation is one proto field beside one `_ARMS` row, and one row at the owner that mints its body.
 - Boundary: payload field reading stays at the row that knows the payload type, so no downstream owner receives a generated message it must re-discriminate.
 
-```python signature
+```python
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Arm = Callable[[Oneof, frozendict[bytes, Path]], CadRail[Outcome]]
@@ -159,7 +159,7 @@ _ARMS: Final[frozendict[str, Arm]] = frozendict({
 - Boundary: `service/lane` marshals the evidence to bytes and an ordinal, so neither half crosses the process pipe as an object.
 - Boundary: this owner never publishes the artifact or mints `SealedStep`, because the response envelope belongs to `service/provider#PROVIDER`.
 
-```python signature
+```python
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

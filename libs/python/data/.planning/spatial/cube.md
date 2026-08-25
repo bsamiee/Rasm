@@ -19,7 +19,7 @@ Egress is the shared field family: a cube's geometry coordinate WKB-encodes thro
 - Growth: a new spatial verb is one `CubeOp` case plus one arm over the accessor member that spells it (`zonal_stats` lands this way when a raster-backed consumer names it); a new predicate is the accessor's own `predicate=` vocabulary, no arm edit; a new receipt fact is one entry on the family's fact dict; zero new surface.
 - Boundary: no raster coverage (the `rioxarray` bridge is `spatial/geospatial#COVERAGE`'s), no CF engine axis (cube leaves arrive as datasets the field owner opened), no second labelled-array store, no DGG cell algebra (`spatial/grid#GRID` owns cells); the accessor's plotting surface is out of scope — artifacts owns rendering.
 
-```python signature
+```python
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never
 
 from expression import Option, case, tag, tagged_union

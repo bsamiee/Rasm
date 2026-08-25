@@ -24,7 +24,7 @@
 |  [06]   | `mergeExpects` | `MergedExpect<List>`                 | compose independent matcher sets into one `expect`            |
 |  [07]   | `_baseTest`    | `TestType<{}, {}>`                   | the fixture-free base to `.extend` from scratch               |
 
-```ts signature
+```ts
 export const test: TestType<PlaywrightTestArgs & PlaywrightTestOptions, PlaywrightWorkerArgs & PlaywrightWorkerOptions>
 export const expect: Expect<{}>
 export const devices: { [name: string]: DeviceDescriptor }
@@ -38,7 +38,7 @@ export function mergeExpects<List extends any[]>(...expects: List): MergedExpect
 
 `TestType` is ONE dispatch surface — `test(title, body)` with modifier and lifecycle members hung off it, never a family of parallel entrypoints. Its type parameters carry the FIXTURE bag: fixtures are a typed DI rail (`.extend<Fixtures>`), and the built-in fixtures below are SEED ROWS on that rail, not a fixed roster — a custom fixture is a new row, `mergeTests` unions two fixture sets.
 
-```ts signature
+```ts
 interface TestType<TestArgs, WorkerArgs> {
   (title: string, body: (args: TestArgs & WorkerArgs, testInfo: TestInfo) => Promise<void> | void): void
   (title: string, details: TestDetails, body: (args: TestArgs & WorkerArgs, testInfo: TestInfo) => Promise<void> | void): void
@@ -65,7 +65,7 @@ interface PlaywrightWorkerArgs { playwright: typeof import('playwright-core'); b
 
 Page/context CONTROL surfaces the fixture rail composes — the families a hermetic platform fixture rides:
 
-```ts signature
+```ts
 interface Clock {
   install(o?: { time?: number | string | Date }): Promise<void>
   pauseAt(time: number | string | Date): Promise<void>; resume(): Promise<void>
@@ -90,7 +90,7 @@ type Credential = { id: string; rpId: string; userHandle: string; privateKey: st
 
 `expect` is a SEPARATE assertion library from `@effect/vitest`'s — its matchers AUTO-RETRY against a live browser until they pass or time out, which no synchronous matcher can do. Never mix the two `expect` symbols in one spec file.
 
-```ts signature
+```ts
 type Expect<ExtendedMatchers = {}> = {
   <T = unknown>(actual: T, messageOrOptions?: string | { message?: string }): MakeMatchers<void, T, ExtendedMatchers>
   soft: Expect<ExtendedMatchers>
@@ -109,7 +109,7 @@ Golden NAMES pick the pixel format: a `.png` or `.webp` extension captures in th
 
 `defineConfig` is config-as-code: `projects: Project[]` is the browser × device matrix (each project a `{ name, use }` row where `use` layers `devices[...]` presets), and `use: PlaywrightTestOptions` sets the shared context. Options are ONE bag, split test-scoped vs worker-scoped.
 
-```ts signature
+```ts
 interface TestConfig<T = {}, W = {}> {
   testDir?: string; testMatch?: string | RegExp | (string | RegExp)[]; outputDir?: string
   projects?: Project<T, W>[]; use?: UseOptions<T, W>
@@ -130,7 +130,7 @@ interface Project<T, W> {
 
 `@playwright/test/reporter` is the SPI a custom reporter implements, and it runs both directions: `preprocess` SHAPES the run before a test executes, the `on*` events project results as data. That is the seam feeding the e2e gauge a machine result rather than console text, and the seam where a custom selection policy — quarantine rosters, own-sharding, expected-failure ledgers — lands as reporter code instead of a grep string.
 
-```ts signature
+```ts
 interface Reporter {
   preprocess?(params: { config: FullConfig; suite: Suite; testRun: TestRun }): Promise<void>
   onBegin?(config: FullConfig, suite: Suite): void

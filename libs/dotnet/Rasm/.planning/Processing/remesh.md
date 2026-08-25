@@ -22,7 +22,7 @@ Rebuild work composes the `Meshing/edit` arena as the sole position and face car
 - Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a new n-RoSy order is one `RoSyOrder` row; a new terminal state is one `PassVerdict` case breaking the terminal `Switch` loudly; a new sizing law is one `RemeshPolicy.Sizing` producer — the hysteresis tests already read the per-position field; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in `Pass`.
 - Boundary: `RemeshOp` owns the author-kernel rewrite alone, and QuikGraph's adjacency graph never leaves the extraction.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

@@ -8,11 +8,11 @@ Index-doc leads open on anything but the unit's own charter — the doc-set, the
 
 - Detection: Flag an index lead whose first sentence names siblings, routing, or a reader tour before the unit's owned capability.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     This README routes the design pages and registers the packages, and the architecture doc carries the domain map for the six sub-domains.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     `<unit>` owns host-free geometry: evidence graduation, scan processing, and the tessellation rail that serves every cross-boundary consumer.
     ```
 - Reason: Charter sentences state what the unit owns and the one boundary it holds; routing and sibling roles belong to the router surface, never the lead.
@@ -24,11 +24,11 @@ Spec-page leads restate higher law or re-teach a sibling instead of naming their
 
 - Detection: Flag an implementation-page lead recapping corpus law or a sibling's mechanics before its own byte-truth.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     As the architecture doc explains, geometry is host-free; this page, in this section, describes how the tessellation daemon fits into that.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     `serve` frames per-element output as append-only positional rows keyed by the content hash.
     ```
 - Reason: Spec pages own byte-truth and flow, compose higher law silently, and name a sibling only at a routing pointer.
@@ -40,11 +40,11 @@ Tool-doc leads narrate a command tour or mirror help output instead of stating t
 
 - Detection: Flag a tool lead walking flags or transcribing help text a fresh agent reads from `--help` directly.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     Run the tool with `--input` and `--output`; you can also pass `--json` for machine output, and `--help` lists every flag in detail.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     `<tool>` owns the changed-file static, test, and metadata gates; every verb routes through its own `--help`.
     ```
 - Reason: Tool docs are durable law: state the contract and point at live help; mirrored flag prose drifts the instant the tool changes.
@@ -56,11 +56,11 @@ Leads whose grammatical subject is the document or the doc-set state no law of t
 
 - Detection: Flag a lead whose subject is the artifact itself — its job, its relations, its place in the corpus.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     This file describes the persistence layer and how it relates to the compute and geometry packages across the monorepo.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     `<layer>` owns the content-addressed artifact index and the decode contract every cross-boundary reader binds.
     ```
 - Reason: Documents whose subject is themselves carry no invariant; N docs narrating the doc-set is N forks of one fact plus self-description.
@@ -72,12 +72,12 @@ Leads cram a member inventory, a sub-domain roster, or wire mechanism behind sem
 
 - Detection: Flag a lead carrying a parenthetical roster or a mechanism clause a lower tier owns.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     This package carries the domain map (ingestion, registration, deviation, reconstruction, analysis, costing), and the daemon streams checksum-framed
     rows keyed by the content hash over the sync rail.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     `<unit>` owns host-free geometry capability and the rail that serves every cross-boundary consumer.
     ```
 - Reason: Leads carrying a roster and a wire mechanism hold a lower tier's payload; the sub-domain list lives in the fenced tree and the framing lives at its owner.
@@ -89,11 +89,11 @@ Design-corpus leads narrate the page's distance from code — realized, planned,
 
 - Detection: Flag a lead whose subject is the corpus's realization state: counts of pages on disk, planned-versus-implemented framing, instructions to treat design as real.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     Each codemap node is the eventual source file its design page becomes; treat every node as realized code — all fifty-nine pages are on disk.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     `<unit>` folds every fabrication route through one policy-driven dispatch; the codemap carries the owner topology.
     ```
 - Reason: One corpus charter states what the work product is; a per-page realization narrative is process ledger, and the page count is an anchor the next page falsifies.

@@ -40,7 +40,7 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 - Law: preservation lands the RAW envelope slice — `Retain.slice` renders the same rows the export decodes, verbatim as newline-delimited bytes, because evidence a matter rests on cannot depend on a family the next re-mint reshapes; the slice is therefore evidence OF the generation that produced it, joining the live log through the custody receipt rather than through a decode, and the collection is ONE owner with two renderings exactly as the groom roster is, so an export and a preservation can never disagree about what a subject's history was.
 - Law: the landing is a HANDED port exactly as `RefRead` is — this page declares `Preserve` and the object plane satisfies it, so the journal stratum names no store and the identity fold, the conditional put, and the reference row stay owned where they already are; the port carries its own error and requirement parameters because a byte landing is not a relational read and a concrete channel here would name the object plane's fault family.
 
-```typescript signature
+```typescript
 import { Array, Duration, Effect, Option, pipe, Record, Schema } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { Fault, Identity } from "@rasm/core"
@@ -374,7 +374,7 @@ const _heldMatters = (key: SubjectKey) =>
 - Law: the tombstone carries the `rasm.data.retain.erase` observe point — a landed erasure fans the app-armed taps with the tenant-scoped subject coordinate after the destroying statement returns, so compliance observers subscribe to the fact instead of instrumenting this fold, and an absent registry costs nothing.
 - Law: the envelope travels as `SealedEnvelope` — IV and ciphertext as opaque encoded bytes inside the payload field, opaque to this page and to the log; the exposure control is the READ plane's, where a projection row declaring the field `Model.Sensitive` strips it from every JSON variant, because the journal families are domain classes carrying no variant axis and a claim of stripping made here names a mechanism this page cannot run.
 
-```typescript signature
+```typescript
 import { Effect, Option } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import { SealedEnvelope, Shredder, WrappedKey } from "@rasm/security"
@@ -514,7 +514,7 @@ const _erase = (key: SubjectKey) =>
 - Law: sensitive projection columns never enter the export — the `Model.Sensitive` field class strips them from every JSON variant by construction wherever the read plane's own row declares it; sealed payload fields export opened only where the consuming exporter composes `Retain.open` against a live key, and an erased subject's fields export as the redaction marker the `Option.none` fold names.
 - Law: the object leg exports REFERENCES, never bytes — a key whose class ran the ladder to a `restore`-posture rung answers no synchronous fetch, so the consumer bundling an archive reads `Retain.depthRows` and plans the restore; an export promising bytes it cannot produce inside a request is the portability failure this leg refuses to pretend away.
 
-```typescript signature
+```typescript
 import { Array, Stream, type ParseResult } from "effect"
 import { Digest } from "@rasm/core"
 import { Live } from "../read/live.ts"

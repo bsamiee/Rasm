@@ -47,7 +47,7 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 - Packages: `Rasm.Domain` (`Op`, `Lease<T>`, `PackageIdentity`, `FaultCell`, `Custody`), `Rasm.Numerics` (`Dimension`), `Rasm.Parametric` (`MonotonicTimeline`), `Components/data.md` (`BrokerLedger`), LanguageExt.Core.
 - Growth: a new mounted family is one roster row naming its entry; a new process-wide registry is one cell on this capsule, never a static on a library page.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Reflection;
 using Rasm.Domain;

@@ -20,7 +20,7 @@ The owners are RULED PLURAL by timing, not by accident, and the discriminant is 
 - Growth: a folder joins with a slot vocabulary and a body union; a new body kind is one vocabulary row plus the union case that answers it; the contracts never widen per folder.
 - Boundary: the `*Slot` SUFFIX claims nothing — conformance is claimed by the `IFactSlot` declaration alone, and a `*Slot` name outside a conformer names its own concern (`SlotPresence`/`NamedSlot` seat a named host-callback parameter; `PickSlot`, `AcceptSlot`, `PointSlot`, `ObjectSlot`, `ArchiveSlot`, `SwatchSlot`, and `PrinterSlot` each name an acquisition, archive, or output seat with no fact timing), so a reader tests the declaration, never the word.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
@@ -62,7 +62,7 @@ public readonly partial struct UndoSerial {
 - Owner: `Fact<TSlot, TBody>` — one slot-addressed consequence, the pairing the stream accumulates and every projection filters on.
 - Law: a fact is DETACHED evidence — admitted values, runtime pairs, stamps — never a live host handle, because the stream outlives the commit window that minted it.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Fact<TSlot, TBody>(TSlot Slot, TBody Body)
     where TSlot : class, IFactSlot<TBody>
@@ -79,7 +79,7 @@ public readonly record struct Fact<TSlot, TBody>(TSlot Slot, TBody Body)
 - Growth: a third mutation folder joins by declaring a slot vocabulary and a body union; the stream itself never widens per folder.
 - Boundary: Modeling's `BuildReceipt<TSlot>`/`Built<TSlot>` is the build-product timing class and stays where it is; Exchange's `BatchProgram<TReceipt>` (`Exchange/operations#[04]-[BATCH_PROGRAM]`) is the FILE-scoped, envelope-spanning class that lawfully refuses `FactStream` — the page charter states the three-way timing discriminant once and each owner's card points here.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FactStream<TSlot, TBody> : IDetachedDocumentResult
     where TSlot : class, IFactSlot<TBody>

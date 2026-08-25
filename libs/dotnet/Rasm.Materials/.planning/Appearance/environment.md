@@ -25,7 +25,7 @@ THE SKY, ENVIRONMENT-MAP, AND IMAGE-BASED-LIGHTING OWNER. One `SkyModel` `[Union
 - Boundary: solar position resolves the apparent refraction-corrected topocentric direction in the frozen `+Z`-up frame — `+X` north, `+Y` west, azimuth FROM `+X` increasing EASTWARD onto `−Y`, the OPPOSITE angular sense of the `[03]` equirect `u`. The fold carries that sign exactly once (`−sin(azimuth)` on the `Y` lane), so the two conventions meet in the direction VALUE and never share an angular sense a transcriber could copy wrongly. Geodetic datum, site CRS, and reprojection stay the app-root edge's; this owner takes latitude, longitude, and site elevation as admitted scalars and pins the site zone at `Offset.Zero`, the almanac's true-solar-minutes fold cancelling it. Site HEIGHT is a real axis: the almanac corrects Bennett refraction by the barometric ratio at the site's own height, so a hardcoded sea level answers every alpine study at the wrong horizon band.
 - Boundary: every authored light magnitude crosses `photometric#PHOTOMETRIC` `Photometric.Admit` — `SkyAtmosphere.Of` for the zenith level and `EnvironmentMap.Of` for the dome intensity — so a `cd/m²` sky and a `lux` sky reach one radiometric scalar with no page-local efficacy divide, and each row carries the whole `EmissionEvidence` receipt rather than a bare scalar. Ground albedo enters as an `RgbSpectrum`, so a spectrally tinted bounce is representable and a scalar albedo is the grey triple. SOLAR ANGULAR DIAMETER is an admitted column with NO page default: the disc a study wants is the site's own apparent diameter at its own date, and a transcribed mean ships one epoch's astronomy as this owner's law. The `CieStandard` disc is its own indicatrix at zero angular distance, so the ratio distribution and its direct beam are ONE algebra.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
@@ -500,7 +500,7 @@ public static class SkyRender {
 - Boundary: `EnvironmentMap` NEVER decodes a container — `Raster/codec#RASTER_CODEC` sniffs the magic and produces the plane, so a Radiance `.hdr`, an OpenEXR half plane, and a synthesized sky reach ONE admission. `linear`, `pq`, and `hlg` are the ADMITTED transfers and this is the one corpus surface where the display-referred pair is legal; `srgb` and `raw` refuse, because an sRGB dome cannot carry a sun and a raw dome declares no light quantity. `Lift` lowers whatever admits to scene-linear ONCE through the arena's `Read` rail, so no consumer re-applies a transfer.
 - Boundary: rotation and intensity are READ-TIME values, so a re-oriented or re-exposed dome re-keys no blob and re-runs no prefilter. Intensity is ADMITTED evidence, never a bare multiplier: `Of` composes `Photometric.Admit` on the authored shape and re-seats an already-admitted receipt on the `Project` shape, so a reprojection never double-coerces. Every read scales by `RadiometricSi`, and the dimensionless case admits as `PhotometricQuantity.Radiance` whose `Borrowed` coercion leaves `RadiometricSi == Measure.CanonicalValue` — one construction, no branch downstream. `MaterialFault` rails a wrong-aspect plane, a layer count contradicting the row, an integer-depth plane, a refused transfer, and an out-of-range read policy.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record EnvironmentMap(
     TexturePlane Plane, Seq<TexturePyramid> Pyramids, Seq<TextureSource.Image> Sources, MapLayout Layout,
@@ -703,7 +703,7 @@ internal static class Octahedron {
 - Boundary: prefiltering NEVER writes a file; `IblProducts` carries planes and the egress name grammar belongs to `Raster/set#TEXTURE_SET`. Plane bytes are always CPU-minted, so the GPU arm is an accelerator whose output is never content-addressed — STRUCTURALLY, not by rule: `IblProduct` splits `Minted` from `Preview` and `EnvironmentBlobs` is reachable only from the minted case. The preview omits the BRDF LUT and the luminance guide honestly rather than partially, since the LUT is environment-independent and the guide's marginal prefix is this page's declared sequential step, so neither has a kernel row to fill it. `IblPolicy` carries the `PressBackend` row and `Prefilter` takes the `Option<PressDevice>` its arm reads, so the lane is selected by data the plan already models; a degenerate all-black dome REFUSES the CDF rather than returning a flat table that samples uniformly while claiming importance.
 - Boundary: a GPU prefilter arm writes the SAME equirect arrangement this fold does — an accelerator that changes the product's own layout is a second product, not a faster one. `Raster/gpu#WGSL_KERNEL` `prefilterSpecular` therefore inverts the frozen equirect correspondence per output texel and takes a plane extent, and `IblProducts.Specular` needs no arrangement column for a lane to fill it; the cube arrangement stays `equirectToCube`'s, the one kernel whose product IS a cube.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ShBand {
@@ -1134,7 +1134,7 @@ public sealed record ShGolden(string Name, Func<WorldDirection, double> Radiance
 - Receipt: the row IS the branch receipt and supplies the generated `Set.Ibl` projection at `interchange#TEXTURE_EGRESS` — stored product references, SH bands, roughness ladder, and read-time intensity/rotation cross there without a second environment message. `SkyModelKey` carries the generated set's optional `source` for a synthesized dome and stays absent for an ingested HDRI; `CoefficientKey`, `SolarKey`, the authored intensity evidence, and the source transfer remain domain and analytics facts because the corpus carries no such columns. A revised Hosek-Wilkie fit still re-keys the light through those domain digests, while the peer reads only the resolved stored products and policy the generated document proves.
 - Boundary: `Rasm.AppUi/Render/pathtrace#LIGHT_RIG` `LightSource.Environment` carries THIS row as its dome VALUE over the `[BOUNDARY]` seam — the render arm answers directional radiance, importance draw, SH irradiance, specular level, split-sum, and the SUN DISC (direction, cap, and radiance profile) on the owner that prefiltered the map, while Materials keeps the whole mapping, sampling, and prefilter algebra and the consumer re-derives no equirect correspondence, SH band order, roughness ladder, or solar geometry. `Sample` returns direction, radiance, combined density, and arm TOGETHER so a multiple-importance-sampling integrator balances with no second query, and an absent CDF answers the uniform-dome density as a declared degradation the row states rather than a silent fallback.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EnvironmentBlobs(ContentAddress Equirect, ContentAddress Specular, ContentAddress BrdfLut, Option<ContentAddress> LuminanceCdf);
 

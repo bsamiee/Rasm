@@ -18,7 +18,7 @@ Temporal identity is the kernel's too: every tick advances one `MonotonicTimelin
 - Law: the document-wide row marshals through the kernel dispatch on the immediate lane and proves `SessionNeed.Redraw` inside the same window — the session demand serializes the host call and the crossing asserts the thread, so neither authority is re-derived at a call site.
 - Boundary: invalidation requests a repaint and returns; paint itself happens on the host's draw pass — a target that blocks until pixels land inverts the host contract and is unrepresentable here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
@@ -69,7 +69,7 @@ public abstract partial record RedrawTarget {
 - Law: the concession probe reads the live workspace per DRIVE, never a cached census — an accessibility flip mid-session lands on the next drive — and a non-macOS host answers the empty set, which is a measured absence because the platform publishes no accommodation surface at all.
 - Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer; portable code holds `FrameClock` values and kernel beats, never an `NSScreen`, `CADisplayLink`, or `nint`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 internal static class ConcessionProbe {
     private static readonly Seq<(MotionConcession Row, Func<bool> Active)> Reads = Seq<(MotionConcession, Func<bool>)>(
@@ -268,7 +268,7 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 - Law: the apply closure and the invalidation are HOST-SIDE by decision (E-G25) — the kernel samples and the boundary lands, at both boundaries identically — and a driven spring (`FieldIntegrator`) has NO consumer and is REFUSED: no integrator parameter survives, and the kernel's fixed stepper is the whole spring arithmetic.
 - Boundary: one drive owns one clock attachment; concurrent drives on one target coexist because invalidation coalesces at the host — the pump never de-duplicates redraws across drives.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record DriveGate {

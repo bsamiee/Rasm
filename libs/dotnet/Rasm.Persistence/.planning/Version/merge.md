@@ -38,7 +38,7 @@
 - Boundary: `GraphNode` hashes drive detection only; patch masks target the binary `NodeWire` the seam encoded, and ProtoJSON is a `PatchOp` leaf render, never a patch target or a relay.
 - Boundary: TypeScript decodes the generated `EntityEditWire`, applies the `PatchOp` run to its retained ProtoJSON, and decodes the successor through the existing node landing.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;

@@ -16,7 +16,7 @@
 - Packages: Celly.Protovalidate, Google.Protobuf, NodaTime.Serialization.Protobuf, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Contracts, Rasm.
 - Growth: a corpus enum or oneof change breaks an exhaustive conversion here; a domain-only invariant remains at its owner's factory, never copied into a protobuf-shaped validator.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using Celly.Protovalidate;

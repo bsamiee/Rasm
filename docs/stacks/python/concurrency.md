@@ -50,7 +50,7 @@ A task group is the failure boundary: one `async with anyio.create_task_group()`
 - Use: a bare `Event` for a value-less one-shot readiness latch a child awaits; `group.start`'s `task_status.started(value)` handshake when readiness must carry a value; `Semaphore(initial_value, max_value=)` when the in-flight bound is fixed, `CapacityLimiter(total_tokens)` when the bound is offload slots resized under load.
 - Reject: a `threading.Lock`/`threading.Event` on the async loop; a `ready: bool` flag polled in a sleep loop where an `Event` wakes exactly once; a hand-maintained in-flight counter where a `Semaphore`/`CapacityLimiter` owns the slot count and its `statistics()` owns the evidence.
 
-```python conceptual
+```python
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from typing import Literal
@@ -130,7 +130,7 @@ An effect's bound is a scope, never a signature parameter: the deadline rides th
 - Law: a cancelled scope never retries — the retry predicate refuses the cancellation class first, so the schedule's `on=` names the provider's transient exceptions and a backoff sleep, itself a checkpoint, never re-arms work an outer deadline cancelled; the `[05]-[GROUP_FAULT]` conversion reads the cancellation arm before the worker arm.
 - Reject: catching `get_cancelled_exc_class()` and returning a value; a broad `except Exception` over a block whose cancellation must propagate; cleanup-hostile process termination that abandons the shielded teardown; re-raising a railed `Error` to force a retry an outer scope already cancelled.
 
-```python conceptual
+```python
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
@@ -183,7 +183,7 @@ An owner that acquires a resource disposes it on every exit — success, domain 
 - Exemption: the `enter_async_context` acquisition call, the shielded `await _release(...)`, and the `yield handle` inside the async context manager are the named platform-forced statement seam.
 - Reject: a bare `try`/`finally` whose `finally` awaits without a shield; a handle acquired before the stack that no exit path releases; cleanup that swallows the cancellation exception instead of re-raising after release.
 
-```python conceptual
+```python
 from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Literal
@@ -238,7 +238,7 @@ A group's `BaseExceptionGroup` is the one raise this rail converts into the sett
 - Law: a session-bearing consumer is the rail at transport scale — an `AsyncResource` session is an `async with` opened under the deadline and wrapping the task group, so it outlives every child it feeds while one child's raised transient cancels the siblings and surfaces through the group edge, and the session's `aclose` is the post-join shielded teardown the bracket owns; the concrete transport surface, its verification, and its fault taxonomy are the transport owner's, this rail only drives it under the deadline and cancellation it owns.
 - Reject: retrying a `Result.Error` by re-raising it; an unbounded retry trusted to stop itself; a second retry implementation beside the composed weave; the cancellation class in the schedule's `on=` set; the session's operations driven outside the group where a transport fault cannot cancel the siblings.
 
-```python conceptual
+```python
 from collections.abc import Awaitable, Callable
 
 import anyio
@@ -294,7 +294,7 @@ Inbound crossing mirrors the offload arm: a thread the loop never spawned re-ent
 - Law: `portal.wrap_async_context_manager(cm)` projects an async context manager into a synchronous `with`, so a foreign caller drives an async resource's full lifecycle without a second bracket form, and a task started through the portal dies when the portal stops, never orphaned past the loop that owns it.
 - Reject: a pre-built awaitable handed to `portal.call` where the coroutine function plus arguments are required; a per-thread event loop where one `BlockingPortalProvider` shares it; `from_thread.run` from a thread the loop never spawned; a raw `ThreadPoolExecutor` bridging into async where the portal owns the crossing; a polled boolean where `check_cancelled` reads the scope's cancellation.
 
-```python conceptual
+```python
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
 from contextlib import AbstractAsyncContextManager
@@ -326,7 +326,7 @@ def crossed[R, T](
 - Law: a `trio.abc.Instrument` attached at run entry through `trio.run(..., instruments=[...])` or dynamically through `lowlevel.add_instrument`/`remove_instrument` observes `task_spawned`/`before_task_step`/`task_exited` across the whole run without touching task code, so cross-task tracing and metrics ride the instrument bus rather than a per-task wrapper; `lowlevel.start_guest_run` interleaves a trio run inside a foreign loop by handing trio a `run_sync_soon_threadsafe` callback, the one integration point when trio must coexist with a host loop it does not own.
 - Reject: a wall-clock `sleep` or timing tolerance in a deterministic spec; instrumenting each task by hand where one `Instrument` covers the run; mixing `asyncio` primitives into a trio run; catching `trio.Cancelled` directly rather than letting the owning scope re-raise it.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from typing import override
 

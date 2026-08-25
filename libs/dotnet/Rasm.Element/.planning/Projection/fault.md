@@ -20,7 +20,7 @@
 - Growth: a genuinely new arm is one leaf with the next justified `[FaultCase]` ordinal; no parallel registry, category, factory, or string code is added.
 - Boundary: the typed leaf lifts bare; `.ToError()`, `Error.New(code, message)`, category mirrors, and compatibility factories are deleted forms. Foreign exceptions enter only through the capture funnel and retain their opaque message as evidence.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt.Common;
 using Rasm.Domain;

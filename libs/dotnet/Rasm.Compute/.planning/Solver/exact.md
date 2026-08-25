@@ -25,7 +25,7 @@ The design space, its variables, its policy, and the `ParetoFront`/`KernelRun` c
 - Boundary: EXPLANATION is the exact lane's obligation, not a status token: each row reifies under its own assumption literal and an UNSATISFIABLE return names the conflicting rows through `SufficientAssumptionsForInfeasibility`, matching the law the sibling SMT page already holds on the identical capability. EVIDENCE publishes measured: the exact rows carry the engine's own branch or node count, its conflicts, its objective beside its bound, its dual prices and reduced costs, and its wall time — the literal `1` iteration count is a fabricated constant, and a `Feasible`-but-not-`Optimal` return without its bound is indistinguishable from a proven optimum on the receipt. OR-Tools native handles enter only through declared `IDisposable` roots (`CpSolver`/`Solver`/`RoutingModel`/`RoutingIndexManager`) released by `Dispose`; a hand-rolled branch-and-bound, simplex, or routing search beside the solver is rejected.
 - Boundary: CP-SAT solves integer/boolean natively and discretizes continuous through `IntegerStep` under ONE declared coordinate system — coefficients, bounds, hints, and band edges scale through `DesignProblem.Scale` so the integer model preserves the physical `LinearModel` semantics — while MILP routes the integer part to SCIP and the continuous part through the linear backend with no discretization. CP-SAT parameter text formats as a WIRE format under the invariant culture; a comma-decimal locale renders a malformed deadline key the solver silently ignores.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ShadowPrice(string Row, double Dual, double Activity);
@@ -237,7 +237,7 @@ public static class ExactLane {
 - Growth: a new accumulated quantity is one `RoutingDimensionSpec` row; a new per-node obligation (a pickup-delivery pair, an optional-visit penalty, a visit-type incompatibility) is one column on `RoutingNode` and one cataloged `RoutingModel` call in the lowering; a further engine measure is one field on `ExactEvidence`, the same carrier the CP-SAT and MILP rows publish; zero new surface — a `VrpSolver`/`TspSolver`/`CvrpSolver` sibling family collapses onto this one row.
 - Boundary: routing is a GRAPH program — nodes, arcs, and vehicles — so it lowers to the ConstraintSolver rail rather than to a coefficient matrix, and a routing problem forced through the `LinearModel` as a flattened assignment matrix is the rejected form. Cost is a typed `Func<int,int,long>` PER DIMENSION over caller node indices, and the manager owns the caller-index-to-solver-index mapping — a callback registered against raw solver indices reads a different graph than the one authored. Native handles enter through the declared `IDisposable` roots the OR-Tools circulation precedent already sets and release by `Dispose`. `RoutingResult` publishes its `ExactEvidence` beside the assignment so a routing solve is auditable on the same receipt slots the other two exact rails fill.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public readonly record struct RoutingNode(int Id, Option<long> Demand, Option<(long Open, long Close)> Window) {
@@ -333,7 +333,7 @@ public static class RoutingSearch {
 - Cases: `Canonical` is path-cheapest-arc construction, guided-local-search improvement, and a thirty-second limit — the OR-Tools reference pairing for a capacitated problem, where a cheap constructive route feeds a metaheuristic that can escape the local optimum it lands in.
 - Boundary: search behaviour is POLICY DATA, never call-site knobs — a caller that tunes the metaheuristic by passing enum values into the kernel forks the tuning across every call site and leaves the receipt unable to say which search ran. `RoutingPolicy` rides `OptimizerPolicy` the same way `LineSearch` and `AcquisitionFunction` do, and the chosen strategy names land on the routing evidence so a slow solve is diagnosable from its own receipt.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record RoutingPolicy(

@@ -31,7 +31,7 @@
 - Growth: a new probe kind on the runtime side is one `probes` row here; a drain-budget change is one `drainSeconds` edit propagating to both projections.
 - Boundary: the drain fold, the report grades, and the phase spine are the runtime plane's; this anchor is the deploy-side mirror of a settled contract, never a re-derivation.
 
-```typescript signature
+```typescript
 const _LIFE = {
   drainSeconds: 25,
   margin: 5,
@@ -64,7 +64,7 @@ declare namespace _LIFE {
 - Boundary: pair emission and both variable catalogs are `program/spec.md`'s; token minting is `operate/secret.md`'s; the runtime `Setting` owner reads the catalog's spellings as its writing counterpart.
 - Packages: `@pulumi/kubernetes` (`core.v1.Secret`, `types.input.core.v1.EnvVar`); `@pulumi/pulumi` (`Input`, `Output`); `effect` (`Array`, `Option`, `Record`); `../program/spec.ts` (`StackOutputs`).
 
-```typescript signature
+```typescript
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Array, Option, Record } from "effect"
@@ -137,7 +137,7 @@ const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => [
 - Growth: a new elasticity or availability posture is one `_scale` row column; a new privilege refusal is one `Tier.harden` field; a new schedule policy axis is one `_CRON` row field; an API grant is one `rbac` rule row; a second exposed port is one field consumed at the one construction site.
 - Boundary: runtime owns claims, leases, backlog evidence, handlers, and generation admission; this tier only lowers carrier facts.
 
-```typescript signature
+```typescript
 import * as random from "@pulumi/random"
 import { Match } from "effect"
 import { Tier, type StackSpec } from "../program/spec.ts"

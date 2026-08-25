@@ -20,7 +20,7 @@ Three-way conflict resolution as one projection: `ConflictFacts` extracts the Pe
 - Growth: one resolution intent is one `ConflictIntent` row — key, grain, side, chord — whose deck row generates at `Shell/commands#INTENT_TABLE` `DeckRows.Conflict` with no edit there; one gutter reading is one `HunkPosture` row; one payload domain is one `ConflictGrain` column value.
 - Boundary: the differ stays PAGE-OWNED against the admitted package estate — `DiffPlex` (proof cluster) is two-way only, `LoroCs` merges CRDT history between two `Frontiers` of one document, and `JsonPatch` applies RFC 6902 patches; none answers three unrelated texts, so admission would replace the alignment alone and leave the region law, the verdict, and the ceiling exactly where they are while adding a package, a pin, a catalog, and a boundary. `GeometryDiff` projects the geometry-diff viewport — added/removed/modified ids beside the two `Viewpoint` cameras — SPIKE-gated on the viewport GPU surface over the 2D-fallback projection; the side-by-side text body renders `Local`, `Remote`, and `Base` through three read-only `Editing/codepane.md` viewers. The verbs REACH the pane through the one frozen registry: the deck freezes before any conflict receipt type exists, so the eight keys live on the non-generic `ConflictIntent`, `Project` seeds `ResolutionIntents` from the roster, and a chord, a gutter press, and a replayed journal entry raise ONE intent over the same `Invoke` route. The gutter's `take` arrow is the surface-owned lifting arrow: it lowers `(index, side)` through `ConflictIntent.ForHunk` onto the addressed payload and runs the frozen row; the Navigating posture's `Base` press stays the read-only seat's navigation arrow and reaches no resolution channel.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -160,7 +160,7 @@ public sealed record ConflictPane<TReceipt>(
 - Growth: zero new surface — the differ is closed; a new consumer reading is a `HunkPosture` row at `[04]`.
 - Boundary: the LCS fill and backtrack ride a pooled buffer through `Span2D<int>` under the `EXPRESSION_SPINE` exemption stated on the fence — the table is the one measured statement seam on the page; every projection around it (strip, anchor walk, region fold) is a fold.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ThreeWay {
@@ -267,7 +267,7 @@ public static class ThreeWay {
 - Growth: one gutter reading is one `HunkPosture` row carrying its verb roster, width, and row admission.
 - Boundary: bands paint on `KnownLayer.Background` as an `IBackgroundRenderer` added to `TextView.BackgroundRenderers` — `InsertLayer` refuses at runtime for anything but `Above` against `Background`, and an `Above` layer paints over the text; the ink seats write from a constructor body because a field initializer cannot reference the instance being built; the margin's inks resolve only once it is IN the tree, because a resource observable off a detached element resolves against nothing. The mount is a `HunkMount` VALUE rather than a bare lifetime, so the segment collection it measured crosses to the pane's overview strip and no consumer re-derives line spans onto a second offset set — `Document/media#DIFF_SEAT` hands the returned `Lane` straight to `CodePane.Open`.
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed class HunkSegment : TextSegment {

@@ -17,7 +17,7 @@
 - Law: table behavior resides on the row. A table extension declares component correspondence and reclamation behavior at construction, so no external dictionary or accessibility flag can drift from the vocabulary.
 - Law: `ModelComponentType.Unset` is the ONE row-side sentinel for absent correspondence, so the expansion arm reads as "every row that has one" and a lookup never manufactures a row it cannot also expand; `Mixed` is a QUERY argument alone and never a row value, because a row carrying it would be excluded by name from its own expansion and unreachable by lookup — an inert correspondence column no input returns.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -103,7 +103,7 @@ public sealed partial class TableKind {
 - Law: bounds predicates admit `BoundingBox.IsValid` before corner accumulation and compose the kernel `BoundsOf` owner; the containment and intersection comparisons read the kernel `Duplicate` tolerance lane admitted ONCE at the factory from the caller's `Context`, so an exact float equality never decides a near-coincident box and no site mints an epsilon. Inflation remains host-query policy, while candidate classification and coercion stay kernel-owned.
 - Boundary: `BoundingBox.Inflate` mutates a copied struct, so `Inflated` is the one statement kernel and never mutates request evidence.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ObjectType>]
 public sealed partial class ObjectKind {
@@ -705,7 +705,7 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
 - Law: `Tables.Commit` keeps the document handle inside one `DocumentSession.Demand`, proving mutation, undo, and redraw needs against one snapshot before the first edit and refreshing the kernel context inside that window; the bracketing, sealing, rollback, and stamp custody are the commit envelope's own laws. The railed receipt projection executes inside the bracket — a consumer fold that must observe the committed receipt enters as `project`, its refusal rolls the owned record back like any operation fault, and the identity projection spells `project: Fin.Succ`, so receipt-shaped rails commit unchanged and no arity twin exists.
 - Boundary: `AddCustomUndoEvent` has no host remove counterpart, so the document retains a `TableCustomUndo` handler, its whole captured object graph, and its arbitrary `object` tag until the undo record clears — a retention no `Subscription` can shorten, unlike every other host attachment in the slice. A handler therefore captures DETACHED evidence only: runtime pairs, stamps, admitted values. A captured live `RhinoObject`, `ObjectAttributes`, session, or lease outlives the commit that minted it and is the leak this law forecloses; the events page's process-global custody census carries the matching row.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class ObjectCustody {
@@ -1635,7 +1635,7 @@ public static class Tables {
 - Boundary: the COMMIT ENTRY does not unify. `DraftPlan<TOp>`, `BlockTransaction`, and `TableTransaction` share a four-field carrier — name, program, redraw, undo recording — and nothing else: Draft admits through a `DraftMode` row bundling redraw and recording, Block admits through per-operation trait homogeneity plus a kernel-context census, and Table admits three structurally distinct program shapes with custom-undo handlers and navigation semantics. One carrier under three incompatible admissions is a shape no caller can hold polymorphically, so the merge is refused; what the three genuinely share — the bracket, the redraw scope, and the seal — is already `DocumentCommit.Sealed`, and that IS the unified entry.
 - Entry: `Ids(TableSlot, Op?)` and `Runtime(TableSlot, Op?)` fail closed on an invalid slot and project object consequences; `Components`, `Restores`, `HistoryRolls`, `UndoRecords`, and `CustomUndoNames` project the remaining fact cases; a receipt feeds its deleted runtime rows directly into `TableTarget.Deleted`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using TableReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Document.TableSlot, Rasm.Rhino.Document.TableFact>;
 

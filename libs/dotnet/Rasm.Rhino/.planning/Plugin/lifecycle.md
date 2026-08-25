@@ -26,7 +26,7 @@
 - Boundary: `RegisterCommand(Command)` stays behind the registrar, so a consumer hands a `RasmCommand<TSelf,TState>` leaf and never a bare host delegate.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Side`, `Op.Text`, `Lease<T>`, `Cell`, `Transition`, `FaultBand`, `Retriability`, `ValidityClaim`, `Custody`), `Domain/hooks` (`Ring<T>`), `Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Parametric/projections` (`MonotonicTimeline`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:53` — `LoadReturnCode`; `:81` — `OnLoad`/`OnShutdown`/`ResetMessageBoxes`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -139,7 +139,7 @@ public sealed class CommandRegistrar {
 - Boundary: the phase hook answers a `PhaseAnswer`, so page custody is `HostUi/pages#MOUNT`'s and the adapter only retains the receipt for release.
 - Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`, `[BoundaryAdapter]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`, `ValidityClaim`); `Persistence/settings` (`SettingKey`); `HostUi/shell` (`ShellMount`); `Plugin/census` (`PluginAct`); `Plugin/document` (`IParticipant`).
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 internal interface IPluginCapability {
     Type Contract { get; }
@@ -230,7 +230,7 @@ public sealed partial class PluginProgram {
 - Law: render-content serializer seating is a DECLARED `ShellMount.Hooks` row, never a call beside the fold — the row's `(PluginKey, Op?) -> Fin<IDisposable>` body runs `Registry.Run(RegistryCommand.RegisterSerializer(...))` per `SerializerProgram` column (`Render/registry#FACTORY_REGISTRY`), and its release drains the serializer ring's `Parked`/`Shed`/`Lost` tallies into the load report before the adapter unregisters — a serializer registered outside this row leaks its failure evidence at ALC unload.
 - Packages: LanguageExt.Core (`Fin`, `Seq`, `Traverse`); kernel `Domain/frame` (`PackageIdentity<TKey,THostFact>.Resolve`), `Domain/rails` (`Op`, `Lease<T>`), `Parametric/projections` (`MonotonicTimeline.Of`); `Document/events` (`RhinoInstruments.Telemetry`, `PluginKey`); `HostUi/shell` (`ShellCapsule.Open`, `ShellMount`, `HostFacts.Process`, `HostSnapshot`); `Persistence/settings` (`SettingPath`); `Plugin/census` (`PluginRegistry.Commit`, `PluginReceipt`); `Plugin/document` (`PluginSettings.Commit`, `SettingsBridge.Root`, `SettingsLoad`).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PluginRoot(
     PackageIdentity<PluginKey, HostSnapshot> Identity,
@@ -254,7 +254,7 @@ public sealed record PluginRoot(
 - Boundary: `GetPlugInObject` falls back to the base answer when the program publishes no capability or the published instance refuses; both reasons park distinctly on the ring, and the host's `object` return carries neither, which is the host's shape and not a collapse this page chose.
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Cell.Take`, `Cell.Seat`, `Transition`, `Lease<T>.Use`, `Custody.Release`), `Domain/hooks` (`Ring<T>`); `HostUi/pages` (`PageBasket`, `PageMountReceipt`); `Document/session` (`DocKey.Of`); `Plugin/document` (`Participation.Cross`, `ParticipationAsk`, `ParticipationAnswer`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:81` — `OnLoad`, `OnShutdown`, `ResetMessageBoxes`; `:60` — `Id`, `Version`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract partial class RasmPlugIn : PlugIn {
     private readonly Ring<Error> refusals = new(cap: PluginFaults.Retention);
@@ -460,7 +460,7 @@ public abstract partial class RasmPlugIn : PlugIn {
 - Boundary: page realization, custody, and registration are `HostUi/pages#REALIZATION` and `#MOUNT`; this domain owns the callback routing alone and no second page seat.
 - Packages: kernel `Domain/hooks` (`Ring<T>`), `Numerics/atoms` (`Dimension`); LanguageExt.Core (`Seq`, `Option`, `Error`).
 
-```csharp signature
+```csharp
 // --- [POLICIES] ------------------------------------------------------------------------
 public static class PluginFaults {
     internal static readonly Rasm.Numerics.Dimension Retention = Rasm.Numerics.Dimension.Create(value: 256);

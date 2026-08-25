@@ -18,7 +18,7 @@ One polymorphic owner mints, rehydrates, persists, reads, assigns, pulses a butt
 - Growth: a new host discriminant value is one row on the owning vocabulary; a new per-object boolean is one capability row, never a payload field.
 - Boundary: `LoopingAction`, `LoopRepeats`, `Loop`, and `LoopingIteration` are assembly-internal; the public `Cluster.LoopSolution` switch is the only loop state this boundary may assign.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
@@ -149,7 +149,7 @@ public sealed partial class ClusterFlag : ICapability<ClusterFlag> {
 - Growth: a new interactive object is one catalog row naming its factory arm and, where its state shape is new, one `PersistedValue` case with its `ObjectMap` pair or its named hand arm.
 - Boundary: `Empty` selects the row's parameterless constructor; every other value enters through the row's own `Mint`. Four payload columns are read-and-seed only, because the host publishes no public setter: `Slider.Value` and `Number.Value` (`InternalNumber` is derived from the internal slider and picker), `Complexes.Values` and `Moment.Value` (`internal set`), and `Ramp.Value` (`Gradient` projects `GripGradientInteraction.ModifiedGradient`, so `Interaction` is the writable source). `Histogram` carries the integral `BucketCount` and never its `BucketCountText` spelling, which restates the same fact through the negative `Buckets*` sentinel constants.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using Rasm.Domain;
@@ -616,7 +616,7 @@ public sealed partial class NativeKind {
 - Growth: a new interactive object is one catalog row; a host verb that pulses or steps rather than sets is one delegate vocabulary beside `Assign` (`ButtonPulse`, `ListStep`), because a verb has no persisted value to carry.
 - Boundary: `NumberSliderObject.InternalNumber` and `NumberPickerObject.InternalNumber` are read-only and seed only through their public constructors; the slider preserves its complete non-null `UiNumber`, while the picker carries its public `decimal` read through the host's lossy `double` constructor boundary. `ComplexPickerObject.Values` and `TemporalPickerObject.Date` carry `internal set`, so both rows are `Sealed` and their `Write` refuses rather than silently succeeding. `PresetPickerObject.UserNames`, including its `null` state, owns persisted selection; assignment expires and restarts a solution only when that state changes. `ValueListObject.ItemCount` and `Items` are read-only, so a selection assigns index by index through `SelectItem`/`DeselectItem` under the list's own `Mode` law, and `SelectPrev`/`SelectNext` are cyclic steps carried by `Step`, never a selection set. `DataRecorderObject.Paused` is the recorder's writable state, and its `IsEmpty` answers true when recorded buckets exist — the member name and XML summary invert the installed behavior — so a presence probe reads a true `IsEmpty` as data-present evidence. `DataPanelObject.ChangeDisplay` writes the six display flags in one host call and `VerticalOffset` writes beside it. `FunctionEditorObject`, `QuickGraphObject`, and `Chain` publish no readable or writable value state, so they take the `Inert` arm and read as `Empty`. `Boundary` rejects null pins from the oblivious host arrays. Incomplete host chain ordering and validation members, the internal loop driver, and private `ImageSamplerObject.SampleContinuous` never enter this operation surface.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 

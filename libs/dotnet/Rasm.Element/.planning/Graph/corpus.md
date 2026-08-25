@@ -22,7 +22,7 @@ Occurrence ids derive from kernel `ContentHash` over `(seed, lane, ordinal)` and
 - Growth: a new `Node` case or `Relationship` flavor is one witness row in the assembly; a new arm on any cycled family is one factory row beside its incremented arity const, which is what keeps the ordinal cycle total; a new payload family in the forge is one kernel arm beside the existing node kernels; a new generation axis is one `CorpusProfile` column threaded into the kernels, and a new random axis is one draw lane on `Deterministic` — never a sibling forge, never a parameter whose value the seed cannot replay, and never a magnitude projected off an id digest.
 - Boundary: the forge composes ONLY the seam's own admissions — a raw case constructor bypassing `Classification.Of`, `MeasureValue.OfSi`, or `AssessmentPayload.Open` forges models no production projector can produce, so every railed admission the graph demands runs inside `Mint`; the delta is constructed wholesale in normal form (ids unique by the seeded stream) and still crosses `AdmitOnto` — `ReplayOnto` trusts only seam-produced deltas and the forge counts as foreign to the structural law; determinism never rides a runtime PRNG — a `Random(seed)` stream couples the corpus to a BCL implementation — and it splits by AXIS across the two kernel owners: an ID replays through `ContentHash` over `(seed, lane, ordinal)` and a MAGNITUDE or index draw through `Deterministic`, so neither a hash-seeded sampler (which the kernel rejects by design) nor a modulo-biased projection off a digest survives here; the generation loops are the named measured-kernel statement seam, confined to the forge kernels.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Buffers;
 using Google.Protobuf;
@@ -457,7 +457,7 @@ public static class GraphForge {
 - Growth: a new scale is one `CorpusGrade` row; a new hot path is one `CorpusOp` row and witness arm. Benchmarks reuse one minted model per grade.
 - Boundary: Element owns models, operation vocabulary, and semantic witnesses. AppHost owns benchmark receipts and regression verdicts. `XL` belongs to benchmark hosts, never unit defaults. This corpus is branch-local test data, not a manifest actor or a hand-maintained cross-language mirror; `CorpusGate.Stable` proves native repeatability.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CorpusModel(
  CorpusGrade Grade, ElementGraph Graph, GraphDelta Delta, GraphDelta Mutation, ContentAddress Snapshot);

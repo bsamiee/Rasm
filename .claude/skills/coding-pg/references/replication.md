@@ -6,7 +6,7 @@ Logical replication moves committed changes publisher-to-subscriber through publ
 
 Publications define which tables and operations are replicated.
 
-```sql conceptual
+```sql
 -- All tables
 CREATE PUBLICATION all_changes FOR ALL TABLES;
 
@@ -38,7 +38,7 @@ Publication contracts:
 
 Subscriptions connect to publisher and apply changes.
 
-```sql conceptual
+```sql
 -- Basic
 CREATE SUBSCRIPTION order_replica
     CONNECTION 'host=publisher dbname=app'
@@ -91,7 +91,7 @@ Mitigations:
 
 `pg_stat_subscription_stats` tracks logical replication conflicts per subscription.
 
-```sql conceptual
+```sql
 -- Conflict statistics per subscription
 SELECT subname,
        confl_insert_exists,
@@ -126,7 +126,7 @@ Conflict contracts:
 
 Two publications + two subscriptions with `origin = none` on both sides. Origin tracking prevents infinite loops: changes arriving via replication carry the publisher's origin, and `origin = none` filters them out on re-publish.
 
-```sql conceptual
+```sql
 -- Node A
 CREATE PUBLICATION pub_a FOR TABLE shared_data
     WITH (publish_via_partition_root = true);
@@ -159,7 +159,7 @@ Pitfalls:
 
 ## [06]-[REPLICATION_SLOTS]
 
-```sql conceptual
+```sql
 -- Create logical slot
 SELECT pg_create_logical_replication_slot('my_slot', 'pgoutput');
 
@@ -184,7 +184,7 @@ Slot contracts:
 
 Using logical replication as CDC for event-driven architectures.
 
-```sql conceptual
+```sql
 -- Publication as event source: filtered for domain events
 CREATE PUBLICATION domain_events
     FOR TABLE events
@@ -198,7 +198,7 @@ Patterns:
 - [EVENT_CONSUMER]: dedicated database/service subscribes and processes events via standard subscription
 - [WAL_LEVEL_CDC]: use `pgoutput` plugin directly via `pg_logical_slot_get_changes()` for custom consumers without full subscription
 
-```sql conceptual
+```sql
 -- Direct WAL consumption for custom CDC consumers
 SELECT lsn, xid, data
 FROM pg_logical_slot_get_changes('my_slot', NULL, NULL,
@@ -228,7 +228,7 @@ Publisher requires `pg_hba.conf` entries allowing replication connections from s
 
 ## [09]-[MONITORING]
 
-```sql conceptual
+```sql
 -- Subscription worker status and lag (pg_stat_subscription: PG 15+)
 SELECT s.subname, s.subenabled,
        sr.received_lsn, sr.latest_end_lsn,

@@ -23,7 +23,7 @@ Component, Properties, Appearance, and observability owners supply already-admit
 - Law: `gwp`, `elapsed_s`, and `byte_length` are the only measures the family declares, because summing a mixed-unit long-form property column or a colour channel states a magnitude neither carries, while stored plane bytes sum to exactly the estate-wide texture footprint a storage question asks for.
 - Boundary: declaration truth and row truth stay co-located, so each dataset edit carries its matching row field and projection expression. Tokens cross as TEXT and the physical decision past that is the custodian's: this folder reaches Element and never `Rasm.Persistence`, so a token Element's roster mints that the custodian's roster lacks fails at that gate, which is the compiler this seam does not have — and `TableType.KeyHex` (`fixed-hex128`) is the one token Materials' fixed-width X32 content keys added to that roster. Naming disambiguates at the source: the custodian owns `ColumnType`, `ColumnRow`, and `AnalyticsSchema`, and this page's declarations never wear those names.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Element.Graph;
@@ -172,7 +172,7 @@ public sealed partial class MaterialsDataset {
 - Growth: a new scalar or dimensioned property is one `PropertyColumn` row carrying its unit and its selector; a new generated environment oneof arm breaks the exhaustive fold until its level projection lands; a new dataset fold is one row record and one member beside its declaration.
 - Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches through its own generic record-batch fold, so buffer custody, batch sizing, and dataset writes never enter this page. Folds read the already-projected WIRE wherever one exists, so a warehouse column and the document a consumer decoded agree byte for byte; evidence no wire carries — a `TileReceipt`, a blob's stored length — enters as a SECOND ARGUMENT rather than as a re-derivation or a widened wire, and a row whose measured column has no producer is not emitted, because the alternative is a zero the measure sums.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;

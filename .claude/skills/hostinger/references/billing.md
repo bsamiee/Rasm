@@ -9,7 +9,7 @@ Catalog resolution runs two levels: a catalog item carries a `category`, a strin
 - Catalog-item id: `hostingercom-<category>-<sku>` — `hostingercom-vps-kvm2`, `hostingercom-domain-com`.
 - Price id: `<catalog-item-id>-<currency>-<periodN><unit>` — `hostingercom-vps-kvm2-usd-1m`, `hostingercom-domain-com-usd-1y`.
 
-```bash template
+```bash
 # Filter by category or name; read a prices[].id for the intended term
 curl -X GET "https://developers.hostinger.com/api/billing/v1/catalog?category=vps" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 ```
@@ -20,7 +20,7 @@ Each price carries `currency`, `price`, `first_period_price` (the promotional fi
 
 A payment method is created only in hPanel (`hpanel.hostinger.com/billing/payment-methods`); the API lists, sets the default, and deletes, never creates. An omitted `payment_method_id` on a purchase falls to the account default.
 
-```bash template
+```bash
 curl -X GET  "https://developers.hostinger.com/api/billing/v1/payment-methods" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 curl -X POST "https://developers.hostinger.com/api/billing/v1/payment-methods/<payment-method-id>" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"   # set default
 ```
@@ -31,7 +31,7 @@ A `credit_card` method can demand extra verification that leaves an order unproc
 
 A subscription carries `status`, `total_price`, `renewal_price`, `is_auto_renewed`, `expires_at`, and `next_billing_at`. An API-created order auto-renews by default; the toggle is asymmetric — enable is `PATCH`, disable is `DELETE` — and there is no stable API cancel, so a cancellation runs through hPanel.
 
-```bash copy-safe
+```bash
 curl -X GET    "https://developers.hostinger.com/api/billing/v1/subscriptions" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 curl -X PATCH  "https://developers.hostinger.com/api/billing/v1/subscriptions/{id}/auto-renewal/enable"  -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 curl -X DELETE "https://developers.hostinger.com/api/billing/v1/subscriptions/{id}/auto-renewal/disable" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"

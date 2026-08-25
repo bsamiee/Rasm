@@ -37,7 +37,7 @@ Act seats five motion planes on one owner so motion authority never fractures: `
 - Law: every bundle spreads through `mergeProps`, refs reconcile through `useObjectRef`/`mergeRefs`, and `useId` supplies SSR-stable identity — three mechanisms, no local variants.
 - Growth: a new discrete class is one hook composed into the same fold with its arm on the options record and its return in `DiscreteProps` — never a second bundle beside this one.
 
-```typescript signature
+```typescript
 import { mergeProps, useContextMenu, useFocusRing, useHover, useKeyboard, useLongPress, useMove, usePress } from "react-aria"
 import type { ContextMenuEvent, KeyboardShortcutBindings, LongPressEvent, MoveEvent } from "react-aria"
 
@@ -117,7 +117,7 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
 - Boundary: the camera state shape, its extra axes, its intent family, and the per-backend adapters are the viewer projection plane's; this owner recognizes axes and hands them to that plane's mint.
 - Growth: a new recognizer class (a two-finger rotate row, a keyboard-displacement drag) is one handler key with its sub-config; a new camera axis is one field on the owning plane's state, invisible here because a reading folds over it; a new surface is one `Gesture.useCanvas` call.
 
-```typescript signature
+```typescript
 import { createUseGesture, dragAction, pinchAction, wheelAction } from "@use-gesture/react"
 import type { Vector2 } from "@use-gesture/react"
 import type { Types } from "effect"
@@ -191,7 +191,7 @@ const Gesture: Gesture.Shape = {
 - Boundary: floating-ui `useTransitionStyles` phases consume `Theme.Scale.ease` values where an overlay needs style-object motion (`view/overlay`); the sheet's drag physics are `vaul`'s own and take no Motion row.
 - Growth: a new surface motion is one row composing existing setters; a new axis is upstream (`tw-animate-css`), never a local keyframe.
 
-```typescript signature
+```typescript
 const _kinds = ["overlay", "sheet", "palette", "toast", "panel"] as const
 
 declare namespace Motion {
@@ -245,7 +245,7 @@ const _rows = {
 - Boundary: raw gesture recognition stays `[4]`'s; drag physics on engine-animated elements are the engine's own (`CLASS_DIVISION`); the atom holds domain state — the engine interpolates presentation toward targets derived from it.
 - Growth: a new spring temperament is one `springs` row; a new scroll-linked derivation is one `useTransform` fold over the same `useScroll` progress — never a second engine.
 
-```typescript signature
+```typescript
 import { useMotionValueEvent, useScroll, useSpring, useTransform } from "motion/react"
 import type { MotionValue, SpringOptions } from "motion/react"
 import { useEffect } from "react"
@@ -313,7 +313,7 @@ const Motion: Motion.Shape = {
 - Law: the degrade chain is total — canary `<ViewTransition>` (tree tier) → `animateView` (spring tier) → native `startViewTransition` (floor) → bare `flushSync` commit; every tier preserves the commit semantics, so callers are transition-agnostic by construction and no public tier probe exists — a caller branching on the tier re-opens the modality `Transition.run` already owns.
 - Boundary: `flushSync` also serves `FocusScope` restoration (`system/primitive`); the atom write being committed is `system/atom` material; which routes pre-render is app routing policy; interrupted-transition policy at the spring tier is the `interrupt` row — a second `run` while one is live queues (`"wait"`) or preempts (`"immediate"`), and the native tier inherits the platform's own `skipTransition` semantics.
 
-```typescript signature
+```typescript
 import { Effect } from "effect"
 import { animateView } from "motion/react"
 import { flushSync } from "react-dom"

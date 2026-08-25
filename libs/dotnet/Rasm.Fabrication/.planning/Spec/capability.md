@@ -20,7 +20,7 @@
 - Auto: calibrated `ControlConstant` rows carry the range mean and spread the subgroup limits derive from, and a subgroup past the calibrated roster hands spread to the s-chart rather than extrapolating a d2 that was never published.
 - Growth: a capability index is one `CapabilityMetric` row carrying its own scale, side, and spread adjustment; a control rule is one `SpcRule` row carrying its `SpcRuleClass`; an attribute chart is one `AttributeChart` row carrying when it is derivable, how a sample plots on it, and how the cohort interval scales onto it; a control finding is one `ControlEvidence` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
@@ -265,7 +265,7 @@ public sealed partial class ControlConstant {
 - Growth: a distribution is one `DistributionParameters` case with one `DistributionFamily` seed row and one free-parameter arm.
 - Boundary: a policy value here decides a caller's fit; a page-level constant is a policy column hiding from its own owner.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct SigmaSpan {
@@ -539,7 +539,7 @@ public sealed partial class DistributionFamily {
 - Boundary: `CapabilityIdentity` carries the `DiameterBand` its study measured, so `Gate` and `Achievable` resolve through one identity and no row authorizes a size it never observed.
 - Growth: a study modality is one `CapabilityStudy` case folded by `Assess`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class CapabilityIdentity {
@@ -954,7 +954,7 @@ public sealed partial class CapabilityTolerance {
 - Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, and batch sampling; `Rasm.Domain` owns `Stat<TCarrier>`, `Distribution<TCarrier>`, `MomentNormalizer`, `QuantileRule`, the `Tolerance` band carrier, and the `CapabilitySet`/`ICapability` axis; `Rasm.Element` owns the `AdmissionSlots` gate and accumulate fold; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state decoded at `Tooling/magazine`; Thinktecture and LanguageExt own generated values and the accumulated rail.
 - Boundary: `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan seam.
 
-```csharp signature
+```csharp
 // --- [RECEIPTS] ------------------------------------------------------------------------
 public sealed record CapabilitySeries(
     Arr<double> ResidualMm,
@@ -1588,7 +1588,7 @@ public static class Capability {
 - Law: grade NAME and diameter band both discriminate a history row; the allowance factor is downstream policy and never selects evidence.
 - Boundary: `CapabilityHistory` is input-carried evidence — enrollment and persistence remain orchestration effects riding the `store.fabrication.capability.<verb>` streams on the Persistence slot registry, so history-backed gates survive restart while this page stays effect-free.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class CapabilityHistory {

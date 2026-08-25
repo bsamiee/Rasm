@@ -22,7 +22,7 @@ Coordination rides the openBIM issue board: `Issue` composes the AppUi `Viewpoin
 - Growth: a new issue field is one `Issue` member and, where it crosses, one `IssueMap` row; a new lifecycle state is one `IssueStatus` row carrying its three columns; a new fault is one `[FaultCase]` leaf; zero new surface.
 - Boundary: the issue composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract at the package edge — a second BCF model or a direct `.bcfzip`/BCF-XML writer inside `Collab/` is the rejected form; `ToTopic` stays a HAND `with`-update by construction — the correspondence copies board-edited columns over a CARRIED immutable source row, which a generator constructs and cannot copy-with, so Mapperly's refusal is named here and the constructing correspondences ride `IssueMap` instead; the EXCHANGE line runs where a column means something to a foreign reader — assignment and labels cross because a CDE acts on them, while the attachment key, the comment editor peer, and the tile's last-editor ordinal stop at the board; `FromTopic` accumulates — its identity, status, comment-closure, and viewpoint-decode gates are INDEPENDENT, so a monadic chain reporting the first defect is the deleted form; the admitted identity IS the issue's own column and the exchange text parses ONCE at that gate, so the register level, the intent row, and every board verb take the typed value instead of re-parsing a string at each seam; `CommentEntry.Resolved` stays a bare bool — a measured thread fact with both states legal and no sibling flag sharing its regime.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class IssueStatus {
@@ -213,7 +213,7 @@ flowchart LR
 - Growth: a new comment column is one `CollabColumn` row its `IntentApply` arm writes and this projection reads; zero new surface, zero new CRDT, zero new write kernel.
 - Boundary: durable truth rides the `CommentAdd`/`CommentEdit`/`CommentResolve`/`CommentRoute` cases on the shared edit-intent union, so a page-local op family or direct live write is rejected; the lens materializes comment content and modification provenance to `BcfComment` through `IssueMap`, while notification routing and the registered `Editor` peer remain collaboration state; an inbox notice is a comment fact addressed to a peer INSIDE one document's own notification level, so `CommentNotice` carries no document column of its own and never collapses into the session-boundary marker seated beside it; the commit rail's retry posture is the LEDGER's own policy column, never a per-call `Schedule` sprayed across consumers.
 
-```csharp signature
+```csharp
 public static class CommentLens {
     static Fin<A> Thread<A>(CollabDoc doc, ContainerKey topic, A absent, Func<LoroMap, Fin<A>> read) =>
         doc.Read(CollabPath.Root(CollabRoot.Comments).Key(topic), absent, read);
@@ -331,7 +331,7 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
 - Growth: a new tile field is one `IssueTile` member and one `IssueMap` row; a new filter axis is one `IssueFilter` bitset column; zero new surface.
 - Boundary: the issue lane enters a dashboard as one `DashboardTile.Custom` cell and brushes through the dashboards `FilterState` tag set — a parallel tile placement engine or a second brush protocol is the deleted form; the `filter` parameter serves the DASHBOARD lane mount, which brushes by bitset; `BoardSurface.Rows` passes `IssueFilter.All` because its status filtering rides the compiled seam `Predicate<FilterTerm>` instead — two admission planes, each owned by its caller; the attribution column carries the merge authority's peer identity and stops at the board, `BcfComment.ModifiedBy` staying the authored provenance.
 
-```csharp signature
+```csharp
 public readonly record struct IssueFilter(uint StatusMask) {
     public static readonly IssueFilter All = new(uint.MaxValue);
 
@@ -363,7 +363,7 @@ public static class IssueTiles {
 - Growth: a new board view is one projection over the issue set; zero new surface.
 - Boundary: the board is the PROJECTION over the issue set — comment state enters only through `Synced`'s merge-authority read, so every exposed mutation path is either an intent on the one union or a pure re-projection; the round-trip crosses `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfArchive.Read`/`Write`, and the save seeds `BcfFile.Blobs` from the `Document/media#MEDIA_SURFACE` rows its bitmap markups carry; `Synced` stays a PURE fold by declaration — the live refresh cadence is the sync feed's subscription seam, so a streaming re-projection here would fork that owner's backpressure law.
 
-```csharp signature
+```csharp
 public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
     public static Fin<TriageBoard> Load(
         Seq<Rasm.Bim.Coordination.BcfTopic> topics, Func<string, int> revision, IClock clock) =>
@@ -420,7 +420,7 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
 - Growth: a new triage verb is one `IssueOp` case whose generated total `Switch` breaks the write law and the capability fold at compile time; a new triage column is one `CollabColumn` row both ends read; zero new surface, zero new register.
 - Boundary: the register is DURABLE truth on the one edit-intent union — a triage row written directly into the live document, a board-local store, or a status held only in the BCF archive are the three deleted forms; `Commit` carries no gate of its own because `IntentLedger.Project` folds the composition-bound `Admit` column ahead of `LedgerAppend`; every write descends through the `Collab/sync#DOCUMENT_OWNER` scoped `Use`; the triage columns are `Option` because they are the evidence a WRITTEN column holds; lifecycle legality is `Rasm.Bim`-owned — `SignOff.Advance` runs at the transition arm's PRIOR, and an issue no peer has yet triaged grades at the exchange edge instead, because its prior lives on the archive row this register never mirrors.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IssueOp {
@@ -523,7 +523,7 @@ public static class IssueRegister {
 - Growth: a new board view is one `BoardView` row carrying its grouping seed; a new filterable axis is one `IssueTile` member and one `Field` row; a new detail facet is one `IssueDetail` member; zero new surface, zero new filter dialect.
 - Boundary: the board mints NO filter grammar, NO comparer, and NO grouping fold — `Editing/livedata#FILTER_ALGEBRA` `FilterSchema` answers all three off one roster; the virtualized list hands its ordered rows to the `Shell/virtualization#WINDOW_OWNER` fabric; EVERY mutation is a settled edit intent through `IssueRegister.Commit`; the five intent literals are the command-deck vocabulary this surface RAISES — their provenance is the `Shell/commands#INTENT_TABLE` row set, so they stay declared constants here rather than derivations of the verb family; the property keys DERIVE from `nameof` over the tile roster, so a filterable axis and its key move as one edit; the frame-grab attachment is a `Document/media#MEDIA_SURFACE` KEY and never a blob.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -651,7 +651,7 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
 - Growth: a new tool is one `RedlineTool` row carrying its trait set plus one `PaintSpec` row under the same key — an illegal trait corner refuses at the mint; a new exchange shape is one `MarkupLeg` row carrying its projection; a BCF-admitted viewpoint annotation is one `ViewpointMarkup` case; zero parallel viewpoint, archive, capture, raster, encode, or undo owner.
 - Boundary: `Rasm.Bim` owns BCF markup semantics and serialization while AppUi owns interactive authoring; the tool surface mints NO pointer subscription — `PointerTrack.Pen` is the one gesture ingress; stroke colour is a `PaintRole` on the tool row and the tool's own KEY is its draw-site catalog role, so a theme flip re-tints every mark; the markup leg is the TOOL ROW's answer and never a branch inside the capture fold; the raster leg mints NO surface, NO encoder, and NO glyph layout — `DrawSource.Owned`, `VisualCodec.Encode`, and `ShapingSurface` are the three owners it composes, and the working colour space rides `Custody.Bracket` so a refused paint can no longer leak it; a placed mark's payload is a `Document/media#MEDIA_SURFACE` ROW the leg mints beside its `BcfBitmap`, so a reference nothing holds is unrepresentable; a caption is REQUIRED where the tool row admits one; the eraser is a ROUTING answer off the pen axis, because a stylus flipped to its eraser end has already stated the intent; the stroke's author ordinal is a peer identity of unbounded magnitude, so it carries the package's decimal-text number posture wherever the stroke is serialized — the board canvas composes this row, and a JSON number would round it past 2^53 into another peer's attribution.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]

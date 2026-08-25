@@ -25,7 +25,7 @@ Settled composition: `HookId`, `TraceScope`, `HookModality`, `IHookRoster<TSelf>
 - Boundary: the rail carries no queue, no scheduler, and no retry — ordered delivery is the HLC stamp the message envelope already carries and durability is the outbox leg, so a tap that must never lose an event is a durable outbox consumer selected by the delivery-honesty axis, never a hook subscriber.
 - Boundary: decoration order is settled against Rasm/Domain/frame#RECEIPT_PORT — `Send` swaps the HLC cell, constructs the stamped envelope, THEN invokes `Emit`, so a `with { Emit = … }` decorator always observes the fully stamped value, and stacking decorators at one root preserves the one-mint law because record-`with` copies the same `Atom<(Instant, ulong)>` reference into every decorated instance.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Text.Json;

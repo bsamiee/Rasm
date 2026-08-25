@@ -30,7 +30,7 @@ Specification law owns each lowering and the SDK accelerates four of them: the f
 - Growth: a new protocol is one `BindingRow` with its `Dataref` row, reaching every `CLASSIFICATION_ROWS` `broker` cell that admits it; a new sensitivity grade is one `Classification` member at its admission owner with one `CLASSIFICATION_ROWS` row here; a new content mode is one `Content` member on the rows that hold it; a new protocol setting is one key on that row's slice; a new pushdown mechanism is one `Pushdown` value; a new execution arm is one `Arm` member with its lane law; a new residence is one port binding at the composition root.
 - Boundary: protocol lowering, its policy rows, and payload residence only — the connection half seats at `[04]-[ADAPTER]` on this same page, so a row states the protocol fact and the lane realizes it. Composes — never re-mints — the message envelope, the format contract, the resilience curves, the store lane, and the hook registry. Rejected: a per-sink knob outside its row's `protocolsettings` slice; a `ce-` literal at a lowering site; a hand-spelled partition-key extractor beside `_default_key_mapper`; a global `dataref` threshold; a `retry` column on a transport row; a boolean capability knob where the `providers` axis refuses.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable
 from copy import replace
@@ -985,7 +985,7 @@ def _raise_missing(binding: Binding, name: str, /) -> Never:
 - Growth: a new fact family is one `project` row; a new bound binding is one member of the emitter's set with no projection edited; a new long-tail state is one declared rail on this cluster and one arm on the fold that reads it; a new composition is one `ScopeKey` threaded through `bound`, never a sibling emitter.
 - Boundary: hook-fact projection and delivery fan only. Mints no hook point, no receipt semantics, no retention window, and no client connection. Rejected: an emit inside a domain fold; a `VETO` subscription over a fact stream; accepted and matched-duplicate folded into one count; batch position treated as event order; a drain that cancels the in-flight window.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Awaitable, Callable
 from typing import Self, TypeIs
@@ -1090,7 +1090,7 @@ def _payload[P: Struct](value: Struct, expected: type[P], /) -> TypeIs[P]:
 - Growth: a new protocol is one `BINDINGS` row beside one bound `Client`; a new membership shape is one `Grouping` member with its arm on the one membership fold; a new settlement join is one `Settle` member; a new producer guarantee is one `Producing` member with its bracket; a new loop cadence is one `Pump` member with its step; a new dead-letter route is one value on the subscription's slice.
 - Boundary: connection lifetime, membership, settlement, and drain only. Mints no message envelope, no format, no retry curve, no failure window, no receipt semantics, and no hook point. Rejected: a lane creating a loop or a thread the caller's group does not own; `loop_start`'s daemon thread; a `BlockingPortalProvider` minted per callback; an automatic offset commit; a prefetch unpaired with its limiter; work started inside a rebalance callback; a drain that cancels the in-flight window; a per-protocol adapter class beside the one row-driven lane.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime

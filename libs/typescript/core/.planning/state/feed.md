@@ -14,7 +14,7 @@
 
 [DOCUMENT_REF]:
 
-```typescript signature
+```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import { Array, Chunk, Data, Duration, Equal, Equivalence, HashMap, Match, Option, Order, Schema, SortedMap, Stream } from "effect"
 import { Clock } from "../value/clock.ts"
@@ -77,7 +77,7 @@ const _Document = Schema.Union(
 [ENTRY_FAMILY]:
 - Growth: a new evidence vocabulary joins as one case; the feed, reads, and plan absorb it with zero edits beyond the demanded record rows.
 
-```typescript signature
+```typescript
 declare namespace Feed {
   type Column = Schema.Schema.Type<typeof _Column>
   type Document = Schema.Schema.Type<typeof _Document>
@@ -219,7 +219,7 @@ const _contribution: (entry: Feed.Entry) => Fold.Cell = _Entry.$match({
 
 [FEED_FOLD]:
 
-```typescript signature
+```typescript
 const _POSTURE_KEYS = ["stack", "coalesce", "latest"] as const
 const _Posture = Shape.vocabulary(_POSTURE_KEYS, {
   stack: { slot: (_subject: Feed.Subject, _kind: Feed.Entry["_tag"]) => Option.none<Feed.Slot>() },
@@ -360,7 +360,7 @@ const _empty = <P extends Feed.Policy>(policy: P): Feed.State<P> => ({
 [EVIDENCE_TIMELINE]:
 - Growth: a receipt batch carries one correlation and folds through the same `Feed.Entry` arm.
 
-```typescript signature
+```typescript
 declare namespace Feed {
   type Timeline = { readonly correlation: Correlation; readonly envelopes: Chunk.Chunk<Evidence.ReceiptEnvelope> }
 }
@@ -375,7 +375,7 @@ const _timeline = <P extends Feed.Policy>(state: Feed.State<P>, timeline: Feed.T
 [FEED_READS]:
 - Growth: a new read (per-kind lane, subject history) is one projection member over the same two structures.
 
-```typescript signature
+```typescript
 const Feed: Feed.Shape = {
   Entry: _Entry,
   Document: _Document,

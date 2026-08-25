@@ -17,7 +17,7 @@ Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipe
 - Growth: a new simulation workflow is one `RecipeName` member with one `RECIPES` row, its output roster riding the shared anchor the moment a second row declares the same set; a new engine one `Engine` member with one `ENGINE_CHECK` row; a new remote asset kind one `AssetFetch` on the spec; a new run-policy dimension one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default; the cloud-submission modality (a Pollination platform `Job` POST composing the queenbee shapes against `interface`) enters as one more execute arm with its own `@overload` over the same `RecipeSpec` when a consumer names it, never a parallel owner — an arm with no overload lands every caller on the runtime union.
 - Boundary: no luigi scheduling, no handler resolution or chain ordering, no engine probing beside `version.check_*`, and no recipe-schema re-mint — queenbee owns the vocabulary, and a `msgspec`/protobuf mirror of a queenbee model is a single-mint violation. queenbee's click CLI and urllib transfer stay rejected: `cyclopts` and the roots rail own those concerns. No durable run ledger — the session cache is lane-local, and durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire. Engines are external binaries; no simulation runs in-process.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Buffer, Iterable
 from enum import StrEnum

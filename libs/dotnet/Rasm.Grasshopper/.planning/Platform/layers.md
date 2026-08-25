@@ -23,7 +23,7 @@
 - Packages: Microsoft.macOS (`NSView`, `CALayer`, `CAShapeLayer`, `CGPath`, `CGColor`, `CGRect`), Eto.Drawing (`IGraphicsPath`), Eto.macOS (`CGConversions.ToCG`), Generator.Equals, `Rasm.Numerics` (`PerceptualColor`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`, `Custody`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`), `Platform/native.md` (`MacGate`, `MacAnchor`).
 - Growth: a new layer family is one `LayerNode` case whose native payload enters through the same scope; a new style bit is one `LayerTrait` row; graph lookup, fencing, failure cleanup, and teardown never widen.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
@@ -171,7 +171,7 @@ public static class Compose {
 - Law: `CATransaction.Commit` always closes the begun transaction, and the completion block installs only after the body applied — a completion firing over a refused body certifies a mutation that never landed.
 - Growth: a third posture is one row; the fence never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Grasshopper.Platform;
 
@@ -197,7 +197,7 @@ public sealed partial class TransactionPosture {
 - Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `BeatSeed`, `MonotonicBeat`, `MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `PaceBand`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Platform/native.md` (`WorkspaceFact`, `WorkspaceWatch`, `NativeSeam.Watch`, `MacGate`).
 - Growth: a new sampled modality is one kernel `MotionScript` case; this attachment inherits beat, posture, terminal, and verdict semantics with no arm of its own.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
@@ -254,7 +254,7 @@ public sealed class MotionAttachment : IDisposable {
 - Packages: Microsoft.macOS (`CAAnimation`, `CASpringAnimation`, `CAMediaTimingFunction`, `CALayer`, `NSString`), Thinktecture.Runtime.Extensions, `Rasm.Parametric` (`SpringShape`, `SettleBand`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`). Consumer: `Canvas/paint.md`'s CoreAnimation overlay projection.
 - Growth: a new standard timing name is one `TimingCurve` row; a new host animation is one `GlidePlan` case on the one attachment lifecycle.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CoreAnimation;
 using Foundation;
@@ -312,7 +312,7 @@ public static class Curves {
 - Packages: Microsoft.macOS (`CGColor`, `CGColorSpace`, `CGColorSpaceNames`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`, `GamutPolicy`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
 - Growth: a new display profile is one kernel `RgbProfile` row and a new reproducibility domain one kernel `GamutPolicy` row; the projection is unchanged while the selected rows vary.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CoreGraphics;
 using Rasm.Domain;

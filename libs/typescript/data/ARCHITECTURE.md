@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 data/
 └── src/
     ├── lane/             # Guarantee-lane matrix: engines as rows under sealed capability vocabularies

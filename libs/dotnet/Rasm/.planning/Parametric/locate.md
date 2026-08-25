@@ -29,7 +29,7 @@ Structural law is the (value × locator) matrix as CASE-OWNED rows: each `Locati
 - Owner: the curvature sweep — `Curvature` resolves the native family once and asks the MODE ROW for its lane, feeding whatever it answers to ONE shared `Sweep` builder (lease, sample `count` stations, project) and lowering one `Unsupported` where the row answers `None`. `CurveLane`/`SurfaceLane` are the shared scalar sweeps the aggregation reduces, `SurfaceStatLane` the vector mode's transposed multi-metric set, and `SampleColumn` the ONE station→output resolver every aggregation reads; `CurvatureSample` is the station carrier on the `Domain/rails` validity fold, so every station drains through the acceptance oracle and a degenerate host evaluation faults the sweep instead of feeding the extrema.
 - Boundary: the output-type gates are COMPILE-SHAPE capability gates on a generic operation — the legitimate generic-dispatch idiom, never the runtime raw→typed projection dispatch the `Numerics/atoms` `ProjectionRow` rail owns; selecting WHICH measured column a station publishes is value dispatch and has exactly one owner, `SampleColumn`, so no arm re-discriminates `TOut` beside another; `Sweep` is the one native-sampling builder, a per-row bespoke `Operation.Build` the spam it absorbs; requirement values arrive from locator columns or family builders, never inline per arm.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 
 using System.Runtime.InteropServices;

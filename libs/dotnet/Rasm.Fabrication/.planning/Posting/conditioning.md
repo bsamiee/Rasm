@@ -21,7 +21,7 @@
 - Packages: `UnitsNet` supplies `Length`, `Speed`, `Pressure`, `Duration`, `Force`, and `Ratio`; `Thinktecture.Runtime.Extensions` generates every value object; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, and the `Fin` rail.
 - Boundary: raw dimension text never crosses admission, and no column past it carries a unit in its name.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
@@ -281,7 +281,7 @@ public sealed partial class PostPolicy {
 - Exemption: `LookaheadKernel`, `Segments`, `Fit`, and `BulgeArc` are the named numeric kernels; every other join uses `Fold`, `FoldM`, `TraverseM`, generated `Switch`, and query syntax.
 - Boundary: only a thermal-only controller spells beam-on as the torch word, and the declared modality set decides it, so no dialect identity is tested.
 
-```csharp signature
+```csharp
 // --- [CONDITIONING] --------------------------------------------------------------------
 public static partial class Post {
     internal static Fin<CutProgram> Assemble(

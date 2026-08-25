@@ -34,7 +34,7 @@ Each `isolation` value names the worker crossing that answers it; `Kernel` selec
 |  [04]   | `wasm`      | `WorkerKind.WASM` guest sandbox       | `Feature.WASM_GUEST`         |
 |  [05]   | `remote`    | `WorkerKind.REMOTE` fleet arm         | `Feature.OUTBOUND_TRANSPORT` |
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Mapping
 from datetime import timedelta
@@ -535,7 +535,7 @@ class RuntimeContext(Struct, frozen=True):
 - Growth: a contract field changes the corpus message and regenerated class; a local provider adds one observation adapter; a new invariant is one `_FACTS` row; a new failure rank adds one `ABSORPTION` row; a new disruption class takes its order from the generated enum; a new recovery axis adds one `RecoveryWindow` column with its absence law and matching objective column.
 - Boundary: a Python-only application composes, deploys, and admits its stores with no peer branch present; provider generation execution and journal identity stay outside this owner; recovery evidence stays observation-side and never enters `parity.Backend`, so the emitted document and every peer decode remain unchanged by a recovery reading. `ContractEvidence` holds the mutable generated message only for the admission fold; the returned generation retains one frozen `CapabilityPolicy` projection carrying exactly the behavior columns it reads. ProtoJSON comparison is semantic; byte-identity graduation belongs to a future real cross-runtime binary fixture, never a formatting assertion.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections import Counter
 from collections.abc import Callable, Iterable
@@ -986,7 +986,7 @@ _FACTS: Final[Block[ContractFact]] = Block.of_seq([
 - Law: one `SecretRequest.name` spelling serves every backend under the narrowest alphabet any of them admits and refuses outside it, and each arm's miss-vs-fault split is its provider's own 404 case — so a walk to the next rung and a refusal never collapse into one answer, and a transport digest mismatch names itself as `IntegrityError` rather than as the bare `OSError` a mount read shares.
 - Boundary: no code here reads `os.environ` after admission, and no admitted client is left to reach one for a credential — GCP and Azure resolve ambient workload identity inside their own construction as their catalogues rule, while the Vault token is admitted material precisely because `hvac.Client` at `token=None` falls back to `VAULT_TOKEN` and then `~/.vault-token`. Keystore and cloud tiers read credentials for the OUTBOUND transport legs only — the companion UDS serve leg reads no keyring, peer identity being the kernel accept-time credential (`transport/serve#SERVE`).
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 import threading
@@ -1327,7 +1327,7 @@ SECRET_LADDER: Final[Block[TierRow]] = Block.of_seq([
 - Growth: a new trusted issuer is one `TRUST_ROWS`-shaped entry the composition binds; a new event claim is one `Claim` field with its `TrustRow` column; a new authenticated principal dimension is one `PrincipalScope` field produced by every protocol binder; a new tenancy shape is one `Tenancy` member with its arm on the one adoption fold, the standing `assert_never` breaking every arm that lacks it.
 - Boundary: claim verification and tenant adoption only. Mints no `Tenant` — `evidence/clock#CLOCK` owns that newtype and its root — no credential, no session, no row-level predicate, and no transport identity. Rejected: a tenant inferred from a raw transport credential; a tenant encoded as a generic event extension; a claim verified at a routing site rather than at ingress; a substring issuer match; a ceiling that downgrades; an open default trust table.
 
-```python signature
+```python
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

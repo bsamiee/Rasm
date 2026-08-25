@@ -25,7 +25,7 @@ Every gate takes the session's injected `MonotonicTimeline` REQUIRED (folder RUL
 - Packages: Grasshopper2 (the document surface), GrasshopperIO (`IWriter`, `IReader`, `IStorable`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`, `IGaugeLane`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new mint posture is one `DocumentTier` row; a new inert read is one facet row with its answer case; a new host answer shape is one `GateOutcome` case; a new gauged gate is one `GateLane` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
@@ -217,7 +217,7 @@ public static partial class DocumentScope {
 - Packages: Grasshopper2 (`DocumentMethods`, `CanCreateChain`/`CanCreateCluster`, `ObjectList.SelectedObjects`, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `OpenColor.Family`, `ActionList`), `Shell/events.md` (`GhSource`, `GhFact`), `Rasm.Interaction` (`UiEvents`, `EvidenceDrain`, `Atomicity`, `PaintColor`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/history.md` (`HistoryLedger.Seal`), `Rasm.Numerics` (`PerceptualColor`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new document verb is one `DocumentAct` case whose `Switch` arm breaks the gate loudly; a new sweep, posture, or depth verb is one row on its owning family; a new causal stream is one `GhSource` row added to the observation set.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;

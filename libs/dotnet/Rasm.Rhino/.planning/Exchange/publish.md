@@ -17,7 +17,7 @@
 - Packages: `Exchange/formats` (`FileCodec`, `CodecAbility`), `Domain/rails` (`Op`, `Fault`, `Fin`), LanguageExt.Core (`Option`, `Seq`, `guard`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ValueObject]`, `[ValidationError]`, `[BoundaryAdapter]`), System.Drawing.Imaging (`ImageFormat`, `Encoder`, `EncoderValue`, `EncoderParameters`), System.Collections.Frozen.
 - Growth: a new raster format is one `RasterCodec` row carrying its image format, alpha capability, and owning `FileCodec`, beside the `RasterPolicy` case whose parameters that encoder consumes; a new TIFF compression is one `TiffCompression` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Drawing.Imaging;
@@ -155,7 +155,7 @@ internal static class Rasters {
 - Packages: `Rasm.Drawing` (`TitleBlock`, `TitleField`, `SheetStandard`, `SheetNumber`, `SheetOfGrammar`, `DrawingScale`, `ScaleNotation`, `LineWidth`, `TextHeight`, `LetteringForm`, `DraftingMetrics`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Numerics/atoms` (`PerceptualColor.ToDrawing`, `VectorAngle`), NodaTime (`LocalDatePattern.Iso`), `Annotation/typeface` (`FaceForm`, `FaceQuery`, `Typefaces.Resolve`), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Text.RegularExpressions (`[GeneratedRegex]`), System.Collections.Frozen.
 - Growth: a new draw member on the host PDF surface is one `PdfMark` case with its draw arm; a new stamp variable is one `StampToken` row naming its `TitleField` or its host fallback, reaching both the scan and the index with no second edit.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record StampScope(
     Option<string> DocumentName,
@@ -430,7 +430,7 @@ public abstract partial record PdfMark {
 - Packages: `Rasm.Drawing` (`SheetSize`, `SheetStandard`, `SheetOrientation`, `PlotResolution`, `DrawingScale`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Viewport/capture` (`CaptureDpi`, `Size2i`, `CaptureSubject`, `CapturePlan`, `CaptureFeature`, `TransparentCaptureSpec`), NodaTime (`Instant`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Boundary: named-view publication captures the named view's addressed viewport as it stands; a restore-then-capture sequence is the camera rail composed BEFORE publication, never a hidden restore inside the page resolver.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CaptureFrame {
@@ -725,7 +725,7 @@ public abstract partial record PublishTarget {
 - Boundary: `PdfGate` serializes THIS rail's replace-write-restore window over the process-global custom-page roster, so two concurrent `Publishing.Run` calls never interleave rosters. A `System.Threading.Lock` is the owner here and an atom is not: the window is MUTUAL EXCLUSION across two host calls, while `Cell.Step` is a compare-and-swap that lets a second writer install its roster between this one's replace and restore. The roster belongs to the host process, not the gate: a host-internal PDF export running outside this rail reads whichever roster the window has installed, and that exposure is unclosable from here because `FilePdf.SetCustomPages` carries no scope. Custom pages therefore ride only the blank-source contract, where the window is one write long. `Restored` attempts roster restoration after every body outcome and combines a write fault with a restoration fault instead of replacing either failure.
 - Packages: `Rasm.Drawing` (`PlotPolicy`, `PlotResolution`, `LayerEmission`, `TitleBlock`, `SheetSize`), `Rasm.Parametric` (`MonotonicTimeline`), `Document/facts` (`IFactSlot`, `IFactBody`, `FactStream`, `Fact`), `Document/session` (`DocumentSession`, `SessionNeed`), `Viewport/capture` (`Captures.Stage`, `PreparedCapture`, `CaptureArtifact`, `CapturePlan`), `Exchange/operations` (`OutputPolicy.Land`, `OutputPolicy.Resolve`, `Exchanges.Keyed`, `ExchangeEvidence`), `Domain/validation` (`CapabilitySet`, `ICapability`), LanguageExt.Core (`Validation` applicative, `TraverseM`, `Fin`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using PublishReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Exchange.PublishSlot, Rasm.Rhino.Exchange.PublishBody>;
 
@@ -1242,7 +1242,7 @@ public static class Publishing {
 }
 ```
 
-```mermaid codemap
+```mermaid
 ---
 config:
   layout: elk

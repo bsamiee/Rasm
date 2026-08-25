@@ -19,7 +19,7 @@ Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempot
 - Boundary: durable throttles are `queue#THROTTLE` rows composed inside a body; this mint owns geometry, never quota.
 - Packages: `@effect/workflow` (`Activity`); `effect` (`Effect`, `Duration`, `Function`); `@rasm/core` (`Fault.Budget`, `Fault.Class`).
 
-```typescript signature
+```typescript
 import { Activity, DurableClock, DurableDeferred, Workflow, WorkflowProxy, WorkflowProxyServer } from "@effect/workflow"
 import type { HttpApi } from "@effect/platform"
 import { Cause, Context, Data, Duration, Effect, Exit, Function, Match, Schema } from "effect"
@@ -103,7 +103,7 @@ const Step = { run: _run }
 - Growth: a new workflow is one definition value plus one `toLayer` body; an operator capability (bulk interrupt, drain-before-deploy) is a fold over `poll`/`interrupt` at the composition root.
 - Packages: `@effect/workflow` (`Workflow`, `WorkflowEngine`); `effect` (`Context`, `Effect`, `Match`, `Schema`).
 
-```typescript signature
+```typescript
 type FlowVerdict<A> = Data.TaggedEnum<{
   Settled: { readonly value: A }
   Suspended: { readonly executionId: string }
@@ -144,7 +144,7 @@ const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E> | und
 - Growth: a new rollback concern is one `withCompensation` wrap at the owning workflow; a shared rollback pattern is a function over `Step.run` values, never a second saga surface.
 - Packages: `@effect/workflow` (`Workflow`); `effect` (`Cause`).
 
-```typescript signature
+```typescript
 const _compensated = <A, E, R, R2>(
   step: Effect.Effect<A, E, R>,
   rollback: (value: A, cause: Cause.Cause<unknown>) => Effect.Effect<void, never, R2>,
@@ -176,7 +176,7 @@ const Flow = { Verdict: _Verdict, compensated: _compensated, policy: _policy, sa
 - Growth: a new signal is one `DurableDeferred.make` value; a new hold posture (renewable hold, escalating expiry) is a policy field on `hold`.
 - Packages: `@effect/workflow` (`DurableDeferred`, `DurableClock`); `effect` (`Effect`, `Duration`).
 
-```typescript signature
+```typescript
 declare namespace Signal {
   type Hold<Success extends Schema.Schema.Any, Error extends Schema.Schema.All> = {
     readonly deferred: DurableDeferred.DurableDeferred<Success, Error>
@@ -215,7 +215,7 @@ const Signal = { hold: _hold, pause: _pause }
 - Growth: exposing a new workflow set is one proxy call in the owning contribution; a private workflow simply never enters one.
 - Packages: `@effect/workflow` (`WorkflowProxy`, `WorkflowProxyServer`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter).
 
-```typescript signature
+```typescript
 const _contribution = <const Flows extends readonly [Workflow.Any, ...ReadonlyArray<Workflow.Any>]>(name: string, flows: Flows) => ({
   rpc: WorkflowProxy.toRpcGroup(flows),
   rpcHandlers: WorkflowProxyServer.layerRpcHandlers(flows),

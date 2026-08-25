@@ -27,7 +27,7 @@
 - Growth: a new host object fact is one snapshot field read in the same pass, or one `ObjectTrait` row where the fact is a condition; a named native grade enters only after its values verify.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `AcceptValidated`), `Domain/rails` (`Op`, `Op.Text`, `Op.Catch`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
@@ -185,7 +185,7 @@ public sealed record ObjectSnapshot(
 - Law: `ObjectSignal` states ENABLEMENT and nothing else. Scale inclusion on an anchor read and unclipped-fill inclusion on a section cut are inclusion axes, not enablement, so each carries its own two-row vocabulary — `FrameScale`, `FillSpan` — and the shared signal stays on the select and highlight verbs where turning a state on IS the question.
 - Law: the gumball pose crosses detached — `GumballFrame` is a host struct whose `Plane`, `ScaleGripDistance`, and `ScaleMode` copy into the pose value, and `GumballScaleMode` rides the pose as a seam discriminant.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class GumballAlignment {
@@ -254,7 +254,7 @@ public abstract partial record FramePose : IDetachedDocumentResult {
 - Law: selection conduct is the table rail's own `CapabilitySet<SelectionAxis>` — the component select reads `SyncHighlight` and `Persistent` off the same set `TableOp.Select` reads, so a whole-object select and a component select cannot disagree on posture, and a page-local policy product naming the same bits twice is the deleted form.
 - Growth: a new component verb is one `Touch` case dispatched in the same fold; a new reach shape is one `Reach` case every verb arm reads.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Reach {
@@ -462,7 +462,7 @@ public abstract partial record TouchResult {
 - Law: dissection rides the same product — `GetSubObjects` explodes the object into detached members the caller owns, so member geometry detaches onto handles with duplicated attributes and never re-enters as live state; the census consumer reads the piece roster, never a host array.
 - Law: fill resolution demands live clipping planes — each requested id resolves through `FindId` to a `ClippingPlaneObject` inside the grant, and a non-plane id is a typed refusal, never a silent skip.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class FillSpan {
@@ -639,7 +639,7 @@ public sealed class ObjectPiece {
 - Law: the census builds the block topology ONCE. Three separate `GraphSource.Live` values made the graph owner rebuild the same definition graph three times over one pinned grant, and the three answers disagree whenever a definition moves between builds — a census reporting a placement count from one topology beside a cycle count from another. One source value, three questions.
 - Growth: a new read is one ask case with its answer case; a new census dimension is one `DocumentCensus` field folded from an existing owner; the dispatch, the entries, and every consumer read it with zero new surface.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StateAsk {

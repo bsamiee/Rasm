@@ -27,7 +27,7 @@ Core Web Vitals are not measured here. `runtime:otel/vital` owns every CWV captu
 - Boundary: OTLP egress is the app tap's and the point carries it both ways — one bridge folds `viewer/probe`'s render rows onto `runtime:otel/vital`'s `Vital.Report` intake, whose closed carrier set is exactly the render kinds that owner does not measure itself, and republishes the graded facts the same service streams back onto this point; label vocabularies stay surface-local, so the bridge resolves each row onto its carrier kind and supplies the producer's own phases and subject, passing the value unconverted at the scale that kind's UCUM row declares; that intake answers a typed parse rail rather than a bare void, so the bridge carries an explicit refusal arm — a sample the fact constraint rejects stays local evidence on this point and is never re-offered, because discarding the rail leaves a mis-scaled producer row as a silent hole in the graded series while letting it escape kills the capture whose graded facts the same registration streams back.
 - Boundary: this floor's own rows stay display and hook-rail evidence — the telemetry owner already grades the jank ceiling from its `longtask` row and the interaction headline from `web-vitals`, so a second carrier kind for either fact mints a rival series two boards then disagree about; this package imports no collector and mints no instrument.
 
-```typescript signature
+```typescript
 import { Array, Chunk, Effect, FiberSet, HashMap, Number, Option, Record, Schema, type Scope, pipe } from "effect"
 import { Hook } from "./hook.ts"
 import type { Theme } from "./token.ts"
@@ -134,7 +134,7 @@ const _rows = (label: string, measures: Vital.Measures, window: _Window): Readon
 - Law: observers are passive — no forced layout, no synthetic events, no `takeRecords` polling loop; an idle document reports idle numbers truthfully.
 - Packages: `web-vitals` — the types build augments the DOM lib with `PerformanceLongAnimationFrameTiming` and `PerformanceScriptTiming`, so raw entries type without a second `@types` package; `effect` (`Array`, `Chunk`, `Effect`, `HashMap`, `Number`, `Option`, `Record`, `pipe`, `Scope`).
 
-```typescript signature
+```typescript
 type _Entry = {
   readonly "long-animation-frame": PerformanceLongAnimationFrameTiming
   readonly event: PerformanceEventTiming
@@ -241,7 +241,7 @@ const _entryRows = (kind: Vital.Entry, trace: Chunk.Chunk<PerformanceEntry>): Re
 - Law: this lane contributes a measure table, a reader, and a label prefix — every window bound, accumulator, and projection is `[02]`'s, so the commit series and the entry series carry ONE row grammar and a board renders both through one reader.
 - Law: the render loop stays out — GPU and frame-loop evidence is `viewer/probe#METRIC_FOLD`'s lane; this fold measures the React tree alone, and one board renders both lanes side by side because the rows share one shape.
 
-```typescript signature
+```typescript
 import type { ProfilerOnRenderCallback } from "react"
 
 type _Commit = {
@@ -300,7 +300,7 @@ const _commitRows = (id: string, trace: Chunk.Chunk<_Commit>): ReadonlyArray<Row
 - Law: tone keys the `[02]` grade table alone — a graded row renders through `_tone`, while these census rows carry a count and no grade, so a board tones a rising error or skip count by its own threshold rather than by a fourth key minted here.
 - Boundary: bundler wiring, `panicThreshold`, and gating are the build plane's config bag; probe's claim board and the chart cohort render these rows; the hook rail carries them to any app sink.
 
-```typescript signature
+```typescript
 import { type LoggerEvent, type PluginOptions, runBabelPluginReactCompiler } from "babel-plugin-react-compiler"
 
 const _compiled = (text: string, file: string): ReadonlyArray<Row> => {

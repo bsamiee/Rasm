@@ -21,7 +21,7 @@ One fail-closed rail carries this folder: a closed row/ensure vocabulary, one `C
 - Packages: `effect` (`Array`, `HashSet`, `Order`, `Schema`, `String`); `@rasm/core` (`Fault.Class`).
 - Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand row and a new dependency relation is one `_RELATIONS` row — the shapes never widen per extension.
 
-```typescript signature
+```typescript
 import { Array, HashSet, Order, Schema, String, pipe } from "effect"
 import { Fault } from "@rasm/core"
 
@@ -148,7 +148,7 @@ const _meets = (installed: string, floor: string): boolean =>
 - Law: a statement failure is NOT absence — the window settles every request with the `SqlError` itself, so a broken connection fails Layer construction typed instead of silently shrinking the granted set; fail-closed refuses capabilities on evidence, never on transport accident.
 - Law: `sql.unsafe` never meets the batch — the batched form is fully parameterized through `sql.in` and decodes through the one `SqlSchema` scan (the folder's typed-read law holds even on catalog tables); the unsafe escape exists only for sealed per-row overrides, its `{ version }` result still decodes through `SqlSchema`, and the override text is a row of the sealed matrix, never caller input.
 
-```typescript signature
+```typescript
 import { Effect, HashMap, Option, Request, RequestResolver, Schema } from "effect"
 import type { ParseResult } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
@@ -202,7 +202,7 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 - Law: probing runs once per Layer construction and the report is immutable thereafter — a live re-probe is scope invalidation on the owning `Stores` map, never a poll.
 - Boundary: which rows exist is `lane/postgres.md`'s; where the Layer composes and which ensures collect is `lane/tenant.md`'s; the image that makes `"image"` rows probe true is the deployment plane's.
 
-```typescript signature
+```typescript
 import { Array, Context, Either, HashSet, Layer } from "effect"
 
 declare namespace Capability {
@@ -416,7 +416,7 @@ declare namespace Capability {
 - Growth: a provider adds adapter rows over its existing matrix, and a provider plane holding no probeable catalog adds canonical keys on `Reading.granted` instead; a new invariant is one `_Check` row inside the stage that already holds its inputs; a generated field changes the corpus message and regenerated binding; a new recovery axis is one `_AXES` token with its `_WINDOWS` row carrying both readers and its absence posture.
 - Boundary: a TypeScript-only application composes, merges, deploys, and admits its backend with no peer branch present; desired rows and local availability never count as realized evidence. Assembling the one `Reading` — relational report and adapters beside every provider plane's already-canonical grants and artifacts — is the composition root's obligation, and this page grades whatever that root hands it.
 
-```typescript signature
+```typescript
 import { equals, type MessageInitShape, type MessageValidType } from "@bufbuild/protobuf"
 import {
   ArtifactSchema,

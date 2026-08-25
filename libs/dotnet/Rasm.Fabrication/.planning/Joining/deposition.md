@@ -27,7 +27,7 @@ Physics and policy seat here; geometry and the clock do not. `WeldRuleSet` state
 - Packages: Thinktecture.Runtime.Extensions supplies `[Union]`, `[ComplexValueObject]`, and `[ValidationError]`; LanguageExt.Core supplies `Fin`, `Validation`, `Option`, `Map`, `Set`, `Seq`, `Traverse`, `Apply`, and `Fold`; MathNet.Numerics supplies `Interpolate.Linear` for the piecewise waveform; UnitsNet and NodaTime supply typed boundary quantities; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Fabrication.Process` supplies `ProcessBudget.Joining`, `FabricationFault`, and `FabConcern.Joining`.
 - Boundary: `WeldPolicy` holds no geometry and no clock. `IWeldAccess.Check` and `WeldDemandBinding.Facts` read the `WeldPass` roster `Joining/weld` `[03]-[PASS]` emits, because both are evaluated AFTER pass generation over the passes they judge — the seam is named at both ends and neither owner reaches the other's behaviour.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -727,7 +727,7 @@ public sealed partial class WeldPolicy {
 - Packages: RhinoCommon supplies `Point3d`, `Vector3d.CrossProduct`, and `Vector3d.Multiply` for the circumcircle fit; `Process/atoms` supplies `Move`, `MoveOrientation`, `ArcCenter`, and `RotationSense`.
 - Boundary: `ArcProgram.Lead` and `.Trail` take the `Joining/weld` `[03]-[PASS]` `TorchFrame` the transport produced — the arc program places moves ON a pose it never derives.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]

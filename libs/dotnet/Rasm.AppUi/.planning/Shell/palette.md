@@ -21,7 +21,7 @@ The command palette and the shortcut editor are presentation over the frozen dec
 - Growth: a new searchable domain is one `PaletteKind` row (its prefix, label, and activation verb ride the row) plus one `PaletteProvider` bound at composition — `Document/search#RANKED_WINDOW`'s `SearchPlane.Provider` is the landed exemplar; zero new surface.
 - Boundary: the palette is the one federated query surface — every provider contributes typed `PaletteHit` rows into one merged rank fold, an element provider consumes element-selection receipt rows under the scope-qualified split (queries enter as receipts, never an AppUi query engine), and a provider-local result vocabulary beside `PaletteHit` is the rejected form; a provider that must run a query DRIVES it inside its own `Open`, so a leg cannot answer a window its query never filled; PROGRESS is a column of the slice rather than a second stream, because two streams would let a settled status arrive beside a stale row set; `ToObservableChangeSet` is the rejected lowering — it upserts every emitted item and removes NONE; activation is ONE fold over the kind row — a command hit invokes its own key and every other kind invokes its kind's reveal verb with the hit key as a `Single` payload, so a hit whose kind names an unbound reveal verb refuses on the same `UnknownIntent` rail a bad deep link does; label normalization is the frozen index owner's (`CommandExecution.Search` folds the query once), so equivalent queries differing only by case return identical keys and rank order; the merge comparer stays a hand `IComparer<PaletteHit>` with its refusal named — `MergeChangeSets` and the realized window demand an `IComparer`, a seam the kernel `Ranked.Top` bounded-K fold does not serve.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -127,7 +127,7 @@ public sealed record PaletteFeed(
     IObservable<HashMap<PaletteKind, PaletteStatus>> Statuses);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PaletteFederation {
@@ -192,7 +192,7 @@ public static class PaletteFederation {
 - Growth: one `PaletteFrame` case absorbs a new drill-in shape and breaks the render dispatch at compile time; a new hit column is one `PaletteHit` member every provider already fills; zero new surface.
 - Boundary: the palette seats on the CANVAS stack as `Shell/dialogs#SESSION_ALGEBRA`'s `OverlayShape.Palette` row through the `DialogIntent.Layer` case, and the dialog raise site is the ONE naming of that seat; the surface owns NO ranking, NO scoping, and NO invocation — `Federate` ranks, `PaletteQuery.Parse` scopes, and `CommandExecution.Raise` invokes, so a surface-local score, filter, or command construction are the three deleted forms; a frame carries exactly what its render needs and nothing derivable — the arguments frame carries the schema it was opened with, so the frame and the submit admit against one value even if the deck re-freezes underneath a long-lived surface; a hit's action panel offers only verbs the deck's own availability admits at the moment it opens; the argument frame commits through `CommandRow.Compose`, so a partially-filled form cannot reach `Execute`; a verb with no argument schema never opens an argument frame, because `Choose` raises it in one step; shortcut assignment reaches the palette as an ordinary contextual verb (`ShortcutEditor.CaptureIntent` carries `command` in its targets), so the palette and the editor share one assignment path; the search field is the `Shell/controls#CONTROL_INTENT` `TextInput` row and every keycap, badge, and group header takes its appearance from `Theme/tokens#CONTROL_THEMES` rows, so the surface writes no paint; the session's cache and query subject dispose with the dialog teardown that raised it — the layer plane owns the bracket, so a session-local `IO.Bracket` would be a second custody over one lifetime.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -362,7 +362,7 @@ The presentation columns are a projection of the hit shape, so a result row rend
 - Growth: a new keymap is one `BindingOverlay` row on the persisted policy; a new editor column is one `ShortcutRow` member derived from the deck; zero new surface.
 - Boundary: the editor seats on the CANVAS stack as `Shell/dialogs#SESSION_ALGEBRA`'s `OverlayShape.Editor` row through the `DialogIntent.Layer` case; `Ursa.Controls.KeyGestureInput` is the ONE capture surface and a page-local boundary capsule, because a recording affordance whose value is a chord is not a screen field the control fold materializes; assignment reaches the table as ONE row — `CaptureIntent` carries `command` in its targets and a two-field argument schema, so the screen's chord chip, the palette's action panel, and a remote caller collect the same `intent` and `gesture` fields and end at the same `Capture` fold, which accumulates BOTH field refusals through `Validation` before the claimant read runs; the chord crosses that schema as its parse-round-trip text because the capture cell RECORDS a value the palette's field TYPES and only one spelling can serve both; conflict evidence is `CommandDeck.Claimants`, so this surface mints no second conflict fold; the cheat sheet groups by `CommandScope` because the scope IS the attach owner the binding table narrows to; the persisted section is `ShortcutPolicy` on the options rail, so a rejected write keeps prior bindings live as `ReloadOutcome.Rejected` and cross-process propagation rides the same op-log cursor; `KeycapCell.Mount` and `Find` are this page's producers for the shortcut screen's chord chips and search box (`Shell/screens#SETTINGS_SURFACE`) — the screen binds them or they have no consumer.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -541,7 +541,7 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 
 public static class KeycapCell {

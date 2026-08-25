@@ -26,7 +26,7 @@ Composition facts arrive settled: `Digest.Key<"content">` is the one byte identi
 - Boundary: which assets exist, their addresses, and their transformation ladder are the data plane's and arrive as manifest facts; the depot's haul scheduling, budgets, and connectivity governors are the runtime plane's; this page renders what the ports answer.
 - Growth: a new media class is one `_CLASSES` row with its `Media.Source` admission; a new posture axis is one column on the policy rows — never a sibling source owner or a per-surface fetch.
 
-```typescript signature
+```typescript
 import { Digest, Fault, Shape } from "@rasm/core"
 import { Context, Effect, Option, Schema } from "effect"
 
@@ -115,7 +115,7 @@ class Serve extends Context.Tag("ui/media/Serve")<Serve, {
 - Boundary: which images share a coordinator, and which priority class a slot takes, are the consuming surface's rows; the skeleton posture that hides an unrevealed plane is `view/status`'s.
 - Growth: a new priority class is one `_LOADING` row; a new reveal condition (fonts, poster frames) is one enrollment kind on the same counting fold.
 
-```typescript signature
+```typescript
 import { type Stream, SubscriptionRef } from "effect"
 
 const _priorities = ["critical", "visible", "deferred"] as const
@@ -206,7 +206,7 @@ const _space = (surface: string, target: HTMLElement, resized: Stream.Stream<voi
 - Boundary: the hover list behind `+n` is an anchored overlay host row (`view/overlay`); who is IN the roster — presence reads, membership tables — is the consuming surface's; this page renders faces it is handed.
 - Growth: a new face rung is one ladder row; a new stack posture (a grid burst, a typing indicator slot) is one column on the fold's answer — never a second avatar component.
 
-```typescript signature
+```typescript
 import { cva } from "class-variance-authority"
 import { Array, HashSet, Option, Order } from "effect"
 
@@ -268,7 +268,7 @@ const _stack = <A, K>(
 - Boundary: WHAT plays, playlists, and position persistence are app policy; the poster-versus-autoplay decision reads the policy row; this page owns the bridge, the gauges' binding law, and the probes.
 - Growth: a new transport fact (playback rate, seekable ranges) is one field on the state fold; a new extended capability (remote playback, casting) is one probed Option member — never a per-surface capability read.
 
-```typescript signature
+```typescript
 import { Scope, Stream, SubscriptionRef } from "effect"
 
 declare namespace Media {
@@ -376,7 +376,7 @@ const _extended: Effect.Effect<Media.Extended> = Effect.sync(() => ({
 - Boundary: masonry and grid walls are the same virtualizer under `lanes` and belong to the consuming surface's rows; the strip owns the snap axis, the window, the announcement, and the prefetch fold.
 - Growth: a new strip posture (peek, full-bleed, thumbnail rail) is a recipe variant row; a new reveal trigger is one `scrollToIndex` call site — never a second engine or a JS physics fork.
 
-```typescript signature
+```typescript
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useEffect } from "react"
 import type { RefObject } from "react"

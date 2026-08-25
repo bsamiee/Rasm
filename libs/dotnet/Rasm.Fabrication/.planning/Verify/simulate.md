@@ -28,7 +28,7 @@ Spindle speed changes cost the ramp the declared operating envelope implies wher
 - Growth: a motion modality is one `MotionSource` case and one `Execute` arm; a controller latency is one `DelayKind` row and its membership in the timed set; a heated register is one `ThermalAction` row carrying its ramp-rate entry, with no state, timing, or apply edit; a coordinate-transform command is one `FrameEffect` row; a machine axis is one `AxisMotion` row the policy declares.
 - Boundary: simulation evaluates planned intent and never rewrites feeds, geometry, or sequence. `Posting/program` owns parse, expansion, and look-ahead. `Kinematics/machine` owns dynamics and axis limits. `Kinematics/cell` owns every `Robots` member, so the cell lane consumes a provider-free station census and this page names no provider type. `Tooling/magazine` owns tool-change timing and mints every `ToolChangeEvidence` through its ONE derivation, so this page reads the census whole and re-tests no column of it.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
@@ -341,7 +341,7 @@ public sealed record ControllerState(
 - Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. Every dimensioned address arrives CANONICAL — the parse seam folds the active `ModalGroup.Units` row through `ProgramUnits.Canonical`, so X/Y/Z, U/V/W, I/J/K, an arc or cycle R, and a per-minute F are millimetres before simulation reads them, and a unit scale re-applied here double-converts an inch program.
 - Boundary: `Relative` is the one relative tolerance band on this cluster, and it governs both the endpoint-radius admission and the witness-amplitude degeneracy test, so the two cannot drift. `SpecializedToolpathEnvelope` proved kind correspondence, non-empty rows, and finite non-negative duration once at `Process/owner`, so no arm here revalidates a payload it was handed.
 
-```csharp signature
+```csharp
 [ComplexValueObject]
 public sealed partial class ArcEvidence {
     public Plane Plane { get; }
@@ -554,7 +554,7 @@ internal sealed partial class CommandEffect {
 - Receipt: `Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands`, `Delays`, and `Poses` are folds keyed by `ClockBand`, `DelayKind`, and the posed payload, so a new band, delay row, or cell station reports with no projection edit, and `DistanceMm` sums banded length beside posed travel so a cell cycle never reports a band-only zero. `MotionTally.PeakFeedMmMinute` aggregates one dimension, because both feed modes settled into millimetres per minute at admission.
 - Boundary: `MotionTally` and `DelayTally` stay separate carriers because a delay row HAS no length and no feed — folding them into one tally seats two zero columns on every delay and lets a consumer read a travel distance off a dwell. `FabricationFact.Cycle.Of` projects `Cycle`, `EnergyKwh`, and `DistanceMm` onto `rasm.fabrication.cycle.duration`, `rasm.fabrication.cycle.energy`, and `rasm.fabrication.cycle.distance` through `Process/telemetry#FACT_PROJECTION` as kind `cycle`, so the authoritative cycle-time owner is the one histogram source; those three names are the frozen read and never move.
 
-```csharp signature
+```csharp
 public sealed record MotionTally(Duration Elapsed, double LengthMm, double PeakFeedMmMinute, int Blocks) {
     public static MotionTally Empty { get; } = new(Duration.Zero, 0.0, 0.0, 0);
 
@@ -645,7 +645,7 @@ public sealed record SimulationLedger(Seq<SimulationSlice> Slices, ControllerSta
 - Receipt: `ExecuteCell` proves the posed ledger sums to `CellAnimation.Cycle`, which IS the look-ahead planner's `Program.Duration`, so the cell ledger reports the planner's own clock rather than a sampler census that drifted from it.
 - Boundary: a policy or parameter failing its own admission gate answers `FabricationFault.PolicyInadmissible` on its raising plane; only genuinely degenerate geometry answers the kernel `GeometryFault.DegenerateInput` band, so a missing work offset or an unresolvable tool length never borrows a fabricated `Kind`. Machine-less simulation omits the operating envelope and machine-energy gates but retains program, arc, feed, and rotary admission. `ExecuteCell` carries the power-on controller state unchanged because a serial chain has no modal controller. Every successful ledger sums exactly to its own projections.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Simulate {
     private static readonly Map<GCommand, CommandEffect> Effects = Seq(

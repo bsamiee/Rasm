@@ -19,7 +19,7 @@
 - Boundary: screen landing is not this owner — a consumer placing the flattened drawing on a sheet composes `ViewTransforms.Mapping` over `ViewMapping` on the Viewport rail; this frame ends at the projection compute.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing*` `:149-158`, `Silhouette` `:178-188`), RhinoCommon document (`.api/api-rhinocommon-document.md` — `Rhino.DocObjects.ViewportInfo` seat and `Camera35mmLensLength`), kernel `Domain/rails` (`Op`, `Lease<T>.Acquire`, `ValidityClaim`, `IValidityEvidence`, `Fin`), `Rasm.Rhino.Viewport` (`CameraSnapshot`, `CameraPose`, `LensAngle`, `ProjectionKind`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -134,7 +134,7 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
 - Law: every short host overload delegates verbatim to its long form with `null` progress or planes and `CancellationToken.None`, so this page composes the long form alone and no arm branches to pick an overload — an identity `Transform` and an empty plane list are the host's own no-op spellings.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawingParameters` `:149-158` incl. `AddGeometryAndPlanes`, `SetViewport`, `AddClippingPlane`, and the five flag members; `SilhouetteType` `[Flags]` roster `:81`), kernel `Domain/rails` (`Op`, `Op.ToHostSlot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`), kernel `Numerics/atoms` (`TransformSpec`, `Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -306,7 +306,7 @@ public readonly partial struct DrawingLaw : IValidityEvidence {
 - Growth: a new drawing modality is one `ProjectionOp` case with its arm; a new frame source is one `ProjectionFrame` case every verb reads.
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing.Compute`/`Segments`/`Points`/`WorldToHiddenLine`/`BoundingBox`/`RejoinCompatibleVisible` `:149-158`, `HiddenLineDrawingSegment.Visibility` roster `:78`, `Silhouette.Compute`/`ComputeDraftCurve` `:178-188`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Numerics/atoms` (`Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), LanguageExt.Core (`TraverseM`, `Traverse`, `Choose`, `Strict`, `Zip`), Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ProjectionSlot {

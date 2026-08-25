@@ -21,7 +21,7 @@ Machine telemetry enters through the AppHost decode lane; this page admits provi
 - Growth: a new decoded stream is one union case, one dispatch row in `Admit`, and one window projection where a consumer folds it; a new consumer rebinds onto the window with zero decode edits.
 - Boundary: AppHost owns provider timestamp and enum conversion into `MachineObservationIngress`; consumers hold only admitted union cases. Condition severity keeps the normal edge because a fault episode closes on it — dropping normals leaves every episode open-ended.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;

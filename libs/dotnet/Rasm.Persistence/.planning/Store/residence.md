@@ -25,7 +25,7 @@ Rasm.Persistence models the FORM stored bytes take between a caller's plaintext 
 - Packages: ZstdSharp.Port and K4os.Compression.LZ4[.Streams] (the codec rows' encoder pairs), CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter<byte>`), System.IO.Hashing, System.Security.Cryptography inbox (`AesGcm`/`CryptographicOperations.ZeroMemory`), AWSSDK.S3 (`ChecksumAlgorithm`/`ChecksumMode`/`S3StorageClass`), Azure.Storage.Blobs + Azure.Storage.Common (`AccessTier`, `DownloadTransferValidationOptions`/`StorageChecksumAlgorithm`), Google.Cloud.Storage.V1 (`DownloadValidationMode`, `UploadObjectOptions`), Minio (`PutObjectArgs`, `IServerSideEncryption`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new stored form is one `ObjectCodec` row carrying its encoder, decoder, level, and metadata spelling, with zero leg edits; a new storage class is one `StorageTier` row; a new SSE stance is one `ObjectEncryption` case (`ClientSealed` exercised it — one case, one seal/open pair, one catalog column); a new checksum posture is one `ObjectChecksum` row answering the whole read and write column family; a tighter window is one `ChunkPolicy` row at its own owner; a second chunker, a re-declared frame width, a direction-split codec sibling, a per-provider decoder, or a stored version column beside the self-describing directory is the deleted form.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
@@ -333,7 +333,7 @@ public abstract partial record ObjectEncryption {
 - Packages: AWSSDK.S3 (`ObjectLockMode`/`ObjectLockRetainUntilDate`/`ObjectLockLegalHoldStatus`), Azure.Storage.Blobs (`SetImmutabilityPolicyAsync`/`SetLegalHoldAsync`/`DeleteImmutabilityPolicyAsync`, `BlobImmutabilityPolicy`), Google.Cloud.Storage.V1 (`PatchObjectAsync` + `PatchObjectOptions.OverrideUnlockedRetention`), Minio (`ObjectWriteArgs.WithRetentionConfiguration`/`WithLegalHold`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new WORM stance is one `ObjectLock` case admitted only where the row's seat can hold it, read by the deadline projection and the GC evict arrow alike with zero new surface; a new enforcement rung is one `StanceSeat` row; a decorative lock column promised only in prose, a per-provider seat roster, or a no-op arm silently dropping a declared column is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

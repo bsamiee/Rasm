@@ -23,7 +23,7 @@ THE ELECTRICAL SEED PAGE owns the `ComponentFamily.Electrical` row facts (`Compo
 - Growth: a new insulation temperature class is one `InsulationClass` row; a new reference method one `IecMethod` row and one cell per `AmpacityRow`; the XLPE-90 IEC tables are `AmpacityRow` rows at a new loading or a new basis, read by the same filter; a size beyond 500 kcmil or 300 mm² one roster row; a second conductor alloy (copper-clad aluminium as its own product) one `ConductorAlloy` row whose appearance join the census then proves.
 - Boundary: the ambient and ground-temperature correction ladders and the conductor-count grouping factors are `Rasm.Compute` derating inputs — captured two-sourced in evidence, they land on the sizing route and never stamp a component row, because a corrected ampacity is a DESIGN verdict over an occurrence, not a product fact.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -255,7 +255,7 @@ public static class TableB52 {
 - Growth: the conduit dimension pack landing is one column pair per system row and one `SeedLaw` beside the conductor law; a proven tray section is one width-and-rail roster read by the same kinds; liquid-tight and ENT systems are one `ConduitSystem` row each.
 - Boundary: conduit FILL (NEC Chapter 9 Table 1 percentages against conductor build-out areas) is a `Rasm.Compute` design verdict over an occurrence's conductor set — never a product row here.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -307,7 +307,7 @@ public static class Containment {
 - Output: the projector derives the takeoff rows from the solved `Circle` section through `QuantityRow.VolumePerLength`/`SurfaceAreaPerLength`/`LinearDensity` (`component#QUANTITY_ROW`) — the area-true solid-equivalent section is what makes the copper and aluminium tonnage honest; no takeoff cell is stamped here.
 - Boundary: every stamped bag rides `Attestation.Corroborated` because every cell that mints is two-sourced — the conflicted and single-posted cells are typed-absent in the tables and can never reach a bag, so the flag states transcription truth rather than table-wide optimism, per the `pipework#PIPEWORK_SEED` weakest-contributor law. `ElectricalSeed.Capacity` is the typed refusal — a conductor's governing verdict is circuit-side (load, derating, voltage drop, protection), owned by `Rasm.Compute`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

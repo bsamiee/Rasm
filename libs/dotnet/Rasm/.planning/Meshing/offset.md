@@ -22,7 +22,7 @@ Rebuilding composes ring simplicity and convolution crossings from `Meshing/inte
 - Growth: a new offsetting modality is one `OffsetOp` case over the same propagation; a new corner strategy one `JoinType` row carrying its emission delegate; a new cap one `EndType` row; a new event shape one `OffsetEvent` case and one drain arm; a new metric band one `ToleranceLane` column on the policy. Clearance family widens by zero new types; variable-speed demands ride `EdgeSpeed`.
 - Boundary: `OffsetOp` is the sole offsetting `[Union]`; exact turn signs decide reflex classification, split admission, ring simplicity, and convolution compatibility over input geometry, while event ordering stays analytic schedule data validated at fire. Ring simplicity and convolution crossings route `Intersection.Apply` behind the probe's own broad phase; the interior test routes `slice.md`'s `Containment.Of`, since a page-local straddle forks the crossing kernel's verdict; loop resolution routes `Arrangement.Apply` `PlanarOverlay` ring-direct; the medial composes the delaunay `VoronoiDual`. `Apply` is total over the `Fin` rail, so a degenerate ring or stalled queue returns a fault rather than throwing, and a `Split` divides the ring rather than dropping a reflex chain to satisfy a budget.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

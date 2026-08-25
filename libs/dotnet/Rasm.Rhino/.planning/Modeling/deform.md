@@ -18,7 +18,7 @@
 - Growth: a new morph engine is one `MorphKind` case with its mint; a new grant is one vocabulary row.
 - Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Morphs.BendSpaceMorph`/`FlowSpaceMorph`/`MaelstromSpaceMorph`/`SplopSpaceMorph`/`SporphSpaceMorph`/`StretchSpaceMorph`/`TaperSpaceMorph`/`TwistSpaceMorph`/`MeshCageMorph`, `MorphControl`, `SpaceMorph.IsMorphable`), kernel `Domain/rails` (`Op`, `Fin`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -223,7 +223,7 @@ public abstract partial record MorphKind : IValidityEvidence {
 - Growth: a new flattener grant is one `SquishBehavior` row; a new solver weight is one `SquishLaw` column with its claim.
 - Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller` `:37` (`ExplodeOutput`, `ExplodeSpacing`, `AbsoluteTolerance`, `RelativeTolerance`, `AddFollowingGeometry`, `PerformUnroll`, `FollowingGeometryIndex`), `Squisher`, `SquishParameters`, `SquishFlatteningAlgorithm`, `SquishDeformation`), kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -421,7 +421,7 @@ public readonly partial struct SquishLaw : IValidityEvidence {
 - Growth: a new deformation verb is one `DeformOp` case with its arm; a new evidence stream is one `DeformSlot` row.
 - Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `SquishPoint`, `Get2dMesh`, `Get3dMesh`, `GetLengthConstrained2dLines`, `GetLengthConstrained3dLines`, `GetAreaConstrainedTrianglesIndices`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/rails` (`Op.Probe`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), LanguageExt.Core (`TraverseM`, `Strict`, `Seq`), Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DeformSlot {

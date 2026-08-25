@@ -20,7 +20,7 @@ This codec NEVER knows the element graph and NEVER computes schedule math: the p
 - Growth: a new writable dialect is one `ScheduleFormat` row carrying its `FileFormat` member (the read side grows upstream, zero rows here); a new durable axis is one row or member on the `#DURABLE_NETWORK` family; a new dependency semantics is one `DependencyKind` row; a new op modality is one `ScheduleOp` case breaking `Run` at compile time; a new boundary-fault class is one `ScheduleFault` case and one appended `[FaultCase]` ordinal at the next free offset; zero new surface — a hand-rolled XER/MSPDI parser, an extension-branched ingress, a `Read`-only lane that truncates containers, a parallel `ReadSchedule`/`WriteSchedule` name family beside the op union, CPM/leveling math inside the codec, or a schedule→element map inside this page is the deleted form because MPXJ owns parse/serialize, `Rasm.Bim` owns the schedule math, the op union owns modality, and the app composition root owns the element projection.
 - Boundary: `ScheduleSource` is the ONE schedule-file ingress/egress owner; spreadsheet/delimited lanes cannot parse binary MPP or P6 XER, and both codecs project into the same downstream record rail. Ingress always uses format-sniffed `ReadAll`; writes target the seven `FileFormat` members only. IKVM proxies remain inside `ProjectRows`/`Synthesis`; `ScheduleSpan` carries `ScheduleUnit`, absent durations remain `None`, and working-day arithmetic reads calendar rows. `← Rasm.Bim/Planning/schedule` consumes `TaskRelation` and `ScheduleSpan` for 4D/5D, and `→ Rasm.Element` receives row shape only.
 
-```csharp signature
+```csharp
 using Rasm.Persistence.Element;
 using MpxjDuration = MPXJ.Net.Duration;
 
@@ -501,7 +501,7 @@ public static class ScheduleSource {
 - Growth: `ScheduleActivity`, `AssignmentRow`, and `ScheduleVariance` absorb every verified task, loading, and update-cycle axis; a durable `ProjectFile` blob, per-dialect row family, sidecar variance record, or recomputed-slack column is forbidden.
 - Boundary: the rows are the Persistence half of the relocated Bim schedule domain — `Rasm.Bim/Planning/schedule` runs CPM/4D over them (read AND round-trip: an edited durable network serializes back to XER/PMXML through `[02]`'s egress so the P6 authoring tool re-imports it), and `ScheduleVariance` is what its earned-value and critical-path-drift reads consume; the app composition root maps activity rows to `Rasm.Element` nodes (row-shape law); no row carries an MPXJ type, a Java handle, an absolute re-based duration, or a fabricated UTC stamp.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 
 public static class ProjectRows {

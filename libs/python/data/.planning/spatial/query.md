@@ -19,7 +19,7 @@ The engine composes the `tabular/columnar#SCAN` `DuckDbSession` rail downward â€
 - Growth: a new geometry-only spatial predicate is one `SpatialPredicate` literal the `Join` gate admits free; a predicate carrying its own operand is one `SpatialQuery` case, never a second optional slot on the join payload; a new spatial intent is one `SpatialQuery` case projected by the one `QueryPlan` fold; a new loadable extension is one `DuckDbExtension` row on the shared `columnar` table, never a local enum; a new refusal law is one `FaultRow` row under `DataLeg.SPATIAL_QUERY`; the H3 hierarchy (`h3_cell_to_parent`, `h3_grid_disk`) composes on the existing `H3Bin` SQL; zero new surface.
 - Boundary: the session rail owns connect-install-load, so this page carries no `duckdb.connect()`/`install_extension` site; no GIS host coupling, no lonboard/GeoArrow visualization (`artifacts` owns it), no durable store â€” the claims plane is `spatial/geospatial#GEO`, the in-frame DGG plane `spatial/grid#GRID`.
 
-```python signature
+```python
 from collections.abc import Mapping
 from typing import Final, Literal, assert_never
 

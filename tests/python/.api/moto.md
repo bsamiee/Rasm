@@ -18,7 +18,7 @@
 |  [03]   | `DefaultConfig`      | config mapping            | per-service knobs (`core.reset_boto3_session`, passthrough) forwarded into `mock_aws` |
 |  [04]   | `DEFAULT_ACCOUNT_ID` | constant `"123456789012"` | the `moto.core` account id backends key under for the static test credentials         |
 
-```python signature
+```python
 class ThreadedMotoServer:
     def __init__(self, ip_address: str = "0.0.0.0", port: int = 5000, verbose: bool = True) -> None: ...
     def start(self) -> None: ...
@@ -36,7 +36,7 @@ class ThreadedMotoServer:
 |  [04]   | `POST {endpoint}/moto-api/reset`   | backend reset       | drops all process-global backend state; the server-lane `mock_aws` teardown  |
 |  [05]   | `moto.backends.get_backend(name)`  | backend handle      | in-process backend registry by service name; `.reset()` per account/region   |
 
-```python signature
+```python
 def mock_aws(func: Callable[P, T] | None = None, config: DefaultConfig | None = None) -> MockAWS | Callable[P, T]: ...
 server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False); server.start()
 host, port = server.get_host_and_port(); endpoint = f"http://{host}:{port}"

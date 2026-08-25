@@ -21,7 +21,7 @@
 - Boundary: `DraftFault` never represents generated validation, aggregates, categories, or wire envelopes.
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
@@ -55,7 +55,7 @@ public abstract partial record DraftFault : Fault {
 - Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra. `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional receipt.
 - Packages: RhinoCommon `RhinoDoc`/`Worksession` (`.api/api-rhinocommon-document.md`); Riok.Mapperly for `SessionMap` (per-project, `PrivateAssets` — generator only); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.IO;
@@ -627,7 +627,7 @@ public static class SessionWorksession {
 - Growth: a capability lands as one `SessionNeed` row of four set literals; a new lane capability, stance, or condition is one vocabulary row and no fold edit.
 - Boundary: HOST-SPECIFIC-STAYS — `Dialog`, `Acquire`, and `Interrupt` encode `RhinoDoc.InGetPoint`/`InCommand`/`RunMode` host truths; the rows survive because the table is the host contract spelled as data.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -762,7 +762,7 @@ public sealed partial class SessionNeed {
 - Law: `Admission.All` and `Admission.Pair` own reference-argument admission — one span fold and one applicative pair composed by every Document spine, so the Optional-traverse spelling appears once. The former `Admission.Admitted` funnel is DELETED: `op.AcceptValidated` surfaces the generated `DraftFault` directly, and a member that re-stamped it with a bare refusal was the message-stranding defect `[02]` names.
 - Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback. `DocumentPath` conforms — admitted path text is detached by construction — so a path resolution returns through `Demand` directly.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
@@ -1146,7 +1146,7 @@ internal static class Admission {
 - Law: unit postconditions compare canonical `ModelUnit` evidence, including custom name and meters-per-unit scale; tolerance postconditions compare the three `Tolerance` values off the two `Context`s. `UnitRegime` retains the native `LengthUnit` only for compensation.
 - Boundary: row delegates contain the property-set statement seam required by the host API. Failed writes restore every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation rides the kernel `Custody.Rollback` delegate arm — its faults accumulate and join the original fault — and the shared `DocumentCommit.Sealed` decides the enclosing record's seal or rollback under `RedrawPolicy.None`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -1522,7 +1522,7 @@ public static class SessionRegimes {
 - Law: the locale display and unit-name legs are DELETED — `UnitText.Display`, `UnitText.Name`, their two private cases, the rendered projection, and the four label vocabularies proved zero consumers corpus-wide. NAMED LOSS: a locale-rendered readout correspondence; a future consumer lands it as one case plus one `LabelTrait` capability row, and the host members (`Localization.FormatNumber`/`UnitSystemName`) re-enter through that admission rather than surviving as reachable-by-nobody arms.
 - Boundary: the sheet-standard unit declaration is `Rasm.Drawing`'s `DrawingUnits` and the model regime is this page's — a title block reads the sheet's row and never this correspondence; the host parse/render estate stays because its grammar is the host's own locale surface.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class UnitDialect {

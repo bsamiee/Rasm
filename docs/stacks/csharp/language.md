@@ -81,7 +81,7 @@ Form spotlight: one instance-member `extension<T>(ReadOnlySpan<T> source)` block
 
 Each span operator returns a value — a `[.. head, .. tail]` result cannot escape the receiver's stack scope — and the family grows by one member inside the existing block, never a new static method beside it.
 
-```csharp conceptual
+```csharp
 public static class SpanSurface {
     extension<T>(ReadOnlySpan<T> source) {
         public bool Single => source is [_];
@@ -111,7 +111,7 @@ Form spotlight: one switch expression states a span's whole banding law — `[]`
 
 Both prove the `_` floor sits over an open shape, not a closed owner whose missing case must break the build instead.
 
-```csharp conceptual
+```csharp
 public readonly record struct Mark(string Key, int Rank);
 
 public static class MarkPolicy {
@@ -148,7 +148,7 @@ Form spotlight: a `readonly record struct Patch` and a `sealed record Profile` c
 
 This clamp guards a trusted in-process update; the instant `Weight` must reject raw external input with a typed fault, the struct graduates to a `[ValueObject<int>]` and the `field` accessor is deleted.
 
-```csharp conceptual
+```csharp
 public readonly record struct Patch(int Offset, int Length);
 
 public sealed record Profile {
@@ -178,7 +178,7 @@ Form spotlight: one `params ReadOnlySpan<int>` entrypoint collapses the empty, s
 
 Arity is a property of the literal; the page never grows a `bool batch` knob beside the value.
 
-```csharp conceptual
+```csharp
 public sealed record Board {
     public required ImmutableArray<int> Cells { get; init; }
 
@@ -213,7 +213,7 @@ Form spotlight: a `ref struct PeakStep` implements `IStep<double>` so the interf
 
 Deleted form: a boxed `IStep<double>` argument and a heap `Func<double,double,double>` accumulator on a measured hot path.
 
-```csharp conceptual
+```csharp
 public interface IStep<TState> {
     TState Folded(TState state, double value);
 }
@@ -252,7 +252,7 @@ Form spotlight: a processed interpolated string carries the `\e` terminal escape
 
 Deleted forms: a `"[1m" + body + "[0m"` concatenation and a `string.Format("{{ \"key\": \"{0}\" }}", key)` whose escaped braces and positional holes the two literal forms replace.
 
-```csharp conceptual
+```csharp
 public static class Manifest {
     public static string Highlighted(string body, double weight) => $"\e[1m{body.Trim()}\e[0m {weight,-8:F2}";
 

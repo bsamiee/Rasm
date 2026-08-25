@@ -20,7 +20,7 @@ ONE resumable content-addressed rail moves bounded chunks, resumes at verified o
 - Law: form-data ingest is typed AND bounded before any byte materializes — `Multipart.schemaPersisted(schema)` proves the whole form as one decoded struct and `Multipart.withLimitsStream` composes the bounds onto the part stream as a value at the seam (never ambient fiber-ref mutation at call sites); `maxParts`, `maxFileSize`, and `maxTotalSize` are `Option`-shaped by the fiber-ref contract, so an unbounded axis is a spelled `Option.none()`, never an omission; file parts hand into this same lift.
 - Law: `_FORM` decides every SPAN axis the seam carries and the platform keeps the field mime roster — `Shape.Ingress.bytes` projects into both the per-file and the aggregate ceiling while `frames` projects into the part count, because the three references default to absent, absent, and absent respectively and an omitted aggregate admits the part count multiplied by the file span; the mime roster stays the platform's own gate, since widening it decodes octet payloads as in-memory FIELDS beside the streaming lift this rail exists to hold.
 
-```typescript signature
+```typescript
 import { Effect, Option, Schema, Stream } from "effect"
 import { Multipart } from "@effect/platform"
 import { Shape } from "@rasm/core"
@@ -69,7 +69,7 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
 - Law: the wasm module is capability, not code — instantiation is a scoped acquisition behind the Tag, cuts run through the marked kernel, and no linear-memory view escapes; the stage is a pure `Stream` transform above that seam.
 - Law: cut bounds are policy data — the row travels with the payload class (artifact, snapshot, media), and re-cutting with different bounds mints different sub-keys by construction, so the policy row is part of the dedup contract and never drifts silently.
 
-```typescript signature
+```typescript
 import { Array, Context } from "effect"
 import { Digest } from "@rasm/core"
 
@@ -172,7 +172,7 @@ const _prove = (marks: Array.NonEmptyReadonlyArray<Rail.ChunkMark>): Effect.Effe
 - Law: the resume checkpoint is `{ offset, chunks, session }` — `Absorb` advances bytes, chunk census, and digest state atomically on the machine's serialized request plane; `IdentityActor.changes` exposes each acknowledged checkpoint for the durable subscriber to `freeze`, the terminal fold always snapshots its final state, and `Machine.restore` re-admits persisted state through the checkpoint schema before another byte can enter.
 - Law: `Schema.Redacted` seals saved hasher state; `Digest.Session.open` validates it against the content algorithm before any absorb or finish.
 
-```typescript signature
+```typescript
 import { Machine } from "@effect/experimental"
 import { Schema } from "effect"
 
@@ -282,7 +282,7 @@ const _identity = <R>(
 - Boundary: the tus construction is the page's platform-forced kernel — the `Server`/`S3Store` mints, the hook callbacks bridged through `_bridged` (the Exit projection whose throw IS the tus-conformant error reply), the `Readable.toWeb` node-web interop whose element type the node declarations erase (the `as ReadableStream<Uint8Array>` re-pin), and the `crypto.randomUUID` staging-id mint all live inside this one seam; above it the rail is typed end to end.
 - Growth: a durable snapshot store subscribes to `IdentityActor.changes` and persists `freeze` after acknowledged offsets; cluster placement and replay remain runtime-plane policies over this serializable actor, never a second digest machine.
 
-```mermaid conceptual
+```mermaid
 sequenceDiagram
   accTitle: Resumable upload finalization
   accDescr: The client uploads resumable parts into staging, and the finalize fold proves identity, conditionally lands the content object, records retention, and removes staging last.
@@ -309,7 +309,7 @@ sequenceDiagram
   F-->>C: reply carries { key, bytes, written }
 ```
 
-```typescript signature
+```typescript
 import { Duration, Exit, Metric, Redacted, Runtime } from "effect"
 import { EVENTS, MemoryLocker, Server, type Upload } from "@tus/server"
 import { S3Store } from "@tus/s3-store"
@@ -538,7 +538,7 @@ const _rail = (spec: Rail.Spec) =>
 - Law: a range read is a stream, never a buffer — the response body lifts through the same `[2]` geometry, and a consumer that needs the whole object states no range and folds the stream.
 - Boundary: `transformToWebStream` is the one SDK interop seam — the reply body's erased element type re-pins to `Uint8Array` at the lift and nowhere else.
 
-```typescript signature
+```typescript
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 
 const _range = (key: Digest.Key<"content">, span?: { readonly from: number; readonly to?: number }) =>

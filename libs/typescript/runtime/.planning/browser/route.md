@@ -22,7 +22,7 @@ The Navigation-API typed router under the zero-routing-package law, the browser 
 - Boundary: what a policy MEANS is `[5]`'s fold; this cluster carries it as an opaque row value. Query-write rate limiting is refused here by the package's own split — `throttle`/`debounce`/`LimitUrlUpdates` are hook options `createSerializer` ignores, and the hook tier is a `ui` surface.
 - Packages: `nuqs/server` (`createLoader`, `createSerializer`, `createStandardSchemaV1`, `parseAsJson`, type `ParserMap`, type `inferParserType`, type `UrlKeys`); `effect` (`Array`, `Option`, `Record`, `Schema`).
 
-```typescript signature
+```typescript
 import { Array, Context, Data, Effect, Layer, Option, Record, Runtime, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import { createLoader, createSerializer, createStandardSchemaV1, type inferParserType, parseAsJson, type ParserMap, type UrlKeys } from "nuqs/server"
 import { Boot } from "./boot.ts"
@@ -133,7 +133,7 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
 - Receipt: the Tag's `Shape` annotation is the whole consumer contract — cells, `href`, `go`, `back`, `forward` — readable without the body; the ui wave binds the cells through its atom bridge at app composition.
 - Boundary: scroll restoration rides the intercept's own `scroll` option; view transitions are the ui wave's composition over the commit, never authored here.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 
 type _NavigateEvent = Event & {
@@ -296,7 +296,7 @@ const Router: {
 - Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one reason on the `FlowFault` family mint, which derives the type and the class projection together.
 - Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials. Cross-tab MUTUAL EXCLUSION is not this channel's concern — a tab needing an exclusive claim (one refresher elected structurally, one exporter per origin) composes `net/coordinate`'s Web-Locks row; the session channel carries facts, never locks.
 
-```typescript signature
+```typescript
 import { CookieSpec } from "@rasm/security"
 import { DateTime, Duration, Encoding, FiberHandle } from "effect"
 
@@ -532,7 +532,7 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
 - Boundary: what a flag verdict means is its serving surface's law; what availability means is `core/state/evidence`'s lattice; the confirm ceremony renders behind the ui-satisfied `Confirm` Tag; this cluster owns only the fold order.
 - Packages: `effect` (`Context`, `Duration`, `Effect`, `HashSet`, `Option`, `Runtime`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/core` (`Evidence.Availability`); `./boot.ts` (`Boot`).
 
-```typescript signature
+```typescript
 import { Evidence } from "@rasm/core"
 import { HashSet, type Scope } from "effect"
 

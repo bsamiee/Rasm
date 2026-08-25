@@ -21,7 +21,7 @@
 - Boundary: the document and archive accessors are the document and file-IO catalogs' seam; this union names them once and every settings verb enters through it.
 - Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`), `Document/facts.md` (`FactStream.Stamped`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
@@ -138,7 +138,7 @@ public abstract partial record SettingsSource : IDisposable {
 - Growth: a new host switch is one vocabulary row; a new sub-owner property is one record field read and asserted in the same pass; a new sub-owner is one record, one `SettingsSlot` row, and one `SettingsBody` case.
 - Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/rails` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SubOwners {
     private readonly Seq<IDisposable> held;
@@ -937,7 +937,7 @@ public sealed record RenderConfig(
 - Boundary: `SceneSun` is a BAND, not a descriptor — `Objects/lights.md`'s `Lights.Capture` is the declared whole-descriptor emitter and takes this value beside its photometric rows, and its `[Mapper] SceneMap` is the ONE transcription onto `rasm.contracts.scene`; a second mapper here forks the wire.
 - Packages: `api-rhinocommon-rendersettings.md` (`Sun.SunDirection`, `Sun.AltitudeFromValues`, `Sun.JulianDay`, `Sun.TwilightZone`, `Sun.ColorFromAltitude`, `Sun.Here`); kernel `Numerics/calculus` (`SolarSite`, `SolarPosition.At`, `SunPosition`, `SunPosition.OfDirection`), `Numerics/atoms` (`PerceptualColor.OfHost`), `Domain/rails` (`Op.Catch`, `Op.AcceptValidated`, `ValidityClaim`); NodaTime (`Instant`, `Instant.FromDateTimeUtc`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SunProblem {
@@ -1138,7 +1138,7 @@ public static class SunSolver {
 - Growth: a new configuration axis is one `SettingsSlot` row, one `SettingsBody` case, and one `SettingsBodyKind` row with every consumer untouched.
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), kernel `Domain/rails` (`Custody.Settled`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`, `Traverse`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1394,7 +1394,7 @@ public static class Settings {
 - Growth: a new host broadcast is one `AmbientPulse` row with its bind column.
 - Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane.Changed`, `Skylight.Changed`, `Sun.Changed`, `SafeFrame.Changed`, `RenderChannels.Changed`, `RenderPropertyChangedEvent.Document`/`Context`); kernel `Domain/hooks` (`Ring<T>`, `Transition`), `Domain/rails` (`Op`, `Op.Catch`, `Cell`); `Document/lifetime.md` (`Subscription.Attach`/`AttachAll`), `Document/session.md` (`DocKey`, `IDetachedDocumentResult`); `Numerics/atoms` (`Dimension`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct AmbientFact(AmbientPulse Pulse, Option<DocKey> Key, int Context) : IDetachedDocumentResult;
 public sealed record AmbientFailure(AmbientFact Fact, Error Fault) : IDetachedDocumentResult;

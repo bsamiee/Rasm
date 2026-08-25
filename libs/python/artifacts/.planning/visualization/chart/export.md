@@ -24,7 +24,7 @@
 - Auto: `VegaTransform.of` discriminates once — `_has_transform` recurses the composition operators so a transform nested under a facet/repeat sub-view is never misread as `Passthrough`, and the full-Vega dialect short-circuits to `Passthrough`; `apply` never discards the warnings tail (`RowLimitExceeded`/`BrokenInteractivity`/`Unsupported` each on its own explicit data-loss flag); a malformed spec crosses `catch(ValueError)` to `<malformed-spec>`. `planned` prices the client/server split via `build_pre_transform_spec_plan` without executing. `_tuned` resolves EVERY cap from the policy or the once-captured pristine defaults and assigns the singleton reset-on-change — a None field never inherits worker history; `_occupancy` reads `size`/`total_memory` onto the evidence. `TransformPolicy.inline_datasets` is typed `frozendict[str, pl.DataFrame]` — the estate frame wire, each frame's `hash_rows` digest joining the content preimage so a changed input frame misses the cache.
 - Growth: a new pre-pass mode is one case, one `apply` arm, and one `of` branch; a new runtime knob is one `TransformPolicy` field threaded into `_tuned`; a new retention rule is one `Retention` field; a new evidence fact is one `PrePassEvidence` field the arm fills.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import copy
 import pickle

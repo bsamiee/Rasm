@@ -43,7 +43,7 @@
 |  [06]   | `JitOptimizationsValidator.FailOnError`                         | policy  | refuse Debug/unoptimized assemblies                        |
 |  [07]   | `summary[case].ResultStatistics`                                | report  | in-memory statistics per case; null when no runs           |
 
-```csharp signature
+```csharp
 public sealed class BenchmarkReport {
     public bool Success { get; }
     public Statistics? ResultStatistics { get; }

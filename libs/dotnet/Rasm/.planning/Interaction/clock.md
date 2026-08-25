@@ -28,7 +28,7 @@ The beat composes the kernel timeline rather than re-minting temporal identity: 
 - Growth: a new lifecycle verb is one member; a new posture is one row carrying its own settle arm, and no consumer edits.
 - Boundary: the platform timer's construction, its disposal, and its run-loop mode are the boundary's — `CADisplayLink` lifecycle, `UITimer` disposal, and idle-callback registration never enter this owner, and this owner never holds a live host timer past its lease.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -129,7 +129,7 @@ public sealed class UiClock : IDisposable {
 - Growth: a new measured coordinate is one column the mint derives.
 - Boundary: a host presentation clock's target timestamp is NOT a monotonic counter and never enters this value — a display link's predicted present time stays at the boundary that reads it.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;

@@ -28,7 +28,7 @@
 - Boundary: `interchange/carrier` owns the message envelope and `Format.event` its media roster, so no row, landing class, fault cause, or parity obligation here names a CloudEvents shape.
 - Boundary: a message envelope crossing this plane carries a wire family in its payload rather than being one.
 
-```typescript signature
+```typescript
 import { Array, type ParseResult, Schema, type Types } from "effect"
 
 const _families = [
@@ -72,7 +72,7 @@ const _faultArms = {
 - Law: the pump parks on an empty census and wakes on the first admission, so retention starts its clock at intake rather than at the next sweep.
 - Law: the census is process-scoped and tenant-blind, so `diagnostic` renders one tenant's octets to whoever holds the service and no caller may treat it as a tenant-partitioned store.
 
-```typescript signature
+```typescript
 import { fromJson, isMessage, type MessageInitShape, type MessageShape, type MessageValidType, toJson } from "@bufbuild/protobuf"
 import {
   DurationSchema, durationFromMs, durationMs, EmptySchema, timestampFromMs, timestampMs, TimestampSchema, ValueSchema,
@@ -370,7 +370,7 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/core/Quarantine", {
 - Owner: `Wire.Parity` verifies content identity, semantic round trips, and frozen fixture bytes.
 - Law: protobuf parity is semantic; exact bytes apply only to frozen fixtures.
 
-```typescript signature
+```typescript
 import { ArtifactId, Digest } from "../value/contentKey.ts"
 
 const _mismatch = (
@@ -423,7 +423,7 @@ const Parity = {
 - Law: an unset or unknown oneof arm refuses at descriptor admission rather than crossing the merge algebra as opaque bytes; vector and observed-tag rows arrive in the corpus-declared strict order.
 - Law: evidence render arms retain encoded `frameHash`, optional `drawHash`, and optional canonical pixel identity.
 
-```typescript signature
+```typescript
 import { Clock } from "../value/clock.ts"
 import { Identity } from "../value/identity.ts"
 import { Shape } from "../value/schema.ts"
@@ -538,7 +538,7 @@ const CrdtOp = _CrdtOp.pipe(Schema.filter(_orderedCrdt, { message: () => "<crdt-
 - Boundary: raw GeoJSON text and CloudEvents remain outside the registry because no typed family crosses.
 - Boundary: a nested family member registers no census row, so a tenant context, a command payload, an OpenPBR vector, and a plane carry no gate or parity.
 
-```typescript signature
+```typescript
 import { VariantSchema } from "@effect/experimental"
 import { Context, Layer } from "effect"
 
@@ -1614,7 +1614,7 @@ const EntityEdit: Schema.Schema<typeof _edits.Type, MessageShape<typeof evidence
 - Law: `suite` parity grades the schema, so `audited` spends it and the decode path never charges it per payload.
 - Law: the stream grades extent before decode, so a budget refusal carries `overrun` rather than a parse verdict.
 
-```typescript signature
+```typescript
 import { Stream } from "effect"
 
 const _vector = Schema.Array(Schema.Tuple(_fixed16, _i63)).pipe(
@@ -2035,7 +2035,7 @@ const _completeStream = <K extends Wire.Ingress>(
 - Law: every bounded loss RETURNS as a fact on the band beside the value, so a quiet subject and a coalesced burst never read alike.
 - Law: the census DERIVES by folding that fact band through the ledger monoid; a counter kept beside the stream is the deleted form.
 
-```typescript signature
+```typescript
 import type { Duration, Equivalence } from "effect"
 
 const _feedKeys = ["FlagVerdictWire", "BindingStatus", "CommandGateWire"] as const
@@ -2140,7 +2140,7 @@ const _dropped = <A, E, R>(
 - Law: a gap is a FAULT and a replay is a DROP — one is missing evidence the peer owes, the other is lawful duplication under the delivery contract.
 - Entry: `OpLog.stream` admits and sequences native outer envelopes; `OpLog.crdt` selects the CRDT lane and decodes its generated protobuf payload without re-authoring the envelope.
 
-```typescript signature
+```typescript
 type CrdtEntry = OpLogEntry & { readonly family: "crdt"; readonly op: CrdtOp }
 const _bySeq: Order.Order<OpLogEntry> = Order.mapInput(Order.bigint, (entry: OpLogEntry) => entry.seq)
 

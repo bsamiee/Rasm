@@ -48,7 +48,7 @@ Every boundary converts once into the carrier that states the real outcome; reus
 - Law: the egress fold is asymmetric — a `Result.Error` folds into one structured event through `structlog.get_logger().error(event, **fields)` at the boundary while the `Ok` path stays silent, so observation happens once at the edge and never as a `raise`-and-log inside a `bind` chain; the structlog processor chain and the OpenTelemetry span are the observability domain's, composed here as the egress sink, never configured here.
 - Reject: a mid-pipeline collapse inside a pure projection; a `match` collapsing a carrier the next transform still needs railed; `raise`-and-log inside an interior `bind`; a bare value returned from a reusable transform where the carrier must survive to the edge.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from typing import Literal
 
@@ -122,7 +122,7 @@ Traversal is carrier policy: the collection owner and the sequencing operator to
 - Boundary: the dispatch over a modality (`T | Iterable[T]`) and the head-normalization that drives it are the surfaces page's; this page composes `traverse` to state the failure semantics that dispatch carries, never to re-teach the arity normalization.
 - Reject: a hand-rolled seed-`bind` fold where `traverse`/`sequence` states it; `map` then a manual carrier unwrap; an index-threaded fold unless the fold genuinely carries algorithm state; a `match` on the carrier tag where `bind`/`choose` already routes both arms.
 
-```python conceptual
+```python
 from functools import partial
 from typing import Literal
 
@@ -188,7 +188,7 @@ Every failure type is a closed vocabulary the program owns, and the carrier real
 - Law: every case in the family has a minting seam in its owning surface — a fact the runtime already classifies (a worker death, a type-hint violation) weaves the runtime's own conversion instead of minting a local case no seam reaches, and a case nothing mints is deleted, not diagrammed.
 - Reject: `Exception` subclasses as the interior fault type; a bare `str` fault for a multi-cause domain; `None` standing in for failure; recovery by `==` over a message; an aggregate that joins members into one string and erases their codes; a disposition re-derived from a flag the policy value already carries.
 
-```python conceptual
+```python
 from enum import StrEnum
 from typing import Literal, assert_never
 

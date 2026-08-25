@@ -22,7 +22,7 @@
 - Boundary: `Tap` owns delivery whole — channels, seating, arbitration, isolation, accounting; a registrar owns its roster, payloads, and policy rows.
 - Packages: `effect`, `@effect/typeclass`, `Identity`, `Fault`, `Shape`, and `Convention`.
 
-```typescript signature
+```typescript
 import * as Monoid from "@effect/typeclass/Monoid"
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import * as NumberInstances from "@effect/typeclass/data/Number"
@@ -57,7 +57,7 @@ const _Modality = Shape.vocabulary(_modalities, _rows)
 - Boundary: publishers own point declarations and publication; Convention owns attribute, metric, and event names.
 - Packages: `effect`, `Identity`, and `Shape`.
 
-```typescript signature
+```typescript
 const _Name = Schema.String.pipe(
   Schema.pattern(/^rasm\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/),
   Schema.brand("TapPoint"),
@@ -89,7 +89,7 @@ const _retained = (point: Tap.Rostered): number =>
 - Boundary: `Fault.Capture` remains the forensic owner for escalated `Tap.Breach` evidence.
 - Packages: `effect`, `Fault`, `Identity`, and `Convention`.
 
-```typescript signature
+```typescript
 class _Veto extends Schema.Class<_Veto>("Veto")({
   point: _Name,
   reason: Schema.NonEmptyString,
@@ -248,7 +248,7 @@ const _isolated = <E>(point: Tap.Name, label: string) => (cause: Cause.Cause<E>)
 - Boundary: instrument rows and dimension names are `observe/convention`'s; this cluster owns the counts and publishes them as one `Tap.Report` read.
 - Packages: `effect` (`Data`, `FiberSet`, `HashMap`, `PubSub`, `Ref`, `Scope`, `Stream`); `@effect/typeclass` (`Monoid`, `Semigroup`, `data/Number`).
 
-```typescript signature
+```typescript
 declare namespace Tap {
   type Policy = { readonly ledger: number }
   type Census = { readonly admitted: number; readonly lost: number; readonly shed: number; readonly vetoed: number }

@@ -18,7 +18,7 @@ Reproducible-report composition binds data and visual outputs into one `document
 - Packages: providers defer through module-scope `lazy` imports; `traitlets.config.Config` carries `ExportPolicy`; the runtime process lane isolates `REFLOW`, and the thread lane isolates GIL-releasing `AUTHOR` and blocking nbconvert renders.
 - Growth: a new report kind is one `ReportKind` row with one `COMPOSE_ARMS` row and optional `_REQUIRED` row; a new section-body unit is one `SectionBlock` case with one `_block_node` arm; exporter growth arrives through the nbconvert registry; a new result modality is one `ReportFact` case; a new recoverable reflow deposit is one `Placement` field MuPDF already reports with its `_placed_node` arm; a parameter study is one `matrix` grid with its `matrix_comparison` cross-cell section.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from collections.abc import Awaitable, Callable, Iterable, Iterator

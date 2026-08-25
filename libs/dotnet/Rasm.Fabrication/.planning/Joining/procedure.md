@@ -27,7 +27,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 - Growth: governing-code breadth is profile data, so one variable row or inspection rule extends a regime without a checker method, named field, or new public surface.
 - Boundary: every qualification verdict — expired continuity, suspended status, out-of-range value — remains a domain decision; only missing, duplicate, dimensionally incompatible, or malformed evidence fails request admission.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
@@ -577,7 +577,7 @@ public sealed partial class WelderRegistry {
 - Growth: a new examination method is one `NdtMethod` row against an existing family; a new demand grain is one `InspectionFamily` row; a new hold modality is one `HoldKind` row naming its demand set, and a new release obligation is one `ComplianceTrait` row the demanding rows admit by name.
 - Boundary: the plan states WHAT must be examined and WHO must release it; the performed examination, its result, and its attestation are `Documentation/report` evidence composing these rows downward.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class InspectionFamily {
@@ -892,7 +892,7 @@ public sealed partial class InspectionPolicy {
 - Exemption: `Procedure.Receipt` is the measured evidence-projection fold.
 - Boundary: `Require` aggregates every mismatch for aborting consumers, while receipt-first consumers retain the domain decision and complete evidence.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WeldDemand {

@@ -18,7 +18,7 @@ Each case keys its `CASE` row for the `GeometrySubject` it crosses — `NUMERICA
 - Growth: a new algebra kind is one union case, one `match` arm, and one `CASE` row, its charter distribution and frame projection following from the row with no fold edit; a new numerical primitive or transform is one `NumericalOp` row and one `NUMERICAL` entry — its RPC route a row field, never a parallel map; a new datastructure verb is one `DATASTRUCTURE` entry; a new form-finding engine is one `FormEngine` row and one `_FORM` arm; a new `Census` column reaches the receipt, the charter source, and the frame at once; a new geometric constraint is one `NodeConstraint` row — `Constraint.get_constraint_cls` dispatches on the decoded COMPAS-JSON, never a new arm; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; `compas_cem` admits as a `FormEngine.CEM` row once it ships `compas>=2.0` support.
 - Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and harvest, never a second hand-rolled rail.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import contextlib
 import sys

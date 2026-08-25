@@ -19,7 +19,7 @@ Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer
 - Growth: a new CF engine (`pydap`/`scipy`) is one `FieldEngine` member carrying its `open`/`write` delegate; a new CF metadata facet is one field on `FieldDataset`; a new compression/quantization knob is one field on `FieldEncoding`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.FIELD` in this module's one `RAISES` table, which every section on this page anchors on; zero new surface.
 - Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production field session, no durable product store — `data` emits a portable content-addressed CF field cube and its selection plan, never a runtime compute graph. Rejected forms: a literal subject string at a lift site; a bare `Exception` catch where the engine set is nameable; a `""` units fill fusing an undeclared unit with a declared dimensionless one.
 
-```python signature
+```python
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
@@ -202,7 +202,7 @@ def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:
 - Growth: a new selection intent is one `FieldSelection` case; a new flox reduction or scan func is one literal member the nan-strip maps derive automatically with zero map edit; a custom reduction is one `flox.Aggregation` on the `func` slot, a custom scan one `flox.Scan` on the `scan` slot; a new parallelization strategy, engine, or reindex intermediate is one literal member on `ReductionPolicy`; zero new surface.
 - Boundary: no compute numeric kernel, no durable selection store; never a `FloxReduction`/`BareReduction` split routing `std`/`var`/`prod` to a slow bare path where flox registers them as `func` values, and never two lowering paths for the grouped versus resampled arm.
 
-```python signature
+```python
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
@@ -427,7 +427,7 @@ def _scan(dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, f
 - Growth: a new egress engine is one `FieldEngine` `write` delegate; a new receipt fact is one entry on the fact dict; zero new surface.
 - Boundary: composes the `gridded/store#STORE` Zarr egress and the `tabular/columnar#SCAN` Arrow egress, never re-minting either.
 
-```python signature
+```python
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal
 
@@ -516,7 +516,7 @@ def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, pay
 - Growth: a new producer attribute is one `ContainerMeta` field with its wire spelling in `_META`; a second dataset path is `libs/contracts/manifest.json` `hdf5-exchange/field` case growth, never a reader knob; zero new surface.
 - Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
 
-```python signature
+```python
 from typing import Final, Literal
 
 import h5py
@@ -682,7 +682,7 @@ def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:
 - Growth: a new response family is one dataset row under `/responses`; a new sampler fact is one `EnsembleMeta` field with its attribute spelling; zero new surface.
 - Boundary: design generation is compute's (`SALib`/`pyDOE3` at the study spine) — this owner is the container residence alone, admitting a design any sampler produced; no C# consumer exists and none is claimed, so no corpus entry binds this layout.
 
-```python signature
+```python
 from collections.abc import Mapping
 
 

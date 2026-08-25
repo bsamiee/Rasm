@@ -19,7 +19,7 @@ Demand vocabulary is the open project's: functional units arrive as resolved `(a
 - Growth: a new sweep axis is more rows in the two admitted rosters — zero surface; a distribution summary beyond the mean is one field on `SolveReceipt`; zero new solver.
 - Boundary: no matrix assembly (`impact/inventory#PACKAGES` custodies datapackages), no per-material carrier mint (the carrier's `brightway` arm owns it), no method authoring — categories name methods the project already holds, and an absent method surfaces as the provider's own raise railed at the fence.
 
-```python signature
+```python
 from typing import TYPE_CHECKING, Final, Literal
 
 from expression.collections import Block
@@ -136,7 +136,7 @@ class LcaBatch(Struct, frozen=True):
 - Growth: a new contribution kind is one `Contribution` case plus one arm (`compare_activities_by_grouped_leaves` lands this way when a comparison consumer names it), landing on the `Mined` case its evidence kind already names; a new refusal law is one `FaultRow` row on this module's `RAISES` table; zero new surface.
 - Boundary: no solve, no carrier mint, no plotting — the analysis surface's chart members are artifacts-plane concerns this owner never touches.
 
-```python signature
+```python
 import io
 from typing import Literal, assert_never
 

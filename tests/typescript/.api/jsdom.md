@@ -27,7 +27,7 @@ Two consumption seams carry it — vitest selects the environment by the `enviro
 |  [06]   | `requestInterceptor`         | function             | build an `undici`-compatible interceptor that inspects/synthesizes requests  |
 |  [07]   | `toughCookie`                | namespace            | the re-exported `tough-cookie` module (`Cookie`, `MemoryCookieStore`, …)     |
 
-```ts signature
+```ts
 declare class JSDOM {
   constructor(html?: string | ArrayBuffer | ArrayBufferView, options?: ConstructorOptions)
   readonly window: DOMWindow
@@ -60,7 +60,7 @@ interface ConstructorOptions {
 
 Subresource loading is ONE parameterized option keyed by shape: `undefined` fetches no subresources while `XMLHttpRequest` still works, `"usable"` fetches with defaults, and an object `{ userAgent?, dispatcher?, interceptors? }` takes any `undici` `Dispatcher` (proxy, mock-agent, custom pool); every other value throws a `TypeError`. `requestInterceptor(fn)` is the lightweight per-request hook when a full dispatcher is overkill.
 
-```ts signature
+```ts
 import { JSDOM, requestInterceptor } from "jsdom"
 new JSDOM(html, {
   runScripts: "dangerously",

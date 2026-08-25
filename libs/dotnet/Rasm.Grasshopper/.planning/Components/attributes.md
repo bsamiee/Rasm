@@ -17,7 +17,7 @@
 - Law: chrome hit-testing rides the host's own region geometry — the cell stores the `Shape` its shell's last layout callback received, `ChromeState.Region` derives the current `Capsule` through `Capsule.CreateFromOuter(Shape, Bounds)` against live bounds rather than caching a paint-time capsule, and `Hits` folds `Bounds.Contains` as the coarse pre-filter with `SlabF.Contains` as the exact rounded-capsule answer. Every policy therefore decides on the real region and never on its bounding box; before the first layout the rectangle is the whole answer, which is exactly what the host itself knows.
 - Boundary: payloads stay host values — `ResponseMouseArgs`, `KeyEventArgs`, `TextInputEventArgs`, `Context`, `Skin`, `Capsule`, `Shade`, `Shape`, `ContextMenu` cross unwrapped because the decision, not the payload, is this page's domain; the input panel projects through `ComponentSpec.Panel`, never a chrome case. `Canvas/paint.md`'s `PathSpec.Hits` answers canvas-owned custom geometry the host publishes no slab for; it never reaches this island, whose region owner is the host `Capsule`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Grasshopper.Components;
 
@@ -125,7 +125,7 @@ public readonly record struct ChromeDecision(
 - Growth: a new projection is one fold over the same stream; a new policy slot is one `ComponentChrome` member; a new host callback is one shell override calling `Decide`.
 - Boundary: the cell holds mutable per-instance state and lives on the host attribute instance; the policy value holds none and crosses instances freely.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -232,7 +232,7 @@ public sealed class ChromeCell {
 - Auto: an unanswered decision falls back to `Response.Ignored`, the base tooltip verdict, or the default cursor. `ResizableAttributes<T>.Size`'s setter is the whole size commit — clamp, round, `CustomValues` persistence, bounds re-frame, then the empty `InvalidateLayout()` — so the resizable shell's `InvalidateLayout` override is the committed-size observation point, and the typed `MountState` fence (E-G29 — `Raw` until the shell's own constructor completes, `Mounted` after) guards the call the base constructor makes before the shell's own fields exist; a bare `mounted` bool names neither the phase nor why the guard exists.
 - Boundary: `ResizableAttributes<T>` implements `ICursorAwareAttributes.CursorAt` EXPLICITLY, so a subclass cannot override it and re-listing the interface re-implements the map and silently deletes the host's edge-resize cursors; the resizable shell therefore carries no cursor arm and `ChromeEvent.Cursor` reaches the component shell alone. Base also owns `ResizingFrame`, `SnappingConstraints.CreateFromDocument`, `SnappingSettings.Current`, `CanvasSnapToObjects` toggling, and the `ResizeAction` undo record; `EdgeSize` is its `public const int` `6`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 

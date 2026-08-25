@@ -30,7 +30,7 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 - Boundary: the one overlay LAYER mounts at app composition — `FloatingPortal` at the `z-cursor` rank with `pointer-events: none` on non-interactive items — and this plane owns its rows, folds, and postures, never the mount; camera math stays the viewer's, ProseMirror position math stays content's.
 - Growth: a new surface class is one exported `Anchor.space` row; a new invalidation source is that row's `epoch`; a new presentation is a recipe over an existing posture — the registry, sweep, and cluster folds never fork.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 import { Array, Data, Either, Option, Order, Record, Schema, type Stream, type Types } from "effect"
 
@@ -214,7 +214,7 @@ const Anchor: Anchor.Shape = {
 - Law: identity is the whole `Presence.Key` — tenant scope beside actor — everywhere a face keys a list or a map, because an actor id alone collides across tenants (`view/overlay#PRESENCE_COHORT`'s law, restated at neither end: both compose the same key).
 - Boundary: avatar pixels, size derivation, and the image element are `view/media`'s; the presence fold table enters through `system/atom#LIVE_BRIDGE` as an atom like every host fold.
 
-```typescript signature
+```typescript
 import { Presence, type Clock, type Fold } from "@rasm/core"
 import { Array, HashMap, Option, Order } from "effect"
 import { Theme } from "../system/token.ts"
@@ -277,7 +277,7 @@ const _stacked = (
 - Law: departure is silence, never an op — pointer-leave and window blur STOP the broadcast (a departing Move re-stamps `last` and extends the liveness it means to end), the cohort dims the actor on the roster's `idle` verdict, and disappearance is the `Presence.Lease.idle` window; an app wanting fast cursor decay supplies a short lease, and a hand-rolled per-cursor timer beside the lease is the named defect.
 - Boundary: the cohort fold, the point anchor, and the portal mount are `view/overlay#PRESENCE_COHORT`'s; the recognizer and its throttle are `system/act`'s; which surfaces broadcast is each owner's declaration.
 
-```typescript signature
+```typescript
 import { Presence } from "@rasm/core"
 import { HashMap, Option, Record } from "effect"
 
@@ -315,7 +315,7 @@ const _sighted = (
 - Boundary: where threads persist, how they sync, and who may resolve are the app's; the rich-text composer body is content's editor at its smallest roster; toast-versus-inline arrival policy is the app's fold over `Primitive.notify`.
 - Growth: a new anchor surface is one registry lane (threads follow for free); a new clamp policy is one `show` member; a new composer capability is one mode arm every consumer breaks on loudly.
 
-```typescript signature
+```typescript
 import { Clock } from "@rasm/core"
 import { Array, Data, Effect, Option, Schema, Stream, type Types } from "effect"
 

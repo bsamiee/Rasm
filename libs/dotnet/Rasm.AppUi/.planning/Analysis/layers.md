@@ -29,7 +29,7 @@ Values are RECEIPT PROJECTIONS: a layer carries what a sealed study computed and
   - The extent a layer carries is the sealed payload's own measured range unless the domain PINS one: a pinned extent is what makes two layers of one study comparable, and re-deriving the extent per layer would make an option comparison read as a magnitude difference that is entirely a scaling artefact.
   - Provenance is required at mint, never optional: a layer with no study, no digest, and no correlation is a picture nobody can reproduce, so `ProvenanceMissing` refuses at construction rather than rendering an unattributable field.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -59,7 +59,7 @@ public abstract partial record AnalysisFault : Fault {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [NoReorder]
@@ -126,7 +126,7 @@ public sealed partial class AveragingPosture {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ResultSample(Vector3 At, double Value, Option<int> Code);
@@ -322,7 +322,7 @@ public sealed record ResultLayer(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed record ResultRuntime(
@@ -331,7 +331,7 @@ public sealed record ResultRuntime(
     float Stroke);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class ResultVisuals {
@@ -393,7 +393,7 @@ internal static class ResultVisuals {
   - Ground dimming is published as a POSTURE on the one override channel, so the viewport folds a live hover over it through `HighlightChannel.Over` and a hovered element still reads at full opacity above a dimmed model — a layer plane that concatenated its own seq with the hover's would publish two rows per element and leave the renderer to pick by arrival order.
   - Every verb the row template raises is a key this owner DECLARES and the boot-frozen deck already holds — toggle, dim, raise, drop, expand, and the four bake rows — so a control resolving a verb it could never be invoked through is unspellable and an unrostered key is a dead SCREEN rather than a dead button. The opacity slider carries its value slot AND its verb, because a dim is both a number the operator drags and a stack rewrite this plane must fold.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -428,7 +428,7 @@ public abstract partial record AnalysisFact {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed record LayerStack(Seq<ResultLayer> Layers) {
@@ -485,7 +485,7 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public static class AnalysisLayers {
@@ -679,7 +679,7 @@ flowchart LR
   - Every printed value crosses the resolved locale under the layer's own `MeasureRole`, so a probe reading, its legend bound, and the axis tick on a chart of the same field print one elected unit and one decimal separator — a probe-local formatter is the deleted form. A unit the role cannot build a quantity in DEGRADES to the numeric axis format rather than swallowing the refusal silently, and the degradation is the same one arm a role-less layer takes.
   - The barycentric weight is the one arithmetic this plane performs, and it is a READ: the weights sum to one over three sealed sample values, so the interpolated reading lies inside the range the receipt already carries and can never be a value the study did not produce.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ProbeHit(
@@ -697,7 +697,7 @@ public sealed record ProbeReading(Vector3 At, Seq<ProbeHit> Hits, Seq<Error> Sil
 public sealed record ProbeMarker(string Key, string LabelKey, ProbeReading Reading);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ProbeChannel {
@@ -822,7 +822,7 @@ public static class ProbeChannel {
 - Growth: a new deliverable is one `BakeVerb` row carrying its fold and one `BakeProduct` arm naming what it carries; zero new surface.
 - Boundary: a bake READS the layer and never edits it — nothing here writes the scene, mutates the stack, or re-runs a study, so a baked artifact and the layer it came from cannot diverge. The verbs are `Shell/commands#INTENT_TABLE` rows raised by key under `AnalysisLayers.BakeIntent`, so a bake reachable from a panel is reachable from the palette and from a remote call with no second surface. A bake of a layer whose provenance is absent refuses at the door rather than producing an unattributable deliverable — the one case the mint already forecloses, re-proven here because a bake crosses out of the process and an unattributable export is the failure that survives longest. `BakeContext.Grab` TRANSFERS custody of its image to the caller, so the frame bake — which keeps only the receipt — brackets and releases it on every path, while the compare plane's contact sheet keeps the tile it places; a fold that simply dropped the handle was the leak neither owner named.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -873,7 +873,7 @@ public sealed partial class BakeVerb {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class BakeFolds {

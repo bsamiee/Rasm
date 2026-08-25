@@ -34,7 +34,7 @@ This page owns the transport axis, binding direction, edge coercion, write trans
 - Boundary: protocol selection splits the same way — the row ADMITS a set and the binding SELECTS one member, because the edge's capability is frozen at the row while one PubSub deployment picks its mapping per connection, so a single-valued column pinned on every row decides nothing and a selection seated on the row cannot express two connections against one edge; refusal at admission carries the axis name under `libs/.planning/ARCHITECTURE.md` `[10]-[CONSUMPTION_MODEL]`, so an unserved mapping never degrades to a neighbouring one; each `WireProtocol` row reads its profile URI off `Opc.Ua.Profiles` rather than spelling the string, and `WireProtocol.None` carries no URI at all because a point-to-point edge has no PubSub transport facet.
 - Boundary: a frozen row carries no endpoint — `Hop` is a `Func<LiveWireRuntime, BindingSpec, OutboundHop>` reading the binding's own external address and the composition's own companion spec, so the eleven `localhost` URI literals and the two `ProcessStartInfo` mints that sat inside `static readonly` rows leave the axis entirely and `ARCHITECTURE.md` `[05]-[BOUNDARIES]`'s composition-root-pin clause holds at every row; the transport axis is the only external-binding owner — a per-protocol client, a protocol-specific binding service, and a parallel poller are the deleted forms, so all eleven transports ride one adapter contract; the OPC-UA legs compose the OPC-Foundation-certified session/subscription/monitored-item surface and the `.PubSub` application, the MQTT leg composes `MQTTnet`, and the REST/GraphQL legs compose the existing `OutboundHop.HttpApi` — a hand-rolled OPC-UA or MQTT client is the deleted form; the transport never owns its own resilience — it composes the `OutboundHop` row its bytes ride, so a flapping Modbus source breaks on the same circuit breaker an HTTP API breaks on; the at-edge value carries its declared unit so the coercion at `BINDING_SPEC` reads a known unit, never a guessed one; spreadsheet and ERP/PLM transports that have no native streaming poll on the schedule cadence, so the cadence is the row's read mechanism, not a transport quirk.
 
-```csharp signature
+```csharp
 using Host = Rasm.Contracts.Binding;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ public sealed partial class ExternalTransport {
 - Boundary: one seat column keyed by transport replaces seven positional runtime columns, so a runtime record does not grow a column per protocol and a lane narrows at its own entry through `Seat<TSeat>` — NAMED LOSS: the per-protocol seat type is no longer statically reachable off the runtime, and the union arm buys it back — each seat stays a distinct closed shape — with one narrowing whose failure is a real composition fault the `Fin` rail names, the shape every lane already runs against `LiveClient`.
 - Boundary: the held session triple, MQTT client, serial port, BACnet client, and PubSub reader id live in the handle's own client cell (`docs/stacks/csharp/boundaries#TOKEN_LIFECYCLE`), so every lane member resolves its client through `runtime.Client` and a write against a torn-down binding refuses on the cell rather than dialling a disposed handle — a parallel per-protocol accessor beside that cell is the deleted form, and the take-and-clear teardown retires the incarnation-token compare a reconnect raced against.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LiveClient {
@@ -423,7 +423,7 @@ public sealed record SubscriptionLane(
 - Boundary: every foreign callback parses TOTALLY and mints through `ExternalValue.Parsed` or `.Graded`, so a malformed frame neither throws out of a foreign callback nor mints a `NaN` the coercion admits as a real measurement — absence becomes a `Bad` arm carrying the parse's own reason and no reading at all; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the seat carries the publishing interval as the int the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial read instant, and the PubSub `Field.Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock; the MQTT legs are the trace-carrier mount — `TraceContext.Inject` threads the context over the message builder before `Build()` and the receive pump continues the propagated context through the seam owner's own `MqttApplicationMessage` overload under `TenantAdoption.Refused`, a broker topic being a field-device carrier this process never authorized; the PubSub application is process-scoped and one binding's teardown removes its own data-set reader through the configurator rather than calling `Stop`, because `Stop` darkens every other binding riding the same application; an MS/TP line is single-custody — the serial seat opens ONE port per binding and the client cell's take-and-clear teardown disposes client, transport, and port as ONE chain.
 - Boundary: the MQTT correlation token is DERIVED, not drawn — `ContentHash.Of` over the framed `(binding, source instant, reading)` preimage renders through its one text correspondence into the bytes the broker echoes back, so a replayed write mints the byte-identical token its recorded receipt retained and the suppression comparison holds across a replay; the ambient `Guid.CreateVersion7()` that stood here was the page's one unseeded draw and `Runtime/determinism.md` names ambient entropy the deleted form for this folder.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -968,7 +968,7 @@ flowchart LR
 - Boundary: a transport call whose VALUE the read reports runs INSIDE the hop through `OutboundSurface.Carry`, so the reported value and the receipt describe one frame and the second raw untimed call is the deleted form; a hop-carried body takes no caller token at all, because the hop's own environment supplies the cancellation its deadline class bounds — a token threaded into that signature and never read declares a cancellation owner the frame does not have; the register-window decode reinterprets the window as the point's declared element under the endianness `Connect` fixed for the connection — never a per-read byte-order branch, which reaches no float32 register at all — and the address space is the closed `ModbusSpace` row carrying its own bodies, so a `bool Holding` two-valued switch reaching half a closed protocol, a lane-side space branch beside it, and a `bool Writable` column standing beside `RefuseWrite` are all deleted forms; a value the parse cannot read is a `Bad` arm carrying its reason, never the `?? "0"` sentinel the coercion admits as a real measurement.
 - Boundary: the MTConnect cursor and the observation do NOT share a numeric type — `MTConnectClientInformation.LastSequence`/`InstanceId` are `long` while `IObservation.Sequence`/`InstanceId` are `ulong` — so every cursor advance and every re-`current` comparison spells its narrowing at the crossing rather than inferring one; `IStreamsResponseDocument.GetObservations()` returns NULL on a device-stream-free document, which is the ordinary steady-state `/sample` response when nothing crossed since the cursor, so the decode folds the null through an empty-sequence arm and an unguarded traversal is the deleted form; the cursor is durable poll state committing the sequence the drain consumed, the outbox watermark discipline at the machine edge.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1172,7 +1172,7 @@ public static class MtconnectLane {
 - Growth: a new observation column is one record member every consumer answers; a new consumer reads the same receipt kind and mints no decoder.
 - Boundary: this family is an IN-PROCESS receipt payload, not a cross-language wire face — its producer is here, its decoder is `ReceiptKind.Observation`, and its consumers are the C# Fabrication readers, so it carries no `libs/contracts/manifest.json` family row and no peer census row; a registration asserting a peer decoder that no branch declares is the STRANDED state, and the honest close is the withdrawal rather than a TypeScript decoder no surface reads; the fan is best-effort and its refusal is RECEIPTED under `ReceiptKind.WireRejection` rather than discarded, so an undeliverable observation is counted and the control path it merely describes is never blocked by it.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MachineObservationWire(
     string Machine,
@@ -1208,7 +1208,7 @@ public static class MachineLane {
 - Boundary: tenancy is the BINDING's own declared context — no industrial protocol carries this estate's tenancy, so `TenantAdoption.Refused` is the standing trust class and the value carries `spec.Tenant` from its callback to its receipt; the deleted form is an ambient read on the drain fork, which answered root for a value the MQTT receive pump had already refused a tenant for, so the push, the receipt, and every RLS predicate below disagreed with the admission above them.
 - Boundary: the client cell is the HANDLE's, so a second opener racing a reconnect reads `Ceded` and RELEASES what it opened rather than publishing a lane the winner's teardown will never reach; teardown is `Cell.Take`, so the closure disposing what it drained holds it and a repeated release drains nothing and disposes nothing.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<Host.BindingDirection>]
 public sealed partial class BindingDirection {
@@ -1421,7 +1421,7 @@ public abstract partial record Suppression {
 - Boundary: refusal and failure are DIFFERENT dispositions because the compensating write is only ever correct over an ambiguous outcome — a broker that routed to nobody, a device that declined the value, a read-only row, each changed nothing, so a rollback fired over them writes a second value onto a line that never moved; a hop outcome never crosses back into this fold because `OutboundSurface.Carry` rails the body's value on delivery and fails on every other outcome, so the discriminant rides the typed `WireFault`; the prior value reads the binding's own last-good cell rather than the transport, so a write-back against a subscribe binding never dequeues the lane its drain fork owns, and a subscribe binding with no admitted value yet refuses rather than blocking on a queue for one; an acknowledgement standing beside a live out-of-band fault is exactly the ambiguous case, so the row's `Watch` downgrades it into the compensating path rather than reporting a delivery the transport already told someone else it lost; rollback is an actual second transport write and never a renamed failed acknowledgement; a rollback failure is indeterminate rather than a typed rejection because remote application cannot be disproved.
 - Boundary: recovery is keyed on `WireFault.WriteApplicationAmbiguous` — only `WriteFailed` and `TransportFaulted` compensate, every definite no-application case becomes `Rejected`, and a non-`WireFault` propagates because a disposed handle or cancelled scope is not a device verdict; the generated switch forces a new fault case to declare application posture, while a catch-all or retriability-based guess is the deleted classifier; elapsed rides the kernel timeline's own `Capture`/`Elapsed` pair, so a fake-provider spec measures a deterministic span and no `Stopwatch` mark survives on this page.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WriteVerdict {
@@ -1520,7 +1520,7 @@ public static class WriteBackSurface {
 - Growth: one state is one `BindingState` row naming its successors; a new health tag rides the existing health contributor row family; zero new surface.
 - Boundary: the stale-and-faulted population level writes at its PRODUCING arm — the transition that changed it — so `AppHostMeasure.BindingStale` derives from the same step rather than a sampler re-reading the set, and a refused instrument write fans as wire evidence rather than failing the transition it merely describes; binding health is a read into the existing health fold — a parallel binding monitor, a per-binding alarm, and a binding-specific degradation level are the deleted forms; the staleness window is the binding's own `Staleness` value read by projection, never a literal; the binding state lifecycle is the binding's own cell, distinct from the host lifecycle phase, so a binding faults and recovers without touching the host phase machine; the contribution aggregates all bindings into one row so a host with a hundred bindings contributes one health entry, keeping the health fold bounded.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<Host.BindingState>]
 public sealed partial class BindingState {
@@ -1618,7 +1618,7 @@ stateDiagram-v2
 - Boundary: the host-local rejection embeds the shared generated fault as a detached `JsonElement` produced by `WireJson.Element(FaultWire.Observe(error))`; this avoids asking STJ to rediscover protobuf semantics while retaining the local receipt envelope.
 - Boundary: the reading crosses OPTIONAL beside its quality, because a `Bad` measurement carries no number and a required slot filled with zero reads on the wire as a value the source published; `MachineObservationWire` rides `LiveWireContext` as a receipt payload and carries NO family row at the contracts manifest, its decoder being `ReceiptKind.Observation` in this same process.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record WireRejectionWire(
     string BindingId,

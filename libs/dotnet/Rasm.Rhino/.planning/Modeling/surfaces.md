@@ -23,7 +23,7 @@ Kernel `Rasm.Parametric` owns the bare names `Surfaces` and `SurfaceOp`, so this
 - Growth: a new construction discriminant is one union case with its claim; a new scalar policy is one column on its owning law with the claim beside it.
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the nurbs-surface build roster `:63-80` incl. `CreateNetworkSurface`, `CreateFromPoints`, `CreateThroughPoints`, `CreateFromCorners`, `CreateRuledSurface`, `CreateSubDFriendly`, `CreateRailRevolvedSurface`, `MakeCompatible`, `MatchToCurve`, `CreateCurveOnSurface`, `CreateCurveOnSurfacePoints`, `CreateFromPlane`, `CreateFromCone`/`Cylinder`/`Sphere`/`Torus`; the surface build roster `:82-103` incl. `CreateExtrusion`, `CreateExtrusionToPoint`, `CreatePeriodicSurface`, `CreateSoftEditSurface`, `CreateRollingBallFillet`, `CreateTweenSurfacesWithSampling`, `Fit`, `Rebuild`, `RebuildOneDirection`, `VariableOffset`, `RevSurface.Create`, `SumSurface.Create`, `PlaneSurface.CreateThroughBox`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Modeling/curves.md` (`PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Globalization;
@@ -395,7 +395,7 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 - Growth: a new freeform constructor is one `FreeformOp` case with its arm; a new evidence stream is one `SurfaceSlot` row.
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — nurbs-surface build `:63-80`, surface build `:82-103`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`, `PairPosture`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SurfaceSlot {

@@ -21,7 +21,7 @@
 - Growth: a command is one `GCommand` row with its grammar and demanded features; a modal family is one `ModalGroup` row.
 - Boundary: dialect byte spelling stays in `Dialect`; this cluster declares codes as ROW data and renders none.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -310,7 +310,7 @@ public static class WireCode {
 - Packages: `Rasm.Element` `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`; `LanguageExt.Core` `Fin`, `FoldM`, `Seq`, and `Map`; `Thinktecture.Runtime.Extensions` generated unions and smart enums.
 - Growth: a syntax construct is one `GNode` case, one `NodeKey` arm, and one `ModalState.Push` arm.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GValue {
@@ -871,7 +871,7 @@ public sealed class CutProgram {
 - Exemption: `ParseBlock` is the framing statement kernel — comment, checksum, optional-delete, and program/sequence extraction all read one record text, and splitting them re-scans it.
 - Boundary: parsed `Sequence` and `Checksum` values never survive re-emission, because `RecordFrame` owns numbering and digest.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProgramIngress {
@@ -1050,7 +1050,7 @@ public static partial class Post {
 - Receipt: `ProgramView.Paths` returns the run partition directly — a coordinate change re-frames every following point, so it closes a run exactly as an excluded move does, and the open run carries as `Option` rather than a null cursor.
 - Boundary: `Eff<CutProgram>` carries source acquisition; reusable transforms retain `Fin<T>`; rendered records collapse only at `PostedProgram`; every parameter arrives admitted, so no entry guards a null.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ProgramView {

@@ -47,7 +47,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Law: the module's public surface is the request union plus one dispatch entrypoint attached through an extension block, routing entirely over the public generated dispatch without touching the partial.
 - Boundary: `[OverloadResolutionPriority]` steers only members co-declared in one static class; cross-class same-name extensions compare by ordinary betterness regardless of priority.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Request {
     private Request() { }
@@ -98,7 +98,7 @@ public static class RequestSurface {
 - Reject: a batch flag, a mode flag, or a count beside a span whose `Length` already answers it; counts and modes derive from `span.Length` or the dispatched case, never the signature; `Aggregate` with a mutable seed where `Fold` over the monoid fuses the reduction.
 - Boundary: after traversal the container is uniformly in the carrier, never mixed admitted-and-raw, which keeps the next entrypoint's discriminant recoverable from shape alone.
 
-```csharp conceptual
+```csharp
 public static class BatchSurface {
     public static Fin<Iterable<LedgerResult>> Run(Ledger ledger, params ReadOnlySpan<Request> requests) =>
         Iterable<Request>.FromSpan(requests)
@@ -136,7 +136,7 @@ public static class BatchSurface {
 - Law: the knob test is removal — delete the parameter, and if no information is lost that the value cannot reconstruct, the parameter was a knob and the value already discriminates.
 - Reject: a timeout or deadline as an entrypoint parameter; the bound is an effect-layer aspect injected after dispatch, and the signature never grows a token tail for it.
 
-```csharp conceptual
+```csharp
 public sealed record Context(int Ceiling);
 
 public sealed record Policy(Context Canonical, Func<Input, Context, Fin<Input>> Step) {
@@ -176,7 +176,7 @@ public static class PolicySurface {
 - Use: the span-keyed `Validate(ReadOnlySpan<char>, ...)` overload so protocol text admits and dispatches without materializing a string.
 - Boundary: the comparer accessor is the single arbiter of key equality everywhere, so every frozen table keyed on the owner resolves the same comparer and no call site supplies a divergent one.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 [ValidationError<Fault>]
 public sealed partial class Marker {
@@ -218,7 +218,7 @@ public static class MarkerBoundary {
 - Law: the state advance is one total `Switch` over the closed step family, so the same arms run under every `Stateful`-over-effect stack the carrier admits and a new divergence cause is one terminal case that breaks the terminal projection at compile time.
 - Boundary: carrier changes are one structure-preserving `Natural.transform` arrow, never a match-and-rebuild bridge; mid-pipeline concretization defeats the polymorphism.
 
-```csharp conceptual
+```csharp
 public static class JoinSurface {
     public static K<F, Composite> Assemble<F>(Source source, Band band, Tag tag)
         where F : Applicative<F> =>
@@ -286,7 +286,7 @@ public static class IterativeSurface {
 - Boundary: the floor's lifetime, minting, and the cross-stratum case — N sibling owners aligning through one floor hosted on the lowest shared stratum, each implementing it against its own shapes with zero peer references — are the boundary page's; this page owns only that the floor is the dispatch and the concrete is `internal` and swappable.
 - Reject: a member-less marker read by `is` or reflection where a generic bound `where T : IFloor` or a generated conformance carries the capability; an instance default-interface-method where `static virtual` derives the default from a minimal core.
 
-```csharp conceptual
+```csharp
 public static class Boundary {
     public static Fin<TOwner> Admit<TOwner, TValue, TError>(TValue value, IFormatProvider? culture = null)
         where TOwner : IObjectFactory<TOwner, TValue, TError>
@@ -346,7 +346,7 @@ public static class FloorDispatch {
 - Law: every transformer satisfies one shape — `Func<IO<Report>, IO<Report>>` — so the rank-ordered fold keeps the carrier and the rail intact through an arbitrary-depth stack, and the rank lives on the vocabulary item rather than a bent comparer so the order is recoverable from the declaration alone.
 - Reject: the same bracket-retry-catch tower hand-spelled as sibling methods; a caller-supplied order where the `WeaveName` rank column already fixes it; a transformer typed `Func<IO<object>, IO<object>>` that erases the result.
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class WeaveName {
     public static readonly WeaveName Recover = new(rank: 0);

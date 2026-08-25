@@ -23,7 +23,7 @@
 - Boundary: `DocumentStream` alone observes `RhinoDoc.UserStringChanged`; this page never creates a parallel event surface.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `RhinoDoc.Strings`, `DocumentUserTextCount`, `DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `ObjectTable.FindByUserString`, `ObjectEnumeratorSettings`, `ObjectType`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); `Document/tables` (`ResourceId`); Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`); LanguageExt.Core (`libs/dotnet/.api/api-languageext.md`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -272,7 +272,7 @@ public abstract partial record TextOperation {
 - Growth: a new consequence is one slot row naming its kind set; a new payload is one body case and one kind row.
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -339,7 +339,7 @@ global using UserTextReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persist
 - Growth: a new answer shape is one `UserTextAnswer` case; a new census column is one snapshot member and its postcondition.
 - Packages: `Document/tables` (`ResourceId`); `Document/session` (`IDetachedDocumentResult`); Generator.Equals (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]`, `[UnorderedEquality]`); LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using Rasm.Domain;
@@ -394,7 +394,7 @@ public abstract partial record UserTextAnswer : IDetachedDocumentResult {
 - Boundary: Rhino's mutable text, clone, undo, and object-table calls form the platform-forced statement seam. No live `RhinoObject` and no mutable string collection escapes a projection.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `StringTable.Count`/`GetKey`/`GetValue`/`SetString`/`Delete`/`DocumentUserTextCount`/`DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject.Attributes`/`Geometry`, `GetUserStrings`, `GetUserString`, `SetUserString`, `DeleteUserString`, `UserStringCount`, `ObjectTable.FindId`/`FindByUserString`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`); `Document/tables` (`Tables.Commit`, `TableOp.Amend`/`Replace`, `TableTarget`, `TableTransaction.Recorded`, `AttributeChange`, `ModeRegard`); `Document/facts` (`FactStream`, `UndoSerial`); kernel `Domain/rails` (`Op.Catch`, `Lease<T>`); LanguageExt.Core (`TraverseM`, `Choose`, `HashMap`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Specialized;
 using Rasm.Domain;

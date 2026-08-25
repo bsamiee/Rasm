@@ -29,7 +29,7 @@ Kernel ROP substrate (`Rasm.Domain`). Every fallible kernel surface fails throug
 - Boundary: `Op` is a key, never a message channel — diagnostic text lives on the `Fault` case payloads and the key renders only inside the case `Message`. `ValidateFactoryArguments` rejects a blank key at mint — `[CallerMemberName]` never supplies one, so a whitespace literal is a caller defect surfacing at the generated factory, never a silent empty identity.
 - Packages: Thinktecture.Runtime.Extensions (`[ValueObject<string>]`, `ComparerAccessors`), LanguageExt.Core (`Fin`, `Option`, `Try`), BCL inbox.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -148,7 +148,7 @@ public readonly partial struct Op {
 - Law: emission is strictly opt-in — `SelfOp` exists only for `[GenerateUnionOps]`-marked unions, whose cases are operations; the generator never visits an unmarked union, so a `[Union]` of carriers, resources, verdicts, or requests (`Fault`, `Lease<T>`, `Retriability`, `Verdict`, `Transition<TState>`) receives nothing.
 - Boundary: the attribute is designed vocabulary, not runtime behavior; a marked union with no sealed record cases is inert. Generator and analyzer rules home at the repository analyzer — this page owns only the contract name and the emitted `SelfOp` shape.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
@@ -175,7 +175,7 @@ public sealed class GenerateUnionOpsAttribute : Attribute;
 - Boundary: `KernelFault` crosses the in-process kernel, analysis runtime, and Grasshopper boundary as the one substrate failure vocabulary; an in-process subscriber receives only `Domain/telemetry`'s `FaultObservation` projection — the optional generated `FaultId`, recovery, bounded cause stamps — never the fault value or its rendered `Message`, and a wire lowering copies the `Code` half of that identity while the case token stays behind. This union therefore owes no JSON derived-type roster. Log-event-id bands register HERE under `BandKind.Event`; `Disjoint` permits event and fault rows to share a base while keeping rows of the same kind disjoint.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[Union]`), LanguageExt.Core (`Error`, `Option`, `Unit`), BCL inbox (`CultureInfo`, `[JsonIgnore]`), RhinoCommon (`UnitSystem`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Text.Json.Serialization;
@@ -485,7 +485,7 @@ public static class FaultExtensions {
 - Growth: a new retriability posture is one `Retriability` case with the `Settle` arm it selects and one word on `Key`, which every emitter then answers unedited; a new backoff shape is a `Schedule` composition at the policy mint, never a member here.
 - Packages: LanguageExt.Core (`Schedule`, `ScheduleTransformer`, `IO`, `Duration`, `Iterable`, `Option`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
@@ -574,7 +574,7 @@ public static class Redrive {
 - Law: posture follows CUSTODY, never style — `Rollback` serves the acquire chain whose success value takes ownership; `Settled` serves an already-run primary still holding a fallible resource roster; `Bracket` captures scratch whose custody never transfers. Cleanup faults AGGREGATE into the primary outcome on every posture — a leaking release never silently replaces the fault that caused it, and a primary success under a failed release reads as the release fault. Folder-local release folds and domain-flow `try`/`finally` releases both delete onto this owner.
 - Boundary: `Owned.Project`'s `using` is the platform-forced disposal seam.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
@@ -672,7 +672,7 @@ public static class Custody {
 - Growth: a new transition shape is one `Cell` member over the same verdict; a new verdict is one `Transition` case with every consumer's `Switch` loudly broken.
 - Packages: LanguageExt.Core (`Atom`, `HashMap`, `Option`), Thinktecture.Runtime.Extensions (`[Union]`), `Rasm.Numerics` (`Dimension`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 
@@ -806,7 +806,7 @@ public static class Cell {
 - Boundary: the fold is validity evidence, never admission — admission rejects raw material at the boundary with typed faults (`validation.md`), the fold answers whether an already-constructed receipt carries coherent evidence. `All`'s span loop is the named kernel exemption.
 - Packages: RhinoCommon (`RhinoMath`), System.Numerics.Tensors (`TensorPrimitives`), UnitsNet (`IQuantity`, `QuantityValue`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using Rhino;
@@ -879,7 +879,7 @@ One Op-threading law rules every kernel page; no page re-decides it.
 - Packages: LanguageExt.Core; BCL inbox (`System.Text.Json`, `System.Collections.Frozen`, `System.Reflection`).
 - Growth: a new carrier is ONE `Carriers` row — the array shapes name the shared collection row, a distinct wire shape names its own converter. `Map<,>` is the one carrier still outside the table: it is ordered-keyed, so it lands as its own `Shaped` row with a converter that rebuilds through `toMap` rather than borrowing `HashMap`'s.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;

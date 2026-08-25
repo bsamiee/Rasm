@@ -20,7 +20,7 @@
 |  [05]   | `CodeRegion`                  | dataclass  | a named code region (function or class) for region-scoped reporting                      |
 |  [06]   | `CoverageException`           | exception  | the base for coverage errors, including `ConfigError` and `NoDataError`                  |
 
-```python signature
+```python
 class Coverage:
     def __init__(self, data_file: FilePath | DefaultValue | None = ..., data_suffix: str | bool | None = None,
                  cover_pylib: bool | None = None, auto_data: bool = False, timid: bool | None = None, branch: bool | None = None,
@@ -59,7 +59,7 @@ class CoverageData:
 |  [07]   | `output`                          | `[json]` / `[xml]` / `[lcov]` | per-format report file under `.artifacts/python/coverage`         |
 |  [08]   | `directory`                       | `[html]`                      | the browsable html report tree root                               |
 
-```python signature
+```python
 def process_startup(*, force: bool = False, slug: str = "default") -> Coverage | None: ...
 ```
 

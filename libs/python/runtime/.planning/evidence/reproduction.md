@@ -16,7 +16,7 @@ One fault-combining fold carries the suite — `reliability/faults#FAULT` `trave
 - Growth: a new parity aspect is one `ParityAspect` member with one `ParityRow` on the owning fixture; a manifest entry newly naming this suite one `_CORPUS` row carrying its producing tag, which the census admits with no second declaration; a pending fixture graduates by one `Some(FrozenReference(...))`, its rows, and the `state="real"` flip, zero new method; a sibling-authored corpus (data's icechunk snapshot-seed fixtures, compute's canonical array bytes) is the `corpus` constructor argument over the same exported row types, never a second suite; a new derivation modality is one `FixturePayload` member only when `IdentitySource` itself grows one.
 - Boundary: the reference is read-only — a Python-fabricated byte set for an unfrozen row is the one forbidden authorship, a `domain` row decodes its producer's semantics and never re-derives them, and an `infrastructure` row grades this branch's own mint against the vector every branch reproduces. The grammar is the identity owner's and is read here, never re-spelled — a second pattern beside `KEY_FMT` would let the census admit a tag the derivation refuses. Pending rows graduate at the anchor their `source` names; the harness driver feeding payloads and grading rows is a `libs/contracts/conformance` consumer of this same corpus, never a second fixture store here.
 
-```python signature
+```python
 from collections.abc import Iterable
 from typing import Final, Literal
 

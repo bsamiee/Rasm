@@ -14,7 +14,7 @@
 [RECEIPT_FAMILY]:
 - Growth: a new receipt kind is one tagged case, one `_RANKS` row, and zero envelope edits.
 
-```typescript signature
+```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import { create, enumToJson, isMessage, type MessageShape, type UnknownEnum } from "@bufbuild/protobuf"
 import { EmptySchema, timestampFromMs, timestampMs, TimestampSchema } from "@bufbuild/protobuf/wkt"
@@ -97,7 +97,7 @@ const _receiptCell = (receipt: _Receipt): Fold.Cell => Match.valueTags(receipt, 
 
 [ENVELOPE_OWNER]:
 
-```typescript signature
+```typescript
 class _ReceiptEnvelope extends Schema.Class<_ReceiptEnvelope>("Evidence.ReceiptEnvelope")({
   command: Digest.Key.content,
   subject: Schema.optionalWith(Digest.Key.content, { as: "Option" }),
@@ -148,7 +148,7 @@ class _ReceiptEnvelope extends Schema.Class<_ReceiptEnvelope>("Evidence.ReceiptE
 - Law: `Tally` counts DONE units against a total for one operation in a parent tree, so it shares no axis with the producer phase frame `dotnet:Rasm.Compute/Runtime/progress#PROGRESS_CELL` streams — that frame carries a phase vocabulary and a fraction, crosses as `ProgressUpdate`, and mirrors as `ProgressUpdateWire`. Two disjoint field sets under one spelling is what the separate names foreclose.
 - Growth: a new progress verdict is one read member; a new mark axis (weight, priority) is one field plus one product row.
 
-```typescript signature
+```typescript
 class _Tally extends Schema.Class<_Tally>("Evidence.Tally")(
   Schema.Struct({
     operation: Digest.Key.content,
@@ -313,7 +313,7 @@ const _Progress: Progress.Shape = {
 
 [AVAILABILITY_LATTICE]:
 
-```typescript signature
+```typescript
 type _Level = Exclude<control.DegradationLevel, UnknownEnum | typeof control.DegradationLevel.UNSPECIFIED>
 const _LEVELS = [
   control.DegradationLevel.FULL,

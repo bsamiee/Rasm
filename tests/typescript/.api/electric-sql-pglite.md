@@ -33,7 +33,7 @@ It is the lane for query logic that needs no SERVER extension (pgvector, postgis
 |  [12]   | `IdbFs` / `MemoryFS`         | class               | persistence backends — IndexedDB vs in-memory (unit lane default)       |
 |  [13]   | `Mutex`                      | class               | the single-connection serialization primitive `runExclusive` uses       |
 
-```ts signature
+```ts
 declare class PGlite extends BasePGlite implements PGliteInterface, AsyncDisposable {
   constructor(dataDir?: string, options?: PGliteOptions)
   constructor(options?: PGliteOptions)
@@ -66,7 +66,7 @@ type PGliteInterface<T extends Extensions = Extensions> = InitializedExtensions<
 
 [PUBLIC_TYPE_SCOPE]: construction bag — the fields the unit lane sets.
 
-```ts signature
+```ts
 interface PGliteOptions<TExtensions extends Extensions = Extensions> {
   dataDir?: string
   extensions?: TExtensions
@@ -92,7 +92,7 @@ interface PGliteOptions<TExtensions extends Extensions = Extensions> {
 |  [03]   | `identifier` (tagged template) | `TemplatePart`      | auto-escaped identifier (never a parameter)             |
 |  [04]   | `raw` (tagged template)        | `TemplatePart`      | verbatim string, no escaping/parametrization            |
 
-```ts signature
+```ts
 declare function sql(strings: TemplateStringsArray, ...values: any[]): TemplateContainer
 declare function identifier(strings: TemplateStringsArray, ...values: any[]): TemplatePart
 declare function raw(strings: TemplateStringsArray, ...values: any[]): TemplatePart
@@ -108,7 +108,7 @@ Seed rows on that shape are the `./contrib/*` roster (`amcheck`, `auto_explain`,
 
 This is the CLIENT-side wasm-contrib surface — orthogonal to the SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live` or the bundled contribs.
 
-```ts signature
+```ts
 interface Extension<TNamespace = any> { name: string; setup: ExtensionSetup<TNamespace> }
 type Extensions = { [namespace: string]: Extension | URL }
 ```

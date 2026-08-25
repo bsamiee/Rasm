@@ -16,7 +16,7 @@ One read-only frozen application registry owns the unit vocabulary, shared throu
 - Receipt: the hub `evidence_run` weave rides the two OPERAND-SCALED entries — the cohort reconstruction and the `CohortView` read, whose inverse arms run a cubic uncertainty-propagating solve — so the branch's universal evidence floor holds at this owner and the folder's most expensive numerics kernel reports its own resource band. The scalar mint, convert, and propagate entries stay bare: banding a single `ufloat` construction prices the instrument rather than the kernel. Composition custody is the caller's on the weave and on the graduation projection alike, defaulted so the root call shape stays scope-free.
 - Growth: a new refusal is one `RAISES` row whose `slots` name its coordinates and whose `catch` anchor names the provider set its fence reaches; a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case with its `lifted`/`label` arms; a new cohort construction is one `Covariance` case with its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key as its own framed fields; a new provenance view is one `CohortView` row with its fold arm; a stricter unit bar is one tighter `_UNIT_CEILING` row or the caller's override.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum

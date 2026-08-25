@@ -21,7 +21,7 @@ Overlay owns anchored floats, drag-dismissable sheets, the one command vocabular
 - Law: the `size.apply` style write is floating-ui's platform-forced statement seam — the middleware hands a live element and the write is the documented application; the kernel carries the exemption.
 - Growth: a new anchored surface is one hook composition over the same pipeline; a new middleware concern is one pipeline row; a new dismiss behavior is one reason row — never a second positioner.
 
-```typescript signature
+```typescript
 import { arrow, autoUpdate, flip, offset, shift, size } from "@floating-ui/react"
 import type { OpenChangeReason, Placement, VirtualElement } from "@floating-ui/react"
 import { Effect, Option } from "effect"
@@ -95,7 +95,7 @@ const _middleware = (options: Overlay.Anchor) => [
 - Law: `dismissible: false` demands the controlled `open` this fold already supplies — an uncontrolled undismissible sheet traps itself open, so the two facts travel as one record.
 - Growth: a new sheet detent is one `snapPoints` entry; a new sheet surface is one `Overlay.sheet` call — the detent policy row never forks.
 
-```typescript signature
+```typescript
 import type { ComponentProps } from "react"
 import { Drawer } from "vaul"
 
@@ -162,7 +162,7 @@ const _sheet = (
 - Law: palette motion is `Motion.palette` through the entering/exiting variants — or, where the palette morphs into its result surface, the `Motion` physical plane's `layoutId` morph; one owner per surface, never both.
 - Growth: a new command is one spec row; a new scope is one vocabulary member its surface reads through the same selector; a new legality axis is one `_grants` member landed beside the owner that publishes its read; a new palette surface is one hosting-shell choice — the table never forks.
 
-```typescript signature
+```typescript
 import { Command, CommandDialog, defaultFilter, useCommandState } from "cmdk"
 import { Fault } from "@rasm/core"
 import { Array, Either, HashSet, Option, Record, Schema, type Effect } from "effect"
@@ -441,7 +441,7 @@ const _useMatched = (): number => useCommandState((state) => state.filtered.coun
 - Law: identity is the whole `Presence.Key` — tenant scope beside actor, because an actor id alone collides across tenants on a shared surface; name and hue derive from the worn `face` profile through the theme ramp, so no per-actor style state lives in the component.
 - Boundary: the roster fold, lease policy, and status verdicts live in the core presence plane; the horizon reads the one frame clock through the same bridge, and the projection arrives as a parameter so the cohort is surface-agnostic.
 
-```typescript signature
+```typescript
 import { Presence, type Clock, type Fold } from "@rasm/core"
 import { Array, HashMap, Option } from "effect"
 

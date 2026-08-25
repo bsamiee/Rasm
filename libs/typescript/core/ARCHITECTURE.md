@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 core/
 └── src/
     ├── value/            # Cross-language value floor — every brand decodes once and travels settled

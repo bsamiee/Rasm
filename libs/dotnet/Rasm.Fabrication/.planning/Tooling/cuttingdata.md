@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `CuttingData.Of`, `FeedBasis`, and `CuttingLoad` remai
 - Growth: a material is one `MaterialCutSpec`; an operation is one `OperationTrait`; a measured correction is one `CuttingRow`; a hardness series is one `CalibrationCurve`.
 - Boundary: repeated class-operation matrices, a second coolant vocabulary beside `CoolantDelivery`, linear scans over a keyed exact table, string evidence labels, correction axes pinned at unity, and defensive null guards on cases a generated union already hands non-null are deleted forms.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
@@ -473,7 +473,7 @@ public sealed partial class CuttingTable {
 - Growth: a resolved column is one slot on `CuttingDataIngress` that both mapper partials fill.
 - Boundary: `Fin.Succ` query shells lifting pure values, unqualified dimensional request scalars, scalar-only force, engagement fraction standing in for the engagement arc, and silent extrapolation past the evidence domain are deleted forms.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct CutIntent {
@@ -686,7 +686,7 @@ public sealed partial class CuttingData {
 - Growth: a new regression space is one `FitSpace` row.
 - Boundary: two-point unqualified fits, a determination computed outside the fit space, and a second least-squares body anywhere in the package are deleted forms.
 
-```csharp signature
+```csharp
 // --- [REGRESSION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FitSpace {
@@ -851,7 +851,7 @@ public static class CuttingCalibration {
 - Growth: a classification axis is one column on `CutterFormPolicy` and one arm in the inference pattern.
 - Boundary: magic classification tolerances are the deleted form.
 
-```csharp signature
+```csharp
 // --- [FORM_PROJECTION] -----------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class CutterFormPolicy {
@@ -938,7 +938,7 @@ public static class CutterFormProjection {
 - Growth: a measured mode is one `ModalMode` inside `ModalResponse`; a modal provenance is one `ModalEvidence` case.
 - Boundary: a single transition where a lobe crosses twice, margins relative to a regime ceiling rather than the requested depth, and chatter-blind speed selection are deleted forms.
 
-```csharp signature
+```csharp
 // --- [CHATTER_STABILITY] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ModalEvidence {

@@ -17,7 +17,7 @@ Rasm.AppUi's run queue is the job/run/step surface over the settled screen kerne
 - Growth: a new status is one `WorkStatus` row carrying its severity and verb — terminality DERIVES; a new transfer shape is one `RunDirection` row over the existing leg set; zero new surface.
 - Boundary: THREE PLANES and no roll-up fold — a job is the verb an operator raised, a run one attempt at it, a step one unit inside that attempt — held structurally by the three separate status columns (`RunCard.Job`, `RunCard.Run`, `StepRow.Status`), so a transiently failing step under an eventually succeeding run never wears the run's failure; a maximum-severity roll-up would produce both errors at once. The card's ONE action button carries whichever verb the status row names, so cancel and retry are the same affordance at two moments and a card can never offer both; a status with no verb renders no button rather than a disabled one. `Terminal` is `Verb != Cancel` BY DERIVATION — every non-terminal row offers cancel and no terminal row does — so a stored terminality column was a second spelling of the verb and is deleted. Severity is the folder's ONE ranked family (`Theme/tokens` `Severity`); a queue-local ladder was the local fork RULINGS `[02]:73` names. A bidirectional transfer is ONE card discriminating on the direction row's LEG SET, not two cards: the legs decide which counters read and which captions the strip spells, and the closed three-row roster is what keeps the empty leg set unrepresentable.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -82,7 +82,7 @@ public readonly record struct RedriveMark(int Attempt, int Bound);
 - Growth: a new queueing route is one `RunOrigin` arm answering the drill-down read; a new card fact is one `StateStrip`; a new artifact disposition is one `OutputState` case; zero new surface.
 - Boundary: state arrives as APPENDED strips so a card never changes size class mid-run — a card that grows on its first warning re-flows every card beneath it and moves the button the operator was reaching for. `OutputState` makes the illegal artifact composite unspellable: a draft carries no adoption verb slot at all, so "unsealed but adoptable" cannot be constructed and the old `(bool Sealed, Option Adopt)` pair's refused corner is gone. `RunCard.Fault` carries the run's own typed refusal so the retry gate reads the `Retriability` the fault PUBLISHED, and `Redrive` carries the producer's attempt-of-bound. The report READS the correlation join and mints no evidence — the STUDY arm rides `EvidenceJoin.Run` (the owner that defined the join; `Editing/forms#STUDY_FORM`'s `StudySubmission` is the carrier), so a queued study's cross-package causal story assembles at the diagnostics owner rather than at a queue re-spelling it. The tile union carries NO list case and this screen is the owner — a board tile renders one aggregate; the queue's aggregates go the other way, as stat tiles the board folds from this surface's own instruments.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct FanOut(int Total, int Completed, int Failed) {
@@ -169,7 +169,7 @@ public readonly record struct ReportChip(Severity Severity, int Count);
 - Growth: one projection member per new report read; zero new surface.
 - Boundary: severity first, then EXECUTION ORDER — two rows of one severity keep the order the run executed them in, because a second sort on time would scatter a retried step away from the failure that caused it. Evidence attaches by the envelope's own kind coordinates through ONE index built per timeline — the producers sealed these envelopes without knowing a queue would read them — and a step with no matching envelope carries none rather than an empty placeholder row. The chip filter is a SET, and an empty set is the whole report rather than nothing — a filter nobody set removes nothing.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class RunReport {
@@ -209,7 +209,7 @@ public static class RunReport {
 - Growth: one queue instrument is one `InstrumentSpec` row on `TelemetryRow`; zero new surface.
 - Boundary: the retry affordance consults the FAULT — a run whose typed refusal reads `Retriability.Terminal` renders no retry however its status row leans, because offering a retry the fault already refused teaches the operator that retry is decorative; an absent fault (a cancellation) admits. Adoption RAISES the layer plane's own verb with the output as its `Single` payload — the analysis plane owns what a sealed study becomes, and the affordance seats in the card's own fixed head because a fold reachable only from composition is a handoff no operator can start. The drill-down is BOUNDED: one roster subscription seats the live set, and expanded cards re-read their timeline only when the card itself moved (`At`) — the per-card cache is what keeps a change-set emission from re-reading every expanded run's whole timeline. A failed timeline read seals `ScreenFault.QueueRejected` on the screen's own fault cell while an absent timeline contributes nothing — the two are different facts and the fold keeps them apart.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class RunQueueSurface {

@@ -32,7 +32,7 @@ One CRDT document is the LIVE merge authority for every co-edited AppUi surface,
   - Resolution mints the two register faults no exception carries: an unwritten level answers `Detached` and a container of the wrong kind at a written level answers `KindMismatch`, so a lens folding absence to an empty answer still leaves a register defect on the rail.
   - Engine hosting is companion-only — `loro.dylib` firebreaks `CollabDoc` out of any in-Rhino plugin ALC; an in-Rhino plugin assembly referencing this owner is the rejected form, and the in-Rhino surface receives materialized document state through the Persistence changefeed rather than the live `LoroDoc`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 using LoroIndex = LoroCs.Index;
 
@@ -473,7 +473,7 @@ public static class CollabRegister {
   - Persistence results are decode-only — the op-log rows, replay windows, blob receipts, and conflict receipts are Persistence-owned types; no AppUi interface or type crosses down.
   - Time enters as an `IClock` and nothing wider: this rail reads an `Instant` to stamp a session epoch and nothing else, so an app-stratum clock policy record — whose monotonic and provider legs no member here reads — never crosses down.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]

@@ -22,7 +22,7 @@
 |  [04]   | `CoverageProvider`/`CoverageProviderModule` | contract (`vitest/node`) | implemented by a `customProviderModule` for a new provider row  |
 |  [05]   | `ScriptCoverageWithOffset`                  | type                     | `Profiler.ScriptCoverage` + `startOffset` (raw V8 source frame) |
 
-```ts signature
+```ts
 declare const mod: CoverageProviderModule; export { mod as default }
 interface CoverageProviderModule { getProvider(): CoverageProvider | Promise<CoverageProvider>;  }
 declare class V8CoverageProvider extends BaseCoverageProvider implements CoverageProvider {
@@ -35,7 +35,7 @@ declare class V8CoverageProvider extends BaseCoverageProvider implements Coverag
 
 [PUBLIC_TYPE_SCOPE]: the shared report/threshold engine `V8CoverageProvider` inherits — the code the gauge's "thresholds as data" runs through.
 
-```ts signature
+```ts
 declare class BaseCoverageProvider {
   readonly name: "v8" | "istanbul"; options: ResolvedCoverageOptions
   reportCoverage(coverageMap: unknown, ctx: ReportContext): Promise<void>
@@ -65,7 +65,7 @@ declare class BaseCoverageProvider {
 |  [12]   | `instrumenter`             | `(opts) => CoverageInstrumenter`        | v4 pluggable instrumenter (oxc/SWC) into the istanbul pipeline |
 |  [13]   | `customProviderModule`     | `string`                                | module a `provider:'custom'` loads — the extension point       |
 
-```ts signature
+```ts
 interface CoverageOptions {
   provider?: "v8" | "istanbul" | "custom"; enabled?: boolean
   include?: string[]; exclude?: string[]; reportsDirectory?: string
@@ -82,7 +82,7 @@ type CoverageReporter = keyof ReportOptions | (string & {})
 
 `Thresholds` is the gauge's core: coverage as a numeric pass gate, per-metric and optionally per-glob, with `autoUpdate` ratcheting the floor. This is what "coverage thresholds as data" means — a config row in the root `vitest.config.ts`, not a script.
 
-```ts signature
+```ts
 interface Thresholds {
   100?: boolean
   perFile?: boolean

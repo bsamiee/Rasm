@@ -30,7 +30,7 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 - Packages: `Document/tables.md` (`ResourceRef`, `ResourceLens<T>`, `ResourceName`, `ResourceIndex`, `TableTarget`, `GeometryHandle`, `GeometryCrossing`, `TagOp.Snapshot`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Document/session.md` (`DraftFault`), `Domain/rails` (`Lease<T>`, `Custody`, the `Op` receiver rows); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon component tables per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a component table joins with one lens row and one grip; a new table verb is one `TableOp` case beside one grip column every table already answers.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Specialized;
@@ -360,7 +360,7 @@ public sealed partial class LengthDisplayRow {
 - Packages: `Rasm.Drawing` (`TextHeight.For`, `LetteringForm.Metrics`, `DraftingMetrics`, `LineGroup.For`, `Terminator.Size`, `DrawingScale`, `DrawingUnits.For`, `DrawingPrecision.Of`, `DrawingPrecisionForm`, `SheetSize`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`), `Domain/validation` (`Op.Row`, `Op.AcceptValidated`); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon `DimensionStyle` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a catalog-proven host config pairing is one row minted through its payload adapter; a second drafting schema is one `FieldTable` instantiation; a standards clause is one `DraftStandard` edit row. Every patch, snapshot, and census gains each without another operation surface, and each lands beside the rest.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class StyleAxis {
@@ -768,7 +768,7 @@ public static class DraftStandard {
 - Packages: `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DocumentSession.Demand`), `Document/facts.md` (`FactStream`); RhinoCommon `DimStyleTable` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a style-only verb is one case with its arm; a verb every component table shares is one `TableOp` case; the spine, the receipt, and every consumer read both with zero new surface.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class StyleDef {
@@ -944,7 +944,7 @@ public static class Styles {
 - Packages: `Interaction/asset.md` (`AssetExtent`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`), `Domain/rails` (`Lease<T>`); RhinoCommon `DimensionStyle.CreatePreviewBitmap`/`BuiltInStyles`/`GetUnusedStyleName` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a read is one `StyleAsk` case with its `StyleAnswer` twin; the scope, the lease law, and the extent ceiling come free.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StyleAsk {
@@ -1097,7 +1097,7 @@ public sealed record StyleSnapshot(
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`), `Domain/validation` (`CapabilitySet<T>`, `ICapability<T>`).
 - Growth: a new consequence class is one slot row with its body set or one body case with its kind row; every rail and every projection gains it for free.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class DraftComponentKind {

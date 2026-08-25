@@ -6,7 +6,7 @@ Every performance decision resolves against a workload-shaped `EXPLAIN (ANALYZE,
 
 Asynchronous I/O can materially improve sequential scans, bitmap heap scans, and vacuum on Linux with io_uring; verify gains with workload-specific `EXPLAIN (ANALYZE, BUFFERS, SETTINGS)`.
 
-```ini conceptual
+```ini
 io_method = io_uring                      # Linux 5.6+ (IORING_FEAT_NODROP); 'worker' is compile-time only, not a runtime fallback
 io_max_concurrency = 0                    # 0 = auto (based on max_parallel_workers)
 io_combine_limit = 128kB                  # combine adjacent page reads into single I/O
@@ -24,7 +24,7 @@ AIO contracts:
 
 JIT compiles query expressions to native code. Beneficial for complex expressions on large datasets; overhead for simple queries.
 
-```ini conceptual
+```ini
 jit = on                                  # enable JIT (default on since PG 12)
 jit_above_cost = 100000                   # JIT kicks in above this estimated cost
 jit_inline_above_cost = 500000            # inline functions above this cost
@@ -41,7 +41,7 @@ JIT contracts:
 
 ## [03]-[PARALLEL_QUERY]
 
-```ini conceptual
+```ini
 max_parallel_workers_per_gather = 4       # workers per Gather node
 max_parallel_workers = 8                  # total across all queries; each consumes a connection slot
 max_parallel_maintenance_workers = 4      # CREATE INDEX, VACUUM, parallel GIN build (PG 18)
@@ -64,7 +64,7 @@ Parallel contracts:
 
 Vacuum reclaims dead tuples, updates visibility map, and freezes old transactions.
 
-```ini conceptual
+```ini
 autovacuum_vacuum_cost_delay = 2ms        # pause between cost-limited work (default 2ms, was 20ms)
 autovacuum_vacuum_cost_limit = 200        # cost limit per round (default 200)
 autovacuum_vacuum_scale_factor = 0.05     # trigger at 5% dead tuples (default 0.2 is too conservative)
@@ -90,7 +90,7 @@ Vacuum contracts:
 
 Planner cost model decides index scan versus sequential scan. Incorrect cost parameters directly undermine index strategy.
 
-```ini conceptual
+```ini
 random_page_cost = 1.1                    # SSD (default 4.0 assumes spinning disk)
 seq_page_cost = 1.0                       # sequential page read cost (baseline)
 cpu_tuple_cost = 0.01                     # per-tuple processing cost (default)
@@ -109,7 +109,7 @@ Cost model contracts:
 
 ## [06]-[CONNECTION_AND_MEMORY_TUNING]
 
-```ini conceptual
+```ini
 shared_buffers = '8GB'                    # 25% of RAM for dedicated DB server
 work_mem = '64MB'                         # per-operation sort/hash memory
 maintenance_work_mem = '2GB'              # for VACUUM, CREATE INDEX
@@ -141,7 +141,7 @@ PgBouncer transaction-mode prepared statement strategies:
 
 Primary diagnostic tool. Always use `EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)` — never wall-clock time alone. Add `FORMAT JSON` for programmatic parsing. Add `WAL` to measure WAL generation per statement (write queries).
 
-```sql template
+```sql
 BEGIN;
 EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS, WAL) <query>;
 ROLLBACK;  -- wrap write queries to prevent side effects
@@ -193,7 +193,7 @@ EXPLAIN contracts:
 
 Batch processing: `FOR UPDATE SKIP LOCKED` for concurrent worker queue.
 
-```sql conceptual
+```sql
 WITH batch AS (
     SELECT id FROM task_queue
     WHERE status = 'pending'
@@ -208,7 +208,7 @@ RETURNING task_queue.*;
 
 Planner override escape hatch (requires pg_hint_plan):
 
-```sql conceptual
+```sql
 /*+ HashJoin(t1 t2) SeqScan(t1) Leading((t2 t1)) */
 SELECT ... FROM t1 JOIN t2 ON ...;
 ```
@@ -219,7 +219,7 @@ Analytical acceleration: for OLAP workloads (GROUP BY, window functions, large a
 
 Advisory locks for distributed coordination:
 
-```sql conceptual
+```sql
 -- Session-level advisory lock: held until explicit release or session end
 SELECT pg_advisory_lock(hashtext('migration_v42'));
 -- ... run migration ...
@@ -246,7 +246,7 @@ Optimization contracts:
 
 ## [10]-[WAL_AND_CHECKPOINT_TUNING]
 
-```ini conceptual
+```ini
 wal_level = replica                       # minimum for replication; 'logical' for CDC
 max_wal_size = '4GB'                      # trigger checkpoint after this much WAL
 min_wal_size = '1GB'                      # reclaim WAL below this threshold
@@ -265,7 +265,7 @@ WAL contracts:
 
 Partition pruning eliminates irrelevant partitions at plan time and execution time.
 
-```ini conceptual
+```ini
 enable_partition_pruning = on             # default on; planner eliminates non-matching partitions
 ```
 

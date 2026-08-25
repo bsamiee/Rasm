@@ -20,7 +20,7 @@ A sender that transmits `document 1` transmits a descriptor tree carrying desire
 
 `AEBuildAppleEvent` binds event class, event ID, address descriptor type, address bytes, return ID, transaction ID, result storage, build-error storage, and a format string in one call, and it stays safe only when the format string is a compile-time literal and every value enters as a typed argument. A dynamic fragment inside that format string turns descriptor construction into an injection surface, because the format parser then compiles attacker-influenced structure rather than attacker-influenced data.
 
-```c conceptual
+```c
 static OSStatus send_core_event_to_bundle(
     CFStringRef bundleID,
     AEEventClass eventClass,
@@ -52,7 +52,7 @@ static OSStatus send_core_event_to_bundle(
 }
 ```
 
-```c rejected
+```c
 char format[256];
 snprintf(format, sizeof format, "'----':obj { want:type(%s) }", userSuppliedClassName);
 AEBuildAppleEvent(eventClass, eventID, typeApplicationBundleID, target, used,
@@ -61,7 +61,7 @@ AEBuildAppleEvent(eventClass, eventID, typeApplicationBundleID, target, used,
 
 Cocoa descriptors own the same wire with stronger lifetime behavior. `NSAppleEventDescriptor` takes descriptor ownership through `initWithAEDescNoCopy:`, exposes `aeDesc` for CoreServices interop, builds bundle-ID and application-URL targets, and sends with `sendEventWithOptions:timeout:error:`, keeping descriptor disposal out of ordinary control paths.
 
-```objc conceptual
+```objc
 static NSAppleEventDescriptor *QuitApplication(NSString *bundleID, NSError **error) {
     NSAppleEventDescriptor *target = [NSAppleEventDescriptor descriptorWithBundleIdentifier:bundleID];
     NSAppleEventDescriptor *event = [NSAppleEventDescriptor appleEventWithEventClass:kCoreEventClass
@@ -75,7 +75,7 @@ static NSAppleEventDescriptor *QuitApplication(NSString *bundleID, NSError **err
 }
 ```
 
-```swift conceptual
+```swift
 func quitApplication(bundleID: String) throws -> NSAppleEventDescriptor {
     let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
     let event = NSAppleEventDescriptor.appleEvent(
@@ -122,12 +122,12 @@ Object-model automation replaces UI-event fallback wherever a receiver dictionar
 
 A string that reaches `do shell script` parses once as AppleScript source and again through `/bin/sh`, so a single-layer escape leaks straight through. User values enter only as fully escaped AppleScript string literals and, for shell arguments, only through `quoted form of`, joined with `& space &`. A static pass rejects the escalation classes before the source compiles: `with administrator privileges`, `sudo`, a pipe into a shell, and a keystroke carrying a secret.
 
-```applescript rejected
+```applescript
 set shellCmd to "rm -rf " & userSuppliedPath
 do shell script shellCmd
 ```
 
-```applescript accepted
+```applescript
 set safePath to quoted form of userSuppliedPath
 do shell script "rm -rf " & safePath
 ```

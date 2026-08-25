@@ -25,7 +25,7 @@ Composition is downward: `Op`, `Lease<T>`, `Atom`, `Transition<TState>`, `Cell`,
 - Law: all three fusion coordinates are string-keyed, because all three are READ into a refusal. `FlowMode` is the middle coordinate of `BindFusion.Wire`, so an integer key there reports `state/0/edit` — a corner naming nothing — while the other two coordinates read plainly beside it.
 - Boundary: the two host enums appear on this row set and nowhere else on the sub-domain — every interior consumer reads `FlowMode`, never `DualBindingMode`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Numerics;
@@ -117,7 +117,7 @@ public abstract partial record Cadence {
 - Exemption: the change-adapter map is a `ConcurrentDictionary` that MUTATES for the life of the cell — the host binding machinery adds and removes handlers from the marshal while a compute lane may still be swapping the atom, so neither a frozen table nor a rail-side keyed map serves. It is the one mutable registry on this page and it is owned by the cell that mutates it.
 - Boundary: the reflected `Named` arm is the one site a model member is addressed by text, and every call site spells it through `nameof`, so a renamed property breaks at compile time rather than at first bind.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
@@ -238,7 +238,7 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 - Growth: a new refusal posture is one `GatePolicy` case; a new legality clause is one `FusionLaw` row beside its `RejectReason` row, and the two land together.
 - Boundary: host binding construction, cadence attach, rollback, and unbind are the binding-provider statement seam, and all four cross `UiThread` on the immediate lane.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
@@ -409,7 +409,7 @@ internal sealed class CommitLatch<TPayload> : IDisposable {
 - Growth: a new evidence column extends `BindLedgerEntry`; retention and current failure stay independent.
 - Boundary: control realization retains receipts and releases them in reverse tree order, so a partially rigged subtree unwinds exactly what it wired.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
@@ -505,7 +505,7 @@ public static class DataScope {
 - Growth: a new sink is one case with one mount arm; a new carrier is one case with one `Carrier` arm.
 - Boundary: Rhino mounted data through its grid plan alone and carried no list or tree store mount and no virtual carrier; all three gaps close here, and its boundary edit is a deletion.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using Eto.Forms;

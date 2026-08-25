@@ -25,7 +25,7 @@
 - Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `CutLinkObjective` weight; a second waste decomposition turns `WasteVoronoi` into the union over its own payloads while the `Option` that routes enablement stays untouched; no consumer gains an orchestration step.
 - Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting seam, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is the one statement-bearing seam, and the waste diagram is never minted here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;

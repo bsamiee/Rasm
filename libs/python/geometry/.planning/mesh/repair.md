@@ -21,7 +21,7 @@ Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean
 - Growth: a new conditioning pass is one `RepairStep` row and one `_CONDITION` entry; a new CSG verb is one `BooleanOp` row and one `_OPTYPES` entry; a new exact-geometry provider is one `ManifoldTier` row and one `_TIER_MODULE` entry ahead of or behind the rows it supersedes — never a parallel per-operation class and never a second capability probe beside this one.
 - Boundary: point-cloud registration is `scan/registration#REGISTRATION`'s; IFC tessellation is `mesh/daemon#DAEMON`'s; exact OCCT B-rep Boolean is `mesh/brep#BREP`'s — robust triangle-mesh CSG here, exact B-rep CSG there, two kernels on two owners; decimation/subdivision/smoothing/metrics are `mesh/quality#QUALITY`'s; proximity/ray/contains/sampling are `mesh/spatial#SPATIAL`'s; the compas half-edge algebra is `graph/algebra#ALGEBRA`'s.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum

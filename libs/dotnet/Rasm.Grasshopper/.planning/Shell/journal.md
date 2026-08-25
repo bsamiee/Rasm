@@ -29,7 +29,7 @@ Consumption stays off the UI thread: one single-reader loop drains the kernel `E
 - Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`, `Cell`), .NET (`CancellationTokenSource`, `Task`), Generator.Equals, Microsoft.Extensions.Logging.Abstractions (`JournalLog`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`EvidenceDrain<TFact>`).
 - Growth: a new export slice is one filter over the one fold; a new retention posture is one `JournalPolicy` field.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using Microsoft.Extensions.Logging;

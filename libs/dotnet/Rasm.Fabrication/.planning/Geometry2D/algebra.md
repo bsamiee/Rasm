@@ -23,7 +23,7 @@
 - Growth: a new operation is one `PolygonOp` case, one `PolygonTrace` case when its evidence differs, and one generated dispatch arm naming its own `Op`.
 - Boundary: `ClipperD` and the point relation are the statement-bearing native kernels, and region MEASUREMENT is not among them — area, length, extent, and orientation are the `Loop` atom's own reads, so a second engine can never disagree with the loops the receipt publishes; kernel-lowered arms terminate their `Chain` results back into `Loop` at the admitted context and elevation. Cells are Voronoi by definition, so a foreign bounded Fortune tessellator — with the third forked draw stream it carried — is the deleted form; relaxation and merge are folds over the kernel dual, never provider modes. Inputs share one `Context` and elevation before XY projection; bulges, mixed contexts, mixed elevations, invalid open edges, and closure-policy conflicts fail before execution, each naming the index of the first offending path.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Numerics.Tensors;
@@ -953,7 +953,7 @@ public static class PolygonAlgebra {
 - Growth: a new field interpretation is one `FieldMetric` case over the same signed plane with its admission row; a row needing a second sampling strategy belongs to the kernel field algebra, not here.
 - Boundary: field storage remains owned by the receipt, provider paths remain private, and a non-finite cell fails the whole projection. Page-local distance loops are the deleted form; the clearance plane is the kernel's by law.
 
-```csharp signature
+```csharp
 // --- [FIELD_PLANE]
 [Union]
 public abstract partial record FieldMetric {

@@ -6,7 +6,7 @@ Email-marketing law: confirm a sender profile's domain authentication, import co
 
 A sender profile owns a domain, and `getProfileDomainDNSStatusV1` is the deliverability gate: it returns the `mx`, `spf`, `dkim`, and `dmarc` record blocks, each pairing the `actual` records against the `suggested` set, so a mismatch names the exact DNS record to add before a profile is trusted for sending. A profile also carries plan-derived `limits` (sending quota, trial state).
 
-```bash copy-safe
+```bash
 curl -X GET "https://developers.hostinger.com/api/reach/v1/profiles" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 curl -X GET "https://developers.hostinger.com/api/reach/v1/profiles/{profileUuid}/domains/dns-status" -H "Authorization: Bearer $HOSTINGER_API_TOKEN"
 ```
@@ -15,7 +15,7 @@ curl -X GET "https://developers.hostinger.com/api/reach/v1/profiles/{profileUuid
 
 A contact takes `email` (required) with nullable `name`, `surname`, `phone`, and `note`. Two create paths differ by scope: `POST /contacts` is account-wide, and `POST /profiles/{profileUuid}/contacts` binds the contact to one sender profile — the scoped form when a contact must belong to a single profile. Under double opt-in a new contact lands `pending` and receives no campaigns until it confirms; deletion is permanent.
 
-```bash copy-safe
+```bash
 curl -X POST "https://developers.hostinger.com/api/reach/v1/contacts" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "email": "subscriber@example.com", "name": "Ada", "surname": "Lovelace" }'
@@ -27,7 +27,7 @@ A create response carries a message only, never the contact body, so a follow-up
 
 A segment is a named rule of `logic` (`and` or `or`) over a `conditions[]` array, each condition a `{ field, operator, value }` triple. Behavioral operators — `opened`, `clicked`, `bounced`, `unsubscribed`, `within_last_days` and their negations, beside the scalar `equals`, `contains`, `gte`, `lte`, `exists` — turn engagement history into an audience.
 
-```bash template
+```bash
 curl -X POST "https://developers.hostinger.com/api/reach/v1/segmentation/segments" \
   -H "Authorization: Bearer $HOSTINGER_API_TOKEN" -H "Content-Type: application/json" \
   -d '{ "name": "Engaged Subscribers", "logic": "and",

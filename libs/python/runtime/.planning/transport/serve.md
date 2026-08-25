@@ -42,7 +42,7 @@ Entry: the method roster:
 - Growth: a new served service is one `Served` row — the generated `<Svc>ASGIApplication` class beside its servicer — the composition root hands `mount`, with its `SERVICE_VOCABULARY` row; a new rpc or constraint is one proto edit and regeneration, with validation inherited at the body boundary; a new `FaultTag` member is one `_FAULT_STATUS` row and nothing else, the table being total by construction and read as a raw index, and that row carries its own re-drive membership with it because `_REDRIVEN` derives from it; a new refusal on this page is one `FaultRow` anchor at the `reliability/faults#FAULT` roster called through `raised`, never a literal construction; a new outbound credential posture is one `CredentialPolicy` case with one `client_transport` arm; a new span dimension is one `enrich` key; a new compression algorithm is one `Compression` value on the `WirePolicy` row both `mount` and `CapabilityInvoke.connect` read; a new health rpc is one upstream proto change the regenerated `health_connect` protocol carries and one override on `ServerHost`.
 - Boundary: the wire contract is the corpus-homed `.proto` and its generated binding — the runtime mints no transport, no channel, and no second wire vocabulary; host lifecycle and product telemetry export stay with the composing application; the health service's proto is the frozen upstream publisher source under `libs/contracts/vendor/grpc-health`, regenerated and never edited here.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Awaitable, Callable, Iterable
 from contextvars import ContextVar
@@ -390,7 +390,7 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, recovery: Recovery) -
 - Boundary: schema is absent from live discovery; generated SDK types own request and reply shape. `DescriptorPinWire.document` alone owns static surface, effect, repeat posture, scope, and cost-unit semantics; each generated `AvailableCapability` states only live presence and estimates, which this seam joins to the decoded document by descriptor and unit.
 - Boundary: `connect` owns and closes the `pyqwest` transport; discovery refusal or pin divergence closes before enrollment, and normal drain closes after enrollment.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Awaitable, Callable
 from secrets import compare_digest
@@ -713,7 +713,7 @@ _WIRE_CALLER: Final[stamina.BoundAsyncRetryingCaller] = stamina.AsyncRetryingCal
 - Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(FaultRow, stage)` row the ordered fold, the accumulate, and the receipt absorb, its anchor seated at the faults roster under the draining module's own `Leg`; a new lifecycle point is one `LIFECYCLE_POINTS` row; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a new boot gate is one `yield from` beside the two structural ones, above the installs; a new custody posture behind the bound `ledger` pair is one `Custody` instance the caller constructs, zero serve edits; a sibling daemon is one `companion_app(served, drains, charges, ledger, composition)` call with its own served rows.
 - Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface. `NOTIFY_SOCKET`/`WATCHDOG_USEC` are the service manager's own env contract read at this one entry seam, never a settings field and never a read past admission elsewhere.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import os
 import signal

@@ -23,7 +23,7 @@
 - Law: `Cadence.Admits` answers the rail — `PerFrame` refuses a non-dropping delivery with `DocumentFault.Cadence` naming the family, so an admission failure carries which family demanded frame cadence rather than a bare boolean a caller re-rails.
 - Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery; a new stream refusal is one `DocumentFault` case and one offset row inside the band's span.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.IO;
@@ -547,7 +547,7 @@ public sealed partial class EventFamily {
 - Law: `EventPayload.Sealed` carries one commit record's mutation roster as `SealedMutation` rows over the SAME `TableKind`/`ComponentTransition` vocabulary the `Component` case already spells, so a consumer folds both through one axis and the sealed case mints no parallel transition family.
 - Law: no intermediate envelope exists — the projection hands its key-and-payload pair straight to the delivery continuation and `DocEvent` is the ONE carrier adding origin; a second two-field record between them shadowed the kernel `EventEnvelope` inside a namespace whose prelude imports `Rasm.Domain` and carried nothing `DocEvent` does not.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class TransitionEvidence : ICapability<TransitionEvidence> {
@@ -790,7 +790,7 @@ public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<
 - Law: a fault body carries the typed `Error`, never a rendered detail string — the four `string Detail` columns delete, because the `Error` in hand at every posting site survives classification, code reads, and the monoid where a message does not.
 - Law: `ReceiptPolicy` owns named operational and maximum rows; generated admission rejects nonpositive values, individual ceiling breaches, and aggregate overcommit.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class StreamLane {
@@ -1026,7 +1026,7 @@ internal sealed class ReceiptJournal {
 - Law: file callbacks fold into one resettable trailing-edge timer and one bounded batch before entering the same delivery spine as host facts.
 - Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EventScope {
@@ -1520,7 +1520,7 @@ Process-global custody census — collision class, arbitration, and seat cardina
 |  [11]   | `MountRegistry` mounts                     | divergent bindings fork discovery    | one seated binding; divergence faults    | fan     |
 |  [12]   | `RhinoDoc.AddCustomUndoEvent`              | handler graph retained until cleared | record-scoped; no host detach exists     | host    |
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>]
 public readonly partial struct PluginKey {
@@ -1710,7 +1710,7 @@ public static class DocumentHooks {
 - Growth: one measured boundary concern is one `InstrumentSpec` factory call here and one observe-tap write at the plugin root.
 - Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner. The kernel `Sensitivity.Values` roster rides the port's `Classifications` column whole, so every value `Objects/authoring.md`'s four attach attributes stamp is rostered at composition and a value present at the producer and absent at the root refuses at admission instead of erasing at egress.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 public static class RhinoInstruments {
     public const string Scope = "Rasm.Rhino";

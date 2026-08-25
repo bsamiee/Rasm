@@ -26,7 +26,7 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 - Growth: a new FIELD shape is one member on the writer; a new INGRESS shape is one overload on `Of`. Any second hashing owner beside either forks the federation seed.
 - Boundary: `UInt128` is the identity currency, `Half` its one lane split, `Hex`/`Admit(text)` its one text correspondence, `Wire`/`Admit(bytes)` its one byte correspondence. `Raw` admits bytes the caller already framed — a fixed-width block or a whole-payload leaf — and a caller placing two variable-width `Raw` writes side by side owes the count itself; every other member frames for it. `Rasm.Element` owns the dimensioned leg: `MeasureValue` is the branch's dimensioned carrier, so its `Measure` member stays an `extension(CanonicalWriter)` block at Element composing `String`/`Double`/`Ordinal`/`Optional`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
@@ -252,7 +252,7 @@ public static class ContentHash {
 - Boundary: a frozen WIRE constant does not declare here. Content-defined-chunking gear tables and any literal whose VALUES define a stored format declare at the page that OWNS that wire, because changing it re-cuts stored payloads. [NOT] a `Deterministic.Frozen` seat — a wire constant parked beside the mixer reads as a third splitmix and invites the mixer's gamma to be copied into it, which is the exact defect the private `Gamma` exists to prevent.
 - Growth: a new reproducible draw shape is one member composing `Advance`/`Fold`; a new lane vocabulary is one roster implementing `IDrawLane<TSelf>` at its own owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Numerics;

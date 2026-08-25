@@ -24,7 +24,7 @@
 - Law: `PluginNaming`, `LoadNotice`, `LoadForce`, and `LoadProtection` each replace one host boolean argument and convert IMPLICITLY to their key, so no call site passes a bare `true` whose meaning lives in the parameter name and no call site spells `.Key` to erase the row back.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[SmartEnum<bool>]` with `ConversionToKeyMemberType = Implicit`, `[UseDelegateFromConstructor]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:51-53` — `PlugInType`, `PlugInLoadTime`, `LoadPlugInResult`; `:70` — the `PlugInInfo` default-on-undefined reads).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -137,7 +137,7 @@ public sealed partial class LoadProtection {
 - Boundary: the plug-in icon is a registry read — `PlugIn.Icon(Size)` is a non-virtual forward to `PlugInInfo.Icon` — so the icon leaves as a kernel `AssetOrigin.Raster` over the GDI raster arm and no lifecycle hook produces it.
 - Packages: Generator.Equals (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); LanguageExt.Core (`Option`, `Seq`); kernel `Domain/validation` (`CapabilitySet`); `Document/events` (`PluginKey`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:70` — the `PlugInInfo` descriptor reads).
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PluginContact(
     Option<string> Organization,
@@ -189,7 +189,7 @@ public sealed record PluginProtection(PluginKey Plugin, LoadProtection Behavior)
 - Boundary: the descriptor row is the ONE read that touches `PlugInInfo`; every other row reads a free-standing static, so the native record's lifetime never spans two reads.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/rails` (`Op.AcceptText`, `Op.Text`, `Op.Need`, `Op.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -359,7 +359,7 @@ public abstract partial record PluginAnswer {
 - Boundary: every native string crosses through `Op.Text` and every registry identity through `PluginKey.Maybe`, so a host null, an empty string, and a `Guid.Empty` are each the same typed absence.
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/rails` (`Op`, `Op.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginCensus {
     public static Fin<PluginAnswer> Ask(PluginQuery query, Op? key = null) {
@@ -417,7 +417,7 @@ public static class PluginCensus {
 - Boundary: loading a plug-in runs its `OnLoad` inside this call, so a `Commit` is a host lifecycle event, never a query — this is exactly why the read family carries no load flag.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<LoadPlugInResult>]
 public sealed partial class PathLoadVerdict {

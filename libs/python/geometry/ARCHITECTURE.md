@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 geometry/
 ├── graduation.py         # GeometrySubject union, GeometryLeg raise roster, EvidenceScope table, and the evidence_run weave, minted once
 ├── scan/                 # Reality-capture plane: captured clouds graded against content-keyed model truth

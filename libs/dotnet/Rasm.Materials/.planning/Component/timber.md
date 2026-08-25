@@ -16,7 +16,7 @@ THE TIMBER SEED FAMILY GROUNDED IN THE EN STRENGTH-CLASS TABLES. A sawn/glulam/L
 - Growth: a new section is one `TimberRow` (its lamination build a `Seq<double>` column, its edgewise strength the declaration its own ETA prints); a new strength class one `MaterialGrade` timber row on `component#MATERIAL_GRADE`; a new product form one `TimberForm` row carrying its cross-ply flag, charring base, `γ_M`, and `k_h`/`k_cr`/`β_c`/`k_m` columns; a new service/duration point one `ServiceClass`/`LoadDuration` row — never a per-member type, never a hand-keyed strength literal, never a re-minted EC5 factor beside the form row.
 - Boundary: the timber arm's columns and identity are `component#MATERIAL_GRADE`'s and its PHYSICS is this page's — `GRollMean` derives the EN 14080 rolling-shear modulus off `GMean`, `Hardwood` reads what the `K90Base` intercept says, and `OrthotropicLaw`/`ToProperties` lower the same scalars through `LinearElasticOrthotropicMaterial` and `MaterialPropertySet.OfOrthotropic`. The EDGEWISE bending strength is a PRODUCT fact, so it rides `TimberRow` where its ETA declares it and never the grade row it is not a column of: a lamella's flatwise `f_m,k` is measured across the layup's own thickness and an in-plane layup develops a different one, so the two never stand in for each other and a layup whose assessment prints no edgewise value answers absence. `SectionProfile.Layered` carries each physical ply thickness under the bounded `PlyRole.Longitudinal`/`PlyRole.Transverse` discriminant, and `ComponentFamily.Timber.Admits` rejects every other known `PlyRole`; the `ComponentFamily.Timber.Ifc` concrete leaf leaves beam/column/brace occurrence refinement outside Materials, `DetailLane.None` forbids a duplicate bag, and `TimberSeed.Resolve` restores the authored form/grade axes by the same `ComponentId` minted during seeding.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
@@ -211,7 +211,7 @@ public static class TimberSeed {
 - Growth: a new design check is one `TimberCapacity` column with its arm (a notched-beam `k_v`, a load-sharing `k_sys`); a new fire route one `ResidualSection` parameter (a protected member's `t_ch` delay); a new form's factor set is its `TimberForm` row columns — never a per-form capacity surface, never a re-minted characteristic where the grade row carries it.
 - Boundary: every design resistance derives from `f_k·k_mod/γ_M`; `TimberForm` owns `k_h`, `k_cr`, `β_c`, `γ_M`, and `k_m`, `GradeProperties.Timber` owns the characteristic vector, the product ROW owns the edgewise declaration, and `LoadDuration.KmodFor(service)` owns the duration/service joint. Members read the resolved `ComputedSection`, §6.3.3 lateral-torsional stability, weak-axis buckling, shear, per-unit-length bearing, and torsion; panels read the longitudinal plies for Annex B `(EI)_eff`, gamma-reduced buckling, rolling shear, and out-of-plane bending, the in-plane minor axis the net-section arm over those same longitudinal plies. `ResidualSection` and `ResidualStack` preserve the same geometry currencies under EN 1995-1-2 charring, and the `SectionCapacity.Lift(receipt, key)` `Timber`/`TimberFire` arms carry the frozen receipt onto the unified demand rail.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TimberCapacity(
     double BendingNmm,

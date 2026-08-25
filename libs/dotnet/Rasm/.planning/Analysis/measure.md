@@ -24,7 +24,7 @@ Every native mass-properties handle leases through the `Domain/rails` `Lease<T>`
 - Growth: a new mass projection is one `MassProperty` row, a new mass domain one `MassKind` row binding its requirement and delegates, a new analytic centroid carrier one `CentroidOf` arm, a new moment demand one `MomentDemand` row — zero operation edits; `MeasureBundle` widens by that same data, since a new domain row is immediately demandable through the capability set.
 - Boundary: eleven measures are three cases over two policy enums — a `MeasureLength`/`MeasureArea`/`MeasureVolume` sibling-operation family is the proliferation this coordinate design deletes; every mass handle is leased and an escaped `Compute` handle is the resource-leak defect; the demand set requests exactly the moments the extraction reads; the area path threads model tolerances and a hardcoded tolerance literal is the deleted form. `GeometryMeasures` carries `Kind` beside one `Magnitude` because `Kind` already names WHICH domain answered — three mutually exclusive length, area, and volume COLUMNS re-derived that discriminant, left `Kind = Area` holding a volume representable, and stay the deleted form; the clause once read further — that every multi-kind need decomposes into repeated single-domain asks — and that premise fell to four consumers needing SIMULTANEOUS multi-kind takeoff (`Rasm.Compute` `Analysis/aggregator`'s per-ply area+volume distribution and `Analysis/lifecycle`'s `TakeoffOf`, `Rasm.Bim` `Semantics/properties`' base-quantity derivation and `Planning/cost`'s 5D/6D quantity joins), where one-bundle-per-domain re-paid the mass computation per domain and every per-domain `Option` collapse forged a zero at the absent-kind edge; the lawful multi-kind form is `MeasureBundle`'s kind-keyed pair set — the `Kind` discriminant survives on EVERY row, reads are `Option`, and sibling per-kind columns remain unrepresentable; every `GeometryMeasures` slot is measured, so a refused principal-frame solve refuses the bundle rather than publishing an absence. Measures leave as bare `double` — `MeasureValue` is Element's dimensioned carrier and the `Domain/context` unit bridge stays orthogonal.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -380,7 +380,7 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
 - Growth: a new box metric is one `Metric` arm plus one `Gates` row, a new enclosing solid composes the same sampling and fit machinery, a new recovery frame one case arm, a new corner posture one `CornerSet` row, a new sampling source one `SampleSource` row — never a `BoundsCalculator` sibling.
 - Boundary: fifteen modalities live on one union under one `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the fragmentation this owner deletes; every box metric reads the length band the model carries, so the aspect denominator floors on a lane and the tightness gate compares a volume against that band CUBED rather than a length-scale anchor; `CornerSet.Unique` deduplicates at `ToleranceLane.Weld`, never a literal epsilon or a bare model tolerance; enclosing fits are measured approximations by contract, every sample enclosed rather than a minimal-ball claim, and the provenance rides out beside the sites so a corner-derived fit is never mistaken for a sampled one; box-metric ops accept box VALUES while recovery ops accept geometry, the gate roster keeping the two altitudes disjoint.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -627,7 +627,7 @@ public abstract partial record Bounds {
 - Growth: a new conformance metric is one row — key, output, trait set, one projection; a new target admission class is one `ResidualTrait` row `AcceptsTarget` reads; a new residual SOURCE is one arity on the same entry — zero pipeline edits.
 - Boundary: the residual pipeline is one fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family, or a residual-stream entrypoint beside the pair one, are the deleted forms; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity rail; every sample's `WithinBand` is DERIVED from the `Tolerance` it carries, so the evidence law makes an inconsistent sample unrepresentable past the oracle; the BAND is the stream's own, so a tranche measured against a probe band summarizes against that band and a tranche mixing bands refuses rather than folding two populations under one verdict; `Maximum` ranks on `|Distance|` because the band the sample carries is the same magnitude claim; percentiles reach only the `Distribution` row.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;

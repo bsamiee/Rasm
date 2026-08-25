@@ -23,7 +23,7 @@
 - Boundary: residence DDL and datasource realization are the data and deploy planes'; this owner emits expression strings alone.
 - Packages: `effect` (`Data`, `Duration`, `Match`, `Schema`); `./convention.ts` (`Convention`); `./slo.ts` (`Reliability`).
 
-```typescript signature
+```typescript
 import { create, isMessage, type MessageShape } from "@bufbuild/protobuf"
 import { durationMs, EmptySchema, timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt"
 import * as evidence from "@rasm\/contracts/rasm/contracts/benchmark/claim_pb"
@@ -449,7 +449,7 @@ const _Query: Data.TaggedEnum.Constructor<_Query> & {
 - Boundary: compilation to a store's dashboard JSON is `iac/operate/observe`'s; this owner freezes the encoded shape.
 - Packages: `effect` (`Schema`); `../value/schema.ts` (`Shape.Record`).
 
-```typescript signature
+```typescript
 const _Span = Schema.Struct({
   h: Schema.Int.pipe(Schema.between(2, 24)),
   w: Schema.Int.pipe(Schema.between(2, 24)),
@@ -574,7 +574,7 @@ type Panel = typeof Panel.Type
 - Boundary: serving a snapshot and persisting a wire are data-plane concerns; this owner encodes and decodes the value.
 - Packages: `effect` (`Match`, `Metric`, `MetricPair`, `MetricState`, `Schema`); `../value/identity.ts` (`Identity`).
 
-```typescript signature
+```typescript
 const _Uid = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]*$/), Schema.maxLength(40), Schema.brand("DashboardUid"))
 
 const _Annotation = Schema.Struct({ slug: Schema.NonEmptyString, tone: Schema.NonEmptyString })
@@ -686,7 +686,7 @@ declare namespace _DashboardModel {
 - Boundary: benchmark execution and suite selection are the runtime bench owner's; this owner ingests and grades landed claims.
 - Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`); `../value/schema.ts` (`Shape.Record`).
 
-```typescript signature
+```typescript
 type _Defined<E extends { readonly UNSPECIFIED: 0 }> = Exclude<E[keyof E], E["UNSPECIFIED"]>
 const _RUNG_WIRE = {
   min: evidence.BenchRung.MIN,
@@ -1266,7 +1266,7 @@ const _Bench: Data.TaggedEnum.Constructor<_Bench.Verdict> & {
 - Boundary: realization to a running store is the deploy plane's; every pack admits only mounted Convention instruments. A pack declared by a runtime this branch never mounts is not one of these arms — it arrives decoded through `[07]-[PACK_WIRE]` carrying its own declaration roster.
 - Packages: `effect` (`Array`, `Option`, `Record`, `Struct`); `./slo.ts` (`Reliability`).
 
-```typescript signature
+```typescript
 const _tenant = { [Convention.rasm.tenant]: "$tenant" } as const
 
 const _WINDOW = _Query.span(Duration.minutes(5))
@@ -2003,7 +2003,7 @@ const _SUITE: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
 - Growth: a ninth panel widget is one `_WIDGETS` arm; a sixth indicator is one `_SLIS` arm; a fifth burn row or third severity is a `./slo.ts` table edit both ends re-derive with no arm here.
 - Boundary: this owner decodes and folds; realizing a board or a rule group is `typescript:iac/operate/observe#BOARD_APPLY`'s, and the producing projection is `dotnet:Rasm.Compute/Runtime/board#TS_PROJECTION`.
 
-```typescript signature
+```typescript
 const _PACK_SPAN = { h: 8, w: 12 } as const
 
 type _Producer = {

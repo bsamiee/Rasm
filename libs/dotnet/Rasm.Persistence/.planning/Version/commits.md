@@ -24,7 +24,7 @@
 - Boundary: every `HistoryRewrite` is APPEND-ONLY — a revert is the inverse delta as a NEW commit, a cherry-pick one commit's ops replayed onto another head, a rebase a sequential replay minting a fresh linear lineage. History never mutates and the source commits stay reachable. This DAG stores op KEYS, so the `RewriteSeam` returns keys and a delta inversion or replay conflict faults on ITS owner's rail BEFORE any commit mints — a half-applied rewrite cannot exist. Mutating rewrites, a ref force-moved without its `RewriteDemand` gate, or a manual counter-edit standing in for a revert is the deleted form.
 - Boundary: the durable commit-DAG is where the `dotnet:Rasm.Bim` `BimCommit` federates and durably stores; the Bim three-way merge bases against this owner's `MergeBase` antichain. No current binding projects a `CommitNode` into the op-log, so this owner claims no `commit`-lane producer until that application handoff exists.
 
-```csharp signature
+```csharp
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -252,7 +252,7 @@ public static class CommitGraph {
 - Boundary: a `(NodeId, Field)` cell has one family for its lifetime. Off-diagonal merge/apply and unseated maintenance refuse as convergence drift rather than returning the left operand or guessing RGA. `Crdt.Merge` reads no wall clock: retained HLC cells and declared horizons are its only ordering inputs. Payload-bearing cases use `CrdtBytes` while retaining `ReadOnlyMemory<byte>` at the zero-copy decode seam.
 - Acceptance: `ContentParityCorpus.OpSet` folds every topological dot/op permutation twice and refuses any digest disagreement; fixtures include concurrent MV writes, delete-before-insert RGA replay, element-scoped OR removes, PN fork refusal, and maintain-before-beat presence replay.
 
-```csharp signature
+```csharp
 public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparable<ElementId> {
     public static readonly ElementId Head = new(Guid.Empty, 0UL);
     public int CompareTo(ElementId other) {
@@ -614,7 +614,7 @@ Merge policy per mutation kind — `Crdt.Law` returns column three, and `Version
 - Boundary: the restore lane rejects a payload past the declared byte ceiling before parsing and validates every known field and required arm before domain admission. Generated parsing may preserve unknown fields on the transient message, but the domain projection claims no opaque forward-transit path; a relay that owes byte preservation forwards the held payload instead of parse-reserializing it. Protobuf bytes are NOT semantic identity across runtimes: `ContentKey` hashes the exact payload octets stored and announced, a receiver verifies those held octets, and no decoder parse-reserializes before that check. `OperationId` remains the causal identity, so equal payload bytes from two peers never collapse two operations.
 - Boundary: `ContentParityCorpus` freezes the cell, the commit-key `Fields` stream, and an actual generated op payload, each as one `ParityVector` whose digest derives through `ContentHash.Of` at mint. The CRDT contract's manifest proof is value parity over the generated oneof, not cross-runtime protobuf byte identity; `Contribute` refuses an owner-minted slot, keeping the dependency one-directional, and `Reconcile` accumulates every drift through `Validation` rather than aborting on the first.
 
-```csharp signature
+```csharp
 using System.Buffers.Binary;
 using Celly.Protovalidate;
 using Google.Protobuf;

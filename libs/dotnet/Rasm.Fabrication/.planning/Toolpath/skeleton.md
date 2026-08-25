@@ -54,7 +54,7 @@
 - Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology, the depth-first descent, and its observers; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
 - Boundary: `ArcAlgebra` owns exact-arc path generation, `Cam` owns axial repetition and safety composition, and `Link` owns travel.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using LanguageExt;

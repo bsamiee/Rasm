@@ -23,7 +23,7 @@ This page also seats the Modeling spine's shared vocabulary — `ModelClaim`, `M
 - Growth: a new shape claim is one `ModelClaim` member; a new shared modality corner is one `FitPosture`/`PairPosture` row with every consumer's projection unchanged.
 - Packages: kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `ValidityClaim`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Rasm.Rhino.Document` (`GeometryHandle`), LanguageExt.Core (`Validation`, `Seq`, `Traverse` — `libs/dotnet/.api/api-languageext.md`), Thinktecture.Runtime.Extensions (`[SmartEnum]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -101,7 +101,7 @@ internal static class ModelClaim {
 - Law: `RibbonLaw` is unconstructible when invalid — its generated factory runs the same fold its `IsValid` reads, so the ribbon arm never receives a policy whose location, rebuild count, plane vector, or surface method is unsound. NAMED LOSS: the five defaulted columns the record form carried must now be supplied at the call; bought back by an invalid instance being unrepresentable rather than caught one layer later at `Admitted`.
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `RibbonOffsetParameters` `[04]`, `RibbonOffsetSurfaceMethod` `[09]`, `Curve.RibbonOffset` `:214`, `Curve.OffsetOnSurface`/`OffsetNormalToSurface`/`OffsetTangentToSurface`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`), `Rasm.Rhino.Document` (`GeometryHandle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct CurveScalar {
@@ -261,7 +261,7 @@ public readonly partial struct RibbonLaw : IValidityEvidence {
 - Law: `FitLaw.Rig` stays hand-seated for the reason `RibbonLaw.Rig` does, and harder — three `FitAxis` members each fan to a target intensity AND coefficient slot, the grant column fans to four target bools, and `KinkAngleRadians` reads the regime, so six of nine source members are one-to-many fans no source-complete mapping admits.
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurveFitParameters` `[05]`, `Curve.CreateFilletCurves` `:170`, `Curve.JoinCurves` `:209`, `Curve.CreateTextOutlines` `:213`, `NurbsCurve.MakeCompatible` `:193`, `Curve.PullToBrepFace`/`PullToMesh` `:112-118`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`), `Modeling/lofting.md` (`CurveCompatibility`, `SweepEnds`), `Modeling/meshing.md` (`SmoothLaw`), `Modeling/solids.md` (`ArcDegree`, `ArcSlider`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveEdit : IValidityEvidence {
@@ -693,7 +693,7 @@ public readonly partial struct RailFilletLaw : IValidityEvidence {
 - Growth: a new curve host verb is one case with its arm; a new modality is one case on the owning policy union.
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the `Curve`/`NurbsCurve` construction, boolean, blend, fillet, tween, match, and outline rosters `:160-225`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `CurveBooleanRegions`, `CurveSimplifyOptions`, `IndexPair`), kernel `Domain/rails` (`Op`, `Fault`, `ValidityClaim`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), `Modeling/lofting.md` (`SweepEnds`, `CurveCompatibility`), `Modeling/meshing.md` (`SmoothLaw`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CurveSlot {

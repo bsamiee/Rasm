@@ -23,7 +23,7 @@ Run in one parallel block:
 
 READ 100%, one batch (`==> path <==` headers delimit files):
 
-```bash copy-safe
+```bash
 fd -t f -e md . libs/.planning libs/dotnet/.planning libs/python/.planning libs/typescript/.planning -X tail -n +1
 ```
 
@@ -37,7 +37,7 @@ Spent only on what TARGET or the arrived objective names — folder cores are ne
 
 Bare-language TARGET: batch the branch's folder cores in one command:
 
-```bash template
+```bash
 fd -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE|RULINGS)\.md$' libs/<lang> -X tail -n +1
 ```
 

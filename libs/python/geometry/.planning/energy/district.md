@@ -18,7 +18,7 @@ Dragonfly's AGPL-3.0 band rides the standing companion-lane charter — function
 - Growth: a new translation egress is one `DistrictTarget` case, one `DistrictProduct` arm, and one dispatch arm; window/skylight/shading parameter families attach as `BuildingSpec` rows when a consumer names them; the URBANopt/DES/RNM/REopt run drivers enter only through a future admission motion provisioning their engines; GeoJSON parcel-layer ingest at scale composes the data folder's geospatial owners at the data seam, never a geometry-side `geopandas` import.
 - Boundary: rooms/faces/apertures are `energy/model`'s — this page stops at `Room2D` plates and the explosion seam, and the urbanopt arm returns its emitted artifact addresses rather than the live honeybee models the writer also hands back, since a model reaches a consumer only through the model page's own gate; simulation and result decode are `energy/simulate`'s, weather is `energy/climate`'s; accurate CRS work beyond dragonfly's own equirectangular helpers is the data folder's `pyproj` plane.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable, Mapping
 from enum import StrEnum

@@ -24,7 +24,7 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 - Growth: a provider measurement is one `ToolMeasure` row carrying its measurement type; a lifecycle correspondence is one `ToolAvailability` row carrying its status set and its `ToolState` column; a physical dimension is one `MetricDimension` row carrying its own admission and restoration; a placement is one `SlotKind` row carrying its location set; a controller capability is one `MagazineBehavior` row; a scheduling preference is one `ToolSelection` row.
 - Boundary: provider enums reach no consumer — they terminate on these columns.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
@@ -284,7 +284,7 @@ public sealed partial class ShortfallReason {
 - Growth: a slot topology is one `Magazine` row with admitted `MagazineLayout` data.
 - Boundary: provider hashes as identity, dimension-per-case metric siblings, mutable snapshot identity, parallel wear state, single-basis scheduling, absent life budgets read as exhausted, tool groups substituting for geometric interchangeability, and invented infinite capacity are deleted forms.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct SlotAddress {
@@ -826,7 +826,7 @@ public sealed partial class MagazinePolicy {
 - Growth: a provider measurement is one `ToolMeasure` row; a lifecycle correspondence is one `ToolAvailability` row.
 - Boundary: no provider type crosses out of this cluster, and the atoms floor admits scalars alone. A second byte codec beside the writer, a hand `x32` spelling of `ContentHash.Hex`, an empty string standing for an absent optional in a preimage, and a magic-zero register standing for an unset one are deleted forms.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CatalogSource {
@@ -1173,7 +1173,7 @@ public static class ToolCatalog {
 - Growth: a sourcing route is one `Resolvers` row.
 - Boundary: the magazine swap schedule is a PAGING problem over caller-supplied placement — an assignment solver over a cost matrix models a placement decision this page does not own and is a declared refusal, not an omission. Preselection naming its own slot, reserve that is checked but not committed, and shortfall rows without a reason are deleted forms.
 
-```csharp signature
+```csharp
 // --- [RECEIPTS] ------------------------------------------------------------------------
 public readonly record struct ToolChangeEvidence(int FromSlot, int ToSlot, int IndexSteps,
     Duration Traverse, Duration ArmSwing, Duration Elapsed);

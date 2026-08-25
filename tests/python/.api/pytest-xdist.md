@@ -20,7 +20,7 @@ Worker-identity helpers a fixture or conftest reads to branch on execution role.
 |  [03]   | `xdist.is_xdist_controller` | role probe | true on the controlling process orchestrating workers                                  |
 |  [04]   | `xdist.is_xdist_master`     | role probe | legacy alias of `xdist.is_xdist_controller`                                            |
 
-```python signature
+```python
 def get_xdist_worker_id(request_or_session: FixtureRequest | Session) -> str: ...
 def is_xdist_worker(request_or_session: FixtureRequest | Session) -> bool: ...
 def is_xdist_controller(request_or_session: FixtureRequest | Session) -> bool: ...
@@ -40,7 +40,7 @@ CLI surface controlling worker count, scheduling mode, and restart tolerance.
 |  [06]   | `--tx <spec>` · `--px <spec>`    | transport    | `--tx` adds an execnet gateway; `--px` a proxy gateway routed by `via=`    |
 |  [07]   | `@pytest.mark.xdist_group(name)` | group pin    | under `--dist loadgroup`; routes same-group tests to one worker            |
 
-```python signature
+```python
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]

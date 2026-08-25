@@ -20,7 +20,7 @@ Install custody is two-tier — per-composition `ProfilesReceipt`s key by the re
 - Growth: a new static profile dimension is one entry in the caller's `tags` mapping; a bounded-window dimension one entry in a `Profiles.phase` mapping; a new worker-floor dimension is one entry in the workers boot-capture tags; a new agent knob is one `configure` keyword threaded through `install`; a new composition is one `ScopeKey` value threaded through the `scope` keyword.
 - Boundary: profiles egress through the pyroscope push wire until that swap lands — the OTLP trio stays the telemetry owner's, and no library module below the composition root imports this page.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager, nullcontext
@@ -176,7 +176,7 @@ class Profiles:
 - Packages: `pydantic-settings` (the one `RASM_TOOL_PATHS` deployment override, admitted once), the builtin `frozendict` (that override projected immutable), stdlib `shutil.which` (the default `ToolRow` probe body — it answers the resolved path, and an absolute override resolves through it only when executable, never a spawn the roster pays for).
 - Boundary: this family owns the branch's macro evidence AND its own corpus gate; benchmark authority stays branch-local, so no peer runtime's figure is graded or cited here and a cross-runtime speed comparison has no owner. A calling folder owns its corpus roster, its recipes, and its deterministic-input vocabulary — this tier reads a bound thunk and never a feed value, so no producer type crosses upward. `JobRun.bounded` envelopes a process-terminal bench run so the final `domain="bench"` projection flushes before exit; an in-daemon bench rides the standing periodic reader.
 
-```python signature
+```python
 type BenchKernel = Callable[[], object]
 type BenchOutcome = Literal["passed", "regressed", "unprovisioned"]
 
@@ -374,7 +374,7 @@ def _windowed(
 - Growth: a new job axis is one attribute in `job_resource`; a new lane geometry is one `JOB_SIGNAL_PROFILE` field value; a new egress arm is the `ship` value the caller threads, reaching chain and provider from that one argument.
 - Boundary: the envelope threads one admitted `RuntimeContext` into `Telemetry.install`/`shutdown` beside `LogPipeline.configure` and `Metrics.install` and constructs no provider, processor, or chain row of its own, so the job lane gates emission on the axis value every daemon path reads; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
 
-```python signature
+```python
 JOB_SIGNAL_PROFILE: Final[SignalProfile] = SignalProfile(
     export_interval_ms=60000, schedule_delay_ms=5000, max_queue_size=2048, max_export_batch_size=512, compression=Compression.Gzip
 )

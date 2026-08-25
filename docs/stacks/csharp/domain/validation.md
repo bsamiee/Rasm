@@ -51,7 +51,7 @@ This table routes a validation concern to its owning surface; the most specific 
 - Law: `RuleSetsExecuted` is run metadata recording selection, not success — an executed name means its rules were eligible and ran, pass/fail lives only in the failures, and merged validation results union executed names distinctly.
 - Reject: partial-as-admission — selectors exist for per-field feedback and variant routing, and only the seam row's full declared run admits.
 
-```csharp conceptual
+```csharp
 public sealed record RowEdit(string Key, int Rank, bool Live);
 public sealed record ShapeEdit(string? Code, int Start, int End, string? Note, string? Etag, IReadOnlyList<RowEdit> Rows);
 
@@ -143,7 +143,7 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
 - Law: `FormattedMessagePlaceholderValues` is the durable record — persisting `ErrorMessage` freezes one culture into storage, the placeholder dictionary exists to prevent exactly that drift, and placeholder format specifiers render under the ambient culture even when `LanguageManager.Culture` is pinned, so per-user rendering passes its culture to `GetString(key, culture)` at the display edge and `MessageFormatterFactory` is the system-wide repair for placeholder formatting.
 - Law: unresolved placeholders pass through verbatim — a typo'd hole renders as literal braces instead of throwing, so template defects are invisible at run time and only rendered-output proofs catch them.
 
-```csharp conceptual
+```csharp
 public sealed record Admitted<TShape>(TShape Value, Seq<WireFault> Riding);
 
 public sealed record WireFault(string Code, string Path, Severity Severity, IReadOnlyDictionary<string, object> Holes);
@@ -202,7 +202,7 @@ public static class Bridge {
 - Reject: skipping the validator under override, and post-hoc deletion of failures from an outcome — both are evidence tampering; the partition belongs to the projection, not the seam.
 - Exemption: the context-preparation kernel — strategy construction, the `RootContextData` policy write, and the run — is the platform-forced mutable-context seam.
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class Trigger {
     public static readonly Trigger AtBoot = new();
@@ -252,7 +252,7 @@ public static class Seam {
 - Law: fail-closed is the one default across every admission surface — unknown configuration keys, unknown wire members, undefined enum bits including flag combinations, unregistered cases — and a permissive row is earned only where unknown input is provably non-actionable and the row is enumerable by the proofs.
 - Law: a verdict fold over a required evidence stream gates non-emptiness first, the empty stream failing closed as a typed capability-band fault.
 
-```csharp conceptual
+```csharp
 public sealed record SeamVocabulary(Seq<string> Codes, Seq<string> MemberExempt, Seq<string> PairingExempt);
 
 public static class ClosureProofs {
@@ -298,7 +298,7 @@ public static class ClosureProofs {
 - Boundary: binder fail-closed policy, the eager-start trigger, and frozen publish are runtime law — this seam owns the rule graph and the two projections it feeds, and a changed source is a new admission, never a silent mutation of published policy.
 - Exemption: the per-name context preparation is the platform-forced mutable-context seam.
 
-```csharp conceptual
+```csharp
 public sealed record OptionsShape {
     public int Width { get; init; } = 4;
     public int Span { get; init; }

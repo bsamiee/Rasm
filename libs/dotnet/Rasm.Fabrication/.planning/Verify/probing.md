@@ -23,7 +23,7 @@
 - Auto: one `Validation<Error, Unit>` fan-in proves feature coverage, target uniqueness, observation references, evidence identity, and datum traceability, so an inadmissible demand reports every violated invariant rather than the first.
 - Growth: a feature sub-kind is one `ProbeFeature` case, one `ContactSource` arm, and one `FeatureSpec` row; no feature-specific inspection entrypoint and no generator body survives beside it.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
@@ -475,7 +475,7 @@ public sealed partial class ProbePlan {
 - Packages: `MathNet.Numerics.Statistics` (`Statistics.Median`, `Statistics.RootMeanSquare`) — every member answers `double.NaN` on an empty population rather than throwing, so an empty accepted set exits on the absence arm BEFORE any statistic is read.
 - Boundary: observations carry ball centers; axial travel, lateral approach, and thermal-scale rejection stay on the affected touch, and the aggregate required-hit verdict runs after every target retains its outcomes. Stylus radius and lobing add along the approach while pre-travel subtracts, and inverse thermal scaling restores reference-temperature geometry.
 
-```csharp signature
+```csharp
 [ComplexValueObject]
 public sealed partial class ProbeObservation {
     public ProbeAddress Address { get; }
@@ -683,7 +683,7 @@ file sealed record UnregisteredFeature(
 - Packages: `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Conformance`, `ConformanceMetric`, `ResidualSample`, `Distribution`), `Rasm.Solving` (`Fit.Apply`, `FitKind`, `FitOp`, `FitPolicy`, `FitReceipt.Inliers`), `Rasm.Processing` (`AlignKind.AlignDetailed`, `AlignmentReceipt`), `Rasm.Spatial` (`VectorCloud.Cluster`), `Rasm.Domain` (`ToleranceLane.Neglect` through `Context.For`, `ValidityClaim`, `FabricationCanon.Ordered`), `Rasm.Numerics` (`Dimension`, `PositiveMagnitude`).
 - Boundary: one residual tranche feeds both consumers — `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` for the SPC study and the kernel `AnalysisQuery.Conformance` measured arity for the run's own statistics, whose `Distribution` row carries the public `Stat` summary beside median and interquartile range. Band conformance derives per sample from the tolerance each `ResidualSample` already carries and lands on `InspectionFeature.Pass`, so no second kernel reach and no package-local mean, RMS, or quantile fold stands beside the rows; a local QIF-shaped record claiming a standard contract the package does not admit is the deleted form.
 
-```csharp signature
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DatumPolicy {
     private DatumPolicy() { }

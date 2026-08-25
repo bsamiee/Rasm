@@ -15,7 +15,7 @@ The causality owner: `Vector` — the per-replica version vector whose compariso
 - Law: `Vector` encodes with its slots SORTED by replica id, the canonical order the peer runtimes hold, so one causal position yields one byte string wherever it is hashed; bucket or insertion order forks every digest taken over an encoded vector and is what leaves a cross-runtime fixture unfreezable.
 - Boundary: `Envelope.identity` is a content digest and the `Dot` is the operation identity, and the two never merge — a dot repeating under a DIFFERENT content digest is an equivocation the buffer reports, where a log keying entries on content reads two peers writing identical bytes as one operation and discards the second.
 
-```typescript signature
+```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import { Array, Chunk, Data, Effect, Equal, HashMap, Number, Option, Order, pipe, Record, Schema, STM, TRef } from "effect"
 import { Clock } from "../value/clock.ts"
@@ -97,7 +97,7 @@ class Vector extends Schema.Class<Vector>("Vector")({
 [HAPPENED_BEFORE]:
 - Growth: a new causality read (interval overlap census, k-way frontier compare) is a static on `Causal` composing the same two comparisons.
 
-```typescript signature
+```typescript
 declare namespace Causal {
   namespace Vector {
     type Ordering = (typeof _ORDERINGS)[number]
@@ -168,7 +168,7 @@ const _compare = (self: Causal.Stamped, that: Causal.Stamped): Vector.Ordering =
 
 [DELIVERY_BUFFER]:
 
-```typescript signature
+```typescript
 const _deliverable = <A>(seen: Vector, envelope: Causal.Envelope<A>): boolean =>
   Vector.covers(Vector.observe(seen, envelope.origin), envelope.vector)
 
@@ -229,7 +229,7 @@ const _admit = <A>(
 
 [FRONTIER_TRACKER]:
 
-```typescript signature
+```typescript
 const _frontier = (acks: HashMap.HashMap<Vector.Replica, Vector>): Option.Option<Vector> =>
   Merge.fold(Vector.meet, Array.fromIterable(HashMap.values(acks)))
 

@@ -26,7 +26,7 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 - Receipt: this rail mints no receipt of its own; every arm surfaces the owner's typed receipt through the owner's projection rows, so evidence provenance is single-sourced.
 - Boundary: dispatch carries zero domain math; `Project<TOut>` is total over the `Fin` rail, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;

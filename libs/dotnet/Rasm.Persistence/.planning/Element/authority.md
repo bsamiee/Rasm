@@ -19,7 +19,7 @@ Every actor slot is the Persistence-owned `Element/graph#STORE_RAIL` `StoreActor
 - Growth: one `Grant` row per new permission — `Owner` absorbs it value-derived and the fold stays membership-generic, so a new right is ONE static line; a `[Flags]` bitfield (the `shapes.md` `ReplaceFlags` law), a second branch-only enum, or a per-right boolean column is the deleted form.
 - Boundary: `Grant` is distinct in name and concept from the AppHost `Agent/capability#DISCOVERY_FOLD` effect-gating `Capability`, the two never sharing a name across strata. HASH-0 TRAP: `[SetEquality]` compares exact set membership but its hash contribution is ALWAYS zero (`SetEqualityComparer<T>.GetHashCode` returns 0), so a `GrantSet` must NEVER key a dictionary, `HashMap`, or `HashSet` — every set collides into bucket 0 and the lookup degrades to a linear scan; `ObjectAcl` therefore keys entries by the string subject and carries the `GrantSet` as the value, equality-comparing and `Admits`-folding freely.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using Generator.Equals;
@@ -87,7 +87,7 @@ public sealed partial record GrantSet([property: SetEquality] FrozenSet<Grant> G
 - Growth: one `AclScope` row per new gated kind (its `Parent` slots it into the ladder); a new subject axis (a group, a service account) is rows in the existing subject-keyed maps, never a third map; a parallel role-ACL type, a per-scope ACL class, or an unvalidated chain is the deleted form.
 - Boundary: `Principals`/`Roles` key by string subject (the `StoreActor.Subject` and role-claim strings) because the `GrantSet` hash-0 trap forbids set-keyed maps and the subject is the wire-stable identity the jsonb column and the egress message envelope both round-trip; the `Owner` slot carries the full `StoreActor` for provenance while owner RECOGNITION compares `Subject` only, role claims being session facts not identity; the `[From, Until)` window time-boxes both ends so a scheduled grant and a lapsed one are data states, never mutation events.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -131,7 +131,7 @@ public sealed record ObjectAcl(
 - Growth: one `AuthDecision` case per new verdict; a new admission dimension (a quota, an IP fence) is a clause inside the one `Admit` fold, never a second entry; the audit trail is `Shift` rows appended through the `Version/provenance#ATTESTED_LEDGER` consumer under `Grant.Audit`, never a parallel log; a boolean `CanAccess`, a per-scope `Admit` overload family, or a re-fused authz+crypto union is the deleted form.
 - Boundary: the fold is deny-over-allow at every altitude — allow and deny sets accumulate SEPARATELY down the `Inherited` chain and `allow.Without(deny)` runs ONCE at the root, so an explicit `AclEntry.Deny` at any live altitude defeats every descendant direct and role allow (a per-level subtraction that lets a child allow re-grant a parent deny is the deleted form); the `Owner` subject short-circuits to `GrantSet.Owner` before the fold so the creator never locks itself out; `Admit` is TOTAL — every input resolves to one verdict with no exception path and no fault band (a persistence failure around the ACL row is the composed `IdentityFault`, raised by the store tier); the branch gate is THIS `Admit` under `AclScope.Branch` with the branch rights in the demanded set, `Version/commits#COMMIT_DAG` composing it rather than a second branch-permission surface; `Shift` is an in-memory audit projection over `[SetEquality]` `Inequalities` rows — it complements, never replaces, the content-keyed attested ledger.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AuthDecision {

@@ -8,12 +8,12 @@ High-column tables passing eligibility are the correct carrier; column count is 
 
 - Detection: Rows share one comparison question, every column resolves to an atomic value, and more than one row exists.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     `Alpha` is a scalar of arity one defaulting to `"zero"`, while `Beta`is a many-arity vector defaulting to `"unit"` and `Gamma` a many-arity
     tensor defaulting to `"eye"`.
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     | [INDEX] | [VARIANT] | [KIND] | [ARITY] | [DEFAULT] |
     | :-----: | :-------- | :----- | :-----: | :-------- |
     |  [01]   | `Alpha`   | scalar |   one   | `"zero"`  |
@@ -29,12 +29,12 @@ Cells join two or more lookup values, so one index no longer maps to one member 
 
 - Detection: Flag a cell joining lookup values with a slash, a comma, or a conjunction.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [08] | `Alpha` / `Beta` / `Gamma` / `Delta` / `Epsilon` | hosted | provider-run |
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     Every hosted provider tool is one row.
 
     | [INDEX] | [SYMBOL] | [CAPABILITY] |
@@ -53,7 +53,7 @@ Columns carry one identical value down every row, restating a universal fact per
 
 - Detection: Flag a column whose cells all hold one identical value.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [INDEX] | [SYMBOL] | [RAIL]        |
     | :-----: | :------- | :------------ |
     |  [01]   | `Alpha`  | serialization |
@@ -62,7 +62,7 @@ Columns carry one identical value down every row, restating a universal fact per
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     - [RAIL]: serialization
 
     | [INDEX] | [SYMBOL] |
@@ -80,14 +80,14 @@ Every cell restates a word the header already owns, widening the row for nothing
 
 - Detection: Every cell in a column repeats a word the header implies, or opens with the same lead word.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [INDEX] | [MODE]         | [WHEN]         |
     | :-----: | :------------- | :------------- |
     |  [01]   | mode interview | when ambiguous |
     |  [02]   | mode plan      | when settled   |
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     | [INDEX] | [MODE]      | [WHEN]    |
     | :-----: | :---------- | :-------- |
     |  [01]   | `interview` | ambiguous |
@@ -102,14 +102,14 @@ Cells pack a multi-clause caveat, a signature, and behavior into a slot the colu
 
 - Detection: Flag a cell packing signatures and behavior clauses into one slot.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [INDEX] | [SYMBOL] | [ROLE]                                                                                                      |
     | :-----: | :------- | :---------------------------------------------------------------------------------------------------------- |
     |  [02]   | `Shape`  | stacked layers via `from_profile(...)`, then `refine()` instances them, and `peel()` strips the outer shell |
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     `Shape` stacks layers; `from_profile` extrudes a profile and `peel` strips the outer shell.
 
     | [INDEX] | [SYMBOL]             | [KIND] |
@@ -127,7 +127,7 @@ Every row needs a comma-bearing sentence to explain itself, so the table is the 
 
 - Detection: Every row needs a sentence with internal commas; the rows share no atomic column.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [INDEX] | [MODE]      | [NOTE]                                                      |
     | :-----: | :---------- | :---------------------------------------------------------- |
     |  [01]   | `interview` | ask when requirements are ambiguous, unstated, or contested |
@@ -135,7 +135,7 @@ Every row needs a comma-bearing sentence to explain itself, so the table is the 
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     [interview]:
     - Trigger: Requirements ambiguous, unstated, or contested
     - Output: Decisions table plus implementation prompt
@@ -154,18 +154,18 @@ Row families resisting every table fix invite a teardown that flattens to mega-p
 
 - Detection: Flag a fix reaching for a paragraph flood or an unkeyed dump after a row family resists split, hoist, extract, and relief.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     `Shape` extrudes a profile into stacked layers and instances the
     refined ones; `Variant` peels the outer and inner shells while `Region`
     detaches the mid layers and re-solves adjacency across the body.
     ```
-    ```markdown rejected
+    ```markdown
     - `Shape` extrude stack instance
     - `Variant` peel outer inner
     - `Region` detach mid resolve
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     - [01]-[EXTRUDE]: `Shape` stacks layers from a profile.
     - [02]-[PEEL]: `Variant` separates outer and inner shells.
     - [03]-[DETACH]: `Region` re-solves mid-layer adjacency.
@@ -179,7 +179,7 @@ Links ride inside a comparison cell, drifting with the attribute grid instead of
 
 - Detection: Flag a `[label](path)` link inside a cell of a table that also compares attributes.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [INDEX] | [MODE]      | [DOC]                             |
     | :-----: | :---------- | :-------------------------------- |
     |  [01]   | `interview` | ambiguous scope [modes](modes.md) |
@@ -187,7 +187,7 @@ Links ride inside a comparison cell, drifting with the attribute grid instead of
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     | [INDEX] | [MODE]      | [WHEN]    |
     | :-----: | :---------- | :-------- |
     |  [01]   | `interview` | ambiguous |
@@ -206,14 +206,14 @@ Enumerable tables drop the leading `[INDEX]` column or carry bare-word headers, 
 
 - Detection: Flag an enumerable table over two rows lacking the centered `[INDEX]` column, and any header that is not a bracketed rubric.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | Mode      | When      | Output |
     | :-------- | :-------- | :----- |
     | interview | ambiguous | prompt |
     | plan      | settled   | steps  |
     ```
 - Accepted:
-    ```markdown accepted
+    ```markdown
     | [INDEX] | [MODE]      | [WHEN]    | [OUTPUT] |
     | :-----: | :---------- | :-------- | :------- |
     |  [01]   | `interview` | ambiguous | `prompt` |
@@ -228,7 +228,7 @@ Rows carry invented sub-index tokens — `[1a]`, `[1b]` — to nest children und
 
 - Detection: Index cells outside the sequential `[NN]` vocabulary, lettered or dotted to express hierarchy inside the grid.
 - Rejected:
-    ```markdown rejected
+    ```markdown
     | [INDEX] | [AXIS]        | [OWNER]       |
     | :-----: | :------------ | :------------ |
     |  [01]   | Panel algebra | `Panelize`    |
@@ -237,7 +237,7 @@ Rows carry invented sub-index tokens — `[1a]`, `[1b]` — to nest children und
     ```
 - Accepted:
 
-    ```markdown accepted
+    ```markdown
     `Panelize` folds the algebra; its payload owners ride their own rows.
 
     | [INDEX] | [AXIS]        | [OWNER]       |

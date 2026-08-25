@@ -19,7 +19,7 @@ Rasm.Persistence reclaims object bytes through the write-blob-first protocol and
 - Packages: AWSSDK.S3 (`PutLifecycleConfigurationAsync` + the `LifecycleConfiguration`/`LifecycleRule`/`LifecycleFilter`/`LifecycleRuleExpiration`/`LifecycleTransition` shapes), Google.Cloud.Storage.V1 (`PatchBucketAsync` over the `Bucket.LifecycleData` resource), Minio (`SetBucketLifecycleAsync` + `Minio.DataModel.ILM`), LanguageExt.Core, NodaTime.
 - Growth: a new retention class arms its own prefix rule with zero edits, the schedule columns already carrying the deadline; a new cold rung re-roots the projection from the retention ceiling table alone; a provider gaining a lifecycle surface is one `Arm` case; a per-class knob beside the declared schedule, a hand-asserted ladder root, or a count or size condition on a prefix rule is the deleted form.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Persistence.Element;
@@ -100,7 +100,7 @@ public static class LifecycleRules {
 - Packages: System.IO.Hashing, NodaTime (`Instant`/`Duration` the WORM window), LanguageExt.Core (`Seq`/`Choose`/`Partition`/`TraverseM`/`IO.fail`), System.Collections.Frozen (`FrozenDictionary` the WORM index), Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new catalog column is one field on the row; a new WORM stance is one `ObjectLock` case both the write and the evict arrow read with zero new surface; a head-only blob GC, a lane-local list-then-filter sweep, a payload re-PUT standing in for a storage-class change, a same-transaction blob write, or a lane-local retention executor re-deciding eviction beside the one sweep is the deleted form.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record BlobCatalogRow(ContentAddress Key, ArtifactKind Kind, Extent Extent, StorageTier Tier, ObjectCodec Codec, Option<ContentAddress> Lineage, TenantId Tenant, DataClassification Classification, Option<Instant> WormUntil, Option<WrappedKey> Dek, Instant At) {
     public RetentionClass Class => Kind.Retention;

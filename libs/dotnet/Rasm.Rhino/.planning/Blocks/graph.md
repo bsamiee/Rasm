@@ -19,7 +19,7 @@ Live placement evidence comes from `GetReferences(0)` and retains every instance
 
 `GraphFold` canonicalizes vertices through an admitted order before grouping, component ranking, and condensed-edge ordering; equivalent graphs therefore emit identical component and edge sequences.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
@@ -135,7 +135,7 @@ internal sealed record Topology(
 
 `GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as delegate rows over the same vertex parameter `GraphFold` takes — hand rows with sealed constructors, because the row generator refuses a generic owner — so the definition rail's `Guid` graph and the closure walk's `ArchivePath` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. The boundary rows bind against the catalog's own degree semantics: under used-to-container orientation, semantic roots are the ZERO-OUTDEGREE vertices (`Sinks`) and semantic leaves the zero-indegree ones (`Roots`). `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlockGraphAsk {
@@ -521,7 +521,7 @@ The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontie
 
 The walk pins the canonical root directory and opens each dependency segment relative to that handle without following links. Handle length gates bytes before an exact owned snapshot reaches the native reader; link count and depth gate expansion. The snapshot copies through a pool lease sized from a declared chunk policy clamped to the archive's own extent, never a one-byte rent whose smallest bucket turns a real `.3dm` into millions of syscall pairs. Each rejected native read preserves its log beside the broken-link detail without aborting independent traversal; SCC analysis distinguishes shared dependencies from circular links after the bounded walk settles.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Equatable(Explicit = true)]
 public sealed partial record ArchivePath : IComparable<ArchivePath> {

@@ -20,7 +20,7 @@
 - Law: one image and command own every phase; the phase table carries only argument vectors.
 - Boundary: the generated document and deployment fence schedule work; only a completed proof Job admits publication.
 
-```typescript signature
+```typescript
 import * as k8s from "@pulumi/kubernetes"
 import * as pulumi from "@pulumi/pulumi"
 import { Backend } from "@rasm/data"
@@ -114,7 +114,7 @@ const _served = (profile: Converge.Profile): Effect.Effect<void, ConvergeRefused
 - Auto: `Array.mapAccum` threads target readiness through `materialize → hydrate → prove`, mapping each phase to its `[phase, job]` pair, so the fold yields a phase-keyed record and no callback graph or parallel plan exists.
 - Packages: `@pulumi/kubernetes` typed `ConfigMap` and `Job`; `@pulumi/pulumi` resource dependency algebra.
 
-```typescript signature
+```typescript
 const _runner = (
   name: string,
   step: Converge.Step,
@@ -195,7 +195,7 @@ const _runner = (
 - Receipt: one immutable retained ConfigMap records generation, contract ConfigMap name, proof Job UID, and deployment fence; its generation annotation and terminal dependency reach `RunReceipt` and the `operate/policy#EVIDENCE_SPINE` rows through the existing receipt stream with no publication-local form.
 - Boundary: this tier ends at the retained pointer. Workload mounting is deploy-owned; local decode, generation comparison, and readiness admission belong to the application runtime and are not claimed by this page.
 
-```typescript signature
+```typescript
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 class Converge extends Tier {

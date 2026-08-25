@@ -19,7 +19,7 @@ Vector parse, query, affine, point-relation, measure, and sample behavior lives 
 - Packages: `svgelements` (`SVG.parse(reify=True, on_error=)`/`elements(conditional=)`, `SvgPath.d`/`bbox(with_stroke=)`/`length`/`npoint`/`segments`/`as_subpaths`/`approximate_arcs_with_cubics`/`approximate_arcs_with_quads`/`approximate_bezier_with_circular_arcs`, `Matrix` factories + `pre_*`/`post_*` + `determinant`/`inverse` + `transform_point`/`transform_vector`, `Viewbox(...).transform(...)`, `Length.value`/`to_mm`/`to_cm`/`to_inch`/`amount`, `Point.distance_to`/`angle_to`/`polar_to`/`reflected_across`/`matrix_transform`); `numpy` (the `npoint` sweep, `cumsum`/`interp`/`linalg.norm` kernels); `expression` (`tagged_union`, `Result`, `Block`, `traverse`); `msgspec` (`Struct`); `beartype` (the `FAULT_CONF` weave); runtime `lanes`/`faults`.
 - Boundary: no boolean/offset/stroke/winding algebra and no `pathops` import (that is `graphic/vector/region#REGION`); no document assembly, `<svg>`/`<path>` emission, paint, or raster (region's drawsvg/resvg surface); no repeating fill geometry (`graphic/vector/pattern#PATTERN`); no receipt or identity minting (the consuming producer's); no folder-minted limiter or retry — the one native seam is the runtime lane's `offload`; no rail-collapsing convenience export — a consumer that wants the drawable set composes `scene` and holds the `Result`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import math
 

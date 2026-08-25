@@ -20,7 +20,7 @@ Correspondence binds one law per wire: `IssueTopic.Status` carries the custodian
 - Growth: a new wire dialect is one `IssueVersion` row; a new extensible axis is one `VocabularyAxis` row; a new admission check is one arm inside the one `Admit` fold; a new fault class is one case inside the registry decade; zero new surface — a container codec, a per-dialect reader family, a compiled status/type/priority enum a foreign project breaks, a topic value silently normalized at admission, or a review-logic computation inside this seam is the deleted form because the container wire is the custodian's, the vocabularies are runtime-admitted data, and this owner is the durable half.
 - Boundary: the seam owns exactly the row half — admission, correlation, release, facts — and the container wire is `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfArchive`'s whole (read, write, version discrimination, vocabulary residence, bitmap parts), the two non-referencing S2 ends meeting at the composition root that owns the `BcfTopic`⇄`IssueTopic` transcription; the durable landing is the app's (`Element/graph#STORE_RAIL` for row residence, `Store/blobstore` for snapshot bytes, both at the composition root per the Ingest row-shape law); GlobalId correlation is a one-hop injected port because the `GlobalIds` mirror is `Element/identity`'s (this page never opens a store connection); `← Rasm.Bim` clash results mint topics the root transcribes and hands to `Ingest` for durable landing, `→ Rasm.Bim` resolved topics return as status moves the planner reads through `Reconcile`; the server-side BCF-API is the custodian's REST projection over the Compute transport — a foreign review server's export lands here as rows the root read through the same custodian.
 
-```csharp signature
+```csharp
 using Rasm.Persistence.Element;
 
 namespace Rasm.Persistence.Ingest;
@@ -178,7 +178,7 @@ public static class IssueSource {
 - Growth: a new topic axis is one field on `IssueTopic` (`ServerAssignedId` exercised it — the BCF 3.0 column landed as one `Option` field); a new viewpoint capability is one field on `IssueViewpoint`; a new cycle partition is one `IssueDelta` field; zero new surface — a per-dialect row family, a slip DTO beside `IssueDelta`, a topic keyed by title or index instead of GUID, or an unresolved reference silently dropped is the deleted form.
 - Boundary: rows are the Persistence half of the coordination-review cycle — `Rasm.Bim` clash/IDS surfaces mint topics from their `KeySelection` results and read `Reconcile`'s partitions for review-state drift, the AppUi viewport consumes `IssueCamera`/`IssueComponent` to restore a view, and the app composition root owns both mappings; `Status`/`Type`/`Priority`/`Stage` carry the custodian's VERBATIM project-vocabulary tokens (the `StatusToken` election), never a compiled enum a foreign project breaks; the snapshot bytes live in the blob plane under their content address (this row carries the ADDRESS; a byte copy beside it forks residence); `RelatedTopics` cross-references stay topic GUIDs because the BCF wire owns that identity; container-only ornament — reference links, document references, BIM snippets, header files — stays the custodian's family and never grows a durable column here.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct IssueVector(double X, double Y, double Z);
 

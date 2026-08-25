@@ -42,7 +42,7 @@ Absence taxonomy arrives settled from `shapes.md` — `None`-as-failure never cr
 - Law: explicit discovery is the structural replacement for the import-time side-effect registry — a deferred `lazy import` never runs the module body a registering decorator, metaclass, or `__init_subclass__` hook relied on, so that registry silently empties, where metadata discovery plus an explicit `.load()` is independent of whether the plugin module ever imports.
 - Reject: an import-time side-effect registry (a decorator appending to a module global, a metaclass, `__init_subclass__`) for a plugin set a `lazy import` would empty; `entry_points()` re-scanned per call where one selection serves; a plugin module imported eagerly to read metadata the `EntryPoint` already carries.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from enum import StrEnum
 from importlib.metadata import entry_points
@@ -117,7 +117,7 @@ def discovered(group: str, disposition: Sweep, /) -> Result[Block[tuple[str, obj
 - Exemption: the address-to-view materialization, the `view.release()`/`window.release()` calls, the `weakref.finalize` registration, and the in-place slice assignment over the measured window inside the capsule kernel are the named platform-forced statement seam.
 - Reject: a public handle field; scattered manual `close()`; parallel borrowed, owned, and measured wrapper classes where one closed family states them; a `__del__` finalizer owning release where `weakref.finalize` states it; a foreign handle left for GC finalization where a shielded bracket must close it before the backing buffer frees; a fold rebinding the whole buffer per edit where the measured window is mutated in place; `revised` on a read-only disposition.
 
-```python conceptual
+```python
 import ctypes
 import weakref
 from collections.abc import Callable
@@ -236,7 +236,7 @@ def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
 - Law: a bounded stream's full behavior is the seam's declared policy stated where the producer sends — a zero `max_buffer_size` rendezvous-blocks the producer, a positive bound buffers then back-pressures — and `send_nowait`'s two failure signals are distinct dispositions the seam routes, never one collapsed arm: `WouldBlock` on a full positive bound is the back-pressure drop the policy already authorized, while `BrokenResourceError` means every receiver closed, so the callback retires its own subscription rather than dropping into a dead channel forever.
 - Reject: blocking the foreign callback on interior work; mutating interior state from the callback thread; the callback running arbitrary downstream logic instead of sending one message; collapsing `WouldBlock` and `BrokenResourceError` into one silent drop.
 
-```python conceptual
+```python
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -329,7 +329,7 @@ def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) ->
 - Law: `id()` joins the key only for an axis content cannot recover — a callback, a live context, a native handle — and an axis content recovers (a certificate digest, a frozen policy value, a path set) never rides `id()`, because a run-random identity beside content-recoverable fields forks the key run-to-run while claiming content addressing.
 - Reject: a content-only, path-only, or type-only key dropping the foreign axis; a content-only AST or tree key dropping the structural-path axis and collapsing identical-content siblings; an `id()` axis over content-recoverable material; a `dict[str, object]` key bag where a fixed `tuple` states the axes; a mutable `dict` memo store where the agent's own state or a `frozendict` snapshot owns the table.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal, assert_never
@@ -465,7 +465,7 @@ def keyed(
 - Law: `enc_hook` is consulted only for a type the encoder cannot natively encode — a `Struct`-typed value always encodes natively and an int outside the 64-bit wire range raises `OverflowError` before any hook runs — so a canonical preimage digest-folds, nulls, or re-frames every out-of-range leaf before encoding, and an `enc_hook` arm keyed on a `Struct` subclass is dead code masking that raise.
 - Reject: a converter per case; a case-level codec bypassing the family owner; a sentinel returned from a decoder hook instead of a raised validation error; per-call `Decoder`/`Encoder` construction where one module-level instance serves.
 
-```python conceptual
+```python
 import hashlib
 from typing import Literal
 

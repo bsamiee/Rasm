@@ -28,7 +28,7 @@ These are deliberately NOT `graphic/raster/process#PROCESS` `Transform` rows. Th
 - Growth: a new derivation is one `DeriveOp` case, one `_DERIVE` row, one `derived` arm, and one kernel; a new resample filter is one `ResampleKernel` row with one `_FILTER` entry carrying its radius and tap function — the weight builder is parameterized over both and gains nothing; a new mip fold is one `plane#PLANE` `MipPolicy` row with one `_MIP` entry; a new distance-field primitive is one `SdfShape` row with one `_SDF_GEOMETRY` entry naming the geometry inputs it reads.
 - Boundary: no codec, no file, no lane, no receipt, and no role vocabulary lives here — `plane#PLANE` owns the containers, `ingest#INGEST` the roles and their per-role policy columns, `set#TEXTURE_SET` the crossing and the evidence. Perceptual scores, denoising, segmentation, registration, and every eight-bit produced raster stay `graphic/raster/process#PROCESS` and `graphic/raster/measure#MEASURE`. Environment-map projection, spherical-harmonic irradiance, and GGX prefiltering stay `ibl#IBL`, which reads a directional parameterization no planar kernel here carries.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -206,7 +206,7 @@ class DeriveArm:
     arm: Callable[[tuple[DeepPlane, ...], "DeriveOp"], tuple[Plane, ...]]
 ```
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -275,7 +275,7 @@ def chained(plane: DeepPlane, chain: DeriveChain, /) -> Result[DeepPlane, Textur
 - Auto: `pack` composes three single-component operands into the slot order the `ChannelPack` row fixes, and its `_DERIVE` row declares `PlaneSpace.RAW` with `AlphaMode.NONE` so the four-component product never inherits an operand's association — the alpha component of a packed plane carries nothing and is never repurposed. `unpack` is the same row read backward under a SLOT index on the op, returning the one named component; a call yielding all three hands the level-tuple carrier three same-extent planes, where the halving chain refuses at the first successor.
 - Boundary: no arm here reads or writes a file, spawns a tool, or crosses a lane. `pyvips` arms hold one image the whole pass and hands back a `numpy` view; libvips's own cache and loader controls are the worker owner's boundary-init concern on `graphic/raster/io#IO`, not a per-call knob here.
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 
@@ -311,7 +311,7 @@ _SDF_GEOMETRY: Final[frozendict[SdfShape, tuple[str, ...]]] = frozendict({
 _SDF_ARGUMENT: Final[frozendict[str, str]] = frozendict({"a": "a", "b": "b", "radius": "r", "corners": "corners"})
 ```
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

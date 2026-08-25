@@ -31,7 +31,7 @@ When a concern matches several rows, the most specific wins; the rail axis is re
 - Use: `@tagged_union` named cases when verbs carry distinct fields; a `StrEnum` discriminant on one frozen owner when the verbs share one field set and differ only by tag.
 - Reject: a request shaped as success-or-failure — rails own outcome transport; a `dispatch(verb: str, **kwargs)` signature where `verb` is an open string and `kwargs` is an untyped bag.
 
-```python conceptual
+```python
 from typing import Literal, assert_never
 
 from expression import Error, Ok, Result, case, tag, tagged_union
@@ -94,7 +94,7 @@ def dispatched(request: Request, ledger: "Ledger", /) -> Result["LedgerResult", 
 - Use: the `Monoid` frozen owner (`empty` identity plus `combine` step) as the reduction policy value the call hands in, so plural-reducing over zero, one, or many items is total; `traverse` so the carrier owns short-circuit and the `Monoid` owns the algebra.
 - Reject: a `reduce` on the empty `Block` the arity head already admits; a `mode`/`reduce` flag selecting the algebra the `Monoid` value already carries; a mutable accumulator the `fold` replaces.
 
-```python conceptual
+```python
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -144,7 +144,7 @@ def swept[T, R, E](items: T | Iterable[T], step: Callable[[T], Result[R, E]], mo
 - Law: the knob test is removal — delete the parameter, and if no information is lost that the value cannot reconstruct, the parameter was a knob and the value already discriminates.
 - Reject: a timeout, retry count, or deadline as an entrypoint parameter; the bound is a definition-time aspect or an `anyio` scope around the call, and the signature never grows a token tail for it.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
@@ -196,7 +196,7 @@ def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -
 - Law: the base `@singledispatch` arm returns the rail's typed fault for an unregistered type; dispatch resolves on the first argument's runtime type through the method resolution order, so an `ABC` registration covers its subclasses in one arm, and every registered arm returns the rail the owner declares so the open axis stays rail-consistent with the closed forms.
 - Use: `singledispatch` only at a true plugin seam — a renderer over a host type hierarchy the library does not own; the closed `match` everywhere the program owns the type set.
 
-```python conceptual
+```python
 from collections.abc import Sequence
 from enum import StrEnum
 from functools import singledispatch
@@ -253,7 +253,7 @@ rendered.register(Sequence, lambda value: Ok(f"<seq:{len(value)}>"))
 - Use: `tailrec` for bounded fixpoint iteration the call modality folds over — a settle loop, a refinement sweep, a state-machine advance whose verb the prior state selects; the `@effect.result` do-notation when the chain is dependent but not iterative.
 - Reject: an open `def f(): ... return f(...)` recursion that grows the stack on deep input; a `while` loop mutating an accumulator; a `count` parameter bounding a loop whose terminal case already answers when to stop.
 
-```python conceptual
+```python
 from typing import Literal, assert_never
 
 from expression import Error, Ok, Option, Result, TailCall, TailCallResult, case, tag, tagged_union, tailrec
@@ -311,7 +311,7 @@ def projected[E](outcome: Result[int, E] | Option[int], /) -> int:
 - Law: the `[S: Port]` form binds at the call site, so a runtime-discovered candidate is narrowed once by the `language.md` predicate seam and the narrowed value re-enters this same static surface — the discovery narrowing happens at the boundary, never per dispatch, and the interior stays the zero-cost structural form.
 - Boundary: the discovery seam is the one place a candidate of unknown type crosses into the port family; everywhere downstream the implementer is statically `S` and the constraint alone carries the dispatch.
 
-```python conceptual
+```python
 from typing import Literal, Protocol, Self, TypeIs, runtime_checkable
 
 from builtins import frozendict
@@ -360,7 +360,7 @@ def discovered(candidate: object, key: str, seal: str, /) -> Result[ShapeStore, 
 - Use: the `Concern` family and the `owned` weaves folded by ascending rank onto the forced `guard` arm, the rail-safe `beartype(conf=...)` + `except BeartypeCallHintViolation` weave as this page's spotlight; this factory the moment local or owner-built weaves co-occur over one pure core.
 - Reject: a hand-rolled `try`/`except` retry loop; a fixed decorator tower re-spelled at every owner; a span timer or `structlog.get_logger` chain rebuilt here where the observability weave owns it; a bare `@beartype` that raises into the rail; a weave typed `Callable[..., Any]` that erases the wrapped signature; a caller-ordered stack where the `_RANK` table already fixes the order.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from functools import reduce, wraps
 from typing import Literal, assert_never

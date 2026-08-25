@@ -19,7 +19,7 @@ Non-manifold topological modeling over the stateless `topologicpy` static-method
 - Growth: a new intake format is one `SourceKind` row and one `_CONSTRUCT` entry; a new boolean or analysis verb is one enum row and one table entry; a new graph analytic is one `GraphAnalytic` row and one `Option`-returning `GRAPH_ANALYTIC` reducer, reaching `frame` through the held board map with no projection edit; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; the bottom-up construction family (`Vertex.ByCoordinates`/`Cell.ByFaces`/`CellComplex.ByCells`), the `Aperture.ByTopologyContext` opening topology, and the `BVH` clash/raycast surface admit as further rows when a consumer demands them — table growth, never a new page.
 - Boundary: `topologicpy` is admitted ONLY for the non-manifold cell/aperture analysis the C# `IfcSemanticModel` does not extract — the BIM space-graph (spatial hierarchy/adjacency) is projected in-process and never re-derived here; numerical/form-finding geometry is the `algebra` sibling's, mesh-feature projection the `features` sibling's, and raw mesh-file exchange stays at the data `MeshPayload` seam — `run` returns handle/JSON-bytes summaries and never writes a topology file.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum

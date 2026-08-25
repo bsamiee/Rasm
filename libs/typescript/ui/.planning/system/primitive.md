@@ -24,7 +24,7 @@ Primitive owns the headless component spine: react-aria-components instances ONE
 - Law: recipes never disable forced-colors adjustment — `forced-color-adjust-none` is admitted only where a semantic color IS the information (a tone dot, a diff ink), and that recipe row declares a system-color fallback beside it, so Windows High Contrast keeps the signal without keeping the palette.
 - Growth: a new styled atom is one recipe row and one wrapped component; a new visual axis is one variant row in the recipe — never a second class-composition mechanism.
 
-```typescript signature
+```typescript
 import { cva, type VariantProps } from "class-variance-authority"
 import type { ClassValue } from "clsx"
 import { Record } from "effect"
@@ -72,7 +72,7 @@ const _skip = cva(
 - Law: a scroll container EARNS `role="region"` + `tabIndex={0}` by measured overflow — `Primitive.useOverflow` grants the pair only while content overflows its box and only under a label, so a fitting container exposes no phantom tab stop and an unlabelled overflowing one receives no grant at all.
 - Boundary: field/validation composition is `view/form`'s; grid modeling is `view/table`'s; palette, anchors, and sheets are `view/overlay`'s; discrete interaction hooks are `system/act`'s; locale infra (`I18nProvider`, `useFilter`) is `system/intl`'s.
 
-```typescript signature
+```typescript
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
@@ -109,7 +109,7 @@ const _useOverflow = (target: RefObject<HTMLElement | null>, labelled: boolean):
 - Law: visual toast and SR announcement are one act — the note's rendered content IS its announcement, so `notify` NEVER calls the announce rail; a separate `announce` per toast double-speaks, and the standalone rail serves the non-toast messages ([04]'s second owner) alone.
 - Boundary: which flows toast is app policy; the `Result`-failure path routes through the boundary row below, not through toasts, unless the failure is non-blocking evidence; an action's effect is the app's, run at the app's own runtime.
 
-```typescript signature
+```typescript
 import { announce, destroyAnnouncer } from "@react-aria/live-announcer"
 import { Duration, Effect, Option } from "effect"
 import { UNSTABLE_ToastQueue } from "react-aria-components"
@@ -178,7 +178,7 @@ const _silence: Effect.Effect<void> = Effect.sync(() => destroyAnnouncer())
 - Law: the root callbacks frame the boundary — `onCaughtError`/`onUncaughtError` on `createRoot` are the browser boot options observing what boundaries caught and what escaped; this row owns only the in-tree envelope.
 - Growth: a new fault presentation is one `Match` arm in the fallback fold keyed by the family tag; a new recovery affordance rides `resetErrorBoundary`.
 
-```typescript signature
+```typescript
 import type { ReactNode } from "react"
 import type { FallbackProps } from "react-error-boundary"
 
@@ -200,7 +200,7 @@ const _fallbackRender = <E,>(fold: Boundary.Fold<E>): ((props: FallbackProps) =>
 - Law: the gate is isomorphic — the same policy sanitizes server-prerendered and client-hydrated strings, so hydration never diverges on sanitizer output.
 - Law: the policy value is singular — a per-call config drift is rejected; a surface needing a stricter profile passes an explicit `Config` at ITS call while `_POLICY` stays the floor.
 
-```typescript signature
+```typescript
 import DOMPurify, { type Config } from "isomorphic-dompurify"
 
 const _POLICY = { USE_PROFILES: { html: true }, FORBID_ATTR: ["style"] } as const satisfies Config
@@ -249,7 +249,7 @@ const Primitive: Primitive.Shape = {
 - Law: a refusal names the VERB it refused — the user agent stops a copy and a paste on different grounds, and a caller re-offering has to know which half it lost, so the verb is the row's own declared subject rather than context the catch site reconstructs from where it stood.
 - Growth: a blob/image lane is one member row on THIS service shape — never a second clipboard port; a new refusal condition is one family row carrying its core class, leg, subject, and renderer.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 import { Context, Schema, type Effect, type Stream } from "effect"
 

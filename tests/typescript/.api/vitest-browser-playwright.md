@@ -22,7 +22,7 @@
 |  [04]   | `_BrowserNames` augmentation | ambient registration      | registers `firefox`/`webkit`/`chromium`; augments the ambient runner types |
 |  [05]   | `defineBrowserCommand(fn)`   | command factory           | the `@vitest/browser` server-command factory a spec calls via `commands`   |
 
-```ts signature
+```ts
 declare function playwright(options?: PlaywrightProviderOptions): BrowserProviderOption<PlaywrightProviderOptions>
 interface PlaywrightProviderOptions {
   launchOptions?: Omit<LaunchOptions, "tracesDir">
@@ -52,7 +52,7 @@ export { playwright, PlaywrightBrowserProvider, defineBrowserCommand }
 |  [09]   | `browser.screenshotDirectory`      | `string`                                         | screenshot artifact location                   |
 |  [10]   | `browser.ui`                       | `boolean` (default `!CI`)                        | embed the `@vitest/ui` dashboard + live iframe |
 
-```ts signature
+```ts
 type BrowserBuiltinProvider = "webdriverio" | "playwright" | "preview"
 interface BrowserInstanceOption {
   browser: "firefox" | "webkit" | "chromium"
@@ -80,7 +80,7 @@ interface BrowserInstanceOption {
 - [02]-[SELECTORS]: `getByRole`/`getByText`/`getByTestId`/`getByLabelText`/`getByPlaceholder`/`getByAltText`/`getByTitle`.
 - [04]-[USER_EVENT]: `click`/`dblClick`/`tripleClick`/`wheel`/`fill`/`keyboard`/`selectOptions`/`hover`/`dragAndDrop`/`upload`; `setup`/`cleanup`.
 
-```ts signature
+```ts
 import { page, userEvent, commands, cdp, server } from 'vitest/browser'
 declare const page: BrowserPage
 interface UserEvent {

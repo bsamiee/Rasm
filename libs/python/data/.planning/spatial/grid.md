@@ -19,7 +19,7 @@ The two-H3-substrate boundary is law: in-frame vectorized cell algebra lives her
 - Growth: a new cell operation is one `GridOp` case; a new request plane is one `GridRequest` case with one `_plan` arm carrying its route, rostered row, catch set, and thunk; a new refusal law is one `FaultRow` row under `DataLeg.GRID` in this module's one `RAISES` table; a new index kind one `CellKind` row; a new scalar metric one `Metric`/`AreaUnit` row; a new coverage policy one `ContainmentMode` row; a new cell egress one `_BOUNDARY` row the construction gate reads free; a new frame-geometry verb one `_GEO_VERB` row beside its literal, the gate and the fold reading it free; a new grid scheme one `GridScheme` member and the `_SCHEME_ENGINE` row that serves it.
 - Boundary: no host coupling, no durable cell store, no lonboard/GeoArrow visualization (`artifacts` owns it); the claims plane is `spatial/geospatial#GEO`, the in-DB engine `spatial/query#SPATIAL`, and never a second WKB geometry encoding or a parallel H3 column owner beside them.
 
-```python signature
+```python
 from collections.abc import Callable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never

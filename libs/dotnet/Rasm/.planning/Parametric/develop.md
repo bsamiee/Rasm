@@ -22,7 +22,7 @@
 - Growth: a new decomposition driver (principal-curvature-aligned rails instead of distance rails) is one rail-derivation arm feeding the SAME strip fold; a new ruling condition (a cone-point-aware torsal variant) is one residual function the same Brent/Broyden solve roots; a further layout packing modality is one ordering projection beside `PlacementOrder` off the same MST columns; zero new entry surfaces.
 - Boundary: this owner holds the EXACT-ISOMETRY tier — re-deriving a conformal or distortion-minimizing solve here, or claiming isometry without the `ddouble` witness, is the tier violation; the input is the `UvTessellation` TYPE and an unbound mesh cannot enter, so the provenance law is structural; rails are `GeodesicGrade.Exact` by law — a heat-grade rail is the drift defect, rail error becoming strip skew becoming witness noise; ruling normals read the surface BINDING at provenance UV — a mesh-normal approximation is the substitution defect; the unroll is rigid placement on exact edge lengths — a spring relaxation, an ARAP pass, or any distortion-minimizing solve here is the tier regression; the witness accumulates in `ddouble` and narrows ONLY at readout — a `double` running sum re-introduces the cancellation the fold exists to kill; QuikGraph containers are transient and the layout leaves as `Component`/`LayoutParent` columns — a stored graph field or leaked `IEdge` type is the lane violation; every failure routes `Strip` with the strip unit and the isometry or torsal measure, no exception crossing the surface.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;

@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 security/
 └── src/
     ├── crypt/             # Crypto authority the folder's every ceremony composes

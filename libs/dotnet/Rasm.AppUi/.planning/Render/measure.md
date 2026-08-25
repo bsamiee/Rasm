@@ -17,7 +17,7 @@ The overlay-plane interaction owners for the viewport: `SectionDrag` manipulates
 - Growth: a new section display is one `SectionState` column; a new plane is impossible by construction because the box has six; a new manipulation gesture is one `Shell/input#POINTER_GESTURES` routing row naming this fold; zero new surface.
 - Boundary: the box stays the axis-aligned `SectionBox` the viewpoint codec projects to six BCF planes, so an arbitrary cutting plane is NOT this owner's — inbound arbitrary planes exceed the axis-box receipt and decode carries `None`; the handle hit test is a screen-space proximity read against the projected face centres and never a scene pick; the drag is CONSTRAINED to the plane's own axis by construction rather than by a modifier key; the section fact feeds the HUD chip through the chrome row family and never a viewport-local readout.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -178,7 +178,7 @@ public static class SectionDrag {
 - Growth: a new measurement is one `MeasureKind` row carrying its arity, posture, role, and fold; a new panel setting is one `MeasurePanel` column; a new footer readout is one `ChromeContent.Pane` row naming an existing fact key; zero new surface.
 - Boundary: measurements are the settled `ViewMeasurement`/`ViewMeasurementPoint` vocabulary and a pinned row is a viewpoint member, so a measurement store beside the viewpoint is the deleted form; every readout renders through `ResolvedLocale.Quantity` under the kind's own `MeasureRole`, so a hardcoded unit suffix, a locale-blind separator, and a precision literal at a label are the three deleted forms; snap participation is `Shell/input`'s vocabulary arriving as resolved points, so this owner runs no snap solver and holds no snap flag; the panel seats through the chrome family and the live selection readout is a `ChromeContent.Pane` on the status trail; the highlight channel is the `Render/viewpoint.md` override vocabulary, so panel-to-scene brushing and metric-panel brushing are one channel; the `measure.*` verbs resolve through `ViewChrome.MeasureKey` and land as `Shell/commands#INTENT_TABLE` rows — the deck lifting them is that page's obligation, stated there.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

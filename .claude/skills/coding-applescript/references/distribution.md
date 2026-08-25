@@ -6,14 +6,14 @@ A deployable AppleScript artifact is a typed Open Scripting Architecture object 
 
 `osacompile -o <name>.app` produces a bundled applet or droplet from source or compiled input, `-o <name>.scptd` produces a bundled compiled script, and every other output extension produces a flat compiled script.
 
-```bash copy-safe
+```bash
 /usr/bin/osacompile -l AppleScript -o build/Worker.app src/Worker.applescript
 /usr/bin/osacompile -o build/Library.scptd src/Library.applescript
 ```
 
 Bundle metadata mutates inside `Info.plist`: `CFBundleIdentifier`, `CFBundleName`, version fields, and background-presentation keys.
 
-```bash template
+```bash
 plist='build/Worker.app/Contents/Info.plist'
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.example.worker' "$plist"
 ```
@@ -30,7 +30,7 @@ Script Editor refuses an older compiled script whose storage format dropped, fai
 
 AppleScript error number, shell exit status, target application name, offending object, and expected type normalize into one fault record, keeping OSA, shell, and Apple Event failures comparable across a single layer.
 
-```applescript conceptual
+```applescript
 on annotateError(domainName, handlerName, thunk)
     try
         return (run thunk)
@@ -43,7 +43,7 @@ end annotateError
 
 Recovery branches on the negative Apple Event number.
 
-```applescript conceptual
+```applescript
 try
     tell application "Calendar" to count calendars
 on error e number n
@@ -57,7 +57,7 @@ end try
 
 `AEDebugSends=1` and `AEDebugReceives=1` on a launched process's environment trace Apple Event wire traffic for that process alone — a Finder-launched applet needs a wrapper launch or a launchd environment variable, while a terminal `osascript` call inherits both directly — and the Unified Log subsystem `com.apple.appleevents` surfaces the same send and receive descriptors system-wide for a process the harness never spawned itself.
 
-```bash copy-safe
+```bash
 AEDebugSends=1 AEDebugReceives=1 /usr/bin/osascript -sse scripts/probe.applescript 2>build/apple-events.log
 /usr/bin/log stream --debug --predicate 'subsystem == "com.apple.appleevents"'
 ```
@@ -66,7 +66,7 @@ AEDebugSends=1 AEDebugReceives=1 /usr/bin/osascript -sse scripts/probe.applescri
 
 Nix packages AppleScript as a Darwin-only derivation whose build phase invokes host OSA tools, and a pure Linux builder never owns OSA compilation.
 
-```nix template
+```nix
 { stdenvNoCC, lib }:
 
 stdenvNoCC.mkDerivation {
@@ -90,7 +90,7 @@ stdenvNoCC.mkDerivation {
 
 Homebrew distributes an applet as a cask when the artifact is an application bundle, a disk image, or a zip; the formula path owns a command-line launcher that calls `osascript`, never GUI app installation semantics.
 
-```ruby template
+```ruby
 cask "worker-applet" do
   version "1.0.0"
   sha256 "<sha256>"

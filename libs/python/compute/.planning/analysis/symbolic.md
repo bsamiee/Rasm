@@ -46,7 +46,7 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 - Receipt: `outcome` is the terminal `Outcome` case owning its `facts()` projection, and the carried `LoweredSpec` is a VALUE consumers project off the outcome, never a receipt fact; a derivation graduates through the self-wired `graduates` producer — `Precision.CERTIFIED` ships its arb radius, a reproducibly `HEURISTIC` run ships zero instability — against the `_CEILING` family row.
 - Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case with its `facts()` arm and one terminal `apply` arm.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum

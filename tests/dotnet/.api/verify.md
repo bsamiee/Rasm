@@ -41,7 +41,7 @@ Fence carries the full `Verify`, `AutoVerify`, and `VerifyDiffPlex.Initialize` s
 |  [11]   | `VerifyDiffPlex.Initialize(OutputType)`             | diff      | global arm; a second call throws                              |
 |  [12]   | `UseDiffPlex(...)`                                  | diff      | per-verification diff override                                |
 
-```csharp signature
+```csharp
 public static partial class Verifier {
     public static SettingsTask Verify(string? target, VerifySettings? settings = null,
         [CallerFilePath] string sourceFile = "");

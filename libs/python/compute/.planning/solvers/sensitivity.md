@@ -19,7 +19,7 @@ Every mode resolves through one engine stacking `jax`, `equinox`, and `findiff`:
 - Growth: a new analytic mode is one `Differentiation` case, one `_SPEC` row, and one `_PRODUCT` row; a new directional mode is one case, one `_SPEC` applicator, and one `_PRODUCT` row; a new objective shape is one `DiffTarget` member with its `_SPEC` column; a new differentiation argument is one `DiffPolicy` field with its membership on the affected `keywords` tuples; a new product geometry is one `DiffProduct` member with its `_summary` arm.
 - Boundary: the implicit-adjoint solves are the solver routes' — `solvers/linear#LINEAR`, `solvers/nonlinear#NONLINEAR`, and `solvers/differential#DIFFERENTIAL` carry the autodifferentiable adjoints (each `optimistix` solve `ImplicitAdjoint` by default, one `lineax` solve per backward pass) this owner consumes, so reverse mode over a function that solves pulls back through the converged solution. `optimization/design#DESIGN` reads this owner's `Gradient`/reverse-mode gradient over an inner-solve objective for inverse design (its `filter_value_and_grad` pass is the `(PYTREE, gradient)` cell). `experiments/study#STUDY` owns a DISJOINT sampled-DGSM rail over `SALib.analyze.dgsm` and never calls this owner — the shared concept is the `∂y/∂x` field, not a wire (the `[DGSM_SEAM]` row carries the boundary).
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass

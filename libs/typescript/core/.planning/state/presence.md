@@ -12,7 +12,7 @@
 
 [OP_FAMILY]:
 
-```typescript signature
+```typescript
 import { Array, Data, Duration, Equal, HashMap, HashSet, Option, Order, pipe, Record, Schema, type Types } from "effect"
 import { Clock } from "../value/clock.ts"
 import { Digest } from "../value/contentKey.ts"
@@ -209,7 +209,7 @@ const _opCell: (op: Presence.Op) => Fold.Cell = _OpCase.$match({
 
 [STATE_PRODUCT]:
 
-```typescript signature
+```typescript
 declare namespace Presence {
   type Actor = Schema.Schema.Type<typeof _Actor>
   type Surface = Schema.Schema.Type<typeof _Surface>
@@ -339,7 +339,7 @@ const _lifted: (op: Presence.Op) => Presence.State = _OpCase.$match({
 
 [ROSTER_READS]:
 
-```typescript signature
+```typescript
 const _noEarlier = Order.greaterThanOrEqualTo(Clock.Hlc.Order)
 
 const _idled = (state: Presence.State, horizon: Clock.Hlc, lease: Presence.Lease): Presence.Status =>

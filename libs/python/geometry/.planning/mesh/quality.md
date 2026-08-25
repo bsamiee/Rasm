@@ -19,7 +19,7 @@ Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQ
 - Growth: a new conditioning op is one `MeshQualityOp` case, its mirrored `MeshQualityResult` arm, one `ArmOutcome`-producing body, and one `FaultRow` row in `_ARM_RAISED` where the arm fences; a new smoothing filter is one `SmoothKind` row; a new exact-geometry provider is one `ManifoldTier` row at `mesh/repair#MESH`, never a probe minted here.
 - Boundary: watertight repair, hole-fill, boolean CSG, and the `ManifoldTier` capability probe are `mesh/repair`'s; proximity, ray, contains, and sampling queries are `mesh/spatial`'s; registration and reconstruction are `scan/registration`+`scan/reconstruction`'s; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum

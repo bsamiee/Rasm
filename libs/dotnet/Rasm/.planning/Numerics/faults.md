@@ -18,7 +18,7 @@
 - Growth: add one direct leaf, compact declaration-order ordinals to `0..N-1`, and set the band span to `N` in the same edit; never add an offset registry or message parser.
 - Boundary: geometry failures remain here; structural, BIM, material, fabrication, and host failures keep their owning fault families.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;

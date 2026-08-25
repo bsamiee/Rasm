@@ -19,7 +19,7 @@
 - Growth: a new process-global exchange knob is one value declared here beside one `Pin` row at `service/lane#REGIME` consuming it.
 - Boundary: execution — the `Interface_Static` calls, the read-back proof, the once-per-process cache, and the `NATIVE_INIT` refusal — is `service/lane#REGIME`'s alone; no fence here touches OCCT process state.
 
-```python signature
+```python
 from collections.abc import Callable
 from typing import Final
 
@@ -56,7 +56,7 @@ EMITTED: Final[StepProtocol] = StepProtocol.AP242
 - Exemption: FILE_DESCRIPTION `description` and `implementation_level` stay unstamped — both sit outside FILE_NAME, neither is probed for run-varying defaults, and neither carries an `.api` row.
 - Boundary: GLB emission carries no byte-stability law on any page today; `tessellation/emission` owns that gap, and this owner asserts nothing over glTF octets.
 
-```python signature
+```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 NAME: Final[str] = "rasm-cad"

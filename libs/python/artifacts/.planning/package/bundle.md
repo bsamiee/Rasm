@@ -19,7 +19,7 @@ One discriminant rules the plane: `CodecProfile.tag` is the algorithm, `ALGO_OF`
 - Growth: a new algorithm is one `CompressionAlgo` row, one knob-struct, one `CodecProfile` case, one `ALGO_OF` row, one `DEFAULT_PROFILE` row, and one arm on the owning sibling; a new bounded knob value is one token on the owning `Literal` axis plus one arm-scope dispatch row; a new detools kernel pairing is one `DELTA_MATRIX` member; a new manifest column is one `ManifestRow` field; a new evidence fact is one `BundleEvidence` field threading `measure` and `receipt` — zero new verb, zero page-level surface.
 - Boundary: no behavior arm, no provider dispatch values, no offload, no lane, no receipt MINT (the projection constructs the case; producers thread the key and return it on their rails), no artifacts-internal import above the spine — `core/receipt` the one downward runtime edge, `core/plan`/`faults` type-only under `TYPE_CHECKING`, codec/archive/delta composing this page but never each other. Runtime-only parallelism knobs (`threads`, `block_size`) stay in the profile deliberately: they perturb the output bytes on the zstd and threaded-gzip arms, so keying over them is the conservative miss, never a wrong hit. Member stamps stay container-level (`_EPOCH`, one `mode`) because byte-reproducibility rules the ZIP arm; `names` is the one per-member axis, and a per-member wall-clock stamp is the rejected key-churning form.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from datetime import datetime, timezone
 from enum import StrEnum

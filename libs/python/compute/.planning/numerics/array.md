@@ -17,7 +17,7 @@ Backend-agnostic array admission over the Array API standard: `ArrayPayload.admi
 - Growth: a new refusal is one `RAISES` row whose `slots` name its coordinates; a new operand source is one `ArraySource` case with its `operand` arm; a new conditioning is one `AdmitMode` row with its `condition` arm; a new finite class is one `FiniteGate` row with its forbidden-mask arm; a new sparse format is one `SparseLayout` row; a new backend rides `array_namespace` with zero new surface.
 - Boundary: no production tensor runtime; the numba LLVM JIT stays a loop-kernel accelerator on the solver owner; scipy 2-D sparse-matrix construction stays on `solvers/linear`; the mutate/copy fork (`is_writeable_array` gating `xpx.at`) belongs to transforming consumers of the same resolved `xp`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable
 from enum import StrEnum

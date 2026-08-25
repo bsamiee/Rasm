@@ -18,7 +18,7 @@
 - Growth: a new container algorithm is one bundle-page row set plus one arm in each of `pack`/`recover`; a new ZIP method is one `ZipMethod` token plus one `_zip_members` match arm; a new 7z filter is one `SevenZFilter` token plus one arm-scope ident entry; a new encryption mechanism lands the day `stream_zip` writes one, as one more derived pair in `_zip_trust` — container evidence rides the existing `entries`/`verified` slots, zero new verb beside `emit`/`packed`/`unpack`.
 - Boundary: no sibling import, no vocabulary re-own (bundle carries the knobs), no folder-minted limiter or retry caller, no receipt-case widening (container facts fold only through the `FileInfo` `uncompressed` sum), no wall-clock member stamp on the ZIP arm, no `async_stream_zip`/`async_stream_unzip` (both bridge onto their own thread executor; the kernels already cross the runtime `THREAD` lane, and a second loop-bridged executor beside it double-threads the crossing). Per-member stamps stay container-level by the reproducibility law — `names` is the one per-member axis, `"auto"` resolves ZIP32/ZIP64 per member by size and offset — so the deliberate collapse is the content-addressing contract, not a modeling gap.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable, Iterator
 from datetime import datetime

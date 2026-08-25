@@ -21,7 +21,7 @@ Every Compute execution path admitting unit-bearing text — a solver tolerance,
 - Growth: one table row on `QuantityFamily` per further AEC quantity, admitted only when a consumer exists — its canonical column sourcing from `QuantityInfo.BaseUnitInfo.Value`, its seam `Type` from `QuantityInfo.Name`, and its display column an explicit per-row `Enum`; each row declaring its own SI dimension so the composition fold covers it with no edit at `DIMENSIONAL_LAW`; the rows close the families the current symbolic, solver, and analysis consumers admit, so a speculative row with no consumer is the rejected addition; zero new surface.
 - Boundary: conversion runs exactly once at admission and interior numerics are raw doubles owned by Rasm core — a quantity type in an interior signature is the seam violation this table deletes. Absence crosses the UnitsNet edge as `Option` and never as a null, so no interior fold owns a null test. Refusals ride the direct `ComputeFault` arms `Symbolic/expression` owns: `ParseRejected`, `DimensionMismatch`, and `SymbolUndefined` retain distinct numeric identities. `UnitsNetSetup.Default` is the single setup root composed once at the composition root: its `UnitParser`, `UnitAbbreviations`, `QuantityParser`, and `UnitConverter` properties are the reads this page spells, because the `UnitParser.Default`/`UnitAbbreviationsCache.Default`/`UnitConverter.Default` facades are shortcuts FORWARDING to that root and a second spelling of one instance is drift waiting for a second setup. One exception survives: `UnitConverter.Convert`/`TryConvert` stay static reads because the root's converter publishes no instance twin, and a second setup instance is rejected. NodaTime owns interior time, so the duration row exists only to canonicalize boundary text to seconds before rail time takes over. `UnitProject` intents enter `Admit` and the `Pipeline` intent case composes it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -215,7 +215,7 @@ public sealed partial class AggregateOp {
 - Growth: a new admitted family is one `QuantityFamily` row carrying its own dimension declaration, which the total fold covers with zero edit here; a new cross-row identity is one row in `Relations` or `Reciprocals`; zero new surface.
 - Boundary: `UnitPolicy` binds at `Section` through the configuration rail and admits the resolved `CultureInfo` and `FormatSpec` ONCE, so no downstream fold re-tests a null culture or a blank format; a `Baseline` pinning `UnitSystem.SI` with no reader was decoration and is deleted — an `As(UnitSystem)` route is a row this owner adds when a consumer names it. Admission checks `Dimensions.Equals(Info.BaseDimensions)`, and `Consistency` proves declared, compound, and reciprocal claims through UnitsNet `BaseDimensions`, the declared leg comparing seam `Dimension` values so no local transposition exists to fall out of step. Numeric-only conversion rides `UnitsEdge.Convert` over the static `UnitConverter.TryConvert` — the one converter verb the setup root publishes no instance twin of — without constructing an `IQuantity`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class UnitPolicy {
@@ -310,7 +310,7 @@ public static class UnitAlgebra {
 - Growth: one `QuantityInfo` catalogue row per admitted family — the dashboard quantity picker derives from `Catalogue()` and its unit list from `Targets`; zero new surface.
 - Boundary: boundary text parses culture-scoped through `UnitsEdge.Parse` over `Quantity.TryParse(policy.Culture, Info.ValueType, ...)`, with `Resolve` owning abbreviation→`Enum` resolution through the same edge over `UnitsNetSetup.Default.UnitParser` and that root's `UnitAbbreviations`, whose lookup falls back to the invariant-culture abbreviation set when the policy culture lacks a localized one; both return `Option`, so an unresolvable abbreviation is absence at the boundary rather than a null the interior discovers. `Render` takes a `UnitProject` target unit as the resolved target override and renders through the boxed `IFormattable.ToString(format, culture)` face — the generic `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, …)` cannot bind a runtime-boxed `IQuantity`, so the boxed formattable face IS the dynamic rendering surface; the precision column is the format-string row carried on `UnitPolicy`, never a per-call-site `ToString` overload.
 
-```csharp signature
+```csharp
 public sealed partial class QuantityFamily {
     static readonly Lazy<Map<QuantityType, QuantityFamily>> ByType = new(static () =>
         toSeq(Items).Fold(Map<QuantityType, QuantityFamily>(), static (index, row) => index.Add(row.Type, row)));

@@ -23,7 +23,7 @@ The intelligence spine: five provider families fold onto one capability-asymmetr
 - Growth: a sixth provider is one row with its cells; an asymmetry axis (a batching endpoint, a reasoning-continuity carrier) is one column every row answers.
 - Packages: `@effect/ai` (`Model`, `LanguageModel`); `@effect/ai-openai`, `@effect/ai-anthropic`, `@effect/ai-google`, `@effect/ai-amazon-bedrock`, `@effect/ai-openrouter`; `../net/client.ts` (`Client` — the `HttpClient` policy row).
 
-```typescript signature
+```typescript
 import { AiError, type Chat, LanguageModel, Prompt, Response, Telemetry, Tokenizer, type Tool } from "@effect/ai"
 import { AnthropicClient, AnthropicLanguageModel, AnthropicTokenizer } from "@effect/ai-anthropic"
 import { AmazonBedrockClient, AmazonBedrockLanguageModel } from "@effect/ai-amazon-bedrock"
@@ -174,7 +174,7 @@ const Providers = {
 - Law: sampling is tier policy, not a call knob — `sampling` carries the package's own `RequestAttributes` band minus `model` (the tier already anchors that), so temperature, top-p, penalties, stop sequences, and seed travel with the row the gate prices and annotate the span from the same value.
 - Growth: a new tier is one table row; a per-tenant ladder is a table value selected by the caller's context.
 
-```typescript signature
+```typescript
 const _statusRows = [
   { at: (status: number) => status === 408 || status === 429, class: "exhausted" },
   { at: (status: number) => status === 401 || status === 403, class: "denied" },
@@ -269,7 +269,7 @@ const Ladder = { drive: _tiered, yields: _yields, grade: _classOf, after: _after
 - Law: tool-call ids are pluggable — the `IdGenerator` Tag rides the requirement set, and a durable agent supplies a deterministic generator Layer at its root so replayed turns mint identical tool-call ids and the workflow journal stays byte-stable across replay.
 - Growth: a screen or sweep policy is a predicate row on the gate's policy table; a new modality inherits the fold by construction; a provider gaining a namespaced telemetry module is one annotation row.
 
-```typescript signature
+```typescript
 const _LEG = "gate"
 
 const _refusals = Fault.Class.family(["screened", "swept", "provider", "stalled", "policy"] as const, {
@@ -578,7 +578,7 @@ const Spend = { of: _spend, exact: _exact, accounted: _accounted, finish: _finis
 - Growth: a per-provider exact meter for an unmetered row is one roster entry; a budget shape change (per-tool reply reserves) is one field on the pair.
 - Packages: `@effect/ai` (`Tokenizer`, `Prompt`); `@effect/ai-anthropic` (`AnthropicTokenizer`); `@effect/ai-openai` (`OpenAiTokenizer`); `effect` (`Effect`, `Array`, `Order`).
 
-```typescript signature
+```typescript
 const TokenBudget = Schema.Struct({
   window: Schema.Int.pipe(Schema.positive()),
   reply: Schema.Int.pipe(Schema.positive()),

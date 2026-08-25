@@ -23,7 +23,7 @@ Wire posture: HOST-LOCAL. `Seq<CutElement>` crosses to `Cam.Generate`; native ha
 - Growth: a new 3-axis operation is one strategy case, one operation row mapping, and one operation-specific capsule arm; a new cutter assembly shape is one relief row on the correspondence column its primary already declares. Simultaneous orientation rides the `Move.Orientation` payload the flank lane fills; indexed orientation needs none of it and rides `SurfaceFrame`. A new LAYOUT costs nothing here by construction: the caller mints its `SurfaceLayoutKey` and the injected generator answers it, so a kernel-owned field tracer — the `Rasm/Processing/flow` Morse atlas reached through `VectorIntent.Atlas`, whose `MorseGraph` projection yields the separatrix rows a flow or cross-field layout would drive on — composes inside that generator at the composition root and never inside this page.
 - Boundary: a caller-built drive set, a per-capsule triangle re-upload, path disposed before `run`, repeated `setPath` followed by one run, integer-code redispatch, flat loop/fiber decoding, unchecked output multiplication, non-finite native point, ignored contact-angle or residual payload, ambient thread count, or an unoriented station on the flank lane is a deleted form. The generator contract is DRIVES ALONE, so a layout-topology column on `SurfacePathReceipt` — fixed-point classes, separatrix rows, a Morse-graph handle — is the deleted form twice over: the generator returns no such evidence, so the column would have no producer, and a slot shaped for one of the fifteen layouts the key space spans sits dead under the other fourteen. A layout whose topology a consumer must read publishes it from the generator's own owner, keyed by the same `SurfaceLayoutKey`, never through this receipt.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
@@ -417,7 +417,7 @@ internal static class SurfacePath {
 - Packages: `vendor/ocl_shim/ocl_shim.cpp` is the package-owned `extern "C"` body — one shim export per declared `[LibraryImport]` entry point, `STLSurf` and `MillingCutter` each owning a handle family independent of operation lifetime, its status vocabulary the exact integers `Gate` lifts into `SampleStalled`; `vendor/ocl_shim/CMakeLists.txt` is the build owner, linking the shim SHARED against the shipped SHARED `libocl` per the LGPL dynamic-link law; the RID matrix rides `vendor/runtimes/<rid>/native/` — per RID the SHIM artifact the `Library` constant resolves (`win-x64/ocl_shim.dll`, `linux-x64/libocl_shim.so`, `osx-arm64/libocl_shim.dylib`) beside the upstream SHARED `libocl` it links — through the folder `.csproj`'s `Exists`-gated `Content` group.
 - Boundary: upstream OpenCAMLib has no C ABI. `ocl_shim.cpp` alone flattens C++ vectors and exposes opaque handles; raw handles, C++ mangled entry points, and unmanaged ownership never reach domain code; `libocl` stays dynamically linked and is never folded statically into the shim.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Numerics.Tensors;
@@ -1199,7 +1199,7 @@ internal static class OpenCamLib {
 }
 ```
 
-```cpp signature
+```cpp
 // --- [OPENCAMLIB_ABI_SHIM] -------------------------------------------------------------
 #include <array>
 #include <cmath>

@@ -23,7 +23,7 @@ Controller syntax is posting-owned and lives in ROWS: `FamilyGrammar` carries on
 - Receipt: `ProgramDelivery` reads `PhysicalRecords` as the transferred count, so the acknowledgement and the image agree on one census.
 - Packages: `Thinktecture.Runtime.Extensions` generates `ChecksumRule`, `SequenceCounter`, `RecordFrame`, `BlockLimit`, and `EmitPolicy`; `Encoding.GetBytes` and `ContentKey.Of` seal egress.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -154,7 +154,7 @@ public sealed record PostImage(
 - Growth: one grammar family adds one `FamilyGrammar` row; one control language adds one `MacroSyntax` and one `SubprogramSyntax` row; one vendor spelling adds one `CommandKeys` static and one `CodeOverrides` entry on the owning dialect row, or one `Codes` bundle member where a family of controllers spells it identically.
 - Boundary: these rows decide SPELLING alone — admissibility stays with `GCommand.Admits` and `PostDialect.Features`.
 
-```csharp signature
+```csharp
 // --- [GRAMMAR_ROWS] --------------------------------------------------------------------
 public sealed record FamilyGrammar(
     Func<PostDialect, GNode.Word, Fin<GWord>> Word,
@@ -241,7 +241,7 @@ public static partial class Dialect {
 - Receipt: subprogram definitions hoist into one label-keyed stream; identical definitions share one row, and conflicting bodies fail before rendering.
 - Boundary: `Dialect` never reparses, reconditions motion, invents absent command parameters, or maintains a second block-count projection. Parsed `Sequence` and `Checksum` values never survive, because `RecordFrame` owns numbering and digest on re-emission.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Dialect {
     public static Fin<PostImage> Emit(CutProgram program, EmitPolicy policy) =>
@@ -543,7 +543,7 @@ public static partial class Dialect {
 - Receipt: every `SpecializedToolpathEnvelope` arrives ADMITTED, so each row renders its evidence directly and no local revalidation runs.
 - Boundary: an annotation rides the family's own comment channel — parenthesised for word-address, semicolon for every other family — so a controller that ignores comments loses nothing.
 
-```csharp signature
+```csharp
 // --- [DIRECTIVES] ----------------------------------------------------------------------
 public static partial class Dialect {
     private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Directive(
@@ -643,7 +643,7 @@ public static partial class Dialect {
 - Auto: the extended and dynamic selection codes resolve through `CommandKeys.WcsExtended` and `CommandKeys.WcsDynamic` on the dialect's own override map, so a controller spelling either differently is one map entry.
 - Boundary: a dialect declaring no dynamic-frame or rotary feature refuses the slot rather than degrading it to a base offset that means a different frame.
 
-```csharp signature
+```csharp
 // --- [COORDINATES] ---------------------------------------------------------------------
 public static partial class Dialect {
     private static Fin<Seq<GWord>> WcsFrame(PostDialect dialect, GNode.CoordinateFrame node) => node.Assignment.Slot.Switch(
@@ -728,7 +728,7 @@ public static partial class Dialect {
 - Packages: `Riok.Mapperly` owns the descriptor projection; `Rasm.Fabrication.Ingress` owns `SteelHeader`, `SteelFeature`, `SteelContour`, and the `DstvMap` codec family this mapper composes.
 - Boundary: NC1 records carry their own fixed numeric spelling — a DSTV descriptor is read by field position and a controller-declared decimal count has no meaning in it — so this cluster renders through its own declared format rather than `PostDialect.Decimals`.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record Nc1Header(
     string OrderIdentification,
@@ -844,7 +844,7 @@ public static class Nc1Canonical {
 - Receipt: `Documentation/traveler` reads `Verified` as hold evidence.
 - Boundary: robot delivery rides the `CellDrive` upload channel, and a dialect gains no second delivery surface per transport.
 
-```csharp signature
+```csharp
 // --- [DELIVERY] ------------------------------------------------------------------------
 public sealed record ProgramDelivery(
     ContentKey Image,

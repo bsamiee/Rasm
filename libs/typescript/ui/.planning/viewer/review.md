@@ -17,7 +17,7 @@ Review joins `ModelDiff` changes and BCF issues by `GlobalId`, folds each topic'
 - Law: both vocabularies are the corpus's own — the change roster is the generated `kind` oneof's case names, the status roster the `BcfStatus` members `viewer/mark` narrows — so every table keys on a generated spelling, closes against it both ways, and mints no token of its own.
 - Boundary: `Review.rows` is the model-diff byte-ingress seam; BCF topics arrive decoded from their owning admission path.
 
-```typescript signature
+```typescript
 import { Wire } from "@rasm/core"
 import { BcfStatus } from "@rasm\/contracts/rasm/contracts/bcf/bcf_pb"
 import { Record } from "effect"
@@ -67,7 +67,7 @@ declare namespace Review {
 - Law: comments fold into ONE reply tree off `replyToGuid` — a root comment carries `None`, and a reply whose parent left the topic, or whose chain reaches no root at all, re-roots instead of vanishing: the wire admits a deleted parent, asserts no acyclicity, and a comment dropped from the tree is evidence lost.
 - Law: siblings hold wire time order at every depth, so a thread reads as it was written and no consumer re-sorts it.
 
-```typescript signature
+```typescript
 import { Array, DateTime, Effect, HashMap, Match, Option, Order, type ParseResult, pipe } from "effect"
 
 type GlobalId = Selection.Id
@@ -231,7 +231,7 @@ const _census = (rows: ReadonlyArray<Review.Row>): Review.Census =>
 - Law: identity rides the marker and nothing else — the `anchor` column carries `identity: true` and every other column states `false`, so the grid resolves the branded `GlobalId` through that column's own accessor and `RowSelectionState` keys on the same brand `viewer/mark` holds. Row-typed callbacks in the shared meta pin the one registered `columnMeta` to a single row shape and break it for the band fold at the other end.
 - Law: domain order crosses as DATA — the change column's VALUE is this vocabulary's own rank and the def names the grid's domain-blind `rank` key, while the painted cell stays the token. Sort keys named for this vocabulary seat viewer words in the view tier, which is the strata inversion.
 
-```typescript signature
+```typescript
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table"
 import type { Grid } from "../view/table.ts"
 
@@ -310,7 +310,7 @@ const _columns: ReadonlyArray<ColumnDef<Grid.Features, Review.Row, unknown>> = [
 - Law: the caller resolves branded ids to `Wire.GeoFeature.Extent`; review emits one selection op or camera intent.
 - Law: a viewpoint CARRYING a camera restores through `mark#VIEWPOINT_RESTORE`, which owns the `LookAt` mint from the wire block, so this owner answers `None` and re-derives nothing. Camera-less viewpoints anchor SELECTION only: the board frames each viewpoint's own selected band from the caller's extent read, and the echo and the tint land unchanged either way.
 
-```typescript signature
+```typescript
 import { Camera } from "./geo.ts"
 import { Selection } from "./mark.ts"
 

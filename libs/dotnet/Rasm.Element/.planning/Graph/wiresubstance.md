@@ -15,7 +15,7 @@
 - Packages: Google.Protobuf, Mapperly, NodaTime.Serialization.Protobuf, LanguageExt, and Thinktecture compose the generated support closure coordinated at `Graph/wire#NODE_CODEC`.
 - Growth: a new column is one append-only corpus field and one transcription member; a new union case also updates the `CrossingFamily` arm count so the parity census rejects a half-landed pair.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Diagnostics;

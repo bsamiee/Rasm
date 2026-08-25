@@ -34,7 +34,7 @@ This table routes an interaction concern to its owning surface; the most specifi
 - Law: headless is a production row — frames advance only on `ForceRenderTimerTick` and the `CaptureRenderedFrame` verb, so an animation or debounce that fails under forced ticks has smuggled wall time; synthetic input drives the real pipeline with provenance in its trigger evidence, and capture against a stub row is a typed mount-time rejection, never an empty bitmap downstream.
 - Exemption: the builder fold and the startup-edge body are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class SurfaceRow {
     public static readonly SurfaceRow Shell = new("<row-a>",
@@ -80,7 +80,7 @@ public static class Mount {
 - Law: persistence is two rails — the serialized layout string and `DockState` content rebound by `Id`, structure first — and dockable `Id` and catalog key are one vocabulary; hide is soft-close preserving the instance for restore, `OnDockableClosing`/`OnWindowClosing` are the only close vetoes, and a named workspace is a capture-and-restore command-row pair, so a layout preset is data with two outcomes, never an arranging procedure.
 - Law: factory lifecycle hooks fold into one layout-fact stream feeding dirty-edge capture, activation policy, and unsaved-work gating; `DockSettings` statics apply once at the composition root, and workspace capture rides `WorkspaceDirtyChanged` edges on the drain band, never window `Closing` handlers, because the model graph stays coherent mid-gesture while visual state does not — placement capture clamps saved geometry against the live screen set and folds minimized or mid-drag bounds to last settled values, so restore never lands off-screen.
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class DockRole {
     public static readonly DockRole Document = new();
@@ -153,7 +153,7 @@ public static class Spine {
 - Law: property-scoped rows feed field adorners through the error-info bridge (`GetErrors`/`ErrorsChanged`) while the all-rows-valid fold feeds availability — one row set, two read altitudes — and that fold is a canonical availability input: submit rows gate through the availability fold, never code-behind disabling, with a pending async probe projecting invalid-with-message so the gate stays conservative without a tri-state flag.
 - Law: a rule is a SUBSCRIPTION with a lifetime — registration seats the slot and disposal retires it — so a mode shift re-registers rather than mutating a table, a slot claimed twice refuses on the typed rail rather than silently shadowing, and every row retires with the screen.
 
-```csharp conceptual
+```csharp
 public sealed class EditScreen : ReactiveObject, IActivatableViewModel, INotifyDataErrorInfo, IDisposable {
     readonly CompositeDisposable rules = new();
     readonly BehaviorSubject<HashMap<string, Seq<string>>> slots = new(HashMap<string, Seq<string>>());
@@ -216,7 +216,7 @@ public sealed class EditScreen : ReactiveObject, IActivatableViewModel, INotifyD
 - Law: the `ICommand` bridge returns the cached value and ignores the parameter — parameter-dependent availability is structurally inexpressible at the control seam and enters as a typed input; the bridge maps null to `default(TParam)` silently and throws on a wrong-typed parameter at invoke time, not bind time, `CanExecuteChanged` raises only on distinct transitions, and OS menu exports subscribe it weakly, so rows never leak through native menus.
 - Law: key tables derive from the gesture column — `KeyGesture.Parse` admits the invariant form, the platform format renders display text, and the two never cross — with the conflict fold over (scope × gesture) run at composition, rejecting duplicates as typed outcomes instead of runtime shadowing; rate shaping (throttle, debounce) lives on trigger rows, never in execute bodies, and cancel verbs are sibling rows gated on the target's `IsExecuting` with cancellation flowing through the carrier.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Trigger {
     private Trigger() { }
@@ -289,7 +289,7 @@ public static class CommandTable {
 - Law: editors are registry rows — priority-ordered `ICellEditFactory` accept-match for structured values, grammar rows by scope for text (`InstallTextMate`, `SetGrammar`), palette policies for color — and scrub-versus-commit is the uniform dual channel: preview drives cheap visuals, commit drives the outcomeed mutation, and binding the mutation to the preview channel floods admission at pointer-move rate; durable text positions are anchors, never offsets, and editor theme follows the application variant through `SetTheme` on the variant edge.
 - Law: one viewport owner per canvas — `ZoomBorder` owns the pan-zoom transform exclusively, input policy and constraint clamps are declared rows, and camera state is an observed stream like grid selection, so typed viewport state rides the workspace rails, never scraped transform fields; reveal-on-selection is one intent row across grids, trees, and canvases — `ScrollIntoView` or `ZoomToRectangle` per surface kind — gated on selection non-emptiness.
 
-```csharp conceptual
+```csharp
 public sealed record Entry(string Key, string Parent, string Path, int Rank);
 
 public sealed class RowModel(int depth, Entry entry) : IDisposable {
@@ -349,7 +349,7 @@ public static class BindingEdge {
 - Law: modal state is host-addressable — `DialogHost` by `Identifier`, the awaited task is the outcome, `DialogHost.Close(identifier, parameter)` supplies the result — so free-floating modal windows are rejected; markup-opened dialogs land in the same session stack, `CloseOnClickAway` is host policy rather than a per-dialog argument, and the session is one handler of an `Interaction`, because a view-model calling the dialog rail directly couples to presentation and forecloses the headless auto-answer.
 - Law: sessions are first-class — `UpdateContent` morphs a live session, so a wizard is a fold over step states inside one session with the final close parameter as the whole flow's outcome, and the closing veto guards mid-flow abandonment.
 
-```csharp conceptual
+```csharp
 [SmartEnum]
 public sealed partial class Posture {
     public static readonly Posture Present = new();
@@ -416,7 +416,7 @@ public static class PresentationGate {
 - Law: locale rides the same keys through atomic resource swap, and the locale row carries its direction — applying a locale folds (dictionary swap × `FlowDirection` × gesture display refresh) in one place; owner-drawn content reads its own `FlowDirection` or ships un-mirrored in RTL locales with no diagnostic, and mnemonic markers ride the access-text primitive beside the `AccessKey` row, so accelerators localize with the header.
 - Law: the headless walk is the derivation audit — automation names, gestures, tab cycles, and locale-key totality diff against the table as typed outcomes — and anything provable headless holds windowed because the mount law is shared; a windowed-versus-headless divergence is a row-capability fact, repaired as a row edit, never a screen patch.
 
-```csharp conceptual
+```csharp
 public sealed record Edge(PlatformColorValues Values, Option<string> Pinned, bool Compact) {
     public (string Axis, string Variant, string Density) Selected =>
         ("<axis-theme>",

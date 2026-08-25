@@ -19,7 +19,7 @@
 - Growth: a new AEC marker is one `SymbolKind` case plus one `_element` arm, one `_dxf_block` arm, and one `_signature` arm — the five compound primitives cover the geometry; a new identity-tag kind is one `TagShape` member, zero new cases; a new egress one `SymbolTarget` member plus one `_ENGINES` row; a new visual axis one `SymbolStyle` field; a new named terminal one `self.anchors` key; a new alignment axis one `_grid_runs` band plus one `kiwisolver` constraint at its `strength` band; a new line-end one `drawing/regime#REGIME` `Terminator` member plus its one lowering row there, and one arm on each backend that draws it; a new receipt fact one scalar the shared `ArtifactReceipt.Drawing` carries.
 - Boundary: no sheet-set, dimension, or annotation logic (`composition/sheet#SHEET`/`drawing/dimension#DIMENSION`/`drawing/annotate#ANNOTATE`); no IFC semantics (`dotnet:Rasm.Bim`); identity minting is the runtime's. `graphic/vector/region#REGION` owns the SVG↔raster and the landed `boolean`/`outline` a filled-band match line or unioned north silhouette composes; `graphic/layer#LAYER` owns the layer vocabulary; `composition/sheet#SHEET` owns the cell placement.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 import math

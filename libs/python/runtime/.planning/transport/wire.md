@@ -21,7 +21,7 @@ Every decode rides the one `Decode` aspect — a direction-parameterized OTel sp
 - Growth: a new wire boundary composes `Decode.railed`/`routed` and inherits span and fault with zero new cross-cutting code; a new transport direction is one `(row, kind, annotate)` triple on `_traced`, its row supplying span head and fault coordinate at once; a new cross-language wire is a corpus message and imports its generated class — it earns no codec here.
 - Boundary: every leg crosses the `railed`/`routed` span-and-`boundary` fence and the terminal decode fault converts exactly once — never a bare exception across a handler and never a second async rail.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 
@@ -89,7 +89,7 @@ class Decode:
 - Entry: `OpLogCodec.decode` admits the native outer envelope; `CrdtOpCodec.ops` selects its CRDT lane and decodes the generated payload while retaining the outer operation id. `CrdtOpCodec.encode` independently serializes an already-authored generated message and is not a semantic minter.
 - Growth: a new envelope column is one `OpLogEntry` field the producer pins first, never a sibling struct; a new op kind is one corpus oneof arm, one identity-aware `replayed` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the descriptor member first, the companion regenerates, never ahead of the wire; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` seam on the cached codecs, never a parallel decoder. Compression remains a transport concern and never changes this message shape.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from typing import Final, Literal
@@ -289,7 +289,7 @@ def _ordered(op: crdt_pb.CrdtOpWire, /) -> None:
 - Growth: a new convergence family is one `CrdtState` column with its own absorb method and its arms' routing rows; a new op on a standing family is one arm and no column; a new tiebreak axis is one field on the family that needs it, reaching the fold through its own method; a new family projection is one method on the family that owns its state, never a reader seated on `CrdtState` or re-derived at a consumer.
 - Boundary: this owner materializes and never transports — the codec above owns the bytes, the clock owner the comparison algebra, and the durable op-log its own persistence. No column carries a wall-clock instant: ordering is the `Hlc` cell alone, so a host whose clock drifts still converges.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from typing import Final, assert_never
 

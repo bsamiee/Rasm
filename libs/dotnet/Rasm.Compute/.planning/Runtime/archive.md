@@ -20,7 +20,7 @@ Rasm.Compute owns ONE HDF5 container-session capsule for the whole branch: every
 - Growth: a new archive artifact class (solver time-history, modal basis, ensemble store, sparse-operator exchange, checkpoint, response corpus) is a CONSUMER declaring its own slots and attributes to the `[03]-[CHUNK_CURSOR]` `ArchiveSession` capsule, or composing `Session`/`Open` on the read side — zero rows here; a new filter is one `H5Filter.Register` row inside `Mount` beside one `FilterStage` row carrying its id, rank, and mint; a new source modality is one `HdfSource` case whose `Parallel` column states its law and whose value the `Fan` entry reads.
 - Boundary: `Op.Catch` admits every PureHDF throw as its original `Error`; typed archive refusals arise only from explicit shape, policy, and capacity decisions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record HdfSource {
@@ -182,7 +182,7 @@ public static class HdfArchive {
 - Growth: a new archive artifact class DECLARES its slots and attributes and takes its cursors off the one session — zero rows here; a new attribute shape is one `ArchiveAttribute` case; a new grid-shaping law is one column on `ChunkGrid` the derivation reads.
 - Boundary: `Chunks can only be written once.` throws from the library's v4 index MID-ENCODE, after the producing work is already spent — the cursor refuses at admission instead, and with the ordinal no longer a parameter the refusal is a state no caller can construct; `ChunkGrid` is the SINGLE owner of the ordinal correspondence, so derivation, edge-clipped write selection, and packed-payload projection cannot fork; `LogicalSlice` never claims an encoded-file byte range because HDF5 filter output and chunk-index placement are provider-owned; the grid is a value with no container attached, so a producer derives one before any file exists and an ingest seats the container's own without a second concept entering.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ChunkGrid {

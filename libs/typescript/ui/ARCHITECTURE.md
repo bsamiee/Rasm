@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 ui/
 ├── src/
 │   ├── system/           # Component system floor the view and viewer strata instantiate

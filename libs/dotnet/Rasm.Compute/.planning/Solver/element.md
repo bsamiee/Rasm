@@ -25,7 +25,7 @@ The volumetric facet tables are the kernel's: `Rasm/Meshing/mesh#MESH_SPACE` `Ce
 - Exemption: the `dim×dim` Jacobian inverse, the 12×12 frame congruence, the Vandermonde accumulation, and the serendipity formula bodies are MEASURED span kernels — fixed-size dense arithmetic over `stackalloc`/pooled planes with no traversal shape to fold. Every one of them dies with the call that fills it and none crosses a page surface.
 - Boundary: the mesh is solve-native raw SI `double` — the typed `MeasureValue`/`Dimension` vocabulary lives at the `Rasm.Element/Properties/quantity#MEASURE_VALUE` seam and is admitted once upstream, never threaded through this hot numeric kernel; metric reductions ride the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives` SIMD folds over the flat per-element span, and MathNet factors only the cold per-class Vandermonde inverse.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
@@ -452,7 +452,7 @@ public static class ElementTopology {
 - Boundary: the canonical preimage is the kernel's — `CanonicalWriter` is the ONE public way to emit a multi-field preimage, and a hand `ArrayBufferWriter<byte>` walk writing fifteen unframed doubles with no length prefix and no tolerance quantization is the deleted form the identity owner exists to foreclose. Tolerance is PART OF THE KEY, so a member preimage carries the caller's grid rather than raw bits two near-identical sections address as two identities.
 - Boundary: `Up` carries the member roll — the AxisCurve's own orientation vector — so the local triad is (x̂ along axis, ẑ the up projected orthogonal to x̂, ŷ = ẑ×x̂); a roll derived from the global direction alone cannot represent an arbitrarily rotated section and is the deleted form. A near-parallel up degenerates to the global-Z (or global-Y for verticals) fallback so the triad stays orthonormal.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

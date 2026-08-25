@@ -18,7 +18,7 @@ Estimators ride a `TransportEstimator` row, never a debias flag; the iteration b
 - Cases: `TransportEstimator` rows name WHICH divergence the solve reports — `Entropic` the raw regularized cost, `Debiased` the Sinkhorn divergence that subtracts both self-transport halves — so the two-solve leg is a row the fold switches on rather than a boolean the reader re-interprets at every site. `SinkhornResidualKind` derives from `MassRelaxation`, never a caller flag — the marginal test is meaningless under relaxation — and `SinkhornStopKind` is the `(residual kind × converged)` PRODUCT of that derivation, minted only through `Of` so the stop cannot disagree with the residual it reports; budget exhaustion therefore reads as a partial plan the caller retries under a wider budget, never a failure. NAMED LOSS: the receipt no longer re-derives convergence from its own residual pair, because `Advance` is the single comparison site and a second derivation was the second authority the mirror existed to police.
 - Law: the two floors are `Domain/context` lanes, not page constants — `ToleranceLane.Convergence` sets the residual target and `ToleranceLane.Neglect` the coupling cutoff, so a model that tightens either tightens this solve with no second knob.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance;
@@ -107,7 +107,7 @@ public readonly record struct CloudTransportPolicy(
 - Growth: a new transport mode is one `TransportEstimator` row and one arm over the same kernel and receipt vocabulary, never a second solver body; a new stop species is one `SinkhornStopKind` row.
 - Boundary: the two `(m, n)` planes are the named statement kernel with a `Fin` rail at both edges, confined to the solve body — ONE rental each, addressed through the `Memory2D<T>` view, so the flat buffer serves only the whole-plane `TensorPrimitives` reductions and no site re-derives an offset; the coupling leaves only as a `matrix.md` `Matrix` through its projection row; `MinPositiveNormal` is THE underflow anchor and `LogUnderflowFloor` derives from it, so an ad-hoc `Math.Exp` on an unfloored exponent re-introduces the silent-zero defect; `typeof(TOut)` resolution routes `ProjectionRow` entries through `atoms.md` `AtomProjection.Rows`, never a reflection ladder.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CloudTransport {
     internal static readonly double MinPositiveNormal = BitConverter.UInt64BitsToDouble(0x0010_0000_0000_0000UL);
@@ -316,7 +316,7 @@ public readonly record struct SinkhornReceipt(
 - Growth: a new pairing statistic is one column on the set and one term in the single-pass fold; a new order statistic is one percentile on the `Distribution<Scalar>` call and no new column at all.
 - Boundary: the cutoff is the policy's and EVERY floor on this rail reads it — the census, the confidence denominator, the RMSE fallback, and the barycentric row mass — so a second ad-hoc epsilon is the double-policy defect and a length-scale anchor never gates a probability mass; order statistics come off `Domain/stats` `Distribution<Scalar>`, the branch's ONE exact-quantile owner, so a transport quantile and a statistics quantile cannot disagree on one sample set; index pairs refer to ADMITTED cluster vertices, so `cloud.md`'s `OriginalToUnique` re-indexing has already happened upstream and correspondence indices never see pre-deduplication positions.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudCorrespondence(

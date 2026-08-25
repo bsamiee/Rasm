@@ -25,7 +25,7 @@
 - Packages: RhinoCommon `Font`/`FontQuartet` per `.api/api-rhinocommon-drafting-resources.md` `[FONT_RESOLUTION]`/`[FONT_NAMES]`/`[FONT_METRICS]`/`[FONT_QUARTET]`, `AnnotationBase` decoration members per `.api/api-rhinocommon-annotation.md` `[03]`/`[04]`; `Domain/validation` (`CapabilitySet<T>`, `CapabilityLaw<T>`, `ICapability<T>`, `Op.Row`, `Op.AcceptValidated`); `Document/tables.md` (`ResourceName`); `Document/session.md` (`DraftFault`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: a host decoration member joins as one column on the row that already names its concept; a new specialty reading is one `FaceTrait` row every census and descriptor gains without another column.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Specialized;
@@ -264,7 +264,7 @@ public abstract partial record FaceCensusAnswer {
 - Packages: RhinoCommon `Font` statics and `DimStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[FONT_RESOLUTION]`; `Document/tables.md` (`ResourceRef`, `ResourceIndex`); `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op` receivers).
 - Growth: a second face mutation is one `TypefaceOp` case beside the bind; the census gains a request row and its answer row together.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TypefaceOp {
@@ -369,7 +369,7 @@ public static class Typefaces {
 - Packages: `Annotation/style.md` (`FieldTable<TOwner, THostEnum>`, `FieldSeat<TOwner>`, `StyleValue`, `DraftScale`, `DraftAngle`); `Annotation/linetype.md` (`StrokeDef`, `LinetypeOp.Lens`); `Annotation/hatch.md` (`HatchSpec.Lens`); `Document/layers.md` (`PrintPen`); `Domain/rails` (`Custody`); `Numerics/atoms` (`PerceptualColor`); RhinoCommon `SectionStyle` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_STYLE]`/`[SECTION_FILL]`/`[SECTION_BOUNDARY]`/`[SECTION_HATCH]`/`[SECTION_STATE]`.
 - Growth: a catalog-proven `SectionStyle` property is one `SectionField` row through its adapter; the defaults snapshot, every restore, and every write gain it without another surface.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SectionAxis {
@@ -657,7 +657,7 @@ public sealed partial class SectionSpec {
 - Packages: `Annotation/style.md` (`TableGrip<T, TDef>`, `TableOp<T, TDef>`, `TagSurface`, `DraftScale`, `DraftAngle`); `Annotation/hatch.md` (`PatternDef`); `Annotation/linetype.md` (`StrokeDef`); `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`); `Document/facts.md` (`FactStream`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`); RhinoCommon `SectionStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_TABLE]`.
 - Growth: a section-only verb is one `SectionOp` case with its arm; a verb every component table shares is one `TableOp` case; a new landing kind is one `ImportLanding` mint carrying its reversal.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class SectionSource {

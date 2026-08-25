@@ -23,7 +23,7 @@ Cache keys durable browser-resident bands by `Digest.Key<"content">`, verifies e
 - Boundary: fetching, haul scheduling, and byte budgets are `runtime/browser/fetch`'s and reach this plane as already-verified octets; the persistence GRANT and the `navigator.storage` estimate are that same plane's owned native calls, arriving here as the `Cache.Budget` value `[05]` reads; the Layer satisfying the Tag is the app root's own composition, and the decoded value a band re-warms into lives in an atom, never here.
 - Growth: a new band is one `_BANDS` row; a new leaf shape is data the entry already carries; a new store backend is a Layer at the composition root.
 
-```typescript signature
+```typescript
 import { KeyValueStore } from "@effect/platform"
 import { Digest } from "@rasm/core"
 import { Array, DateTime, Effect, Layer, Schema } from "effect"
@@ -90,7 +90,7 @@ const _store = (segment: string): Layer.Layer<KeyValueStore.KeyValueStore> =>
 - Law: two legs partition the refusal — `integrity` names damage inside the stored entry, so the gate retires it and re-mints, and `store` names the host refusing an entry that is sound, where retiring would destroy live bytes; `evict` therefore DERIVES off the leg rather than riding a stored column beside it.
 - Law: each reason declares the subject it renders — a torn leaf names the slot and the leaf it promised, a key mismatch names both the address and the digest the bytes minted to, and a host refusal names the scope and the cause it carried; one shared free-string detail re-opens the axis `reason` already closed.
 
-```typescript signature
+```typescript
 import { Fault } from "@rasm/core"
 import { Array, Effect, Schema } from "effect"
 
@@ -182,7 +182,7 @@ const _verified = (entry: Entry, leaves: Cache.Leaves): Effect.Effect<Cache.Leav
 - Law: the caller's own fault channel rides through untouched — `mint` fails on its own rail and this entry adds only `CacheFault`, so a cold-start warm that cannot fetch reports the fetch's reason rather than a cache reason wearing it.
 - Boundary: reassembly is the consumer's — `viewer/scene` deserializes a `bvh` bundle's leaves onto its geometry BY POSITION, matching the mesh order its own `GlbViewport.Snapshots` array contract already reads back, and `view/chart` reads a `frame` bundle's IPC leaf; this owner returns ordered named octets and interprets none of them.
 
-```typescript signature
+```typescript
 import { HashMap, Option, Predicate } from "effect"
 
 declare namespace Cache {
@@ -298,7 +298,7 @@ const _resident = <E, R>(
 - Law: the sweep takes whole entries — a partially reclaimed entry leaves a ledger row promising leaves that no longer exist, which is exactly the `leaf-torn` state the gate exists to catch; the fold therefore overshoots its target rather than splitting a victim.
 - Law: reclaim states its own arithmetic — `freed` is the victim fold's measured sum against the `target` the pressure row named, so a sweep that exhausted every remintable band and still fell short is distinguishable from one that met its target instead of reading as the same key list; the next budget the composing root supplies is still the measurement of the store, and a running total carried across sweeps is a tally no producer took.
 
-```typescript signature
+```typescript
 import { Order } from "effect"
 
 declare namespace Cache {

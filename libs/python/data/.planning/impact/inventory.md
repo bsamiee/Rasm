@@ -20,7 +20,7 @@ The pipeline's linking quality is a RECEIPT, never a print: `statistics()`'s `(n
 - Growth: a new source format is one `IngestSource` case naming its importer; a new linking move is one `Resolution` case; a new receipt fact is one `IngestReceipt` field, `Option`-shaped wherever a source leg can leave it unmeasured; a new refusal law is one `FaultRow` row on this module's `RAISES` table; a project-specific remap is one strategy function, zero page edits.
 - Boundary: no matrix assembly, no solve, no prospective build (`impact/scenario#SCENARIO` owns premise), no EPD parsing (the carrier's declaration arms own wires); backup/restore (`backup_project_directory`) is composition-root operations, not an owner surface; `imp.data` never leaks — the pipeline's interior `list[dict]` stays inside the boundary leg.
 
-```python signature
+```python
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -234,7 +234,7 @@ class Inventory(Struct, frozen=True):
 - Growth: a new resource kind is one `add_persistent_vector` call shape on the same handle; a new matrix name is one `Matrix` member; zero new surface.
 - Boundary: no solve (the arrays hand to `bw2calc` as `data_objs`), no ingestion (the pipeline above writes databases, not packages), no premise build (the superstructure datapackage premise emits arrives as a stored package this owner merely loads).
 
-```python signature
+```python
 class Matrix(StrEnum):
     TECHNOSPHERE = "technosphere_matrix"
     BIOSPHERE = "biosphere_matrix"

@@ -20,7 +20,7 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 - Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; a new by-reference payload kind composes `BlobKey`; canonical vocabulary grows only on the KERNEL writer, and the dimensioned leg on `Properties/quantity#MEASURE_CANON`.
 - Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers render and admit through the `[ObjectFactory<string>]` factory. Admission is upper-case-strict: exactly the 32 characters `ToValue` emits. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.IO.Hashing;
@@ -128,7 +128,7 @@ public sealed partial class BlobKey {
 - Growth: a new member SET on the snapshot address is one column here and one section in the private fold, landed in the same edit so the two projections cannot diverge; a new delta slot is one arm in `Advance`. A second accumulator shape, a witness carrying a prior ADDRESS rather than its members, and an incremental path re-deriving the layout are each the deleted form.
 - Boundary: a tolerance-changing header returns `GraphMemberStep.Refold` as an ordinary outcome — the accumulator retains addresses, not payloads, so it cannot re-quantize. Malformed normal form and absent members remain failures on `Fin`; a caller may never hide them behind the refold. `Header.SameGrid` is the one bitwise grid law, and `Edges` retains multiplicity because a count-less set collapses legal parallel edges.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record GraphMemberStep {

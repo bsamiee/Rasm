@@ -19,7 +19,7 @@ The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed da
 - Law: assembly is data — a folder exports `Toolkit.make(...tools)` values; the composition root merges selected toolkits with `Toolkit.merge` and binds handlers with `toolkit.toLayer(handlers)` where the handler record is compiler-checked exhaustive; `Toolkit.empty` seeds gated calls that admit no tools.
 - Law: `Tool.make` and `Toolkit.make` are used directly — a local wrapper renaming the declaration surface is the one-hop defect; this page adds vocabulary beside the package surface, never in front of it.
 
-```typescript signature
+```typescript
 import { McpSchema, McpServer, type Response, Tool, Toolkit } from "@effect/ai"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js"
@@ -97,7 +97,7 @@ class ToolFault extends Schema.TaggedError<ToolFault>()("ToolFault", {
 - Growth: a new blast class is one tuple entry plus one column on each mode row; a new mode is one row; a per-tenant mode override is a mode value carried on the caller's context, resolved before `admit`.
 - Packages: `@effect/ai` (`Tool`); `effect` (`Array`, `Context`, `Option`, `Record`).
 
-```typescript signature
+```typescript
 const _classes = ["read", "write", "spend", "destroy"] as const
 const _modes = {
   autonomous: { read: "auto", write: "auto", spend: "held", destroy: "deny" },
@@ -177,7 +177,7 @@ const Safety = {
 - Growth: a provider's new built-in is one ledger row; a package gaining its first provider-defined tool contributes one row band with its own constructors and one residue cell for the family it opens.
 - Packages: `@effect/ai` (`Tool.ProviderDefined`); `@effect/ai-amazon-bedrock` (`AmazonBedrockTool`); `@effect/ai-anthropic` (`AnthropicTool`); `@effect/ai-google` (`GoogleTool`); `@effect/ai-openai` (`OpenAiTool`).
 
-```typescript signature
+```typescript
 const _Display = Schema.Struct({
   width: Schema.Int.pipe(Schema.positive()),
   height: Schema.Int.pipe(Schema.positive()),
@@ -263,7 +263,7 @@ const Arsenal = {
 - Growth: a new hosted capability is one row on the merged Layer set; a second transport deployment is an arm selection at the root.
 - Packages: `@effect/ai` (`McpServer`, `McpSchema`); `effect` (`Layer`, `Schema`).
 
-```typescript signature
+```typescript
 declare namespace Host {
   type Spec<Tools extends Record<string, Tool.Any>> = {
     readonly name: string
@@ -312,7 +312,7 @@ const Host = { serve: _serve, confirm: _confirm, artifact: _artifactResource }
 - Law: every SDK rejection folds to `ToolFault` through one triage — `UnauthorizedError` to `declined`, an `McpError` carrying the request-timeout code to `lapsed`, the caller's stated reason otherwise — and the fault's class column routes retry through the caller's budget exactly like every other rail. `Match.instanceOf` arms carry the triage over an open `unknown` residue, so `Match.orElse` is its lawful terminal.
 - Growth: a new server is a dial spec value; a new SDK capability (tasks, sampling, roots) is one more member on the `Session` owner beside one handler in the dial scope.
 
-```typescript signature
+```typescript
 const _UPDATES = 256
 
 declare namespace Remote {

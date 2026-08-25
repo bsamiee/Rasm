@@ -43,7 +43,7 @@ xunit.v3 packages carry the whole .NET proof estate: `xunit.v3.assert` is the as
 |  [09]   | `Assert.Fail(string?)` / `Assert.Multiple(params Action[])` | control   | explicit failure and aggregated multi-check                    |
 |  [10]   | `[Fact(Explicit = true)]`                                   | discovery | explicit-only cases; run via `-- --explicit only`              |
 
-```csharp signature
+```csharp
 public class FactAttribute : Attribute, IFactAttribute {
     public string? DisplayName { get; set; }
     public bool Explicit { get; set; }

@@ -18,7 +18,7 @@
 - Growth: a new crossing cause is one fault case; a new document message channel is one `Severity` row.
 - Boundary: `Op.Catch` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
@@ -123,7 +123,7 @@ public sealed record Notice(
 - Boundary: presence law remains the pin's declared host `Requirement`; a failed ingress becomes `GhFault.Absent`, and all metadata reconstruction uses the `Pear<T>.Create(T, MetaData)` mint.
 - Law: `GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` are the host's own dedicated typed reads and `Read<T>` composes them by preference where the target type matches — the host publishes them beside the generic path precisely because they own their conversion, so routing those two targets through `GetPear<T>` bets on an equivalence the host never states.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
@@ -287,7 +287,7 @@ public static class GardenData {
 - Growth: a new conversion route is one broker row; a new geometry family member is one union case with one probe arm.
 - Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives typed carriers and receipts only, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
@@ -465,7 +465,7 @@ public static class Coerce {
 - Law: the unit carrier is whatever the host publishes and nothing richer — `IDataAccess.GetUnitSystem` answers a bare `UnitSystem`, so the projection takes the kernel's `UnitSystem` admission arm and a CUSTOM-unit document refuses at that gate, because a custom regime's scale and name live only on a `LengthUnit` this access surface never yields. Synthesizing a meters-per-unit factor from the host's scale query to force the admission mints a unit identity no host fact carries, so the refusal is the honest terminal until GH2 publishes the length unit.
 - Boundary: every kernel call consumes the admitted `Context`, so raw GH2 tolerance values stop at this projection. `ScalingTo` is the HOST's answer to a host question and never a second cross-context scale owner — a kernel-space rescale is `ModelUnit.ScaleTo` off the admitted `Context.Unit`, and a call that reaches for the host factor to convert kernel measures forks the one scale owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;

@@ -52,7 +52,7 @@ Every cross-language seam resolves to one generated surface; the table names the
 - Law: field-scoped refusals cross as `google.rpc.BadRequest.FieldViolation` rows on the detail — the one place a field path crosses — each carrying the row's defect token as `reason`; the fault's tag, detail string, and facts stay LOCAL on the producer's span and log line, joinable on the detail's correlation.
 - Reject: `int(Code)`; a `FaultDetail` built from a status; a hand trailer beside the details channel; a consumer that decodes `domain` into its own union; a second code-to-fault table beside the one the transport owner declares.
 
-```python conceptual
+```python
 from collections.abc import AsyncIterator, Callable, Iterable
 from typing import Final, Literal
 

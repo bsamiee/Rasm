@@ -16,7 +16,7 @@ Dual-certificate proof of global optimality the first-order design loop and the 
 - Packages: `clarabel`, `scs`, and `highspy` are admitted only through their `solver=` selectors off the `_BACKEND` row, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides only the scalar-leaf carriers (`ConvexEvidence`, `ConvexReceipt`) while the container/closure carriers (`Policy`, `Fields`, `ConeRow`, `ConeKKT`) stay GC-tracked; problem data admits as `numerics/array#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
 - Growth: a new cone family is one `ConvexProgram` case with one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve backend is one `Backend` member and one `_BACKEND` row naming its selector and covered cone families; a new solve-policy axis is one `Policy` field rather than a positional slot threaded through six factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from operator import attrgetter

@@ -18,7 +18,7 @@
 - Growth: a new monotone query is one verdict function through `Reach`; a new state-threading query is one `step` through `Descend`; neither mints a frontier.
 - Packages: QuikGraph (`GraphExtensions.ToDelegateVertexAndEdgeListGraph`, `BreadthFirstSearchAlgorithm`, `EdgeRecorderObserver`, `SEdge`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -94,7 +94,7 @@ internal static class NodeWalk {
 - Growth: a new kernel is one `SpatialKind` row over the shared `NodeStore` and one `Builder` column on the case it mints, a new query one `SpatialQuery` case with its `QueryKind` row and `Query` arm, a new op one `SpatialOp` case and `Apply` arm, a new knob one `BuildPolicy` column; a new node layout is one `SpatialIndex` case, admitted only by charter amendment.
 - Boundary: every failure routes the one `Fin` rail — `GeometryFault` on the geometry channel, `key.InvalidInput()` on the admission channel; point k-NN and radius over a bare point set route `neighbors.md`. `NodeLinkProjection` is the producer of the clash node-link branch golden `tests/dotnet/README.md` `[09]-[SNAPSHOTS]` registers — producer and every decoder are C#, so the wire binds no peer runtime and earns no `libs/contracts/manifest.json` seat.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

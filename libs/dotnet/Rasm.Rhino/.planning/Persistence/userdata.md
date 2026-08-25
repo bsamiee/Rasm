@@ -19,7 +19,7 @@
 - Growth: a new participant is one `IArchiveCodec` conformer; a new integrity dimension is one column on the owning case with every reader loudly broken.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ComplexValueObject]`, `[Union]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `HashSet`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.InvalidResult`), `Domain/validation` (`IValidityEvidence`, `ValidityClaim`); `Persistence/presets` (`PersistenceFault`), `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[ARCHIVE_IO]` — `WriteDictionary`, `ReadDictionary`, `BeginWrite3dmChunk`/`EndWrite3dmChunk`, `BeginRead3dmChunk`/`EndRead3dmChunk`, `EnableCRCCalculation`, `WriteEmptyCheckSum`, `ReadCheckSum`, `WriteErrorOccured`, `ReadErrorOccured`, `Archive3dmVersion`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -208,7 +208,7 @@ public static class ArchiveIo {
 - Growth: a new host callback is one sealed override over the same `Adopt`/`Derive`/`Poison` trio; a new participant is one derivation.
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Cell.Step`, `Transition`); `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserData.Description`/`ShouldWrite`/`Transform`/`Write`/`Read`/`OnTransform`/`OnDuplicate`, `ClassIdAttribute`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `Transform`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.DocObjects.Custom;
@@ -329,7 +329,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 - Growth: a new custody verb is one `CustodyStep` case beside its `UserDataSlot` row; a new fact is one `UserDataBody` case with its kind, and every reader breaks loudly.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Custody.Rollback`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Document/facts` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`), `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveChange`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`/`Count`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using UserDataReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persistence.UserDataSlot, Rasm.Rhino.Persistence.UserDataBody>;
 

@@ -26,7 +26,7 @@ Every modality reaches the invalidation bus directly, so a binding over a non-re
 - Law: the record form is the coordinate algebra — `{ board: [cell] }` names a member, `{ board: [] }` names the whole band, and a member mutation wakes both the member's readers and the band's readers; scoping is data the bus already folds, so no reader re-derives overlap, and `Live.merged` unions and deduplicates coordinate sets cell-list-wise while treating either empty member set as whole-band dominance.
 - Boundary: the `Reactivity` service ships from `@effect/experimental` and its provisioning is ONE root row — `Reactivity.layer` composed once beneath every driver Layer, because every binding on this page reads the service directly AND `SqlClient` construction requires it; a scope whose root omits the row fails at the composition proof, never at first subscription. Which rows stamp which bands is each lane's declaration in `read/fold.md`.
 
-```typescript signature
+```typescript
 import { Array, Record, Schema } from "effect"
 import { Shape } from "@rasm/core"
 
@@ -89,7 +89,7 @@ const _merged = (coordinates: ReadonlyArray<Live.Keys>): Live.Keys =>
 - Law: this plane forfeits row-level deltas by construction — the bus wakes on coordinate overlap and the bound re-reads its whole query, so a hot band pays one full read per overlapping mutation batch and a consumer wanting per-row change evidence folds it from successive answers; an incremental dataflow maintaining operator state in process is a different residence with its own owner, and a driver shipping a native change feed lands as one capability row at this binding rather than a second modality beside it.
 - Boundary: wire rendering is the serving plane's — `serve/live#SSE_ROW`'s one endpoint fold frames every feed family through the branch's single `Sse` encode seam, reading `coordinate` as the event `id`, so this folder ships decoded values and their identity projection while no frame string, route, content type, or connection lifetime enters it.
 
-```typescript signature
+```typescript
 import { Duration, Effect, Mailbox, Option, ParseResult, Predicate, Schedule, type Scope, Stream } from "effect"
 import { Reactivity } from "@effect/experimental"
 import { Fault } from "@rasm/core"
@@ -149,7 +149,7 @@ const _of = <A, E, R>(spec: Live.Spec<A, E, R>): Live.Bound<A, E, R> => {
 - Law: exactly one stamp per completed unit of work — the publish transaction already stamps its slots' coordinates once per commit, so a foreign wrap never doubles a slotted write; foreign means outside that transaction, and double-stamping the same commit is the named defect.
 - Law: over-invalidation is the honest degradation — a foreign writer that cannot name member cells stamps the whole band, costing re-runs, never correctness; silent under-invalidation is the defect class the minted vocabulary exists to prevent, and it is unspellable because a foreign writer holds either the lane's published band value or nothing.
 
-```typescript signature
+```typescript
 import { Reactivity } from "@effect/experimental"
 
 const _mutation = <A, E, R>(keys: Live.Keys, write: Effect.Effect<A, E, R>) =>

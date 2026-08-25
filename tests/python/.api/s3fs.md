@@ -17,7 +17,7 @@
 |  [02]   | `S3File`       | class `AbstractBufferedFile`                 | an open object handle; `commit`/`discard` finalize a multipart write  |
 |  [03]   | `protocol`     | class attr `("s3", "s3a")`                   | the registry keys fsspec/`UPath` resolve `s3://` and `s3a://` through |
 
-```python signature
+```python
 class S3FileSystem(AsyncFileSystem):
     def __init__(self, anon=False, endpoint_url=None, key=None, secret=None, token=None, use_ssl=True,
                  client_kwargs=None, requester_pays=False, default_block_size=None, default_fill_cache=True,
@@ -38,7 +38,7 @@ class S3FileSystem(AsyncFileSystem):
 |  [06]   | `sign(path, expiration=100)`                | presign alias   | fsspec-generic presign hook delegating to `url`                       |
 |  [07]   | `call_s3(method, *akw, **kw)` · `_call_s3`  | boto boundary   | typed S3 call escaping fsspec; `create_bucket` + `LocationConstraint` |
 
-```python signature
+```python
 def url(self, path, expires: int = 3600, client_method: str = "get_object", **kwargs) -> str: ...
 def call_s3(self, method, *akwarglist, **kwargs): ...
 fs.call_s3("create_bucket", Bucket=bucket, **({"CreateBucketConfiguration": {"LocationConstraint": region}} if region != "us-east-1" else {}))

@@ -30,7 +30,7 @@ This table routes a durability concern to its owning surface; the most specific 
 - Reject: a nonzero `busy_timeout` (the provider already retries BUSY and LOCKED at 150 ms quanta until `DefaultTimeout`, so a native sleep beneath the managed loop multiplies budgets), `locking_mode=EXCLUSIVE`, shared-cache, network-filesystem hosts, cross-ATTACH invariants under WAL, double-quoted string literals (`DQS=0` makes them prepare-time syntax errors — identifiers quote with `"`, strings with `'`), the `Password` row (the admitted bundle has no cipher — it fails at open), and any file replacement without `SqliteConnection.ClearPool` first — an open pooled handle pins the deleted inode and its readers silently continue against the dead store.
 - Exemption: the ritual's command kernel is the platform-forced ADO statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct RitualFact(string Row, long Applied);
 
 public sealed record StoreRitual(long Identity, long CompiledEpoch,
@@ -112,7 +112,7 @@ public static class StoreOpen {
 - Law: `MessagePackStreamReader.ReadAsync` yields one complete message per read with framing invariant under compression, so append streams and log segments need no custom framing; every serializer entry point threads cancellation, so artifact encode and decode participate in drain without a kill switch.
 - Exemption: the segment reader loop is the platform-forced stream statement seam.
 
-```csharp conceptual
+```csharp
 [ValueObject<string>]
 public readonly partial struct SlotKey;
 
@@ -187,7 +187,7 @@ public sealed partial class CodecProfile {
 - Law: sealed artifacts are write-once — amendment is a new artifact plus identity change, since in-place patching invalidates the hash, the header, and every manifest citation; directory-entry durability is unreachable from managed code, the one named accepted residual, and `File.Replace` is the row retaining the displaced incumbent as its own rollback.
 - Exemption: the seal kernel — the rented-buffer lease, the stream writes, and the catch arm — is the platform-forced stream statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct SealedArtifact(string Path, long PlainLength, long StoredLength, bool Compressed, ulong ContentKey);
 
 public static class Seal {
@@ -239,7 +239,7 @@ public static class Seal {
 - Law: the sidecar fence precedes the payload rename — a fresh payload paired with a stale `-wal` is a corruption mode, not a recoverable state — and every step is recorded with the ledger flushed on failure, so a half-restored store classifies unambiguously at the next open instead of being inspected ad hoc.
 - Exemption: the choreography's step kernels — the pool fence, file materialization, and register bump — are the platform-forced ADO and stream statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct StepFact(string Step, string Evidence);
 
 public static class Restore {
@@ -315,7 +315,7 @@ public static class Restore {
 - Law: future-looking stamps adjudicate normally — skew is signal-layer evidence, and refusing them holds merge availability hostage to clock quality; a detected fork — same (origin, seq), different content keys — is an epoch-class event emitting a typed fork result and halting merge with that peer.
 - Exemption: the apply transaction's command kernel is the platform-forced ADO statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct MergeOutcome(int Batch, int Applied, int Superseded, int Duplicate, int Suppressed) {
     public bool Conserves => Batch == Applied + Superseded + Duplicate + Suppressed;
 }
@@ -430,7 +430,7 @@ public static class OpLog {
 - Law: export reuses the sweep's verdict machinery read-only, so export and sweep can never disagree about one artifact at one instant; the proof manifest carries identity, content key, classification stamp, retention verdict, and policy stamp per artifact, destination clearance compares exactly like an admission ceiling, partial exports stay explicit with refused rows as load-bearing as included ones, export creates no hold, and re-import is ordinary admission.
 - Exemption: none — the sweep is total expression flow; decision is a pure fold over the inventory snapshot and the platform never forces a statement here.
 
-```csharp conceptual
+```csharp
 [ComplexValueObject]
 public sealed partial class Budget {
     public TimeSpan MaxAge { get; }

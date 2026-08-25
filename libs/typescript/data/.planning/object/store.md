@@ -33,7 +33,7 @@
 - Law: the engine row answers the whole descriptor a deployment selects on, and two of those coordinates this plane decides NOWHERE — `posture` with `archive` names what a row FITS, `conditional` is its ADMISSION gate (boot refuses any cell short of `yes`), and DEGRADE reads off both: an `archive: "none"` row gives up every retention transition and prices one tier for an object's whole life, a `"cool"` row gives up the restore-bearing rungs beneath it, and a refused row gives up atomic create-if-absent, which is the guarantee rather than the gap; TENANCY no engine row decides, because the key IS the content and one byte-identical object serves every tenant referencing it, so attribution lives on `object_ref` owner coordinates under the closed grammar and an engine-level answer states a guess; LIFETIME no engine row decides either, since the last reference release makes an object reclaimable and the CAS sweep with the native expiry rules ends it, so neither a caller nor a provider ends an object's life.
 - Law: archive depth is a conformance CELL, never a fork — `archive` names the deepest `Retain.depths` rung an engine honours (`frozen` the whole restore-bearing ladder, `cool` the reduced-access class alone, `none` a single-tier store), `_lifecycle` filters each retention row's transition rungs against it by depth POSITION, and an engine at `none` finds no index and receives expiry rules alone; a rung an engine cannot honour is a rule its API accepts and silently never applies, which reads on the bill as archived pricing that never arrived. R2 conforms on the conditional header and stores reduced-access alone, so its cell states that rather than inheriting the managed default, and GCS reads `none` because the same interoperability layer that refuses the conditional also takes Google's own lifecycle document in place of the S3 `Transition` element — a product-level archive tier the S3 path reaches through no rule this page can write.
 
-```typescript signature
+```typescript
 import { Config, Data, Duration, Effect, Match, Redacted, Schema, Struct } from "effect"
 import { InvalidObjectState, S3Client, S3ServiceException } from "@aws-sdk/client-s3"
 import { Fault } from "@rasm/core"
@@ -190,7 +190,7 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault =>
 - Law: consistency after a sweep race is a waiter, never a sleep — `settled(key)` runs `waitUntilObjectExists({ client, maxWaitTime: setting.settleSeconds, abortSignal }, { Bucket, Key })` to close the write-then-serve window where an engine's read-after-write posture demands it; the budget is construction policy shared with delete settlement, never a call-site knob.
 - Law: producers reach ONE of the two put legs and mint no byte plane of their own — `object/file.md`'s derivative persist and `lane/olap.md#ARROW_WIRE`'s `Olap.lake.write`/`.sink` Parquet egress hand bounded bytes to `put` (a row-group window is bytes in hand, so identity derives and no caller asserts a key), while `object/file.md`'s disk seal, `object/stream.md`'s tus finalize and its custody preservation landing, and `object/remote.md`'s remote ingest carry a proven span into `putKeyed`; each spends the owner mint `[04]` closes and records its reference row in the same unit of work, so the cold-tail residence and every other landed object share one identity, one conditional, and one GC ledger rather than a second addressing scheme per producer.
 
-```typescript signature
+```typescript
 import { Array, DateTime, Exit, Option, Schema, Stream } from "effect"
 import {
   AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CopyObjectCommand, CreateMultipartUploadCommand,
@@ -433,7 +433,7 @@ const _settled = (client: S3Client, bucket: string, key: Digest.Key<"content">, 
 - Law: retention classes gate the sweep — a `permanent` reference never sweeps, windowed classes sweep past `Retain.Policy[class].lifetime.bound`, and subject-sealed payload objects fall to crypto-shredding upstream (key destruction makes the bytes unreadable; the sweep merely reclaims them).
 - Law: the object tag vocabulary is the retention roster WITH one store-plane posture, and a live HOLD takes it — `held` is a TAG and never a `Retain.Class`, so the retention vocabulary stays closed at its own owner and no window prices a suspension carrying no clock; the retag fold composes `Retain.holding.owner` beside its dominance read and writes `held` for any key a held subject still references, no `_lifecycle` rule filters on that value, so the object freezes at whatever depth it already reached and neither transitions nor expires while the matter lives, and `Retain.lift` answers the lifted owners the maintenance seam walks back through the exposed `retag` onto the surviving classification. Re-tagging `permanent` is the deleted spelling: that class runs its own ladder to `frozen`, so the tag meant to protect litigation evidence put it hours behind a restore verb.
 
-```typescript signature
+```typescript
 import {
   AbortMultipartUploadCommand, DeleteObjectCommand, ListMultipartUploadsCommand, paginateListObjectsV2,
   PutBucketLifecycleConfigurationCommand, PutObjectTaggingCommand, RestoreObjectCommand, type TransitionStorageClass,
@@ -826,7 +826,7 @@ const _restore = (client: S3Client, bucket: string) =>
 - Law: dedup rate DERIVES on the dashboard — the write counter tags each receipt's outcome (`written` versus `dedup`) from the bounded two-value vocabulary, so the rate is a ratio query over one series and no page computes it; bytes count only on `written: true` because a 412 noop moved no bytes, and reclaim counts the sweep mark's `reclaimed` BYTE total, never its key census — the convention row codes `By`, so a key count exported under that code reports objects in a series a reader spends as bytes.
 - Law: instrument name, description, and tag key read off the `Convention` rows — no signal-site literal exists on the object plane, and identifier-grade context (the content key) rides span attributes on `data.sweep`/`data.grant`, never a metric tag.
 
-```typescript signature
+```typescript
 import { Metric } from "effect"
 import { Convention } from "@rasm/core"
 
@@ -854,7 +854,7 @@ const _measured = (receipt: ObjectStore.Receipt): Effect.Effect<void> =>
 - Law: `expiresIn` derives from `Duration.min(ttl, setting.presignTtl)` — a grant narrows policy and an unbounded or widened grant is unrepresentable at this surface.
 - Law: the mint rides the `_shielded` bracket like every operation — bounded flight, the `lease` row's two deadlines, class-gated retry; caller-keyed grant QUOTA is not this page's, because per-principal identity exists only where a request does and this page mints capability, never authorization.
 
-```typescript signature
+```typescript
 import { DateTime } from "effect"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import type { GetObjectCommand, HeadObjectCommand, PutObjectCommand, UploadPartCommand } from "@aws-sdk/client-s3"
@@ -991,7 +991,7 @@ export { ObjectFault, ObjectStore }
 - Growth: another residence engine satisfies `Dataref` behind the same port; another URI scheme is a policy case only when it preserves confinement and receiver resolution, never a branch inside a webhook.
 - Packages: existing `effect`, core `Digest`, `ObjectStore`, and `Retain`; no new package or codec is admitted.
 
-```typescript signature
+```typescript
 import { Context, Effect, Layer, Option, type ParseResult, Schema } from "effect"
 import { Digest, Fault } from "@rasm/core"
 
@@ -1131,7 +1131,7 @@ export { Dataref, DatarefFault }
 - Growth: a custody axis is one descriptor field beside one capability row and one observation read — the write-posture policy row `[03]` names lands here the same pass it lands on the command mints.
 - Boundary: this cluster mints rows and reads state; contract authority, merge, collision, and admission stay `lane/capability.md`'s, and no schema mutation runs here.
 
-```typescript signature
+```typescript
 import { GetBucketEncryptionCommand, GetBucketLifecycleConfigurationCommand, GetBucketVersioningCommand } from "@aws-sdk/client-s3"
 import {
   ArtifactRole,

@@ -31,7 +31,7 @@ Recover the fallback from the route value and record it on the result, never a c
 - Reject: a `compute_vectors: bool`, `mode: str`, or `sym: bool` parameter riding beside the matrix — a parallel knob re-describing the input is arity smuggled back; sibling `solve_spd`/`solve_general`/`solve_lstsq` functions where one routed dispatch discriminates on the operand; a second route-keyed `frozendict` per pure-policy axis where one `RoutePolicy` row carries the bundle; a `FactorRoute` tagged union whose six cases each carry one `np.ndarray` and whose claimed exhaustiveness no spine `match` realizes — the `Route` key into the policy and solver tables is denser than a tag-only shape read by `getattr`.
 - Boundary: the spine's terminal `bind` lands in the `witnessed` result core the witness layer owns, so `solved` returns `Result[SolveResult, SolveFault]` and the residual is computed exactly once at that terminus, never a second time here; the element carrier is `numpy` `float64`, admission narrows the dtype and asserts C-contiguity once, and the interior never re-checks either.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -116,7 +116,7 @@ def solved(route: Route, operand: np.ndarray, solvers: frozendict[Route, Solver]
 - Law: read the least-squares solution rank against the expected column count and reject a deficiency; a rank-deficient design matrix returns a minimum-norm solution silently, and the returned rank is the only signal. The SVD-based least-squares route is the admitted form over the normal equations in near-dependent columns, because the normal equations square the condition number.
 - Boundary: guard `numpy.linalg.cond` against `+inf` before gating; it is `+inf` for a rank-deficient operator and a comparison against it always fails closed.
 
-```python conceptual
+```python
 import numpy as np
 from expression import Error, Ok, Result
 
@@ -144,7 +144,7 @@ def conditioned(a: np.ndarray, cap: float, /) -> Result[np.ndarray, SolveFault]:
 - Law: form the iterative-refinement residual against the original operator in working precision (`b - a @ x`), never against reconstructed factors — the factors carry exactly the rounding error the correction exists to cancel — and thread the correction as one `expression.Block.fold` over a fixed budget, never a mutating loop; the `correct` step closes over the held `Solve` and reuses it across every back-substitution, a closure the fold drives, never a re-bind.
 - Reject: `numpy.linalg.inv` in a hot loop — it factors plus solves against an identity; solve against the held handle with reused buffers.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from enum import StrEnum
 
@@ -198,7 +198,7 @@ def refined(a: np.ndarray, held: Solve, b: np.ndarray, x: np.ndarray, tol: float
 - Law: the breakdown semantics are a solver-kind property, not a call-site flag: the same near-zero inner-product denominator throws in one solver, cancels the iterate in a second, and substitutes `1` and continues in a third, so the terminus case is read from the solver identity and the witness gate is the only signal that survives the substitution path.
 - Reject: collapsing count-exhaustion into the failure rail — it destroys the caller's seeded-direct retry; accepting the substitution iterate under a converged verdict without the independent residual witness.
 
-```python conceptual
+```python
 from typing import Literal, assert_never
 
 import numpy as np
@@ -235,7 +235,7 @@ def settled(verdict: SolveTerminal, witness: float, cap: float, /) -> Result[np.
 - Law: the egress weave is the `aspected` factory `surfaces-and-dispatch.md` owns, composed over the pure witness core and never re-derived here: the in-process numeric interior carries no transient provider, so the spine weaves only the factory's fixed type-guard arm under one shared `BeartypeConf`, which lifts a `BeartypeCallHintViolation` through `lifted` onto `<type-hint>` — a malformed operand shape becomes a `SolveFault` member rather than an escaping exception, and a co-occurring concern lands as one more `Concern` entry with the body untouched. No `numpy.linalg.LinAlgError` capture rides this weave: the `<singular>` cap-against-`cond` gate at admission already precludes the near-singular factorization that raises it, so a re-catch at egress re-imposes a gate the interior owns once.
 - Boundary: the result's scalar projection — route, tolerance, residual — is the `str | float` evidence a downstream span or structured-emission consumer reads, never the `Raw` solution bytes; the emission weave that consumes it is the domain observability owner's, this layer states only that the projection carries scalars and the solution stays bytes.
 
-```python conceptual
+```python
 import numpy as np
 from beartype import BeartypeConf
 from expression import Error, Ok, Result
@@ -275,7 +275,7 @@ The symbolic, dimensional, and uncertainty surfaces are the compute companion ba
 - Law: the `pint` units route strips a dimensioned input to its canonical base-unit magnitude through one module-level registry before the stripped array crosses the `[02]` finite-admission gate, and the returned domain value re-attaches the unit on egress; the `uncertainties` route lifts a fit covariance into auto-propagating arithmetic strictly at the boundary, with uncertainty carried by the returned domain value. Both obey the one admission law under their own gate — the magnitude through the flat finite gate, the kernel through the finite-sample probe — so a `Quantity` or an object-dtype error array never reaches a BLAS call, where its `__array_ufunc__` dispatch defeats the float64 kernel.
 - Reject: stringly-typed unit suffixes on field names; manual error-propagation arithmetic where the route derives the partials from its own shared-variable graph; mixing a dimensioned quantity or an uncertainty object into the dense factorization hot path.
 
-```python conceptual
+```python
 from collections.abc import Callable
 
 import numpy as np
@@ -310,7 +310,7 @@ The constant-coefficient periodic operators and the seeded sampler have no compa
 - Law: draw stochastic samples through one explicit `numpy.random.default_rng(seed)` over a state-serializable generator for checkpoint-resume, deriving independent parallel streams through `SeedSequence.spawn`; the default entropy source is non-deterministic regardless of seeding, so the seed and the spawned child index are the replicate family's replay key, recorded for an exact checkpoint resume.
 - Boundary: a stochastic estimate leaves as a replicate family whose cross-replicate spread is the result's variance evidence; a single draw carries no recoverable variance.
 
-```python conceptual
+```python
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum

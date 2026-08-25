@@ -16,7 +16,7 @@ Every vocabulary lowered here imports DOWN from `drawing/regime#REGIME` (`Discip
 - Growth: a new seeded resource kind is one `seed` authoring block; a new DIM-variable one `override()` key; a new pen axis one `GfxAttribs` field; a new discipline's DXF pen one `_ACI` row; a new fill code one `_FILL` row; a new legend fact one `SwatchSpec` field; a new dimension family one `DimStyleFamily` member with one `_DIMSTYLE` row; a new vocabulary member lands in regime and lowers here with zero new surface.
 - Boundary: no vocabulary, codec, bind row, or derivation (`drawing/regime#REGIME`); no pattern geometry (`graphic/vector/pattern#PATTERN`); no `add_*` render (`dimension`/`annotate`/`symbol`); no color-model conversion beyond the ACI→sRGB resolve (`graphic/color/derive#DERIVE` owns model algebra over regime's LCh values); no sheet placement (`composition/sheet#SHEET`); no receipt, plan node, async, or offload (the consuming producer owns the seam); no IFC (`dotnet:Rasm.Bim`).
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Self, assert_never

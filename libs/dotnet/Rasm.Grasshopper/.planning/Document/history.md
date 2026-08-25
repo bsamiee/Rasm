@@ -23,7 +23,7 @@ Every undo verb is a case of one `HistoryOp` union settled by one `Commit` gate 
 - Packages: Grasshopper2 (`History.Do`/`Undo`/`Redo`, `ActionList.ToRecord`, `Record.Undo`/`Redo`, `Node.PromoteChild`, `VerbNoun`, `IDocumentObject.AddUndoRecord`/`RequestAutoSave`, `AutoSaveReason`), `Rasm.Parametric` (`MonotonicTimeline`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/document.md` (`DocumentGate`, `GateLane`, `GateReceipt`, `GateOutcome`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new undo verb is one `HistoryOp` case breaking the gate's total `Switch` loudly; a new object-scoped verb is one `ObjectUndoVerb` case; a new direction semantics is one `LedgerStride` row carrying both columns — zero new entrypoints.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
@@ -141,7 +141,7 @@ public static partial class HistoryLedger {
 - Packages: Grasshopper2 (`Node.Parent`/`ParentIfNotRoot`/`Depth`/`PrimaryChild`/`SecondaryChildren`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`), Generator.Equals, LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new tree read is one projection member beside `Crown` returning its own evidence value; the reconciliation shape never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Undo;
 using Rasm.Domain;

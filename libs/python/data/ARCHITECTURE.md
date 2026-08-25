@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 data/
 ├── tabular/              # Columnar, relational, and lakehouse interchange plane and its object-store egress
 │   ├── interop.py        # FrameInterop Backend axis; ArrowCStream C-Data hops; DataLeg/DataHook rosters, ColumnSpec, FieldShape

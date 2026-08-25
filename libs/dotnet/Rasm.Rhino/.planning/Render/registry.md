@@ -39,7 +39,7 @@
 - Growth: a new serializer route is one `SerializerProgram` column; a new shell surface is one `ShellSurface` row with its `ShellRow` case; a new editor payload is one `EditorProvider` row whose disposal body is proven first.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContentType.GetAllAvailableTypes`, `ContentUuids`, `RenderContent.RegisterContent`, `RenderContentSerializer` and its `Read`/`Write`/`CanLoadMultiple`/`LoadMultiple`/`RegisterSerializer`/`ReportContentAndFile`/`ReportDeferredContentAndFile`, `LoadMultipleFlags`); `api-rhinocommon-render-ui.md` (`RenderPanels.RegisterPanel`, `RenderTabs.RegisterTab`, `RenderPanelType`, `ExtraSidePanePosition`, `FromRenderSessionId`, `SidePaneUiIdFromTab`); `api-rhino-ui-controls.md` (`IRdkViewModel.GetData`/`Commit`/`Discard`, `DataSource.ProviderIds`, `RhinoSettings`); `api-rhinocommon-plugins.md` (`PlugIn`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `Lease<T>.Acquire`/`Use`, `Cell.Step`, `Transition`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`, `Op.AcceptValidated`); `Display/render.md` (`RenderFault`); `Document/events.md` (`PluginKey`), `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody`); `Numerics/atoms` (`Dimension`, `Size2i`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -684,7 +684,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
 - Growth: a new admission path is one `ContentAdmission` case; a new target concern is one `ContentMutation` case with its `UndoPolicy` column; `ContentOp` keeps its identity-derived cases.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Create`, `SetChild`, `DeleteChild`, `DeleteAllChildren`, `SetChildSlotOn`, `SetChildSlotAmount`, `IsContentTypeAcceptableAsChild`, `SetName`, `Replace`, `SaveToFile`, `MakeGroupInstance`, `Ungroup`, `UngroupRecursive`, `SmartUngroupRecursive`, `ExtraRequirementsSetContexts`, `EmbedFilesChoice`); `api-rhinocommon-render.md` (`RenderMaterial.AssignTo`, `AssignToSubFaceChoices`, `AssignToBlockChoices`); `api-rhinocommon-objects.md` (`ObjRef`); kernel `Domain/rails` (`Lease<T>.Acquire`, `Op.Catch`, `Op.Confirm`), `Domain/validation` (`Op.Row`); `Render/content.md` (`ContentKind`, `ContentRef`, `ChangeReason`, `ChangeScope`, `ContentIo`), `Render/fields.md` (`ContentValue`, `ParamScope`), `Render/kinds.md` (`TextureConfig`, `MaterialMint`, `TextureMint`, `EnvironmentState`, `TextureExport`); `Document/tables.md` (`ResourceId`, `TableTarget`), `Document/session.md` (`DocumentPath`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class UndoPolicy {
@@ -1073,7 +1073,7 @@ public abstract partial record ContentOp {
 - Growth: a new icon route is one `IconModality` row; a new query is one `ContentQuery<T>` or `RegistryQuery<T>` value with no entry change.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Icon`, `VirtualIcon`, `DynamicIcon`, `DynamicIconUsage`, `MatchData`, `MatchDataResult`, `IsCompatible`, `Xml`, `GetEmbeddedFilesList`); `api-rhinocommon-render.md` (`RenderContentCollection` and its `GetFilterContentByUsage`/`Count`/`ContentAt`/`GetForcedVaries`/`GetSearchPattern`/`ContentNeedsPreviewThumbnail`, `RenderContentKindList` and its `Add`/`Count`/`Contains`/`SingleKind`, `FilterContentByUsage`, `RenderTexture.TextureGeneration`); `api-rhinocommon-document.md` (`RhinoDoc.CurrentEnvironment`, `ICurrentEnvironment`); kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.Catch`), `Domain/validation` (`CapabilitySet`, `Op.Row`); `Render/content.md` (`HashProbe`, `HashWitness`, `ContentSnapshot`, `ContentKind`), `Render/settings.md` (`SubOwners`), `Render/kinds.md` (`BakeScope`, `MaterialBridge`, `MaterialScent`, `TextureConfig`, `TextureTraits`, `EnvironmentState`), `Render/fields.md` (`FieldCensus`, `ContentValue`, `ParamScope`); `Document/session.md` (`DocumentSession`, `SessionNeed`), `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1581,7 +1581,7 @@ public static class Registry {
 - Growth: a new consequence is one `ContentSlot` row naming its kind set; a new payload is one `ContentBody` case, one `ContentBodyKind` row, and one projection arm.
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/tables.md` (`ResourceId`), `Document/session.md` (`DocumentPath`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1687,7 +1687,7 @@ public static class ContentReceipts {
 - Growth: a new host content event is one `ContentPulse` row with its bind column; a new evidence axis is one `ContentSignal` case.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.ContentAdded`/`ContentRenamed`/`ContentDeleting`/`ContentDeleted`/`ContentReplacing`/`ContentReplaced`/`ContentUpdatePreview`/`CurrentEnvironmentChanged`/`ContentChanged`/`ContentFieldChanged`/`PreviewRendered`, `RenderContentChangeReason`, `PreviewRenderedEventArgs`, `Utilities.PreviewQuality`); kernel `Domain/hooks` (`Ring<T>`, `HookBinding`), `Domain/rails` (`Cell.Seat`/`Take`, `Transition`, `Lease<T>`); `Document/events.md` (`RhinoPoint`, `MountRegistry`, `PluginKey`, `EventScope`), `Document/lifetime.md` (`LifecycleGate`, `Subscription`), kernel `Domain/rails` (`Custody`), `Document/session.md` (`DocKey`), `Document/tables.md` (`ResourceId`); `Render/content.md` (`ChangeReason`), `Render/settings.md` (`EnvironmentRole`); `Numerics/atoms` (`Dimension`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class LifecycleReason {

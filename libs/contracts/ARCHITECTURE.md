@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 contracts/
 ├── manifest.json                 # Wire registry: entries, cases, authority, definition, actors, readiness, fingerprinted assets
 ├── manifest.schema.json          # JSON Schema derived byte-for-byte from the assay msgspec manifest model

@@ -16,7 +16,7 @@ This realtime serve plane: SSE and WebSocket endpoints over the branch's own fee
 [LIVE_FAULT]:
 - Packages: `effect` (`Schema`, `Option`, `Stream`); `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 import { EventLogServer, Reactivity, Sse } from "@effect/experimental"
 import { ChannelSchema, type HttpApp, HttpServerRequest, HttpServerResponse, Ndjson, Socket } from "@effect/platform"
 import {
@@ -109,7 +109,7 @@ declare namespace Realtime {
 - Boundary: which feeds exist and who attaches is `[06]`'s admission; the inbound SSE parser is `net/channel#FEED_SEAM`'s — this endpoint only emits.
 - Packages: `@effect/experimental` (`Sse`); `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`); `effect` (`Stream`, `Duration`, `Schedule`, `Option`, `Scope`); `../otel/profile.ts` (`Profile`).
 
-```typescript signature
+```typescript
 const _lanes = {
   sse: {
     fits: "<server-pushed-feed:browser-consumes:no-client-frame>",
@@ -208,7 +208,7 @@ const _sse = <A, I, E, R, R2>(
 - Boundary: what the frames mean and which kernel folds them is the frame owner's; this row owns the span, the upgrade, and the duplex.
 - Packages: `@effect/platform` (`Socket`, `Ndjson`, `ChannelSchema`, `HttpServerRequest`); `effect` (`Channel`, `Chunk`, `Deferred`, `Scope`); `../otel/profile.ts` (`Profile`).
 
-```typescript signature
+```typescript
 const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
   frames: {
     readonly inbound: Schema.Schema<In, IEnc, RIn>
@@ -245,7 +245,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
 - Law: an adapter carries its source's own error channel and its own requirement — the reactive read fails with whatever its bound query raises and demands `Reactivity.Reactivity`, never a SQL client, because the owner re-runs every bound through the reactive bus and a relational binding touches no relation on an object-plane or in-memory bound.
 - Growth: a new feed family (a flag-verdict stream, a vital fact stream) is one adapter over the same contract; the endpoints never change.
 
-```typescript signature
+```typescript
 const _query = <A, E, R>(
   bound: Live.Bound<A, E, R>,
 ): Realtime.Source<A, E, Exclude<R, Scope.Scope> | Reactivity.Reactivity> => ({
@@ -296,7 +296,7 @@ const _roster = <E, R>(
 [ADMISSION]:
 - Growth: a new admission axis (a payload ceiling, a rate row) is one `Rule` field read at its gate; a new channel family is one app-side row.
 
-```typescript signature
+```typescript
 const _Channel = Schema.NonEmptyString.pipe(Schema.maxLength(128), Schema.pattern(/^[a-z0-9][a-z0-9:_-]*$/), Schema.brand("Channel"))
 
 declare namespace Admission {
@@ -414,7 +414,7 @@ const Admission = { Channel: _Channel, Rule: _Rule, make: _make } as const
 - Boundary: upgrade mechanics inside the mounted app are the satisfier's; this page owns the Tag, the lift, the row roster, and their contract.
 - Packages: `@effect/platform` (`HttpApp`, `HttpServerResponse`); `effect` (`Context`, `Layer`, `Scope`); `node:http` types alone; each satisfier's own packages stay at the app root.
 
-```typescript signature
+```typescript
 declare namespace Mount {
   type NodeHandler = (request: IncomingMessage, response: ServerResponse) => void
   type Row = { readonly prefix: `/${string}`; readonly app: HttpApp.Default<LiveFault, Mount.Lift | Scope.Scope> }

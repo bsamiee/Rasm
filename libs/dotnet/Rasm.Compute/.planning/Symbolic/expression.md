@@ -21,7 +21,7 @@ That canonical content key is the single identity the lane composes by: `Symboli
 - Growth: a new canonical-form policy is one projection change inside the factory hook, never a parallel key; a new evaluation-result projection is one `NumberBox` arm; the wrapped hierarchy grows only when `AngouriMath` adds a node type, which the dimensional fold's exhaustive walk surfaces as a typed fault, never a silent default.
 - Boundary: identity is the `ContentKey`, never the engine; the canonical projection is `Stringize()` over the `Simplify()`-normalized tree, so rendering the raw unnormalized tree is the rejected key source; the canonical-string fold binds `ComparerAccessors.StringOrdinal`, so a culture-sensitive compare on the identity path is deleted; minting through the kernel `ContentHash.Of` federation entry is the identity the Persistence cost-catalog/QTO consumers dedup by. Canonical STABILITY is engine-owned, so it is proved at composition rather than declared: `CanonicalProbe` is the gate, its pinned rows are fixture data the probe never mints, and a re-keying package bump surfaces there instead of as a cache that silently never hits again.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -164,7 +164,7 @@ public static class CanonicalProbe {
 - Growth: a new input shape adds one `BuildSpec` case and one total `Build` arm; a new fault widens `FaultBand.Core` before its contiguous `[FaultCase]` ordinal lands.
 - Boundary: `Build` is the single entry — a `Parse`/`FromEntity`/`FromInfix` factory trio modeling one concept is the collapsed defect, per-case convenience overloads re-spelling the union cases are the same defect one hop later, and the input shape selects the arm, never the call site; the union `Switch` is exhaustive at compile time, so a new `BuildSpec` case breaks loudly rather than falling through a runtime `_`; `Entity.TryParse` is the admitted parse surface and `MathS.FromString`/the implicit conversion are rejected in domain flow because they raise into the rail; the direct `ComputeFault` arms extend `ComputeFault`, so a standalone `SymbolicError`/`ParseError` union is the rejected parallel rail; the engine's ANTLR front-end owns the grammar, and this page admits no second parser.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BuildSpec {
@@ -207,7 +207,7 @@ public static class SymbolicBuild {
 - Growth: a new transform is one `SymbolicOp` case with one `Apply` arm; a new normalization route is one `SymbolicForm` row with its inline delegate; a new rendering target is one `Notation` row, never a further named projection property; polynomial gcd/partial-fraction algebra has NO engine owner at the pin — a recorded charter deferral admitted as a vendored row only when a consumer names it, never a hand-rolled kernel here; a `Differentiator`/`Solver`/`Integrator` sibling family is the collapsed defect folded onto `Apply`.
 - Boundary: `Apply` is the one transform surface — a per-operation static-method ladder is the rejected form, a `Substitute`/`Approximate`/`Evaluate` trio over one substitution fold is the same defect one hop later, and `Coefficients`/`Solutions` stay off `Apply` because their results are vectors (a degenerate echo case inside `Apply` is the rejected shoehorn); the dense harvest sizes against the intent-declared payload bound, so a ceiling constant standing in for a caller's allocation policy is deleted; the engine surface is mined whole (order-parameterized `Differentiate`, both `Integrate` arities, directed `Limit`, typed-`Set` `Solve`, `MathS.Taylor`, `Simplify`/`Expand`/`Factorize`/`InnerSimplified`, `Substitute`, `TryGetPolynomial`, `Compile`, `Stringize`/`Latexise`), so a local finite-difference gradient, a string `eval`, or a hand-rolled root-finder beside `Solve` is the deleted lower-level form; `Solve` returns the typed `Entity.Set` and a first-element grab off an un-discriminated set is deleted because an `Interval`/`ConditionalSet` is not enumerable — `Solutions` is the one projection that discriminates; the symbol argument constructs through the admitted `SymbolName`, whose `Var` column is the ONE `MathS.Var` call site, and pi/e never enter `FreeSymbols` because `Vars` excludes them.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

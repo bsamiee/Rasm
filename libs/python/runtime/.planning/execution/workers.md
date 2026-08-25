@@ -31,7 +31,7 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 - Growth: a new band family crosses with ZERO edits here — `CrossedFault` keys on the union grammar, never on a roster of families; a new worker kind is one `WorkerKind` member with one `KIND_POLICY` row; a new isolation answer is one `KernelTrait` member with one `TRAIT_ROW` row and every call site untouched; a new shipping form is one `Shipping` member with one `shipped` arm and, where its payload arrives unjudged, one `admitted` arm; a new enforcement arm is one `Enforcement` member with one offload projection row; a new payload crossing is one `Wire` member with one `exported` arm; a new cost measure is one `Cost` field at the receipts owner with one `INSTRUMENTS` row at the metrics owner, reaching this bracket through `measures` with zero gate edits.
 - Boundary: trait declaration stays consumer domain knowledge — this owner never inspects a callable for GIL behavior; picklability is the one property `Kernel.of` classifies itself. Thread and subinterpreter crossing arms and the offload hop stay `execution/lanes#LANE`'s; this page mints the vocabulary the hop consumes, the process bands, and the process pools. `execution/admission#CONTEXT` admits the `isolation` axis upstream and refuses an unbound crossing there, so `KernelTrait` selects the worker kind INSIDE a value the profile already serves — `INLINE` under `in-proc`, `PURE` and `RELEASING` under `thread`, `HOSTILE` under `process`, `SANDBOXED` under `wasm`, the `WorkerKind.REMOTE` fleet arm under `remote` — and a kernel reaching a crossing the profile never admitted is unrepresentable, never a runtime downgrade this owner absorbs.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import hashlib
 import math
@@ -482,7 +482,7 @@ KIND_POLICY: Final[Map[WorkerKind, KindPolicy]] = Map.of_seq([
 - Growth: a new executor arm is one constructor match arm keyed by `(WorkerKind, Enforcement)`; a new fleet host is one `RemoteEndpoint` value and a new accelerator one `Device` value, each acquiring its own arm at zero new surface; a new lifecycle phase is one `PoolPhase` member; a new warm-state obligation is one initializer fold; a new worker-boot fact is one `WorkerBoot` field the one initializer reads.
 - Boundary: pools serve the lanes offload hop, the daemon drain fold, the fleet and device consumers, and the supervisor — a consumer never imports an executor class, holds a future, or sizes a pool; sizing derives from `loky.cpu_count(only_physical_cores=True)`, which already folds the `LOKY_MAX_CPU_COUNT` deploy override and the cgroup budget, so a cgroup-capped batch arm is deploy placement with zero new surface — the capped daemon's workers inherit its cgroup and every pool self-sizes to the quota, scheduling class and affinity riding the same deploy custody, never a kind — and `WORKER_BAND` bounds in-flight admission above the pool, refusing burst past physical cores. `REMOTE` and `GPU` are caller placement, never trait-derived — the lanes offload never routes to them, and a consumer acquires the arm with its `RemoteEndpoint` or `Device` exactly as trait declaration is consumer domain knowledge on the crossing; priority is the same placement axis — a latency class acquires its own arm key, never a queue-discipline knob. Fan-out modality stays the lane's `drain` — the pools expose `submit` alone, never a second `map`, stream, or priority surface. `Kernel.of` is the whole payload-classification surface and `ShmSpan` the one out-of-band buffer channel, so no per-object wrap, pickler swap, or reducer registration exists beside them; the span bracket itself is the lane's, so `submit` takes arguments already exported and a direct-submit consumer brackets its own call with `exported`/`released` rather than expecting the pool to read `kernel.wire`. Host-side admission sits at that same seam under the same law — the lane's `offload` runs `admitted` once for every crossing it drives, and a direct-submit consumer runs it itself, so the gate is never paid twice on the terminal guest route.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import atexit
 import os
@@ -916,7 +916,7 @@ class WorkerPool:
 - Growth: a provider implements one port; a lease transition is one `LeaseOp` case with its `LeaseVerdict` answer and one `_verdict` row; worker execution and supervision remain unchanged.
 - Boundary: adapters own PostgreSQL, broker, or service calls; this owner carries no SQL, polling protocol, or provider transaction.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from typing import Annotated, Literal, Protocol, assert_never
@@ -1096,7 +1096,7 @@ def _verdict(verb: str, answered: RuntimeRail[LeaseVerdict], expected: str) -> R
 - Growth: a new probe dimension is one `SupervisionPolicy` ceiling field, one `Breach` member, and one `_judged` row — the arm fold, the receipt columns, and the peak projection each name themselves from it; a new actuation is one `_actuate` arm; a new supervised subject is one `Supervisor.watch` registration.
 - Boundary: the supervisor actuates pooled arms — device arms included — remote channels, and daemon children only — `ChargeKind` seals that subject set by construction — and it never restarts the serve host, never owns the signal seam (`transport/serve#ENTRY`'s), and never emits health protocol wire (the serve owner's `ServerHost`, the generated `grpc.health.v1` `Health` servicer, is the sole advertiser). Probe evidence emits through the contributor port under the `OPEN` policy.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import time
 from collections.abc import Awaitable, Callable

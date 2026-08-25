@@ -23,7 +23,7 @@ Document egress as one folded `Report.Spec` family: the format discriminant sele
 - Growth: a new format is one arm behind the same dispatch; a new visual concern is a spec field every arm interprets or ignores by declaration.
 - Packages: `effect` (`Effect`, `Stream`, `Duration`, `Deferred`, `Ref`, `Clock`, `DateTime`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread crossing); `./entity.ts` (`Settled` — the receipt spine).
 
-```typescript signature
+```typescript
 import * as ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
 import JSZip from "jszip"
@@ -357,7 +357,7 @@ const _gathered = <R>(artifact: Report.Artifact<R>, ceiling: number): Effect.Eff
 - Growth: a new formatting capability is a spec field mapped to its vocabulary row in this one fold.
 - Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, `WorkbookStreamReaderOptions`, `WorksheetReader` with the locally declared `id`/`name`/`state` coordinate, `WorksheetState`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model); `effect` (`Stream.fromAsyncIterable`, `Stream.zipWithIndex`, `Option.fromNullable`).
 
-```typescript signature
+```typescript
 declare module "exceljs" {
   namespace stream.xlsx {
     interface WorksheetReader {
@@ -543,7 +543,7 @@ const _amended = (
 - Growth: a new document element (watermark, TOC) is a furniture field folded here; interactive AcroForm surfaces are a spec extension row, admitted when a consumer names them.
 - Packages: `jspdf` (`jsPDF`, `GState`, the table/outline/AcroForm/metadata surface).
 
-```typescript signature
+```typescript
 const _pdfPlan = <A>(spec: Report.Pdf<A>, cells: ReadonlyArray<ReadonlyArray<Report.Cell>>): PdfPlan => ({
     columns: Array.map(spec.columns, ({ header, key, width }) => ({ header, key, width })),
     furniture: {
@@ -680,7 +680,7 @@ const _worker = {
 - Growth: a delimiter or encoding posture is an `UnparseConfig` field on the spec's format row.
 - Packages: `papaparse` (`parse`, `unparse`, `NODE_STREAM_INPUT`, `Parser`).
 
-```typescript signature
+```typescript
 const _csv = <A, R>(spec: Report.Csv<A>, rows: Stream.Stream<A, never, R>): Effect.Effect<Report.Artifact<R>> =>
   Effect.flatMap(Ref.make(0), (counted) => {
     const fields = Array.map(spec.columns, (column) => column.header)
@@ -726,7 +726,7 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 - Growth: a container policy axis (per-tenant naming, manifest entry) is a fold parameter; a second archive format is a new arm at the spec dispatch, never a fork of this one.
 - Packages: `jszip` (`JSZip`, `generateNodeStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
 
-```typescript signature
+```typescript
 const _bundleStream = (spec: Report.Bundle): Stream.Stream<Uint8Array, ReportFault> =>
   Stream.unwrapScoped(Effect.map(
     Effect.acquireRelease(

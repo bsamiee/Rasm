@@ -20,7 +20,7 @@ Rebuilds compose these seams unchanged: `ClosestHit` conforms to the `Domain/rai
 - Boundary: projection is `ProjectionRow` data through the one `AtomProjection.Rows` rail, so receipt and atom projection share one dispatch; distance is the `double` projection at this altitude while parameter, span, signed, and containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over the same receipt fields, which is the only path to the tangent and parameter facets the CLR-type-keyed projection cannot discriminate.
 - Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core rails, and the Foundation `[BoundaryAdapter]` contract.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using LanguageExt;
@@ -101,7 +101,7 @@ public readonly record struct ClosestHit(
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]` rows), RhinoCommon geometry members, LanguageExt.Core rails.
 - Growth: a new form is one row placed by its assignability against the rows above it; a form that subclasses an existing row's type places above it or is unreachable.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
@@ -299,7 +299,7 @@ internal sealed partial class ClosestForm {
 - Growth: a new verb is one `EvaluationRequest` case and one `Switch` arm; a new evaluatable form is one `ClosestForm` row or one arm in the verb's own lattice.
 - Boundary: `Evaluation` preserves every recovery the mature kernel performed; the recursion ordering fixes change no terminating input's result, and the `BrepFace` totalization trades one silently-untrimmed underlying-surface point for a typed refusal.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;

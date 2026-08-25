@@ -19,7 +19,7 @@ Geospatial CLAIMS plane — one third of the spatial triptych, beside the `spati
 - Growth: a new vector operation is one `VectorOp` case; a new raster operation is one `RasterOp` case and one `_RASTER_ROW` row naming its crossing, handle demand, and abandon posture; a new transport class is one `Crossing` member whose retry envelope and span kind DERIVE on the member; a new nodata-bearing provider call is one `NodataSlot` member spelling that provider's own keyword; a new linear or geodesic verb one `LinearKind`/`GeodesicKind` row; a new constructive op one `ConstructKind` row plus its `_CONSTRUCT` behavior row; a new binary predicate one `JoinPredicate` row; a new resampling mode one `Resampling` literal arm mapped at the edge; a new VSI scheme one `VsiScheme` row; a new egress format one `EgressFormat` member, its writer riding the native arm when `geoarrow-rust-io` spells it and the OGR driver value otherwise; a new CRS source is one field on `GeoreferenceFact` landed at BOTH ends of the seam in the same pass; zero new surface; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.GEOSPATIAL` in this module's one `RAISES` table, which every section anchors on.
 - Boundary: no host mutation, no durable store; no STAC claim or NDJSON-interchange arm on this page — the catalog owner homes them, and the STAC-interchange providers bind only inside it; `WarpedVRT` is GDAL-native streamed reproject, never a second byte-window transport beside the `tabular/egress` `obstore` rail.
 
-```python signature
+```python
 from contextlib import ExitStack
 from enum import StrEnum
 from pathlib import Path
@@ -833,7 +833,7 @@ def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeRail[tuple[pa.Table, Bounds]
 - Owner: `CoverageCf` — the `rioxarray` CF bridge: `lift` writes the claim CRS and the op-derived affine onto a bare-ndarray coverage through the `.rio` accessor (the CF `grid_mapping` convention, never a hand-copied CRS attribute), and `write_cog` is the LABELLED write — a CF cube lands as a COG without dropping to the bare array, the `odc-stac` coverage cube from `spatial/catalog#ASSETS` round-tripping through the same accessor. `[02]-[GEO]`s `WriteCog` row stays the ndarray-plane egress; each writer owns its carrier, never a second COG writer on either plane.
 - Growth: a new CF raster verb is one accessor row; a new COG creation knob threads the `to_raster(**profile)` kwargs; zero new surface.
 
-```python signature
+```python
 
 
 def _registered() -> "ModuleType":
@@ -879,7 +879,7 @@ class CoverageCf(Struct, frozen=True):
 - Boundary: the claims plane crosses to frames only where a `VectorOp` needs GeoSeries semantics — `geoarrow.pyarrow.to_geopandas` is that sole lowering; a format outside `NativeFormat` stays a `VectorIngress` pyogrio row, the OGR long-tail half of the split predicate.
 - Growth: a new rust-spelled format is one `NativeFormat` member and one `_NATIVE_ROW` row citing its catalog call shape; a new pushdown mechanism is one `BboxPush` member with one `arguments` arm; a new remote source is the `store` handle row threaded from the runtime store lane; zero new surface.
 
-```python signature
+```python
 
 
 class NativeFormat(StrEnum):

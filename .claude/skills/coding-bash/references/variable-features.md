@@ -14,7 +14,7 @@ Call stack introspection, nameref composition patterns, hierarchical trap compos
 
 `BASH_LINENO[i-1]` pairs with `FUNCNAME[i]` — line number records the call site, FUNCNAME records the called function. `set -E` (errtrace) is mandatory: without it, ERR fires only at top-level scope.
 
-```bash conceptual
+```bash
 # ERR trap: structured stack trace with failing command
 _on_err() {
     local -r rc=$? cmd="${BASH_COMMAND}" depth="${#FUNCNAME[@]}"
@@ -59,7 +59,7 @@ _caller_chain() {
 
 Namerefs (`local -n`) bind a local name to a caller-scope variable, replacing `$(subshell)` capture with direct writes. Scales to multiple return channels where subshell can only return one string.
 
-```bash conceptual
+```bash
 # Return channel: caller allocates, callee populates via nameref — zero forks
 parse_uri() {
     local -n __scheme="$1" __host="$2" __path="$3"
@@ -95,7 +95,7 @@ Prefixing callee nameref names with `__` keeps them from colliding with caller v
 
 Execution order: ERR (stack intact for diagnostics) then EXIT (cleanup). Signal traps (INT/TERM) trigger EXIT via `exit`. `_CLEANUP_STACK` LIFO separates registration from release — reverse iteration ensures dependent resources release before their dependencies.
 
-```bash conceptual
+```bash
 # --- Trap hierarchy: ERR (S1 _on_err) → _CLEANUP_STACK (LIFO release) → EXIT (orchestrator)
 # ERR trap defined in S1 — _on_err captures stack diagnostics
 
@@ -131,7 +131,7 @@ Signal traps call `exit` with conventional codes (130=INT, 143=TERM) to trigger 
 
 `wait -f PID` (`5.2+`) waits without job control. `wait -n -p VARNAME` (`5.1+`) returns the specific completed PID for per-job error handling. `SRANDOM` draws from `/dev/urandom` (kernel CSPRNG) — use for jitter and temp names where `RANDOM` (LCG) is insufficient.
 
-```bash conceptual
+```bash
 # PID map: name → PID for targeted signal delivery and per-job error tracking
 declare -A _JOBS=()
 
@@ -193,7 +193,7 @@ _exec_service() {
 
 ## [05]-[RUNTIME_CAPABILITY]
 
-```bash conceptual
+```bash
 declare -Ar _TOOL_FALLBACKS=(
     [search]="rg:_search_rg fd:_search_fd grep:_search_grep"
     [json]="jq:_parse_jq python3:_parse_python"

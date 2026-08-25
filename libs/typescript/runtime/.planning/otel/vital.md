@@ -24,7 +24,7 @@ Capture belongs to the browser condition and the table does not — every platfo
 - Law: the kind union, the grade union, the navigation union, the fold union, and the report-only kind subset all derive — `keyof typeof _rows` against the `_KINDS` key tuple, the `_GRADES` and `_NAVIGATIONS` tuples, the row's `fold` column, and a mapped filter over the `source` column — so the intake refuses a library-owned kind at the type level rather than at a runtime check.
 - Growth: a new vital is one row — its capture source selects the registration arm and supplies that arm's own column, its fold selects the accounting arm, and the grade, both instruments, the deploy-feed budget, and every board panel follow; a new accumulation semantic is one `_folds` arm the column selects.
 
-```typescript signature
+```typescript
 import { Array, Chunk, Context, Effect, HashMap, Layer, Metric, Number, Option, ParseResult, PubSub, Queue, Record, Schema, Stream, pipe } from "effect"
 import type { HrTime, Span } from "@opentelemetry/api"
 import { addSpanNetworkEvents, getElementXPath, getResource, normalizeUrl } from "@opentelemetry/sdk-trace-web"
@@ -104,7 +104,7 @@ const _grade = (kind: Vital.Kind, value: number): Vital.Grade =>
 - Exemption: the registrar and observer callbacks are the platform-forced statement seam — emissions are `void`-discarded inside them; the sample projections beside them are the marked admission kernel for the untyped `PerformanceEntry` records and the library's own `Metric` union.
 - Growth: a new library-covered vital is one `_LIBRARY` row beside its `_rows` row; a new entry family is one `_rows` entry row carrying its own `entry` type and `read`, which `_ENTERED` indexes and the observer callback resolves with no arm edit.
 
-```typescript signature
+```typescript
 type _Hints = { readonly model?: string; readonly platformVersion?: string }
 
 type _Parts = Readonly<Record<string, number>>
@@ -289,7 +289,7 @@ const _watched = (policy: Vital.Policy, navigation: Vital.Navigation): Stream.St
 - Boundary: URL-bearing span enrichment composes through `Vital.enrich(span, request)` — `normalizeUrl` fixes the lookup identity, `getResource` selects the nearest unused main and preflight timing pair inside the supplied span range, and `addSpanNetworkEvents` projects both onto the caller-owned dial span under the new content-length semconv alone, dropping zeroed phases so an unused phase never reads as a measured zero. This bridge never opens a span, so `browser/fetch` keeps request ownership while this module owns the Performance-Timeline projection; the fetch instrumentation row leaves `clearTimingResources` off so the buffer this reads survives.
 - Growth: a new context dimension is one projection line beside its `Convention` row.
 
-```typescript signature
+```typescript
 declare global {
   interface Navigator {
     readonly connection?: { readonly type?: string }
@@ -398,7 +398,7 @@ const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceR
 - Growth: an instrument axis is closed — new analysis lands as board queries over the same two instruments.
 - Packages: `effect` (`Array`, `Chunk`, `Context`, `Effect`, `HashMap`, `Layer`, `Metric`, `Number`, `Option`, `PubSub`, `Queue`, `Record`, `Schema`, `Stream`, `pipe`); `web-vitals/attribution` (the five registrars, the five cutoff pairs, the five attribution shapes through `MetricWithAttribution`, `MetricRatingThresholds`, `INPAttributionReportOpts`, and the performance-global types build); `@opentelemetry/sdk-trace-web` (`normalizeUrl`, `getResource`, `addSpanNetworkEvents`, `getElementXPath`); `@rasm/core` (`Convention`).
 
-```typescript signature
+```typescript
 class _Session extends Schema.Class<_Session>("Vital/Session")({
   id: Schema.NonEmptyString,
   previous: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),

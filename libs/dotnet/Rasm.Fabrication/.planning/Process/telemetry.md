@@ -26,7 +26,7 @@ Settled composition draws every mechanism from the kernel signal capsule — the
 - Growth: a new measured concern is one case row, one `[JsonDerivedType]` registration, one `Of` projection, one roster row at `[03]`, one projection arm at `[04]`, and ONE `Fire` site at the fold where its receipt settles — a case complete on the first five and absent from the sixth declares an instrument nothing ever writes, which is the named defect and the shape a roster audit hunts for; a new solver lane is one `FabricationEngine` row, gaining `EnginePhase` rows and an `Of` overload only where the lane counts internal steps; a new lane milestone is one uncounted `EnginePhase` row; a new sealed measure is one arm on the passport fold, and a measure in a unit no row carries is one `SustainabilityQuantity` row that mints its roster entry, its arm route, and its board panel together; a case whose receipt gains a measure widens that case, never a sibling.
 - Boundary: fact cases carry no `ContentKey`, no personnel or heat identity, and no free-text detail — the receipt rail owns identity and the classification rows at `[05]` bar the classified members structurally; the `[JsonDerivedType]` kind column is the canonical spelling the message envelope carries to the sink rail, so a kind outside this roster is receipt-only by declaration; a tap subscriber fault parks as `IsolatedFault` on the port's own cell and never re-enters the emitting fold, so a swallowed emission is still evidence a support bundle reads.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -392,7 +392,7 @@ public sealed class FabricationSurface(ReceiptSinkPort sink, FabricationWireCont
 - Growth: one measured concern is one `InstrumentSpec` here and one projection arm at `[04]-[FACT_PROJECTION]`; a per-kind family derives from its owning vocabulary, never hand-enumerated rows; a new level is one `cells.Level` write at its producing arm beside one `Level` row, or one keyed write beside one `Levels` row where the shop holds a reading per basis, process, or machine.
 - Boundary: instrument names are dotted `rasm.fabrication.<domain>.<measure>` with UCUM units, never pre-baked `_total` or unit suffixes; the port's `Scope` is the version-stamped package id the composing root admits by name; facts are event-shaped and ride counters and histograms while level-shaped measures ride pulled rows reading the composition's cells at collection cadence; every dimension key is a declared slot const on its own row's `Dimensions` column, so the governance leg derives view tag keys from the mounted roster and no second roster restates them; tenancy is the kernel `TenantContext` projection every job row declares, so this page holds no tenant key, no baggage read, and no zero sentinel; a scalar pulled level carries no call-site tag, because a tag whose value flips between collections strands the previous value's series live forever — a level holding one reading per basis or process is a keyed `Levels` family whose tag IS its cell key, and provenance beyond that key rides the event-shaped rows that carry it.
 
-```csharp signature
+```csharp
 public static partial class FabricationInstruments {
     public const string BasisSlot = "rasm.fabrication.basis";
     public const string ActionSlot = "rasm.fabrication.action";
@@ -542,7 +542,7 @@ public static partial class FabricationInstruments {
 - Growth: a new projected kind is one table row here and its instrument row at `[03]-[INSTRUMENT_ROSTER]`.
 - Boundary: arm bodies are the one place fact wire names meet instrument writes — the platform-forced statement seam — and an arm re-reads only the one key its own tag vocabulary owns, never the payload fields its typed fact already admitted; arm execution rides the receipt-tap subscription the AppHost fan mounts on its hook rail, so a fan failure is that rail's shielded fault and never re-enters the emitting fold, and that fan brackets each message envelope in its OWN `TenantContext.Stamp` before projecting; a refused write short-circuits its own arm and rides `InstrumentArm`'s `Fin<Unit>` out through `ReceiptFan.Project` to that fan's rail-shaped `Observe`, which parks it point-attributed beside every other tap fault — no arm reaches a discard site and no folder mints a refusal cell of its own.
 
-```csharp signature
+```csharp
 public static partial class FabricationInstruments {
     public static readonly FrozenDictionary<string, InstrumentArm> Arms =
         new Dictionary<string, InstrumentArm> {
@@ -690,7 +690,7 @@ public static partial class FabricationInstruments {
 - Growth: a newly classified member family is one attribute row binding an existing taxonomy key plus its `ClassifiedValue` row on `Values`, both off one const; a new sensitivity class is a suite-taxonomy decision, never a folder mint.
 - Boundary: taxonomy name and row keys are value federation to the suite `DataClassification` vocabulary — the attribute rows carry `(taxonomy, value)` string pairs and no type reference crosses the package boundary, and `Values` STRENGTHENS that law rather than qualifying it: the contribution rides the existing `TelemetryContributorPort` seam as the identical text, so the suite's redaction owner proves this folder's values against its rostered set at boot and an unrostered value refuses at composition instead of reaching the erasing fallback at egress, where a deleted dimension raises nothing and is noticed only when someone misses it; annotated owners are `AttestationPayload.Signer` and `.Credential`, `HeatNumber`, `WelderQualification.Welder`, `TravelerAmendment.Actor`, and `ProgramDelivery.Operator`, each carrying its attribute at the declaring fence; `DataClassificationTypeConverter` string round-tripping stays under its `EXTEXP0002` gate as a declared policy value when a classification ever binds from configuration.
 
-```csharp signature
+```csharp
 public static class FabricationClassified {
     const string SuiteTaxonomy = "DataClassification";
     const string PersonalValue = "personal";
@@ -723,7 +723,7 @@ public sealed class CredentialDataAttribute() : DataClassificationAttribute(Fabr
 - Growth: a new traced lane is one `FabricationEngine` row; a new milestone is one `EnginePhase` row.
 - Boundary: the band is composition-entered and reaches a solver through the run spine, never a process-static source a domain page reads ambiently — the nullable receiver is what makes a lane holding no band run untraced rather than mint one, so a headless kernel run needs no ambient source and no branch at the call site; `FabricationFact.Engine` stays the receipt truth and the span carries no counter — a metric read off a span is the sampling-dependent duplicate the fan already owns; an unadmitted scope refuses on the kernel rail, so a composition that omits this roster fails at the first bracket rather than silently dropping every solver span; trace-based exemplars join the `[03]` histograms to these spans at the provider, and the meter scope stays `TelemetrySource.Fabrication` — a `TraceScope` and a meter scope are distinct grammars and neither derives from the other.
 
-```csharp signature
+```csharp
 public static class FabricationTrace {
     public static readonly ImmutableArray<TraceScope> Scopes =
         [.. FabricationEngine.Items.Select(static row => row.Trace)];
@@ -754,7 +754,7 @@ public static class FabricationTrace {
 - Law: NAMED LOSS from composing the kernel rail — the per-point FACT TYPE. Each named `HookPoint<TFact>` field refused every sibling payload at compile time; under one rail every point shares `FabricationHookFact` and subscribers discriminate on the case. What survives is stronger: `At` fixes the case-to-row pairing at compile time and the kernel gates `Seats` TWICE per fire — at entry and on the veto fold's product — so per-point narrowing moved off five field declarations onto one generated map. WITNESS — the five `HookPoint<TFact>` columns, the five-line `Live`, the five-entry `Points` census, and the private `Seat<TFact>` mint all delete onto `FabricationRail.Of`.
 - Boundary: hook scope rides the `FabricationRuntime` instance, so two apps composing the library never share a mutable registry or shadow each other's subscribers; ids obey the four-segment `rasm.<pkg>.<domain>.<point>` grammar `HookId` admission enforces; a subscriber fault parks as `IsolatedFault` on the composition's own bounded cell and the emitter is untouched, the ring shedding oldest-first rather than growing for process lifetime; a veto refusal returns on the run's own rail as the subscriber's typed fault. Spans are absent by design — admitted band scopes are the solver lanes at `[06]`, so `Plane` is `None` on every row, no `TraceScope` derives off these ids, and `Live` binds no `IHookSpan`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using FabricationGate = Rasm.Domain.HookGate<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
 using FabricationObserver = Rasm.Domain.HookTap<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
@@ -827,7 +827,7 @@ public static class FabricationHooks {
 - Growth: a new shop objective is one `Objective` row over an existing indicator shape, and a share over an already-fanned population needs no roster edit at all; a new board panel is one `PanelSpec` on the pack, and a whole passport panel family is one `SustainabilityQuantity` row; a new indicator shape is a kernel `Sli` case breaking every compile leg at once.
 - Boundary: indicator, severity, panel, descriptor-row, and burn vocabularies are the kernel capsule's and cross the language boundary as values, never types; a success share is a partition over the ONE counter its outcome dimension already fans — a good-half twin doubles the series the roster mounts and strands its denominator on the next arm edit — while `Ratio` stays reserved for genuinely independent counters and a saturation indicator names one pulled level against a bound, because a load or life reading forms no counter pair; a partition's good set is derived where a vocabulary owns the verdict and named off the axis const where the population itself owns it, never spelled as a value literal; every named series is written by an arm at `[04]` on every occurrence, so no denominator depends on a veto path; the pack's boards and alerts stay descriptor data — query dialect, datasource binding, provisioning, and delivery routing are the deploy plane's.
 
-```csharp signature
+```csharp
 public static class FabricationDescriptors {
     public static readonly BoardPack Pack = new(
         Wire: "fabrication.slo",

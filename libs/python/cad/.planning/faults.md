@@ -24,7 +24,7 @@ This owner imports no sibling and every sub-domain reaches it, so the row roster
 - Growth: a refusal shape is one `FaultRow`; a wire case, one `CadCase` member; a posture, one `Recovery` case beside one `_PROJECTED` row.
 - Boundary: refusal SHAPE alone lives here — correlation, stamp, and tenant arrive as `FaultStamp`, and the raise is `service/provider`'s collapse.
 
-```python signature
+```python
 from collections.abc import Callable
 from enum import EnumCheck, IntEnum, StrEnum, verify
 from typing import Final, Literal
@@ -155,7 +155,7 @@ LANE_SATURATED: Final[FaultRow] = FaultRow(leg=CadLeg.SERVICE, case=CadCase.BUSY
 - Output: `terminal` and `transient` project the detail alone and `retry_after` re-seats its own arm as one standard `RetryInfo`, so tuple length is the arm's own consequence.
 - Boundary: `refused` builds the value on the refusing arm alone, so a passing call prices no detail work; `service/provider` raises it.
 
-```python signature
+```python
 _PROJECTED: Final[frozendict[str, Callable[[Recovery], tuple[Oneof, tuple[Message, ...]]]]] = frozendict({
     "terminal": lambda _held: (Oneof("terminal", Empty()), ()),
     "transient": lambda _held: (Oneof("transient", Empty()), ()),

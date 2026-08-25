@@ -33,7 +33,7 @@ Several cases declare elsewhere — `Assessment` on the `Analysis/assessment` sp
 - Boundary: `Optimization.ReferenceDerived` and `Clash.Truncated` are declared columns whose producer write is the owning lane's — `Solver/optimizer` and `Solver/clash#CLASH_AND_TWIN` `ClashSurvey.Truncated` respectively — so the receipt states the fact and the mint site fills it; a column the union declares and no lane writes reads as a measured false at every consumer.
 - Boundary: spine values serialize as Thinktecture key scalars and format without runtime format strings.
 
-```csharp signature
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Execution), "execution")]
@@ -695,7 +695,7 @@ public sealed class ReceiptSurface(
 - Boundary: receipt payload identifiers — checksums, content keys, artifact ids, provider names — sit in the `Operational`/`Internal` classification tiers whose redactor rows pass, so per-field `DataClassification` attributes never land on receipt cases and redaction custody stays at the AppHost egress seam.
 - Boundary: the cost write is the lossy channel — the `Runtime/ledger#CHARGEBACK_EGRESS` folds over the `ReceiptEnvelope`-joined journal stay billing truth, a zero-priced fact skips the write, and the tenant tag rides the same AppHost cardinality cap every tag fan obeys.
 
-```csharp signature
+```csharp
 public readonly record struct FactMeasure(
     Seq<(InstrumentSpec Row, double Value, TagList Tags)> Writes, CostVector Cost) {
     public static readonly FactMeasure Silent = new(Seq<(InstrumentSpec, double, TagList)>(), CostVector.Zero);
@@ -915,7 +915,7 @@ public static class ComputeTraces {
 - Boundary: replay never unfreezes a wire or fabricates inputs — an unresolvable closure, an absent stamp, or a payload whose byte length is empty, mismatched, or unaligned to the lane width lands `Unreplayable` with its exact `Error` evidence, never a coerced `Reproduced`. A BITWISE divergence carries no magnitude, because the payloads differ and nothing measured by how much; only the inexact class produces a defect figure, and it is the measured relative distance.
 - Boundary: tenant partition enters through `Journal` alone — a tenant-keyed member over the bare fact stream fabricates a dimension its input never carried and rejects; the envelope's `Package` is the kernel `TelemetrySource` row, so the filter compares rows rather than rendered text.
 
-```csharp signature
+```csharp
 public static class ReceiptFolds {
     public static Fin<Seq<(TenantContext Tenant, ComputeReceipt Fact)>> Journal(Seq<ReceiptEnvelope> envelopes, ComputeWireContext wire) =>
         envelopes.Filter(static envelope => envelope.Package == ReceiptSurface.Source)

@@ -18,7 +18,7 @@ THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` roster and law, the t
 - Boundary: this page emits EN 1993-1-8 and EN 1995-1-1 design resistances and NOTHING ELSE, and it spells NO partial factor. `Fastening.JointFactor` reads γM2 off the `capacity#SECTION_CAPACITY` `DesignBasis` row the placement declares (`en1993-1-8` is the joints row), and it REFUSES a resistance-factor basis: an AISC §J3 verdict divides no nominal by γM2, so a φ-format basis passed through publishes a resistance this page never computed. `GradeProperties.Fastener.EurocodeAlphaV` is `Some` only for the seven property classes EN 1993-1-8 Table 3.1 tabulates, so a SAE, ASTM, 9.8, or 12.9 grade RAILS out of the Eurocode resistances rather than borrowing an α_v the code never published for it. The published mechanical band, the preload, and the stock identity stay total over every grade, because those are each body's own specification data.
 - Boundary: the retired `bool Metric` on the grade row DERIVES — the thread system is the authority's PRINT system, so `Admits` spells `(Authority == ComponentAuthority.En) == thread.Series.Metric` reading the owning `MaterialGrade` row's own authority column. `Admits`/`At` therefore land on `MaterialGrade` rather than on the arm: the arm carries no authority, and a member seated there takes one as an argument the call site supplies. A non-fastener grade answers `false` and `None` respectively, the arm mismatch stated at the refusal site.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -491,7 +491,7 @@ public static class FastenerSeed {
 - Growth: a new connection modality is a `BoltCategory`/`FayingSurface` row the assembly reads; a new hole form one `HoleShape` row; a new bolt-group position one `BoltPosition` row; the multi-bolt group `ΣFs,Rd`, the long-joint `β`, and the `Fv,Ed/Fv,Rd + Ft,Ed/(1.4·Ft,Rd) ≤ 1` interaction are `Rasm.Compute` consumers over these single-bolt design values.
 - Boundary: `Count` admits the discrete grip and shear-plane columns. `BearingDesign` takes the DISTANCES the code's own formulas consume and derives `k1` and `α_b` from them, so a caller cannot hand the resistance one opaque scalar in which a transposed edge and end distance is invisible; the hole-shape reduction and the countersink thickness deduction are rows the same derivation reads. Every resistance takes the placement's `DesignBasis` and reads γM2 through `Fastening.JointFactor` — this section spells no partial factor either. The preload is bounded by the grade's own yield load, because a pretension above the elastic limit is a tightening method the assembly cannot represent. A washer's ABSENCE is the absence of a washer, so its hardness, outer diameter, and thickness are all `None` together rather than a bool guarding three separate reads.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

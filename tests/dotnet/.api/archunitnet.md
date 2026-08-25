@@ -39,7 +39,7 @@ Predicates filter by name, namespace, attribute, and visibility across every flu
 |  [10]   | `MethodMembers()`                                                    | fluent root | method-shape law grammar               |
 |  [11]   | `PropertyMembers()`                                                  | fluent root | property-shape law grammar             |
 
-```csharp signature
+```csharp
 public class ArchLoader {
     public ArchLoader LoadAssemblies(params Assembly[] assemblies);
     public Architecture Build();

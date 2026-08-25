@@ -17,7 +17,7 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 - Receipt: `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the `Introspection` counts project by `walk` over the node variants, the tag riding the encoded `kind` field, never a runtime `.tag` attribute; `_emit` awaits `Journal.record` over `receipt.evidence()` — the awaitable seat the durable plane demands, since `contribute` cannot suspend — and appends no positional diff, because those counts already ARE the recovery's whole evidence.
 - Growth: a new recovery op is one `LensOp` member, one `Route` row (arm, default, providers, observed), and one `_REQUIRED` row when it needs material; a new provider for an existing op is one member in the row's `providers` set with its arm branch; a new provider knob is one `LensSpec` field, one `LensPayload` row, and its op's `observed` entry; a richer recovered field is one `NodeSlot` key honored by `_node`; a new AcroForm mode is one `_FIELD_BUILDERS` row; a new table-quality measure is one `TableAudit` field, whose projection and inverse both derive from the roster.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from enum import StrEnum

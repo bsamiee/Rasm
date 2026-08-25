@@ -23,7 +23,7 @@
 - Growth: a control modality is one `TravelerControl` case; a sampling regime is one `TravelerSampling` case; a corpus row family is one column and one preimage row.
 - Packages: `Rasm.Drawing` (`RevisionIndex`), `Rasm.Element` (`AdmissionSlots`), `Rasm.Fabrication.Process` (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `PlannedStep`, `FabricationFault`, `Admission`), `Documentation/passport` (`SealedRecord`, `QualityReport.CanonicalJson`), `Documentation/report` (`Disposition`, `CharacteristicId`), `Joining/procedure` (`ProcedureReceipt`, `HoldPoint`, `HoldRelease`, `HoldPointKey`), `Spec` (`CapabilityReport`, `Receipt<DfmReport>`, `FeatureFrame`), `Fixturing/setups` (`SetupSchedule`), `Tooling/magazine` (`ToolChange`, `ToolAssembly`), `Posting/dialect` (`ProgramDelivery`, `PostDialect`), `Verify/estimation` (`CostEvidence` on the `Receipt<TEvidence>` spine), UnitsNet, NodaTime, Thinktecture, LanguageExt.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
@@ -374,7 +374,7 @@ public sealed partial class TravelerReceiptCorpus {
 - Law: marks reconcile by `AttributeTag` ROW against the declared identity, and a row absent from the drawing raises no divergence — the sheet carries no such mark. Every tagged mark under a row is read, so a sheet carrying two values for one key prints both contradictions.
 - Growth: an amendment modality is one case with its own `Advance` arm; a section is one case; a reconciled mark row is one entry in the reconcilable roster.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -624,7 +624,7 @@ public sealed record TravelerArtifact(
 - Receipt: `TravelerArtifact` carries the document, its descriptor and rendering, the minted key, the consumed and produced key sets, the passport identity, and the sealed amendment chain as `Receipt<TravelerAmendmentEvidence>` rows — plane, key, ancestry, and stamp on the spine carrier, amendment and rendering as the lane evidence. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`.
 - Packages: QuikGraph (`BidirectionalGraph`, `STaggedEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `Sinks`, `Roots`, `InEdges`), `Rasm.Element` `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`, `System.Text.Json` for the transport rendering.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class TravelerCanonicalCodec {
     static readonly TravelerArtifactDescriptor Descriptor = new(

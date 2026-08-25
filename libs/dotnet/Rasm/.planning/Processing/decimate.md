@@ -22,7 +22,7 @@ Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Nu
 - Growth: a new decimation modality is one `SimplifyKind` row with its `Weigh` delegate, trait set, and one `SimplifyOp` case over the same collapse loop; a new quadric weight is one `Weigh` row reading one `SimplifyPolicy` column with its default on `Canonical` and its optional at `Of`; a new error bound is one `DecimationResult` column over the same sampler and reduction plane; a new draw is one `DecimateLane` row.
 - Boundary: the `HausdorffClaim` `BenchClaim` registers the vectorized reduction's speed against its scalar reference lane, so the corpus gate proves it while correctness rides the exact predicates alone. Point-triangle closest refinement is `Rasm.Spatial`'s `SpatialIndex.ClosestOnTriangle` beside the BVH candidate prune — this page composes the broad phase and the exact foot from one owner, never a page-local Ericson body.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

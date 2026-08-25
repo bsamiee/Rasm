@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 runtime/
 └── src/
     ├── proc/                  # Process substrate: runtime rows, config, flags, lifecycle, off-thread compute

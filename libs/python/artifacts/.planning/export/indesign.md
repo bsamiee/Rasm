@@ -18,7 +18,7 @@ SimpleIDML is pure-Python over `zipfile`+`lxml`, so the mutation fold crosses th
 - Growth: a SimpleIDML mutation is one `IdmlStep` case plus one `apply` arm plus one `facts` arm over the verified algebra; a source attribute is one `IdmlSource` field; a structural fact is one required `IdmlFact` field; an admission cause is one `IdmlFault` case beside one casualty comprehension the monoid already reduces; an untrusted ingress is one `IndesignPayload` band line; a crop mode is one `PdfCrop` token. Another deliverable is one `ArtifactWork` node the `ArtifactPipeline` schedules.
 - Boundary: per-operation base reopen, parallel source lists, erased dictionaries, forwarding case constructors, crop dispatch tables, `BytesIO` package mutation, class-qualified offload, raise bridges, and parallel IDML receipts are rejected. `export_xml`/`export_as_tree` tagged-content egress stays `document/lens#LENS`.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from contextlib import ExitStack

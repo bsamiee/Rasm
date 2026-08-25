@@ -17,7 +17,7 @@ Machine-readable-mark decode substrate owns the rich zxing-cpp `read_barcodes` i
 - Growth: a new decode seed is one `ScopeKind` row plus one `_SCOPES` value; a richer symbol fact one `DecodedSymbol` field; a new format class one `FormatFamily` member plus one `_FAMILY` row; a new detector or pixel mode one vocabulary member plus its provider-name row; a new source modality one `DecodeSource` case plus one `_opened` arm; a new symbology scope one `TAXONOMY` row.
 - Boundary: no generation and no rail (the three encode arms, the `MarkOp` family, and the lane dispatch are `graphic/marks/encode#MARK`'s), no pixel-raster image processing (the raster transform/IO engines are `graphic/raster`'s, whose worker may hand this page an already-decoded `Pixels` frame so the scan needs no Pillow on that path), no UI, no live viewer. `read_barcodes` accepts a numpy array, a PIL image, a buffer, or a `zxingcpp.ImageView`; this page always declares the layout through `ImageView`. Deleted forms — a per-symbology decode entry, a `read_barcode`/`read_barcodes` sibling pair, the deprecated `|` format-union, a second carrier table beside `TAXONOMY`, a parallel decode fault enum or fault-bearing exception, a `text|format|valid|position` score cram, a silent drop of invalid symbols, a `mode`/`engine`/`gated` knob, an async sibling rail beside `Mark.of` — the correct form forecloses.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable
 from copy import replace

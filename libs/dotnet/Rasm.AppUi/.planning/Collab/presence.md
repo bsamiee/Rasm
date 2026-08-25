@@ -31,7 +31,7 @@ Everything a co-edit session broadcasts and nothing it persists. `CollabWire` fr
   - Optimistic acknowledgment has ONE producer and it lives HERE, at the authority that owns both evidence shapes: an `EventTriggerKind.Import` diff carries converged VALUES and projects onto `OverlayEcho.Converged`, while a `CollabSyncReceipt` carries the merge VERDICT and joins the outstanding `OverlayTicket` onto `Acked` or `Refused` through the verdict's own total `Switch`; a consumer folding a pending row against a timer, an assumed success, or a `Local`/`Checkout` diff is the deleted form — a local diff is this session's own echo whose ticket the receipt settles, and a checkout diff is a historical read state that owes the live state nothing.
   - Every foreign callback on this page is ONE `HostSink` collapse under its own `CollabPoints` id: the payload projection composes into the fault route before its single `Run`, so a refused handoff parks on the composition-minted kernel `FaultCell` as a counted, point-attributed number. Six hand `Func<Error, IO<Unit>>` columns and six re-spelled `@catch`-then-`Run` bodies delete onto it.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -305,7 +305,7 @@ flowchart LR
   - Liveness is the channel's own answer through its own sweep, never a stored flag: both store reads and `Awareness.GetAllStates` KEEP a lapsed entry until `RemoveOutdated` evicts it (`.api/api-loro.md` `[EXPIRY]`), so every read here sweeps first. The two sweeps differ in shape — the store's returns void and the awareness one answers the evicted peer ids — which is why the roster read discards a returned array and the apply arms do not.
   - All three channel handles are Rust-pointer wrappers the owner disposes; `PosQueryResult` is itself a disposable pair, scoped inside `Locate` through the kernel bracket so a read fault and a release fault aggregate rather than one hiding the other.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -406,7 +406,7 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
   - Follow is display and NEVER authority: it takes no capability read, grants nothing, and a follow arm gated on a role would be asserting that watching a published camera is a privilege the ruling already denies. The lease TRANSITION is the answer — a follow that lost the seat to a concurrent request and a follow that landed are different facts, and a swap whose verdict is discarded reports success to both. The follow banner materializes as one `Shell/controls#CONTROL_INTENT` `ControlIntent.Banner`, so the persistent who-am-I-following condition takes the banner family every persistent condition takes.
   - The break is on the INTENT, never on a camera delta: a followed camera moves the local camera on every frame, so a positional threshold cannot separate the user's own nudge from the target's travel and would either break on the target's motion or never break at all.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

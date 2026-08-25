@@ -31,7 +31,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Growth: a verb is one `IntentRow`; a surface occurrence is one `PlacementSlot`; a behaviour modality is one `CommandKind` case naming its mint row, and every projection is untouched; a new identity space is one value object beside the four already here.
 - Boundary: Rhino's `.rui` toolbar files, `RhinoApp.ToolbarFiles`, and `MenuLinks` live menu mutation are that host's OWN menu estate over its own persistence format — conflating them with this table is the sharpest trap in the boundary corpus, because the two answer different questions about different files.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Parametric;
@@ -222,7 +222,7 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
 - Growth: a new entry kind is one case with one build arm and one flatten arm; a new flat presentation is one `MenuMode` row; a new declared bound is one `MenuBudget` row; the four gates never widen.
 - Boundary: menu lifecycle observation — opening, closing, closed — is the input owner's fact algebra over the live popup inside the lease window, never a column on a node. The flat host's own screen-point argument and its call stay at that boundary: `Flatten` answers the roster and `Choose` reads the ordinal, and neither knows where the menu was shown.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoPointF = Eto.Drawing.PointF;
 using Rasm.Domain;
@@ -315,7 +315,7 @@ public static class MenuForge {
 - Growth: a new modality is one `WindowRole` row; a new posture fact is one `WindowChrome` field; a new capability is one `ShellCapability` row nothing else edits; a new live verb is one `WindowVerb` case breaking `Steer` loudly; a new lifecycle phase is one `MountPhase` row carrying its `Closes` consequence; a new adoptable mount kind is one `IMount` implementation and no edit to this machine at all.
 - Boundary: window lifecycle facts — closing, closed, state changed, pixel size changed — are the input owner's source rows over the realized form; per-display placement math reads the platform owner's display facts; Grasshopper2's editor panes and slots, and Rhino's dockable panel registry, stay at their boundaries and hand this owner an anchor rather than a case.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoIcon = Eto.Drawing.Icon;
 using EtoPoint = Eto.Drawing.Point;
@@ -507,7 +507,7 @@ public sealed class WindowMount : IMount, IDisposable {
 - Growth: a new affirmative outcome is one `PromptChoice` row; a new native prompt is one `PickerSpec` case with one `Present` arm, its `PickerResult` mirror, and the `Typed` demand that pairs them; a new message presentation is one `AskTrait` row, a new delivery target one `AskDelivery` row, and a new host verdict one `AskVerdict` row; neither gate widens.
 - Boundary: Rhino's multi-value, document-scoped, and resource-scoped dialogs — layer, linetype, print-width, sun, and the property and check rosters — stay at that boundary as its own instances, because each is a `Rhino.UI` document surface with no host-neutral analogue.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoSize = Eto.Drawing.Size;
 using Rasm.Domain;
@@ -735,7 +735,7 @@ internal sealed class PromptMount<TResult> : IMount, IDisposable {
 - Growth: a route is one `PrintRoute` case, a geometry source one `PageFrame` case, a job option one `PrintSpec` field, a job posture one row on its own classifier, and a page fact one `PrintPageFact` case.
 - Boundary: the page paints through the same paint program the on-screen surface mounts, so a printed page and a drawn frame are one program replayed under two scene policies rather than two render paths.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoRange = Eto.Forms.Range<int>;
 using EtoRectangleF = Eto.Drawing.RectangleF;
@@ -947,7 +947,7 @@ public sealed record PrintPlan(JobName Name, Seq<PrintPage> Pages, PrintSpec Spe
 - Growth: a new presence surface is one `PresenceOp` case with one apply arm, its `PresenceHold` case carrying exactly what that apply minted, one restore arm, and its precondition verdict; a new progress mode is one `PulseState` case carrying exactly the evidence the host projection consumes.
 - Boundary: this owner reaches OS notification-center, tray, taskbar, and badge presence ALONE — a Rhino in-viewport toast, a Rhino status-bar meter, and a Grasshopper2 canvas notice are host surfaces over their own chrome, and the two never alias.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoImage = Eto.Drawing.Image;
 using Rasm.Domain;

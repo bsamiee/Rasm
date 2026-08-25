@@ -35,7 +35,7 @@ Every overload binds a caller `ICollection<T>`; fence carries the full `AddInMem
 |  [04]   | `AddInMemoryExporter(ICollection<LogRecord>)`                      | log    | on `OpenTelemetryLoggerOptions`                 |
 |  [05]   | `AddInMemoryExporter(ICollection<LogRecord>)`                      | log    | on `LoggerProviderBuilder`                      |
 
-```csharp signature
+```csharp
 public class InMemoryExporter<T> : BaseExporter<T> where T : class {
     public InMemoryExporter(ICollection<T> exportedItems);
     public InMemoryExporter(ExportFunc exportFunc);

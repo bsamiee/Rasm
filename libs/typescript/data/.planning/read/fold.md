@@ -27,7 +27,7 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 - Growth: a new lane is one `Lane.Spec` value; a new position axis is one column on the DDL pair with its `_Position` field.
 - Boundary: `Fold.Plan`, `Clock.Hlc`, and `Wire.ElementGraph` arrive settled from core; foreign edit bytes cross only at `Lane.Edit.fold`, and this page re-derives no key, cell, or stamp.
 
-```typescript signature
+```typescript
 import { Array, Duration, Effect, Encoding, HashMap, HashSet, Match, Option, ParseResult, Schema } from "effect"
 import { Clock, Fault, Fold, Format, Wire } from "@rasm/core"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
@@ -201,7 +201,7 @@ const _at = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
 - Growth: a lane changing staleness budget keeps this fold — `[4]` and `[5]` compose `_apply` unchanged, so budget is a driver choice and never a second reduction.
 - Boundary: the slot opens no transaction, stamps no coordinates, and never retries — the publish owner holds all three.
 
-```typescript signature
+```typescript
 import { Array, BigInt, Effect, HashMap, Option } from "effect"
 import { Live } from "./live.ts"
 
@@ -293,7 +293,7 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 - Growth: a new drain policy is a budget row on `Fault.Budget`; a new operator verb is one `Machine.procedures` row beside `Wake` and `Poll`.
 - Boundary: the actor owns no fold — `_apply` is `[3]`'s, and the quarantine replay marker is an operator verb rather than an automatic re-drive.
 
-```mermaid conceptual
+```mermaid
 sequenceDiagram
   accTitle: Projection drain transaction
   accDescr: A wake drives one claimed journal page through fold, quarantine, and checkpoint advancement.
@@ -327,7 +327,7 @@ sequenceDiagram
   deactivate A
 ```
 
-```typescript signature
+```typescript
 import { BigInt, Function, Layer, Metric, Option, type ParseResult, Request, Schedule, Stream } from "effect"
 import { Machine, Reactivity } from "@effect/experimental"
 import { SqlClient, SqlSchema } from "@effect/sql"
@@ -582,7 +582,7 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 - Growth: a maintenance posture the database itself owns (a materialized view, an incremental-view-maintenance extension) is one row beside these, sharing the lane spec and the swap.
 - Boundary: the drain function is the caller's — this owner holds the lock, the shadow, the swap, and the invalidation, never the fold that fills the shadow.
 
-```typescript signature
+```typescript
 import { Array, type ParseResult, Record } from "effect"
 import type { SqlError } from "@effect/sql"
 import { Retain } from "../journal/retain.ts"
@@ -676,7 +676,7 @@ export { Lane }
 - Boundary: duplicate entity keys refuse before any `Map` insert; current is the resolved entity address or absence, never an unchecked key. Generated rules already own member/view uniqueness and field bounds, so this fold does not revalidate them.
 - Packages: `@rasm/contracts` (generated `organization.OrganizationSchema`); `@rasm/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
 
-```typescript signature
+```typescript
 import { fromBinary, type MessageShape } from "@bufbuild/protobuf"
 import { OrganizationSchema } from "@rasm/contracts/rasm/contracts/organization/organization_pb"
 

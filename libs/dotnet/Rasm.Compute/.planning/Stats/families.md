@@ -29,7 +29,7 @@ Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA` — `DenseRoute.Solve`, `L
 - Boundary: stochastic seeds ride the kernel `Deterministic.Source(seed, lane)` and never a bare integer handed to `Matrix<double>.Build.Random`. The NMF factor pair drew from an unseeded process RNG under two magic lane integers, so two runs of one fit answered two factorizations and neither the receipt nor the carrier said why — `Solver/optimizer#OPTIMIZER_LANE` rules the seeded source for every stochastic kernel and this is one.
 - Boundary: the SMO loops, the Lloyd assignment sweep, the agglomerative merge scan, the DBSCAN region walk, and the NMF multiplicative update are MEASURED numeric kernels: statement bodies, index arithmetic, and mutation-local scratch stay confined inside them and never reach domain flow, exactly as the wavelet and power-iteration kernels on the sibling signal page are exempted. What is NOT exempt is their terminal — every one of them reports a `Convergence` verdict its caller reads, so the exemption covers the body and never the answer.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]

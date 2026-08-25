@@ -19,7 +19,7 @@ Ingress is honest: targets, spaces, and adjacency arrive off the concrete graph,
 - Growth: a new occupancy class is one `OccupancyClass` row; a new egress check is one fold over the same view; a new code edition is the route row's `SolverVersion` bump; vertical circulation is one `EgressEdge` kind row carrying the SFPE stair/ramp specific-flow columns, which is also what makes a multi-storey merge expressible; zero new surface — a `TravelDistanceAnalyzer`/`ExitCapacityAnalyzer` sibling family the collapsed defect, a managed Edmonds-Karp beside the OrTools push-relabel the rejected reinvention.
 - Boundary: flow capacities and costs quantize to `long`; saturated arcs are bottleneck candidates, not a min-cut partition. QuikGraph owns paths, occupancy is mandatory request evidence, and door width/geometry must resolve before either graph algorithm runs. The graph this page assesses is PLANAR and single-storey: `EgressEdge` carries `ClearWidthM`/`LengthM` alone, so every travel, capacity, and RSET fold reads one storey's horizontal circulation and a stair or ramp has no column to declare its specific flow on. Solver node addressing builds ONE keyed index per solve — a linear scan per arc is `O(n²)` over the arc set. Clear width is MEASURED, never flagged into the ratio channel: a boolean lifted to an epsilon above unity is a utilization no probe produced.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -203,7 +203,7 @@ public static class CirculationAnalysis {
 - Growth: a new planar check (exit-signage isovist, refuge-area fold) is one fold over the same boundaries; zero new surface.
 - Boundary: NTS/Clipper2 are float production-plane tools at the discipline boundary — no predicate decisions ride them, the kernel staying the exact-geometry owner, never a second exact rail; the floor-plate ingress is the decoded kernel slice-stack wire (`Rasm/Meshing/slice` `Slicing.Apply` story contours through `LayerPlan.AtElevations`, outer-CCW/holes-CW), Compute decoding and never re-slicing; boundary resolution is the one `GeometrySource` port and its planar projection the one `AnalysisReads.Planar` owner, a circulation-local decode path or ring-to-polygon fold the deleted form — that projection carries the footprint's INTERIOR RINGS, so a courtyard, a shaft, or an atrium void stops counting as occupiable floor and the occupant load derived from it stops inflating by exactly the holes a shell-only projection dropped. Every planar gate is a kernel `ToleranceLane` read off ONE model frame: the collapsed-passage divisor floor is `Identity` (context-free, so it holds under any unit) and the overlap residual is `Area` (model-scaled), where two page literals once stood for two different questions under one number. Clipper2's double entry quantizes at a NAMED precision and its Miter join at a NAMED limit, because the library defaults silently floor the bisection and bevel a sharp re-entrant corner into an inradius the geometry never had.
 
-```csharp signature
+```csharp
 public sealed record SpaceBoundary(NodeId Space, NetTopologySuite.Geometries.Polygon Boundary, OccupancyClass Occupancy) {
     public double AreaM2 => Boundary.Area;
 }

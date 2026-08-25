@@ -18,7 +18,7 @@
 - Growth: a new discipline claim is one `Claims` row carrying its tier; a newly deprecated schema-live member is one `DeprecatedSurvivor` row; a newly retired entity is one `Retired` row the census DEMANDS the moment its `[Obsolete]` mark lands; a GG attribution gap or a newly published entity or token is a regenerated change-index entry, never a row here.
 - Boundary: one key carries at most ONE verdict — the arms are chosen so no key needs two, and the retirement window rides the arm rather than a parallel window table; a second membership set beside the index is the retired form, because a set whose presence means "published" and a dictionary whose presence means "pinned" over the SAME dotted keys let a pin exist for an unpublished name with nothing to catch it. The grouping `IfcElectricalCircuit`/`IfcCondition` closed windows are standing rows, so the `Model/zones#ZONE_GRAPH` grouping overlay derives its retired windows from this one roster. `Retirements` derives NO window from an `[Obsolete]` message: the message encodes the DEPRECATION release, not the removal one — `IfcBeamStandardCase` reads `DEPRECATED IFC4` though its window closes at 4X3 — so the mark gates PRESENCE alone.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
@@ -259,7 +259,7 @@ internal static class IfcOverlays {
 - Growth: a new IFC release is one `ReleaseMap` row over a seam roster row that ranks itself; every other change is a regenerated change index or one `IfcOverlays` row — the emit body absorbs none of them.
 - Boundary: the emitter never runs at runtime and its output is never hand-edited; the `Model/emitter#VOCABULARY_OVERLAYS` tiers are the sole hand surface. Sourcing eligibility from `!Type.IsAbstract` ALONE is the named defect — the CLR flag misreports EXPRESS abstractness on `IfcTransportationDevice`, and only the overlay carries that one. `IFC4X4_DRAFT` is excluded by law: the membership gate DROPS the draft estate at both grains and never faults, while a PUBLISHED member `ReleaseMap.Lower` omits FAILS the emit, the `?? ReleaseVersion.Ifc4X3Add2` / `GGRelease.IFC4X3_ADD2` silent fallbacks staying the retired forms. The stamp audit reads the Materials seed pairs as DATA (Materials never references `Rasm.Bim`). A per-entity hand base-chain walk beside the `DomainAtlas` DAG is the rejected second walk, and the per-root claim is the `BreadthFirstSearchAlgorithm` `DiscoverVertex` event fold — the all-vertex `TryFunc` path-probe sweep is deleted here as it is at the spatial view.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
@@ -458,7 +458,7 @@ public static class IfcVocabularyEmitter {
 - Growth: a new seed is one `RegenerationRequest` column and one admission; the emit body never learns about a file.
 - Boundary: the exit status is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, and `FaultBand.Bim.Code(offset)` is 2600-decade, so `2600 & 0xFF` is 40 and a run returning its own band code reports an unrelated status to every shell and CI gate reading it; the STATUS carries the verdict (0 written, 1 refused) and the STREAM carries the identity. The runner writes ONE file and only between the markers — regenerating a whole source file, emitting a sidecar, or running at model time are each the deleted form; the committed table stays the system of record.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;

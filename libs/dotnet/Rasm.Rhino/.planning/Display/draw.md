@@ -21,7 +21,7 @@ The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills,
 - Growth: a pattern axis is one `PatternTrait` row; a decoration axis is one component record on `PenDecoration`; a blend mode is one `BlendUse` row.
 - Boundary: no `System.Drawing` or Eto colour becomes domain state; `LineCapStyle`/`LineJoinStyle`/`CoordinateSystem`/`BlendMode` live only as row columns.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using PenLineCap = Eto.Drawing.PenLineCap;
 using PenLineJoin = Eto.Drawing.PenLineJoin;
@@ -305,7 +305,7 @@ public sealed record ShadedMaterial(ShadedFace Front, Option<ShadedFace> Back) {
 - Cases: `VectorTip` closes the vector-anchor axis (`Plain`, `Anchored`) — the `bool AnchorPoint` deletes; `PolygonPaint` closes the fill-and-edge product at its three LEGAL corners (`Filled`, `Edged`, `Full`) — the `(false, false)` corner that drew nothing is unrepresentable; `IsoGap` closes the gap tri-state (`Painted`, `Discarded`) under an `Option` — the tuple's `bool Discard` deletes.
 - Boundary: cache disposal closes admission, drains every draw-scoped use, releases each native bitmap once, and clears the table.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PathPrimitive {
@@ -648,7 +648,7 @@ public sealed class SpriteSheet : IDisposable {
 - Growth: a world drawable is one `WorldMark` case and one arm per canvas that admits it; a sprite anchor is one `SpriteAnchor` case; a canvas is one `Canvas` case carrying its own context and its corner rows.
 - Boundary: the kernel `Mark` vocabulary is composed VERBATIM — no local screen union, path carrier, stroke, fill, pose, text style, or paint program exists on this page, and a consumer wanting the retained screen program calls `PaintProgram.Of`.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WorldMark {

@@ -19,7 +19,7 @@ External tool reference: rg, awk, sd, fd, choose, jq, yq, mlr, jnv. Pipeline com
 
 [CAPABILITY_PROBING]: Always gate on availability:
 
-```bash copy-safe
+```bash
 _require_tool() {
     command -v "${1}" >/dev/null 2>&1 || {
         printf '[WARN] %s unavailable — falling back to %s\n' "${1}" "${2}" >&2
@@ -88,7 +88,7 @@ _require_tool fd find && _find() { fd "$@"; } || _find() { find "$@"; }
 
 [RG_JQ_COMPOSITION]: Structured search results:
 
-```bash copy-safe
+```bash
 # Extract matched lines as clean JSON array
 rg --json 'ERROR' app.log \
     | jq -s '[.[] | select(.type == "match") | .data.lines.text]'
@@ -104,7 +104,7 @@ Prefer `choose` for simple field selection. Route ALL CSV/TSV through `mlr` or `
 
 `/usr/bin/awk` on macOS owns a permissive `--csv` miss: it ignores the flag and exits `0`. Portability probes bind the exact binary and required flag before dispatch.
 
-```bash copy-safe
+```bash
 # Frequency table — single program, no pipe chain
 awk '{ip[$1]++} END {for (i in ip) printf "%6d %s\n", ip[i], i}' access.log | sort -rn
 # Multi-counter in single pass
@@ -127,7 +127,7 @@ Builtins: `NF` (fields), `NR` (line#), `FNR` (file-line#), `FS`/`OFS` (separator
 
 sd uses PCRE2 natively, writes in-place by default (no `-i` flag), and requires no backslash escaping for capture groups. On macOS, `sed -i` requires an empty string argument (`sed -i '' ...`) — sd avoids this entirely.
 
-```bash copy-safe
+```bash
 sd 'pattern' 'replacement' file.txt       # In-place, global (all occurrences)
 sd -s 'literal.string' 'replacement' f    # Fixed string mode (no regex)
 sd '(\w+)@(\w+)' '$1 AT $2' emails.txt    # PCRE2 captures — $ not \
@@ -139,7 +139,7 @@ command | sd 'old' 'new'                  # Pipe mode (stdin → stdout)
 
 [TOOL_COMPOSITION_PATTERNS]:
 
-```bash copy-safe
+```bash
 # rg → awk: filter then extract fields from unstructured log
 rg 'ERROR' app.log | awk '{print $1, $2, $NF}'
 # rg --json → jq: structured search with typed output
@@ -194,7 +194,7 @@ mlr -c -j filter '$revenue > 1000' then sort-by -nr revenue data.csv \
 
 ### [08.1]-[JQ_PROCESSING]
 
-```bash copy-safe
+```bash
 # Field extraction with fallback (// = alternative operator)
 jq -r '.tool_input.file_path // empty' <<< "${INPUT}"
 # try-catch (1.7+): graceful handling of malformed input
@@ -225,7 +225,7 @@ jq -r '$ENV.HOME + "/.config/" + .name' packages.json
 
 ### [08.2]-[YQ_CODEC]
 
-```bash copy-safe
+```bash
 # YAML → JSON conversion for jq pipeline
 yq eval -o=json config.yaml | jq '.database'
 # In-place YAML mutation
@@ -242,7 +242,7 @@ yq eval -p=hcl -o=yaml '.resource.aws_instance' main.tf
 
 ### [08.3]-[MLR_CONVERSION]
 
-```bash copy-safe
+```bash
 # CSV → JSON with filter and sort (-c = --csv, -j = --json shorthands)
 mlr -c -j filter '$revenue > 1000' then sort-by -nr revenue data.csv
 # CSV stats: group-by aggregation
@@ -259,7 +259,7 @@ mlr --ijson --ocsv cat api_response.json
 
 ### [08.4]-[JNV_EXPLORATION]
 
-```bash copy-safe
+```bash
 # Develop jq queries interactively, then embed in scripts
 curl -s api.example.com/data | jnv
 ```

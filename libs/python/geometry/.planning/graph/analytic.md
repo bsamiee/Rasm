@@ -16,7 +16,7 @@ Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-an
 - Growth: a new return shape is one case and one arm per projection; a new reachability question is one `reached` call with its own neighbourhood and seed set, never a second walk; a new census read is a consumer-side `peak_of`/`scalar_of` call, never a new projection here; a provider whose scores arrive keyed by string node ids extends `ranked`'s probe by one arm.
 - Boundary: no analytics tables, no graph construction, no receipts, no graduation — the producing pages own those; no parallel `AnalyticValue` twin authored beside this one, no module-level `_peak` fold beside the union, and no msgspec subclass family for the same bounded variant set.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Literal, assert_never

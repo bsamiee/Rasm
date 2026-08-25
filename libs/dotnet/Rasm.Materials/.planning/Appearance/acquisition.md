@@ -28,7 +28,7 @@
 - Boundary: the neural-SVBRDF `.exr` map stays the host-edge import boundary the app root owns, this owner consuming its decoded portable data; the managed MathNet provider is selected ONCE through `Control.UseManaged` (osx-arm64 has no native MKL/OpenBLAS, and a per-call-site `TryUseNativeMKL` is the named defect); the spectral grounding composes the ONE `PortValue.SceneLinear` working space, never a re-minted inline `Configuration` and never a local `SceneConfig` alias; a `codec#RASTER_FORMAT` row for a spectral part stays UNMINTED, because a wavelength grid is not a texture plane and admitting it as one puts a spectrum through extent, transfer, and mip gates that describe pixels; a malformed, empty, or out-of-gamut capture rails `MaterialFault`, never a sentinel row.
 - Boundary: `CaptureProvenance` carries the MEASUREMENT half of custody and composes the seam shapes for the rest — third-party custody rides the `Raster/set#SET_INGEST` `IngestProvenance` shape ITSELF rather than a second source/licence/reference spelling, so a capture's custody and an ingested set's are ONE question read at two grains. It does NOT delete onto the seam `Rasm.Element` `PropertyEvidence`: that carrier models CITATION (source, reference, expiry, grade, attestation, run) and holds no column for an instrument, a sample count, a fit residual, a conditioning witness, a chromaticity readout, a chart delta, or a model attribution. Two carriers, two questions, one composed shape where they meet.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Collections.Generic;

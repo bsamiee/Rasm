@@ -23,7 +23,7 @@ The graph canvas is the typed-edit plane's node surface: NodeEditorAvalonia `IDr
 - Growth: a new node kind is one palette template row; a new pin shape is one `GraphPinRow` value; a new connector presentation is one `GraphWire` column off the package's own enums; a retuned lattice is one `GraphRouting` column off the settings row; a new commit posture is one `CommitMode` row; zero new surface.
 - Boundary: connector routing and hit testing stay the package's `OrthogonalRouter`/`RTree`/`HitTestIndex` — `GraphRouting` carries the `ConnectorRoutingAlgorithm` and the default `ConnectorStyle` a render binds and re-implements neither, and a per-edge `ConnectorRoutingMode.Manual` hands that edge's path to its own `Waypoints` exactly as the package intends. Pan and zoom ride the PINNED `PanAndZoom` `ZoomBorder` hosting a bare `DrawingNode` canvas, never the package's `Editor` control and never `NodeZoomBorder`: the transitive `Avalonia.Controls.PanAndZoom` assembly and the pinned `PanAndZoom` assembly BOTH publish `Avalonia.Controls.PanAndZoom.ZoomBorder`, the collision is a package-id rename rather than a namespace clash, `NodeZoomBorder` derives the LEGACY type and adds seven parameterless command shims and nothing else, and every saved-view, view-history, discrete-zoom, grid, rotation, and state-export member lives on the pinned type alone — so `Editor`, whose template fills `ZoomControl` from `PART_ZoomBorder` with the legacy base, is the deleted host and `[05]-[CANVAS_VERBS]` binds the pinned control directly; the manifest posture is `Aliases` metadata on the TRANSITIVE reference (`ExcludeAssets` is not viable because `NodeZoomBorder` inherits the type it removes), placed on the legacy package rather than the pinned one, since aliasing the pinned package lifts its whole type set out of global scope and every existing plain `ZoomBorder` mention across the corpus then binds the legacy type silently while only the absent members fault — and the alias must be manifest metadata rather than a source `extern alias`, because the Avalonia name generator emits its own partial naming the type unqualified and no source directive reaches generated code. Ursa `ImageViewer` is the third pan-zoom owner in the package closure and stays scoped to image presentation. The editor's `IUndoRedoHost` binds to the one `Editing/history.md` `EditHistory` — `Undo`/`Redo` delegate to the `history.undo`/`history.redo` intents and `BeginUndoBatch`/`EndUndoBatch` open and seal one `RevertDelta.Composite` op so a multi-op canvas gesture undoes as one unit; the canvas renders structure and routes recompute through the AppHost `RecomputeGraph` port exactly as the notebook does — a canvas-local topo/dirty engine is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public enum Rung { Next = 1, Prev = -1 }
@@ -247,7 +247,7 @@ public sealed record GraphCanvas(
 - Growth: a new admission rule is one accumulating claim; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Boundary: the gate guards STRUCTURE only — recompute scheduling, dirty propagation, and evaluation stay the AppHost `RecomputeGraph`'s; `CanvasFault` leaves each refusal distinct through its direct generated union case.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 
@@ -404,7 +404,7 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
 - Growth: a new node kind is one `GraphTemplate` row; a new drop shape is one `DragPayload` case already carried by the transfer rail; a new pen behaviour is one `PenAxis` row at its own owner; a retuned quantization is one `InkLadder` value; zero new surface.
 - Boundary: the palette holds the package's `INodeTemplate` VALUE rather than re-declaring its three members; template instantiation is `DrawingNodeEditor.Clone<T>` over the row's own `Template`, so a minted node and a pasted node come off one round-trip. The package's own ink CAPTURE is refused — `IsInkMode` stays false so `InkLayer` never installs its pointer handlers — because that capture writes a CONSTANT unit pressure and discards the coalesced burst; `InkLayer` remains the RENDERER. Its render is one immutable pen at one constant width per stroke, so a pressure-varying gesture lands as a RUN SET: the fold quantizes pressure onto the ladder and emits one `InkStroke` per level run, which renders as a varying-width stroke through the package's own renderer instead of forking it. Strokes enter `Drawing.InkStrokes` inside one `BeginUndoBatch`/`EndUndoBatch` pair so a whole gesture reverts as one op on the `Editing/history.md` rail; the pen tool's pointer glyph is the `Theme/assets#CURSOR_ROWS` `CursorRow` the interaction root already inherits.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record GraphTemplate(string Key, INodeTemplate Row) {
@@ -527,7 +527,7 @@ public static class GraphInk {
 - Growth: a new selection-layout verb is one package enum case its generator already covers; a new camera move is one `GraphNav` case; a new named-view verb is one `ViewVerb` row; zero new surface.
 - Boundary: the verb rows land on the one `Shell/commands#INTENT_TABLE` table under the `graph.` prefix and mint no second registry; the content-space point codec is `Editing/history.md`'s `ScrubPoint`, taken as a value — a second encoder over the same keyed payload case drifts from the decoder the moment either gains a column; the package's own bound `ICommand` twins stay unbound at the canvas, because binding both gives one gesture two paths and only one of them a receipt. `GraphCamera` holds the PINNED `ZoomBorder` — the alias posture at `[02]` is what makes the plain type name that control — and the whole camera capability rides its members: discrete rungs through `EnableDiscreteZoomLevels`/`DiscreteZoomLevels`, traversal through `EnableViewHistory`/`ViewHistorySize` with `NavigateBack`/`NavigateForward`, fit through `Uniform`, focus through `ZoomToRectangle`, named views through `ExportState`/`ImportState` under this owner's own keyed roster, and the lattice through `ShowGrid`/`EnableSnapToGrid`/`GridSize` seeded from the same `GraphRouting` row the decorator and the position write read. The control's `SaveView`/`RestoreView` family is NOT the named-view seat: it captures whatever view is live under a name and publishes no member that seats a saved view carrying a matrix, so a roster written through it can never be RESTORED across sessions — which is why the roster lives here, why the `Drop` verb exists (a roster a user can only grow is the capability the swap would have silently dropped), and why all three named-view verbs cross the deck through the payload union's text case. The rectangle a selection-fit frames comes from the model extent fold, so a fit over a virtualized or scrolled canvas frames the same rectangle a realized one would.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -720,7 +720,7 @@ public static class GraphVerbs {
 - Growth: a new decoration lane is one `OverviewLane` row the marks arrow already answers; a new navigation verb is one `GraphNav` case; one wire column per new viewport axis; zero new surface.
 - Boundary: the graph publishes an `OverviewFrame` and renders nothing — a graph-local minimap control is the `Shell/virtualization#OVERVIEW_PROJECTION` rejected form, and the strip's drag publishes a content-space point back through the jump verb so the canvas moves its OWN camera; the frame's axis is `OverviewAxis.Plane`, because a graph summarized under an independently-scaled fit renders a distorted map of the thing it exists to make navigable. ZOOM HUD ownership is RULED to the package: the pinned control's own indicator (`ShowZoomIndicator`, `ZoomIndicatorPosition`, `ZoomIndicatorFormat`, `ZoomIndicatorAutoHideDuration`, `IsZoomIndicatorVisible`) reads the live matrix inside the viewport with no subscription, where a chrome chip mirroring the same number needs a subscription, a second formatter, and a placement that tracks a viewport it sits outside. The viewport column is the SCREEN-STATE snapshot's, not the co-edit document's, because a camera is per-viewer and committing it drags every peer's view along with one peer's pan; the snapshot payload rides the one composition-seated `EvidenceOps.Wire` options and `GraphViewport` registers on the package wire context, so a stale or foreign snapshot refuses through the same admission every durable AppUi payload crosses.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record GraphOverview(
@@ -851,7 +851,7 @@ public sealed record GraphView(GraphCamera Camera) {
 - Growth: a new package key is one slot row naming the role it re-seeds from; a new chrome glyph is one `GlyphSlot` row at the asset catalog; zero new surface.
 - Boundary: the roster mints VALUES onto the one emission and never a second dictionary — a graph-local `ResourceDictionary` merged beside the emitted one goes stale on the next re-seed; the slot cases are the token catalogue's shipped-key correspondence vocabulary, and the roster's key strings are FOREIGN package keys, not `TokenKey`s — the one place a raw key string is the value itself. The grid decorator's cell columns default to zero, so the sizing lands on `GraphRouting`, and the decorator, the position snap, and the viewport's own grid all read that one row. A code-level colour property on a node, pin, or connector does not exist and `Connector` derives `Shape`, so stroke and thickness reach it through a theme setter alone; a paint written onto a control is the `Theme/tokens#CONTROL_THEMES` deleted form.
 
-```csharp signature
+```csharp
 // --- [TABLES] --------------------------------------------------------------------------
 
 public readonly record struct GlyphSlot(string Slot, AssetKey Key);
@@ -912,7 +912,7 @@ public static class GraphSkin {
 - Growth: a new co-edited column is one meta-map key; a new structural verb is one `GraphOp` case landed at the sync owner; zero new surface.
 - Boundary: the binding is the ONE projection per canvas and covers both directions — a second inbound sink, a canvas-local `LoroTree` mutation beside `IntentApply.Apply`, a model-poll loop, or a per-node sync channel is the deleted form; remote-applied diffs re-run the `GraphAdmission` gate, and a cycle-closing edit surfaces as the typed conflict row for the presence UI. The gate and the conflict cell live on the BINDING rather than the composition record, because `Bind` mints one binding per canvas while the record composes once: a gate on the record made two canvases over one document cross-suppress, dropping a peer's edit with no fault, no receipt, and no divergence the merge can repair. `Open`, `Subscribe`, `ReadNodes`, and `ReadEdges` are the composition adapters over the verified container values; `Subscribe` is ADDRESSED and the binding seats one per graph container, because the node tree and the edge register are separate roots and a tree-only subscription made every remote edge change a silent no-render — a root-feed subscription beside them is equally deleted, since it re-reconciles this canvas on every unrelated document edit. The multi-seat mount carries CUSTODY across its roster through the kernel rollback fold, so a refusal on the second container releases the seat the first took and a partial bind never leaves a live sink feeding a binding the caller never received.
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed record GraphCoEdit(
@@ -1007,7 +1007,7 @@ public sealed class GraphBinding(
 - Growth: a new read projection (Compute solve graph, Fabrication posting chain) is one `From*` fold returning rows; zero new surface.
 - Boundary: the dependency projection READS the AppHost `RecomputeGraph` vocabulary through the declared port (decode-only); a projection-local dependency model, a second topological sort beside `GraphAdmission.Order`, and a layout fallback that DROPS an unplaced node are the deleted forms — an omitted dependency reads as a graph that is not there. The projection's gate carries a settings row admitting pin fanout, since one recompute output legitimately feeds many nodes; a gate configured for single-pin connections refuses the whole projection by name rather than rendering a partial graph.
 
-```csharp signature
+```csharp
 public static class DependencyRead {
     public const string InPin = "in";
     public const string OutPin = "out";

@@ -28,7 +28,7 @@
 - Boundary: the `ManagedRuntime` and boot seam are the browser composition root's — this module never calls a `run*` method; the shared `memoMap` argument is how the app hands both runtimes one acquisition map at composition, with `Atom.defaultMemoMap` as the shared floor when the app supplies none.
 - Growth: a new registry knob is one field on `policy`; a persisted atom is one `Atom.kvs`/`Atom.searchParam` call over a `Store.key` grain row and a `Store.sealed` seal row, and a shape change is one `generation` bump on that seal — the `KeyValueStore` Layer swap is app composition.
 
-```typescript signature
+```typescript
 import { Atom, Hydration } from "@effect-atom/atom-react"
 import type { Shape } from "@rasm/core"
 import { Duration, type Layer, type Option, type Schema, type Types } from "effect"
@@ -91,7 +91,7 @@ const Store: Store.Shape = {
 - Law: identifier-grade `GlobalId` and `Digest.Key<"content">` context rides spans and logs, never metric attributes.
 - Boundary: the `HttpApi`/`RpcGroup` values are edge contract material the app supplies, so the binding class is an APP-SIDE declaration this page legislates the exact shape of — the fence below is that shape, not a member of this module's export surface.
 
-```typescript signature
+```typescript
 import { AtomHttpApi, AtomRpc } from "@effect-atom/atom-react"
 import type { HttpApi } from "@effect/platform"
 import { FetchHttpClient } from "@effect/platform"
@@ -137,7 +137,7 @@ const _commit = Rpc.mutation("commit")
 - Law: fine-grained sub-value subscription is the `AtomRef` cursor — `AtomRef.make(value)` mints the mutable root, `useAtomRefProp(ref, key)` derives the per-property child so a large draft re-renders only the edited field, and `AtomRef.collection(items)` is the ordered ref collection for per-item subscriptions without re-running the owning atom; `view/form` drafts and `view/table` row edits ride exactly this cursor, and a per-field atom family over one draft is the named defect.
 - Law: a foreign store crossing is an adapter atom minted over the fold's own cell — `view/table`'s `Grid.edge` wraps a registry cell as a `@tanstack/store` `Atom` whose `get`/`set`/`subscribe` all delegate to the registry, so the effect-atom cell stays the ONE writer and the foreign store holds no second copy; a foreign-store base atom left live beside the fold is the two-writer defect the adapter exists to close.
 
-```typescript signature
+```typescript
 import { AtomRef } from "@effect-atom/atom-react"
 import type { Digest } from "@rasm/core"
 import { Array, Duration, Number } from "effect"
@@ -170,7 +170,7 @@ const _cursor = AtomRef.make({ label: "", rank: 0, note: "" })
 - Law: a statechart actor binds through the SAME row — `Machine.boot(machine, input)` yields a `Machine.Actor` that IS a `Subscribable` of its state, so `Atom.subscribable(actor)` is the whole machine→view seam: `viewer/scene#BACKEND_SELECT`'s `Glb.lifecycle` (the realized viewer instance — its phase reaches React through exactly this row), wizard flows, and multi-step overlay statecharts reach React as ordinary atoms, `snapshot`/`restore` cross remounts, and no second machine-binding mechanism exists.
 - Boundary: `Stream` pipeline law is settled; which host folds exist is the owning runtime page's; `Machine` definitions live with the owning plane (`viewer/scene` lifecycle, `view/form` wizard) — this cluster owns only the crossing.
 
-```typescript signature
+```typescript
 import { Result } from "@effect-atom/atom-react"
 import type { Machine } from "@effect/experimental"
 import type { Stream, SubscriptionRef } from "effect"
@@ -200,7 +200,7 @@ const _stage = Atom.subscribable(_actor)
 - Law: a mutation completing is awaited, never polled — the awaited mode is the one the caller's fold needs: `"promise"` where a plain success suffices, `"promiseExit"` where the Cause rail itself is folded (`view/form#SUBMIT_TRIP` reads refusal, defect, and interrupt off the `Exit` a rejecting promise erases); an atom poll to detect completion marks a missing write mode.
 - Boundary: `Match` mechanics and error-family design are settled law; the boundary component row is `system/primitive`'s; the form round-trip composing these modalities is `view/form`'s.
 
-```typescript signature
+```typescript
 declare const _quota: Atom.Atom<Result.Result<{ readonly used: number; readonly cap: number }, { readonly _tag: "QuotaFault" }>>
 
 const _ratio = Atom.map(_quota, (result) =>
@@ -232,7 +232,7 @@ const _draft = Atom.optimistic(Atom.make(0))
 - Boundary: `History` is the pure in-registry transition fold; a transition family that must answer typed requests, survive process restarts, or snapshot/restore is a `Machine` actor bound through `[5]`'s `Atom.subscribable` row — the two never shadow one concern.
 - Growth: a new stack behavior (a `Mark` checkpoint, a coalescing window) is one command case and one fold arm — every consumer breaks loudly at the missing arm.
 
-```typescript signature
+```typescript
 import { Chunk, Data, Equal, Option } from "effect"
 
 declare namespace History {

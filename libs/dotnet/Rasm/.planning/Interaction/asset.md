@@ -32,7 +32,7 @@ Both boundaries carried an origin family and an icon record; the AppUi product s
 - Growth: a new byte source is one case, breaking every resolve site loudly; a new product shape is one raster case beside one `RasterStack` row; a new scale in a set is one row; a backend publishing a tighter raster edge is one ceiling row.
 - Boundary: the kernel never CACHES a resolved asset — a host image cache, a `DisplayBitmap` table, and a platform image list are the boundary's own custody, because their eviction policy is the host's and a kernel cache would outlive the surface that asked.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Reflection;
@@ -175,7 +175,7 @@ public abstract partial record AssetOrigin {
 - Growth: a new rendering state is one `IconFilter` case breaking every filter read loudly, landing its roster row in the same edit; a new orientation coordinate is one column on the pose; a new reflection axis is one `MirrorAxis` row.
 - Boundary: the FILTER is declarative and the kernel applies none of it — a host draws the disabled state its platform draws, `Custom` hands that host the map it must apply, and the case names which state was asked for rather than prescribing a pixel operation.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
@@ -239,7 +239,7 @@ public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> 
 - Growth: a new axis is one column every consumer answers; a new filter step is one chain entry no consumer edits.
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino bitmap table registration and its `.rui` icon binding, the Grasshopper2 canvas glyph atlas, and the AppUi theme asset cache each keep their own registration and eviction, and each hands this owner a value rather than a name.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Interaction;
 

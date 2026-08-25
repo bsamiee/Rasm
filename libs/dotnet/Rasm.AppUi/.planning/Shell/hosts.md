@@ -25,7 +25,7 @@ Host identity reaches this page only as `HostDescriptor` columns — `Surface`, 
 
 `isolation` reaches AppUi as one served value: the shell runs on the host's own UI thread, so the branch answers `in-proc` and `thread` through `SurfaceScheduler`, and `process`, `wasm`, and `remote` refuse on the `isolation` axis because a foreign address space owns no `Control` this page can mount.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record SurfaceMount {
@@ -143,7 +143,7 @@ public sealed record SurfaceSession(
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Surfaces {
     private static readonly Atom<BootPhase> Phase = Atom(BootPhase.Unstarted);
@@ -312,7 +312,7 @@ public static class Surfaces {
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -444,7 +444,7 @@ Every row suppresses the platform frame; a caption cell writes only where the `[
 
 [HOST_ADAPTER_FACTS]: the foreign-view properties the seam columns bind against, every one host-side and none of them reachable from a dispatch arm — an embedded host view autoresizes no subview, so the seam's resize column is the only sizing writer; the embedded root's platform handle is an `IMacOSTopLevelPlatformHandle` carrying the `NSView` descriptor over an `Avalonia.Native.EmbeddableTopLevelImpl` platform implementation, and the root's own `RenderScaling` stays `1` under a foreign view, so `SurfaceSeam.Scale` is the only backing-scale source and a root-read scale is the deleted form; a canvas-class host view accepts the foreign subview while it is itself unshown and unwindowed, mounting without arming any host redraw path, so a mount is legal before the host surface is shown; a host view with no window carries no responder chain, so input delivery, first-responder assignment, and every window-anchored surface require a SHOWN host window — the seam's visibility fact is what states that, and a mount receipt alone never does; pointer delivery is intrinsic to the embedded view — the native view handles the shown host window's mouse events itself and forwards them through the raw input chain, so a press reaches the root as the tunnel-plus-bubble pointer pair hit-tested to the embedded content with positions mapped into root coordinates and no host cooperation beyond window membership; IME composition holds three host-side preconditions past the shown window — active application, key host window, first-responder embedded view — and then rides the embedded view's own `NSTextInputClient` conformance: the dead-key press raises only the key pair while the pre-edit string lands on the focused text control, the commit arrives as ONE composed text-input event through tunnel and bubble, and an in-process synthetic key event never composes — window-server events are the only composition carrier, so a synthetic-key test asserts raw-commit behavior, never IME; host focus never bridges into the embedded root on its own — the host assigns first responder to the embedded view and the composition focuses the managed control, two writes the seam owns.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -543,7 +543,7 @@ stateDiagram-v2
 - Growth: one marshal column per new host thread regime; a new deterministic-time posture is one `SurfaceMode` row; zero new surface.
 - Boundary: `Affinity` is the single thread-affinity assertion and a per-call-site access check is the rejected form; the UI-thread predicate originates once at the seam's `OnUiThread` column and reaches the scheduler through `row.OnUiThread`, which is the seam's own column read through the row — one source, no parallel parameter — and that column answers true on exactly ONE thread per process, the host's own main thread, where `Dispatcher.UIThread.CheckAccess()` also answers true, while every other thread reads false and its `Post` lands back on that same thread, so the marshal column, the dispatcher, and the affinity assertion all read one boundary and a per-host thread regime is unrepresentable; so the access-assertion spelling stays a seam delegate and never a hardcoded dispatcher call inside a dispatch arm; a failed `Affinity` assertion folds its `SurfaceFault.ThreadAffinity` into the `Surfaces.Affinity` count through the one `AppUiTelemetry.Contribute` spine, so off-thread access is counted evidence on the timeline and a scheduler-local meter is the deleted form; embedded mounts marshal through the seam's host column, standalone and offscreen mounts post through the `AvaloniaScheduler` UI scheduler; the virtual `TimeProvider` a test composition supplies is admitted by the MODE row rather than by this projection, so an interactive mount handed one drops it and only the command-journal replay lane runs under deterministic time; `ObserveOn` rides `Ui` exactly once inside binding capsules, never at call sites.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SurfaceScheduler(
     IScheduler Ui, Func<Action, IO<Unit>> Marshal, Func<bool> OnUiThread, Option<TimeProvider> VirtualTime,
@@ -579,7 +579,7 @@ public sealed record SurfaceScheduler(
 - Growth: one `NativeAssetRow` per new RID; one native-asset instrument is one `InstrumentSpec` row on `NativeAssets.TelemetryRow`; zero new surface.
 - Boundary: one shaping family rides every admitted row — each Skia asset row pairs its HarfBuzz row across the macOS-plus-headless-Linux RID matrix (osx universal, linux-x64/arm64, linux-musl-x64) so cross-architecture load identity is one row per RID and a missing-architecture load surfaces as an absent census row; the three Linux rows share one library roster because they differ by RID alone, so a package swap lands once instead of drifting three ways; the NuGet package that SHIPS each module has one authority in the manifest and the `- Packages:` bullet above, so the three package-name columns this row used to carry were a mirror no probe read; the macOS backend resolves Metal from the default `[Metal, OpenGl, Software]` ordering `EmbedOptions.RenderingMode` carries, never a per-row GPU literal; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset and the glibc and musl rows share it; the Win32 desktop and WebAssembly native pins are dropped from the macOS-only build so no Win32 row exists and a browser host descriptor carries `HostSurface.None`, refusing every mount rather than resolving assets; identity runs INSIDE `Surfaces.Mount` before the content attach, so a wrong-RID load surfaces as a receipt on the mount rather than a draw fault later, and a probe declared but never called is the deleted form; the census answers BOTH halves as one typed value rather than a rail, because a rail aborts on the FIRST missing library and makes the very absence the asset-absent instrument exists to count unrepresentable — the present half seals as `EvidenceReceipt.NativeAssetIdentity` (the fan arm writes asset-resolved) and the absent half counts at the probe, so each instrument has exactly one producer and a per-row meter is the deleted form; the row itself resolves from the LIVE `RuntimeInformation.RuntimeIdentifier` by prefix, which is why the RID is a validated value rather than a bare string — a blank literal prefixes every identifier in existence and would answer for architectures the row was never built for — and an undeclared identifier is a typed `SurfaceFault.HostAbsent` at mount rather than a composition literal asserting what the probe exists to prove.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
@@ -646,7 +646,7 @@ public static class NativeAssets {
 - Growth: one fact case per new host signal extends the `SurfaceFact` family; a new pole on an existing axis is one posture row; every subscriber is a total fold over the closed family, zero new surface.
 - Boundary: facts enter only through the seam's `HostFacts` column — macOS rows feed `NSScreen` `BackingScaleFactor` flips and appearance changes host-side, an embedded mount feeds visibility and focus from panel events through the `SurfaceSeam.HostFacts` delegate column an app root binds to the host; each toggle fact carries a two-row POSTURE rather than a boolean, so the negative pole is named at the declaration instead of inferred at each reader — `AppearanceChanged(false)` read as "light" at one consumer and "not dark" at another, and the two answers differ the moment a host publishes a third appearance; visibility facts feed the activation rail and live-data suspend-resume, appearance facts feed the host-matched variant re-probe, scale facts feed DPI-variant selection, display facts feed the dock placement clamp — `Shell/navigation#DOCK_LAYOUTS` `WindowPlacement.Clamp` is the one consumer, folding every saved float rectangle against the live screen set BEFORE `InitLayout` on restore and again on every topology flip, so a restore after a monitor detach never lands off-screen and the promise this fact makes has a named reader rather than a claim no fold discharges; every fact folds one observation into the `Surfaces.Fact` count keyed by its case kind through the one `AppUiTelemetry.Contribute` spine, so host-signal volume is attributable per case and a second host event channel or a per-fact meter beside this union is the rejected form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

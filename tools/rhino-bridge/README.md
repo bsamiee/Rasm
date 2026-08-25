@@ -12,7 +12,7 @@
 
 ## [02]-[FIRST_PATH]
 
-```bash copy-safe
+```bash
 uv run assay bridge build
 uv run assay bridge status
 ```
@@ -21,7 +21,7 @@ Expected signal: each command returns one Assay envelope, and the status receipt
 
 ## [03]-[VERIFY]
 
-```bash copy-safe
+```bash
 uv run assay bridge verify
 uv run assay bridge verify blocks
 uv run assay bridge verify blocks,ui

@@ -28,7 +28,7 @@ Evaluation is TOTAL by specification: every operator, function, and cast answers
 - Growth: a new function is one `FUNCTIONS` row carrying its arity and its total body; a new operator is one `OPERATORS` row beside one grammar terminal alternative; a new value space or error type is a specification move, not a branch one.
 - Boundary: expression compilation and total evaluation only. Mints no dialect, no subscription, no binding, and no receipt. Rejected: a recursive-descent walk over mutable parser state; a node family beside an evaluator re-dispatching what the parser already discriminated; a raise escaping any arm; a widened 64-bit answer where the specification's `Integer` is 32-bit; a `LIKE` pattern translated per event; a `str | int | bool` value union; a unary arm dropping its cast's fault.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from collections.abc import Callable
@@ -442,7 +442,7 @@ _PARSER: Final[Lark] = Lark(GRAMMAR, parser="lalr", start="expression", maybe_pl
 |  [06]   | `not_`    | recursive negation                          | consumer-side on every row                   |
 |  [07]   | `sql`     | a compiled CESQL expression                 | consumer-side always                         |
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from typing import Final, Literal, Self, assert_never

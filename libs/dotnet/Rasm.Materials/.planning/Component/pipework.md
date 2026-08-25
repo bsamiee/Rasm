@@ -21,7 +21,7 @@ The page composes settled law without re-derivation: `SectionProfile.CircleHollo
 - Growth: a new size is one roster row; a new schedule or material system one `PipeSystem` row carrying its own sizing delegate — the roster flattens `Items`, so nothing else edits; a new service class one `SoilRow` column pair; the ductile wall matrix is one `Option` column flip from typed-absent to minting.
 - Boundary: `Attestation` qualifies the TRANSCRIPTION, `EvidenceGrade` the PRODUCER — a value lands standards-published yet single-posted, and the two axes cross the seam as independent bag rows so a downstream reader never mistakes a primary-single cell for a corroborated one.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Globalization;
@@ -198,7 +198,7 @@ public static class Ductile {
 - Output: the projector derives the takeoff rows from the solved `CircleHollow` section through `QuantityRow.VolumePerLength`/`SurfaceAreaPerLength`/`LinearDensity` (`component#QUANTITY_ROW`) — no takeoff cell is stamped here.
 - Boundary: `SegmentRows` mints through the owner-blessed `PropertyCategory.Materials` scope, so the wall, working-pressure, and attestation rows are one vocabulary across pipework, ductwork, and electrical — a per-page `PropertyName.Create` respelling is the fork this owner closes. `PipeworkSeed.Capacity` is the typed refusal — a pipe run's hydraulic verdict rides `Rasm.Compute`, and the refusal names that route.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SegmentRows {
     public static readonly PropertyName WallThickness   = PropertyCategory.Materials.Row("WallThickness");

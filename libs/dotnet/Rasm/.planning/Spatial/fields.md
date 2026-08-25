@@ -20,7 +20,7 @@ One implicit-field algebra over three closed field unions — `ScalarField`, `Ve
 - Growth: a new lattice is one `NoiseKind` row with its trait set, admitted by the same law; a new trait is one `NoiseTrait` row with its corners on `Law`; a second seeded field family is one `FieldLane` row and the lattices it addresses decorrelate by declaration.
 - Boundary: `Falloff` and `KernelKind` own their weight-profile and kernel math at `calculus.md`, composed here never re-derived; `NoiseKind` rows point at its `FieldNoise` lattices and read `NoisePolicy.Lattice`, the lane-folded seed, so no bare caller integer keys a lattice; each `BlendKind` case declares its own `ErosionFactor`, and `RayPolicy.Project` resolves through typed `ProjectionRow` entries.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Meshing;
@@ -175,7 +175,7 @@ public sealed partial class NoiseKind {
 - Growth: a new primitive is one typed case with its `Lipschitz` and `Distance` members; the `ScalarField.PrimitiveCase` payload, the Lipschitz fold, and the tagged sampler pick it up through the union.
 - Boundary: `Distance` bodies are pure local-frame math — pose handling happens once at `SignedDistance`, never inside a case. `Lipschitz` is load-bearing — the ray-march step bound and the CSG erosion fold read the column — so a case without an honest bound is inadmissible.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record SdfKind {
@@ -252,7 +252,7 @@ public abstract partial record SdfKind {
 - Growth: a new scalar species is one case, one `Switch` arm, and one `LipschitzBound` declaration the compiler demands, a factory only when raw material enters; a new blend or CSG mode is a vocabulary row; a new provenance species is one `SdfStatus` row.
 - Boundary: mesh-aware arms are one-line delegations, and any solver math here is a mis-homed body. `SampleScalar` assumes admitted fields, so an in-arm re-validation is double admission. Tagged sampling is the one public seam; a second `Evaluate` or `Probe` family is the rejected surface.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct NoisePolicy(int Seed, FieldLane Lane, Dimension Octaves, PositiveMagnitude Persistence, PositiveMagnitude Lacunarity, PositiveMagnitude Frequency) {
@@ -414,7 +414,7 @@ public abstract partial record ScalarField {
 - Growth: a vector sample is a plain value; a new field species is one case and one arm, absorbing into a shared fold when it is a swirl, radial, or closest variant, and a provenance-tagged arm or a vector Lipschitz fold rides the existing `SdfStatus` and `Falloff.SlopeBound` columns.
 - Boundary: the three shared folds are the collapse law — a new analytic case re-implementing swirl, radial accumulation, or closest-directed shaping is the rejected duplication. On-source behavior is deliberately asymmetric: `ClosestDirected` faults on a sample coincident with its support, because a hit-directed vector is undefined at its own source and a silent zero corrupts a streamline, while `RadialContribution` skips a coincident charge whose sum's remaining terms stay well-defined. `CurlNoise` refuses a potential whose noise rows do not all hold `NoiseTrait.Differentiable`, at construction, through a recursive fold over the payload tree — a `Worley` buried inside a `Blend` or `Csg` still refuses — so the sampler never guards.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Union]
 public abstract partial record VectorField {
@@ -485,7 +485,7 @@ public abstract partial record VectorField {
 - Growth: a new tensor species is one case and one arm; a curvature variant delegates to its owning page, never local differential geometry.
 - Boundary: `Lift` is the only closure-carrying case, its sampler running inside `key.Catch` with an `IsValid` gate — the one foreign-code seam. Congruence requires an invertible spatial map and dimension-3 tensors, both admission facts faulted not defaulted.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Union]
 public abstract partial record TensorField {

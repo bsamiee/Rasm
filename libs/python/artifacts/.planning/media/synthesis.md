@@ -18,7 +18,7 @@
 - Packages: `numpy` owns oscillator, noise FFT, interpolation, and test-pattern kernels; `_encode_audio`, `_encode_video`, and `_mux_av` own egress.
 - Growth: a harmonic waveform is one `Waveform` and `_HARMONICS` row; a noise color is one `NoiseColor` and `_TINT` row; a distinct payload modality is one `SynthOp` case with admission, kernel, and evidence arms.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from math import ceil, isfinite

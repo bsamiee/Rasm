@@ -34,7 +34,7 @@
 - [DETECT_PRECEDENCE]: `DetectRank` is the DECLARED precedence `Detect` resolves a contended key on, defaulting `0` so an uncontended row omits it. AP242 — the merged successor — outranks AP214 and AP203 on the shared `.step` set, and the round-trippable SAF row outranks the write-only COBie row on the shared `xlsx` media type (a bare media-type detect must resolve a row that can read; the `.saf.xlsx`/`.cobie.xlsx` compound suffixes stay uncontended). Ranking on the `StepProtocol` enum VALUE read a schema token as a precedence scale, so both `xlsx` rows tied and `MaxBy` seated them by accident.
 - [ROW_PROMOTION]: one codec admit promotes one row — a candidate trades the pending corner for a direction-bearing one and drops the `CataloguePackage` marker, the `import#IMPORT_RAIL`/`export#EXPORT_RAIL` folds gain one `InterchangeCodec`-keyed arm grounded against the named package with zero new `BimIo`/`BimExport` entrypoint, and the managed-versus-companion split reads the `Companion` predicate (managed grounds its decode inline, companion routes the geometry hop to `tessellation#TESSELLATION_BRIDGE`), never an `if(ifc)`/`if(step)` branch. Chunked simulation-field, FastCDC geometry-delta, and content-addressed artifact codecs stay at `Rasm.Compute/Runtime/codecs`, consumed at the seam, never re-minted here.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;

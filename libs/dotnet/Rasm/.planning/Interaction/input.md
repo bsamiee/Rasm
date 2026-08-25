@@ -29,7 +29,7 @@ The estate is GENERIC over the fact band it carries. `IUiFact` is the floor, `Ui
 - Growth: a new ambient fact is one column on `DisplayFacts`; a new cursor is one `CursorRow`.
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino viewport pointer seam keeps its whole family, because `MouseCallbackEventArgs` carries a VETO the host reads back and `RhinoView`'s static event tables have no host-neutral form; the Grasshopper canvas keeps its hit plane for the same reason.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
@@ -159,7 +159,7 @@ public static class InputState {
 - Growth: a new Eto fact is one `UiFact` case that breaks every kernel dispatch loudly; a new host fact is one case on that host's own union; a new phase is one row.
 - Boundary: `KeyEventArgs` and `TextInputEventArgs` cross as host types on the responder slots ALONE, because their veto members are read back by the host after the handler returns — a projected copy would drop the veto the host is waiting for.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoPointF = Eto.Drawing.PointF;
@@ -384,7 +384,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Growth: a new Eto source is one `UiSource` row carrying its own table; a source over an existing phase costs no new table at all; a new HOST source roster is one `IUiSource<TFact>` implementation at that boundary; a new pick axis is one `PickAxis` row.
 - Boundary: a host event table is named on a ROW and nowhere else — the phase rosters own every pointer, key, and drag pair, and this roster owns the rest — so a consumer subscribes by row and never by `+=`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.ComponentModel;
 using System.Threading.Channels;

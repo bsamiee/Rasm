@@ -55,7 +55,7 @@ sequenceDiagram
   O->>D: truncate snapshots and projection state
 ```
 
-```typescript signature
+```typescript
 import { Array, type Cause, Effect, Option, type ParseResult, Record, Schema, Stream } from "effect"
 import { SqlClient, type SqlError, SqlSchema, type Statement } from "@effect/sql"
 import { Digest, Identity } from "@rasm/core"
@@ -223,7 +223,7 @@ const Cutover = {
 - Growth: a second snapshotted shape for one stream family is a second `Snapshot.of` binding, never a widened row.
 - Boundary: the state codec is app material; this page stores its bytes, its version, and its shape digest, and reads none of the three as domain values.
 
-```typescript signature
+```typescript
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Tenancy } from "../lane/tenant.ts"
@@ -320,7 +320,7 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>, shape: Generation.Key) => (strea
 - Law: cadence reads the landed SPAN, never the head alone — the receipt states `first` and `version`, so a multiple crossed anywhere inside a batch fires exactly once and a batch geometry cannot silently divide the effective cadence; asking the head for a multiple is the shape that makes cadence a function of batch size with nothing observable saying so.
 - Law: cadence is admitted data — `Snapshot.Cadence` proves a positive integer before the crossing fold; snapshotting is always safe to skip and safe to repeat, so `due` is pure and no lane coordinates with another.
 
-```typescript signature
+```typescript
 import { Stream } from "effect"
 
 const _Cadence = Schema.Struct({ every: Schema.Int.pipe(Schema.positive()) })

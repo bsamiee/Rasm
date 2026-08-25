@@ -27,7 +27,7 @@ Intl localizes the folder with zero i18n package: one ambient locale spine over 
 - Law: the correlated return is the seam's marked cast — the heterogeneous instance map erases the per-kind type, and the `as` re-assertion is exactly the row the constructor table proves; the kernel carries the boundary mark on its first line, and the assertion is legal nowhere else in the module.
 - Growth: a new hook-less formatter family (`Intl.Segmenter`, `Intl.DisplayNames`) is one constructor row — never a second cache.
 
-```typescript signature
+```typescript
 import { Shape } from "@rasm/core"
 import { Array, DateTime, Duration, HashMap, Match, Number, Option, Order, Record, Schema, pipe } from "effect"
 
@@ -62,7 +62,7 @@ const _native = <K extends keyof typeof _NATIVE>(kind: K, locale: string): Retur
 - Boundary: `DateTime`/`Duration` arithmetic is settled kernel-scalar law; wire timestamps decode to `DateTime.Utc` at the interchange plane and arrive here already-typed; sorted collections and pickers live at `view/table`/`view/overlay`.
 - Growth: a new unit family (area, currency) is one `Format.number` row; a new date presentation is one `Format.date` row; a new granularity is one ladder row.
 
-```typescript signature
+```typescript
 const _date = {
   stamp: { dateStyle: "medium", timeStyle: "short" },
   long: { dateStyle: "full" },
@@ -149,7 +149,7 @@ const Format: Format.Shape = {
 - Boundary: HTML-bearing message VALUES pass `system/primitive#SANITIZE_GATE` before any `dangerouslySetInnerHTML` sink — this module emits strings only; number/date formatting inside arguments is `[4]`'s (format the value first, pass the string).
 - Growth: a locale is one catalog file; a message is one catalog row; a vocabulary case is one union member + one fold arm.
 
-```typescript signature
+```typescript
 const _sparse = ["zero", "one", "two", "few", "many"] as const
 const _categories = [..._sparse, "other"] as const
 
@@ -202,7 +202,7 @@ declare namespace Message {
 - Law: catalog assembly is app composition — this module never fetches; the app decodes catalog payloads through `Message.Catalog` at its own ingress, where `Shape.Record` already closes every refined key domain, and hands the built `Book`; hot locale swap is one atom write of the locale brand, and every message re-renders through the same fold.
 - Law: the admission option is load-bearing, not hygiene — a refined record key that fails its refinement is DROPPED as an excess property under the default posture, so a malformed message id or select case disappears from a catalog the decode reported clean and surfaces later as a key rendered to a user; the erroring posture is what makes the decode the author-time police this page claims it is.
 
-```typescript signature
+```typescript
 const _fill = (template: string, args: Message.Args): string =>
   template.replaceAll(/\{(\w+)\}/g, (whole, slot: string) => {
     const value = args[slot]

@@ -17,7 +17,7 @@ Container/codec spine of the media plane: the one `Media` owner over the closed-
 - Receipt: each op contributes `core/receipt#RECEIPT` `ArtifactReceipt.Media`, the eight-slot case `_keyed` mints under the PRE-RUN node key with the muxed/manifest content address on the `address` band fact, so the receipt owner imports no `MediaEvidence` value nor `av` handle — the flat-scalar-plus-`facts`-band shape forecloses the cycle; `MediaEvidence.facts` carries the `_deployment` libav/ffmpeg majors, encoding arms add their `ColorProfile`/format/rate policy, `_probe` measures every delivered video and audio stream, segmented output adds its segment count, and archival encode adds its round-trip verdict; `Remux` reports the copied stream codec and no unapplied encode policy. `media/audio#MEDIA`/`media/filtergraph#FILTER`/`media/timeline#TIMELINE` arms all fold onto this one case through the shared band, never a parallel receipt rail. `_emit` awaits `Journal.record` over `receipt.evidence()` for the `OPERATIONAL` fact and its `STORAGE` charge — seated at that awaitable fold and NEVER inside `_segment_sink`'s store crossing, which is a synchronous provider callback in a worker process where nothing suspends and no journal custody is bound, so a record there folds to the unarmed no-op and sheds exactly what it claims to land; the callback keeps `_Lapse` as its one escape and `MediaEvidence` carries the delivered bytes and segment count back out, so one fact names the whole publication whichever sink arm ran.
 - Growth: a new container is one `ContainerFormat` row (muxer name + `segmented` bit); a new codec one `MediaProfile.codec` string (a hardware encoder is a codec row, not a knob); a new HDR band one `ColorProfile` member plus one `_COLOR_CODES` row; a new encode or muxer knob one `options`/`container_options`/`SegmentSpec.options` entry; a new container tag one `metadata` entry; a new archival grade one `MEZZANINE` row; a new hardware device one `HwAccel.device_type` name; a new av fault leaf one `MediaFault` case plus one `_media_fault` arm; a new evidence fact one `_deployment` band key with zero receipt edit — every addition a row, field, case, or arm on one owner.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, assert_never
@@ -315,7 +315,7 @@ class Media(Struct, frozen=True):
         return outcome.map_error(_lapsed).bind(lambda inner: inner)
 ```
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterable, Iterator

@@ -22,7 +22,7 @@ Framed stream transport is the second half of the branch net plane: where `clien
 - Entry: `Duplex.framed(socket, { kind }, { send, take })`; the proto row takes `{ kind: "proto", descriptor }`.
 - Packages: `@effect/platform` (`Socket`, `Ndjson`, `MsgPack`, `ChannelSchema`), `@bufbuild/protobuf` (`DescMessage`), `@rasm/core` (`Format.proto.framed`), `effect` (`Channel`, `Chunk`, `Schema`).
 
-```typescript signature
+```typescript
 import { Sse } from '@effect/experimental';
 import type { DescMessage } from '@bufbuild/protobuf';
 import { ChannelSchema, type HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from '@effect/platform';
@@ -122,7 +122,7 @@ const Duplex = { framed: _framed } as const;
 - Entry: `yield* Feed` then `feed.open(origin)`; `Feed.live` is the shipped Layer over the client lane.
 - Packages: `@effect/experimental`, `@effect/platform`, `effect`, `./client.ts`, and `@rasm/core` (`Fault.Budget`).
 
-```typescript signature
+```typescript
 const _feedFamily = Fault.Class.family(['transport', 'media'] as const, {
     transport: Fault.Class.row({
         class: 'unavailable',
@@ -260,7 +260,7 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 - Tests: MQTT JSON/binary SDK singles, Avro asset singles, and generated Protobuf singles encode and decode through their one row under strict admission; Avro covers recursive object/record-array data, absent-data-to-null normalization, `data_base64` exclusion, and opaque-host-object refusal; every framed batch refuses, and cross-format assertions compare event semantics rather than bytes.
 - Packages: `mqtt` (`connectAsync`, `handleMessage`, `IClientOptions`, `endAsync`), `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine), `effect`, `node:buffer`, `@rasm\/contracts` (`CloudEventsAvro`), `@rasm/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `@rasm/core` (`Carrier`, `Event`, `Fault`, `Format`).
 
-```typescript signature
+```typescript
 const _MqttOrigin = Schema.Struct({ origin: Schema.String, detail: Schema.String });
 
 const _mqttFamily = Fault.Class.family(['dial', 'grant', 'event', 'publish'] as const, {
@@ -1046,7 +1046,7 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
 }
 ```
 
-```typescript signature
+```typescript
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Avro, Duplex, Feed, FeedFault, Mqtt, MqttFault };

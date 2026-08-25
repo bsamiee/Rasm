@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - Growth: a zone is one `ExposureClass` row plus one `ExposureScaling.Baseline` entry; a shop tuning set is one named `ExposureScaling` value and no edit here.
 - Boundary: scaling is dimensionless against the profile it multiplies except `FocusOffset`, which is an additive length because focus is measured from a datum and has no meaningful zero to scale.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics.Tensors;
@@ -250,7 +250,7 @@ public sealed partial class ExposureProfile {
 - Growth: a strategy is one `HatchPartition` case with its `Cells` arm, or one `TileForm` row with its tessellation column.
 - Boundary: tessellation here is a deterministic closed-form lattice, never a relaxed point-site diagram — a checkerboard is regular by definition, and a seeded Voronoi models a different object with a seed this page would then have to key.
 
-```csharp signature
+```csharp
 [SmartEnum<string>]
 public sealed partial class TileForm {
     public static readonly TileForm Square = new("square", TileLattice.Square);
@@ -451,7 +451,7 @@ public static class ScanGeometry {
 - Growth: a zone is one `ExposureClass` row and one row on the zoning fold.
 - Boundary: the contour class covers the whole region boundary rather than a subtracted area, because a boundary pass is a perimeter and carries no area to double-expose.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ExposureRegion(int Layer, Length Elevation, ExposureClass Class, SliceRegion Region, Ratio Density);
 
@@ -470,7 +470,7 @@ public sealed record CandidateVector(int Layer, Length Elevation, ExposureClass 
 - Growth: a source is one `LaserSource` value on the policy; the cell census gate proves the tessellation answered one cell per source.
 - Boundary: field scoring is a plain Euclidean distance between two points; a tensor call at length three allocates two arrays per cell to compute what the point atom computes with none, so the atom's own member is the entry.
 
-```csharp signature
+```csharp
 public sealed record SourcePolicy(
     Arr<LaserSource> Sources,
     Ratio BalanceWeight,
@@ -605,7 +605,7 @@ public static class SourcePartition {
 - Growth: an ordering law is one `ScanOrder` row with its projection column.
 - Boundary: the plume gate and the thermal gate share one separation — the greater of the two policy lengths — so one index answers both and no second broad phase exists to disagree with the first.
 
-```csharp signature
+```csharp
 public sealed record ThermalPolicy(Length Separation, Length PlumeClearance, Length IntersectionTolerance, int Window) {
     public static readonly ThermalPolicy Baseline = new(
         Separation: Length.FromMillimeters(3.0),
@@ -694,7 +694,7 @@ public static class ScanSort {
 - Growth: a machine semantic is one `ScanEvent` case consumed by the existing folds; a correction family is one `DistortionCompensation` case.
 - Boundary: the barrier carries the wave it closes and the sources it holds, so the controller schedules against the same bounded wave vocabulary the election produced.
 
-```csharp signature
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DistortionCompensation {
     private DistortionCompensation() { }
@@ -797,7 +797,7 @@ public sealed record TimingPolicy(
 - Packages: `Rasm.Element.Projection` (`CanonicalWriter`), `Rasm.Fabrication.Process` (`FabricationCanon`, `FabricationFact`, `FabricationTap`, `FabricationTrace`), LanguageExt.Core.
 - Boundary: `ScanEvidence.Exposures`, `.Jumps`, `.Remelts`, and `.Stitches` are the four columns `Process/telemetry#FACT_UNION` projects as `FabricationEngine.Scan` phases; renaming one silently strands its instrument, and the projection now reaches them through the carrier's `Evidence`.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ScanPolicy(
     AuditPolicy Audit,

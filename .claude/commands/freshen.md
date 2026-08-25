@@ -24,7 +24,7 @@ Each leg owns its version-owner set: direct registry probes, in-place rewrite, p
 - MISSING-PATH TRAP: Store paths still missing after their dist's `--no-cache` rebuild prove the flake lacks them.
 - MISSING-PATH REPAIR: Add each Forge library row in `scientific-tools.nix`, then run `forge-redeploy --switch`.
 
-```bash copy-safe
+```bash
 sp="$(.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')"
 fd -e so -e dylib . "$sp" -u | while read -r so; do
   otool -L "$so" 2>/dev/null | rg -o '/nix/store/[^ ]+\.dylib' | while read -r lib; do
@@ -33,7 +33,7 @@ fd -e so -e dylib . "$sp" -u | while read -r so; do
 
 4. BUMP LIST — Name/old/new pairs from the lock diff, written to the ledger dir first so the proof consumes it:
 
-```bash copy-safe
+```bash
 mkdir -p ".claude/scratch/freshen-$(date +%F)"
 git diff -U2 uv.lock | awk '
 /^[ +-]?name = / { gsub(/.*name = "|"$/,""); n=$0; old="" }  # reset: a removed package never pairs onto an added name
@@ -44,7 +44,7 @@ git diff -U2 uv.lock | awk '
 
 5. PROOF — Run imports below, then `uv run --no-sync assay api status`; marker-gated dists skip; failures name dists for repair.
 
-```bash copy-safe
+```bash
 uv run --no-sync python - ".claude/scratch/freshen-$(date +%F)/bumps-python.txt" <<'EOF'
 import importlib, importlib.metadata as md, sys, pathlib
 fails = []

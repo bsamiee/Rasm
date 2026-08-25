@@ -23,7 +23,7 @@ Rasm.AppUi sources every icon, pointer, and bundled asset through the kernel `Ra
 - Growth: one `AssetDeclaration` row absorbs a new asset with its icon alternatives; a new host-typed payload is one `HostGlyph` case, never an origin case; a new byte source, product shape, rendering state, or reflection axis lands at the KERNEL and breaks the matching arm here loudly.
 - Boundary: ONE walk for both forms — the table fold produces the image, the request's `GlyphForm` projects it, so a pointer is the image rasterized through one `RenderTargetBitmap`. HOST-TYPED PAYLOADS ARE ROWS: a FluentIcons `Symbol`, a sized `Icon`, and a `SemiGlyph` ride `AssetRuntime.Bindings` under their own keys, their icon rows carrying `AssetOrigin.Vector(key)` alone — `Vector` reads the binding table first and falls to the avares SVG lane, two disjoint key sets walked as one lookup. Tint reads `ResolvedTheme.Paint(role, rung)` into `IconFilter.Tinted`; `Selected` REFUSES because selection is a token-ROLE election at `Theme/tokens`; `Disabled` folds to a coverage factor the one quantization crossing multiplies into alpha, rounded, never truncated. `AssetOrigin.Render` refuses: the kernel draw replays a `PaintProgram` onto an Eto target. `Raster` asks `RasterStack.Pixels` at the pose extent and uploads under the frame's own `AlphaLayout` straight from the kernel rows' span. `Stream` opens its factory EXACTLY ONCE per resolve. `Shipped` geometry builds once inside `Semi.Avalonia.Icons`, an unguarded replacement, so `AssetRuntime.Glyphs` is read on the UI thread alone. `Resolve` walks alternatives through `BindFail` — `operator |` evaluates both operands and decodes every lower row after the winner exists. Every known absence refuses on the rail by name; throwing native calls cross `Op.Catch` with exact exception evidence.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -140,7 +140,7 @@ public sealed record AssetRuntime(
     AssetCache Cache);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IconSurface {
     static readonly Op Resolving = Op.Of(name: "appui.asset.resolve");
@@ -367,7 +367,7 @@ flowchart LR
 - Growth: one `PointerRow` row carrying its origin absorbs a new pointer affordance; a platform roster gaining a member turns one Drawn row into a Platform row with zero consumer change.
 - Boundary: DISCRIMINANT AT THE SITE — the kernel `Rasm/Interaction/input.md` `CursorRow` is the SAME semantic vocabulary bound to Eto `Cursors` through a kernel-internal `Resolve`; Avalonia cannot reach that delegate, so this page keeps a semantic row bound to `StandardCursorType` under its own name and the kernel widening (semantic row + per-boundary binding table, the `HostGlyph` idiom) is a SEAT escalation, not a local re-spell. The Avalonia roster ships no grab pair; its corner rows ARE the diagonal resize affordance. Every consumer names a ROW — a `StandardCursorType` literal at a call site is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record PointerOrigin {
@@ -425,7 +425,7 @@ public static class PointerCatalog {
 - Growth: a new product plane is one `BudgetedCache.Of` call naming its posture, cost, and release; a new retention law is one `RetentionPosture` row; a new cohort cause on the asset plane is one `CacheTrigger` row and one `Retire` call.
 - Boundary: this cache is the BOUNDARY's own custody per the kernel asset law — a kernel-side cache over a host handle outlives the surface that asked for it. `AssetCache` is the ONLY owner that disposes an `AssetProduct`; a caller holding a resolved image never releases it. Byte cost derives from the product's own extent, and a single product larger than the whole ceiling refuses as `BudgetRejected` rather than retiring the table to admit one cell. Release runs OUTSIDE the commit: the transition answers what it displaced and the caller releases that, so a re-run CAS body never disposes twice. Every edge that FILLS a lane also advances it; the two lanes stay apart because a staleness cohort's grace must span the swap's re-materialization roster while a pressure retiree's grace is the next eviction.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -627,7 +627,7 @@ public sealed class AssetCache : IDisposable {
 - Growth: one retained row per asset key; a new posture is one `SvgPosture` row; a new mutation address form is one `Mutate` overload.
 - Boundary: the kernel `Rasm/Interaction/paint.md` `ScenePolicy` is the draw-quality tier; this posture renamed away from that name because three pages compose both planes. `SvgPipeline` is a disposable capability constructed with the resolved `SKFontManager`; admission runs under `Custody.Bracket` over the payload stream, a losing duplicate parse disposes its own document, and an absent source document is a KNOWN absence refusing on the rail — only the parse traps. The shipped control names its filter column NEGATIVELY as `DisableFilters`; the trait states `Filters` and the mount inverts it once. `SvgLease` never exports `SKSvg`, every document operation locks `document.Sync`, and lease disposal detaches only its handler. Both scene-presence properties BUILD the graph on read, so scene-class capability is the ROW's trait, never a property probe. Hit testing is `Topmost`/`Hits` on the lease ALONE.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]
@@ -770,7 +770,7 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
 - Growth: one policy value per cache or variant fact; a storage-scoped source composes the loader's own `IAdvancedAsyncImageLoader.ProvideImageAsync(url, storage)` at its consuming surface.
 - Boundary: a present `HttpClient` stays borrowed (`disposeHttpClient: false`) and its retry policy is the AppHost outbound owner's — this page runs no `Schedule` over a client it does not own; cache content lives under `ProfileRoots`; `AssetRow.Variants` carries an extensible scale table; variant election is pure over the row and one scale, so the `AssetCache` scale edge is the only re-election trigger — the loader hierarchy's own RAM cache holds decoded bytes and knows nothing of backing scale. The companion RAM loader, the storage lane, and the fallback-key bindings the earlier page claimed had no consumer on disk and are gone; a fallback binding lands with the `AdvancedImage` row that reads it.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record RasterRow(AssetKey Placeholder, AssetKey Error, string CacheFolder, double HiDpiThreshold);
 
@@ -809,7 +809,7 @@ public sealed class RasterAssets : IDisposable {
 - Growth: one `AssetDeclaration` row admits a new asset with its kind, source, variants, partitions, binding, and icon alternatives at once; a sixth `RevertKind` lands its glyph as one `History(...)` row whose key the mint derives.
 - Boundary: avares content is the only Release-time asset origin; the key vocabulary crosses pages as `AssetDeclaration.X.Key` values. Declaration order inside `Icons` IS fallback order — font face first, shipped geometry second, bundled vector last. The mirror AXIS is decided once per glyph here; the MECHANISM nowhere here. `AssetKind.Glyph` rows carry no avares source and `Open` refuses them by name; every other kind carries one, so a binding key with no bytes and a byte key with no binding are two row shapes, never an accidental miss. The five history glyph keys carry the `history-` stem through one `History` mint and `Editing/history.md` `RevertKind` reads them — the derivation runs DOWNWARD because `Theme` is S0 vocabulary and may not import the S2 history owner.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [ValidationError]

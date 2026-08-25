@@ -20,7 +20,7 @@ Registration extends the `ModelSessions` boundary capsule and rides `Microsoft.M
 - Growth: a new custom-op library is one `CustomOpLibrary` row on `SessionPolicy.CustomOpLibraries` and a new registration MECHANISM is one case on that union, carrying its own probe, identity, and fingerprint column; a new ONNX value kind is one `OpOutput` case with one `OnnxType` arm on `Egress`, landing beside the `SlotShape` case the identity snapshot grows in the same change; a new map-value domain is one `MapValue` case and one `Valued` arm. Container growth costs nothing: `Sequence` and `Optional` recurse through the one reader, so a sequence of sequences of maps reads today.
 - Boundary: `CustomOps` extends the session capsule; `RegisterCustomOpLibrary` transfers lifetime to its `SessionOptions`, and each `OrtValue` child is read within its native lease.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public static class EgressRefusal {

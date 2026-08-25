@@ -21,7 +21,7 @@ Rasm.AppHost owns the in-process reasoning front door beside MCP server projecti
 - Growth: one turn disposition is one `ReasoningTurn` case breaking every fold arm; a new loop bound is one field on `ReasoningPolicy` and every governance seat reads it with no second edit; a new tool front door is the SAME `CommandAIFunction` set adopted by a new caller, never a new projection; zero new surface.
 - Boundary: the reasoning loop is the in-process model-driven command owner — it never executes an op itself, it routes every tool call through the brokered `CommandAIFunction` onto the command algebra, so the transaction, grant, and cost semantics are the command algebra's and the loop is the model-driven dispatch over them; a tool set divorced from the `Agent/mcp#METHOD_AXIS` adoption seam is the deleted form, so the in-process loop and the MCP server share one tool catalog; the `IChatClient` the loop drives is the `MODEL_GOVERNANCE`-wrapped client, never a raw provider client, so an unmetered un-ledgered model draw cannot reach the loop; the loop owns the turn vocabulary and the session-scoped conversation buffer, while `MODEL_GOVERNANCE` owns the metering, caching, tracing, and content-addressing — the two never merge, so the loop stays the orchestration and the middleware stays the policy; a model call that bypasses the function-invocation decorator to invoke a tool directly is the deleted form, because the decorator is the one seam where `ChatOptions.Tools` becomes executed calls.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ReasoningPolicy(
     ChatToolMode ToolMode,
@@ -132,7 +132,7 @@ public static class ReasoningSession {
 - Growth: the `ByIntent` case is one `DiscoveryQuery` row breaking every consumer; a new ranking signal is one column on `IntentMatch`; a new embedding model is one `IEmbeddingGenerator` injection, never a second index; zero new surface.
 - Boundary: `Index` and `Rank` take the governed generator alone — a raw provider generator reaching either is the deleted form, because an untraced uncached embedding draw leaves this card's own re-resolution claim with no mechanism; the semantic discovery is the only intent-resolution owner — a keyword-match heuristic, a hand-tuned synonym table, and a per-op intent annotation are the deleted forms, so an agent resolving "diffuse heat across this mesh" to `TensorOpFamily.HeatFlow` reads the one embedding rank; the `ByIntent` case extends the `Agent/capability#DISCOVERY_FOLD` `[Union]` rather than adding a parallel discovery surface, so the registry's `Discover` stays the single discovery entrypoint and the intent path is one fold arm; the embedding index is frozen at composition so a descriptor added after freeze is invisible to intent resolution until re-index, the same read-only-after-freeze contract the registry carries — a runtime descriptor-embedding mutation is the deleted form; the cosine rank is a similarity heuristic, not a guarantee, so an intent below the policy floor returns no match and the agent falls back to the exact-id path rather than dispatching a wrong tool; the embedded text is the op surface's self-description (`{surface}.{op}` and effect/classification), never the op's body or arguments, so the index is metadata-only and an op's payload never leaks into an embedding.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record IntentMatch(string Descriptor, float Score, CapabilityMatch Result);
 
@@ -192,7 +192,7 @@ public static class SemanticDiscovery {
 - Growth: one transcript column is one field on `ReasoningTranscript`; a new macro substitution point is one `MacroParameter` row on the recorded slice; a new digest input is one component on the kernel `ContentHash.Of` canonical bytes; zero new surface.
 - Boundary: transcript projection never creates evidence absent from the function result; exact command receipts ride the existing event-log chain, while missing joins remain explicit and block macro completeness; `Macro.Record`/`MacroEngine.Play` reuse the command algebra for every captured receipt; `TranscriptDigest` addresses the observed response and call identities but makes no bit-identical model-replay claim beyond the cache owner's guarantee.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ReasoningTranscript(
     string TranscriptId,
@@ -325,7 +325,7 @@ public static class TranscriptProjection {
 - Growth: a new decorator is one `ChatClientBuilder.Use` arm on the fold at its observation seat; a new model route is one `ModelRoute` row carrying its provider model id, effect ceiling, and window; a new content-filter classification is one `DataClassification` row the resolver reads; a new metered model resource rides the existing `CostUnit` axis; a new carrier is one `Compose` overload on this owner, never a second pipeline; zero new surface.
 - Boundary: the middleware fold is the suite's only model-governance owner and it spans BOTH model carriers — a raw `IEmbeddingGenerator` reaching `SemanticDiscovery` is the deleted form, because an untraced uncached embedding draw makes the `#SEMANTIC_DISCOVERY` cache claim mechanismless; routing rewrites `ChatOptions.ModelId` through the one options-configuring decorator, redaction reuses `DataClassification`, metering charges `CostUnit.ModelTokens`, cache storage stays on `HybridCache`, and tracing stays on the GenAI source; the history bound is a TOKEN measurement against the route window, so a message-count literal is the deleted form and the shipped `SummarizingChatReducer` is composed for the summarization it owns rather than for a count it does not measure; `TranscriptProjection` chains exact command receipts only; model response cache identity and event-log identity remain distinct until an admitted response-log owner exists.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -620,7 +620,7 @@ flowchart LR
 - Growth: a new modality is one `ModalKind` row with either one pipeline decorator arm (when the modality is a chat content the governed client can carry) or one `ModalIntake` entry (when it is not); zero new surface.
 - Boundary: the modal surface is the only multi-modal agent-intake owner, and it holds exactly one front door — a direct `IImageGenerator.GenerateAsync` call is the DELETED form, because that draw touches no span, no cache, no redaction, and no broker while the page claims it rides the meter "exactly as a chat draw does"; the collapse makes that claim structural, since the image tool cannot execute except inside the pipeline that carries all four; a `[Union]` over two client handles is likewise deleted — one modality is now a decorator arm and the other an entry, so a two-case carrier models a symmetry that does not exist; the modal output is data the descriptor catalog gates by effect class, never a privileged side channel.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

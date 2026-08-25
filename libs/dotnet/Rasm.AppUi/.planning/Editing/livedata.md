@@ -30,7 +30,7 @@ The predicate algebra is NOT this page's: `Rasm.Element` `Query/predicate#PREDIC
 - Boundary: BACKPRESSURE at the CONSUMER coalesces rather than drops: `Batch` buffers the interval's change-sets and flattens them into one, so a high-rate feed costs one bind pass per window with every delta preserved, while a `Throttle` or `Sample` on a change-set stream discards the deltas it skips and leaves the bound collection describing a state no producer ever held — the named deleted form on every delta stream in this package. `Gated` is that same coalescing under an external hold, so a suspended surface accumulates and releases as one batch through `BatchIf` rather than tearing its subscription down and replaying from cache.
 - Boundary: FRESHNESS is projected here and consumed at the board. The sample stream is probed on the bounds' own cadence so age advances WITHOUT the feed — a feed that stops emitting produces no delta and therefore no age signal, the same silent-stall hole the `Charts/tiles#WATCH_RULES` stale comparator closes on the watch side. `FeedHealth` is the board's vocabulary because its severity ladder is the board's, so this page produces values on it and derives none of the ladder: the grade is a RANKED ROW TABLE whose rows ARE `FeedHealth` values under first-match resolution, never a nested ternary that hides its precedence in parenthesization. Every subscription failure lands in the one `Action<Error>` rail — a rail that reaches the screen fault state and the fault instrument, which the kernel `FaultCell` isolation ring deliberately is not: that cell parks a foreign callback's fault under a `HookId` for later inspection, and a live surface needs the refusal now.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -441,7 +441,7 @@ flowchart LR
 - Boundary: DEPTH and BREADTH are both admitted, on BOTH sides. `Decode` bounds nesting at `FilterPolicy.GroupCeiling` and counts terms across the WHOLE TREE against `TermCeiling` — the prior per-group count admitted eight groups of sixty-four and passed five hundred terms against a stated ceiling of sixty-four — and `Encode` returns `Fin<string>` under the identical bounds, because an in-memory tree built past the ceiling encoded fine and then failed its own decode, so a saved view could be written and never recalled. Structural characters (`(`, `)`, `,`, `:`, `|`) are safe delimiters because `Uri.EscapeDataString` escapes every character outside the RFC 3986 unreserved set.
 - Boundary: CHIP presentation stops at the label projection — this owner answers each term's key, label key, and rendered arguments, and `Shell/controls#CONTROL_INTENT` materializes them as `ControlIntent.Chip` rows under `ChipPosture.Removable` with its own intent binding. Filter EDIT cadence rides `FilterPace`: one shared edit stream throttled on the quiet span and merged with a sampled emission on the ceiling span, so a held key never starves a surface of a refresh and a burst of keystrokes costs one compile rather than one per character.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>]
@@ -894,7 +894,7 @@ public static class FilterLink {
 - Boundary: SHARING is not a column. The prior `SavedView.Shared` bool was written once with a constant and read nowhere — a knob whose value the artifact already reconstructs — so it is gone; a sharing verb, when one exists, is a port operation with a receipt, not a flag on the row.
 - Boundary: a COMPILE failure mid-stream is a fault on the rail with the last good predicate HELD, never a silent fall-back to the open filter: a view that quietly showed every row after a bad edit reports success for a question nobody asked, while a held predicate plus a raised fault leaves the surface honest and the banner accurate. Visibility is the DOMAIN axis and lives here — `Editing/tables#VIEW_STATE` keeps only the grid-mechanism cells its control owns (display index and resolved pixel width), so a column hidden on a board and hidden on a grid is one fact.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -1012,7 +1012,7 @@ public sealed record ViewBinding<TRow>(FilterSchema<TRow> Schema, FilterPace Pac
 - Growth: a new operator concern is one row on the delivery table; a new bound is one policy value; zero new surface.
 - Boundary: predicates and comparers arrive as streams from `[04]` `ViewBinding.Inputs` and `Refresh` composes the catalogued `AutoRefresh` shape only when the row model admits it. Re-filtering pushes a predicate and grouping remains one projection-policy choice; repository layers, per-screen pipeline classes, and a second cache are rejected. SNAPSHOT sources lower through `EditDiff(keySelector)`, which diffs each emission against the held set and emits the removals that reconcile them, while `ToObservableChangeSet` upserts and removes NOTHING — a query-superseding source lowered through it keeps every row of every earlier answer alive, so it is the deleted form on every successive-snapshot fold in this package and survives only where the source is genuinely append-shaped. DELIVERY is not shaped here — the `Page` and `Virtualise` rows below are composed by the surface that owns the window, `Editing/tables#TREE_FLATTEN` `TableProjection` for the grid and `Shell/virtualization#WINDOW_OWNER` `VirtualWindow` for the extent-ledger fabric, so a live-data delivery union beside them is a second windowing owner the per-surface-virtualizer law rejects.
 
-```csharp signature
+```csharp
 public sealed record PipelineInputs<TRow, TKey>(
     IObservable<Func<TRow, bool>> Predicates,
     IObservable<IComparer<TRow>> Comparers,
@@ -1068,7 +1068,7 @@ The delivery table routes each change-set operator to the ONE owner that compose
 - Boundary: the merged element type is `OverlayRow<TRow>` rather than `TRow` because the posture IS presentation — a pending row renders provisionally and a refused row renders as refused. The convergence arm compares VALUES, so `TRow : IEquatable<TRow>` is a CONSTRAINT here rather than a comment: the prior `where TRow : notnull` let a reference-equality row model silently never converge, and the law that said "TRow carries value equality" had nothing enforcing it.
 - Boundary: BACKPRESSURE never reaches this cache: the pending set is bounded by outstanding local mutations, and the authoritative leg arrives already paced by `SourcePolicy.Pace`. KEY authority is the ledger's own row selector — the same shape `[02]` `Open` takes — so a projection's ticket and the cell its cache seats cannot address different keys. LINGER custody is per key: one serial slot across the ledger let the second refusal cancel the first one's scheduled fallback, leaving that row refused forever above the settled truth, so each key arms and retires its own slot and the drop retires the slot with the row. TEARDOWN rides kernel `Custody.Bracket`, which is reverse-order and ALL-ATTEMPTED with an accumulating ledger — the hand sweep that iterated, cleared, and then disposed lost the pending cache entirely if any slot threw.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -1223,7 +1223,7 @@ flowchart LR
 - Boundary: the capsule is the UI-thread boundary capsule and this fence carries the subscription edge under that carve-out; `ObserveOn` applies exactly once here; semantic pipeline refusals use `LiveDataFault`, while Rx exceptions retain their exact exceptional `Error` at the screen fault state; bulk admissions batch through `SuspendNotifications` on `ObservableCollectionExtended` at load edges.
 - Boundary: recovery selects a concrete `LiveDataFault` case through `error.IsType<LiveDataFault.Filter>()`.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1294,7 +1294,7 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault, SortAndB
 - Boundary: the live-fault instrument comes from `Faulted` bound at the one `Action<Error>` rail, the feed-age gauge from the `[02]` freshness projection, and the pending gauge from the `[06]` ledger count, so metrics and the `ReceiptSinkPort` evidence stream derive from the same producers; age and pending ride READING rows because both are standing facts whose last value is the answer, and a counter over either would report a rate for a state — pushed gauges rather than pulled level families, because each value arrives on an emission the projection writes at and each carries dimensions a family keyed on one tag cannot hold.
 - Boundary: suspend and resume ride the activation scope — surface visibility drives activation at the screens owner, a hidden surface holds zero live subscriptions, and cache state delivers instant replay on resume, while a surface that must keep its subscription across a hold declares `FeedPace.Gated` instead, so pausing without unsubscribing is a policy row rather than a second lifetime. Gauge and scalar tiles bind their `StatFold` row through `Scalar`, whose `StatSample` feed carries the population weight the weighted mean reduces on; the TILE naming stays at the board, which owns the tile concept. An OAPH mirror of change-set state, a stats service, and a notification-center history store are the rejected forms.
 
-```csharp signature
+```csharp
 public static class LiveDataOps {
     public const string AuditEdge = "change-audit";
 
@@ -1371,7 +1371,7 @@ public static class LiveDataOps {
 - Boundary: identity is ADMITTED through the kernel bridge — `OptionKey` stamps `[ValidationError]` and untrusted text crosses `Op.AcceptValidated`, so a blank key refuses as a typed `LiveDataFault.Options` on the family's own band rather than as a bare `ValidationError` no probe, no band lookup, and no fault dimension can classify.
 - Boundary: PER-OPTION KPI columns fold through the live `Group` form, whose `IGroup` carries its own `Cache`, so editing one option's candidates re-emits that option's readings alone and every other column stands — `GroupWithImmutableState` would re-snapshot every group per delta and a per-option subscription roster would re-subscribe on every roster change. A candidate MISSING a KPI's metric contributes nothing rather than a zero, the same law the scorecard holds. A DUPLICATE and a REGENERATE both record their source on `DesignOption.Parent`, so lineage is one field; the preferred option is one key on the set, so preference is a total fact and two preferred options are unrepresentable.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(EmptyStringInFactoryMethodsYieldsNull = false)]

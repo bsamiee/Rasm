@@ -61,13 +61,13 @@ Each emission ships as one independent distribution a foreign consumer installs 
 - version: MinVer derivation from the repository's `v*` tags; an untagged tree floors at `MinVerMinimumMajorMinor` as an alpha height build.
 - workspace: `ProjectReference` to `Rasm.Contracts.csproj`; external: `PackageReference` to the released package.
 
-```xml copy-safe
+```xml
 <PackageReference Include="Rasm.Contracts" Version="<tag-derived version>" />
 ```
 
 Generated types are the wire vocabulary, never domain models: a consumer bounds binary decoding, evaluates the embedded descriptor rules, then projects the admitted message into its own domain.
 
-```csharp copy-safe
+```csharp
 using Google.Protobuf;
 using Rasm.Contracts.Declaration;
 

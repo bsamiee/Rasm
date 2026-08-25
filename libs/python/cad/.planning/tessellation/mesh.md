@@ -23,7 +23,7 @@ Policy arrives whole on the wire as `deflection_m`, `angle_tolerance_rad`, and `
 - Growth: a new mesher knob is one `TessellationPolicy` field lowered here; a new custody regime is one `Custody` value minted at the lane.
 - Boundary: this owner meshes. Building the document and its root belongs to `exchange/assembly#ROOTS`, and no reader is reachable here.
 
-```python signature
+```python
 from typing import Final
 
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
@@ -66,7 +66,7 @@ def _meshed(root: TopoDS_Shape, policy: TessellationPolicy, custody: Custody, /)
 - Growth: a new pre-emission proof is one arrow inside the traversal step; the traversal itself takes no new argument.
 - Boundary: this owner reads `NbTriangles()` alone. `Poly_Triangulation.Node`/`Triangle` and `Poly_Triangle.Value` are verified present and unread, so the vertex and face buffers a mesh consumer wants have no owner; the gap is the carrier, never the spelling.
 
-```python signature
+```python
 from collections.abc import Iterator
 
 from OCP.BRep import BRep_Tool
@@ -117,7 +117,7 @@ def _preflight(root: TopoDS_Shape, policy: TessellationPolicy, /) -> CadRail[int
 - Growth: a new spine stage is one `yield from` arrow; a new source kind lands at `exchange/assembly#ROOTS` and this spine stands unchanged.
 - Boundary: `TessellateResponse` is assembled at `service/provider#PROVIDER`, which owns the `ArtifactRef` this worker never sees.
 
-```python signature
+```python
 from pathlib import Path
 
 from expression import Error, Ok, effect

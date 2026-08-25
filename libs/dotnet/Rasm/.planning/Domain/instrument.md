@@ -25,7 +25,7 @@ Every write addresses by ROW, never by name. `InstrumentSpec` is in scope at eve
 - Growth: a new bucket policy is one `Buckets` row; a new instrument family one `InstrumentKind` row breaking the one generic bind at compile time; a new measurement type one `MeasureForm` row carrying BOTH its mint and its listen column, so a tally can never drop a type a mint admits.
 - Boundary: `InstrumentSpec` families partition by UCUM unit and never by domain case — the case key rides `Dimensions`, so a landed unit needs no roster edit (branch RULINGS `[03]`). Meter and instrument lifetime ride the minting factory, so no owner here retains a meter handle or disposes one, and a `new Meter(...)` construction is the rejected form everywhere.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Diagnostics.Metrics;
@@ -199,7 +199,7 @@ public sealed partial class InstrumentSpec {
 - Growth: a new bounded owner reporting its own saturation is one `Bind` scope over that owner's lifetime under its own tags, its probe joining the declared row's series and leaving with it.
 - Boundary: every write and registration member on `LevelCells` is assembly-internal, so `InstrumentSet` is the only reachable pulled entry from any consuming package and an ungated cell write has no spelling outside this assembly. Cells hold `double` at either key half, so the whole (kind × form) product carries its declared measurement type and a keyed real-valued level never truncates.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
@@ -303,7 +303,7 @@ public readonly record struct Mounted(InstrumentSpec Row, Instrument Handle);
 - Growth: a new level family is one `Level` write site and one `Levels` declaration; a ninth instrument family breaks `Write`'s `Switch` at compile time.
 - Boundary: `InstrumentKind.Pulled` is the enforced column, and `LevelCells`'s writes are assembly-internal, so an ungated level write cannot be composed from any consuming package.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Diagnostics;
@@ -426,7 +426,7 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
 - Growth: a new read moment is one `ReadingCell` column; a tightened diagnostic memory bar is one `ceiling` value at the arming composition; a per-row cardinality bound is one `Ceiling` value on the declaring row.
 - Boundary: the tally is a DIAGNOSTIC composition an operating profile arms and disposes, never a standing emission leg — it holds one accumulator per (row, tag set) for the life of the listener, bounded by a ceiling the arming composition supplies, and the arming seat stays a policy row at the app platform.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics.Metrics;
 

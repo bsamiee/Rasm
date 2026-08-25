@@ -18,7 +18,7 @@ Construction for every modality lives here alone, so no producer schedules a sib
 - Growth: a new refusal is one `RAISES` row under an `ArtifactsLeg.ISSUE` anchor, or one slot on the row whose law already covers it; a new modality is one `IssueRequest` case, one mint, and one `_nodes` arm — earned only by root-owned chaining or targeting knowledge, since a bare producer family already rides `Works`; a new terminal producer joins an existing arm's fold; a host batching policy is a `LanePolicy` value; a cross-run warm fill is the composing host's own durable index read threaded into `warm`.
 - Boundary: no receipt case and no content key; the scheduling algebra, coverage, and elision evidence are `core/plan#PLAN`'s, the front drive, drain, retry, offload bounds, and per-unit fault capture the runtime lane's, and the durable warm fill the host's. A second constructing surface, a producer calling a sibling's `emit()`, or a host touching `ArtifactPipeline` directly each break the single-root law. Its rail is composed, never collapsed — a plan fault reaches the caller through `bind`/`match`, never a `.ok` unwrap or a default plan; the drive return is the lane's rail, never iterated as a bare receipt stream; and each async carrier transition uses one total `Result` match because `expression` ships no async carrier builder.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterator
 from contextlib import contextmanager

@@ -24,7 +24,7 @@ Producer-handed DECLARATIONS cross elsewhere and stay elsewhere — `Rasm.Elemen
 - Law: the spine travels as SCHEMA COLUMNS, never as statics a provisioning arm reaches for, which is what lets a producer-handed dataset with its own instant name provision through the identical emitter. Static field initializers run in DECLARATION order, so every facet and spine `Identifier` leads the rows — a row reading an identifier declared below it captures an uninitialized value and mounts a nameless column. Each read groups by series because a `time_weight` summary combines across DISJOINT windows alone: folding two live streams sharing a window is a mean no algebra defines, so a facet selection matching several streams answers one weighted mean EACH.
 - Boundary: tenancy is NOT a point column — the whole COPY batch lands under the ingesting frame's tenant and every read scopes by it, so equal series keys under distinct tenants never share rows. Absence stays absence across an empty window, where a collapsed `0d` reads as a measurement a board renders indistinguishably from a measured floor. `Jobs` is Timescale-ONLY and named for what it is — `ResidenceRead.Health` measures the expiry OUTCOME every residence answers, while this transcribes a bgworker run history only one engine publishes, over a catalog relation carrying no tenant column and no time spine, which is why it cannot ride the family entry and why its sibling residences carry no counterpart.
 
-```csharp signature
+```csharp
 using Npgsql;
 using NodaTime;
 using Rasm.Domain;
@@ -195,7 +195,7 @@ public static class SeriesLane {
 - Law: op-log rows spell their instant `time`, not `at` — exactly why the residence spine travels as a schema column: this dataset provisions its MergeTree partition, sort key, and TTL through the same arm every `at`-spelled series relation rides, with no dialect arm branching on a column name.
 - Boundary: the Fleet leg is READ-side only. `Version/egress`'s ClickHouse sink owns landing under `insert_deduplication_token` dedup, and the two ends meet at this declaration rather than at a table name two sites spell; ClickHouse carries no transaction, so every fleet read is a convergence-consistent view whose staleness the egress cursor bounds.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record WarehouseOpRow(string Id, string Source, string Type, Instant Time, string PartitionKey, long Sequence, ReadOnlyMemory<byte> Data);
 
@@ -238,7 +238,7 @@ public static class WarehouseSchema {
 - Law: `Tenant` is the ROUTING key, not a stored column — each residence owns its tenant column at the one key type every tenancy predicate compares against and every scan is tenant-scoped by frame, so a per-row tenant column duplicates that key at a second physical type. Wide events declare NO measure: a message envelope carries a payload, not a scalar, so this dataset provisions hypertable, columnstore, and retention and emits no continuous aggregate — numeric rollup rides the `SeriesKind.Telemetry` projection `Points` derives.
 - Boundary: every identity part of a series key crosses the kernel `CanonicalWriter`, which length-frames each variable-width field — a raw concatenation of package, kind, and measure path mints ONE key for `("rasm.store", "a", "b")` and `("rasm.store", "ab", "")`, folding two streams into one series no reader can separate. Arrays stay off the measure plane — a per-row collection is evidence the wide event carries whole, never a scalar a time bucket averages — and the walk is depth-bounded so a nested payload cannot fan unbounded series out of one message envelope. Payloads CLONE onto their own buffer at the envelope inverse: `JsonElement` outlives no `JsonDocument`, so an element handed out past the parse scope reads returned pooled memory.
 
-```csharp signature
+```csharp
 using Apache.Arrow;
 using Rasm.Domain;
 using System.Text.Json;
@@ -355,7 +355,7 @@ public static class ReceiptResidence {
 - Law: facet arity is ROW DATA, never schema — a discipline's facet path rides the `ColumnShape.List` container the vocabulary already generates, so an energy row's `(measure, fuel, end-use)` triple and a daylight row's single sensor id land in one column and one relation. A per-discipline table would be a residence per producer, which is the custodian law this page exists to hold. The `value` column is the TRUTH and every scalar column its projection: the whole fact crosses through the seam's one canonical `PropertyValue` codec, so a case with no scalar face rehydrates losslessly and a scalar column is a query accelerator a read never inverts. Tenancy is ROUTING, not a column — the whole batch lands under the ingesting frame's tenant and every read scopes by it. The retention extent matches `SeriesKind.Assessment`'s, so a board resolving a temporal point to its typed rows never lands on rows already dropped.
 - Boundary: `Rasm.Compute` sits ABOVE this custodian and references it, so the producer's `AssessmentRow` record is unnameable here and a mirror of it would be a strata inversion wearing a convenience — the arms take the producer's row type as a TYPE PARAMETER beside one projection onto the five coordinates a fact carries, every one of them `Rasm.Element` or BCL vocabulary this package already references, so neither end holds the other's record. Producer-handed rows LAND: this custodian derives nothing from the fact, re-measures nothing, and admits by construction, while a JSON-only row that no filter can narrow and a scalar-only row that silently drops a `Table`, a `Complex`, or a `Binary` payload are both the deleted form. An empty facet path is an EMPTY RUN, never absence — `ColumnRow.Admits` refuses an absent cell on a container by declaration, and a discipline emitting one unfaceted fact per assessment is the ordinary case.
 
-```csharp signature
+```csharp
 using Apache.Arrow;
 using LanguageExt;
 using NodaTime;

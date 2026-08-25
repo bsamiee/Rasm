@@ -23,7 +23,7 @@ Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is
 - Boundary: extraction reads the same `Seq<ComputeReceipt>` the dashboards fold — a monitor that taps `ReceiptSurface.Emit` directly or mints a second fact stream is the deleted form; warmup samples score `Breach: false` because a limit over an unestimated baseline is noise, and the verdict still lands so cadence stays observable. `SolveResidual` and `FactorResidual` are two streams, never one: the first is the physics equilibrium residual a `Solve` fact reports against its convergence target, the second the linear-algebra residual a `Factorization` fact measures against its `ResidualCap`, and a drift in one carries no information about the other.
 - Boundary: this lane's sketch serves LIVE receipt streams alone. Exact small-sample batch quantiles are the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Distribution.Of` fold over a bounded materialized sample, and the branch three-form quantile law binds both — an operational sketch crossing into a bounded-sample reading grades a value no run produced. The three forms are the CARRIER split the ruling protects; the marker walk itself is one body at one owner.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>]

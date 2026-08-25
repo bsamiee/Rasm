@@ -20,7 +20,7 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 - Packages: Grasshopper2 (`Motion`, `Duration`, `Animators.DurationToTimeSpan`), `Rasm.Parametric` (`Easing`), Thinktecture.
 - Growth: a new host span or kind is one row keyed on its host ordinal; the kernel column absorbs the pairing.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Rasm.Parametric;
@@ -77,7 +77,7 @@ public sealed partial class PaceRow {
 - Packages: Grasshopper2 (`Animated<T>`, `Interpolate<T>`, `IFlexControl`, `ZoomThreshold`), `Rasm.Interaction` (`Tween`, `PaintColor`), `Rasm.Numerics` (`BlendPath`, `UnitInterval`, `PerceptualColor`), `Rasm.Domain` (`FaultCell`), LanguageExt.Core.
 - Growth: a new carrier type is one kernel `Tween` member lifted through `Lerp.Of`; the binder never widens.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Flex;
@@ -150,7 +150,7 @@ public static class FlexDrive {
 - Packages: Grasshopper2 (`AnimatedPath`, `IAnimatedStroke`), `Rasm.Interaction` (`PathSpec`), `Rasm.Numerics` (`VectorAngle`, `UnitInterval`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new semantic glyph is one row; a new figure lowering is one arm named against the host surface.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Rasm.Domain;
@@ -212,7 +212,7 @@ public static class GlyphPath {
 - Packages: `Rasm.Interaction` (`UiClock`, `PulseBeat`, `FaultPosture`), `Rasm.Parametric` (`MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `MonotonicTimeline`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Shell/session.md` (`GhSession`, `SessionOp.RepaintCase`, `RepaintRow`), `Rasm.Numerics` (`PositiveMagnitude`).
 - Growth: a new drive shape is one kernel `MotionScript` case; neither pacer gains a parallel sampling arm.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -311,7 +311,7 @@ public sealed class CanvasPacer : IDisposable {
 - Packages: LanguageExt.Core, Thinktecture, `Rasm.Parametric` (`IGaugeLane`, `GaugedSpan`, `PaceBand`), `Rasm.Interaction` (`PaintReceipt`), `Canvas/canvas.md` (`FramePulse`), `Rasm.Domain`.
 - Growth: a new judged axis is one row with one subject arm; a tuned bound is a row fraction change with every consumer untouched.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;

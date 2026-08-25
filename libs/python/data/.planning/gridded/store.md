@@ -18,7 +18,7 @@ Its backend is recovered from the store URL scheme through the `runtime/transpor
 - Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.STORE` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
 - Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: a codec row spelling a knob its provider does not carry, which arms the store and then raises from inside the codec at the first chunk write while the same unreadable key already sits in the metadata document; a two-case `compress|raw` serializer, which spells compression or a digest and never both, and reaches only the two knobs its positional pair carries; an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
-```python signature
+```python
 import functools
 from collections.abc import Awaitable, Callable, Iterable
 from enum import StrEnum
@@ -612,7 +612,7 @@ flowchart LR
 - Growth: a new reduction is one `Reduction` literal the Array API namespace answers; a new factorization one `_LINALG` row; a new executor one `Executor` literal; a new execution dimension (`executor_options`, `zarr_compressor`) is one `PlanBudget` field with `plan`'s signature untouched; a new measured fact is one field off the `Callback` lifecycle plus one `facts` column; zero new surface and never a `cubed` backend tag on `TensorBackend`.
 - Boundary: `data` emits a bounded-memory plan plus its typed peak-memory receipt, never a runtime compute graph, and a consumer selects its own substrate off that receipt.
 
-```python signature
+```python
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 

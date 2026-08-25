@@ -22,7 +22,7 @@
 - Growth: a new cross-host axis is one capability row with one column per host it reaches; a new host joining an existing axis is one column and one static `HostAxis` at the owning case, which the door and the mint read together; a new cluster is one sub-record and its `PolicyMap` seat.
 - Boundary: each `Mint` block is a host-mutation capsule; object initialization and the ordered `Seat`/`Through`/`Apply` statements are the platform-forced statement exemption.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -384,7 +384,7 @@ internal static partial class PolicyMap {
 - Packages: Generator.Equals (`[Equatable]`, `[OrderedEquality]`), LanguageExt.Core (`Fin`, `Option`, `Validation`, `Seq`), `Domain/validation` (`CapabilitySet`, `FactoryValidation`), `Domain/rails` (`Op`), `Domain/context` (`Tolerance`, `ToleranceLane`), `Rasm.Drawing` (`HostLayerScheme`, `LayerStandard`, `PlotStyleTable`), `Document/geometry` (`FieldOverride<T>`); RhinoCommon `Rhino.FileIO` per `.api/api-rhinocommon-fileio.md`.
 - Growth: a new host knob is one override field with its baseline line in `Mint`; a new format direction is one case and one codec engine expression, and a case carrying a capability axis adds one static `HostAxis` its `RefusalsFor` override proves — the door itself never grows an arm.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct DialSeat(FileCodec Codec, CodecPhase Phase);
 
@@ -1280,7 +1280,7 @@ public abstract partial record FormatDial {
 - Packages: LanguageExt.Core (`Option`, `Bind`, `Map`, `IfNone`); `Exchange/formats` (`CodecTune`, `VectorLens`, `VectorScale`).
 - Boundary: `Dials` returns bare host option objects only into the codec engine columns — the one internal seam already holding the raw `RhinoDoc` — and nothing above the matrix ever sees a host options type.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Dials {
     internal static TOptions Resolve<TCase, TState, TOptions>(

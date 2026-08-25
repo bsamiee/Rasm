@@ -22,7 +22,7 @@ Typed property inspection and value editing for product state: one `InspectorPol
 - Growth: one policy value on `InspectorPolicy`, one seam on `InspectorChrome`, one cell state row WITH its producing arm, one grid edge as one `GridEdge` case the total `Switch` breaks loudly on.
 - Boundary: `Mount` is the page's PropertyGrid boundary capsule; every grid event enters as `RoutedEventArgs` and narrows through the ONE `GridEdge.Admit`, so a mismatch mints one `UnmatchedShape` at one site. `CommandExecuting` is the veto edge and `CommandExecuted` the commit seal: `SetPropertyValue` mints one `GenericCancelableCommand` per changed cell and raises executing, executes, then raises executed inside one synchronous frame; the veto arm cancels through `Canceled`, drives `CellState.Invalid` onto the live editor, and seals `Rejected`; the executed arm seals `Committed`/`Fanned`, drives `CellState.Edited`, and a gate refusing there names a command that ran past the veto edge on the fault rail, never a second rejection. `InspectorChrome`'s three seams exist because a style cannot reach the pixel: the grid pins `Background`/`Margin`/`Padding`/`HeaderTemplate` on its code-built category `Expander` at `BindingPriority.LocalValue`, so the card rides a `ControlTheme` replacing the one unpinned `Template` (header bound through `Header`, own painted surface, presenter named off `PART_ContentPresenter` because the Expander force-writes that part's left margin on every `TemplateApplied`); `CustomNameBlock` is MANDATORY because the shipped row label resolves its foreground once in a static constructor and holds it through every variant change; the operation column takes a whole replacement or the two-stage default-operation edges. The three content slots stay the package's own three `StyledProperty` members — a shell `ChromeSlot` keyed map would map seven shell slots onto three grid properties with four unreachable. Per-row styling rides `[ControlClasses]` unioned onto the materialized editor; `CellState` writes its pseudo-class there, so mixed and invalid presentations are theme rows.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -186,7 +186,7 @@ public sealed record InspectorPolicy(
     Func<RoutedCommandExecutedEventArgs, Validation<Error, string>> Gate);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class InspectorSurface {
@@ -308,7 +308,7 @@ public static partial class InspectorSurface {
 - Law: the numeric editor binds the TYPED spinner of the bound CLR type over that type's own range (folder `RULINGS` `[02]`) — `TrackSpec` carries the DECLARED drag range in the package attribute's own `double` domain, a package fact the presenter applies only where the bound type expresses it.
 - Boundary: the shipped factories under `Builtins` are public and subclassable, so a narrowed editor derives the nearest built-in and raises `ImportPriority`; the product's own rows ride one `EditorRowFactory` registered through `CellEditFactoryService.Default.AddFactory`. `Accept(object accessToken)` gates CLONING, never cell building — the base grid-token predicate is correct and shape selection lives in `HandleNewProperty`; `Clone` MUST be overridden (the base mints through `Activator.CreateInstance`, which throws for a constructor taking the adapter); `HandleReadOnlyStateChanged` wherever a composite editor needs its write leg disabled rather than its whole body greyed; `HandlePropagateVisibility` because the base defers to a default match that cannot see a mixed cell. `PropertyCellContext` carries the descriptor channel, the value channel (`GetValue()` reads `Property.GetValue(Target)`), and the write instance; `SetPropertyValue` is the ONE write channel — it mints the recorder's cancelable command and raises the gate pair, so a control writing `Property.SetValue` directly bypasses admission and undo at once, which is why `Present` receives the channel BOUND. Presentation is DECLARATION-DRIVEN: the row selects the FAMILY and the presentation the FORM, so a knob never becomes a fifteenth row; enum filtering folds the one `IEnumValueAuthorizeAttribute` contract all four permit/prohibit attributes implement; the flags row binds `CheckedMaskModel(masks, all)` through `CheckedListEdit`, deleting a hand-rolled flags editor and per-flag boolean rows; optional admission covers `Option<T>` and `Nullable<T>`, temporal the NodaTime and BCL families, identifier `Guid` and `Uri`; the color row binds `PreviewableColorPicker` against `TokenPalette`, whose swatches carry the product's own roles — resolved values, so the instance rides the swap's rebuild roster rather than re-resolving. Every materialized editor wears its `CellState` pseudo-class.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct TrackSpec(double Min, double Max, bool Spinner);
@@ -386,7 +386,7 @@ public sealed class TokenPalette(ResolvedTheme resolved, Seq<PaintRole> roles, i
 }
 ```
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -508,7 +508,7 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
 - Growth: one case is one `[FaultCase]` leaf; zero new surface.
 - Boundary: preview interactions (`PreviewColorChanged`, `PreviewValueChanged`, transient editor state) mutate nothing durable and emit nothing — `ColorChanged` and `RealValueChanged` are the two pickers' commit edges; `InspectorPolicy.Gate` is the composition-bound closure invoking `EditGate` at the veto edge, because a generic self-constrained factory contract cannot bind at an `EventHandler<RoutedEventArgs>` seam and the owner type is known only where the section composes. `Admit` is the page's spelling of the kernel lifter law (`Rasm/Domain/validation.md` `[04]-[FACTORY_BRIDGE]`): the kernel's typed receivers span its own raw shapes under `ValidationError`, and the error-typed, descriptor-erased grid seam — `TOwner` closing only at composition, `TRaw` `allows ref struct` — is the caller-spelled-`Validate` case that law reserves, so the bridge composes `IObjectFactory.Validate` once here and per-call-site error translation stays deleted; the kernel fixes `Validate` under invariant culture, so the CULTURE-SENSITIVE parse lives at the editor's presentation and only `AdmitQuantity` carries an explicit culture (`Quantity.TryParse`; unit lists present through `Quantity.Infos`). `ValidateProperty` text renders through the screen validation rail's own `FieldErrors` slot stream (`Shell/screens#VALIDATION_UX`) — a second validation rail is deleted; a refused admission drives `CellState.Invalid` onto the live editor; host-mutating edits route through the abstract document-transaction port, undo-scoped, `HostRouted` carrying that hop's correlation.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -622,7 +622,7 @@ public static class EditGate {
 - Growth: one options section row binds with one `OptionsInspector` record; zero new surface — a settings-dialog framework is deleted by this composite.
 - Boundary: the draft-versus-record split is structural — `TDraft` is the mutable notifying partial the grid mutates in place, `Commit` rebuilds the immutable `TValue`, and `Persist` writes that rebuilt record, so persisting the draft reference hands the store an instance the next keystroke rewrites (folder `RULINGS` `[02]`). Options monitoring re-validates, its `ReloadReceipt` stream closes the loop, subscription failure enters the same `EditFault` rail; cross-process propagation remains the op-log cursor consequence, and the grid never touches configuration directly.
 
-```csharp signature
+```csharp
 public sealed record OptionsInspector<TDraft, TValue>(
     string Section,
     ReloadClass Reload,

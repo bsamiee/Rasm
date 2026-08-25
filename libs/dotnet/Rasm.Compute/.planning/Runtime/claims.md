@@ -25,7 +25,7 @@ Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cach
 - Boundary: shape, strides, batch, density, route, and tolerance participate in identity, preventing a contiguous micro-vector claim from winning for a strided batched tensor. `Key()` is the identity spelling and the generated comparer never keys a store — `[Equatable]` is the input-class DIFF rail alone, so `Inequalities` names the axis that moved between two claim generations while the derived projections stay ignored and no member compares twice. NAMED LOSS: the two `[OrderedEquality]` attributes the `Seq<long>` members carried are retired — the carrier compares element-wise (E29), so the attribute restated a guarantee the member already held.
 - Boundary: the terminal `PayloadBand` row's ceiling IS `long.MaxValue`, so the band scan is total by construction and the `"large"` magic default the tuple roster carried — a second spelling of the terminal row, drifting the moment the row moved — has nothing left to fall back to.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using static Rasm.Element.Projection.AdmissionSlots;
 
@@ -141,7 +141,7 @@ public sealed partial class BenchmarkInput {
 - Growth: a new profile source is one case row and one oneof arm at `[06]-[BENCHMARK_WIRE]`; zero new surface.
 - Boundary: identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence. This vocabulary replaces the loose path-string columns on `ModelRun` and on any per-run artifacts list alike. Continuous profiles join by SPAN identity through the `Runtime/receipts#TELEMETRY_PROJECTION` trace-correlation law, never as a fourth artifact case.
 
-```csharp signature
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(ChromeTrace), "chrome-trace")]
@@ -173,7 +173,7 @@ public abstract partial record ProfileArtifact {
 - Boundary: the measured distribution and its protocol counts persist as claim evidence while Persistence owns recency; the family owns the durable mint AND its refusals, so a claim admitted here can still fail the row invariants persistence holds and swallowing that would leave a forecast reading a row no store would accept.
 - Boundary: `artifactKey` admission reads FORWARD — a present key that is blank refuses, an absent key passes — where the inverted `Map(...).IfNone(true)` fold it replaces spelled the passing case as a negation of a negation.
 
-```csharp signature
+```csharp
 [ComplexValueObject]
 public sealed partial class BenchmarkClaim {
     public BenchmarkInput Input { get; }
@@ -244,7 +244,7 @@ public sealed partial class BenchmarkClaim {
 - Growth: a further host-derived read that only this domain can decide is one extension member here; a further host DIMENSION lands on the AppHost declaration.
 - Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `libs/contracts/manifest.json` `HOST_FINGERPRINT` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
 
-```csharp signature
+```csharp
 public static class HostClaims {
     extension(HostFingerprint host) {
         public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows) => index.Claim(rows, host.ToString());
@@ -273,7 +273,7 @@ public static class HostClaims {
 - Growth: a new claim dimension lands as one generated field and one `[MapProperty]` row, the build breaking until both agree; a new payload band, polarity, or rung lands as one enum value at the corpus and one `[MapEnumValue]` row only where the domain spelling diverges; a new profile source is one `ProfileArtifact` case and one oneof arm, the total `Switch` breaking until the arm lands.
 - Boundary: `BenchmarkPolarity` and `PayloadBand` are `[SmartEnum<string>]` rows whose keys spell the generated enum names under `ByName` mapping, so `minimize`/`maximize` and `micro`/`small`/`medium`/`large` cross with no table and an unrostered key has no arm to land on; `corpus` crosses as the kernel's sixteen big-endian bytes through `ContentHash.Wire`; `minted` crosses as the NodaTime `Instant` through `ToTimestamp`; the band's `samples` column is the measured sample vector the AppHost bench edge supplies and stays empty where a claim carries only its distribution.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using WireBand = Rasm.Contracts.Benchmark.PayloadBand;
 

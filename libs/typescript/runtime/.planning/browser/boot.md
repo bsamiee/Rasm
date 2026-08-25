@@ -21,7 +21,7 @@
 - Boundary: what each feed DOES is the owning page's law; this owner counts and types them.
 - Packages: `@rasm/core` (`Identity.App`); `effect` (`Schema`); `../net/client.ts` (type `Client`).
 
-```typescript signature
+```typescript
 import { BrowserRuntime, BrowserStream, Clipboard, Geolocation, Permissions } from "@effect/platform-browser"
 import { Fault, Identity } from "@rasm/core"
 import { Array, Context, Effect, Layer, ManagedRuntime, Option, Record, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
@@ -69,7 +69,7 @@ declare namespace AppSpec {
 - Boundary: which Layer families merge into `root` is the app's selection across the branch; the `runMain` mechanics are `@effect/platform-browser`'s; view mounting is the ui wave's behind its atom bridge holding the same handle.
 - Packages: `@effect/platform-browser` (`BrowserRuntime`); `effect` (`Context`, `Effect`, `Layer`, `ManagedRuntime`, `Option`).
 
-```typescript signature
+```typescript
 const _memo: Layer.MemoMap = Effect.runSync(Layer.makeMemoMap)
 
 class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
@@ -109,7 +109,7 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 - Boundary: `otel/vital` owns RUM measurement; this cluster owns only the runtime-state cells its flush edges read; what drains on a redial is `shell#REPLAY_DRAIN`'s law.
 - Packages: `effect` (`Effect`, `Option`, `Record`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "strained" } as const
 
 const _connectFamily = Fault.Class.family(["unparsed", "refused"] as const, {
@@ -259,7 +259,7 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
 - Boundary: which capabilities an app composes is root selection; the service member surfaces are the platform package's own.
 - Packages: `@effect/platform-browser` (`Clipboard`, `Geolocation`, `Permissions`).
 
-```typescript signature
+```typescript
 const Capability: Layer.Layer<Clipboard.Clipboard | Geolocation.Geolocation | Permissions.Permissions> =
   Layer.mergeAll(Clipboard.layer, Geolocation.layer, Permissions.layer)
 

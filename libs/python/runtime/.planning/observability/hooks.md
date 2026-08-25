@@ -28,7 +28,7 @@ This registry formalizes the standing contributor fold: `@receipted` remains the
 - Law: every fence resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.HOOKS` — register, release, subscribe, payload admission, the tap walk, and the isolation sink — and the tap, subscribe, and isolation fences keep the plane's catch-all with the reason stated — a subscriber is caller code whose raise surface no registry can roster, and a leak destroys the emitter value the isolation exists to protect. The FIRED point leaves the fault subject and rides the isolated receipt's OWNER slot, which is where a reader already collects it.
 - Boundary: the registry composes the receipts and metrics owners and adds no second egress — a subscriber that needs OTLP reaches it through the taps, and a library registers points while only the app root registers subscribers.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from collections.abc import Awaitable, Callable, Mapping

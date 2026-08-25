@@ -22,7 +22,7 @@
 |  [04]   | `test.open` (default `!CI`)             | auto-open      | launch the browser at the dashboard on start                     |
 |  [05]   | `browser.ui: true`                      | browser mode   | embed the dashboard in browser mode with the live browser iframe |
 
-```ts signature
+```ts
 declare const _default: (ctx: Vitest) => Vite.Plugin; export { _default as default }
 ```
 
@@ -37,7 +37,7 @@ declare const _default: (ctx: Vitest) => Vite.Plugin; export { _default as defau
 |  [03]   | `HTMLOptions.outputFile`                     | output     | report path (default `html/index.html`); tuple `['html', { outputFile }]` |
 |  [04]   | coverage `htmlDir`                           | embed      | the istanbul coverage HTML the report links (see `vitest-coverage-v8.md`) |
 
-```ts signature
+```ts
 declare const reporter: Reporter; export { reporter as default }
 interface HTMLOptions { outputFile?: string }
 ```

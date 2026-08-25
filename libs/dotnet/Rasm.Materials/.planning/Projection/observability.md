@@ -26,7 +26,7 @@ Fact payloads compose Component, Appearance, Properties, and seam receipts. Inst
 - Growth: a new evidence shape is one `MaterialsFact` case, one `MaterialsPoint` row with its `At` arm, and one projection arm at `[04]`.
 - Boundary: facts carry receipts the owning pages already mint — `CapacityReceipt`, `CaptureProvenance`, `WireProvenance`, `ComputedSection`, `PressReceipt`, `TileReceipt`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own receipt, a tiling run's two independent signals off the gate's own score, and an inference's provider, partition count, and golden residual off the executor's own result. `PlaneCodec` and `EnvironmentPrefilter` own no receipt, so each carries the four columns its arm reads and nothing more. `SetIngest` carries the manifest's own three columns because `SetManifest` is an accumulating monoid rather than a receipt, and its refusal rows cross TYPED — a formatted token keys a counter on file stems and hands the roster an unbounded dimension it cannot close.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
@@ -96,7 +96,7 @@ public abstract partial record MaterialsFact : IHookFact<MaterialsPoint> {
 - Law: NAMED LOSS from composing the kernel rail — the per-point FACT TYPE. A subscriber to a named `HookPoint<MaterialsFact.TilePress>` field took no codec fact; under one rail every point shares `MaterialsFact` and subscribers discriminate on the case. What survives is stronger: `At` fixes the case-to-row pairing at compile time, so the guarantee moved from a field's declaration onto a generated total map. WITNESS — the fifteen `HookPoint<MaterialsFact.*>` columns, the fifteen-line `Live()`, the fifteen-entry `Points` census, and the private `Seat<TFact>` mint all delete onto `MaterialsRail.Of`.
 - Boundary: ids and modalities live on the roster rows alone, so a Materials point joins any app-tier registry census unrenamed; a subscriber fault parks as `IsolatedFault` on the composition's own bounded cell and the emitter is untouched, the ring shedding oldest-first rather than growing for process lifetime. Veto points carry observe subscribers legally and the capsule dispatches them from the admitted fact alone, so a `[04]` arm on a veto point counts admitted rows and refusal volume rides the cell. Spans are absent by design: this folder's eager constructions carry the `[05]` checkpoint ledger instead, so `Plane` is `None` on every row, no `TraceScope` derives off these ids, and `Live` binds no `IHookSpan`.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Threading;
@@ -166,7 +166,7 @@ public static class MaterialsHooks {
 - Law: NAMED LOSS on the fault series — the kernel `FaultCell` is a bounded ring publishing `Parked`, `Shed`, and `Lost` and raising no change event, so the monotone count the rail's evidence once pushed has no producer. One level probes total parked Materials-owned depth beside two monotone ring tallies, and the ever-parked total reads as depth summed with shed rather than as a counter nothing writes.
 - Boundary: `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on typed receipts, never on a metric series. Tenancy is the kernel `TenantContext` projection every work-row write folds, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled POPULATION rows stay untenanted on ownership alone: a frozen catalogue and its material library are process-scoped reference data no tenant owns, so a tenant column there declares a key no reader can emit. Every projection arm returns the kernel write rail and subscribes through the rail's shielded tap, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists. Instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Diagnostics;
@@ -661,7 +661,7 @@ public static class MaterialsTap {
 - Growth: a new bracketed construction is one `LatencyPhase` row and its two names derive from the stem; a new accumulated quantity is one `LatencyMeasure` row naming its law; a new accumulation law is one `LatencyWrite` row; a new pivot is one entry in `Tags`; a new event family is one partial in this band with its offset added to the type-init proof.
 - Boundary: this folder CONTRIBUTES a latency vocabulary and never registers one — `Checkpoints`, `Measures`, and `Tags` leave as one contributed roster the app root's single `LatencySpine.Register` fold folds beside every peer contributor's, so no package reaches `RegisterCheckpointNames` and splits the table. That registration arms `LatencyContextOptions.ThrowOnUnregisteredNames`, which makes an unregistered name a BOOT FAILURE rather than a positionless token whose writes drop unseen, so deriving both rosters from their row families is the structural half of that guarantee. Libraries take the logger and the ledger by injection and a logger-less composition binds `NullLogger.Instance`, never a nullable handle; the `Code` holes read the band ledger and the kernel `Error` projection, so a reader groups records by the same band a fault series groups by. The instrument rows at `[04]` and the records here are disjoint mandates over one refusal, never two shapes of one record; settlement records in `finally`, so failed or throwing constructions close the same bracket as successful ones. Pivots COMPOSE the `[04]` slot consts, so a ledger pivot and a metric dimension naming one axis are one string. `Freeze` seals at the composition edge after the last write and never inside a bracket a retry re-enters. Duration NEVER derives from a stamp difference — the checkpoint pair is the ledger's own elapsed.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
@@ -785,7 +785,7 @@ public static class MaterialsLatency {
 - Growth: a new board panel is one `PanelSpec` on the pack; a new reliability policy is one `Objective` row over an existing indicator shape, and a share over an already-fanned population needs no roster edit; a new indicator shape is a kernel `Sli` case breaking every compile leg at once.
 - Boundary: dashboards, alert provisioning, tenancy, query dialects, the panel descriptor row, and the burn algebra are the kernel's and the IaC plane's — this page carries pack DATA behind the same `rasm.materials.*` names the instruments carry and never a descriptor type, query string, board JSON, or provider type. An objective binds only measures the observe rail writes on every occurrence, so a veto-refused admission stays fault-cell evidence and never a denominator; a success share is a partition over the ONE counter its verdict dimension already fans, because a good-half twin doubles the mounted series and strands its denominator on the next arm edit, and `Ratio` stays reserved for genuinely independent counters. The catalogue and library populations override to `Stat` and carry no objective, because a frozen row count reads as a figure against no ceiling; the three fault rows carry none for the same reason.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;

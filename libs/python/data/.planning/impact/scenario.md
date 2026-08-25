@@ -20,7 +20,7 @@ Prospective-background build owner — the producer half of the carrier's `premi
 - Growth: a new IAM model or pathway is one `Scenario` row; a new write-back form is one `BuildKind` case plus one arm; a new sector is one `Sector` member mirroring the provider's transformer roster; a new refusal law is one `FaultRow` row on this module's `RAISES` table, and premise's own raise classes join `_build_raises` the pass the floor gate lifts; zero new surface.
 - Boundary: no LCIA (the carrier's solve arms score the written background), no ingestion (`impact/inventory#INVENTORY` fills the source project), no license custody — the decryption `key` arrives as a caller-supplied credential from the composition's secret plane, never a stored field this page persists; the carrier's `_from_prospective` refusal stays the read-side gate and this producer never weakens it.
 
-```python signature
+```python
 from enum import StrEnum
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Final, Literal, assert_never

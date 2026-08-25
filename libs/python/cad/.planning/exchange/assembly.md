@@ -22,7 +22,7 @@
 - Growth: a new exchange format is one `TessellateRequest.source` arm carrying its reader and its protocol arrow, and nothing downstream moves.
 - Boundary: `service/spool` resolves the source reference onto the path this owner reads; no member here opens a store or touches an `ArtifactRef`.
 
-```python signature
+```python
 from pathlib import Path
 from typing import assert_never
 
@@ -115,7 +115,7 @@ def admitted(request: TessellateRequest, path: Path, /) -> CadRail[Assembly]:
 - Growth: carrying part identity forward is a wire change first — one repeated part message on `TessellateResponse` — and only then one label walk seated on this owner.
 - Boundary: triangulation, budget preflight, and the glTF writer belong to `tessellation/mesh` and `tessellation/emission`; this owner hands them the document and the root and stops.
 
-```python signature
+```python
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

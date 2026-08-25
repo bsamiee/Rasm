@@ -26,7 +26,7 @@ Subscription filtering is ONE owner: the seven specification dialects compile in
 - Boundary: which subscription holds which filters, and where a subscription persists, are the consuming binding's; this page owns the dialect vocabulary and its evaluation alone.
 - Packages: `effect` (`Array`, `Either`, `Option`, `Record`, `Schema`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/core` (`Event`, `Fault.Class`, `Shape.Record`).
 
-```typescript signature
+```typescript
 import {
   createToken, CstParser, Lexer, type CstChildrenDictionary, type CstElement, type CstNode, type IToken, type TokenType,
 } from "chevrotain"
@@ -175,7 +175,7 @@ const _Compile: {
 - Growth: a type is one case on the value family with its own cast column; a reason is one row on the family carrying its own subject and renderer.
 - Packages: `effect` (`Array`, `Data`, `Number`, `Option`, `Record`, `Schema`, `String`, `pipe`); `@rasm/core` (`Fault.Class`).
 
-```typescript signature
+```typescript
 type CesqlValue = Data.TaggedEnum<{
   Boolean: { readonly value: boolean }
   Integer: { readonly value: number }
@@ -372,7 +372,7 @@ const _cesqlCast = (reading: Cesql.Reading, target: Cesql.Type): Cesql.Reading =
 - Growth: an operator is one row on its own table; a function is one row carrying its slot list, its return type, and one total kernel.
 - Packages: `effect` (`Array`, `Number`, `Option`, `Record`, `String`, `pipe`).
 
-```typescript signature
+```typescript
 const _CESQL_ARITH = {
   "%": (left: number, right: number) => (right === 0 ? Option.none() : Option.some(left % right)),
   "*": (left: number, right: number) => Option.some(left * right),
@@ -518,7 +518,7 @@ const _cesqlSubstring = (operands: ReadonlyArray<CesqlValue>): Cesql.Reading =>
 - Growth: an expression case is one family member with its fold arm; the missing arm is a compile error at the exhaustive dispatch.
 - Packages: `effect` (`Array`, `Data`, `Option`, `Predicate`, `Record`, `RegExp`, `String`, `pipe`); `cloudevents` (`CloudEventV1`); `@rasm/core` (`Event`).
 
-```typescript signature
+```typescript
 type CesqlExpr = Data.TaggedEnum<{
   Attribute: { readonly name: string }
   Binary: { readonly op: Cesql.Binary; readonly left: CesqlExpr; readonly right: CesqlExpr }
@@ -683,7 +683,7 @@ const _cesqlSlots = (row: Cesql.FunctionRow, arity: number): Option.Option<Reado
 - Growth: a terminal is one token row, a production is one rule, and the visitor's own proof demands the matching arm.
 - Packages: `chevrotain` (`createToken`, `CstParser`, `Lexer`, `CstChildrenDictionary`, `CstElement`, `CstNode`, `IToken`, `TokenType`); `effect` (`Array`, `Effect`, `Either`, `Option`, `Order`, `Predicate`, `Record`, `String`, `pipe`).
 
-```typescript signature
+```typescript
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const _Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ })

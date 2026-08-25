@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.AppUi/
 ├── Shell/                # Host-mount axis and application shell spine
 │   ├── Navigation.cs     # NavRequest union over the ShellRoot router; ShellDockFactory folds DockableRow rows through RegionProgram

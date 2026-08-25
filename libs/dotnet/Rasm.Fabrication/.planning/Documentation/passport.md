@@ -20,7 +20,7 @@ Every signed artifact is keyed and signed over a `CanonicalWriter` BINARY preima
 - Packages: `Documentation/report` (`EvidenceRef`, `EvidenceLinks`, `QualityDeclaration`, `QualityEvidence`), `Rasm.Fabrication.Process` (`ContentKey`, `EgressKind`, `FabConcern`, `FabricationFault`), QuikGraph (`AdjacencyGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `WeaklyConnectedComponents`, `Sinks`), `UnitsNet`, `NodaTime`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Boundary: this page authors no measurement. Every quantity it carries arrived on a record its own owner already admitted, so the passport states provenance and period beside a value and re-derives nothing.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -212,7 +212,7 @@ public abstract partial record ReportScope {
 - Packages: `Documentation/report` (`QualityEvidence` for the record rail and every record-plane column writer, `QualityRecord`, `EvidenceCensus`, `RecordRefusal`), `Rasm.Element` (`AttestationRole`, `CanonicalWriter` through `Process/owner#RUN_DISPATCH`, `ContentKey.CanonicalBytes`), `System.Security.Cryptography`, `System.Text.Json`, `NodaTime.Serialization.SystemTextJson`, Thinktecture.Runtime.Extensions.Json.
 - Boundary: `TravelerReceiptCorpus.Records` consumes `Seq<SealedRecord>` and derives its singleton digital-product-passport projection from those records.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]

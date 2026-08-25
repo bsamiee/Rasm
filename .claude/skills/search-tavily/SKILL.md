@@ -20,7 +20,7 @@ Relevance resolves server-side, never a local post-filter: `--include-answer` on
 
 Every command runs as `uvx --from tavily-cli tvly <verb>` under the ambient `TAVILY_API_KEY`; `search` and `extract` also run key-free under a rate cap. `--json` returns the typed envelope, `-o` writes it to a file, and each verb's full flag roster lives behind `--help`; add `--extract-depth advanced` when `extract` or `crawl` hits a JavaScript-rendered page. Reach for the one-call command that fits:
 
-```bash template
+```bash
 uvx --from tavily-cli tvly search "QUERY" --include-answer advanced --max-results 8   # answer inline, no follow-up
 uvx --from tavily-cli tvly search "QUERY" --include-raw-content markdown --max-results 8 --json   # fused: ranked hits + full content
 uvx --from tavily-cli tvly extract URL_A URL_B --query "QUESTION" --chunks-per-source 3 --format markdown   # known URLs -> content
@@ -31,7 +31,7 @@ uvx --from tavily-cli tvly research run "QUERY" --citation-format numbered -o re
 
 Take a second call only when one will not do; `--max-results` and `--limit` keep the feed inside `extract`'s 20-URL cap:
 
-```bash template
+```bash
 # few among many — score-gate search hits, then pull only the survivors
 uvx --from tavily-cli tvly search "QUERY" --json | jq -r '.results[] | select(.score > 0.5) | .url' | xargs uvx --from tavily-cli tvly extract --query "QUESTION" --chunks-per-source 3
 # recon — list a site's URLs to pick from, then extract the chosen ones

@@ -25,7 +25,7 @@
 - Growth: a new range window is one `Band` row and a new endpoint modality one `Bound` case, never a bespoke bounds expression inside a factory; a new scalar invariant is one `[ValueObject]` owner reading a band; a new axis member, relation class, pivot modality, working space, or reproducibility domain is one enum row or union case, never a sibling type; a new interpolation space is one `BlendPath` row whose case states which of the traversal and condition axes it admits; a new difference metric is one `DeltaMetric` row on the case matching its condition dependence; a new egress representation is one `RgbTransfer` row, never a sibling `ToRgb`; an HDR egress publishing above-white light names the `GamutPolicy.Unbounded` row rather than skipping the bound; a declared viewing condition is a `Condition` construction at its own site, never a roster row, because a surround measures the viewer's room rather than naming a colour vocabulary member; a new epsilon is one named `EpsilonPolicy` row; a new tonal-search direction is one `ToneSweep` row and never a comparator argument, because a caller-supplied ordering re-opens the monotonicity the walk depends on; a new color capability is one member on `PerceptualColor` reading deeper into the `Unicolour` it holds.
 - Boundary: `RhinoMath.SqrtEpsilon`/`ZeroTolerance`/`TwoPI` give way to `EpsilonPolicy` and `Math.Tau` everywhere, and `RhinoMath.IsValidDouble` gives way to `double.IsFinite` on HOST-NEUTRAL shapes — host-read material instead admits through the `Domain/rails` `ValidityClaim.Finite` row — keeping the numeric floor portable while the assembly stays RhinoCommon-aware; a raw `double` meaning dimension, magnitude, unit parameter, or bipolar-normalized reading never crosses a signature, the generated owner does, and a package above that re-declares a `[-1,1]` value object is the split-owner form this row closes; angle measurement reaches `Vector3d.VectorAngle` only through `AnglePivot.Compute`; a componentwise sRGB lerp, a hand-rolled opponent-space matrix, a host color-blend, or a call-site tone search against a contrast target never stands in for perceptual math — every host edge admits into `PerceptualColor`, interpolates through `BlendPath`, solves a readable rung through `ToneFor`, and quantizes through `ToRgb`, whose byte leg is the ONE content-key quantizer the federation addresses against and therefore carries no transfer slot at all and CLIPS by ruling, while the ARGB and `System.Drawing` legs REFUSE an out-of-display colour because a paint instruction that clipped silently is a colour no consumer can attribute; the `Eto.Drawing` pair of that same correspondence is an `extension(PerceptualColor)` block on `Interaction/paint#COLOR`, so this page names no UI toolkit and the numeric floor stays Eto-free; AppUi's colour-space vocabulary is a coordinate in the space, transfer, and domain axes already declared here — its scene-linear float row is `RgbProfile.Srgb` read through `RgbTransfer.Linear` under `GamutPolicy.Unbounded`, never a fourth axis or a parallel roster; a hue traversal never travels beside an interpolation space as a parallel argument, because the polar case is the only shape that carries one, and a viewing condition never travels beside one either, because the appearance case is; a working space enters as an `RgbProfile` row and never as a peer-minted `Configuration`, a chromaticity table, or a whitepoint literal — the cam-bearing crossing is the SAME row's `Viewed` mint, published so every chartered direct-`Unicolour` composer reaches it; an appearance space or CAM difference metric with no stated condition is unspellable and no default surround is ever fabricated for one, which is why `Viewed` and `DeltaMetric.Measure` publish rather than the law carving an exemption, while the WCAG `Contrast` read stays condition-free because WCAG fixes its own.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using Rasm.Domain;
@@ -564,7 +564,7 @@ public sealed partial class PerceptualColor {
 - Growth: a factory semantic is one `TransformSpec` case and one generated-switch arm; a factorization or copy rewrite is one behavior row; a new result shape is one `Decomposition` case. Every consumer continues through `Placement`.
 - Boundary: `TransformSpec` is DISTINCT-BY-DESIGN from every same-named upper twin — it names an affine CONSTRUCTION request the host factories realize, where an upper `TransformSpec` names a placement authored against a document; the discriminant is the admission path, stated here once and never per site. `Transform.Unset`, zero matrices, and pseudo-inverses are never control values; failed construction and factorization stay failures, `TryGetInverse` returning `false` rejects its pseudo-inverse output, and only `Identity` or an empty `Compose` supplies an identity value.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record TransformSpec {
@@ -1125,7 +1125,7 @@ public static class Placement {
 - Growth: a new direction algorithm is one member on `Direction` or `VectorCone`, never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape; a new chain posture is one `ChainClosure` row.
 - Boundary: `VectorFrame.Chain` composes the one rotation-minimizing-frame owner in `Spatial/neighbors`, which owns the chain math while this page owns only frame admission over the chained planes and the `ChainClosure` posture it hands down; quaternion pose interpolation is `Parametric/projections`' and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ChainClosure {
@@ -1349,7 +1349,7 @@ public readonly record struct VectorCone {
 - Growth: a new addressing modality is one member; a new sample reconstruction is one `LatticeInterpolation` row carrying its own separable `Axis` body, so a consumer's recursion picks it up with no branch edited; a new census projection is one derived property. Consumer-local `Nx`/`Ny`/`Nz`, `Columns`/`Rows`, cell-center arithmetic, per-row interpolation branch ladders, and budget comparison are the deleted form.
 - Boundary: the lattice carries NO payload. Scalar planes are `Numerics/matrix` `Matrix` over one lattice, a typed texel arena is the consumer's own, and the byte arena is `Drawing/pack`'s — this owner addresses cells and never stores them. Index space is column-major-free: `Linear` is the one linearization and a consumer re-deriving `x + (Nx * (y + (Ny * z)))` re-opens the collapsed duplication.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class LatticeInterpolation {
@@ -1493,7 +1493,7 @@ public readonly record struct CellLattice {
 - Growth: a new projectable output is one `ProjectionRow` at the owning surface or one arm in the `Raw` lattice; a new conditional raw arm is one `RawAdmission` row read by set algebra, never a new parameter; a surface-local `typeof(TOut)` switch is the collapse trigger that routes here.
 - Boundary: `AtomProjection` is the one sanctioned type-directed dispatch site in the kernel; inline `typeof(TOut)` reflection branching inside a consumer surface is the deleted form. `AtomProjection` stays `internal`, so consumers reach it only through their surface's `.Project<TOut>` and the public API never exposes an untyped `object` seam. `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

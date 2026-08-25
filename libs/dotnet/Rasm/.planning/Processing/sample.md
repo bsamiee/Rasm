@@ -32,7 +32,7 @@ Rebuild work composes settled owners: `extract.md` `ExtractionDomain` carries th
 - Growth: a new gauge is one `PowerCcvtGauge` row minting its `GaugePolicy`; a new motion schedule or line-search variant is one policy-record field on the same run; a density-transport variant is a `MotionPolicy` column; a new convergence gate is one `ToleranceLane` read, never a stored epsilon.
 - Boundary: the per-iteration diagram rebuild, triplet assembly, and Armijo searches are the named statement-kernel exemption while the outer schedules stay domain flow; continuous BNOT transport is its own estimator, distinct from the `transport.md` discrete Sinkhorn plan.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;

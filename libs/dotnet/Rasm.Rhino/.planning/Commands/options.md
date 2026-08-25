@@ -19,7 +19,7 @@
 - Law: identity is CANONICAL at intake. The host matches option names case-insensitively, so `OptionName.Key` is the one uppercase form the slot vocabulary, the roster distinctness test, and every lookup index read; a per-probe `StringComparer.OrdinalIgnoreCase` argument is the deleted form.
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[MemberEqualityComparer<TAccessor, TMember>]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Map`, `Atom`, `Traverse`/`TraverseM`/`FoldM`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`, `[IgnoreEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`, `ValidityClaim`), `Numerics/atoms` (`PerceptualColor.OfArgb`); `Document/session` (`DraftFault`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:155-202` — `AddOption*`, `AddOptionEnum*`, `GetSelectedEnumValue*`, `SetOptionVaries`, `IsValidOptionName`/`IsValidOptionValueName`, the `CommandLineOption` reads, `ToggleValues`, `ListOptions`); `Rhino.UI.LocalizeStringPair` (`api-rhino-ui.md`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -335,7 +335,7 @@ public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct,
 - Law: the prompt arity is ONE decision. Four host carrier families each publish a bare and a prompted registration overload, and the choice between them is the presence of the row's prompt — so `Prompted` names it once and each carrier site is one expression instead of the same two-arm switch written four times.
 - Law: the colour token is HEX TEXT and the kernel owner admits a packed ARGB word, so the six-digit branch fills opaque alpha and both lengths terminate in ONE `PerceptualColor.OfArgb` — no `System.Drawing.Color` is minted only to be re-read, which is the round trip a hand-rolled component fold used to sit inside.
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public abstract partial record OptionValue {
     internal Fin<BoundOption> Bind(
@@ -486,7 +486,7 @@ public abstract partial record OptionValue {
 
 `Dispose` accumulates into `Faults` and returns. Acquisition consumes the lease under a `using` nested inside the getter's own, so a throwing cleanup unwinds past the acquisition result and replaces the in-flight answer with a release fault — the caller loses the value it obtained. `Release` remains the railed entry a caller reads when cleanup evidence matters.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record OptionRow(
     OptionName Name,

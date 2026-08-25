@@ -25,7 +25,7 @@ Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSp
 - Packages: Grasshopper2 (the eight paint events, `CanvasPaintEventArgs`, `CanvasBackgroundPaintEventArgs.OverrideDefaultPainting`, `ControlGraphics`, `Skin`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`, `HookRail`), `Rasm.Interaction` (`UiFault`, `UiThread`, `UiDispatch<T>`), `Shell/session.md` (`GhSession`, `ScopeTarget`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`).
 - Growth: a host layer addition is one `PaintPhase` row; a new mount payload is one `TFacts` instantiation — attachment, containment, and release stay one gate.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
@@ -152,7 +152,7 @@ public static class PaintAnchor {
 - Packages: Grasshopper2 (`Capsule`, `Parts`, `Shade`, `Skin`, `WireShape`, `IIcon`), `Rasm.Interaction` (`Mark`, `PaintProgram`, `PaintStock`, `PaintReceipt`, `ScenePolicy`, `StrokeSpec`, `PaintColor`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new host-drawn species is one `GhMark` case with one draw arm and one cull arm; every kernel-expressible addition is the kernel's one case and costs this band nothing.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -207,7 +207,7 @@ public static class GhPaint {
 - Packages: `Platform/layers.md` (`Compose`, `LayerNode`, `LayerStyle`, `StrokePlan`, `LayerTrait`, `LayerMount`, `LayerPaint`, `GlidePlan`, `GlideKey`, `Glides`), `Platform/native.md` (`MacAnchor`, `AnchorSource`), `Shell/session.md` (`GhSession.Run`, `ScopeTarget.CanvasHost`), `Rasm.Interaction` (`PathSpec`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Domain`.
 - Growth: a new decoration species is one `OverlayNode` case with its projection arm; a new motion modality is a `GlidePlan` case at its Platform owner.
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CoreAnimation;
 using CoreGraphics;

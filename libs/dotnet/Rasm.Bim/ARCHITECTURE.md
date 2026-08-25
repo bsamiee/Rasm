@@ -4,7 +4,7 @@
 
 ## [01]-[DOMAIN_MAP]
 
-```text codemap
+```text
 Rasm.Bim/                  # Host-neutral openBIM owner; sole GeometryGym/IFC surface, no AEC peer reference
 ├── Model/                 # Host-neutral BIM object model and analytical model
 │   ├── Elements.cs        # Generated IfcClass [SmartEnum<string>] region committed by the offline emitter at full published-schema breadth

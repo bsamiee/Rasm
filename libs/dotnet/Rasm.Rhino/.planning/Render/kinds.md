@@ -25,7 +25,7 @@
 - Growth: a new scent is one `MaterialScent` row with its two predicate columns; a new mint form is one `MaterialMint` case.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderMaterial.FromMaterial`/`CreateBasicMaterial`/`CreateImportedMaterial`, `ToMaterial`, `ConvertToPhysicallyBased`, `GetTextureFromUsage`/`GetTextureOnFromUsage`/`GetTextureAmountFromUsage`/`TextureChildSlotName`, `RenderMaterial.StandardChildSlots`, `TextureTypeFromSlot`, `RenderTexture.TextureGeneration`, the `SmellsLike*`/`SmellsLikeTextured*` predicate pairs); `api-rhinocommon-objects.md` (`Material`, `PhysicallyBasedMaterial`, `TextureType`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw.Forbidden`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -190,7 +190,7 @@ public static class MaterialBridge {
 - Boundary: live evaluation (`CreateEvaluator`) and the bake gate (`SimulateTexture`) are the Display render page's `TextureBake` owner; this page configures the content, that one evaluates it, and the two never merge.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderTexture` get/set pairs for projection, wrap, repeat, offset, rotation, mapping channel, environment mode, graph info, preview and viewport flags; `PixelSize2`, `LocalMappingTransform`, `GetLocalMappingType`, `GetInternalEnvironmentMappingMode`, `IsHdrCapable`/`IsLinear`/`IsNormalMap`/`IsImageBased`, `NewBitmapTexture` both arities, `SaveAsImage`, `SimulatedTexture` writable axes, `SetMappingChannelAndProjectionMode`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Transform`); `api-rhinocommon-display.md` (`Color4f`); kernel `Domain/rails` (`Op.Catch`, `Op.Side`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `ISmartEnum`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `MapFail`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -514,7 +514,7 @@ public static class TextureExport {
 - Law: environment duplication travels as one detached value; simulation-only transform provenance remains evidence while every host-writable image axis replays.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderEnvironment.SimulateEnvironment`, `NewBasicEnvironment`, `SimulatedEnvironment.BackgroundColor`/`BackgroundImage`/`BackgroundProjection`, `SimulatedTexture.ConstPointer`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`, `PerceptualColor.ToDrawing`), `Domain/rails` (`Lease<T>`, `Op.Catch`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class BakeScope {
@@ -589,7 +589,7 @@ public sealed record EnvironmentState(
 - Boundary: the lights rail's photometric reach ends at `Radiance`; `LightEdit` never grows an IES case, and the seam crossing is this page's `PhotometricFile` alone. `AttachTo`'s declared consumer is LANDED — `Objects/lights.md` `IPhotometricRegistry.WebOf` is the one address the emitter holds into this stratum — while `Embedded` and `Serializers` stay open until the `Plugin/lifecycle` serializer Hooks row's registration body composes them; until then the obligation reads open rather than met.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.SetChild`, `ChildSlotOn`/`SetChildSlotOn`, `GetEmbeddedFilesList`, `FilesToEmbed`, `RenderContentSerializer`); kernel `Interaction/asset` (`FileLocation`), `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Catch`), `Domain/validation` (`Op.AcceptValidated<TVO>`); `Display/render.md` (`RenderFault`); `Render/registry.md` (`ContentTransfer`, `ContentSerializer`, `SerializerProgram`, `ContentExtension`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[ComplexValueObject]`, `[ValidationError]`).
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]

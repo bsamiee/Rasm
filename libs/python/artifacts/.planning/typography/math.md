@@ -20,7 +20,7 @@
 - Exemption: `_laid` is the provider boundary for process-global config, operator registration, parsing, and layout; its lock, `try`/`finally`, and exact exception arms own that forced mutable kernel.
 - Boundary: no plain-text shaping or outlining (`typography/shape#SHAPE`), no font engineering (`typography/font#FONT` — faces arrive engineered), no rasterization (resvg/vl-convert over the SVG at the consuming plane), no equation semantics (formulas arrive authored; CAS is the compute track), no bidi (math layout is its own directional law). A consumer importing `ziamath` directly, a per-consumer math renderer, and a hand-measured baseline offset are rejected against the one kernel and `seat()`; a nested `RuntimeRail[Result[...]]` return and a raised provider exception crossing the async edge are rejected against the one-carrier boundary migration.
 
-```python signature
+```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from builtins import frozendict
 from enum import StrEnum

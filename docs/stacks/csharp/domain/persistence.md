@@ -40,7 +40,7 @@ This table routes a persistence concern to its owning surface; the most specific
 - Law: three materialization arms read one compiled model — `GenerateCreateScript` renders the generation as a value the deploy plane carries, `IRelationalDatabaseCreator.CreateTables` builds it into the session's current namespace, and `Database.EnsureCreated` paired with `EnsureDeleted` serves the ephemeral row owning its whole store — and the placement row elects the arm, never a call site.
 - Exemption: the options-builder fold and the stamping body are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class Placement {
     public static readonly Placement SingleWriter = new("<placement-a>", writes: true, materializes: true, readsAhead: false);
@@ -113,7 +113,7 @@ public sealed record StoreProfile(EngineRow Engine, Placement Placement, Codec C
 - Law: primitive collections and parameterized query collections share one translation-mode axis — multi-parameter expansion with cardinality padding, one JSON-array parameter, inlined constants — declared by `UseParameterizedCollectionMode` and overridden per site with `EF.Constant`/`EF.Parameter`; padding buys cardinality buckets, one plan for eight values, and inlined constants redact from logs by default.
 - Exemption: the configuration body is the model-declaration seam.
 
-```csharp conceptual
+```csharp
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -155,7 +155,7 @@ public sealed class EntryShape : IEntityTypeConfiguration<Entry> {
 - Law: set-based and bulk lanes bypass the unit-of-work altitude and surface only at the wire altitude — their fact emission is self-emitted by the op, never expected from the save spine.
 - Law: the spine is provider-invariant and engine variance is observable only at the wire altitude — cross-engine assertions live in command-interceptor rows carried as engine-row columns — and `ConfigureWarnings` is the escalation seam turning chosen runtime warnings into typed failures at the options row.
 
-```csharp conceptual
+```csharp
 [SmartEnum<string>]
 public sealed partial class Disposition {
     public static readonly Disposition Clear = new("<disposition-a>", static tracker => fun(tracker.Clear)());
@@ -196,7 +196,7 @@ public sealed class SaveGate(Disposition disposition) : ISaveChangesInterceptor 
 - Law: `Absent` routes by placement — the materializing row builds and serves, every other row waits on the deploy plane — and `Behind` names the declared objects the published namespace lacks so the operator reads what the successor generation adds.
 - Law: the compiled digest measures the mounted model itself, so a digest match IS serving and no runtime drift arm exists; artifact-versus-model drift closes at build time by regenerate-and-diff, since `HasPendingModelChanges` reads a migrations snapshot no generation carries.
 
-```csharp conceptual
+```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SchemaVerdict {
     private SchemaVerdict() { }
@@ -258,7 +258,7 @@ public static class SchemaGate {
 - Law: natural keys ride the generated-converter seam on immutable owners — a mutable primary key is delete-insert wearing an update's clothes.
 - Law: each aggregate declares one key selector once — `Expression<Func<TRow, TKey>>` — and every secondary surface derives mechanically: foreign keys, index orderings, changefeed keys, cache tags, pagination cursors; an identity-row change mints a new generation whose `Carried` relations re-mint every key through the deterministic mint inside the cutover projection, so foreign references, changefeed continuity, and cursor validity land already consistent in the published namespace.
 
-```csharp conceptual
+```csharp
 public sealed class Fact {
     public Guid Key { get; init; }
     public required string Payload { get; set; }
@@ -303,7 +303,7 @@ public sealed record IdentityRow(string Axis, Collision Collision, bool Ordered,
 - Law: the cursor is the projected ordering tuple of the last row, opaque to callers, expiring with the dual-key window as a typed stale-cursor rejection, never an empty page; descending lanes flip the ordering and every comparison together, and the ordering tuple is a contiguous index prefix — the page op and its covering index are one declaration reviewed together.
 - Exemption: the bracket body — pooled acquisition and the catch arm — is the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct Cursor(int Rank, Guid Key);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -366,7 +366,7 @@ public static class FactRail {
 - Law: every bulk composition renders without executing — `ToSqlQuery` returns the statement as the audit and dry-run value for gated destructive lanes.
 - Exemption: the transaction bracket and the bridge lease are the platform-forced statement seam.
 
-```csharp conceptual
+```csharp
 public readonly record struct ChangeRow(string Action, Guid Before, Guid After);
 public readonly record struct CutTag(string Lane, Guid Key);
 public readonly record struct MassFact(string Lane, int Touched, Seq<Guid> Keys) {

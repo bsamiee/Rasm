@@ -23,7 +23,7 @@ Rasm.AppUi screens are catalog rows over one program-driven model: a frozen `Scr
 - Growth: one catalog row carries screen, dockable, title, automation name, and headless proof, and one product surface is one `ScreenProgram` row plus its `ScreenRoster` seating; a new named cell is one `SlotKey<T>` const on its program owner; zero new surface.
 - Boundary: `Key` is the ONE identity cell — deep links, remote invocation, dock identity, automation, palette listings, and proof names all spell it, so a derived alias member beside it was a second spelling consumers forked on and is deleted; the shell route index is a roster projection (`Shell/navigation.md` `ShellRoot.Freeze` folds `Rows` onto `Key`). Screen title typography is the `Theme/typography` `TypographyRole.Title` row and screen iconography the `Theme/assets` key vocabulary, so neither is a row column here. `Surface` gates over the supplied `ConsumptionProfile` and the resolved `SurfaceMount`, and `Proof` is COUPLED to it at the freeze: `Diagnostics/proof` crosses every headless-lane row with the variant-density grid, so a row claiming that lane while refusing `SurfaceMount.Offscreen` declares a proof nothing can run and `Freeze` refuses it. `Model` takes the row beside the minted `SurfaceKey` (`Shell/navigation` `SurfaceKey.Mint`), so a screen composing its own partition text is unspellable. The body is the model's own projection, never a row column; the generated `AppUiSurfaceProgram` binds its control tree to that surface identity and the exact layout closure the tree names.
 
-```csharp signature
+```csharp
 public sealed record ScreenCatalogRow(
     string Key,
     Func<string, string> Label,
@@ -72,7 +72,7 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 }
 ```
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed record ScreenComposition(
@@ -244,7 +244,7 @@ public static class ScreenRoster {
 - Growth: one screen instrument is one `InstrumentSpec` row on `ProductScreen.TelemetryRow`; zero new surface.
 - Boundary: `ProductScreen` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, disposal registration, and the error-info edge raise carry language-owned statement forms — and `ScreenLifetimes` is the second named capsule because a per-control lifetime table is retained mutable host state keyed weakly on the control (the pool's `Release` must drop exactly the parked control's bindings before `Rebind` re-attaches while the whole table still dies with the screen; a flat composite answers only the second half, which is what let a recycled cell carry its predecessor's value binding). `ViewModelActivator` ref-counts through `Interlocked`, so activation fires only on the zero-to-one edge; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns. The drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`. `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals. The activation count fires inside the `WhenActivated` scope body and the suspension count on the one `Suspend(trigger)` verb every driver routes through, so each instrument has exactly one producer; each write spells the slot its own `InstrumentSpec` declared, so the declared `Dimensions` and the spelled tag key are one vocabulary.
 
-```csharp signature
+```csharp
 public sealed record ScreenRuntime(
     MonotonicTimeline Line,
     IClock Clock,
@@ -345,7 +345,7 @@ public sealed class ScreenLifetimes : IDisposable {
 - Growth: a new semantic refusal is one `[FaultCase]` leaf; thrown exceptions stay exceptional `Error` values and never expand this family.
 - Boundary: semantic screen refusals derive their sealed code from `[FaultCase]`; command and pipeline exceptions retain their original exception as `Error` cause. Per-control exception handling is the deleted pattern — `Fault` is the single screen failure surface, and the error dialog row and evidence stream consume it through composition-bound delegates. The `IScheduler` parameter arrives from the surface scheduler boundary and applies once per pipeline; `Calm` pins the operator order — distinct before throttle — so burst sources collapse before pacing.
 
-```csharp signature
+```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
 
 
@@ -408,7 +408,7 @@ public static partial class ScreenOps {
 - Growth: one rule row per validated property and one cross row per invariant; zero new surface.
 - Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched (the external view-model aggregator type-loads against nothing — RULINGS `[01]` — so the inbox `INotifyDataErrorInfo` contract is the one adorner channel). A slot is claimed exactly once through a GUARDED transition — a second claim answers `Refused` and seals `SlotClaimed` rather than shadowing the first — and a rule's registration is a subscription with a lifetime, so a mode shift disposes and re-registers. Text crosses as the WHOLE accumulated failure sequence, because rendering the head alone costs the operator a round trip per rule. The cross slot carries the empty property name the error-info contract reserves for entity-level errors, so a cross-field invariant reaches the platform's own entity adorner and `Gate` reads every row including it. `FieldErrors` and `GetErrors` are ONE read at two altitudes — the observable for a screen-composed adorner stream and the synchronous contract for the framework's binding plugin.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public readonly record struct AdmissionSlot(string Property) {
@@ -429,7 +429,7 @@ public readonly record struct AdmissionRow(AdmissionSlot Slot, Seq<string> Text)
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed partial class ProductScreen {
@@ -501,7 +501,7 @@ public static partial class ScreenOps {
 - Growth: one `ScreenState` field row per new state axis under one `Generation` bump on the seal; zero new surface.
 - Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences, and both legs carry the SEALED BLOB so the port moves bytes under a partition key while the shape question stays whole at the seal. Rehydrate raises NO refusal: an oversize, unreadable, foreign-generation, or unadmitted parcel seeds the live snapshot and the screen opens on what it already is, which is the first-run answer reached without a second arm — so a screen-state refusal case has no producer and no spelling. Composition binds `Admit` as the seal's admission arrow, accumulating inside the delegate and landing as one `Error.Many` the seal reads as a refusal. Encoding is the half that answers a rail, and its refusal lands on the incident cell every other screen failure reaches. Surface identity is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
 
-```csharp signature
+```csharp
 public sealed record ScreenStatePolicy(
     Func<string, SurfaceKey, IO<Option<string>>> Load,
     Func<ScreenState, Fin<ScreenState>> Admit,
@@ -578,7 +578,7 @@ flowchart LR
 - Growth: a screen is one `ScreenProgram` row whose `Body` names its control-intent tree; a new control on a screen is one intent in that tree, never a XAML edit; a new value channel is one slot the program writes; zero new surface.
 - Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the remaining four itself — the value channel over its own named slots, the two ownership columns off `ScreenLifetimes`, and the interior receipt evidence sink — so a column added there lands here as one more pass-through; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
 
-```csharp signature
+```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ValueSlot(Func<object?> Read, Func<object?, Unit> Write, IObservable<Unit> Changed);
@@ -601,7 +601,7 @@ public sealed record ScreenSeams(
     Func<ControlReceipt, Unit> Evidence);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class ScreenOps {
@@ -646,7 +646,7 @@ public static partial class ScreenOps {
 - Growth: a new settings section is one `SettingsRow` at its own policy owner; a new provenance scope is one `SettingScope` row; a new query axis is one `SettingsQuery` column with its term const; zero new surface.
 - Boundary: this surface RENDERS and never writes — every mutation goes back through the registering owner's own swap capsule, so the outcome is the owners' own `ReloadOutcome` and a rejected write keeps prior values live. The registry is a projection of the schema engine and mints NO form machinery: sections are `FormSection` rows, fields `FormField` rows, planning `FormSurface.Plan`, bodies `FormSurface.Panel` — a settings-only control path or validation rail is unspellable here. The rail is DESKTOP CHROME rather than a body member: `Body` emits the sections alone, and the desktop capsule seats `FormChrome.Rail` beside them over the same scroll region. PROVENANCE is a scope, never an origin: the form's own `ValueOrigin` answers whether a value was authored; the scope answers WHICH writer set it — the fact a reset verb needs — and rides the row's own live read because a field's scope moves when an administrator lands a policy. SEARCH narrows on three axes because a substring can express none of the other two: the section term cuts before the field projection, the scope term after it (scope is a live read), and the modified term is the form filter's own facet. RESET routes through `FormSchema.Seat`, so a default the policy's own admission now refuses — a variant key the theme stopped shipping — refuses at reset exactly as at edit; a field whose defaults carry no value accumulates its own refusal rather than silently succeeding at nothing.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
@@ -716,7 +716,7 @@ public sealed record SettingsRegistry(Seq<SettingsRow> Rows) {
 public sealed record SettingsPlan(SettingsRow Row, Seq<SectionPlan> Sections, HashMap<string, SettingScope> Scopes);
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class SettingsSurface {
@@ -805,7 +805,7 @@ public static class SettingsSurface {
 - Growth: a new sample-content entry is one `SampleRow`; a new recents column is one `RecentRow` field; a new coach mark is one `CoachMarks.Rows` entry with its anchor and completion predicate; a new bundle member is one `SupportArtifact` at its own contributor; zero new surface.
 - Boundary: first run is a FACT, never a preference — `LayoutLedger.Restore` answering an empty restore-fact sequence is the whole condition; the crash OFFER is the layout ledger's own verdict, so this surface reads a decision and never re-derives one from a marker file. Save-state honesty is a UNION minted once at the boundary: a recovery blob rides its own arm, so "recoverable without a blob" is unspellable and a recovered document reaches the operator as a verb on the row, never an automatic restore that would replace a saved document. Coach marks are PREDICATE-completed rather than counted — an operator who discovered the feature unaided never sees the mark — and the dismiss-forever verb writes a key into the dismissal set rather than deleting the row, so a profile reset restores the teaching sequence; anchors name catalog keys, and an unresolvable anchor drops the row rather than floating a bubble over nothing. The report is CONSENT-BEARING per member: an unconsented member never reaches the capture, and the capture is AppHost's `SupportCapture` fold — this surface assembles no archive, spells no manifest, and never reads a produced payload back.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -876,7 +876,7 @@ public sealed record ReportMember(string Package, SupportArtifact Artifact, bool
 }
 ```
 
-```csharp signature
+```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CoachMarks {
@@ -1023,7 +1023,7 @@ public static class ProductPrograms {
 - Law: the manifest seats `AppUiSurfaceProgram` as the `DESIGN-PIN` application payload. `ControlIntentWire` and `LayoutProgram` remain independently reusable generated support types, but neither is a separately seated app input a caller can detach from its surface identity or peer.
 - Boundary: `SurfaceKey` crosses on its three authoritative columns, never as the rendered `Value` string whose slash and instance suffix would need parsing. The wire retains the producer's signed 32-bit representation and validates the ordinal nonnegative, so no wider peer-only identity can arrive. The one generated-tree walk refuses duplicate control keys before collecting container layout references, so value binding, automation, and solved positions never address two controls through one identity. `ScreenMap` resolves layout programs from the container keys already present in the mapped root, so it cannot emit an unused program; every resolved `ConstraintProgram.Panel` must equal the key that requested it, so it cannot emit a mis-keyed program; repeated references collapse before resolution, so one layout surface crosses once. `WireAdmission.Admit` applies the generated nonblank-identity, nonnegative-instance, required-root, unique-layout, structured-variable, and numeric rules at the producer, and TypeScript applies the same descriptor rules before `Panel.surface` proves unique control identity plus reverse layout inclusion — every supplied layout is referenced and every reference supplied — before any solve. The current C# shell carries no runtime transport; a future ProtoJSON egress formats this admitted root through `WireJson.Formatter`. `@rasm\/contracts/rasm/contracts/ui/surface_pb` is the peer binding, with no merged-module alias or leaf wrapper.
 
-```csharp signature
+```csharp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ScreenMap {
     public static Fin<AppUiSurfaceProgram> Emit(

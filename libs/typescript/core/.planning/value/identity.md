@@ -9,7 +9,7 @@
 - `Identity.tenancy` seats the tenancy axis at the stratum every consumer reaches, so a persistence sweep, a work schedule, and a consumption profile read one roster.
 - Optional deployment dimensions decode to `Option`; `ring` alone has the owner-set `stable` default.
 
-```typescript signature
+```typescript
 import { Order, Schema } from "effect"
 import { Shape } from "./schema.ts"
 

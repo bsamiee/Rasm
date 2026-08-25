@@ -17,7 +17,7 @@ The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes
 - Growth: a new transform is one `RaggedOp` case; a new single-axis structure op is one `_AXIS_OP` row plus one case; a new reducer, paired statistic, or order kind is one `_FOLD` row plus one literal; a new fold knob is one `FoldPolicy` field plus one read in its closure builder; a new ingest is one `RaggedSource` case (`from_rdataframe` the ROOT columnar ingest); a new egress is one `RaggedSink` case (`dataframe` over `ak.to_dataframe`); a new backend is one `ak.to_backend` move; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.RAGGED` in this module's one `RAISES` table.
 - Boundary: no compute-package numeric trio, no production tensor session, no durable product store — `data` emits a portable content-addressed irregular array bridged to the Arrow carrier, not a runtime compute graph; the carrier constructs only through `ArrowCStream.of`, never an inline capsule-plus-schema re-mint.
 
-```python signature
+```python
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import awkward as ak

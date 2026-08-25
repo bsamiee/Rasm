@@ -19,7 +19,7 @@ Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discr
 - Law: policy is a value, never configuration prose — the app root selects a case per app, and mixed policies coexist as map rows.
 - Boundary: the sqlite profiles replace this family wholesale with file-per-app and database-per-tenant (`lane/sqlite.md`'s degradation rows) — no sqlite arm exists here by design.
 
-```typescript signature
+```typescript
 import { Data } from "effect"
 import type { Identity } from "@rasm/core"
 
@@ -59,7 +59,7 @@ const _locus = (app: Identity.App.Key, tenancy: Tenancy): _Locus =>
 - Law: the explicit-tenant overload mints its principal through `TenantScope.of(context, subject?)` at the declaring security owner — `Principal` is that folder's shape and every value of it comes from a member there, so an inline `{ context, subject }` literal on this page tracks a field set it does not own and silently drops the next coordinate the shape acquires while the ambient arm keeps carrying it.
 - Boundary: security and edge mint and carry `Identity.Tenant`; this page owns transaction pinning and policy rows.
 
-```typescript signature
+```typescript
 import { Context, Effect, Option, Record, Ref, Schema } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import { type Principal, SessionCoordinate, TenantScope } from "@rasm/security"
@@ -203,7 +203,7 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
 - Law: `ScopeKey.discriminant` is the scope's own invalidation token — `(app, tenancy._tag)` folds into one `Live.Keys.Name` total over the app-key alphabet, and the composition binds `Live.scope(key.discriminant)` once so every band the scope's lanes mint carries it; the key already decides which physical subgraph serves a scope, so it is exactly what must separate one scope's wake from another's.
 - Law: the roster is required construction input — `Wiring` is a `Context.Tag` carrying the shared-pool Layer and the complete ensure rows; the app root provides it once with `Layer.succeed(Wiring, { shared, ensures })`, the lookup reads it through `Layer.unwrapEffect`, and an unwired root fails the composition proof instead of silently verifying an empty schema roster.
 
-```typescript signature
+```typescript
 import { Context, Duration, Layer, LayerMap, Schema } from "effect"
 import type { ConfigError, ParseResult } from "effect"
 import { Live } from "../read/live.ts"
@@ -293,7 +293,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 - Law: the per-subject `WrappedKey` persistence that drives crypto-shredding rides `journal/retain.md`'s subject ledger — the security `Shredder` mints and wraps, this folder stores and destroys; destruction is the erasure verb.
 - Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`SessionCoordinate`/`Shredder` values only.
 
-```typescript signature
+```typescript
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { ScopeKey, Stores, Tenancy, Tenant, Wiring }

@@ -20,7 +20,7 @@ Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` f
 - Law: the readout is a PROJECTION of the one cell and never a second observation — tier, breaching axis, tightest-axis headroom, and the recorded steps all answer off the snapshot the transition wrote, and a HUD chip binds a fact key this owner declares rather than sampling an instrument the fan already publishes.
 - Boundary: `MotionQuality` is the PERFORMANCE motion lever `Theme/motion.md`'s reduced-motion selector composes as the second constraint — the stricter of the user preference and `Tier.Motion` wins, and this page mutates neither.
 
-```csharp signature
+```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GovernorFault : Fault {
@@ -267,7 +267,7 @@ flowchart LR
 - Law: the `Render/pipeline.md` `WgpuFrameEvidence.Measure` delegate composes at binding acquisition FROM this seam's resolved pairs, so one `QuerySet` serves both the frame lane and the per-pass attribution.
 - Boundary: the pipeline-statistics arm is availability-gated on the WGPU extension probe at device acquisition, and the degrade is a `GpuTimeline` whose `Stats` is empty — `ResolveStats` returns that empty `Seq` off an absent counter buffer, so the gate needs no second arm and `Attributed` answers `None` per pass rather than throwing.
 
-```csharp signature
+```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
     public Unit Stamp(CommandEncoder* encoder, QuerySet* queries, uint index) {

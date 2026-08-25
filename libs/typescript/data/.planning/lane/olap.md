@@ -28,7 +28,7 @@ Settled composition: `core/observe/board#QUERY` owns the query algebra and its r
 - Law: engine rows are SELECTED by a deployment's own descriptor and declare none of it — this table prices guarantee, storage, ceiling, and trigger and spells no axis literal, because a roster coined at a leaf lane re-anchors a vocabulary the branch answers once; a composition root maps its own profile onto a row rather than reading one off it.
 - Law: TENANCY no embedded row decides — the engine holds one file and no session GUC, so isolation lives on `tenant`'s write path and each residence's own column, and an embedded row answering it states a guess about a plane it never scopes.
 
-```typescript signature
+```typescript
 const _engines = {
   duckdbNode: {
     guarantee: "vectorized single-node analytics, out-of-core spill",
@@ -123,7 +123,7 @@ declare namespace Olap {
 - Boundary: `Olap.wasm` names the DuckDB BUILD this lane composes, never an ISOLATION coordinate — this lane's own code runs on the fiber runtime whichever driver answers, and an embedded wasm-built engine is a dependency's implementation whose worker is its internal concurrency, invisible at the consumption boundary; which driver row a root composes follows its deployment shape, and the caller's isolation stays whatever its own descriptor states.
 - Boundary: `_try` and the worker acquire are the marked promise kernels — typed bind values cross without a cast, and the ambient `Worker` construction lives inside the acquire arm; its thrown missing-worker guard is caught by its own `tryPromise` and folds to the `bundle` reason.
 
-```typescript signature
+```typescript
 import { Array, Cause, Data, Duration, Effect, Exit, Match, Metric, MutableHashMap, Option, pipe, Pool, Record, Schedule, Schema, type Scope, Stream } from "effect"
 import { DuckDBInstance, DuckDBTableFunction, type DuckDBConnection, type DuckDBType, type DuckDBValue } from "@duckdb/node-api"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
@@ -691,7 +691,7 @@ const _lakeSource = (
 - Boundary: the peer dialect derives the ROSTER and keeps its own engine facts — `iac/operate/observe#CHART_ROWS` binds its ClickHouse type table as `Record<Olap.WideToken, string>` so an unanswered token refuses at that declaration, renders each relation off `Olap.events`'s own `table`, `text`, `plane`, and column list, and keeps the sort-key roster, the bloom and token indices, the partition expression, the TTL, and the `ORDER BY` on its own side; those coordinates stay there because a column no reader on THIS side consumes is a governance row keyed past its consumer, and the seam carries exactly the facts both ends spell.
 - Law: the signal-to-evidence join rides SQL `ATTACH`, never a TypeScript import — the lake relations and the spine's `fact_journal` meet inside one embedded statement, so the strata direction this page holds against `journal` survives a join that reads both.
 
-```typescript signature
+```typescript
 import {
   BOOLEAN, DOUBLE, LIST, listValue, MAP, mapValue, quotedIdentifier, quotedString, TIMESTAMP_NS, timestampNanosValue,
   UBIGINT, UINTEGER, UTINYINT, VARCHAR, type DuckDBType, type DuckDBValue,
@@ -1310,7 +1310,7 @@ const _joined = (row: {
 - Law: the quota hold is measured at the owner — the span between entering `_ingest` and the insert's admission past the limiter projects onto the `olapDeferred` meter tagged `clickhouse`, so token-bucket deferral pressure is dashboard-visible while the limiter's suspend disposition stays the behavioral truth.
 - Law: the cluster is correctness-adjacent — facts replicate IN, and a lost analytical row is a re-replication, never a billing defect; the journal remains the sole truth.
 
-```typescript signature
+```typescript
 import { Clock, Config, type ConfigError, type Layer } from "effect"
 import { ClickhouseClient } from "@effect/sql-clickhouse"
 import { RateLimiter } from "@effect/experimental"
@@ -1441,7 +1441,7 @@ const _ingest = (intent: Olap.Ingest) =>
 - Boundary: a Flight result crosses column-untyped — the package's `TypeMap` parameter is an unchecked phantom it never validates, so threading it here publishes a claim the wire cannot make; a consumer needing typed columns decodes through its own `Schema` at its own boundary.
 - Boundary: `@qualithm/arrow-flight-client` throws and returns promises; `_flew` is the only crossing and `_faulted` the only classifier, so above this cluster the lane is rails end to end.
 
-```typescript signature
+```typescript
 import { Exit, Match, Number, Redacted } from "effect"
 import type { RecordBatch, Table } from "apache-arrow"
 import { Wire } from "@rasm/core"
@@ -1783,7 +1783,7 @@ const _transacted = <A, E, R>(
 - Law: the harvest never re-runs the measured statement — the embedded arm profiles the one `EXPLAIN ANALYZE` execution and the cluster arm reads a log row for an execution that already happened, so a profile costs a plan decode or a log read, never a second run of the query whose cost is the subject.
 - Law: counter vocabulary is shared across engines — `_COUNTERS` and `_LOGGED` key their own wire fields onto ONE receipt-key set, so a band tile reads `bytesRead` or `resultSetSize` whichever engine answered and no consumer branches on the producer to find a measure.
 
-```typescript signature
+```typescript
 import { Pg } from "./postgres.ts"
 import { Array, Exit, Number, Option, Order, pipe, Record, Schema } from "effect"
 import { SqlClient } from "@effect/sql"
@@ -2074,7 +2074,7 @@ const _armed = (candidate: Olap.Engine, prior: Olap.Evidence, next: Olap.Evidenc
 - Boundary: `parquet-wasm`'s own `Table` meets `apache-arrow`'s across the IPC stream buffer alone — the two containers share no class identity, so every crossing spells `intoIPCStream`/`fromIPCStream` and a shared-instance assumption is unspellable.
 - Boundary: `transformParquetStream` is declined — its input grain is the codec's OWN `RecordBatch`, reachable from an Arrow batch only through a per-batch round trip whose intermediate container no fold on this side can free, so the weighted window above buys the same bounded egress with no orphaned handle.
 
-```typescript signature
+```typescript
 import { Sink } from "effect"
 import { zstdCompressSync, zstdDecompressSync } from "node:zlib"
 import {

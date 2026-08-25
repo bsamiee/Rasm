@@ -12,7 +12,7 @@ The statechart owner: a closed transition system is data — one `Transition.Spe
 
 [STATECHART_TABLE]:
 
-```typescript signature
+```typescript
 import { Machine } from "@effect/experimental"
 import {
   Array, Cause, Context, Data, type Duration, Effect, Either, Exit, HashMap, HashSet, Option, Order, type ParseResult,
@@ -405,7 +405,7 @@ const _facts = <Id extends string, S extends string, V extends string, X>(
 - Law: the macrostep ACCOUNTS the signals it drops — a signal with no chosen row burns one fuel unit and lands its `Refusal` on `Macro.refused`, so a `Macro` with an empty program is distinguishable from one that silently swallowed a press; the fold never fails on an unrouted signal, because discarding an unclaimed event is the transition system's own semantics and only the evidence was missing.
 - Growth: a pure read over the compiled tree (reachability census, terminal-configuration detection) is one member composing the same facts; a new transition is one `rows` entry and its legality derives with it.
 
-```typescript signature
+```typescript
 const _exits = <Id extends string, S extends string, V extends string, X>(
   spec: Transition.Spec<Id, S, V, X>,
   facts: Transition._Facts<Id, S, V, X>,
@@ -629,7 +629,7 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
 
 [ACTOR]:
 
-```typescript signature
+```typescript
 const _compile = <Id extends string, S extends string, V extends string, X>(
   spec: Transition.Spec<Id, S, V, X>,
 ): Transition.Compiled<Id, S, V, X> => {
