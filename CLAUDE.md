@@ -19,22 +19,18 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 |  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar          |
 |  [03]   | `libs/.planning/ARCHITECTURE.md`            | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle |
 |  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                   |
-|  [05]   | `libs/.planning/planning-targets.md`        | Target index across the corpus                                                 |
-|  [06]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                               |
-|  [07]   | `libs/<language>/<folder>/`                 | Folder doc set at root — README/ARCHITECTURE/RULINGS                           |
-|  [08]   | `docs/README.md`                            | Doctrine router: `standards/`, `stacks/<language>/`                            |
-|  [11]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work                                   |
-|  [12]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                    |
+|  [05]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                               |
+|  [06]   | `libs/<language>/<folder>/`                 | Folder doc set at root — README/ARCHITECTURE/RULINGS                           |
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA]                 |
-| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :------------------------------ |
-|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`                    |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`                    |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`                     |
-|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`                    |
-|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`                    |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [USE_WHEN]                       | [NAMING_SCHEMA] |
+| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :-------------- |
+|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`    |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`    |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`    |
+|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`    |
 
 [TOOL_ROUTING]:
 - ALWAYS use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.
